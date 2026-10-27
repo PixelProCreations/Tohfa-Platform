@@ -394,12 +394,12 @@ export type FairPriceItem = FairPriceCeilingRecord;
 export interface FairPriceCeilingScreenProps {
   onBack: () => void;
   onNavigateToRetailPricing?: (() => void) | undefined;
-  onNavigateToBreakdown?: ((item?: FairPriceCeilingRecord) => void) | undefined;
-  onNavigateToHistory?: ((item?: FairPriceCeilingRecord) => void) | undefined;
-  onSelectPriceItem?: ((item?: FairPriceCeilingRecord) => void) | undefined;
-  onUpdatePrice?: ((item?: FairPriceCeilingRecord) => void) | undefined;
+  onNavigateToBreakdown?: ((item?: any) => void) | undefined;
+  onNavigateToHistory?: ((item?: any) => void) | undefined;
+  onSelectPriceItem?: ((item?: any) => void) | undefined;
+  onUpdatePrice?: ((item?: any) => void) | undefined;
   onBulkUpdate?: (() => void) | undefined;
-  onViewHistory?: ((item?: FairPriceCeilingRecord) => void) | undefined;
+  onViewHistory?: ((item?: any) => void) | undefined;
 }
 
 export function FairPriceCeilingScreen({
@@ -974,6 +974,15 @@ const styles = StyleSheet.create({
     fontSize: 21,
     lineHeight: 27,
     fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  filterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerSubtitle: {
     ...adminType.caption,

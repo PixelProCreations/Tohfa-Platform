@@ -15,13 +15,13 @@ import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOverlay } from '../../theme';
 import { t } from '../../i18n';
-import { AdminProfileScreen } from './AdminProfileScreen';
 import { FarmerAdminProfileScreen } from './FarmerAdminProfileScreen';
 import { FarmerProductListingsScreen } from './FarmerProductListingsScreen';
-import { FarmerProduceTabScreen } from './FarmerProduceTabScreen';
+import { FarmerProduceDetailScreen } from './FarmerProduceDetailScreen';
+import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
 import { ProduceListingsScreen } from './ProduceListingsScreen';
+import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
 import { ListingHistoryScreen } from './ListingHistoryScreen';
-import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
 import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
 import { AdminAllFarmersScreen, AdminFarmerDetailScreen } from '../farmers';
 import { AdminApplicationDetailScreen } from '../registration';
@@ -31,14 +31,12 @@ import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 import { FarmerAdminActivityScreen } from './FarmerAdminActivityScreen';
 import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
 import { FarmerAdminMoreScreen } from './FarmerAdminMoreScreen';
-import { FarmerSupportScreen } from './FarmerSupportScreen';
 import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
 import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
 import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
 import { FarmerDisputeResolutionScreen } from './FarmerDisputeResolutionScreen';
 import { type DisputeItem, INITIAL_DISPUTES } from './fixtures';
 import { FarmersDirectoryScreen } from './FarmersDirectoryScreen';
-import { FarmerPurchasesScreen } from './FarmerPurchasesScreen';
 import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
 import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
@@ -48,7 +46,7 @@ import { CollectionConfirmationScreen } from './CollectionConfirmationScreen';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
 import { ApprovedInputsScreen, type ApprovedInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
-import { PestLibraryScreen, type PestItem, SAMPLE_PESTS } from './PestLibraryScreen';
+import { PestLibraryScreen, type PestItem } from './PestLibraryScreen';
 import { ApplicationGuideScreen } from './ApplicationGuideScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
@@ -61,7 +59,7 @@ import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
 import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
-import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── Theme Colors (Strictly derived from Admin Theme & Design Tokens) ────────
 export type FarmerAdminTab = 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More';
@@ -82,16 +80,6 @@ function ShieldHeaderIcon({ size = 20, color = adminColors.onBrand }: { size?: n
   );
 }
 
-function ShieldBoxIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        fill={color}
-      />
-    </Svg>
-  );
-}
 
 function BellHeaderIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -235,21 +223,7 @@ function ExactScalesIcon({ size = 24, color = adminColors.brand }: { size?: numb
   );
 }
 
-// Exact Gavel / Mediation Icon (Matching Screenshot 4 1000%)
-function ExactGavelIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Sound block base at bottom left */}
-      <Rect x="3.5" y="19.2" width="8.8" height="2.2" rx="0.4" fill={color} />
-      {/* Upper slanted mallet block */}
-      <Polygon points="3.0,8.0 9.8,1.2 11.8,3.2 5.0,10.0" fill={color} />
-      {/* Lower slanted mallet block (parallel) */}
-      <Polygon points="5.8,10.8 12.6,4.0 14.6,6.0 7.8,12.8" fill={color} />
-      {/* Mallet handle pointing down-right */}
-      <Polygon points="10.4,10.2 12.0,8.6 19.8,16.4 18.2,18.0" fill={color} />
-    </Svg>
-  );
-}
+
 function CheckmarkCircleIcon({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -328,28 +302,6 @@ function PeopleGroupIcon({ size = 24, color = adminColors.brand }: { size?: numb
   );
 }
 
-function SpeechBubbleIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Front speech bubble */}
-      <Path
-        d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-4 3.5V7z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Back speech bubble (Image 1 Left Exact) */}
-      <Path
-        d="M16 6h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v2.5l-3-2.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function StarRatingsIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -382,12 +334,33 @@ function TabHomeIcon({ active }: { active: boolean }) {
   );
 }
 
+function SpeechBubbleIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-4 3.5V7z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M8 5V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function TabFarmersIcon({ active }: { active: boolean }) {
   const color = active ? adminColors.brand : adminColors.muted;
   return <PeopleGroupIcon size={21} color={color} />;
 }
 
-function TabProduceIcon({ active }: { active: boolean }) {
+function _TabProduceIcon({ active }: { active: boolean }) {
   const color = active ? adminColors.brand : adminColors.muted;
   const leafColor = active ? adminColors.brandDeep : adminColors.muted;
   return <TomatoProduceIcon size={21} color={color} leafColor={leafColor} />;
@@ -2030,21 +2003,34 @@ const commStyles = StyleSheet.create({
   },
 });
 
+export type AuditScheduleInitialView =
+  | 'history'
+  | 'audit_detail'
+  | 'audit_report'
+  | 'list'
+  | 'detail'
+  | 'schedule_visit'
+  | 'inspection'
+  | 'calendar'
+  | 'calendar_view'
+  | 'audit_details_m5'
+  | 'pdf_viewer';
+
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface FarmerAdminDashboardScreenProps {
   onSignOut: () => void;
-  onNavigate?: (screen: string, params?: any) => void;
+  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   initialTab?: FarmerAdminTab;
 }
 
 export function FarmerAdminDashboardScreen({
   onSignOut,
-  onNavigate,
+  onNavigate: _onNavigate,
   initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
-  const [user, setUser] = useState<UserMe | null>(null);
+  const [_user, setUser] = useState<UserMe | null>(null);
 
   // Accordion state: both collapsed by default as in left design mockup
   const [expandedFarmer, setExpandedFarmer] = useState<string | null>(null);
@@ -2053,6 +2039,9 @@ export function FarmerAdminDashboardScreen({
   const [subView, setSubView] = useState<
     | 'none'
     | 'product_listings'
+    | 'produce_listing_details'
+    | 'farmer_produce_detail'
+    | 'counter_offer'
     | 'produce_listings'
     | 'produce_history'
     | 'verification_approval'
@@ -2112,114 +2101,109 @@ export function FarmerAdminDashboardScreen({
   const [selectedDispute, setSelectedDispute] = useState<DisputeItem | undefined>(undefined);
   const [disputeDetailReturnTo, setDisputeDetailReturnTo] = useState<'menu' | 'disputes'>('menu');
   const [timelineReturnTo, setTimelineReturnTo] = useState<'menu' | 'disputes' | 'dispute_detail'>('dispute_detail');
-  const [selectedCommunityGroup, setSelectedCommunityGroup] = useState<CommunityGroup>(COMMUNITY_GROUPS[0]!);
-  const [selectedCommunityPost, setSelectedCommunityPost] = useState<CommunityPost>(COMMUNITY_POSTS[0]!);
-  const [selectedModerationItem, setSelectedModerationItem] = useState<CommunityModerationItem>(
-    COMMUNITY_MODERATION_ITEMS[0]!
-  );
-  const [postDetailReturnTo, setPostDetailReturnTo] = useState<'community' | 'community_posts'>('community');
-  const [postsReturnTo, setPostsReturnTo] = useState<'community' | 'community_group_detail'>('community_group_detail');
-  const [communityPostsFilter, setCommunityPostsFilter] = useState<'all' | 'reported'>('all');
   const [activeHandoverId, setActiveHandoverId] = useState<string>('HO-2026-0002');
   const [activeOrderId, setActiveOrderId] = useState<string>('PO-2026-00124');
   const [activeInputItem, setActiveInputItem] = useState<ApprovedInputItem | undefined>(undefined);
   const [activeIncidentItem, setActiveIncidentItem] = useState<IncidentItem | undefined>(undefined);
   const [selectedPestItem, setSelectedPestItem] = useState<PestItem | undefined>(undefined);
-  const [pestIncidentsReturnSubView, setPestIncidentsReturnSubView] = useState<'inputs_pest' | 'application_guide' | 'pest_incident_detail'>('inputs_pest');
   const [selectedRetailItem, setSelectedRetailItem] = useState<RetailPriceItem | undefined>(undefined);
-  const [breakdownReturnSubView, setBreakdownReturnSubView] = useState<'fair_price' | 'retail_pricing'>('retail_pricing');
   const [pestIncidentsInitialFilters, setPestIncidentsInitialFilters] = useState<boolean>(false);
-  const [pestLibraryReturnSubView, setPestLibraryReturnSubView] = useState<'inputs_pest' | 'pest_incident_detail'>('inputs_pest');
-  const [appGuideReturnSubView, setAppGuideReturnSubView] = useState<'inputs_pest' | 'pest_incident_detail'>('inputs_pest');
   const [selectedPestForIncident, setSelectedPestForIncident] = useState<string | undefined>(undefined);
   const [listingInitialFilter, setListingInitialFilter] = useState<'all' | 'pending' | 'counter'>('all');
-  const [produceReturnSubView, setProduceReturnSubView] = useState<'none' | 'purchases' | 'purchase_orders' | 'purchase_order_detail'>('none');
-  const [purchaseOrderDetailReturnSubView, setPurchaseOrderDetailReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
-  const [confirmTermsReturnSubView, setConfirmTermsReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
-  const [purchaseOrderReturnSubView, setPurchaseOrderReturnSubView] = useState<'purchase_orders' | 'dispute_detail'>('purchase_orders');
-  const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report'>('calendar');
+  const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view'>('calendar');
   const [auditInitialId, setAuditInitialId] = useState<string | undefined>(undefined);
-  const [auditInitialView, setAuditInitialView] = useState<any>(undefined);
-  const [auditReturnSubView, setAuditReturnSubView] = useState<'none' | 'farmer_profile' | 'verification_approval'>('none');
-  const [farmerProfileReturnSubView, setFarmerProfileReturnSubView] = useState<'none' | 'audit_schedule' | 'verification_approval' | 'pest_incident_detail'>('none');
-  const [incidentReturnSubView, setIncidentReturnSubView] = useState<'inputs_pest' | 'farmer_pest_incidents'>('inputs_pest');
+  const [auditInitialView, setAuditInitialView] = useState<AuditScheduleInitialView | undefined>(undefined);
   const [farmersInternalView, setFarmersInternalView] = useState<'list' | 'search_filter' | 'profile'>('list');
+
+  const [activeProduceFarmerName, setActiveProduceFarmerName] = useState<string>('Ramesh Kumar');
+  const [activeProduceFarmerId, setActiveProduceFarmerId] = useState<string>('FR-00241');
+  const [activeProduceZone, setActiveProduceZone] = useState<string>('Coonoor');
+  const [activeProduceCrop, setActiveProduceCrop] = useState<string>('Tomato');
+  const [activeProduceGrade, setActiveProduceGrade] = useState<string>('Grade 1');
+  const [activeProduceQuantity, setActiveProduceQuantity] = useState<number>(145);
+  const [activeProduceApproved, setActiveProduceApproved] = useState<boolean>(false);
 
   // Navigation History Stack to ensure all back icons navigate to the exact previous screen
   interface NavState {
     tab: FarmerAdminTab;
     subView:
-    | 'none'
-    | 'product_listings'
-    | 'produce_listings'
-    | 'produce_history'
-    | 'verification_approval'
-    | 'farmer_profile'
-    | 'handover_history'
-    | 'handover_confirmation'
-    | 'handover_details'
-    | 'admin_activity'
-    | 'notifications'
-    | 'farmer_support'
-    | 'profile'
-    | 'purchases'
-    | 'purchase_orders'
-    | 'purchase_order_detail'
-    | 'purchase_history'
-    | 'confirm_purchase_terms'
-    | 'farmer_handover'
-    | 'collection_confirmation'
-    | 'inputs_pest'
-    | 'approved_inputs'
-    | 'input_detail'
-    | 'pest_library'
-    | 'application_guide'
-    | 'farmer_pest_incidents'
-    | 'pest_incident_detail'
-    | 'market_pricing'
-    | 'fair_price'
-    | 'categories_grades'
-    | 'price_history'
-    | 'retail_pricing'
-    | 'markup_breakdown'
-    | 'audit_schedule'
-    | 'farmer_ratings'
-    | 'disputes'
-    | 'dispute_detail'
-    | 'dispute_timeline'
-    | 'dispute_resolution'
-    | 'farmers_management';
+      | 'none'
+      | 'product_listings'
+      | 'produce_listing_details'
+      | 'farmer_produce_detail'
+      | 'counter_offer'
+      | 'produce_listings'
+      | 'produce_history'
+      | 'verification_approval'
+      | 'farmer_profile'
+      | 'handover_history'
+      | 'handover_confirmation'
+      | 'handover_details'
+      | 'admin_activity'
+      | 'notifications'
+      | 'farmer_support'
+      | 'profile'
+      | 'purchases'
+      | 'purchase_orders'
+      | 'purchase_order_detail'
+      | 'purchase_history'
+      | 'confirm_purchase_terms'
+      | 'farmer_handover'
+      | 'collection_confirmation'
+      | 'inputs_pest'
+      | 'approved_inputs'
+      | 'input_detail'
+      | 'pest_library'
+      | 'application_guide'
+      | 'farmer_pest_incidents'
+      | 'pest_incident_detail'
+      | 'market_pricing'
+      | 'fair_price'
+      | 'categories_grades'
+      | 'price_history'
+      | 'retail_pricing'
+      | 'markup_breakdown'
+      | 'audit_schedule'
+      | 'farmer_ratings'
+      | 'disputes'
+      | 'dispute_detail'
+      | 'dispute_timeline'
+      | 'dispute_resolution'
+      | 'farmers_management';
     moreSubScreen?:
-    | 'menu'
-    | 'disputes'
-    | 'dispute_detail'
-    | 'dispute_timeline'
-    | 'dispute_resolution'
-    | 'community'
-    | 'community_groups'
-    | 'community_group_detail'
-    | 'community_members'
-    | 'community_posts'
-    | 'community_post_detail'
-    | 'community_moderation_queue'
-    | 'community_moderation_review'
-    | undefined;
+      | 'menu'
+      | 'disputes'
+      | 'dispute_detail'
+      | 'dispute_timeline'
+      | 'dispute_resolution'
+      | 'community'
+      | 'community_groups'
+      | 'community_group_detail'
+      | 'community_members'
+      | 'community_posts'
+      | 'community_post_detail'
+      | 'community_moderation_queue'
+      | 'community_moderation_review'
+      | undefined;
     selectedDispute?: DisputeItem | undefined;
     activeIncidentItem?: IncidentItem | undefined;
     activeOrderId?: string | undefined;
     activeHandoverId?: string | undefined;
     activeInputItem?: ApprovedInputItem | undefined;
     selectedRetailItem?: RetailPriceItem | undefined;
-    selectedCommunityGroup?: CommunityGroup | undefined;
-    selectedCommunityPost?: CommunityPost | undefined;
-    selectedModerationItem?: CommunityModerationItem | undefined;
     farmersInternalView?: ('list' | 'search_filter' | 'profile') | undefined;
     listingInitialFilter?: ('all' | 'pending' | 'counter') | undefined;
-    auditInitialFilter?: ('all' | 'field_visit' | 'history' | 'calendar' | 'report') | undefined;
+    auditInitialFilter?: ('all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view') | undefined;
     auditInitialId?: string | undefined;
-    auditInitialView?: any;
+    auditInitialView?: AuditScheduleInitialView | undefined;
     selectedPestForIncident?: string | undefined;
-    communityPostsFilter?: ('all' | 'reported') | undefined;
+    activeProduceFarmerName?: string | undefined;
+    activeProduceFarmerId?: string | undefined;
+    activeProduceZone?: string | undefined;
+    activeProduceCrop?: string | undefined;
+    activeProduceGrade?: string | undefined;
+    activeProduceQuantity?: number | undefined;
+    activeProduceApproved?: boolean | undefined;
   }
 
   const [navStack, setNavStack] = useState<NavState[]>([]);
@@ -2235,16 +2219,19 @@ export function FarmerAdminDashboardScreen({
       activeHandoverId,
       activeInputItem,
       selectedRetailItem,
-      selectedCommunityGroup,
-      selectedCommunityPost,
-      selectedModerationItem,
       farmersInternalView,
       listingInitialFilter,
       auditInitialFilter,
       auditInitialId,
       auditInitialView,
       selectedPestForIncident,
-      communityPostsFilter,
+      activeProduceFarmerName,
+      activeProduceFarmerId,
+      activeProduceZone,
+      activeProduceCrop,
+      activeProduceGrade,
+      activeProduceQuantity,
+      activeProduceApproved,
     };
 
     setNavStack((prev) => [...prev, currentSnapshot]);
@@ -2258,16 +2245,19 @@ export function FarmerAdminDashboardScreen({
     if (next.activeHandoverId !== undefined) setActiveHandoverId(next.activeHandoverId);
     if (next.activeInputItem !== undefined) setActiveInputItem(next.activeInputItem);
     if (next.selectedRetailItem !== undefined) setSelectedRetailItem(next.selectedRetailItem);
-    if (next.selectedCommunityGroup !== undefined) setSelectedCommunityGroup(next.selectedCommunityGroup);
-    if (next.selectedCommunityPost !== undefined) setSelectedCommunityPost(next.selectedCommunityPost);
-    if (next.selectedModerationItem !== undefined) setSelectedModerationItem(next.selectedModerationItem);
     if (next.farmersInternalView !== undefined) setFarmersInternalView(next.farmersInternalView);
     if (next.listingInitialFilter !== undefined) setListingInitialFilter(next.listingInitialFilter);
     if (next.auditInitialFilter !== undefined) setAuditInitialFilter(next.auditInitialFilter);
     if (next.auditInitialId !== undefined) setAuditInitialId(next.auditInitialId);
     if (next.auditInitialView !== undefined) setAuditInitialView(next.auditInitialView);
     if (next.selectedPestForIncident !== undefined) setSelectedPestForIncident(next.selectedPestForIncident);
-    if (next.communityPostsFilter !== undefined) setCommunityPostsFilter(next.communityPostsFilter);
+    if (next.activeProduceFarmerName !== undefined) setActiveProduceFarmerName(next.activeProduceFarmerName);
+    if (next.activeProduceFarmerId !== undefined) setActiveProduceFarmerId(next.activeProduceFarmerId);
+    if (next.activeProduceZone !== undefined) setActiveProduceZone(next.activeProduceZone);
+    if (next.activeProduceCrop !== undefined) setActiveProduceCrop(next.activeProduceCrop);
+    if (next.activeProduceGrade !== undefined) setActiveProduceGrade(next.activeProduceGrade);
+    if (next.activeProduceQuantity !== undefined) setActiveProduceQuantity(next.activeProduceQuantity);
+    if (next.activeProduceApproved !== undefined) setActiveProduceApproved(next.activeProduceApproved);
   };
 
   const goBack = (fallbackTab: FarmerAdminTab = 'Home') => {
@@ -2284,16 +2274,19 @@ export function FarmerAdminDashboardScreen({
       if (prev.activeHandoverId !== undefined) setActiveHandoverId(prev.activeHandoverId);
       if (prev.activeInputItem !== undefined) setActiveInputItem(prev.activeInputItem);
       if (prev.selectedRetailItem !== undefined) setSelectedRetailItem(prev.selectedRetailItem);
-      if (prev.selectedCommunityGroup !== undefined) setSelectedCommunityGroup(prev.selectedCommunityGroup);
-      if (prev.selectedCommunityPost !== undefined) setSelectedCommunityPost(prev.selectedCommunityPost);
-      if (prev.selectedModerationItem !== undefined) setSelectedModerationItem(prev.selectedModerationItem);
       if (prev.farmersInternalView !== undefined) setFarmersInternalView(prev.farmersInternalView);
       if (prev.listingInitialFilter !== undefined) setListingInitialFilter(prev.listingInitialFilter);
       if (prev.auditInitialFilter !== undefined) setAuditInitialFilter(prev.auditInitialFilter);
       if (prev.auditInitialId !== undefined) setAuditInitialId(prev.auditInitialId);
       if (prev.auditInitialView !== undefined) setAuditInitialView(prev.auditInitialView);
       if (prev.selectedPestForIncident !== undefined) setSelectedPestForIncident(prev.selectedPestForIncident);
-      if (prev.communityPostsFilter !== undefined) setCommunityPostsFilter(prev.communityPostsFilter);
+      if (prev.activeProduceFarmerName !== undefined) setActiveProduceFarmerName(prev.activeProduceFarmerName);
+      if (prev.activeProduceFarmerId !== undefined) setActiveProduceFarmerId(prev.activeProduceFarmerId);
+      if (prev.activeProduceZone !== undefined) setActiveProduceZone(prev.activeProduceZone);
+      if (prev.activeProduceCrop !== undefined) setActiveProduceCrop(prev.activeProduceCrop);
+      if (prev.activeProduceGrade !== undefined) setActiveProduceGrade(prev.activeProduceGrade);
+      if (prev.activeProduceQuantity !== undefined) setActiveProduceQuantity(prev.activeProduceQuantity);
+      if (prev.activeProduceApproved !== undefined) setActiveProduceApproved(prev.activeProduceApproved);
     } else {
       if (subView !== 'none') {
         setSubView('none');
@@ -2307,6 +2300,7 @@ export function FarmerAdminDashboardScreen({
 
   // Modal State for details
   const [modalItem, setModalItem] = useState<{ title: string; content: string } | null>(null);
+  const [completedProduceNames, setCompletedProduceNames] = useState<string[]>([]);
 
   useEffect(() => {
     fetchMe()
@@ -2321,6 +2315,159 @@ export function FarmerAdminDashboardScreen({
     return (
       <FarmerProductListingsScreen
         onBack={() => goBack()}
+        completedProduceNames={completedProduceNames}
+        onSelectFarmerDetails={(group, item) => {
+          const fullName = group.farmerName.includes('Kumar')
+            ? group.farmerName
+            : `${group.farmerName} Kumar`;
+          setActiveProduceFarmerName(fullName);
+          setActiveProduceFarmerId(group.farmerId);
+          setActiveProduceZone(group.zone);
+          setActiveProduceCrop(item.cropName);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          pushNavigation({
+            subView: 'produce_listing_details',
+            activeProduceFarmerName: fullName,
+            activeProduceFarmerId: group.farmerId,
+            activeProduceZone: group.zone,
+            activeProduceCrop: item.cropName,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+          });
+        }}
+        onSelectFarmerProduce={(group, item) => {
+          const fullName = group.farmerName.includes('Kumar')
+            ? group.farmerName
+            : `${group.farmerName} Kumar`;
+          setActiveProduceFarmerName(fullName);
+          setActiveProduceFarmerId(group.farmerId);
+          setActiveProduceZone(group.zone);
+          setActiveProduceCrop(item.cropName);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+            activeProduceFarmerName: fullName,
+            activeProduceFarmerId: group.farmerId,
+            activeProduceZone: group.zone,
+            activeProduceCrop: item.cropName,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Produce Listing Details subview (Ramesh Kumar - PL-001245)
+  if (subView === 'produce_listing_details') {
+    return (
+      <ProduceListingDetailsScreen
+        listingId="PL-001245"
+        cropName={activeProduceCrop || 'Tomato'}
+        grade={activeProduceGrade || 'Grade 1'}
+        farmerName={activeProduceFarmerName || 'Ramesh Kumar'}
+        farmerId={activeProduceFarmerId || 'FR-00241'}
+        zone={activeProduceZone || 'Coonoor'}
+        farmingMethod="Organic"
+        quantityKg={activeProduceQuantity || 50}
+        harvestDate="28 Sep 2026"
+        qualityInfo={`${activeProduceGrade || 'Grade 1'}, no visible defects`}
+        pricePerKg={100}
+        fairPriceCeiling={105}
+        effectiveFrom="1 Sep 2026"
+        showChips={false}
+        showQuantityRequirement={false}
+        onBack={() => goBack()}
+        onReviewListing={() => {
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+          });
+        }}
+        onNavigateToVerification={() => {
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Farmer Produce Detail subview (e.g. Ramesh Kumar Farm)
+  if (subView === 'farmer_produce_detail') {
+    return (
+      <FarmerProduceDetailScreen
+        farmerName={activeProduceFarmerName}
+        farmerId={activeProduceFarmerId}
+        zone={activeProduceZone}
+        farmingMethod="Organic"
+        completedProduceNames={completedProduceNames}
+        onBack={() => goBack()}
+        onApproveAll={() => {
+          setCompletedProduceNames((prev) => {
+            const added = ['Tomato', 'Beans'];
+            return Array.from(new Set([...prev, ...added]));
+          });
+        }}
+        onNavigateToCounterOffer={(item, isApproved) => {
+          setActiveProduceCrop(item.name);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          setActiveProduceApproved(isApproved);
+          pushNavigation({
+            subView: 'counter_offer',
+            activeProduceCrop: item.name,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+            activeProduceApproved: isApproved,
+          });
+        }}
+      />
+    );
+  }
+
+  // If currently in Farmer Counter Offer subview
+  if (subView === 'counter_offer') {
+    return (
+      <FarmerCounterOfferScreen
+        cropName={activeProduceCrop}
+        grade={activeProduceGrade}
+        receivedKg={activeProduceQuantity}
+        isTohfaAdminApproved={activeProduceApproved}
+        onBack={() => goBack()}
+        onAcceptOffer={() => {
+          if (activeProduceCrop) {
+            setCompletedProduceNames((prev) =>
+              prev.includes(activeProduceCrop) ? prev : [...prev, activeProduceCrop]
+            );
+          }
+        }}
+        onSubmitCounter={() => {
+          if (activeProduceCrop) {
+            setCompletedProduceNames((prev) =>
+              prev.includes(activeProduceCrop) ? prev : [...prev, activeProduceCrop]
+            );
+          }
+        }}
+        onBackToListing={() => {
+          const crop = activeProduceCrop || 'Tomato';
+          setCompletedProduceNames((prev) =>
+            prev.includes(crop) ? prev : [...prev, crop]
+          );
+          goBack();
+        }}
+        onViewListingDetails={() => {
+          pushNavigation({
+            subView: 'produce_listing_details',
+            activeProduceFarmerName,
+            activeProduceFarmerId,
+            activeProduceZone,
+            activeProduceCrop,
+            activeProduceGrade,
+            activeProduceQuantity,
+          });
+        }}
       />
     );
   }
@@ -2347,22 +2494,26 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // If currently in S-03 Produce Verification & Approval subview, render it with back navigation
+  // If currently in Produce Verification & Approval subview, render FarmerProduceDetailScreen
   if (subView === 'verification_approval') {
     return (
-      <ProduceVerificationApprovalScreen
-        listingId="PL-001245"
-        cropName="Tomato"
-        farmerName="Ramesh Kumar"
+      <FarmerProduceDetailScreen
+        farmerName={activeProduceFarmerName}
+        farmerId={activeProduceFarmerId}
+        zone={activeProduceZone}
+        farmingMethod="Organic"
         onBack={() => goBack()}
-        onSubmitSuccess={() => goBack()}
-        onViewListing={() => pushNavigation({ subView: 'product_listings' })}
-        onViewFarmerProfile={() => pushNavigation({ subView: 'farmer_profile' })}
-        onNavigateAuditHistory={() => {
+        onNavigateToCounterOffer={(item, isApproved) => {
+          setActiveProduceCrop(item.name);
+          setActiveProduceGrade(item.grade);
+          setActiveProduceQuantity(item.quantityKg);
+          setActiveProduceApproved(isApproved);
           pushNavigation({
-            subView: 'audit_schedule',
-            auditInitialFilter: 'history',
-            auditInitialView: 'history',
+            subView: 'counter_offer',
+            activeProduceCrop: item.name,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
+            activeProduceApproved: isApproved,
           });
         }}
       />
@@ -2497,26 +2648,6 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // If currently in Farmer Support subview
-  if (subView === 'farmer_support') {
-    return (
-      <FarmerSupportScreen
-        onBack={() => goBack()}
-        onNavigateFarmerProfile={(_farmerId) => {
-          pushNavigation({ subView: 'farmer_profile' });
-        }}
-        onNavigateProduceListing={(_listingId) => {
-          pushNavigation({ subView: 'product_listings' });
-        }}
-        onTabChange={(tab) => {
-          setNavStack([]);
-          setSubView('none');
-          setMoreSubScreen('menu');
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
 
 
   // Module 1: Admin Profile subview
@@ -2535,44 +2666,6 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // Module 4: Screen 1 - Purchases (Image 1 Left)
-  if (subView === 'purchases') {
-    return (
-      <FarmerPurchasesScreen
-        onBack={() => goBack()}
-        onNavigatePurchaseOrders={() => pushNavigation({ subView: 'purchase_orders' })}
-        onNavigateReadyForCollection={() => {
-          pushNavigation({
-            subView: 'confirm_purchase_terms',
-            activeOrderId: 'PO-2026-00119',
-          });
-        }}
-        onNavigatePurchaseHistory={() => pushNavigation({ subView: 'purchase_history' })}
-        onNavigateProduceListings={() => {
-          pushNavigation({ subView: 'produce_listings' });
-        }}
-        onViewPurchaseOrder={(orderId) => {
-          pushNavigation({
-            subView: 'purchase_order_detail',
-            activeOrderId: orderId,
-          });
-        }}
-        onProcessHandover={(orderId) => {
-          pushNavigation({
-            subView: 'farmer_handover',
-            activeOrderId: orderId || 'PO-2026-00124',
-          });
-        }}
-        onCollect={(orderId) => {
-          pushNavigation({
-            subView: 'confirm_purchase_terms',
-            activeOrderId: orderId || 'PO-2026-00119',
-          });
-        }}
-        onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-      />
-    );
-  }
 
   // Module 4: Screen 2 - Purchase Orders (Image 1 Middle)
   if (subView === 'purchase_orders') {
@@ -2835,23 +2928,27 @@ export function FarmerAdminDashboardScreen({
     return (
       <FairPriceCeilingScreen
         onBack={() => goBack()}
-        onNavigateToBreakdown={(item) => {
+        onNavigateToBreakdown={(item: any) => {
+          if (!item) {
+            pushNavigation({ subView: 'markup_breakdown' });
+            return;
+          }
           pushNavigation({
             subView: 'markup_breakdown',
             selectedRetailItem: {
               id: item.id,
-              cropGrade: `${item.crop} · ${item.grade}`,
-              product: item.crop,
-              grade: item.grade,
+              cropGrade: `${item.product || item.crop || 'Produce'} · ${item.grade || 'Grade 1'}`,
+              product: item.product || item.crop || 'Produce',
+              grade: item.grade || 'Grade 1',
               purchasePrice: item.purchasePrice || '₹80.00/kg',
               markup: item.markup || '10%',
               expenses: '₹10.00',
               expensesDetail: item.expensesDetail || 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
-              retailPrice: item.retailPrice || '₹98.00/kg',
+              retailPrice: item.retailPrice || `${item.priceVal || 80}.00/kg`,
               customerDiscount: item.customerDiscount || '₹5.00',
-              effectiveDate: item.effectiveFrom,
+              effectiveDate: item.effectiveFrom || '1 Sep 2026',
               status: 'Active',
-              category: item.category === 'Fruits' ? 'Fruits' : 'Vegetables',
+              category: 'Vegetables',
             },
           });
         }}
@@ -2882,10 +2979,28 @@ export function FarmerAdminDashboardScreen({
     return (
       <RetailPricingScreen
         onBack={() => goBack()}
-        onSelectBreakdown={(item) => {
+        onSelectBreakdown={(item: any) => {
+          if (!item) {
+            pushNavigation({ subView: 'markup_breakdown' });
+            return;
+          }
           pushNavigation({
             subView: 'markup_breakdown',
-            selectedRetailItem: item,
+            selectedRetailItem: {
+              id: item.id,
+              cropGrade: `${item.product} · ${item.grade}`,
+              product: item.product,
+              grade: item.grade,
+              purchasePrice: '₹80.00/kg',
+              markup: '10%',
+              expenses: '₹10.00',
+              expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+              retailPrice: item.retailText || '₹55.00/kg',
+              customerDiscount: '₹5.00',
+              effectiveDate: item.effectiveDate,
+              status: 'Active',
+              category: 'Vegetables',
+            },
           });
         }}
       />
@@ -2944,7 +3059,7 @@ export function FarmerAdminDashboardScreen({
           setAuditInitialFilter('calendar');
           goBack();
         }}
-        onNavigateFarmerProfile={(farmerId) => {
+        onNavigateFarmerProfile={(_farmerId) => {
           pushNavigation({ subView: 'farmer_profile' });
         }}
         onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
@@ -3040,8 +3155,8 @@ export function FarmerAdminDashboardScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, Produce, & Audits pages) ─── */}
-      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Produce' && activeTab !== 'Audits' && (
+      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, & Audits pages) ─── */}
+      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Audits' && (
         <View style={styles.header}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleWrap}>
@@ -3162,64 +3277,16 @@ export function FarmerAdminDashboardScreen({
               </OverviewCardsGrid>
             </View>
 
-            {/* 4. Handover History Section */}
-            <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Handover History</Text>
-              <TouchableOpacity
-                onPress={() => pushNavigation({ subView: 'handover_history' })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.viewLink}>View →</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Handover Card 1 */}
-            <View style={styles.historyCard}>
-              <Text style={styles.historyCardTitle}>HO-2026-0002 · Handover</Text>
-              <Text style={styles.historyMeta}>6 Oct 2026 · 1 collection</Text>
-              <Text style={styles.historyMeta}>Carrot · 30 KG</Text>
-              <Text style={styles.historyMeta}>Destination: Main Warehouse</Text>
-
-              <View style={styles.statusPillCompleted}>
-                <Text style={styles.statusPillCompletedText}>Completed</Text>
-              </View>
-
-              <TouchableOpacity
-                onPress={() => {
-                  pushNavigation({
-                    subView: 'handover_confirmation',
-                    activeHandoverId: 'HO-2026-0002',
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardActionLink}>View Details</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Handover Card 2 */}
-            <View style={styles.historyCard}>
-              <Text style={styles.historyCardTitle}>COL-0006 · Collection</Text>
-              <Text style={styles.historyMeta}>5 Oct 2026 · Selvi - FR-00242</Text>
-              <Text style={styles.historyMeta}>Carrot · 30 KG</Text>
-              <Text style={styles.historyMeta}>Destination: Main Warehouse</Text>
-              <Text style={styles.historySubBold}>In HO-2026-0002</Text>
-
-              <TouchableOpacity
-                onPress={() => {
-                  pushNavigation({
-                    subView: 'handover_history',
-                    activeHandoverId: 'HO-2026-0002',
-                  });
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardActionLink}>View Details</Text>
-              </TouchableOpacity>
-            </View>
 
             {/* 5. Needs Your Attention Section */}
-            <Text style={styles.sectionTitle}>Needs Your Attention</Text>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { marginTop: adminSpacing.lg, marginBottom: adminSpacing.sm },
+              ]}
+            >
+              Needs Your Attention
+            </Text>
 
             {/* Attention Item 1: Tomato Grade 1 */}
             <TouchableOpacity
@@ -3238,10 +3305,6 @@ export function FarmerAdminDashboardScreen({
                     Farmer: Ramesh · Quantity: 50 KG · Listed Price: ₹100/KG
                   </Text>
                 </View>
-              </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>Review Listing →</Text>
               </View>
             </TouchableOpacity>
 
@@ -3267,10 +3330,6 @@ export function FarmerAdminDashboardScreen({
                     Farmer: Kumar · Crop: Beans · Quantity: 75 KG · Requires response
                   </Text>
                 </View>
-              </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>View →</Text>
               </View>
             </TouchableOpacity>
 
@@ -3298,10 +3357,6 @@ export function FarmerAdminDashboardScreen({
                   </Text>
                 </View>
               </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>View Audit →</Text>
-              </View>
             </TouchableOpacity>
 
             {/* Attention Item 4: Farmer Dispute */}
@@ -3324,10 +3379,6 @@ export function FarmerAdminDashboardScreen({
                   <Text style={styles.attentionCardTitle}>Farmer Dispute — DSP-00128</Text>
                   <Text style={styles.attentionCardMeta}>Farmer vs Farmer · Status: Open</Text>
                 </View>
-              </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>View Dispute →</Text>
               </View>
             </TouchableOpacity>
 
@@ -3494,22 +3545,16 @@ export function FarmerAdminDashboardScreen({
               {/* Row 1, Col 3: Audit Calendar */}
               <TouchableOpacity
                 style={styles.quickCard}
-                onPress={() => {
-                  pushNavigation({
-                    subView: 'audit_schedule',
-                    auditInitialFilter: 'calendar',
-                    auditInitialView: 'calendar',
-                  });
-                }}
+                onPress={() => pushNavigation({ tab: 'Audits' })}
                 activeOpacity={0.75}
               >
                 <CalendarOutlineIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Audit Calendar</Text>
               </TouchableOpacity>
 
-              {/* Row 2, Col 1: Review Disputes */}
+              {/* Row 2: Review Disputes (Single Full Row Tab) */}
               <TouchableOpacity
-                style={styles.quickCard}
+                style={styles.quickCardFull}
                 onPress={() => {
                   pushNavigation({
                     subView: 'disputes',
@@ -3520,30 +3565,6 @@ export function FarmerAdminDashboardScreen({
               >
                 <ExactScalesIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Review Disputes</Text>
-              </TouchableOpacity>
-
-              {/* Row 2, Col 2: Community */}
-              <TouchableOpacity
-                style={styles.quickCard}
-                onPress={() => {
-                  pushNavigation({
-                    moreSubScreen: 'community',
-                  });
-                }}
-                activeOpacity={0.75}
-              >
-                <SpeechBubbleIcon size={24} color={adminColors.brand} />
-                <Text style={styles.quickCardLabel}>Community</Text>
-              </TouchableOpacity>
-
-              {/* Row 2, Col 3: Ratings */}
-              <TouchableOpacity
-                style={styles.quickCard}
-                onPress={() => pushNavigation({ subView: 'farmer_ratings' })}
-                activeOpacity={0.85}
-              >
-                <StarRatingsIcon size={24} color={adminColors.brand} />
-                <Text style={styles.quickCardLabel}>Ratings</Text>
               </TouchableOpacity>
             </View>
 
@@ -3566,21 +3587,6 @@ export function FarmerAdminDashboardScreen({
           />
         )}
 
-        {/* ─── Produce Tab (Image 1 Mockup) ─── */}
-        {activeTab === 'Produce' && (
-          <FarmerProduceTabScreen
-            onBack={() => goBack('Home')}
-            onNavigateToListings={(filter) => {
-              pushNavigation({
-                subView: 'produce_listings',
-                listingInitialFilter: filter || 'all',
-              });
-            }}
-            onNavigateToHistory={() => pushNavigation({ subView: 'produce_history' })}
-            onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-          />
-        )}
-
         {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
         {activeTab === 'Audits' && (
           <FarmerAuditsTabScreen
@@ -3597,14 +3603,18 @@ export function FarmerAdminDashboardScreen({
                         ? 'history'
                         : preFilter === 'report'
                           ? 'report'
-                          : 'calendar',
+                          : preFilter === 'calendar_view'
+                            ? 'calendar_view'
+                            : 'calendar',
                 auditInitialId: auditId,
                 auditInitialView:
                   preFilter === 'report'
                     ? 'audit_report'
                     : preFilter === 'history'
                       ? 'history'
-                      : 'calendar',
+                      : preFilter === 'calendar_view'
+                        ? 'calendar_view'
+                        : 'calendar',
               });
             }}
             onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
@@ -3615,7 +3625,6 @@ export function FarmerAdminDashboardScreen({
         {activeTab === 'More' && moreSubScreen === 'menu' && (
           <FarmerAdminMoreScreen
             onBack={() => goBack('Home')}
-            onNavigatePurchases={() => pushNavigation({ subView: 'purchases' })}
             onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
             onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
             onNavigateProduceListings={() => pushNavigation({ subView: 'produce_listings' })}
@@ -3623,7 +3632,6 @@ export function FarmerAdminDashboardScreen({
               pushNavigation({ subView: 'disputes' });
             }}
             onNavigateProfile={() => pushNavigation({ subView: 'profile' })}
-            onNavigateFarmerSupport={() => pushNavigation({ subView: 'farmer_support' })}
             onNavigateNotifications={() => pushNavigation({ subView: 'notifications' })}
             onSwitchRole={() =>
               setModalItem({
@@ -3640,10 +3648,6 @@ export function FarmerAdminDashboardScreen({
                 pushNavigation({ subView: 'farmer_ratings' });
               } else if (title === 'Disputes') {
                 pushNavigation({ subView: 'disputes' });
-              } else if (title === 'Farmer Support') {
-                pushNavigation({ subView: 'farmer_support' });
-              } else if (title === 'Community') {
-                pushNavigation({ moreSubScreen: 'community' });
               } else if (title === 'Profile') {
                 pushNavigation({ subView: 'profile' });
               } else {
@@ -3722,107 +3726,6 @@ export function FarmerAdminDashboardScreen({
             }}
           />
         )}
-
-        {/* ─── Community Module Sub-Screens ─── */}
-        {moreSubScreen === 'community' && (
-          <FarmerCommunityManagementScreen
-            onBack={() => goBack()}
-            onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-            onViewAllGroups={() => pushNavigation({ moreSubScreen: 'community_groups' })}
-            onViewRecentPosts={() => {
-              pushNavigation({
-                moreSubScreen: 'community_posts',
-                communityPostsFilter: 'all',
-              });
-            }}
-            onViewModerationQueue={() => {
-              pushNavigation({ moreSubScreen: 'community_moderation_queue' });
-            }}
-            onViewPost={(post) => {
-              pushNavigation({
-                moreSubScreen: 'community_post_detail',
-                selectedCommunityPost: post,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_groups' && (
-          <FarmerGroupsScreen
-            onBack={() => goBack()}
-            onViewGroup={(group) => {
-              pushNavigation({
-                moreSubScreen: 'community_group_detail',
-                selectedCommunityGroup: group,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_group_detail' && (
-          <FarmerGroupDetailScreen
-            group={selectedCommunityGroup}
-            onBack={() => goBack()}
-            onNavigateMembers={() => pushNavigation({ moreSubScreen: 'community_members' })}
-            onNavigatePosts={() => {
-              pushNavigation({
-                moreSubScreen: 'community_posts',
-                communityPostsFilter: 'all',
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_members' && (
-          <FarmerGroupMembersScreen
-            groupName={selectedCommunityGroup.name}
-            onBack={() => goBack()}
-          />
-        )}
-
-        {moreSubScreen === 'community_posts' && (
-          <FarmerGroupPostsScreen
-            groupName={selectedCommunityGroup.name}
-            initialFilter={communityPostsFilter}
-            onBack={() => goBack()}
-            onSelectPost={(post) => {
-              pushNavigation({
-                moreSubScreen: 'community_post_detail',
-                selectedCommunityPost: post,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_post_detail' && (
-          <FarmerPostDetailScreen
-            post={selectedCommunityPost}
-            onBack={() => goBack()}
-          />
-        )}
-
-        {moreSubScreen === 'community_moderation_queue' && (
-          <FarmerModerationQueueScreen
-            items={COMMUNITY_MODERATION_ITEMS}
-            onBack={() => goBack()}
-            onSelectItem={(item) => {
-              pushNavigation({
-                moreSubScreen: 'community_moderation_review',
-                selectedModerationItem: item,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_moderation_review' && (
-          <FarmerModerationReviewScreen
-            item={selectedModerationItem}
-            onBack={() => goBack()}
-            onRecordAction={() => {
-              goBack();
-            }}
-          />
-        )}
       </View>
 
       {/* ─── Detail Modal ─── */}
@@ -3851,7 +3754,6 @@ export function FarmerAdminDashboardScreen({
       {subView === 'none' &&
         (activeTab === 'Home' ||
           (activeTab === 'Farmers' && farmersInternalView === 'list') ||
-          activeTab === 'Produce' ||
           activeTab === 'Audits' ||
           (activeTab === 'More' && moreSubScreen === 'menu')) && (
           <View style={styles.tabBar}>
@@ -3886,20 +3788,6 @@ export function FarmerAdminDashboardScreen({
               <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
             </Pressable>
 
-            <Pressable
-              style={styles.tabItem}
-              onPress={() => {
-                setNavStack([]);
-                setSubView('none');
-                setMoreSubScreen('menu');
-                setActiveTab('Produce');
-              }}
-              accessibilityRole="tab"
-              accessibilityLabel="Produce"
-            >
-              <TabProduceIcon active={activeTab === 'Produce'} />
-              <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]}>Produce</Text>
-            </Pressable>
 
             <Pressable
               style={styles.tabItem}
@@ -4326,7 +4214,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ─── Quick Actions (Image 4 Exact 6-Tile Grid) ───
+  // ─── Quick Actions (Image 1: 5-Tile Grid) ───
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -4342,6 +4230,30 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     paddingVertical: 16,
     paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickCardWide: {
+    width: '48.5%', // 2 columns for row 2
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickCardFull: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

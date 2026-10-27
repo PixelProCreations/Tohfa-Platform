@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -13,7 +13,7 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
-import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -31,13 +31,12 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-/** Lucide calendar-days icon */
-function CalendarHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function CalendarHeaderIcon({ size = 24, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M8 2v4M16 2v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M8 2v4M16 2v4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2.2" />
+      <Path d="M3 10h18" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       <Circle cx="8" cy="14" r="1.1" fill={color} />
       <Circle cx="12" cy="14" r="1.1" fill={color} />
       <Circle cx="16" cy="14" r="1.1" fill={color} />
@@ -48,14 +47,13 @@ function CalendarHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?:
   );
 }
 
-/** Translucent circular bell button icon */
-function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function BellIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -63,10 +61,22 @@ function BellIcon({ size = 19, color = adminColors.onBrand }: { size?: number; c
   );
 }
 
-/**
- * 1. Audit Calendar Icon:
- * Calendar outline with 2 top hanging loops, dividing line, and 2x3 grid of date dots
- */
+function ChevronLeftIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m15 18-6-6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="m9 18 6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function ActionCalendarIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -84,27 +94,6 @@ function ActionCalendarIcon({ size = 26, color = adminColors.brand }: { size?: n
   );
 }
 
-/**
- * 2. Field Visits Icon:
- * Calendar outline with 2 top hanging loops, dividing line, and 2 horizontal text bars inside
- */
-function FieldVisitChecklistIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="1.8" />
-      <Line x1="8" y1="2" x2="8" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="16" y1="2" x2="16" y2="5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="1.8" />
-      <Line x1="7.5" y1="13.5" x2="16.5" y2="13.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="7.5" y1="17" x2="13" y2="17" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-/**
- * 3. Audit History Icon:
- * Counter-clockwise circular arrow with clock hands at 12 and ~2:15
- */
 function HistoryClockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -121,10 +110,6 @@ function HistoryClockIcon({ size = 26, color = adminColors.brand }: { size?: num
   );
 }
 
-/**
- * 4. Reports Icon:
- * Document sheet with folded top-right corner, and 3 vertical bullet dots on the left
- */
 function DocumentReportIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -151,52 +136,11 @@ function CloseIcon({ size = 20, color = adminColors.ink }: { size?: number; colo
   );
 }
 
-// ─── Data Types & Initial Items ──────────────────────────────────────────────
-
-export type CalendarViewMode = 'Month' | 'Week' | 'List';
-export type AuditTypeFilter = 'All Types' | 'Internal' | 'External' | 'Field Visit';
-
-export interface AuditItem {
-  id: string;
-  title: string;
-  badge: 'Scheduled' | 'Upcoming';
-  subtitle: string;
-  date: string;
-  type: 'Internal' | 'External' | 'Field Visit';
-}
-
-const INITIAL_AUDITS: AuditItem[] = [
-  {
-    id: 'AUD-2026-0042',
-    title: 'Quarterly Farm Audit',
-    badge: 'Scheduled',
-    subtitle: 'Ramesh Kumar · Internal',
-    date: '15 Oct 2026',
-    type: 'Internal',
-  },
-  {
-    id: 'FV-2026-0018',
-    title: 'Field Visit',
-    badge: 'Upcoming',
-    subtitle: 'Selvi · Coonoor',
-    date: '08 Oct 2026',
-    type: 'Field Visit',
-  },
-  {
-    id: 'AUD-2026-0039',
-    title: 'External Compliance Audit',
-    badge: 'Scheduled',
-    subtitle: 'Kumar · Ooty',
-    date: '20 Oct 2026',
-    type: 'External',
-  },
-];
-
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface FarmerAuditsTabScreenProps {
   onNavigateSchedule: (
-    preFilter?: 'all' | 'field_visit' | 'calendar' | 'history' | 'report',
+    preFilter?: 'all' | 'field_visit' | 'calendar' | 'history' | 'report' | 'calendar_view',
     auditId?: string
   ) => void;
   onOpenNotifications?: () => void;
@@ -208,34 +152,53 @@ export function FarmerAuditsTabScreen({
   onOpenNotifications,
   onBack,
 }: FarmerAuditsTabScreenProps) {
-  const [calendarView, setCalendarView] = useState<CalendarViewMode>('Month');
-  const [typeFilter, setTypeFilter] = useState<AuditTypeFilter>('All Types');
+  const [selectedDay, setSelectedDay] = useState<number>(8);
   const [showReportsModal, setShowReportsModal] = useState(false);
 
-  // Filtered audit items based on selected pill
-  const displayedAudits = useMemo(() => {
-    if (typeFilter === 'All Types') return INITIAL_AUDITS;
-    return INITIAL_AUDITS.filter((item) => item.type === typeFilter);
-  }, [typeFilter]);
-
-  const viewModes: { key: CalendarViewMode; label: string }[] = [
-    { key: 'Month', label: t('farmerAuditsTab.toggle.month') },
-    { key: 'Week', label: t('farmerAuditsTab.toggle.week') },
-    { key: 'List', label: t('farmerAuditsTab.toggle.list') },
+  // October 2026:
+  // Starts on Thursday (index 3), 31 days total.
+  // Leading empty cells: 3 (Mon, Tue, Wed)
+  // Trailing empty cells: 1 (Sun)
+  const calendarCells: (number | null)[] = [
+    null, null, null,
+    1, 2, 3, 4,
+    5, 6, 7, 8, 9, 10, 11,
+    12, 13, 14, 15, 16, 17, 18,
+    19, 20, 21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30, 31,
+    null,
   ];
 
-  const filterOptions: { key: AuditTypeFilter; label: string }[] = [
-    { key: 'All Types', label: t('farmerAuditsTab.filter.all') },
-    { key: 'Internal', label: t('farmerAuditsTab.filter.internal') },
-    { key: 'External', label: t('farmerAuditsTab.filter.external') },
-    { key: 'Field Visit', label: t('farmerAuditsTab.filter.fieldVisit') },
-  ];
+  const renderDots = (day: number, isSelected: boolean) => {
+    if (isSelected) {
+      return <View style={styles.whiteDot} />;
+    }
+    if (day === 3) {
+      return <View style={styles.greenDot} />;
+    }
+    if (day === 15) {
+      return (
+        <View style={styles.multiDotRow}>
+          <View style={styles.orangeDotSmall} />
+          <View style={styles.orangeDotSmall} />
+          <View style={styles.orangeDotSmall} />
+        </View>
+      );
+    }
+    if (day === 20) {
+      return <View style={styles.orangeDot} />;
+    }
+    if (day === 22) {
+      return <View style={styles.grayDot} />;
+    }
+    return <View style={styles.emptyDot} />;
+  };
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header ─── */}
+      {/* ─── Orange / Terracotta Header (Image 2) ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
@@ -249,8 +212,8 @@ export function FarmerAuditsTabScreen({
                 <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
             )}
-            <CalendarHeaderIcon size={22} color={adminColors.onBrand} />
-            <Text style={styles.headerTitle}>{t('farmerAuditsTab.title')}</Text>
+            <CalendarHeaderIcon size={24} color={adminColors.onBrand} />
+            <Text style={styles.headerTitle}>{t('farmerAuditsTab.title') || 'Audits'}</Text>
           </View>
 
           <TouchableOpacity
@@ -259,13 +222,9 @@ export function FarmerAuditsTabScreen({
             activeOpacity={0.8}
             accessibilityLabel="Notifications"
           >
-            <BellIcon size={19} color={adminColors.onBrand} />
+            <BellIcon size={20} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
-
-        <Text style={[styles.headerSubtitle, { paddingLeft: onBack ? adminSpacing.xl : 0 }]}>
-          {t('farmerAuditsTab.subtitle')}
-        </Text>
       </View>
 
       {/* ─── Scrollable Body ─── */}
@@ -274,202 +233,166 @@ export function FarmerAuditsTabScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 2x2 Static KPI Cards Grid using reusable OverviewDashboardCard ─── */}
-        <OverviewSectionHeader
-          title={t('farmerAuditsTab.title') || 'Audits Overview'}
-          actionLabel="View All"
-          onAction={() => onNavigateSchedule('calendar')}
-          style={{ marginBottom: 12 }}
-        />
+        {/* ─── 4 Summary KPI Cards (Static Display Only, matching Overview reference design) ─── */}
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
           <OverviewDashboardCard
-            value="08"
-            title={t('farmerAuditsTab.kpi.upcoming')}
-            subtitle="Scheduled this month"
+            value="8"
+            title="Upcoming Audits"
+            subtitle="Scheduled audits"
             icon="orders"
-            onPress={() => onNavigateSchedule('calendar')}
+            disabled
           />
           <OverviewDashboardCard
-            value="03"
-            title={t('farmerAuditsTab.kpi.fieldVisits')}
-            subtitle="Field visits scheduled"
-            icon="truck"
-            onPress={() => onNavigateSchedule('field_visit')}
+            value="3"
+            title="Today Audit"
+            subtitle="Due today"
+            icon="pickup"
+            disabled
           />
           <OverviewDashboardCard
-            value="04"
-            title={t('farmerAuditsTab.kpi.pendingSupport')}
-            subtitle="Requires attention"
+            value="2"
+            title="Pending Audit"
+            subtitle="Needs action"
             icon="alert"
             tone="warning"
-            onPress={() => onNavigateSchedule('calendar')}
+            disabled
           />
           <OverviewDashboardCard
             value="24"
-            title={t('farmerAuditsTab.kpi.completedAudits')}
-            subtitle="Past 90 days"
+            title="Completed Audits"
+            subtitle="Audited & verified"
             icon="box"
             tone="success"
-            onPress={() => onNavigateSchedule('history')}
+            disabled
           />
         </OverviewCardsGrid>
 
-        {/* ─── Section: Audit Calendar ─── */}
-        <TouchableOpacity
-          onPress={() => onNavigateSchedule('field_visit')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.sectionHeader}>{t('farmerAuditsTab.section.calendar')}</Text>
-        </TouchableOpacity>
-
-        {/* Segmented View Toggle Buttons: Month | Week | List */}
-        <View style={styles.segmentedToggleRow}>
-          {viewModes.map(({ key, label }) => {
-            const isActive = calendarView === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.toggleBtn,
-                  isActive ? styles.toggleBtnActive : styles.toggleBtnInactive,
-                ]}
-                onPress={() => {
-                  setCalendarView(key);
-                  if (key === 'List') {
-                    onNavigateSchedule('field_visit');
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.toggleBtnText,
-                    isActive ? styles.toggleBtnTextActive : styles.toggleBtnTextInactive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+        {/* ─── Audit Calendar Header Row (Image 2) ─── */}
+        <View style={styles.calendarSectionHeader}>
+          <Text style={styles.calendarSectionTitle}>Audit Calendar</Text>
         </View>
 
-        {/* Horizontal Filter Pills: All Types | Internal | External | Field Visit */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterPillsRow}
-        >
-          {filterOptions.map(({ key, label }) => {
-            const isActive = typeFilter === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[
-                  styles.filterPill,
-                  isActive ? styles.filterPillActive : styles.filterPillInactive,
-                ]}
-                onPress={() => setTypeFilter(key)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* ─── Audit Item Cards ─── */}
-        <View style={styles.auditsList}>
-          {displayedAudits.map((audit) => {
-            const isOrange = audit.badge === 'Scheduled';
-            return (
-              <TouchableOpacity
-                key={audit.id}
-                style={styles.auditCard}
-                onPress={() =>
-                  onNavigateSchedule('field_visit', audit.id)
-                }
-                activeOpacity={0.85}
-              >
-                <View style={styles.auditCardTopRow}>
-                  <Text style={styles.auditTitle}>{audit.title}</Text>
-                  <View
-                    style={[
-                      styles.auditBadge,
-                      isOrange ? styles.badgeOrange : styles.badgeBlue,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.auditBadgeText,
-                        isOrange ? styles.badgeTextOrange : styles.badgeTextBlue,
-                      ]}
-                    >
-                      {audit.badge === 'Scheduled'
-                        ? t('farmerAuditsTab.badge.scheduled')
-                        : t('farmerAuditsTab.badge.upcoming')}
-                    </Text>
-                  </View>
-                </View>
-
-                <Text style={styles.auditSubtitle}>{audit.subtitle}</Text>
-                <Text style={styles.auditDate}>{audit.date}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* ─── Section: Quick Actions ─── */}
-        <Text style={[styles.sectionHeader, styles.quickActionsHeading]}>
-          {t('farmerAuditsTab.section.quickActions')}
-        </Text>
-
-        <View style={styles.quickActionsGrid}>
-          {/* Card 1: Audit Calendar */}
+        {/* ─── Month Navigation Row (Image 2) ─── */}
+        <View style={styles.monthNavRow}>
           <TouchableOpacity
-            style={styles.quickActionCard}
+            style={styles.navCircleBtn}
+            activeOpacity={0.7}
+          >
+            <ChevronLeftIcon size={18} color={adminColors.ink} />
+          </TouchableOpacity>
+
+          <Text style={styles.monthTitle}>October 2026</Text>
+
+          <TouchableOpacity
+            style={styles.navCircleBtn}
+            activeOpacity={0.7}
+          >
+            <ChevronRightIcon size={18} color={adminColors.ink} />
+          </TouchableOpacity>
+        </View>
+
+        {/* ─── Weekdays Row ─── */}
+        <View style={styles.weekdaysRow}>
+          {['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'].map((day) => (
+            <View key={day} style={styles.weekdayCell}>
+              <Text style={styles.weekdayText}>{day}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ─── Days Grid (Image 2) ─── */}
+        <View style={styles.daysGrid}>
+          {calendarCells.map((day, idx) => {
+            if (day === null) {
+              return <View key={`empty-${idx}`} style={styles.dayCellWrap} />;
+            }
+            const isSelected = day === selectedDay;
+            return (
+              <View key={`day-${day}`} style={styles.dayCellWrap}>
+                <TouchableOpacity
+                  style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                  onPress={() => setSelectedDay(day)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                    {day}
+                  </Text>
+                  <View style={styles.dotContainer}>{renderDots(day, isSelected)}</View>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* ─── Selected Date Section with View Link ─── */}
+        <View style={styles.selectedDateRow}>
+          <View style={styles.selectedDateInfoWrap}>
+            <Text style={styles.selectedDateTitle}>{selectedDay} October 2026</Text>
+            <Text style={styles.selectedDateSubtitle}>
+              {selectedDay === 8 ? '1 Audit on this date' : 'Audits scheduled on this date'}
+            </Text>
+          </View>
+          <TouchableOpacity
             onPress={() => onNavigateSchedule('calendar')}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
-            <ActionCalendarIcon size={26} color={adminColors.brand} />
-            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.calendar')}</Text>
+            <Text style={styles.calendarSectionLink}>View →</Text>
           </TouchableOpacity>
+        </View>
 
-          {/* Card 2: Field Visits */}
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => onNavigateSchedule('field_visit')}
-            activeOpacity={0.8}
-          >
-            <FieldVisitChecklistIcon size={26} color={adminColors.brand} />
-            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.fieldVisits')}</Text>
-          </TouchableOpacity>
+        {/* ─── Audit Cards (Static Display Only) ─── */}
+        <View style={styles.auditCard}>
+          <View style={styles.auditCardTopRow}>
+            <Text style={styles.auditTitle}>Quarterly Farm Audit</Text>
+            <View style={styles.badgeScheduled}>
+              <Text style={styles.badgeScheduledText}>Scheduled</Text>
+            </View>
+          </View>
+          <Text style={styles.auditSubtitle}>Ramesh Kumar · Internal</Text>
+          <Text style={styles.auditDate}>15 Oct 2026</Text>
+        </View>
 
-          {/* Card 3: Audit History */}
-          <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => onNavigateSchedule('history')}
-            activeOpacity={0.8}
-          >
-            <HistoryClockIcon size={26} color={adminColors.brand} />
-            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.auditHistory')}</Text>
-          </TouchableOpacity>
+        <View style={styles.auditCard}>
+          <View style={styles.auditCardTopRow}>
+            <Text style={styles.auditTitle}>External Compliance Audit</Text>
+            <View style={styles.badgeScheduled}>
+              <Text style={styles.badgeScheduledText}>Scheduled</Text>
+            </View>
+          </View>
+          <Text style={styles.auditSubtitle}>Kumar · Ooty</Text>
+          <Text style={styles.auditDate}>20 Oct 2026</Text>
+        </View>
 
-          {/* Card 4: Reports */}
+        {/* ─── Quick Actions Section (Image 3) ─── */}
+        <Text style={styles.quickActionsHeading}>Quick Actions</Text>
+        <View style={styles.quickActionsContainer}>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity
+              style={styles.quickActionHalfCard}
+              onPress={() => onNavigateSchedule('calendar_view')}
+              activeOpacity={0.8}
+            >
+              <ActionCalendarIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickActionLabel}>Audit Calendar</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickActionHalfCard}
+              onPress={() => onNavigateSchedule('history')}
+              activeOpacity={0.8}
+            >
+              <HistoryClockIcon size={26} color={adminColors.brand} />
+              <Text style={styles.quickActionLabel}>Audit History</Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
-            style={styles.quickActionCard}
-            onPress={() => onNavigateSchedule('report')}
+            style={styles.quickActionFullCard}
+            onPress={() => onNavigateSchedule('report', 'AUD-2026-0042')}
             activeOpacity={0.8}
           >
             <DocumentReportIcon size={26} color={adminColors.brand} />
-            <Text style={styles.quickActionLabel}>{t('farmerAuditsTab.action.reports')}</Text>
+            <Text style={styles.quickActionLabel}>Reports</Text>
           </TouchableOpacity>
         </View>
 
@@ -542,8 +465,8 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.md,
-    paddingHorizontal: adminSpacing.lg,
+    paddingBottom: adminSpacing.md + 2,
+    paddingHorizontal: 16,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -553,157 +476,245 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.sm,
+    gap: 10,
   },
   backBtn: {
-    padding: adminSpacing.xs,
-    marginRight: 2,
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: adminColors.onBrand,
-    ...adminType.title,
+    fontSize: 22,
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   notificationBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerSubtitle: {
-    color: adminColors.brandTint,
-    ...adminType.caption,
-    fontWeight: '600',
-    marginTop: adminSpacing.xs,
   },
   scroll: {
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.lg,
-    paddingBottom: adminSpacing.xl,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 40,
   },
 
-  // 2x2 Static KPI Grid
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // ─── 2x2 KPI Cards ───
+  kpiContainer: {
     gap: adminSpacing.md,
-    marginBottom: adminSpacing.lg,
+    marginBottom: adminSpacing.xl,
+  },
+  kpiRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
   },
   kpiCard: {
-    width: '48%',
+    flex: 1,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.md,
     ...adminShadow.sm,
   },
   kpiLabel: {
-    ...adminType.caption,
+    fontSize: 11,
     fontWeight: '700',
     color: adminColors.muted,
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
     textTransform: 'uppercase',
-    marginBottom: adminSpacing.xs,
+    marginBottom: 6,
   },
-  kpiValue: {
-    ...adminType.kpiValue,
+  kpiValueBlack: {
+    fontSize: 26,
+    fontWeight: '800',
     color: adminColors.ink,
     letterSpacing: -0.5,
   },
   kpiValueOrange: {
+    fontSize: 26,
+    fontWeight: '800',
     color: adminColors.brand,
+    letterSpacing: -0.5,
   },
   kpiValueGreen: {
+    fontSize: 26,
+    fontWeight: '800',
     color: adminColors.success.text,
+    letterSpacing: -0.5,
   },
 
-  // Section Headers
-  sectionHeader: {
-    ...adminType.sectionHead,
+  // ─── Section Header ───
+  calendarSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.lg,
+  },
+  calendarSectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
     color: adminColors.brandDeep,
-    marginTop: adminSpacing.xl,
-    marginBottom: adminSpacing.sm,
   },
-  quickActionsHeading: {
-    marginTop: adminSpacing.xl,
+  calendarSectionLink: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.brand,
   },
 
-  // Segmented View Toggle
-  segmentedToggleRow: {
+  // ─── Month Navigation ───
+  monthNavRow: {
     flexDirection: 'row',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.sm,
-  },
-  toggleBtn: {
-    flex: 1,
-    height: 40,
-    borderRadius: adminRadius.md,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.lg,
+    paddingHorizontal: 2,
   },
-  toggleBtnActive: {
-    backgroundColor: adminColors.brand,
-  },
-  toggleBtnInactive: {
+  navCircleBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
     backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
-  },
-  toggleBtnText: {
-    ...adminType.body,
-    fontWeight: '700',
-  },
-  toggleBtnTextActive: {
-    color: adminColors.onBrand,
-  },
-  toggleBtnTextInactive: {
-    color: adminColors.muted,
-  },
-
-  // Horizontal Filter Pills
-  filterPillsRow: {
-    flexDirection: 'row',
-    gap: adminSpacing.sm,
-    paddingBottom: adminSpacing.xs,
-    marginBottom: adminSpacing.md,
-  },
-  filterPill: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    ...adminShadow.sm,
   },
-  filterPillActive: {
-    backgroundColor: adminColors.brand,
-  },
-  filterPillInactive: {
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  filterPillText: {
-    ...adminType.caption,
-    fontWeight: '700',
-  },
-  filterPillTextActive: {
-    color: adminColors.onBrand,
-  },
-  filterPillTextInactive: {
+  monthTitle: {
+    fontSize: 19,
+    fontWeight: '800',
     color: adminColors.ink,
   },
 
-  // Audits List & Cards
-  auditsList: {
-    gap: adminSpacing.md,
+  // ─── Weekdays ───
+  weekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.sm,
   },
+  weekdayCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+  },
+  weekdayText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+
+  // ─── Days Grid ───
+  daysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: adminSpacing.xl,
+  },
+  dayCellWrap: {
+    width: `${100 / 7}%`,
+    padding: 3,
+    alignItems: 'center',
+  },
+  dayCell: {
+    width: '100%',
+    height: 48,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 4,
+  },
+  dayCellSelected: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  dayText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  dayTextSelected: {
+    color: adminColors.onBrand,
+  },
+  dotContainer: {
+    height: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  emptyDot: {
+    height: 4,
+  },
+  whiteDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: adminColors.onBrand,
+  },
+  greenDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: adminColors.success.text,
+  },
+  orangeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: adminColors.warning.text,
+  },
+  orangeDotSmall: {
+    width: 3.5,
+    height: 3.5,
+    borderRadius: 1.75,
+    backgroundColor: adminColors.warning.text,
+  },
+  grayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: adminColors.muted,
+  },
+  multiDotRow: {
+    flexDirection: 'row',
+    gap: 2,
+    alignItems: 'center',
+  },
+
+  // ─── Selected Date Section ───
+  selectedDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+  },
+  selectedDateInfoWrap: {
+    flex: 1,
+    paddingRight: adminSpacing.sm,
+  },
+  selectedDateTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  selectedDateSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+
+  // ─── Audit Cards ───
   auditCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
@@ -711,78 +722,91 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   auditCardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: adminSpacing.xs,
+    marginBottom: 6,
   },
   auditTitle: {
-    ...adminType.rowTitle,
+    fontSize: 16,
+    fontWeight: '800',
     color: adminColors.ink,
     letterSpacing: -0.2,
   },
-  auditBadge: {
-    paddingHorizontal: adminSpacing.sm,
+  badgeScheduled: {
+    backgroundColor: adminColors.info.bg,
+    paddingHorizontal: 12,
     paddingVertical: 3,
     borderRadius: adminRadius.sm,
   },
-  badgeOrange: {
-    backgroundColor: adminColors.brandTint,
-  },
-  badgeBlue: {
-    backgroundColor: adminColors.info.bg,
-  },
-  auditBadgeText: {
-    ...adminType.caption,
+  badgeScheduledText: {
+    fontSize: 12,
     fontWeight: '700',
-  },
-  badgeTextOrange: {
-    color: adminColors.brand,
-  },
-  badgeTextBlue: {
     color: adminColors.info.text,
   },
   auditSubtitle: {
-    ...adminType.rowMeta,
+    fontSize: 14,
     fontWeight: '500',
     color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
+    marginBottom: 4,
   },
   auditDate: {
-    ...adminType.rowMeta,
+    fontSize: 13,
     fontWeight: '500',
     color: adminColors.muted,
   },
 
-  // Quick Actions Grid
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // ─── Quick Actions (Image 3) ───
+  quickActionsHeading: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  quickActionsContainer: {
     gap: adminSpacing.md,
   },
-  quickActionCard: {
-    flexBasis: '47%',
-    flexGrow: 1,
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+  },
+  quickActionHalfCard: {
+    flex: 1,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.xl,
-    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.sm,
+    gap: 10,
+    ...adminShadow.sm,
+  },
+  quickActionFullCard: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    ...adminShadow.sm,
   },
   quickActionLabel: {
-    ...adminType.body,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '800',
     color: adminColors.ink,
     textAlign: 'center',
   },
 
-  // Modal Styles
+  // ─── Modal Styles ───
   modalBackdrop: {
     flex: 1,
     backgroundColor: adminOverlay.scrim,
@@ -848,6 +872,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bottomSpacer: {
-    height: adminSpacing.xxl,
+    height: 30,
   },
 });
+

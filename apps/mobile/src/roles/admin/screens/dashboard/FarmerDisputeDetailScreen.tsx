@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -39,7 +40,7 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function DocumentFileIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+function DocumentFileIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -57,7 +58,7 @@ function DocumentFileIcon({ size = 20, color = adminColors.brand }: { size?: num
   );
 }
 
-function PhotoAttachmentIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+function PhotoAttachmentIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
@@ -73,16 +74,7 @@ function PhotoAttachmentIcon({ size = 20, color = adminColors.brand }: { size?: 
   );
 }
 
-function SlashedProhibitionIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Line x1="5.7" y1="5.7" x2="18.3" y2="18.3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ChevronDownIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
+function ChevronDownIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -99,125 +91,20 @@ function ResizeGripIcon({ size = 12, color = adminColors.muted }: { size?: numbe
   );
 }
 
-function ClockMilestoneIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function PencilNoteIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
+function UploadFileIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+        d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
         stroke={color}
-        strokeWidth="2"
+        strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12 18v-6M9 15l3-3 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
-}
-
-function MailQuestionIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <Path d="M22 6l-10 7L2 6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ShieldLockIcon({ size = 15, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <Circle cx="12" cy="11" r="2" fill={color} />
-      <Line x1="12" y1="13" x2="12" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BuildingIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="2" width="16" height="20" rx="2" stroke={color} strokeWidth="1.8" />
-      <Path d="M9 22v-4h6v4M8 6h.01M16 6h.01M8 10h.01M16 10h.01M8 14h.01M16 14h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function MapPinIcon({ size = 14, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <Circle cx="12" cy="10" r="3" stroke={color} strokeWidth="1.8" />
-    </Svg>
-  );
-}
-
-function ExternalArrowIcon({ size = 15, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 12h14M12 5l7 7-7 7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-// ─── Status Badge Styling Helper ────────────────────────────────────────────
-
-function getStatusBadgeTheme(status: string) {
-  switch (status) {
-    case 'Under Review':
-      return {
-        bg: adminColors.info.bg,
-        text: adminColors.info.text,
-        border: adminColors.info.border,
-      };
-    case 'Resolved':
-      return {
-        bg: adminColors.success.bg,
-        text: adminColors.success.text,
-        border: adminColors.success.border,
-      };
-    case 'Escalated':
-      return {
-        bg: adminColors.danger.bg,
-        text: adminColors.danger.text,
-        border: adminColors.danger.border,
-      };
-    case 'Awaiting TOHFA':
-    case 'Open':
-      return {
-        bg: adminColors.warning.bg,
-        text: adminColors.warning.text,
-        border: adminColors.warning.border,
-      };
-    default:
-      return {
-        bg: adminColors.canvas,
-        text: adminColors.muted,
-        border: adminColors.border,
-      };
-  }
 }
 
 // ─── Component Props ──────────────────────────────────────────────────────────
@@ -242,20 +129,26 @@ export function FarmerDisputeDetailScreen({
   const dispute = propDispute ?? INITIAL_DISPUTES[0]!;
 
   const [currentDispute, setCurrentDispute] = useState<DisputeItem>(dispute);
-  const [activeInlineAction, setActiveInlineAction] = useState<'add_note' | 'request_info' | 'timeline' | null>(null);
-  const [showResolveModal, setShowResolveModal] = useState(false);
+
+  // Modals for Actions matching Image 5
+  const [showAddNoteModal, setShowAddNoteModal] = useState(false);
+  const [showRequestInfoModal, setShowRequestInfoModal] = useState(false);
+  const [showResolveConfirmModal, setShowResolveConfirmModal] = useState(false);
   const [viewingAttachment, setViewingAttachment] = useState<string | null>(null);
 
+  // Add Mediation Note State (Image 5 Left: M10-S02a)
   const [noteText, setNoteText] = useState('');
-  const [noteVisibility, setNoteVisibility] = useState<'Internal only' | 'All Parties'>('Internal only');
+  const [noteVisibility, setNoteVisibility] = useState<'Internal only' | 'Shared with all parties'>('Internal only');
   const [showVisibilityPicker, setShowVisibilityPicker] = useState(false);
 
-  const [requestRecipient, setRequestRecipient] = useState<string>('Ramesh Kumar (Farmer)');
+  // Request Information State (Image 5 Right: M10-S02b)
+  const [requestRecipient, setRequestRecipient] = useState<string>('');
   const [showRecipientPicker, setShowRecipientPicker] = useState(false);
   const [requestText, setRequestText] = useState('');
-  const [requestReason, setRequestReason] = useState('');
+  const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [requestInfoStep, setRequestInfoStep] = useState<'form' | 'review'>('form');
 
-  const [resolutionText, setResolutionText] = useState('');
+  const [resolutionSummary, setResolutionSummary] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const triggerToast = (msg: string) => {
@@ -264,51 +157,101 @@ export function FarmerDisputeDetailScreen({
   };
 
   const handleSaveNote = () => {
-    if (!noteText.trim()) return;
+    if (!noteText.trim()) {
+      Alert.alert('Required', 'Please enter a note before saving.');
+      return;
+    }
     const newNote = {
       id: `note-${Date.now()}`,
       text: noteText.trim(),
       author: 'Suresh Kumar',
-      date: '15 Oct 2026, 15:45',
+      date: '09 Oct 2026, 10:30',
       isInternal: noteVisibility === 'Internal only',
     };
     setCurrentDispute((prev) => ({
       ...prev,
-      adminNotes: [...(prev.adminNotes ?? []), newNote],
+      adminNotes: [newNote, ...(prev.adminNotes ?? [])],
     }));
     setNoteText('');
-    setActiveInlineAction(null);
-    triggerToast('Admin note saved successfully.');
+    setShowAddNoteModal(false);
+    triggerToast('Mediation note saved successfully.');
+  };
+
+  const handleReviewRequest = () => {
+    if (!requestRecipient) {
+      Alert.alert('Required', 'Please select a recipient.');
+      return;
+    }
+    if (!requestText.trim()) {
+      Alert.alert('Required', 'Please specify the information requested.');
+      return;
+    }
+    setShowRecipientPicker(false);
+    setRequestInfoStep('review');
   };
 
   const handleSendRequest = () => {
-    if (!requestText.trim()) return;
-    setActiveInlineAction(null);
-    setRequestText('');
-    setRequestReason('');
+    const isFarmer = requestRecipient.toLowerCase().includes('farmer');
+    const newStatus = isFarmer ? 'Awaiting Farmer' : 'Awaiting TOHFA';
+
+    setCurrentDispute((prev) => ({
+      ...prev,
+      status: newStatus,
+      lastActivityDate: '09 Oct 2026',
+      detailedTimeline: [
+        {
+          id: `tle-${Date.now()}`,
+          type: 'status',
+          title: 'Information requested',
+          description: `Requested information from ${requestRecipient}: "${requestText.trim()}"`,
+          author: 'Suresh Kumar',
+          timestamp: '09 Oct 2026, 11:00',
+        },
+        ...(prev.detailedTimeline ?? []),
+      ],
+    }));
+
+    setShowRequestInfoModal(false);
+    setRequestInfoStep('form');
     triggerToast(`Information request sent to ${requestRecipient}.`);
+    setRequestText('');
+    setAttachmentName(null);
+  };
+
+  const handleCloseRequestModal = () => {
+    setShowRequestInfoModal(false);
+    setRequestInfoStep('form');
+    setShowRecipientPicker(false);
+  };
+
+  const handleUploadAttachment = () => {
+    Alert.alert('Upload Attachment', 'Select a document or photo to attach to this request.', [
+      { text: 'Sample Invoice.pdf', onPress: () => setAttachmentName('Sample Invoice.pdf') },
+      { text: 'Inspection Photo.jpg', onPress: () => setAttachmentName('Inspection Photo.jpg') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const handleConfirmResolution = () => {
-    const note = resolutionText.trim() || 'Settlement reached and approved by mediator.';
+    const note = resolutionSummary.trim() || 'Settlement reached and approved by mediator.';
     setCurrentDispute((prev) => ({
       ...prev,
       status: 'Resolved',
       lastActivityDate: '15 Oct 2026',
       resolutionNote: note,
     }));
-    setShowResolveModal(false);
+    setShowResolveConfirmModal(false);
     onResolveDispute?.(currentDispute.id, note);
     triggerToast(`Dispute ${currentDispute.id} marked as Resolved.`);
   };
 
-  const statusTheme = getStatusBadgeTheme(currentDispute.status);
+  const evidenceItems = currentDispute.evidence ?? [];
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header ─── */}
+      {/* ─── Terracotta Header (Image 3) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -321,467 +264,257 @@ export function FarmerDisputeDetailScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Dispute Detail</Text>
-            <View style={styles.headerSubRow}>
-              <Text style={styles.headerSubtitleText}>{currentDispute.id}</Text>
-              <View style={styles.headerDot} />
-              <View style={styles.headerStatusBadge}>
-                <Text style={styles.headerStatusBadgeText}>{currentDispute.status}</Text>
-              </View>
-            </View>
+            <Text style={styles.headerSubtitleText}>
+              {currentDispute.id} · {currentDispute.status}
+            </Text>
           </View>
         </View>
       </View>
 
-      {/* ─── Scrollable Body ─── */}
+      {/* ─── Scrollable Body (Images 3 & 4) ─── */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* 1. Dispute Overview */}
+        {/* 1. Dispute Overview (Image 3) */}
         <Text style={styles.sectionHeader}>Dispute Overview</Text>
         <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <View>
+          <View style={styles.twoColRow}>
+            <View style={styles.col}>
               <Text style={styles.fieldLabel}>Dispute ID</Text>
-              <Text style={styles.fieldValueId}>{currentDispute.id}</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.id}</Text>
             </View>
-            <View
-              style={[
-                styles.statusPill,
-                { backgroundColor: statusTheme.bg, borderColor: statusTheme.border },
-              ]}
-            >
-              <View style={[styles.statusIndicatorDot, { backgroundColor: statusTheme.text }]} />
-              <Text style={[styles.statusPillText, { color: statusTheme.text }]}>
-                {currentDispute.status}
-              </Text>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>Dispute Type</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.disputeType || ''}</Text>
             </View>
           </View>
 
-          <View style={styles.cardDivider} />
-
           <View style={styles.fullWidthField}>
             <Text style={styles.fieldLabel}>Subject</Text>
-            <Text style={styles.fieldValueSubject}>{currentDispute.title}</Text>
+            <Text style={styles.fieldValueBold}>{currentDispute.title}</Text>
           </View>
 
           <View style={styles.twoColRow}>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Category</Text>
-              <Text style={styles.fieldValue}>{currentDispute.category}</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.category}</Text>
             </View>
             <View style={styles.col}>
-              <Text style={styles.fieldLabel}>Dispute Type</Text>
-              <Text style={styles.fieldValue}>{currentDispute.disputeType || 'Standard'}</Text>
+              <Text style={styles.fieldLabel}>Status</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.status}</Text>
             </View>
           </View>
 
           <View style={styles.twoColRow}>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Created</Text>
-              <Text style={styles.fieldValue}>{currentDispute.createdDate}</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.createdDate}</Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Last Updated</Text>
-              <Text style={styles.fieldValue}>{currentDispute.lastActivityDate}</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.lastActivityDate}</Text>
             </View>
           </View>
 
           <View style={styles.fullWidthFieldLast}>
             <Text style={styles.fieldLabel}>Assigned Admin</Text>
-            <Text style={styles.fieldValue}>{currentDispute.assignedAdmin || 'Suresh Kumar'}</Text>
+            <Text style={styles.fieldValueBold}>{currentDispute.assignedAdmin || 'Suresh Kumar'}</Text>
           </View>
         </View>
 
-        {/* 2. Farmer */}
+        {/* 2. Farmer (Image 3) */}
         <Text style={styles.sectionHeader}>Farmer</Text>
         <View style={styles.card}>
-          <View style={styles.farmerTopRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarInitials}>
-                {currentDispute.raisedBy
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')
-                  .slice(0, 2)
-                  .toUpperCase()}
-              </Text>
+          <View style={styles.twoColRow}>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>Name</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.raisedBy}</Text>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.farmerNameText}>{currentDispute.raisedBy}</Text>
-              <Text style={styles.farmerIdText}>
-                ID: {currentDispute.farmerId || 'FMR-00124'} · Verified
-              </Text>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>Farmer ID</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.farmerId || 'FMR-00124'}</Text>
             </View>
           </View>
-
-          <View style={styles.cardDivider} />
 
           <View style={styles.twoColRowLast}>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Farm</Text>
-              <Text style={styles.fieldValue}>
-                {currentDispute.farmName || `${currentDispute.raisedBy.split(' ')[0]} Organic Farm`}
+              <Text style={styles.fieldValueBold}>
+                {currentDispute.farmName || 'Ramesh Organic Farm'}
               </Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Zone</Text>
-              <View style={styles.zoneRow}>
-                <MapPinIcon size={14} color={adminColors.muted} />
-                <Text style={styles.fieldValue}>{currentDispute.zone || 'Coonoor'}</Text>
-              </View>
+              <Text style={styles.fieldValueBold}>{currentDispute.zone || 'Coonoor'}</Text>
             </View>
           </View>
         </View>
 
-        {/* 3. TOHFA */}
+        {/* 3. TOHFA (Image 3) */}
         <Text style={styles.sectionHeader}>TOHFA</Text>
         <View style={styles.card}>
           <View style={styles.twoColRowLast}>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Department</Text>
-              <View style={styles.deptRow}>
-                <BuildingIcon size={16} color={adminColors.brand} />
-                <Text style={styles.fieldValue}>
-                  {currentDispute.tohfaDepartment || currentDispute.otherParty || 'Procurement Team'}
-                </Text>
-              </View>
+              <Text style={styles.fieldValueBold}>
+                {currentDispute.tohfaDepartment || 'Procurement Team'}
+              </Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Representative</Text>
-              <Text style={styles.fieldValue}>{currentDispute.tohfaRepresentative || 'Anitha R'}</Text>
+              <Text style={styles.fieldValueBold}>
+                {currentDispute.tohfaRepresentative || 'Anitha R'}
+              </Text>
             </View>
-          </View>
-
-          <View style={styles.maskedInfoNotice}>
-            <ShieldLockIcon size={16} color={adminColors.muted} />
-            <Text style={styles.maskedInfoText}>
-              Contact details are masked and shown only where you are authorized.
-            </Text>
           </View>
         </View>
 
-        {/* 4. Dispute Description */}
+        {/* Masked Notice Box (Image 3) */}
+        <View style={styles.maskedNoticeCard}>
+          <Text style={styles.maskedNoticeText}>
+            Contact details are masked and shown only where you are authorized.
+          </Text>
+        </View>
+
+        {/* 4. Dispute Description (Images 3 & 4) */}
         <Text style={styles.sectionHeader}>Dispute Description</Text>
         <View style={styles.card}>
-          <View style={styles.complaintBox}>
-            <Text style={styles.descriptionBody}>{currentDispute.description}</Text>
-          </View>
+          <Text style={styles.descriptionBodyText}>
+            {currentDispute.description || 'Not provided'}
+          </Text>
+        </View>
 
-          <View style={styles.cardDivider} />
-
+        {/* Incident Date & Outcome Card (Image 4) */}
+        <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Incident Date</Text>
-              <Text style={styles.fieldValue}>{currentDispute.incidentDate || '06 Oct 2026'}</Text>
+              <Text style={styles.fieldValueBold}>{currentDispute.incidentDate || 'Not provided'}</Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.fieldLabel}>Linked Record</Text>
-              <TouchableOpacity
-                style={styles.linkedRecordCard}
-                onPress={() => {
-                  const raw = currentDispute.linkedRecord || 'PO-2026-00124';
-                  const orderId = raw.replace(/^Purchase Order\s+/i, '').trim();
-                  onNavigateOrder?.(orderId);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.linkedRecordValue} numberOfLines={1}>
-                  {currentDispute.linkedRecord || 'PO-2026-00124'}
-                </Text>
-                <ExternalArrowIcon size={14} color={adminColors.brandDeep} />
-              </TouchableOpacity>
+              {currentDispute.linkedRecord ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    const raw = currentDispute.linkedRecord || 'PO-2026-00124';
+                    const orderId = raw.replace(/^Purchase Order\s+/i, '').trim();
+                    onNavigateOrder?.(orderId);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.linkedRecordUnderlineText}>
+                    {currentDispute.linkedRecord}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.fieldValueBold}>Not provided</Text>
+              )}
             </View>
           </View>
 
           <View style={styles.fullWidthFieldLast}>
             <Text style={styles.fieldLabel}>Expected Outcome</Text>
-            <Text style={styles.expectedOutcomeText}>
-              {currentDispute.expectedOutcome ||
-                'A clear explanation of the difference, and a correction if it was a mistake.'}
+            <Text style={styles.fieldValueRegular}>
+              {currentDispute.expectedOutcome || 'Not provided'}
             </Text>
           </View>
         </View>
 
-        {/* 5. Evidence & Attachments */}
+        {/* 5. Evidence & Attachments (Image 4) */}
         <Text style={styles.sectionHeader}>Evidence & Attachments</Text>
-        <View style={styles.evidenceList}>
-          {(
-            currentDispute.evidence ?? [
-              {
-                id: 'ev-1',
-                type: 'Document' as const,
-                title: 'Payment statement',
-                meta: 'Document · 08 Oct 2026 · by Ramesh Kumar',
-              },
-              {
-                id: 'ev-2',
-                type: 'Image' as const,
-                title: 'Carrot batch photo',
-                meta: 'Image · 08 Oct 2026 · by Ramesh Kumar',
-              },
-            ]
-          ).map((ev) => (
-            <View key={ev.id} style={styles.attachmentCard}>
-              <View style={styles.attachmentIconBox}>
-                {ev.type === 'Document' ? (
-                  <DocumentFileIcon size={22} color={adminColors.brand} />
-                ) : (
-                  <PhotoAttachmentIcon size={22} color={adminColors.brand} />
-                )}
+        {evidenceItems.length > 0 ? (
+          <View style={styles.evidenceList}>
+            {evidenceItems.map((ev) => (
+              <View key={ev.id} style={styles.attachmentCard}>
+                <View style={styles.attachmentIconBox}>
+                  {ev.type === 'Document' ? (
+                    <DocumentFileIcon size={20} color={adminColors.brandDeep} />
+                  ) : (
+                    <PhotoAttachmentIcon size={20} color={adminColors.brandDeep} />
+                  )}
+                </View>
+                <View style={styles.attachmentInfo}>
+                  <Text style={styles.attachmentTitle}>{ev.title}</Text>
+                  <Text style={styles.attachmentMeta}>{ev.meta}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setViewingAttachment(ev.title)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewLinkText}>View</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.attachmentInfo}>
-                <Text style={styles.attachmentTitle}>{ev.title}</Text>
-                <Text style={styles.attachmentMeta}>{ev.meta}</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.viewLinkBtn}
-                onPress={() => setViewingAttachment(ev.title)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.viewLinkText}>View</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.emptyEvidenceText}>No evidence has been attached.</Text>
+          </View>
+        )}
 
-        {/* 6. Admin Notes */}
+        {/* 6. Admin Notes (Image 4) */}
         <Text style={styles.sectionHeader}>Admin Notes</Text>
-        <View style={styles.noteCardAccent}>
-          <Text style={styles.descriptionBody}>
+        <View style={styles.card}>
+          <Text style={styles.adminNoteBody}>
             {currentDispute.adminNotes?.[0]?.text ??
               'Spoke to the farmer. The accepted price matches the purchase order; the difference needs a TOHFA explanation.'}
           </Text>
           <View style={styles.noteChipsRow}>
-            <View style={styles.noteNeutralChip}>
-              <Text style={styles.noteNeutralChipText}>
+            <View style={styles.neutralChip}>
+              <Text style={styles.neutralChipText}>
                 {currentDispute.adminNotes?.[0]?.author ?? 'Suresh Kumar'}
               </Text>
             </View>
-            <View style={styles.noteNeutralChip}>
-              <Text style={styles.noteNeutralChipText}>
+            <View style={styles.neutralChip}>
+              <Text style={styles.neutralChipText}>
                 {currentDispute.adminNotes?.[0]?.date ?? '09 Oct 2026, 10:30'}
               </Text>
             </View>
-            <View style={styles.noteInternalChip}>
-              <ShieldLockIcon size={12} color={adminColors.brandDeep} />
-              <Text style={styles.noteInternalChipText}>Internal only</Text>
+            <View style={styles.internalBlueChip}>
+              <Text style={styles.internalBlueChipText}>Internal only</Text>
             </View>
           </View>
         </View>
 
-        {/* 7. Actions */}
+        {/* 7. Actions (Image 4) */}
         <Text style={styles.sectionHeader}>Actions</Text>
-        <View style={styles.actionRowTwo}>
+        <View style={styles.actionsTopRow}>
           <TouchableOpacity
-            style={styles.actionCardBtn}
+            style={styles.outlineActionBtn}
             onPress={() => {
               if (onViewTimeline) {
                 onViewTimeline(currentDispute);
               } else {
-                setActiveInlineAction((prev) => (prev === 'timeline' ? null : 'timeline'));
+                Alert.alert('Timeline', `Opening timeline for dispute ${currentDispute.id}`);
               }
             }}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
           >
-            <ClockMilestoneIcon size={18} color={adminColors.brand} />
-            <Text style={styles.actionCardBtnText}>View Timeline</Text>
+            <Text style={styles.outlineActionBtnText}>View Timeline</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.actionCardBtn}
-            onPress={() => setActiveInlineAction((prev) => (prev === 'add_note' ? null : 'add_note'))}
-            activeOpacity={0.75}
+            style={styles.outlineActionBtn}
+            onPress={() => setShowAddNoteModal(true)}
+            activeOpacity={0.8}
           >
-            <PencilNoteIcon size={18} color={adminColors.brand} />
-            <Text style={styles.actionCardBtnText}>Add Note</Text>
+            <Text style={styles.outlineActionBtnText}>Add Note</Text>
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity
-          style={styles.actionCardBtnFull}
-          onPress={() => setActiveInlineAction((prev) => (prev === 'request_info' ? null : 'request_info'))}
-          activeOpacity={0.75}
+          style={styles.fullOutlineActionBtn}
+          onPress={() => {
+            setRequestInfoStep('form');
+            setShowRequestInfoModal(true);
+          }}
+          activeOpacity={0.8}
         >
-          <MailQuestionIcon size={18} color={adminColors.brand} />
-          <Text style={styles.actionCardBtnText}>Request Information</Text>
+          <Text style={styles.outlineActionBtnText}>Request Information</Text>
         </TouchableOpacity>
 
-        {/* ─── Inline Action: Add Note ─── */}
-        {activeInlineAction === 'add_note' && (
-          <View style={styles.inlineActionCard}>
-            <Text style={styles.inlineActionTitle}>Add Note</Text>
-
-            <View style={styles.inlineTextareaWrapper}>
-              <TextInput
-                style={styles.inlineTextarea}
-                placeholder="Record a mediation note"
-                placeholderTextColor={adminColors.placeholder}
-                multiline
-                numberOfLines={4}
-                value={noteText}
-                onChangeText={setNoteText}
-              />
-              <View style={styles.resizeIndicator}>
-                <ResizeGripIcon size={12} color={adminColors.muted} />
-              </View>
-            </View>
-
-            <Text style={styles.inlineFieldLabel}>Visibility</Text>
-            <TouchableOpacity
-              style={styles.inlineDropdown}
-              onPress={() => setShowVisibilityPicker((v) => !v)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.inlineDropdownText}>{noteVisibility}</Text>
-              <ChevronDownIcon size={16} color={adminColors.ink} />
-            </TouchableOpacity>
-            {showVisibilityPicker && (
-              <View style={styles.pickerDropdownMenu}>
-                {(['Internal only', 'All Parties'] as const).map((opt) => (
-                  <TouchableOpacity
-                    key={opt}
-                    style={[styles.pickerItem, noteVisibility === opt && styles.pickerItemActive]}
-                    onPress={() => {
-                      setNoteVisibility(opt);
-                      setShowVisibilityPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pickerItemText,
-                        noteVisibility === opt && styles.pickerItemTextActive,
-                      ]}
-                    >
-                      {opt}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={styles.inlineSaveBtn}
-              onPress={handleSaveNote}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.inlineSaveBtnText}>Save Note</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.inlineCancelBtn}
-              onPress={() => setActiveInlineAction(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.inlineCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* ─── Inline Action: Request Information ─── */}
-        {activeInlineAction === 'request_info' && (
-          <View style={styles.inlineActionCard}>
-            <Text style={styles.inlineActionTitle}>Request Information</Text>
-
-            <Text style={styles.inlineFieldLabel}>Recipient</Text>
-            <TouchableOpacity
-              style={styles.inlineDropdown}
-              onPress={() => setShowRecipientPicker((v) => !v)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.inlineDropdownText}>{requestRecipient}</Text>
-              <ChevronDownIcon size={16} color={adminColors.ink} />
-            </TouchableOpacity>
-
-            {showRecipientPicker && (
-              <View style={styles.pickerDropdownMenu}>
-                {[
-                  'Ramesh Kumar (Farmer)',
-                  'Procurement Team (TOHFA)',
-                  'Nilgiris Collection Centre',
-                ].map((recipient) => (
-                  <TouchableOpacity
-                    key={recipient}
-                    style={[
-                      styles.pickerItem,
-                      requestRecipient === recipient && styles.pickerItemActive,
-                    ]}
-                    onPress={() => {
-                      setRequestRecipient(recipient);
-                      setShowRecipientPicker(false);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.pickerItemText,
-                        requestRecipient === recipient && styles.pickerItemTextActive,
-                      ]}
-                    >
-                      {recipient}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            <Text style={styles.inlineFieldLabel}>
-              Information Requested <Text style={styles.requiredStar}>*</Text>
-            </Text>
-            <View style={styles.inlineTextareaWrapper}>
-              <TextInput
-                style={styles.inlineTextarea}
-                placeholder="Specify information required from the party"
-                placeholderTextColor={adminColors.placeholder}
-                multiline
-                numberOfLines={3}
-                value={requestText}
-                onChangeText={setRequestText}
-              />
-              <View style={styles.resizeIndicator}>
-                <ResizeGripIcon size={12} color={adminColors.muted} />
-              </View>
-            </View>
-
-            <Text style={styles.inlineFieldLabel}>Reason for Request (optional)</Text>
-            <View style={styles.inlineTextareaWrapper}>
-              <TextInput
-                style={styles.inlineTextarea}
-                placeholder="State reason or context"
-                placeholderTextColor={adminColors.placeholder}
-                multiline
-                numberOfLines={3}
-                value={requestReason}
-                onChangeText={setRequestReason}
-              />
-              <View style={styles.resizeIndicator}>
-                <ResizeGripIcon size={12} color={adminColors.muted} />
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.inlineSaveBtn}
-              onPress={handleSendRequest}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.inlineSaveBtnText}>Send Request</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.inlineCancelBtn}
-              onPress={() => setActiveInlineAction(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.inlineCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={{ height: 110 }} />
-      </ScrollView>
-
-      {/* ─── Fixed Bottom Bar with Resolve Dispute Action ─── */}
-      <View style={styles.fixedBottomBar}>
         <TouchableOpacity
           style={[
             styles.resolvePrimaryBtn,
@@ -792,7 +525,7 @@ export function FarmerDisputeDetailScreen({
               if (onNavigateResolve) {
                 onNavigateResolve(currentDispute);
               } else {
-                setShowResolveModal(true);
+                setShowResolveConfirmModal(true);
               }
             }
           }}
@@ -803,55 +536,321 @@ export function FarmerDisputeDetailScreen({
             {currentDispute.status === 'Resolved' ? 'Dispute Resolved' : 'Resolve Dispute'}
           </Text>
         </TouchableOpacity>
-      </View>
 
-      {/* ─── Resolve Dispute Modal Fallback ─── */}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* ─── POPUP 1: Add Mediation Note Popup (Image 5 Left: M10-S02a) ─── */}
       <Modal
-        visible={showResolveModal}
+        visible={showAddNoteModal}
         transparent
-        animationType="fade"
-        onRequestClose={() => setShowResolveModal(false)}
+        animationType="slide"
+        onRequestClose={() => setShowAddNoteModal(false)}
       >
-        <TouchableWithoutFeedback onPress={() => setShowResolveModal(false)}>
-          <View style={styles.modalOverlay}>
+        <TouchableWithoutFeedback onPress={() => setShowAddNoteModal(false)}>
+          <View style={styles.bottomSheetOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalCard}>
-                <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>Resolve Dispute</Text>
-                  <TouchableOpacity
-                    onPress={() => setShowResolveModal(false)}
-                    style={styles.modalCloseBtn}
-                  >
-                    <Text style={styles.modalCloseText}>✕</Text>
-                  </TouchableOpacity>
+              <View style={styles.bottomSheetCard}>
+                <Text style={styles.bottomSheetTitle}>Add Mediation Note</Text>
+
+                <Text style={styles.sheetLabel}>
+                  Note <Text style={styles.redAsterisk}>*</Text>
+                </Text>
+                <View style={styles.textareaWrapper}>
+                  <TextInput
+                    style={styles.sheetTextarea}
+                    placeholder="Record a mediation note"
+                    placeholderTextColor={adminColors.placeholder}
+                    multiline
+                    value={noteText}
+                    onChangeText={setNoteText}
+                  />
+                  <View style={styles.resizeGripPos}>
+                    <ResizeGripIcon size={12} color={adminColors.muted} />
+                  </View>
                 </View>
 
+                <Text style={styles.sheetLabel}>Visibility</Text>
+                <TouchableOpacity
+                  style={styles.sheetDropdown}
+                  onPress={() => setShowVisibilityPicker((v) => !v)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.sheetDropdownText}>{noteVisibility}</Text>
+                  <ChevronDownIcon size={16} color={adminColors.ink} />
+                </TouchableOpacity>
+
+                {showVisibilityPicker && (
+                  <View style={styles.dropdownMenu}>
+                    {(['Internal only', 'Shared with all parties'] as const).map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.dropdownItem,
+                          noteVisibility === opt && styles.dropdownItemActive,
+                        ]}
+                        onPress={() => {
+                          setNoteVisibility(opt);
+                          setShowVisibilityPicker(false);
+                        }}
+                      >
+                        <Text
+                          style={[
+                            styles.dropdownItemText,
+                            noteVisibility === opt && styles.dropdownItemTextActive,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                )}
+
+                <Text style={styles.sheetHelpText}>
+                  Internal notes are visible only to admins. Shared notes are marked as shared on the record.
+                </Text>
+
+                <View style={styles.sheetButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.sheetButton}
+                    onPress={handleSaveNote}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.sheetButtonText}>Save Note</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.sheetButton}
+                    onPress={() => setShowAddNoteModal(false)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.sheetButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ─── POPUP 2: Request Information & Review Request Popup ─── */}
+      <Modal
+        visible={showRequestInfoModal}
+        transparent
+        animationType="slide"
+        onRequestClose={handleCloseRequestModal}
+      >
+        <TouchableWithoutFeedback onPress={handleCloseRequestModal}>
+          <View style={styles.bottomSheetOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.bottomSheetCard}>
+                {requestInfoStep === 'form' ? (
+                  <>
+                    <Text style={styles.bottomSheetTitle}>Request Information</Text>
+
+                    <Text style={styles.sheetLabel}>
+                      Recipient <Text style={styles.redAsterisk}>*</Text>
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.sheetDropdown}
+                      onPress={() => setShowRecipientPicker((v) => !v)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[
+                          styles.sheetDropdownText,
+                          !requestRecipient && { color: adminColors.placeholder },
+                        ]}
+                      >
+                        {requestRecipient || 'Select a recipient'}
+                      </Text>
+                      <ChevronDownIcon size={16} color={adminColors.ink} />
+                    </TouchableOpacity>
+
+                    {showRecipientPicker && (
+                      <View style={styles.dropdownMenu}>
+                        {[
+                          'TOHFA (no department assigned) (TOHFA)',
+                          `${currentDispute.raisedBy || 'Ramesh Kumar'} (Farmer)`,
+                          'Procurement Team (TOHFA)',
+                          'Collection Team (TOHFA)',
+                          'Quality Control Team (TOHFA)',
+                        ].map((rec) => (
+                          <TouchableOpacity
+                            key={rec}
+                            style={[
+                              styles.dropdownItem,
+                              requestRecipient === rec && styles.dropdownItemActive,
+                            ]}
+                            onPress={() => {
+                              setRequestRecipient(rec);
+                              setShowRecipientPicker(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                requestRecipient === rec && styles.dropdownItemTextActive,
+                              ]}
+                            >
+                              {rec}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <Text style={styles.sheetLabel}>
+                      Information requested <Text style={styles.redAsterisk}>*</Text>
+                    </Text>
+                    <View style={styles.textareaWrapper}>
+                      <TextInput
+                        style={styles.sheetTextarea}
+                        placeholder=""
+                        placeholderTextColor={adminColors.placeholder}
+                        multiline
+                        value={requestText}
+                        onChangeText={setRequestText}
+                      />
+                      <View style={styles.resizeGripPos}>
+                        <ResizeGripIcon size={12} color={adminColors.muted} />
+                      </View>
+                    </View>
+
+                    <Text style={styles.sheetLabel}>Supporting attachment (optional)</Text>
+                    <TouchableOpacity
+                      style={styles.dashedUploadBox}
+                      onPress={handleUploadAttachment}
+                      activeOpacity={0.75}
+                    >
+                      <UploadFileIcon size={18} color={adminColors.brandDeep} />
+                      <Text style={styles.uploadBoxText}>
+                        {attachmentName ? attachmentName : 'Upload file'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.sheetButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.sheetButton}
+                        onPress={handleReviewRequest}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.sheetButtonText}>Review Request</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.sheetButton}
+                        onPress={handleCloseRequestModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.sheetButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.bottomSheetTitle}>Review Request</Text>
+
+                    <View style={styles.reviewCard}>
+                      <Text style={styles.reviewLabel}>Recipient</Text>
+                      <Text style={styles.reviewRecipientValue}>{requestRecipient}</Text>
+
+                      <Text style={styles.reviewInfoLabel}>Information requested</Text>
+                      <Text style={styles.reviewTextValue}>{requestText}</Text>
+
+                      {attachmentName ? (
+                        <>
+                          <Text style={styles.reviewAttachmentLabel}>Supporting attachment</Text>
+                          <Text style={styles.reviewAttachmentValue}>{attachmentName}</Text>
+                        </>
+                      ) : null}
+                    </View>
+
+                    <Text style={styles.reviewNoticeText}>
+                      Sent through the existing notification system. The dispute moves to{' '}
+                      <Text style={styles.reviewNoticeAwaiting}>Awaiting</Text>{' '}
+                      <Text style={styles.reviewNoticeRule}>
+                        {requestRecipient.toLowerCase().includes('farmer')
+                          ? 'Farmer (proposed rule)'
+                          : 'TOHFA (proposed rule)'}
+                      </Text>
+                      .
+                    </Text>
+
+                    <View style={styles.reviewButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={handleSendRequest}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reviewBtnText}>Send Request</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={() => setRequestInfoStep('form')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reviewBtnText}>Back to Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={handleCloseRequestModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reviewBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ─── Resolve Dispute Confirmation Modal (Fallback) ─── */}
+      <Modal
+        visible={showResolveConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowResolveConfirmModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowResolveConfirmModal(false)}>
+          <View style={styles.centerModalOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.centerModalCard}>
+                <Text style={styles.modalTitle}>Resolve Dispute</Text>
                 <Text style={styles.modalSubtitle}>
                   Confirming mutual resolution for dispute {currentDispute.id}:
                 </Text>
 
                 <TextInput
-                  style={[styles.noteTextInput, { marginTop: adminSpacing.sm }]}
+                  style={styles.resolveTextInput}
                   placeholder="Enter settlement summary / agreed outcome..."
                   placeholderTextColor={adminColors.placeholder}
                   multiline
                   numberOfLines={3}
-                  value={resolutionText}
-                  onChangeText={setResolutionText}
+                  value={resolutionSummary}
+                  onChangeText={setResolutionSummary}
                 />
 
-                <View style={styles.modalBtnRow}>
+                <View style={styles.sheetButtonsRow}>
                   <TouchableOpacity
-                    style={styles.modalCancelBtn}
-                    onPress={() => setShowResolveModal(false)}
-                  >
-                    <Text style={styles.modalCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modalConfirmBtn, { backgroundColor: adminColors.brand }]}
+                    style={styles.sheetButton}
                     onPress={handleConfirmResolution}
                   >
-                    <Text style={styles.modalConfirmText}>Confirm Resolution</Text>
+                    <Text style={[styles.sheetButtonText, { color: adminColors.brandDeep }]}>
+                      Confirm Resolution
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.sheetButton}
+                    onPress={() => setShowResolveConfirmModal(false)}
+                  >
+                    <Text style={styles.sheetButtonText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -868,21 +867,12 @@ export function FarmerDisputeDetailScreen({
         onRequestClose={() => setViewingAttachment(null)}
       >
         <TouchableWithoutFeedback onPress={() => setViewingAttachment(null)}>
-          <View style={styles.modalOverlay}>
+          <View style={styles.centerModalOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.modalCard}>
-                <View style={styles.modalHeaderRow}>
-                  <Text style={styles.modalTitle}>{viewingAttachment}</Text>
-                  <TouchableOpacity
-                    onPress={() => setViewingAttachment(null)}
-                    style={styles.modalCloseBtn}
-                  >
-                    <Text style={styles.modalCloseText}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-
+              <View style={styles.centerModalCard}>
+                <Text style={styles.modalTitle}>{viewingAttachment}</Text>
                 <View style={styles.attachmentPreviewBox}>
-                  <DocumentFileIcon size={48} color={adminColors.brand} />
+                  <DocumentFileIcon size={44} color={adminColors.brandDeep} />
                   <Text style={styles.attachmentPreviewText}>
                     Verified Document Preview: {viewingAttachment}
                   </Text>
@@ -892,10 +882,10 @@ export function FarmerDisputeDetailScreen({
                 </View>
 
                 <TouchableOpacity
-                  style={styles.modalPrimaryDoneBtn}
+                  style={styles.sheetButton}
                   onPress={() => setViewingAttachment(null)}
                 >
-                  <Text style={styles.modalPrimaryDoneText}>Close</Text>
+                  <Text style={styles.sheetButtonText}>Close</Text>
                 </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
@@ -903,7 +893,7 @@ export function FarmerDisputeDetailScreen({
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* ─── Toast Feedback ─── */}
+      {/* ─── Feedback Toast ─── */}
       {toastMessage && (
         <View style={styles.toastContainer}>
           <Text style={styles.toastText}>{toastMessage}</Text>
@@ -932,8 +922,8 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -adminSpacing.xs,
@@ -946,35 +936,13 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
     letterSpacing: -0.2,
   },
-  headerSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    marginTop: 2,
-  },
   headerSubtitleText: {
     ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
     color: adminColors.onBrand,
     opacity: 0.95,
-  },
-  headerDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 1.5,
-    backgroundColor: adminColors.onBrand,
-    opacity: 0.6,
-  },
-  headerStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 1.5,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminOverlay.whitePill,
-  },
-  headerStatusBadgeText: {
-    ...adminType.caption,
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: adminColors.onBrand,
+    marginTop: 2,
   },
   scroll: {
     flex: 1,
@@ -982,15 +950,15 @@ const styles = StyleSheet.create({
   scrollPad: {
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xxl,
+    paddingBottom: adminSpacing.xl,
   },
   sectionHeader: {
-    ...adminType.sectionHead,
-    fontSize: 13.5,
+    ...adminType.rowTitle,
+    fontSize: 14.5,
     fontWeight: '800',
     color: adminColors.brandDeep,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
+    marginTop: 16,
+    marginBottom: 8,
   },
   card: {
     backgroundColor: adminColors.card,
@@ -999,23 +967,12 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
     paddingVertical: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
-    ...adminShadow.sm,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: adminColors.canvas,
-    marginVertical: adminSpacing.sm,
+    marginBottom: 8,
   },
   twoColRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: adminSpacing.sm,
+    marginBottom: 12,
   },
   twoColRowLast: {
     flexDirection: 'row',
@@ -1026,167 +983,61 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fullWidthField: {
-    marginBottom: adminSpacing.sm,
+    marginBottom: 12,
   },
   fullWidthFieldLast: {
     marginBottom: 0,
   },
   fieldLabel: {
     ...adminType.caption,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 11.5,
+    fontWeight: '600',
     color: adminColors.muted,
-    marginBottom: 2,
+    marginBottom: 3,
   },
-  fieldValue: {
+  fieldValueBold: {
     ...adminType.body,
     fontSize: 13.5,
     fontWeight: '700',
     color: adminColors.ink,
   },
-  fieldValueId: {
-    ...adminType.rowTitle,
-    fontSize: 15,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  fieldValueSubject: {
+  fieldValueRegular: {
     ...adminType.body,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
     color: adminColors.ink,
+    lineHeight: 18,
   },
-  statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-    borderRadius: adminRadius.full,
-    borderWidth: 1,
-  },
-  statusIndicatorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusPillText: {
-    ...adminType.caption,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // Farmer Card
-  farmerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.md,
-  },
-  avatarCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  avatarInitials: {
-    ...adminType.rowTitle,
-    fontSize: 14,
-    fontWeight: '800',
-    color: adminColors.brand,
-  },
-  farmerNameText: {
-    ...adminType.rowTitle,
-    fontSize: 15,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  farmerIdText: {
-    ...adminType.caption,
-    fontSize: 11,
-    color: adminColors.muted,
-    marginTop: 1,
-  },
-  zoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-
-  // TOHFA Card
-  deptRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  maskedInfoNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.md,
+  maskedNoticeCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-    marginTop: adminSpacing.md,
+    paddingVertical: 12,
+    marginBottom: 8,
   },
-  maskedInfoText: {
-    flex: 1,
+  maskedNoticeText: {
     ...adminType.caption,
     fontSize: 11.5,
     fontWeight: '600',
     color: adminColors.muted,
   },
-
-  // Description Card
-  complaintBox: {
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.md,
-    padding: adminSpacing.md,
-    borderLeftWidth: 3,
-    borderLeftColor: adminColors.brand,
-  },
-  descriptionBody: {
+  descriptionBodyText: {
     ...adminType.body,
-    fontSize: 13,
+    fontSize: 13.5,
     color: adminColors.ink,
-    lineHeight: 19,
+    lineHeight: 20,
   },
-  linkedRecordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    marginTop: 2,
-  },
-  linkedRecordValue: {
-    ...adminType.caption,
-    fontSize: 12,
-    fontWeight: '800',
+  linkedRecordUnderlineText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '700',
     color: adminColors.brandDeep,
-    flex: 1,
+    textDecorationLine: 'underline',
   },
-  expectedOutcomeText: {
-    ...adminType.body,
-    fontSize: 12.5,
-    color: adminColors.ink,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-
-  // Evidence
   evidenceList: {
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.xs,
+    gap: 8,
+    marginBottom: 8,
   },
   attachmentCard: {
     flexDirection: 'row',
@@ -1196,14 +1047,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
-    ...adminShadow.sm,
+    paddingVertical: 14,
   },
   attachmentIconBox: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: adminRadius.md,
-    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: adminSpacing.md,
@@ -1212,8 +1061,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   attachmentTitle: {
-    ...adminType.rowTitle,
+    ...adminType.body,
     fontSize: 13.5,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   attachmentMeta: {
@@ -1222,427 +1072,418 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     marginTop: 2,
   },
-  viewLinkBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.brand,
-    backgroundColor: adminColors.card,
-  },
   viewLinkText: {
     ...adminType.caption,
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: adminColors.brand,
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-
-  // Admin Notes
-  noteCardAccent: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderLeftWidth: 3.5,
-    borderLeftColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
-    ...adminShadow.sm,
+  emptyEvidenceText: {
+    ...adminType.caption,
+    fontSize: 12.5,
+    color: adminColors.muted,
+    fontStyle: 'italic',
+  },
+  adminNoteBody: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+    lineHeight: 19,
+    marginBottom: 10,
   },
   noteChipsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: adminSpacing.xs,
-    marginTop: adminSpacing.sm,
+    gap: 6,
   },
-  noteNeutralChip: {
+  neutralChip: {
     backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  noteNeutralChipText: {
+  neutralChipText: {
     ...adminType.caption,
-    fontSize: 10.5,
-    color: adminColors.muted,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
-  noteInternalChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: adminColors.brandTint,
+  internalBlueChip: {
+    backgroundColor: adminColors.info.bg,
     borderRadius: adminRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  noteInternalChipText: {
+  internalBlueChipText: {
     ...adminType.caption,
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
+    color: adminColors.info.text,
+  },
+  actionsTopRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  outlineActionBtn: {
+    flex: 1,
+    height: 46,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1.5,
+    borderColor: adminColors.brandDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullOutlineActionBtn: {
+    height: 46,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1.5,
+    borderColor: adminColors.brandDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  outlineActionBtnText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '800',
     color: adminColors.brandDeep,
   },
-
-  // Actions
-  actionRowTwo: {
-    flexDirection: 'row',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.sm,
+  resolvePrimaryBtn: {
+    height: 48,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
   },
-  actionCardBtn: {
+  resolveBtnDisabled: {
+    opacity: 0.6,
+  },
+  resolvePrimaryBtnText: {
+    ...adminType.body,
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+
+  // Bottom Sheet Modal (Image 5)
+  bottomSheetOverlay: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: adminSpacing.xs,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    paddingVertical: 12,
-    ...adminShadow.sm,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'flex-end',
   },
-  actionCardBtnFull: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: adminSpacing.xs,
+  bottomSheetCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    paddingVertical: 12,
-    marginBottom: adminSpacing.sm,
-    ...adminShadow.sm,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 32,
+    ...adminShadow.lg,
   },
-  actionCardBtnText: {
-    ...adminType.rowTitle,
-    fontSize: 13,
+  bottomSheetTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
     color: adminColors.ink,
-    fontWeight: '700',
+    marginBottom: 16,
   },
-
-  // Disclaimer Box
-  disclaimerBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.lg,
+  sheetLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  redAsterisk: {
+    color: adminColors.danger.text,
+  },
+  textareaWrapper: {
+    position: 'relative',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    marginTop: adminSpacing.xs,
-    marginBottom: adminSpacing.md,
+    borderRadius: adminRadius.md,
+    minHeight: 88,
   },
-  disclaimerText: {
-    flex: 1,
+  sheetTextarea: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 88,
+    textAlignVertical: 'top',
+  },
+  resizeGripPos: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+  },
+  sheetDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: 14,
+    height: 46,
+  },
+  sheetDropdownText: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  dropdownMenu: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginTop: 4,
+    overflow: 'hidden',
+    ...adminShadow.md,
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.canvas,
+  },
+  dropdownItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  dropdownItemText: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  dropdownItemTextActive: {
+    color: adminColors.brandDeep,
+    fontWeight: '700',
+  },
+  sheetHelpText: {
     ...adminType.caption,
     fontSize: 11.5,
     color: adminColors.muted,
     lineHeight: 16,
+    marginTop: 8,
+  },
+  dashedUploadBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderStyle: 'dashed',
+    borderRadius: adminRadius.md,
+    paddingVertical: 14,
+    backgroundColor: adminColors.card,
+  },
+  uploadBoxText: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  sheetButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  sheetButton: {
+    flex: 1,
+    height: 44,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetButtonText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
 
-  // Inline Forms
-  inlineActionCard: {
+  // Review Request Step (Screen 2 within the same modal)
+  reviewCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: adminColors.brand,
-    padding: adminSpacing.lg,
-    marginBottom: adminSpacing.lg,
-    ...adminShadow.md,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
+    padding: 16,
+    marginBottom: 16,
   },
-  inlineActionTitle: {
-    ...adminType.rowTitle,
+  reviewLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  reviewRecipientValue: {
+    ...adminType.body,
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 16,
+  },
+  reviewInfoLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0D7A74',
+    marginBottom: 4,
+  },
+  reviewTextValue: {
+    ...adminType.body,
     fontSize: 15,
     fontWeight: '800',
     color: adminColors.ink,
-    marginBottom: adminSpacing.sm,
+    lineHeight: 21,
   },
-  inlineFieldLabel: {
-    ...adminType.caption,
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: adminColors.ink,
-    marginTop: adminSpacing.xs,
+  reviewAttachmentLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginTop: 14,
     marginBottom: 4,
   },
-  requiredStar: {
-    color: adminColors.danger.text,
-  },
-  inlineTextareaWrapper: {
-    position: 'relative',
-    backgroundColor: adminColors.canvas,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    marginBottom: adminSpacing.sm,
-  },
-  inlineTextarea: {
+  reviewAttachmentValue: {
     ...adminType.body,
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
-    minHeight: 70,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
-    textAlignVertical: 'top',
   },
-  resizeIndicator: {
-    position: 'absolute',
-    right: 4,
-    bottom: 4,
+  reviewNoticeText: {
+    ...adminType.body,
+    fontSize: 12,
+    color: adminColors.muted,
+    lineHeight: 18,
+    marginBottom: 20,
   },
-  inlineDropdown: {
+  reviewNoticeAwaiting: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  reviewNoticeRule: {
+    color: adminColors.info.text,
+    fontWeight: '700',
+  },
+  reviewButtonsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: adminColors.canvas,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 10,
-    marginBottom: adminSpacing.sm,
+    gap: 10,
+    marginTop: 10,
   },
-  inlineDropdownText: {
-    ...adminType.body,
-    fontSize: 13,
-    color: adminColors.ink,
-  },
-  pickerDropdownMenu: {
+  reviewBtn: {
+    flex: 1,
+    height: 44,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    marginBottom: adminSpacing.sm,
-    overflow: 'hidden',
-    ...adminShadow.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
-  pickerItem: {
-    paddingVertical: 10,
-    paddingHorizontal: adminSpacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.canvas,
-  },
-  pickerItemActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  pickerItemText: {
+  reviewBtnText: {
     ...adminType.body,
     fontSize: 13,
+    fontWeight: '700',
     color: adminColors.ink,
-  },
-  pickerItemTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  inlineSaveBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 11,
-    alignItems: 'center',
-    marginTop: adminSpacing.xs,
-  },
-  inlineSaveBtnText: {
-    ...adminType.rowTitle,
-    fontSize: 13.5,
-    color: adminColors.onBrand,
-    fontWeight: '700',
-  },
-  inlineCancelBtn: {
-    backgroundColor: 'transparent',
-    borderRadius: adminRadius.md,
-    paddingVertical: 9,
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  inlineCancelBtnText: {
-    ...adminType.caption,
-    fontSize: 12.5,
-    color: adminColors.muted,
-  },
-
-  // Fixed Bottom Bar
-  fixedBottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: adminColors.canvas,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.md,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    ...adminShadow.md,
-  },
-  resolvePrimaryBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 13,
-    alignItems: 'center',
-  },
-  resolveBtnDisabled: {
-    backgroundColor: adminColors.border,
-    opacity: 0.7,
-  },
-  resolvePrimaryBtnText: {
-    ...adminType.rowTitle,
-    fontSize: 14,
-    color: adminColors.onBrand,
-    fontWeight: '700',
-  },
-  screenIdCaption: {
-    ...adminType.caption,
-    fontSize: 10.5,
-    color: adminColors.muted,
     textAlign: 'center',
-    marginTop: 4,
   },
 
-  // Modal
-  modalOverlay: {
+  // Center Modal Fallback
+  centerModalOverlay: {
     flex: 1,
     backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: adminSpacing.lg,
   },
-  modalCard: {
+  centerModalCard: {
     width: '100%',
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     padding: adminSpacing.lg,
     ...adminShadow.lg,
   },
-  modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: adminSpacing.sm,
-  },
   modalTitle: {
     ...adminType.rowTitle,
     fontSize: 16,
     color: adminColors.ink,
     fontWeight: '800',
-  },
-  modalCloseBtn: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseText: {
-    fontSize: 18,
-    color: adminColors.muted,
-    fontWeight: '700',
+    marginBottom: 6,
   },
   modalSubtitle: {
     ...adminType.body,
     fontSize: 13,
     color: adminColors.muted,
-    marginBottom: adminSpacing.xs,
+    marginBottom: 10,
   },
-  noteTextInput: {
+  resolveTextInput: {
     backgroundColor: adminColors.canvas,
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    padding: 10,
+    minHeight: 70,
+    textAlignVertical: 'top',
     ...adminType.body,
     fontSize: 13,
     color: adminColors.ink,
-    minHeight: 70,
-    textAlignVertical: 'top',
-  },
-  modalBtnRow: {
-    flexDirection: 'row',
-    gap: adminSpacing.sm,
-    marginTop: adminSpacing.md,
-  },
-  modalCancelBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    ...adminType.caption,
-    fontSize: 13,
-    color: adminColors.ink,
-    fontWeight: '700',
-  },
-  modalConfirmBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: adminRadius.md,
-    alignItems: 'center',
-  },
-  modalConfirmText: {
-    ...adminType.caption,
-    fontSize: 13,
-    color: adminColors.onBrand,
-    fontWeight: '700',
+    marginBottom: 10,
   },
   attachmentPreviewBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.xl,
-    marginVertical: adminSpacing.md,
+    paddingVertical: 20,
   },
   attachmentPreviewText: {
-    ...adminType.rowTitle,
+    ...adminType.body,
     fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
-    marginTop: adminSpacing.sm,
+    marginTop: 10,
+    textAlign: 'center',
   },
   attachmentPreviewSub: {
     ...adminType.caption,
-    fontSize: 11,
+    fontSize: 12,
     color: adminColors.muted,
+    marginTop: 4,
     textAlign: 'center',
-    marginTop: 2,
-  },
-  modalPrimaryDoneBtn: {
-    backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  modalPrimaryDoneText: {
-    ...adminType.rowTitle,
-    fontSize: 13.5,
-    color: adminColors.onBrand,
-    fontWeight: '700',
   },
 
   // Toast
   toastContainer: {
     position: 'absolute',
-    top: 60,
+    bottom: 24,
     alignSelf: 'center',
-    backgroundColor: adminColors.toast.bg,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
+    backgroundColor: adminColors.ink,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: adminRadius.full,
-    zIndex: 999,
     ...adminShadow.md,
   },
   toastText: {
     ...adminType.caption,
     fontSize: 12,
-    color: adminColors.toast.text,
-    fontWeight: '700',
+    fontWeight: '600',
+    color: adminColors.card,
   },
 });

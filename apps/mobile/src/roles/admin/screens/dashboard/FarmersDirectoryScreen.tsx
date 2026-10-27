@@ -14,7 +14,7 @@ import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from 
 import { t } from '../../i18n';
 import { SearchFarmersScreen } from './SearchFarmersScreen';
 import { FarmerProfileDetailScreen, type FarmerProfileData } from './FarmerProfileDetailScreen';
-import { OverviewDashboardCard, OverviewCardsGrid, OverviewSectionHeader } from '../../components/OverviewDashboardCard';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -259,24 +259,13 @@ export function FarmersDirectoryScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 4 Summary KPI Cards (2x2 Grid) using reusable OverviewDashboardCard ─── */}
-        <OverviewSectionHeader
-          title={t('farmersDirectory.title') || 'Farmers Overview'}
-          actionLabel="View All"
-          onAction={() => {
-            setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'All', keyword: '' }));
-          }}
-          style={{ marginBottom: 12 }}
-        />
+        {/* ─── 4 Summary KPI Cards (2x2 Grid) - Static Display Cards ─── */}
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
           <OverviewDashboardCard
             value="245"
             title={t('farmersDirectory.kpi.allFarmers')}
             subtitle="Registered farmers"
             icon="orders"
-            onPress={() => {
-              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'All', keyword: '' }));
-            }}
           />
           <OverviewDashboardCard
             value="221"
@@ -284,9 +273,6 @@ export function FarmersDirectoryScreen({
             subtitle="Verified & active"
             icon="pickup"
             tone="success"
-            onPress={() => {
-              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'Active', keyword: '' }));
-            }}
           />
           <OverviewDashboardCard
             value="12"
@@ -294,18 +280,12 @@ export function FarmersDirectoryScreen({
             subtitle="Requires review"
             icon="alert"
             tone="warning"
-            onPress={() => {
-              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'Pending', keyword: '' }));
-            }}
           />
           <OverviewDashboardCard
             value="12"
             title={t('farmersDirectory.kpi.inactive')}
             subtitle="Dormant profiles"
             icon="box"
-            onPress={() => {
-              setActiveFilters((prev) => ({ ...prev, zone: 'All', status: 'Inactive', keyword: '' }));
-            }}
           />
         </OverviewCardsGrid>
 

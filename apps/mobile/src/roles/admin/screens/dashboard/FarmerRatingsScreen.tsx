@@ -621,60 +621,95 @@ export function FarmerRatingsScreen({
   };
 
   // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN: INDIVIDUAL FARMER RATINGS (Matching Image 1 Left Screen from Farmer Profile)
+  // SCREEN: INDIVIDUAL FARMER RATINGS (Matching Images 3 & 4 from Farmer Profile)
   // ───────────────────────────────────────────────────────────────────────────
   if ((farmerName || farmerId || initialView === 'farmer_rating') && currentView === 'overview') {
+    const displayName = farmerName && farmerName !== 'Ramesh Kumar' ? farmerName : 'Ramesh Kumar Farming';
+    const displayId = farmerId || 'FR-00124';
+
     return (
       <SafeAreaView style={styles.rootOrange}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* ── Terracotta Header (Image 1 Left Screen) ── */}
+        {/* ── Terracotta Header (Images 3 & 4) ── */}
         <View style={styles.header}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <TouchableOpacity
               onPress={onBack}
               style={styles.headerBackBtn}
               activeOpacity={0.7}
-              accessibilityLabel="Back to Farmer Profile"
+              accessibilityLabel="Back"
             >
               <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Farmer Ratings</Text>
+            <View>
+              <Text style={styles.headerTitle}>Farm Rating</Text>
+              <Text style={styles.headerSubtitle}>
+                {displayName} · {displayId}
+              </Text>
+            </View>
           </View>
         </View>
 
         <ScrollView
           style={styles.scrollCanvas}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 100 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Overall Rating Card (Image 1 Left Screen) */}
-          <View style={styles.heroRatingCardCentered}>
-            <Text style={styles.overallRatingLabel}>OVERALL RATING</Text>
-            <Text style={styles.overallRatingValue}>4.6 ★</Text>
+          {/* ── Big Rating Hero Card (Above Category Scores) ── */}
+          <View style={styles.heroRatingCard}>
+            <Text style={styles.heroScoreNum}>78 / 100</Text>
+            <Text style={styles.heroRatingLabel}>OVERALL RATING</Text>
+            <Text style={styles.heroRatingDate}>Last rated 15 Oct 2026</Text>
           </View>
 
-          {/* Rating Categories Section (Image 1 Left Screen) */}
-          <Text style={styles.sectionHeadingBrown}>Rating Categories</Text>
-          <View style={styles.categoriesCard}>
-            <View style={styles.categoryRow}>
-              <Text style={styles.categoryNameText}>Farm Quality</Text>
-              <Text style={styles.categoryScoreText}>{farmQualityScore}</Text>
-            </View>
-            <View style={styles.categoryDivider} />
-            <View style={styles.categoryRow}>
-              <Text style={styles.categoryNameText}>Produce Quality</Text>
-              <Text style={styles.categoryScoreText}>4.5</Text>
-            </View>
-            <View style={styles.categoryDivider} />
-            <View style={styles.categoryRow}>
-              <Text style={styles.categoryNameText}>Compliance</Text>
-              <Text style={styles.categoryScoreText}>4.6</Text>
+          {/* ── Section: Category Scores (Images 3 & 4) ── */}
+          <Text style={styles.sectionHeadingDetail}>Category Scores</Text>
+          <View style={styles.categoryScoresCard}>
+            {DEFAULT_CATEGORIES.map((cat, idx) => (
+              <View
+                key={cat.name}
+                style={[
+                  styles.categoryScoreRow,
+                  idx === DEFAULT_CATEGORIES.length - 1 && { borderBottomWidth: 0 },
+                ]}
+              >
+                <Text style={styles.categoryScoreName}>{cat.name}</Text>
+                <Text style={styles.categoryScoreValue}>{cat.score}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Section: Farm Information (Images 3 & 4) ── */}
+          <Text style={styles.sectionHeadingDetail}>Farm Information</Text>
+          <View style={styles.farmInfoCard}>
+            <View style={styles.farmInfoGrid}>
+              {/* Left Column */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.farmInfoLabel}>Farm</Text>
+                <Text style={styles.farmInfoValue}>Ooty Farm 01</Text>
+
+                <View style={{ height: 14 }} />
+
+                <Text style={styles.farmInfoLabel}>Farmer Since</Text>
+                <Text style={styles.farmInfoValue}>2023</Text>
+              </View>
+
+              {/* Right Column */}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.farmInfoLabel}>Zone</Text>
+                <Text style={styles.farmInfoValue}>Ooty</Text>
+
+                <View style={{ height: 14 }} />
+
+                <Text style={styles.farmInfoLabel}>Last Audit</Text>
+                <Text style={styles.farmInfoValue}>15 Oct 2026</Text>
+              </View>
             </View>
           </View>
 
-          {/* Rating History Section (Image 1 Left Screen) */}
-          <Text style={styles.sectionHeadingBrown}>Rating History</Text>
+          {/* ── Section: Rating History (Images 3 & 4) ── */}
+          <Text style={styles.sectionHeadingDetail}>Rating History</Text>
           <View style={styles.historyItemCard}>
             <Text style={styles.historyDateMuted}>12 Sep 2026</Text>
             <Text style={styles.historyScoreText}>Rating: 4.6 · Zone: Coonoor</Text>
@@ -684,17 +719,6 @@ export function FarmerRatingsScreen({
             <Text style={styles.historyScoreText}>Rating: 4.4 · Zone: Coonoor</Text>
           </View>
         </ScrollView>
-
-        {/* Bottom Sticky Bar: Edit Rating (Matching Screenshot 1) */}
-        <View style={styles.detailStickyBottomBar}>
-          <TouchableOpacity
-            style={styles.requestToEditBtn}
-            onPress={() => setCurrentView('edit_rating')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.requestToEditBtnText}>Edit Rating</Text>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
     );
   }
@@ -1494,25 +1518,21 @@ export function FarmerRatingsScreen({
           showsVerticalScrollIndicator={false}
         >
           {/* ── Big Rating Hero Card ── */}
-          <TouchableOpacity
-            style={styles.heroRatingCard}
-            onPress={() => setCurrentView('history')}
-            activeOpacity={0.88}
-          >
+          <View style={styles.heroRatingCard}>
             <Text style={styles.heroScoreNum}>{overallScore} / 100</Text>
             <Text style={styles.heroRatingLabel}>OVERALL RATING</Text>
-            <Text style={styles.heroRatingDate}>Last rated {selectedFarmer.lastAuditDate} · View History →</Text>
-          </TouchableOpacity>
+            <Text style={styles.heroRatingDate}>Last rated {selectedFarmer.lastAuditDate || '15 Oct 2026'}</Text>
+          </View>
 
           {/* ── Section: Category Scores ── */}
           <Text style={styles.sectionHeadingDetail}>Category Scores</Text>
           <View style={styles.categoryScoresCard}>
-            {selectedFarmer.categories.map((cat, idx) => (
+            {(selectedFarmer.categories.length > 0 ? selectedFarmer.categories : DEFAULT_CATEGORIES).map((cat, idx) => (
               <View
                 key={cat.name}
                 style={[
                   styles.categoryScoreRow,
-                  idx === selectedFarmer.categories.length - 1 && { borderBottomWidth: 0 },
+                  idx === (selectedFarmer.categories.length > 0 ? selectedFarmer.categories.length : DEFAULT_CATEGORIES.length) - 1 && { borderBottomWidth: 0 },
                 ]}
               >
                 <Text style={styles.categoryScoreName}>{cat.name}</Text>
@@ -1528,60 +1548,38 @@ export function FarmerRatingsScreen({
               {/* Left Column */}
               <View style={{ flex: 1 }}>
                 <Text style={styles.farmInfoLabel}>Farm</Text>
-                <Text style={styles.farmInfoValue}>{selectedFarmer.farm}</Text>
+                <Text style={styles.farmInfoValue}>{selectedFarmer.farm || 'Ooty Farm 01'}</Text>
 
                 <View style={{ height: 14 }} />
 
                 <Text style={styles.farmInfoLabel}>Farmer Since</Text>
-                <Text style={styles.farmInfoValue}>{selectedFarmer.sinceYear}</Text>
+                <Text style={styles.farmInfoValue}>{selectedFarmer.sinceYear || '2023'}</Text>
               </View>
 
               {/* Right Column */}
               <View style={{ flex: 1 }}>
                 <Text style={styles.farmInfoLabel}>Zone</Text>
-                <Text style={styles.farmInfoValue}>{selectedFarmer.zone}</Text>
+                <Text style={styles.farmInfoValue}>{selectedFarmer.zone || 'Ooty'}</Text>
 
                 <View style={{ height: 14 }} />
 
                 <Text style={styles.farmInfoLabel}>Last Audit</Text>
-                <Text style={styles.farmInfoValue}>{selectedFarmer.lastAuditDate}</Text>
+                <Text style={styles.farmInfoValue}>{selectedFarmer.lastAuditDate || '15 Oct 2026'}</Text>
               </View>
             </View>
           </View>
 
-          {/* Action Buttons below Farm Information */}
-          <TouchableOpacity
-            style={styles.viewHistoryOutlineBtn}
-            onPress={() => setCurrentView('history')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.viewHistoryOutlineBtnText}>View Rating History</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.viewHistoryOutlineBtn, { marginTop: 8 }]}
-            onPress={() => setCurrentView('permission')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.viewHistoryOutlineBtnText}>
-              {isPermissionRequested ? 'Permission Requested (Pending)' : 'Request Edit Permission'}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* ── Sticky Bottom Bar: Edit Rating (visible after permission request is sent) ── */}
-        {isPermissionRequested && (
-          <View style={styles.detailStickyBottomBar}>
-            <TouchableOpacity
-              style={[styles.detailBottomEditBtn, { flex: 1 }]}
-              onPress={() => setCurrentView('edit_rating')}
-              activeOpacity={0.85}
-            >
-              <PencilEditIcon size={18} color={adminColors.onBrand} />
-              <Text style={styles.detailBottomEditBtnText}>Edit Rating</Text>
-            </TouchableOpacity>
+          {/* ── Section: Rating History ── */}
+          <Text style={styles.sectionHeadingDetail}>Rating History</Text>
+          <View style={styles.historyItemCard}>
+            <Text style={styles.historyDateMuted}>12 Sep 2026</Text>
+            <Text style={styles.historyScoreText}>Rating: 4.6 · Zone: Coonoor</Text>
           </View>
-        )}
+          <View style={[styles.historyItemCard, { marginTop: 10 }]}>
+            <Text style={styles.historyDateMuted}>01 Aug 2026</Text>
+            <Text style={styles.historyScoreText}>Rating: 4.4 · Zone: Coonoor</Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -2919,6 +2917,104 @@ const styles = StyleSheet.create({
     color: adminColors.brand,
     marginTop: 20,
     marginBottom: 10,
+  },
+  farmRatingScoreCard: {
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.xl,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  farmRatingScoreValue: {
+    ...adminType.kpiValue,
+    fontSize: 40,
+    lineHeight: 46,
+    color: adminColors.onBrand,
+    letterSpacing: -0.5,
+  },
+  farmRatingScoreLabel: {
+    ...adminType.caption,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+    letterSpacing: 0.8,
+    marginTop: 6,
+  },
+  farmRatingScoreDate: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '500',
+    color: adminColors.onBrand,
+    opacity: 0.95,
+    marginTop: 6,
+  },
+  farmRatingSectionHeading: {
+    ...adminType.rowTitle,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    fontSize: 15,
+    marginTop: 22,
+    marginBottom: 10,
+  },
+  farmRatingListCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+  },
+  farmRatingScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  farmRatingScoreName: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  farmRatingScoreNum: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  farmRatingInfoCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+  },
+  farmRatingInfoLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  farmRatingInfoValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginTop: 3,
+  },
+  farmRatingHistoryItem: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+  },
+  farmRatingHistoryDate: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '500',
+  },
+  farmRatingHistoryScore: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginTop: 4,
   },
   categoryScoresCard: {
     backgroundColor: adminColors.card,

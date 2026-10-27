@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Modal,
   SafeAreaView,
   ScrollView,
@@ -63,23 +64,7 @@ function InfoCircleIcon({ size = 18, color = adminColors.warning.text }: { size?
   );
 }
 
-function CheckmarkCircleSuccessIcon({ size = 56 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 56 56" fill="none">
-      <Circle cx="28" cy="28" r="27" fill={adminColors.success.bg} />
-      <Circle cx="28" cy="28" r="19" stroke={adminColors.success.text} strokeWidth="2.2" />
-      <Path
-        d="M20 28.5l5.5 5.5 11-11"
-        stroke={adminColors.success.text}
-        strokeWidth="2.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function FilePlusIcon({ size = 20, color = adminColors.ink }: { size?: number; color?: string }) {
+function UploadFileIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -90,8 +75,7 @@ function FilePlusIcon({ size = 20, color = adminColors.ink }: { size?: number; c
         strokeLinejoin="round"
       />
       <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Line x1="12" y1="12" x2="12" y2="18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="9" y1="15" x2="15" y2="15" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M12 18v-6M9 15l3-3 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -105,13 +89,20 @@ function ResizeGripIcon({ size = 12, color = adminColors.muted }: { size?: numbe
   );
 }
 
-// ─── Options Constants ───────────────────────────────────────────────────────
-
-export {
-  FOLLOWUP_REQUIRED_OPTIONS,
-  RESOLUTION_OUTCOME_OPTIONS,
-  TOHFA_RESPONSE_OPTIONS,
-};
+function CheckmarkCircleSuccessIcon({ size = 72 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 72 72" fill="none">
+      <Circle cx="36" cy="36" r="35" fill={adminColors.success.bg} stroke={adminColors.success.border} strokeWidth="1.5" />
+      <Path
+        d="M23 36.5l9 9 17-17"
+        stroke={adminColors.success.text}
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 // ─── Component Props ──────────────────────────────────────────────────────────
 
@@ -135,8 +126,7 @@ export function FarmerDisputeResolutionScreen({
   const [resolutionSummary, setResolutionSummary] = useState('');
   const [actionTaken, setActionTaken] = useState('');
 
-  const [tohfaResponse, setTohfaResponse] = useState<string>('No TOHFA response recorded');
-  const [showTohfaResponsePicker, setShowTohfaResponsePicker] = useState(false);
+  const [tohfaResponse] = useState<string>('No TOHFA response recorded');
 
   const [followupRequired, setFollowupRequired] = useState<string>('Select');
   const [showFollowupPicker, setShowFollowupPicker] = useState(false);
@@ -144,7 +134,10 @@ export function FarmerDisputeResolutionScreen({
   const [uploadedAttachment, setUploadedAttachment] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Success State (Image 3)
+  // Review confirmation modal
+  const [showReviewConfirmModal, setShowReviewConfirmModal] = useState(false);
+
+  // Success view
   const [isSavedSuccessfully, setIsSavedSuccessfully] = useState(false);
 
   const handleReviewAndSubmit = () => {
@@ -157,6 +150,11 @@ export function FarmerDisputeResolutionScreen({
       return;
     }
     setValidationError(null);
+    setShowReviewConfirmModal(true);
+  };
+
+  const handleConfirmFinalResolution = () => {
+    setShowReviewConfirmModal(false);
     setIsSavedSuccessfully(true);
   };
 
@@ -164,6 +162,7 @@ export function FarmerDisputeResolutionScreen({
     const updated: DisputeItem = {
       ...dispute,
       status: 'Resolved',
+      lastActivityDate: '15 Oct 2026',
       resolutionNote: resolutionSummary.trim() || outcome,
     };
     if (onResolvedSuccess) {
@@ -173,11 +172,19 @@ export function FarmerDisputeResolutionScreen({
     }
   };
 
+  const handlePickAttachment = () => {
+    Alert.alert('Upload Attachment', 'Attach a signed resolution or supporting file:', [
+      { text: 'Resolution_Agreement_Signed.pdf', onPress: () => setUploadedAttachment('Resolution_Agreement_Signed.pdf') },
+      { text: 'Inspection_Report.jpg', onPress: () => setUploadedAttachment('Inspection_Report.jpg') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header ─── */}
+      {/* ─── Terracotta Header (Screenshot 1) ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity
@@ -192,13 +199,13 @@ export function FarmerDisputeResolutionScreen({
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>Dispute Resolution</Text>
             <Text style={styles.headerSubtitle}>
-              {dispute.id} · {dispute.status}
+              {dispute.id} · {isSavedSuccessfully ? 'Resolved' : dispute.status}
             </Text>
           </View>
         </View>
       </View>
 
-      {/* ─── Success View (Image 3) ─── */}
+      {/* ─── Success View State ─── */}
       {isSavedSuccessfully ? (
         <View style={styles.successContainer}>
           <ScrollView
@@ -207,96 +214,97 @@ export function FarmerDisputeResolutionScreen({
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.successIconBadgeWrap}>
-              <CheckmarkCircleSuccessIcon size={56} />
+              <CheckmarkCircleSuccessIcon size={72} />
             </View>
 
             <Text style={styles.successTitle}>Resolution Saved Successfully</Text>
-            <Text style={styles.successSub}>Confirmed by the server</Text>
+            <Text style={styles.successSub}>Confirmed by the mediation desk</Text>
 
-            {/* Summary Confirmation Card (Full Width Record Box) */}
+            {/* Summary Confirmation Card */}
             <View style={styles.successCard}>
-              <View style={styles.twoColRow}>
-                <View style={styles.col}>
-                  <Text style={styles.fieldLabel}>Dispute</Text>
-                  <Text style={styles.fieldValueBold}>{dispute.id}</Text>
+              <View style={styles.successCardRow}>
+                <View style={styles.successColLeft}>
+                  <Text style={styles.successFieldLabel}>Dispute</Text>
+                  <Text style={styles.successFieldValue}>{dispute.id}</Text>
                 </View>
-                <View style={styles.col}>
-                  <Text style={styles.fieldLabel}>Updated Status</Text>
-                  <Text style={styles.fieldValueBold}>Resolved</Text>
+                <View style={styles.successColRight}>
+                  <Text style={styles.successFieldLabel}>Updated Status</Text>
+                  <View style={styles.resolvedBadge}>
+                    <Text style={styles.resolvedBadgeText}>Resolved</Text>
+                  </View>
                 </View>
               </View>
 
-              <View style={styles.fieldGroupLast}>
-                <Text style={styles.fieldLabel}>Outcome</Text>
-                <Text style={styles.fieldValueRegular}>{outcome}</Text>
+              <View style={styles.successCardDivider} />
+
+              <View style={styles.successCardOutcomeRow}>
+                <Text style={styles.successFieldLabel}>Outcome</Text>
+                <Text style={styles.successFieldValue}>{outcome}</Text>
               </View>
             </View>
-          </ScrollView>
 
-          {/* Fixed Bottom Button in Success State */}
-          <View style={styles.fixedBottomContainer}>
             <TouchableOpacity
-              style={styles.primaryBtn}
+              style={styles.successBackBtn}
               onPress={handleFinishAndReturn}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel="Back to Disputes"
             >
-              <Text style={styles.primaryBtnText}>Back to Disputes</Text>
+              <Text style={styles.successBackBtnText}>Back to Disputes</Text>
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         </View>
       ) : (
-        /* ─── Form View (Images 1, 2, & 4) ─── */
-        <View style={{ flex: 1 }}>
+        /* ─── Form View with Fixed Bottom Action Bar (Screenshots 1 & 2) ─── */
+        <View style={styles.formContainer}>
           <ScrollView
             style={styles.scrollArea}
             contentContainerStyle={styles.scrollPad}
             showsVerticalScrollIndicator={false}
           >
-            {/* 1. Dispute summary */}
+            {/* 1. Dispute summary (Screenshot 1) */}
             <Text style={styles.sectionHeader}>Dispute summary</Text>
             <View style={styles.card}>
               <View style={styles.twoColRow}>
-                <View style={styles.col}>
+                <View style={styles.colLeft}>
                   <Text style={styles.fieldLabel}>Dispute</Text>
                   <Text style={styles.fieldValueBold}>{dispute.id}</Text>
                 </View>
-                <View style={styles.col}>
+                <View style={styles.colRight}>
                   <Text style={styles.fieldLabel}>Status</Text>
                   <Text style={styles.fieldValueBold}>{dispute.status}</Text>
                 </View>
               </View>
 
               <View style={styles.twoColRow}>
-                <View style={styles.col}>
+                <View style={styles.colLeft}>
                   <Text style={styles.fieldLabel}>Farmer</Text>
                   <Text style={styles.fieldValueBold}>{dispute.raisedBy}</Text>
                 </View>
-                <View style={styles.col}>
+                <View style={styles.colRight}>
                   <Text style={styles.fieldLabel}>Category</Text>
                   <Text style={styles.fieldValueBold}>{dispute.category}</Text>
                 </View>
               </View>
 
-              <View style={styles.fieldGroup}>
+              <View style={styles.fullWidthField}>
                 <Text style={styles.fieldLabel}>Subject</Text>
                 <Text style={styles.fieldValueBold}>{dispute.title}</Text>
               </View>
 
-              <View style={styles.fieldGroup}>
+              <View style={styles.fullWidthField}>
                 <Text style={styles.fieldLabel}>Original complaint</Text>
                 <Text style={styles.fieldValueRegular}>{dispute.description}</Text>
               </View>
 
               <View style={styles.twoColRowLast}>
-                <View style={styles.col}>
+                <View style={styles.colLeft}>
                   <Text style={styles.fieldLabel}>TOHFA reference</Text>
                   <Text style={styles.fieldValueBold}>
                     {dispute.linkedRecord || 'Purchase Order PO-2026-00124'}
                   </Text>
                 </View>
-                <View style={styles.col}>
+                <View style={styles.colRight}>
                   <Text style={styles.fieldLabel}>Evidence</Text>
                   <Text style={styles.fieldValueBold}>
                     {dispute.evidence ? `${dispute.evidence.length} attached` : '2 attached'}
@@ -305,7 +313,7 @@ export function FarmerDisputeResolutionScreen({
               </View>
             </View>
 
-            {/* 2. Previous mediation notes */}
+            {/* 2. Previous mediation notes (Screenshot 1) */}
             <Text style={styles.sectionHeader}>Previous mediation notes</Text>
             <View style={styles.card}>
               <Text style={styles.fieldValueRegular}>
@@ -322,7 +330,7 @@ export function FarmerDisputeResolutionScreen({
               </View>
             </View>
 
-            {/* 3. Outcome Form */}
+            {/* 3. Outcome Form (Screenshots 1 & 2) */}
             <Text style={styles.sectionHeader}>Outcome</Text>
             <View style={styles.card}>
               {/* Field: Resolution Outcome */}
@@ -344,7 +352,7 @@ export function FarmerDisputeResolutionScreen({
                 >
                   {outcome}
                 </Text>
-                <ChevronDownIcon size={18} />
+                <ChevronDownIcon size={18} color={adminColors.ink} />
               </TouchableOpacity>
 
               <Text style={styles.proposedNotice}>Proposed — Requires TOHFA Approval</Text>
@@ -356,7 +364,7 @@ export function FarmerDisputeResolutionScreen({
               <View style={styles.textareaWrapper}>
                 <TextInput
                   style={styles.textarea}
-                  placeholder="Summarize agreed resolution terms"
+                  placeholder=""
                   placeholderTextColor={adminColors.placeholder}
                   multiline
                   numberOfLines={4}
@@ -376,7 +384,7 @@ export function FarmerDisputeResolutionScreen({
               <View style={styles.textareaWrapper}>
                 <TextInput
                   style={styles.textarea}
-                  placeholder="Record immediate actions or mediation steps"
+                  placeholder=""
                   placeholderTextColor={adminColors.placeholder}
                   multiline
                   numberOfLines={4}
@@ -390,16 +398,10 @@ export function FarmerDisputeResolutionScreen({
 
               {/* Field: TOHFA Response */}
               <Text style={styles.formFieldLabel}>TOHFA Response</Text>
-              <TouchableOpacity
-                style={[styles.dropdownBtn, styles.disabledDropdown]}
-                onPress={() => setShowTohfaResponsePicker(true)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Select TOHFA response"
-              >
+              <View style={styles.disabledDropdown}>
                 <Text style={styles.disabledDropdownText}>{tohfaResponse}</Text>
                 <ChevronDownIcon size={18} color={adminColors.muted} />
-              </TouchableOpacity>
+              </View>
 
               {/* Field: Follow-up Required */}
               <Text style={styles.formFieldLabel}>Follow-up Required</Text>
@@ -418,30 +420,26 @@ export function FarmerDisputeResolutionScreen({
                 >
                   {followupRequired}
                 </Text>
-                <ChevronDownIcon size={18} />
+                <ChevronDownIcon size={18} color={adminColors.ink} />
               </TouchableOpacity>
 
               {/* Field: Supporting Attachment */}
               <Text style={styles.formFieldLabel}>Supporting Attachment (optional)</Text>
               <TouchableOpacity
                 style={styles.uploadDashedCard}
-                onPress={() => {
-                  if (uploadedAttachment) {
-                    setUploadedAttachment(null);
-                  } else {
-                    setUploadedAttachment('resolution_agreement_signed.pdf');
-                  }
-                }}
+                onPress={handlePickAttachment}
                 activeOpacity={0.75}
                 accessibilityRole="button"
                 accessibilityLabel="Upload supporting attachment"
               >
-                <FilePlusIcon size={20} color={adminColors.brand} />
+                <UploadFileIcon size={18} color={adminColors.brandDeep} />
                 <Text style={styles.uploadText}>
                   {uploadedAttachment ? uploadedAttachment : 'Upload file'}
                 </Text>
               </TouchableOpacity>
             </View>
+
+
 
             {validationError && (
               <View style={styles.errorBanner}>
@@ -449,11 +447,11 @@ export function FarmerDisputeResolutionScreen({
               </View>
             )}
 
-            <View style={{ height: 130 }} />
+            <View style={{ height: 16 }} />
           </ScrollView>
 
-          {/* Fixed Bottom Action Buttons: Review & Cancel */}
-          <View style={styles.fixedBottomContainer}>
+          {/* 5. Sticky Bottom Action Buttons: Review & Cancel (Screenshots 1 & 2) */}
+          <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.primaryBtn}
               onPress={handleReviewAndSubmit}
@@ -477,135 +475,165 @@ export function FarmerDisputeResolutionScreen({
         </View>
       )}
 
-      {/* ─── Resolution Outcome Picker Modal (Image 4) ─── */}
+      {/* ─── Resolution Outcome Picker Bottom Sheet Modal ─── */}
       <Modal
         visible={showOutcomePicker}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowOutcomePicker(false)}
       >
         <TouchableWithoutFeedback onPress={() => setShowOutcomePicker(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheetOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerModalCard}>
-                <Text style={styles.pickerTitle}>Resolution Outcome</Text>
-                <View style={styles.pickerOptionsList}>
-                  {RESOLUTION_OUTCOME_OPTIONS.map((item, idx) => {
+              <View style={styles.bottomSheetCard}>
+                <Text style={styles.bottomSheetTitle}>Select Resolution Outcome</Text>
+                <View style={styles.optionsList}>
+                  {RESOLUTION_OUTCOME_OPTIONS.filter((o) => o !== 'Select an outcome').map((item, idx) => {
                     const isSelected = outcome === item;
                     return (
                       <TouchableOpacity
                         key={idx}
                         style={[
-                          styles.pickerOptionRow,
-                          isSelected && styles.pickerOptionRowActive,
+                          styles.optionItem,
+                          isSelected && styles.optionItemActive,
                         ]}
                         onPress={() => {
                           setOutcome(item);
                           setShowOutcomePicker(false);
                           if (validationError) setValidationError(null);
                         }}
+                        activeOpacity={0.7}
                       >
                         <Text
                           style={[
-                            styles.pickerOptionText,
-                            isSelected && styles.pickerOptionTextActive,
+                            styles.optionText,
+                            isSelected && styles.optionTextActive,
                           ]}
                         >
                           {item}
                         </Text>
+                        {isSelected && <Text style={styles.checkMark}>✓</Text>}
                       </TouchableOpacity>
                     );
                   })}
                 </View>
+                <TouchableOpacity
+                  style={styles.sheetCancelBtn}
+                  onPress={() => setShowOutcomePicker(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.sheetCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
           </View>
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* ─── TOHFA Response Picker Modal ─── */}
-      <Modal
-        visible={showTohfaResponsePicker}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowTohfaResponsePicker(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowTohfaResponsePicker(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerModalCard}>
-                <Text style={styles.pickerTitle}>TOHFA Response</Text>
-                <View style={styles.pickerOptionsList}>
-                  {TOHFA_RESPONSE_OPTIONS.map((item, idx) => {
-                    const isSelected = tohfaResponse === item;
-                    return (
-                      <TouchableOpacity
-                        key={idx}
-                        style={[
-                          styles.pickerOptionRow,
-                          isSelected && styles.pickerOptionRowActive,
-                        ]}
-                        onPress={() => {
-                          setTohfaResponse(item);
-                          setShowTohfaResponsePicker(false);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.pickerOptionText,
-                            isSelected && styles.pickerOptionTextActive,
-                          ]}
-                        >
-                          {item}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-
-      {/* ─── Follow-up Picker Modal ─── */}
+      {/* ─── Follow-up Required Picker Bottom Sheet Modal ─── */}
       <Modal
         visible={showFollowupPicker}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowFollowupPicker(false)}
       >
         <TouchableWithoutFeedback onPress={() => setShowFollowupPicker(false)}>
-          <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheetOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerModalCard}>
-                <Text style={styles.pickerTitle}>Follow-up Required</Text>
-                <View style={styles.pickerOptionsList}>
+              <View style={styles.bottomSheetCard}>
+                <Text style={styles.bottomSheetTitle}>Follow-up Required</Text>
+                <View style={styles.optionsList}>
                   {FOLLOWUP_REQUIRED_OPTIONS.map((item, idx) => {
                     const isSelected = followupRequired === item;
                     return (
                       <TouchableOpacity
                         key={idx}
                         style={[
-                          styles.pickerOptionRow,
-                          isSelected && styles.pickerOptionRowActive,
+                          styles.optionItem,
+                          isSelected && styles.optionItemActive,
                         ]}
                         onPress={() => {
                           setFollowupRequired(item);
                           setShowFollowupPicker(false);
                         }}
+                        activeOpacity={0.7}
                       >
                         <Text
                           style={[
-                            styles.pickerOptionText,
-                            isSelected && styles.pickerOptionTextActive,
+                            styles.optionText,
+                            isSelected && styles.optionTextActive,
                           ]}
                         >
                           {item}
                         </Text>
+                        {isSelected && <Text style={styles.checkMark}>✓</Text>}
                       </TouchableOpacity>
                     );
                   })}
+                </View>
+                <TouchableOpacity
+                  style={styles.sheetCancelBtn}
+                  onPress={() => setShowFollowupPicker(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.sheetCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* ─── Review Confirmation Modal ─── */}
+      <Modal
+        visible={showReviewConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReviewConfirmModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowReviewConfirmModal(false)}>
+          <View style={styles.centerOverlay}>
+            <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+              <View style={styles.confirmCard}>
+                <Text style={styles.confirmTitle}>Review Resolution</Text>
+                <Text style={styles.confirmSubtitle}>
+                  Please review the proposed resolution before confirming:
+                </Text>
+
+                <View style={styles.confirmReviewBox}>
+                  <Text style={styles.fieldLabel}>Outcome</Text>
+                  <Text style={styles.fieldValueBold}>{outcome}</Text>
+
+                  <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Resolution Summary</Text>
+                  <Text style={styles.fieldValueRegular}>{resolutionSummary}</Text>
+
+                  {actionTaken.trim() ? (
+                    <>
+                      <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Action Taken</Text>
+                      <Text style={styles.fieldValueRegular}>{actionTaken}</Text>
+                    </>
+                  ) : null}
+
+                  <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Follow-up</Text>
+                  <Text style={styles.fieldValueBold}>{followupRequired}</Text>
+                </View>
+
+                <View style={styles.confirmBtnRow}>
+                  <TouchableOpacity
+                    style={styles.confirmPrimaryBtn}
+                    onPress={handleConfirmFinalResolution}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.confirmPrimaryBtnText}>Confirm Resolution</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.confirmSecondaryBtn}
+                    onPress={() => setShowReviewConfirmModal(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.confirmSecondaryBtnText}>Edit Details</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             </TouchableWithoutFeedback>
@@ -635,8 +663,8 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   backBtn: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: -adminSpacing.xs,
@@ -650,10 +678,15 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   headerSubtitle: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
     color: adminColors.onBrand,
-    opacity: 0.9,
+    opacity: 0.95,
     marginTop: 2,
+  },
+  formContainer: {
+    flex: 1,
   },
   scrollArea: {
     flex: 1,
@@ -661,27 +694,30 @@ const styles = StyleSheet.create({
   scrollPad: {
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
-    paddingBottom: adminSpacing.xxl,
+    paddingBottom: adminSpacing.md,
   },
   sectionHeader: {
-    ...adminType.sectionHead,
+    ...adminType.rowTitle,
+    fontSize: 14.5,
+    fontWeight: '800',
     color: adminColors.brandDeep,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
+    marginTop: 16,
+    marginBottom: 8,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.lg,
-    marginBottom: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: 8,
     ...adminShadow.sm,
   },
   twoColRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: adminSpacing.md,
+    marginBottom: 12,
   },
   twoColRowLast: {
     flexDirection: 'row',
@@ -690,60 +726,66 @@ const styles = StyleSheet.create({
   },
   col: {
     flex: 1,
-    paddingRight: adminSpacing.sm,
   },
-  fieldGroup: {
-    marginBottom: adminSpacing.md,
+  colLeft: {
+    flex: 1.25,
+    paddingRight: 6,
   },
-  fieldGroupLast: {
+  colRight: {
+    flex: 0.85,
+  },
+  fullWidthField: {
+    marginBottom: 12,
+  },
+  fullWidthFieldLast: {
     marginBottom: 0,
-    marginTop: adminSpacing.sm,
   },
   fieldLabel: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
+    ...adminType.caption,
     fontSize: 11.5,
-    marginBottom: 2,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginBottom: 3,
   },
   fieldValueBold: {
-    ...adminType.rowTitle,
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '700',
     color: adminColors.ink,
-    fontSize: 14.5,
-    fontWeight: '800',
   },
   fieldValueRegular: {
     ...adminType.body,
-    color: adminColors.ink,
     fontSize: 13,
-    lineHeight: 18,
+    color: adminColors.ink,
+    lineHeight: 19.5,
   },
   noteAuthorRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: adminSpacing.sm,
-    paddingTop: adminSpacing.xs,
+    marginTop: 10,
   },
   noteAuthorText: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
     fontSize: 11.5,
     fontWeight: '600',
   },
   noteDateText: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
     fontSize: 11.5,
+    fontWeight: '500',
   },
 
-  // Form Fields
+  // Outcome Form Fields
   formFieldLabel: {
-    ...adminType.rowTitle,
+    ...adminType.body,
     color: adminColors.ink,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '700',
-    marginTop: adminSpacing.sm,
-    marginBottom: adminSpacing.xs,
+    marginTop: 12,
+    marginBottom: 6,
   },
   requiredStar: {
     color: adminColors.danger.text,
@@ -756,9 +798,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: 12,
-    marginBottom: 4,
+    paddingHorizontal: 14,
+    height: 48,
   },
   dropdownBtnText: {
     ...adminType.body,
@@ -771,8 +812,15 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   disabledDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: adminColors.canvas,
+    borderWidth: 1,
     borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: 14,
+    height: 48,
   },
   disabledDropdownText: {
     ...adminType.body,
@@ -781,10 +829,11 @@ const styles = StyleSheet.create({
   },
   proposedNotice: {
     ...adminType.caption,
-    color: adminColors.brand,
+    color: adminColors.warning.text,
     fontSize: 11,
     fontWeight: '700',
-    marginBottom: adminSpacing.sm,
+    marginTop: 6,
+    marginBottom: 6,
   },
   textareaWrapper: {
     position: 'relative',
@@ -792,45 +841,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
-    marginBottom: adminSpacing.sm,
+    minHeight: 90,
   },
   textarea: {
     ...adminType.body,
     color: adminColors.ink,
     fontSize: 13,
-    minHeight: 80,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    minHeight: 90,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     textAlignVertical: 'top',
   },
   resizeIndicator: {
     position: 'absolute',
-    right: 4,
-    bottom: 4,
+    right: 5,
+    bottom: 5,
   },
   uploadDashedCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.sm,
+    gap: 8,
     backgroundColor: adminColors.card,
-    borderWidth: 1.5,
+    borderWidth: 1.2,
     borderStyle: 'dashed',
     borderColor: adminColors.border,
-    borderRadius: adminRadius.lg,
-    paddingVertical: adminSpacing.md,
+    borderRadius: adminRadius.md,
+    paddingVertical: 14,
     marginTop: 2,
-    marginBottom: adminSpacing.sm,
+    marginBottom: 4,
   },
   uploadText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    fontSize: 13,
+    ...adminType.body,
+    color: adminColors.brandDeep,
+    fontSize: 13.5,
     fontWeight: '700',
   },
 
-  // Notices
-  noticeBoxWarm: {
+  // Authority Notice Box (Screenshot 2)
+  authorityNoticeBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: adminSpacing.sm,
@@ -838,16 +887,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.warning.border,
     borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    marginTop: adminSpacing.xs,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginTop: adminSpacing.sm,
     marginBottom: adminSpacing.md,
   },
-  noticeTextWarm: {
+  authorityNoticeText: {
     flex: 1,
-    ...adminType.rowMeta,
-    color: adminColors.ink,
-    fontSize: 12,
-    lineHeight: 17,
+    ...adminType.caption,
+    color: adminColors.warning.text,
+    fontSize: 11.5,
+    lineHeight: 16.5,
+    fontWeight: '500',
   },
   errorBanner: {
     backgroundColor: adminColors.danger.bg,
@@ -861,140 +912,285 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.danger.text,
     textAlign: 'center',
+    fontWeight: '600',
   },
 
-  // Fixed Bottom Buttons
-  fixedBottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: adminColors.canvas,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.lg,
+  // Fixed Bottom Action Bar (Screenshots 1 & 2)
+  bottomBar: {
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: 12,
+    paddingBottom: 16,
     ...adminShadow.md,
   },
   primaryBtn: {
+    height: 48,
     backgroundColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 13,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
-    marginBottom: adminSpacing.sm,
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   primaryBtnText: {
-    ...adminType.rowTitle,
+    ...adminType.body,
     color: adminColors.onBrand,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '800',
   },
   secondaryBtn: {
+    height: 48,
     backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 12,
+    borderColor: adminColors.brandDeep,
+    borderRadius: adminRadius.lg,
     alignItems: 'center',
-    marginBottom: adminSpacing.xs,
+    justifyContent: 'center',
   },
   secondaryBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.brand,
-    fontSize: 14,
+    ...adminType.body,
+    color: adminColors.brandDeep,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+
+  // Bottom Sheet Picker Modals
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'flex-end',
+  },
+  bottomSheetCard: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 32,
+    ...adminShadow.lg,
+  },
+  bottomSheetTitle: {
+    ...adminType.title,
+    fontSize: 17,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 16,
+  },
+  optionsList: {
+    marginBottom: 16,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: adminRadius.md,
+    marginBottom: 4,
+  },
+  optionItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  optionText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    color: adminColors.ink,
+  },
+  optionTextActive: {
+    color: adminColors.brandDeep,
     fontWeight: '700',
   },
-  screenCaption: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    textAlign: 'center',
-    fontSize: 10.5,
-    marginTop: 4,
-  },
-
-  // Success State View
-  successContainer: {
-    flex: 1,
-  },
-  successContentPad: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.xl,
-    paddingBottom: 120,
-    alignItems: 'center',
-  },
-  successIconBadgeWrap: {
-    marginBottom: adminSpacing.md,
-  },
-  successTitle: {
-    ...adminType.title,
-    color: adminColors.ink,
-    fontSize: 19,
+  checkMark: {
+    fontSize: 16,
+    color: adminColors.brandDeep,
     fontWeight: '800',
-    textAlign: 'center',
   },
-  successSub: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    fontSize: 12.5,
-    textAlign: 'center',
-    marginTop: 3,
-    marginBottom: adminSpacing.xl,
-  },
-  successCard: {
-    width: '100%',
-    alignSelf: 'stretch',
+  sheetCancelBtn: {
+    height: 44,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    ...adminShadow.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sheetCancelBtnText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
 
-  // Options Picker Modals
-  modalOverlay: {
+  // Review Confirmation Modal
+  centerOverlay: {
     flex: 1,
     backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: adminSpacing.lg,
   },
-  pickerModalCard: {
+  confirmCard: {
     width: '100%',
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     padding: adminSpacing.lg,
     ...adminShadow.lg,
   },
-  pickerTitle: {
+  confirmTitle: {
     ...adminType.rowTitle,
-    color: adminColors.ink,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-    marginBottom: adminSpacing.md,
-  },
-  pickerOptionsList: {
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-  },
-  pickerOptionRow: {
-    paddingVertical: 12,
-    paddingHorizontal: adminSpacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-  },
-  pickerOptionRowActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  pickerOptionText: {
-    ...adminType.body,
     color: adminColors.ink,
-    fontSize: 13.5,
+    marginBottom: 4,
   },
-  pickerOptionTextActive: {
-    color: adminColors.brand,
+  confirmSubtitle: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: adminColors.muted,
+    marginBottom: 12,
+  },
+  confirmReviewBox: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 12,
+    marginBottom: 16,
+  },
+  confirmBtnRow: {
+    gap: 8,
+  },
+  confirmPrimaryBtn: {
+    height: 46,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmPrimaryBtnText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  confirmSecondaryBtn: {
+    height: 44,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmSecondaryBtnText: {
+    ...adminType.body,
+    fontSize: 13.5,
     fontWeight: '700',
+    color: adminColors.ink,
+  },
+
+  // Success State View
+  successContainer: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  successContentPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: 36,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  successIconBadgeWrap: {
+    marginBottom: adminSpacing.lg,
+  },
+  successTitle: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+    marginBottom: 6,
+  },
+  successSub: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 13.5,
+    textAlign: 'center',
+    marginBottom: 28,
+  },
+  successCard: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
+    marginBottom: 24,
+    ...adminShadow.sm,
+  },
+  successCardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  successColLeft: {
+    flex: 1,
+  },
+  successColRight: {
+    alignItems: 'flex-end',
+  },
+  successFieldLabel: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  successFieldValue: {
+    ...adminType.body,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  resolvedBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderWidth: 1,
+    borderColor: adminColors.success.border,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  resolvedBadgeText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.success.text,
+  },
+  successCardDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 14,
+    opacity: 0.6,
+  },
+  successCardOutcomeRow: {
+    width: '100%',
+  },
+  successBackBtn: {
+    width: '100%',
+    height: 48,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  successBackBtnText: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontSize: 15,
+    fontWeight: '800',
   },
 });

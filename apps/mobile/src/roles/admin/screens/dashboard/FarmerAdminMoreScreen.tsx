@@ -37,48 +37,11 @@ function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: num
   );
 }
 
-function ReceiptIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 -960 960 960" fill={color}>
-      <Path d="M240-80q-50 0-85-35t-35-85v-120h120v-560l60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60 60 60 60-60v680q0 50-35 85t-85 35H240Zm480-80q17 0 28.5-11.5T760-200v-560H320v440h360v120q0 17 11.5 28.5T720-160ZM360-600v-80h240v80H360Zm0 120v-80h240v80H360Zm320-120q-17 0-28.5-11.5T640-640q0-17 11.5-28.5T680-680q17 0 28.5 11.5T720-640q0 17-11.5 28.5T680-600Zm0 120q-17 0-28.5-11.5T640-520q0-17 11.5-28.5T680-560q17 0 28.5 11.5T720-520q0 17-11.5 28.5T680-480ZM240-160h360v-80H200v40q0 17 11.5 28.5T240-160Zm-40 0v-80 80Z" />
-    </Svg>
-  );
-}
-
-function LeafIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 4c-9.5 0-16 6.5-16 16 9.5 0 16-6.5 16-16z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M4 20c4-4 8-8 10-10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function StoreIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 9l2-5h14l2 5M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0M3 9v10a2 2 0 002 2h14a2 2 0 002-2V9M9 21v-7h6v7"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function StarIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2.5l2.9 6.2 6.8.9-5 4.8 1.3 6.8-6-3.3-6 3.3 1.3-6.8-5-4.8 6.8-.9L12 2.5z"
         stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
@@ -147,26 +110,6 @@ function BellIcon({ size = 20, color = adminColors.brand }: { size?: number; col
   );
 }
 
-function HeadsetSupportIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 18v-6a9 9 0 0118 0v6"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3v5zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3v5z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function SwitchArrowsIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -198,7 +141,6 @@ export interface FarmerAdminMoreScreenProps {
   onNavigateFarmerRatings?: () => void;
   onNavigateDisputes?: () => void;
   onNavigateProfile: () => void;
-  onNavigateFarmerSupport?: () => void;
   onNavigateNotifications: () => void;
   onSwitchRole: () => void;
   onItemSelect?: (itemTitle: string) => void;
@@ -213,36 +155,11 @@ export function FarmerAdminMoreScreen({
   onNavigateFarmerRatings,
   onNavigateDisputes,
   onNavigateProfile,
-  onNavigateFarmerSupport,
   onNavigateNotifications,
   onSwitchRole,
   onItemSelect,
 }: FarmerAdminMoreScreenProps) {
   const menuItems = [
-    {
-      id: 'purchases',
-      title: t('farmerAdminMore.menu.purchases'),
-      icon: <ReceiptIcon size={20} />,
-      onPress: () => {
-        if (onNavigatePurchases) {
-          onNavigatePurchases();
-        } else if (onNavigateProduceListings) {
-          onNavigateProduceListings();
-        }
-      },
-    },
-    {
-      id: 'inputs',
-      title: t('farmerAdminMore.menu.inputsPests'),
-      icon: <LeafIcon size={20} />,
-      onPress: () => {
-        if (onNavigateInputsPest) {
-          onNavigateInputsPest();
-        } else {
-          onItemSelect?.('Inputs & Pest Management');
-        }
-      },
-    },
     {
       id: 'market',
       title: t('farmerAdminMore.menu.marketPricing'),
@@ -252,18 +169,6 @@ export function FarmerAdminMoreScreen({
           onNavigateMarketPricing();
         } else {
           onItemSelect?.('Market & Pricing');
-        }
-      },
-    },
-    {
-      id: 'ratings',
-      title: t('farmerAdminMore.menu.ratings'),
-      icon: <StarIcon size={20} />,
-      onPress: () => {
-        if (onNavigateFarmerRatings) {
-          onNavigateFarmerRatings();
-        } else {
-          onItemSelect?.('Ratings');
         }
       },
     },
@@ -280,28 +185,10 @@ export function FarmerAdminMoreScreen({
       },
     },
     {
-      id: 'community',
-      title: 'Community',
-      icon: <CommunityIcon size={20} />,
-      onPress: () => onItemSelect?.('Community'),
-    },
-    {
       id: 'profile',
       title: 'Profile',
       icon: <ProfileIcon size={20} />,
       onPress: onNavigateProfile,
-    },
-    {
-      id: 'farmer_support',
-      title: 'Farmer Support',
-      icon: <HeadsetSupportIcon size={20} />,
-      onPress: () => {
-        if (onNavigateFarmerSupport) {
-          onNavigateFarmerSupport();
-        } else {
-          onItemSelect?.('Farmer Support');
-        }
-      },
     },
     {
       id: 'notifications',

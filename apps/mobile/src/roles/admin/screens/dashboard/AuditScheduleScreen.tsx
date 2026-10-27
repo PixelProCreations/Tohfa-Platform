@@ -49,6 +49,8 @@ import {
   type AuditScheduleRecord,
   INITIAL_SCHEDULE_RECORDS,
 } from './fixtures';
+import { FarmerInspectionFindingsScreen } from './FarmerInspectionFindingsScreen';
+import { FarmerDocumentsFindingsScreen } from './FarmerDocumentsFindingsScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -62,6 +64,14 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function CloseIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -827,7 +837,7 @@ function getCalendarMatrix(year: number, month: number) {
 
 export interface AuditScheduleScreenProps {
   onBack: () => void;
-  initialTypeFilter?: 'all' | 'field_visit' | 'history' | 'calendar' | 'report' | undefined;
+  initialTypeFilter?: 'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view' | undefined;
   initialAuditId?: string | undefined;
   initialView?:
     | 'history'
@@ -838,6 +848,7 @@ export interface AuditScheduleScreenProps {
     | 'schedule_visit'
     | 'inspection'
     | 'calendar'
+    | 'calendar_view'
     | 'audit_details_m5'
     | 'pdf_viewer'
     | undefined;
@@ -868,23 +879,31 @@ export function AuditScheduleScreen({
     | 'inspection'
     | 'audit_inspection'
     | 'inspection_step'
+    | 'inspection_findings'
+    | 'documents_findings'
   >(
-    initialView ||
-      (initialTypeFilter === 'report'
-        ? 'audit_report'
-        : initialTypeFilter === 'field_visit'
-        ? 'calendar'
-        : initialTypeFilter === 'history'
-        ? 'history'
-        : 'calendar')
+    initialView === 'calendar_view'
+      ? 'calendar'
+      : initialView ||
+        (initialTypeFilter === 'report'
+          ? 'audit_report'
+          : initialTypeFilter === 'field_visit'
+          ? 'calendar'
+          : initialTypeFilter === 'history'
+          ? 'history'
+          : 'calendar')
   );
 
-  const [previousView, setPreviousView] = useState<string>('calendar');
+  const [previousView, setPreviousView] = useState<string>(
+    initialView === 'calendar_view' || initialTypeFilter === 'calendar_view' ? 'calendar_view' : 'calendar'
+  );
 
   // Calendar State (Image 1)
   const [calendarViewMode, setCalendarViewMode] = useState<'Month' | 'Week' | 'List'>(() => {
-    if (initialTypeFilter === 'field_visit') return 'List';
-    return 'Month';
+    if (initialView === 'calendar_view' || initialTypeFilter === 'calendar_view') {
+      return 'Month';
+    }
+    return 'List';
   });
   const [calAuditType, setCalAuditType] = useState<'All Types' | 'Internal' | 'External' | 'Field Visit'>('All Types');
   const [calStatus, setCalStatus] = useState<'All Status' | 'Upcoming' | 'Scheduled' | 'In Progress'>('All Status');
@@ -902,6 +921,9 @@ export function AuditScheduleScreen({
     }
     return defaultRec;
   });
+
+  // Small Document Popup state
+  const [showDocumentModal, setShowDocumentModal] = useState<boolean>(false);
 
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
@@ -967,6 +989,8 @@ export function AuditScheduleScreen({
 
   const getScheduleRecordBadge = (badge: string) => {
     switch (badge) {
+      case 'Cancelled':
+        return { wrap: styles.badgeCancelled, text: styles.badgeCancelledText };
       case 'Upcoming':
         return { wrap: styles.badgeUpcoming, text: styles.badgeUpcomingText };
       case 'Scheduled':
@@ -1418,6 +1442,7 @@ export function AuditScheduleScreen({
           >
             {filteredScheduleRecords.map((rec) => {
               const badgeStyle = getScheduleRecordBadge(rec.badge);
+              const isSpecialCompleted = rec.id === 'AUD-2026-0049' || rec.farmerName === 'Meena';
               return (
                 <TouchableOpacity
                   key={rec.id}
@@ -1430,16 +1455,24 @@ export function AuditScheduleScreen({
                   activeOpacity={0.85}
                 >
                   <View style={styles.scheduleRecordCardTopRow}>
-                    <Text style={styles.scheduleRecordCardId}>{rec.id}</Text>
+                    <Text style={styles.scheduleRecordCardId}>
+                      {isSpecialCompleted ? `${rec.id} · ${rec.farmerName}` : rec.id}
+                    </Text>
                     <View style={badgeStyle.wrap}>
                       <Text style={badgeStyle.text}>{rec.badge}</Text>
                     </View>
                   </View>
                   <Text style={styles.scheduleRecordCardSub}>
-                    {rec.farmerName} · {rec.farm} · {rec.type}
+                    {isSpecialCompleted
+                      ? `${rec.farm} · ${rec.type} · ${rec.date} · ${rec.assignedText || 'Auditor S. Mohan'}`
+                      : `${rec.farmerName} · ${rec.farm} · ${rec.type}`}
                   </Text>
                   <Text style={styles.scheduleRecordCardMeta}>
-                    {rec.date} · {rec.assignedText || 'Assigned Auditor'}
+                    {isSpecialCompleted
+                      ? (rec.remarks || 'View only · completed audits are never rescheduled or overwritten')
+                      : rec.assignedText
+                      ? `${rec.date} · ${rec.assignedText}`
+                      : rec.date}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1465,31 +1498,7 @@ export function AuditScheduleScreen({
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* Info Card (Image 1 Center) */}
-            <View style={[styles.infoNoteCard, { marginTop: 14 }]}>
-              <Text style={styles.infoNoteText}>
-                Schedule Audit and Assign Auditor are not Farmer Admin permissions — not shown anywhere here, not even disabled.
-              </Text>
-            </View>
           </ScrollView>
-
-          {/* ── Sticky Bottom Button: + Schedule Field Visit (Image 1 Center) ── */}
-          <View style={styles.singleBottomBarFixed}>
-            <TouchableOpacity
-              style={styles.addScheduleVisitBtn}
-              onPress={() => {
-                const rec = records.find((r) => r.id === 'AUD-2026-0042') || records[0]!;
-                setSelectedRecord(rec);
-                setPreviousView('calendar');
-                setCurrentView('detail');
-              }}
-              activeOpacity={0.85}
-            >
-              <PlusIcon size={18} color={adminColors.onBrand} />
-              <Text style={styles.addScheduleVisitBtnText}>Schedule Field Visit</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* ─── FILTERS BOTTOM SHEET MODAL (Image 1) ─── */}
           <Modal
@@ -1668,10 +1677,7 @@ export function AuditScheduleScreen({
               >
                 <BackArrowIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
-              <View>
-                <Text style={styles.calHeaderTitle}>Audit Calendar</Text>
-                <Text style={styles.calHeaderSubtitle}>Audit Management</Text>
-              </View>
+              <Text style={styles.calHeaderTitle}>Audit Calendar</Text>
             </View>
 
             <TouchableOpacity
@@ -1686,47 +1692,6 @@ export function AuditScheduleScreen({
         </View>
 
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* ── View Switcher: Month | Week | List ── */}
-          <View style={styles.calTabsRow}>
-            <TouchableOpacity
-              style={calendarViewMode === 'Month' ? styles.calTabActive : styles.calTabInactive}
-              onPress={() => setCalendarViewMode('Month')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={calendarViewMode === 'Month' ? styles.calTabActiveText : styles.calTabInactiveText}
-              >
-                Month
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={calendarViewMode === 'Week' ? styles.calTabActive : styles.calTabInactive}
-              onPress={() => setCalendarViewMode('Week')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={calendarViewMode === 'Week' ? styles.calTabActiveText : styles.calTabInactiveText}
-              >
-                Week
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={(calendarViewMode as string) === 'List' ? styles.calTabActive : styles.calTabInactive}
-              onPress={() => {
-                setCalendarViewMode('List');
-              }}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={(calendarViewMode as string) === 'List' ? styles.calTabActiveText : styles.calTabInactiveText}
-              >
-                List
-              </Text>
-            </TouchableOpacity>
-          </View>
-
           {/* ── Filter Cards: Audit Type | Status | Zone ── */}
           <View style={styles.calFiltersRow}>
             <TouchableOpacity style={styles.calFilterCard} onPress={cycleAuditType} activeOpacity={0.8}>
@@ -1845,7 +1810,44 @@ export function AuditScheduleScreen({
 
             {/* Audit Card matching Image 1 */}
             {(selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20) && (
-              <View style={styles.calAuditCard}>
+              <TouchableOpacity
+                style={styles.calAuditCard}
+                onPress={() => {
+                  const targetRecord: AuditScheduleRecord = selectedCalDay === 8 ? {
+                    ...INITIAL_SCHEDULE_RECORDS[0]!,
+                    id: 'AUD-2026-0038',
+                    badge: 'In Progress',
+                    farmerName: 'Vijay',
+                    farmerId: 'FR-00124',
+                    farmingType: 'Organic',
+                    yearsOrganic: 5,
+                    farm: 'Vijay Terrace Farm',
+                    type: 'Internal',
+                    date: '08 Oct 2026',
+                    score: '78/100',
+                    majorFindings: 1,
+                    minorFindings: 2,
+                    redFlags: 0,
+                    year: '2026',
+                    assignedText: 'Assigned Auditor',
+                    auditor: 'Priya Nair · Kotagiri',
+                    dateBucket: 'Today',
+                    remarks: 'Regular internal compliance audit.',
+                    inference: 'In progress.',
+                    timeline: [
+                      { title: 'Audit Started', date: '08 Oct 2026, 09:30 AM', iconType: 'calendar' },
+                      { title: 'Field Inspection', date: '08 Oct 2026, 10:15 AM', iconType: 'inspection' },
+                    ],
+                    pgsOrganic: { status: 'Active', renewalDate: '10 Nov 2027' },
+                    npop: { status: 'Active', renewalDate: '15 Dec 2027' },
+                    previousSummary: { date: '08 Jul 2026', score: '82/100' },
+                  } : (INITIAL_SCHEDULE_RECORDS.find(r => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!);
+                  setSelectedRecord(targetRecord);
+                  setPreviousView('calendar_view');
+                  setCurrentView('audit_details_m5');
+                }}
+                activeOpacity={0.85}
+              >
                 <View style={styles.calAuditCardTopRow}>
                   <Text style={styles.calAuditCardTitle}>
                     {selectedCalDay === 8
@@ -1878,16 +1880,44 @@ export function AuditScheduleScreen({
                 <TouchableOpacity
                   style={styles.calViewDetailsBtn}
                   onPress={() => {
-                    const targetRecord = INITIAL_SCHEDULE_RECORDS.find(r => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!;
+                    const targetRecord: AuditScheduleRecord = selectedCalDay === 8 ? {
+                      ...INITIAL_SCHEDULE_RECORDS[0]!,
+                      id: 'AUD-2026-0038',
+                      badge: 'In Progress',
+                      farmerName: 'Vijay',
+                      farmerId: 'FR-00124',
+                      farmingType: 'Organic',
+                      yearsOrganic: 5,
+                      farm: 'Vijay Terrace Farm',
+                      type: 'Internal',
+                      date: '08 Oct 2026',
+                      score: '78/100',
+                      majorFindings: 1,
+                      minorFindings: 2,
+                      redFlags: 0,
+                      year: '2026',
+                      assignedText: 'Assigned Auditor',
+                      auditor: 'Priya Nair · Kotagiri',
+                      dateBucket: 'Today',
+                      remarks: 'Regular internal compliance audit.',
+                      inference: 'In progress.',
+                      timeline: [
+                        { title: 'Audit Started', date: '08 Oct 2026, 09:30 AM', iconType: 'calendar' },
+                        { title: 'Field Inspection', date: '08 Oct 2026, 10:15 AM', iconType: 'inspection' },
+                      ],
+                      pgsOrganic: { status: 'Active', renewalDate: '10 Nov 2027' },
+                      npop: { status: 'Active', renewalDate: '15 Dec 2027' },
+                      previousSummary: { date: '08 Jul 2026', score: '82/100' },
+                    } : (INITIAL_SCHEDULE_RECORDS.find(r => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!);
                     setSelectedRecord(targetRecord);
-                    setPreviousView('calendar');
+                    setPreviousView('calendar_view');
                     setCurrentView('audit_details_m5');
                   }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.calViewDetailsText}>View Audit Details →</Text>
                 </TouchableOpacity>
-              </View>
+              </TouchableOpacity>
             )}
           </View>
         </ScrollView>
@@ -1910,7 +1940,12 @@ export function AuditScheduleScreen({
           <TouchableOpacity
             style={styles.headerBackBtn}
             onPress={() => {
-              setCurrentView('calendar');
+              if (previousView === 'calendar_view' || previousView === 'calendar') {
+                setCalendarViewMode('Month');
+                setCurrentView('calendar');
+              } else {
+                setCurrentView((previousView as any) || 'calendar');
+              }
             }}
             activeOpacity={0.7}
             accessibilityLabel="Back"
@@ -1918,18 +1953,8 @@ export function AuditScheduleScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Audit Details</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-              <Text style={{ ...adminType.caption, color: adminColors.onBrand, fontWeight: '600' }}>
-                {record.type || 'Internal'}
-              </Text>
-              <Text style={{ color: adminColors.onBrand, fontWeight: '700' }}>·</Text>
-              <View style={styles.auditDetailsHeaderPill}>
-                <Text style={styles.auditDetailsHeaderPillText}>
-                  {record.badge || 'Upcoming'}
-                </Text>
-              </View>
-            </View>
+            <Text style={styles.screenHeaderTitle}>Audit AUD-2026-0042</Text>
+            <Text style={styles.screenHeaderSub}>Status: Inprogress</Text>
           </View>
         </View>
 
@@ -2020,7 +2045,7 @@ export function AuditScheduleScreen({
           <Text style={styles.detailSectionTitle}>Documents</Text>
           <TouchableOpacity
             style={styles.documentRowCard}
-            onPress={() => setCurrentView('pdf_viewer')}
+            onPress={() => setShowDocumentModal(true)}
             activeOpacity={0.8}
           >
             <PdfDocIcon size={20} color={adminColors.brand} />
@@ -2070,91 +2095,88 @@ export function AuditScheduleScreen({
             </View>
           </View>
 
-
-
           <View style={{ height: 40 }} />
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN: CHECKLIST PDF VIEWER (Image 3)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'pdf_viewer') {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.canvas }}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {/* ── Document Viewer Small Modal Popup ── */}
+        <Modal
+          visible={showDocumentModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDocumentModal(false)}
+        >
+          <View style={styles.docModalOverlay}>
+            <View style={styles.docModalCard}>
+              {/* Header */}
+              <View style={styles.docModalHeader}>
+                <View style={styles.docModalHeaderLeft}>
+                  <PdfDocIcon size={22} color={adminColors.brand} />
+                  <Text style={styles.docModalHeaderTitle}>Checklist.pdf</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowDocumentModal(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <CloseIcon size={20} color={adminColors.muted} />
+                </TouchableOpacity>
+              </View>
 
-        {/* ── Terracotta Header (Image 3) ── */}
-        <View style={styles.pdfHeader}>
-          <TouchableOpacity
-            onPress={() => setCurrentView('audit_details_m5')}
-            activeOpacity={0.7}
-            style={{ padding: 4 }}
-          >
-            <PdfDocIcon size={24} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <Text style={styles.pdfHeaderTitle}>Checklist.pdf</Text>
-        </View>
+              {/* Meta details */}
+              <View style={styles.docModalMetaRow}>
+                <View style={styles.detCol}>
+                  <Text style={styles.detLabel}>Type</Text>
+                  <Text style={styles.detValue}>PDF</Text>
+                </View>
+                <View style={styles.detCol}>
+                  <Text style={styles.detLabel}>Audit</Text>
+                  <Text style={styles.detValue}>{record.id || 'AUD-2026-0042'}</Text>
+                </View>
+              </View>
 
-        {/* ── Body: Type & Audit Card ── */}
-        <View style={styles.pdfMetaCard}>
-          <View style={styles.detCol}>
-            <Text style={styles.detLabel}>Type</Text>
-            <Text style={styles.detValue}>PDF</Text>
-          </View>
-          <View style={styles.detCol}>
-            <Text style={styles.detLabel}>Audit</Text>
-            <Text style={styles.detValue}>AUD-2026-0042</Text>
-          </View>
-        </View>
+              {/* PDF Preview Content Area */}
+              <View style={styles.docModalPreviewBox}>
+                <View style={{ alignItems: 'center', marginVertical: 14, opacity: 0.4 }}>
+                  <PdfDocIcon size={48} color={adminColors.muted} />
+                  <Text style={styles.docModalPreviewTitle}>
+                    Audit Checklist Document Preview
+                  </Text>
+                  <Text style={styles.docModalPreviewSubtitle}>
+                    {record.id || 'AUD-2026-0042'} · Official Inspection Checklist
+                  </Text>
+                </View>
 
-        {/* ── PDF Preview Content Area ── */}
-        <View style={styles.pdfPreviewArea}>
-          <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={{ alignItems: 'center', marginVertical: 30, opacity: 0.25 }}>
-              <PdfDocIcon size={72} color={adminColors.muted} />
-              <Text style={{ ...adminType.rowTitle, color: adminColors.muted, marginTop: 12 }}>
-                Audit Checklist Document Preview
-              </Text>
-              <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: 4 }}>
-                AUD-2026-0042 · Official Inspection Checklist
-              </Text>
+                {/* Simulated document lines */}
+                <View style={{ gap: 8, opacity: 0.15 }}>
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '90%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '100%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '75%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '85%' }} />
+                  <View style={{ height: 8, backgroundColor: adminColors.ink, borderRadius: 4, width: '60%' }} />
+                </View>
+              </View>
+
+              {/* Bottom Buttons: Download & Close */}
+              <View style={styles.docModalBtnRow}>
+                <TouchableOpacity
+                  style={styles.docModalDownloadBtn}
+                  onPress={() => Alert.alert('Download', 'Downloading Checklist.pdf')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.docModalDownloadBtnText}>Download</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.docModalCloseBtn}
+                  onPress={() => setShowDocumentModal(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.docModalCloseBtnText}>Close</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-
-            {/* Simulated document lines */}
-            <View style={{ gap: 10, opacity: 0.15 }}>
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '90%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '100%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '75%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '85%' }} />
-              <View style={{ height: 12, backgroundColor: adminColors.ink, borderRadius: 4, width: '60%' }} />
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* ── Bottom Bar: Download + Close (Image 3) ── */}
-        <View style={styles.pdfBottomBarRow}>
-          <TouchableOpacity
-            style={styles.pdfDownloadBtn}
-            onPress={() => Alert.alert('Download', 'Downloading Checklist.pdf')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.pdfDownloadBtnText}>Download</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.pdfCloseBtn}
-            onPress={() => setCurrentView('audit_details_m5')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.pdfCloseBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -2309,49 +2331,73 @@ export function AuditScheduleScreen({
                 <Text style={styles.auditSummaryValBold}>80/100</Text>
               </View>
             </View>
-
-            <TouchableOpacity
-              style={styles.outlineOrangeBtn}
-              onPress={() => {
-                setPreviousView('detail');
-                setCurrentView('history');
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineOrangeBtnText}>View Audit History</Text>
-            </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.outlineOrangeBtn}
+            onPress={() => {
+              setPreviousView('detail');
+              setCurrentView('history');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineOrangeBtnText}>View Audit History</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.outlineOrangeBtn, { marginTop: 12 }]}
+            onPress={() => {
+              setPreviousView('detail');
+              setCurrentView('inspection_findings');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineOrangeBtnText}>Inspection / Findings</Text>
+          </TouchableOpacity>
 
           <View style={{ height: 24 }} />
         </ScrollView>
-
-        {/* Bottom Action Buttons: Support Audit & Schedule Field Visit (Image 2) */}
-        <View style={styles.detailBottomActionRow}>
-          <TouchableOpacity
-            style={styles.primaryOrangeBtn}
-            onPress={() => {
-              setPreviousView('detail');
-              setCurrentView('inspection');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryOrangeBtnText}>Support Audit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.secondaryWhiteBtn, { borderColor: adminColors.brand }]}
-            onPress={() => {
-              setPreviousView('detail');
-              setCurrentView('schedule_visit');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={[styles.secondaryWhiteBtnText, { color: adminColors.brand, fontWeight: '700' }]}>
-              Schedule Field Visit
-            </Text>
-          </TouchableOpacity>
-        </View>
       </SafeAreaView>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: INSPECTION / FINDINGS (Images 2 & 3)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (currentView === 'inspection_findings') {
+    const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
+    return (
+      <FarmerInspectionFindingsScreen
+        record={record}
+        onBack={() => {
+          setPreviousView('inspection_findings');
+          setCurrentView('detail');
+        }}
+        onNavigateSupportAudit={() => {
+          setPreviousView('inspection_findings');
+          setCurrentView('documents_findings');
+        }}
+      />
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: DOCUMENTS & FINDINGS (Images 4 & 5)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (currentView === 'documents_findings') {
+    const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
+    return (
+      <FarmerDocumentsFindingsScreen
+        record={record}
+        onBack={() => {
+          setPreviousView('documents_findings');
+          setCurrentView('inspection_findings');
+        }}
+        onSubmitSuccess={() => {
+          setPreviousView('documents_findings');
+          setCurrentView('detail');
+        }}
+      />
     );
   }
 
@@ -2557,11 +2603,13 @@ export function AuditScheduleScreen({
             <View style={styles.detailGridRow}>
               <View style={styles.detailGridCol}>
                 <Text style={styles.detailMetaLabel}>Audit Type</Text>
-                <Text style={styles.reportMetaValBold}>{selectedRecord.type}</Text>
+                <Text style={styles.reportMetaValBold}>{selectedRecord.type || 'Internal'}</Text>
               </View>
               <View style={styles.detailGridCol}>
                 <Text style={styles.detailMetaLabel}>Audit Date</Text>
-                <Text style={styles.reportMetaValBold}>{selectedRecord.date}</Text>
+                <Text style={styles.reportMetaValBold}>
+                  {selectedRecord.id === 'AUD-2026-0042' ? '15 Jul 2026' : selectedRecord.date}
+                </Text>
               </View>
             </View>
             <View style={[styles.detailGridRow, { marginTop: 12 }]}>
@@ -2571,7 +2619,9 @@ export function AuditScheduleScreen({
               </View>
               <View style={styles.detailGridCol}>
                 <Text style={styles.detailMetaLabel}>Status</Text>
-                <Text style={styles.reportMetaValBold}>{selectedRecord.badge}</Text>
+                <Text style={styles.reportMetaValBold}>
+                  {selectedRecord.id === 'AUD-2026-0042' ? 'Completed' : selectedRecord.badge}
+                </Text>
               </View>
             </View>
           </View>
@@ -2598,10 +2648,10 @@ export function AuditScheduleScreen({
           <View style={styles.auditScoreCard}>
             <View style={styles.auditScoreNumberRow}>
               <Text style={styles.auditScoreBigNum}>
-                {selectedRecord.score ? selectedRecord.score.split('/')[0] : '80'}
+                {selectedRecord.id === 'AUD-2026-0042' ? '80' : (selectedRecord.score ? selectedRecord.score.split('/')[0] : '80')}
               </Text>
               <Text style={styles.auditScoreTotalText}>
-                /{selectedRecord.score ? selectedRecord.score.split('/')[1] : '100'}
+                /{selectedRecord.id === 'AUD-2026-0042' ? '100' : (selectedRecord.score ? selectedRecord.score.split('/')[1] : '100')}
               </Text>
             </View>
             <Text style={styles.auditScoreCaption}>
@@ -2627,10 +2677,22 @@ export function AuditScheduleScreen({
             </Text>
           </View>
 
-          {/* Actions: ONLY View Audit History (View Farmer button is REMOVED per user request!) */}
-          <View style={{ marginTop: 14 }}>
+          {/* Actions: View Farmer & View Audit History (Image 2) */}
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
             <TouchableOpacity
-              style={styles.viewAuditHistoryOutlineBtn}
+              style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
+              onPress={() => {
+                if (onNavigateFarmerProfile) {
+                  onNavigateFarmerProfile(selectedRecord.farmerId || 'FR-00241');
+                }
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.viewAuditHistoryOutlineBtnText}>View Farmer</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
               onPress={() => {
                 setPreviousView('audit_report');
                 setCurrentView('history');
@@ -2661,583 +2723,7 @@ export function AuditScheduleScreen({
     );
   }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN 2: SCHEDULE FIELD VISIT SCREEN (Screenshot 3)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'schedule_visit') {
-    return (
-      <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-        {/* Solid Theme Orange Header */}
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            style={styles.headerBackBtn}
-            onPress={() => {
-              if (initialView === 'schedule_visit' || initialTypeFilter === 'field_visit') {
-                onBack();
-              } else if (previousView === 'calendar') {
-                setCurrentView('calendar');
-              } else {
-                setCurrentView('detail');
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Schedule Field Visit</Text>
-            <Text style={styles.screenHeaderSub}>Status: Upcoming</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.detailScrollPad} showsVerticalScrollIndicator={false}>
-          <Text style={styles.detailSectionTitle}>Schedule Field Visit</Text>
-
-          {/* Select Available Date */}
-          <Text style={styles.fieldSectionLabel}>Select Available Date</Text>
-          <View style={styles.pillsRow}>
-            {(['08 Oct', '09 Oct', '10 Oct'] as const).map((d) => {
-              const active = visitDate === d;
-              return (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.smallPill, active ? styles.smallPillActive : styles.smallPillInactive]}
-                  onPress={() => setVisitDate(d)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.smallPillText, active ? styles.smallPillTextActive : styles.smallPillTextInactive]}>
-                    {d}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Select Time */}
-          <Text style={[styles.fieldSectionLabel, { marginTop: 16 }]}>Select Time</Text>
-          <View style={styles.pillsRow}>
-            {(['10:00 AM', '2:00 PM'] as const).map((t) => {
-              const active = visitTime === t;
-              return (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.smallPill, active ? styles.smallPillActive : styles.smallPillInactive]}
-                  onPress={() => setVisitTime(t)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.smallPillText, active ? styles.smallPillTextActive : styles.smallPillTextInactive]}>
-                    {t}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Visit Notes */}
-          <Text style={[styles.fieldSectionLabel, { marginTop: 16 }]}>Visit Notes</Text>
-          <View style={styles.visitNotesCard}>
-            <TextInput
-              style={styles.visitNotesInput}
-              placeholder="Optional notes"
-              placeholderTextColor={adminColors.muted}
-              value={visitNotes}
-              onChangeText={setVisitNotes}
-              multiline
-            />
-          </View>
-        </ScrollView>
-
-        {/* Sticky Bottom Actions */}
-        <View style={styles.detailBottomActionRow}>
-          <TouchableOpacity
-            style={styles.primaryOrangeBtn}
-            onPress={handleConfirmScheduleVisit}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryOrangeBtnText}>Confirm</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryWhiteBtn}
-            onPress={() => setCurrentView('detail')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.secondaryWhiteBtnText}>Cancel</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN 3: INSPECTION / FINDINGS SCREEN (Screenshots 4 & 5)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'inspection') {
-    const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
-
-    return (
-      <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* Solid Theme Orange Header */}
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            style={styles.headerBackBtn}
-            onPress={() => {
-              if (previousView === 'audit_details_m5') {
-                setCurrentView('audit_details_m5');
-              } else {
-                setCurrentView('detail');
-              }
-            }}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Inspection / Findings</Text>
-            <Text style={styles.screenHeaderSub}>
-              {record.id} · {record.farmerName}
-            </Text>
-          </View>
-        </View>
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.detailScrollPad}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Normal / Red Flag Filter Pills (Image 2 Left) */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-            <TouchableOpacity
-              style={[
-                styles.inspectionChip,
-                inspectionMode === 'Normal' ? styles.inspectionChipActive : styles.inspectionChipInactive,
-              ]}
-              onPress={() => setInspectionMode('Normal')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.inspectionChipText,
-                  inspectionMode === 'Normal' ? styles.inspectionChipTextActive : styles.inspectionChipTextInactive,
-                ]}
-              >
-                Normal
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.inspectionChip,
-                inspectionMode === 'Red Flag' ? styles.inspectionChipActive : styles.inspectionChipInactive,
-              ]}
-              onPress={() => setInspectionMode('Red Flag')}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.inspectionChipText,
-                  inspectionMode === 'Red Flag' ? styles.inspectionChipTextActive : styles.inspectionChipTextInactive,
-                ]}
-              >
-                Red Flag
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Red Flag Alert Banner (Shown when Red Flag mode is active, matching Image 3) */}
-          {inspectionMode === 'Red Flag' && (
-            <View style={styles.redFlagBanner}>
-              <FlagIcon size={18} color={adminColors.danger.text} />
-              <Text style={styles.redFlagBannerText}>
-                Red Flag — major violation threshold breached.
-              </Text>
-            </View>
-          )}
-
-          {/* Section 1: Audit Information (Button removed per user request) */}
-          <Text style={styles.detailSectionTitle}>Audit Information</Text>
-          <View style={styles.detailCard}>
-            <View style={styles.detailGridRow}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Audit ID</Text>
-                <Text style={styles.detailMetaValue}>{record.id}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Farm</Text>
-                <Text style={styles.detailMetaValue}>{record.farm}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Audit Type</Text>
-                <Text style={styles.detailMetaValue}>{record.type}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Date</Text>
-                <Text style={styles.detailMetaValue}>{record.date}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 2: Checklist Results */}
-          <Text style={styles.detailSectionTitle}>Checklist Results</Text>
-          <View style={styles.checklistCard}>
-            <View style={styles.checklistRow}>
-              <Text style={styles.checklistLabel}>Farm Documentation</Text>
-              <View style={[styles.statusChip, styles.statusChipGreen]}>
-                <Text style={[styles.statusChipText, styles.statusChipTextGreen]}>Completed</Text>
-              </View>
-            </View>
-
-            <View style={styles.checklistDivider} />
-
-            <View style={styles.checklistRow}>
-              <Text style={styles.checklistLabel}>Organic Practices</Text>
-              <View style={[styles.statusChip, styles.statusChipGreen]}>
-                <Text style={[styles.statusChipText, styles.statusChipTextGreen]}>Completed</Text>
-              </View>
-            </View>
-
-            <View style={styles.checklistDivider} />
-
-            <View style={styles.checklistRow}>
-              <Text style={styles.checklistLabel}>Crop Management</Text>
-              <View style={[styles.statusChip, styles.statusChipAmber]}>
-                <Text style={[styles.statusChipText, styles.statusChipTextAmber]}>Pending</Text>
-              </View>
-            </View>
-
-            <View style={styles.checklistDivider} />
-
-            <View style={styles.checklistRow}>
-              <Text style={styles.checklistLabel}>Input Usage</Text>
-              <View style={[styles.statusChip, styles.statusChipAmber]}>
-                <Text style={[styles.statusChipText, styles.statusChipTextAmber]}>Pending</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 3: Inspection Summary */}
-          <Text style={styles.detailSectionTitle}>Inspection Summary</Text>
-          <View style={styles.summaryKpiRow}>
-            <View style={styles.summaryKpiCard}>
-              <Text style={styles.summaryKpiLabel}>MAJOR FINDINGS</Text>
-              <Text style={[styles.summaryKpiValueDark, { color: adminColors.danger.text }]}>1</Text>
-            </View>
-            <View style={styles.summaryKpiCard}>
-              <Text style={styles.summaryKpiLabel}>MINOR FINDINGS</Text>
-              <Text style={styles.summaryKpiValueAmber}>1</Text>
-            </View>
-          </View>
-
-          {/* Section 4: Findings */}
-          <Text style={styles.detailSectionTitle}>Findings</Text>
-          <View style={styles.findingCard}>
-            <Text style={styles.findingTitle}>Pest management issue</Text>
-            <View style={styles.findingBadgesRow}>
-              <View style={styles.minorBadge}>
-                <Text style={styles.minorBadgeText}>Minor</Text>
-              </View>
-              <View style={styles.openBadge}>
-                <Text style={styles.openBadgeText}>Open</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.findingCard, { marginTop: 10 }]}>
-            <Text style={styles.findingTitle}>Certification issue</Text>
-            <View style={styles.findingBadgesRow}>
-              <View style={styles.majorBadge}>
-                <Text style={styles.majorBadgeText}>Major</Text>
-              </View>
-              <View style={styles.resolvedBadge}>
-                <Text style={styles.resolvedBadgeText}>Resolved</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 5: Violations */}
-          <Text style={styles.detailSectionTitle}>Violations</Text>
-          <View style={styles.findingCard}>
-            <Text style={styles.findingTitle}>NPOP certification documentation</Text>
-            <View style={styles.findingBadgesRow}>
-              <View style={styles.majorBadge}>
-                <Text style={styles.majorBadgeText}>Major</Text>
-              </View>
-              <View style={styles.openBadge}>
-                <Text style={styles.openBadgeText}>Open</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 6: Audit Timeline */}
-          <Text style={styles.detailSectionTitle}>Audit Timeline</Text>
-          <View style={styles.timelineCard}>
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineTileOrange}>
-                <CirclePlayIcon size={16} color={adminColors.brand} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.timelineItemTitle}>Audit Started</Text>
-                <Text style={styles.timelineItemMeta}>15 Oct 2026, 9:40 AM</Text>
-              </View>
-            </View>
-
-            <View style={[styles.checklistDivider, { marginVertical: 12 }]} />
-
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineTileOrange}>
-                <TimelineInspectionIcon size={16} color={adminColors.brand} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.timelineItemTitle}>Inspection</Text>
-                <Text style={styles.timelineItemMeta}>15 Oct 2026, 10:15 AM</Text>
-              </View>
-            </View>
-
-            <View style={[styles.checklistDivider, { marginVertical: 12 }]} />
-
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineTileGray}>
-                <PendingCircleIcon size={16} color={adminColors.muted} />
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.timelineItemTitle}>Findings Recorded</Text>
-                <Text style={styles.timelineItemMeta}>Pending</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Section 7: Supporting Evidence */}
-          <Text style={styles.detailSectionTitle}>Supporting Evidence</Text>
-          <View style={styles.detailCard}>
-            <View style={styles.detailGridRow}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Photos</Text>
-                <Text style={styles.detailMetaValue}>2 attached</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Documents</Text>
-                <Text style={styles.detailMetaValue}>1 attached</Text>
-              </View>
-            </View>
-
-            <View style={{ marginTop: 14 }}>
-              <Text style={styles.detailMetaLabel}>Notes</Text>
-              <Text style={[styles.detailMetaValue, { marginTop: 4, lineHeight: 20 }]}>
-                Minor pest sighting noted on plot 2, farmer advised on organic treatment.
-              </Text>
-            </View>
-            {/* Disclaimer note under Supporting Evidence matching Image 4 */}
-            <View style={[styles.infoNoteCard, { marginTop: 14 }]}>
-              <Text style={styles.infoNoteText}>
-                Evidence shown here is read-only for this build — Add Evidence appears only if the backend explicitly grants upload permission.
-              </Text>
-            </View>
-          </View>
-
-          {/* Section 8: Audit Rating matching Image 4 */}
-          <Text style={styles.detailSectionTitle}>Audit Rating</Text>
-          <View style={styles.ratingCard}>
-            <View style={styles.ratingNumberWrap}>
-              <Text style={styles.ratingBigScore}>
-                {completedInspectionScore !== null ? completedInspectionScore : 0}
-              </Text>
-              <Text style={styles.ratingTotal}> / 100</Text>
-            </View>
-            <Text style={styles.ratingCaption}>AUDIT SCORE — VIEW ONLY</Text>
-          </View>
-
-          {/* Disclaimer note under Audit Rating matching Image 4 */}
-          <View style={[styles.infoNoteCard, { marginTop: 14 }]}>
-            <Text style={styles.infoNoteText}>
-              No Edit Score, Configure Score Categories, or Configure Rating Tiers — none are Farmer Admin permissions. Audit Score is a different system from Farm Rating (10 categories × 10 points), never merged here.
-            </Text>
-          </View>
-
-          <View style={{ height: 24 }} />
-        </ScrollView>
-
-        {/* Bottom Action matching Image 4 */}
-        <View style={styles.singleBottomBar}>
-          <TouchableOpacity
-            style={styles.startResumeBtn}
-            onPress={() => setCurrentView('audit_inspection')}
-            activeOpacity={0.85}
-          >
-            <HardHatIcon size={18} color={adminColors.onBrand} />
-            <Text style={styles.startResumeBtnText}>Start / Resume</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // SCREEN 5: AUDIT INSPECTION SCREEN (Screenshots 1 & 2)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (currentView === 'audit_inspection') {
-    const completedCount = Object.values(completedSections).filter(Boolean).length;
-    const totalSectionsCount = INSPECTION_SECTIONS.length;
-    const missingCount = Math.max(0, totalSectionsCount - completedCount);
-
-    return (
-      <SafeAreaView style={styles.rootOrange}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* Orange Header */}
-        <View style={styles.screenHeader}>
-          <TouchableOpacity
-            style={styles.headerBackBtn}
-            onPress={() => setCurrentView('inspection')}
-            activeOpacity={0.7}
-          >
-            <BackArrowIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Audit Inspection</Text>
-            <Text style={styles.screenHeaderSub}>
-              {selectedRecord?.id || 'AUD-2026-0042'} · {selectedRecord?.farmerName || 'Ramesh Kumar'}
-            </Text>
-          </View>
-        </View>
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.detailScrollPad}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Audit ID & Farmer Info Card (2x3 Grid) */}
-          <View style={styles.detailCard}>
-            <View style={styles.detailGridRow}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Audit ID</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.id || 'AUD-2026-0042'}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Type</Text>
-                <Text style={styles.detailMetaValue}>Internal Audit</Text>
-              </View>
-            </View>
-
-            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Farmer</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.farmerName || 'Ramesh Kumar'}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Farm</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.farm || 'Ramesh Organic Farm'}</Text>
-              </View>
-            </View>
-
-            <View style={[styles.detailGridRow, { marginTop: 14 }]}>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Date</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.date || '15 Oct 2026'}</Text>
-              </View>
-              <View style={styles.detailGridCol}>
-                <Text style={styles.detailMetaLabel}>Auditor</Text>
-                <Text style={styles.detailMetaValue}>{selectedRecord?.auditor || 'Suresh Kumar'}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Progress Card */}
-          <View style={[styles.detailCard, { marginTop: 12 }]}>
-            <Text style={styles.progressCardTitle}>
-              {completedCount} of {totalSectionsCount} sections complete
-            </Text>
-            <Text style={styles.progressCardSub}>
-              {completedCount === 0
-                ? `${totalSectionsCount} required fields are still missing`
-                : missingCount > 0
-                ? `${missingCount} sections remaining`
-                : 'All sections completed'}
-            </Text>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${(completedCount / totalSectionsCount) * 100}%` }]} />
-            </View>
-          </View>
-
-          {/* Section: Inspection sections */}
-          <Text style={styles.inspectionSectionsTitle}>Inspection sections</Text>
-
-          {INSPECTION_SECTIONS.map((sec) => {
-            const isDone = !!completedSections[sec.id];
-            return (
-              <TouchableOpacity
-                key={sec.id}
-                style={styles.inspectionSectionCard}
-                onPress={() => {
-                  setCurrentStep(sec.id);
-                  setCurrentView('inspection_step');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.stepNumCircle, isDone && styles.stepNumCircleDone]}>
-                  <Text style={[styles.stepNumText, isDone && styles.stepNumTextDone]}>{sec.id}</Text>
-                </View>
-
-                <View style={{ flex: 1, paddingRight: 8 }}>
-                  <Text style={styles.stepCardTitle}>{sec.title}</Text>
-                  <Text style={[styles.stepCardSub, isDone && { color: adminColors.success.text, fontWeight: '700' }]}>
-                    {isDone ? 'Completed' : sec.requiredLeft}
-                  </Text>
-                </View>
-
-                <Text style={[styles.stepCardStatus, isDone && styles.stepCardStatusDone]}>
-                  {isDone ? 'Completed' : 'Not Started'}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-
-          <View style={{ height: 16 }} />
-        </ScrollView>
-
-        {/* Bottom Actions matching Image 1: Review & Submit and Save Draft */}
-        <View style={styles.inspectionBottomBar}>
-          <TouchableOpacity
-            style={styles.primaryOrangeBtn}
-            onPress={() => {
-              setCompletedInspectionScore(82);
-              setSelectedRecord((prev) => ({
-                ...prev,
-                score: '82/100',
-                previousSummary: {
-                  date: prev.previousSummary?.date || '15 Oct 2026',
-                  score: '82/100',
-                },
-              }));
-              Alert.alert('Audit Inspection', 'Inspection form submitted successfully! Audit rating generated: 82/100.', [
-                { text: 'View Summary', onPress: () => setCurrentView('audit_details_m5') },
-              ]);
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryOrangeBtnText}>Review & Submit</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.saveDraftBtn}
-            onPress={() => {
-              Alert.alert('Draft Saved', 'Your audit inspection progress has been saved as draft.');
-              setCurrentView('inspection');
-            }}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.saveDraftBtnText}>Save Draft</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   // ───────────────────────────────────────────────────────────────────────────
   // SCREEN 6: INSPECTION STEP DETAIL SCREEN (Screenshots 3 & 4)
@@ -3247,7 +2733,7 @@ export function AuditScheduleScreen({
 
     const handleSaveStep = () => {
       setCompletedSections((prev) => ({ ...prev, [currentStep]: true }));
-      if (currentStep < 12) {
+      if (currentStep < 4) {
         setCurrentStep((prev) => prev + 1);
         setContactDropdownOpen(false);
         setStatusDropdownOpen(false);
@@ -3258,30 +2744,12 @@ export function AuditScheduleScreen({
         setWaterModalVisible(false);
         setStep4OpenDropdown(null);
         setActiveCalendarField(null);
-        setStep5DropdownOpen(false);
-        setStep6OpenDropdown(null);
-        setActiveWaterSourcePickerIndex(null);
-        setActivePurposePickerIndex(null);
-        setActiveWaterCalendarIndex(null);
         setCertPdfModalDoc(null);
-        setStep7OpenDropdown(null);
-        setStep7EvidenceModalSection(null);
-        setStep8OpenDropdown(null);
-        setStep8RelatedModalIndex(null);
-        setStep9OpenDropdown(null);
-        setStep9RelatedModalIndex(null);
-        setStep9EvidenceRefModalIndex(null);
-        setStep10OpenDropdown(null);
-        setStep11AuditTypeOpen(false);
-        setStep11ActiveDateField(null);
-        setStep12ExpandedCategory(null);
-        setStepDropdownAOpen(false);
-        setStepDropdownBOpen(false);
       } else {
         Alert.alert(
           'Inspection Completed',
-          'All 12 sections have been successfully completed! Returning to Audit Inspection overview.',
-          [{ text: 'OK', onPress: () => setCurrentView('audit_inspection') }]
+          'All 4 sections have been successfully completed! Returning to Audit details.',
+          [{ text: 'OK', onPress: () => setCurrentView('detail') }]
         );
       }
     };
@@ -3773,7 +3241,7 @@ export function AuditScheduleScreen({
               setStep12ExpandedCategory(null);
               setStepDropdownAOpen(false);
               setStepDropdownBOpen(false);
-              setCurrentView('audit_inspection');
+              setCurrentView('detail');
             }}
             activeOpacity={0.7}
           >
@@ -3786,7 +3254,7 @@ export function AuditScheduleScreen({
               </Text>
               <View style={styles.headerStepPill}>
                 <Text style={styles.headerStepPillText}>
-                  {`${currentStep}/12`}
+                  {`${currentStep}/4`}
                 </Text>
               </View>
             </View>
@@ -5079,2165 +4547,19 @@ export function AuditScheduleScreen({
                 )}
               </View>
             </View>
-          ) : currentStep === 5 ? (
-            /* ─── Step 5: Soil Testing & Soil Report (Screenshot) ─── */
-            <View>
-              {/* Soil Report Availability * */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>
-                  Soil Report Availability <Text style={{ color: adminColors.danger.text }}>*</Text>
-                </Text>
-                <TouchableOpacity
-                  style={styles.dropdownSelectorBox}
-                  onPress={() => setStep5DropdownOpen(!step5DropdownOpen)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.dropdownSelectorText}>{soilReportAvailability}</Text>
-                  <SolidTriangleDownIcon size={10} color={adminColors.ink} />
-                </TouchableOpacity>
-
-                {step5DropdownOpen && (
-                  <View style={styles.dropdownMenu}>
-                    {(['Select...', 'Available', 'Not Available'] as const).map((opt) => {
-                      const isSelected = soilReportAvailability === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                          onPress={() => {
-                            setSoilReportAvailability(opt);
-                            setStep5DropdownOpen(false);
-                          }}
-                        >
-                          <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                            {opt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            </View>
-          ) : currentStep === 6 ? (
-            /* ─── Step 6: Water Source & Water pH Testing (Screenshots 1-5) ─── */
-            <View>
-              {waterSourcesList.map((entry, idx) => {
-                const isCalendarOpen = activeWaterCalendarIndex === idx;
-
-                const isTypeDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'sourceType';
-                const isVerifDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'verification';
-                const isConditionDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'condition';
-                const isMethodDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'testingMethod';
-                const isDeviceDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'testingDevice';
-                const isPhStatusDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'phStatus';
-                const isTestVerifDropdownOpen =
-                  step6OpenDropdown?.entryIndex === idx && step6OpenDropdown?.field === 'testVerification';
-
-                return (
-                  <View key={entry.id || idx} style={{ marginBottom: 16 }}>
-                    {/* Section Header: WATER SOURCE {idx + 1} */}
-                    <View style={styles.waterSourceSectionHeaderRow}>
-                      <Text style={styles.waterSourceSectionTitle}>WATER SOURCE {idx + 1}</Text>
-                      {waterSourcesList.length > 1 && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            setWaterSourcesList((prev) => prev.filter((_, i) => i !== idx));
-                          }}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                          <Text style={{ ...adminType.rowMeta, color: adminColors.danger.text }}>Remove</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    {/* 1. Water Source */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Source</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep6OpenDropdown(null);
-                          setActiveWaterCalendarIndex(null);
-                          setWaterSourceSearchText('');
-                          setActiveWaterSourcePickerIndex(idx);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownSelectorText,
-                            entry.sourceName === 'Select...' && { color: adminColors.muted },
-                          ]}
-                        >
-                          {entry.sourceName}
-                        </Text>
-                        <SearchIcon size={18} color={adminColors.brand} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* 2. Water Source Type */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Source Type</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isTypeDropdownOpen ? null : { entryIndex: idx, field: 'sourceType' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.sourceType}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isTypeDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'Borewell', 'Open Well', 'Canal', 'River', 'Rainwater Harvesting'].map(
-                            (opt) => {
-                              const isSelected = entry.sourceType === opt;
-                              return (
-                                <TouchableOpacity
-                                  key={opt}
-                                  style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                  onPress={() => {
-                                    setWaterSourcesList((prev) =>
-                                      prev.map((item, i) => (i === idx ? { ...item, sourceType: opt } : item))
-                                    );
-                                    setStep6OpenDropdown(null);
-                                  }}
-                                >
-                                  <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                    {opt}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            }
-                          )}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 3. Water Source Location */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Source Location</Text>
-                      <TextInput
-                        style={styles.locationInputBox}
-                        value={entry.location}
-                        onChangeText={(txt) =>
-                          setWaterSourcesList((prev) =>
-                            prev.map((item, i) => (i === idx ? { ...item, location: txt } : item))
-                          )
-                        }
-                        placeholder=""
-                        placeholderTextColor={adminColors.muted}
-                      />
-                      <Text style={styles.locationHelperText}>
-                        No location is recorded for this source — enter it if you are authorized to.
-                      </Text>
-                    </View>
-
-                    {/* 4. Water Use Purpose */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Use Purpose</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep6OpenDropdown(null);
-                          setActiveWaterCalendarIndex(null);
-                          setPurposeSearchText('');
-                          setActivePurposePickerIndex(idx);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownSelectorText,
-                            entry.usePurposes.length === 0 && { color: adminColors.muted },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {entry.usePurposes.length > 0 ? entry.usePurposes.join(', ') : 'Select...'}
-                        </Text>
-                        <SlidersHorizontalIcon size={18} color={adminColors.brand} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* 5. Water Source Verification */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Source Verification</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isVerifDropdownOpen ? null : { entryIndex: idx, field: 'verification' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.verification}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isVerifDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'Confirmed On-Site', 'Could Not Confirm'].map((opt) => {
-                            const isSelected = entry.verification === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                onPress={() => {
-                                  setWaterSourcesList((prev) =>
-                                    prev.map((item, i) => (i === idx ? { ...item, verification: opt } : item))
-                                  );
-                                  setStep6OpenDropdown(null);
-                                }}
-                              >
-                                <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 6. Water Source Condition */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Source Condition</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isConditionDropdownOpen ? null : { entryIndex: idx, field: 'condition' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.condition}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isConditionDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'Clean', 'Contaminated', 'Needs Maintenance'].map((opt) => {
-                            const isSelected = entry.condition === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                onPress={() => {
-                                  setWaterSourcesList((prev) =>
-                                    prev.map((item, i) => (i === idx ? { ...item, condition: opt } : item))
-                                  );
-                                  setStep6OpenDropdown(null);
-                                }}
-                              >
-                                <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 7. Test Date */}
-                    <View style={[styles.formFieldGroup, isCalendarOpen && { zIndex: 100 }]}>
-                      <Text style={styles.formLabel}>Test Date</Text>
-                      <TouchableOpacity
-                        style={styles.dateInputRow}
-                        onPress={() => {
-                          setStep6OpenDropdown(null);
-                          setActiveWaterCalendarIndex(isCalendarOpen ? null : idx);
-                        }}
-                        activeOpacity={0.85}
-                      >
-                        <TextInput
-                          style={styles.dateTextInput}
-                          value={entry.testDate}
-                          onChangeText={(txt) =>
-                            setWaterSourcesList((prev) =>
-                              prev.map((item, i) => (i === idx ? { ...item, testDate: txt } : item))
-                            )
-                          }
-                          placeholder="dd-mm-yyyy"
-                          placeholderTextColor={adminColors.muted}
-                          onFocus={() => {
-                            setStep6OpenDropdown(null);
-                            setActiveWaterCalendarIndex(idx);
-                          }}
-                        />
-                        <TouchableOpacity
-                          onPress={() => {
-                            setStep6OpenDropdown(null);
-                            setActiveWaterCalendarIndex(isCalendarOpen ? null : idx);
-                          }}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          activeOpacity={0.7}
-                        >
-                          <CalendarIcon size={18} color={adminColors.muted} />
-                        </TouchableOpacity>
-                      </TouchableOpacity>
-                      {isCalendarOpen && renderWaterCalendarDropdown(idx)}
-                    </View>
-
-                    {/* 8. Testing Method */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Testing Method</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isMethodDropdownOpen ? null : { entryIndex: idx, field: 'testingMethod' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.testingMethod}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isMethodDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'pH Strip', 'Digital Meter', 'Laboratory Test'].map((opt) => {
-                            const isSelected = entry.testingMethod === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                onPress={() => {
-                                  setWaterSourcesList((prev) =>
-                                    prev.map((item, i) => (i === idx ? { ...item, testingMethod: opt } : item))
-                                  );
-                                  setStep6OpenDropdown(null);
-                                }}
-                              >
-                                <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 9. Testing Device */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Testing Device</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isDeviceDropdownOpen ? null : { entryIndex: idx, field: 'testingDevice' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.testingDevice}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isDeviceDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'Handheld pH Meter', 'Litmus Strips', 'Lab Equipment'].map((opt) => {
-                            const isSelected = entry.testingDevice === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                onPress={() => {
-                                  setWaterSourcesList((prev) =>
-                                    prev.map((item, i) => (i === idx ? { ...item, testingDevice: opt } : item))
-                                  );
-                                  setStep6OpenDropdown(null);
-                                }}
-                              >
-                                <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 10. Water Test Report */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Water Test Report</Text>
-                      <TouchableOpacity
-                        style={styles.dashedUploadBox}
-                        onPress={() => {
-                          setWaterSourcesList((prev) =>
-                            prev.map((item, i) =>
-                              i === idx
-                                ? { ...item, uploadedReport: `water_test_report_source_${idx + 1}.pdf` }
-                                : item
-                            )
-                          );
-                          Alert.alert('Upload File', `File selected: water_test_report_source_${idx + 1}.pdf`);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <UploadFileIcon size={19} color={adminColors.brand} />
-                        <Text style={styles.dashedUploadText}>
-                          {entry.uploadedReport ? entry.uploadedReport : 'Upload file'}
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* 11. pH Measurement Status * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        pH Measurement Status <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isPhStatusDropdownOpen ? null : { entryIndex: idx, field: 'phStatus' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.phMeasurementStatus}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isPhStatusDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'Within Range', 'Out of Range', 'Not Tested'].map((opt) => {
-                            const isSelected = entry.phMeasurementStatus === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                onPress={() => {
-                                  setWaterSourcesList((prev) =>
-                                    prev.map((item, i) => (i === idx ? { ...item, phMeasurementStatus: opt } : item))
-                                  );
-                                  setStep6OpenDropdown(null);
-                                }}
-                              >
-                                <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 12. Test Verification Status */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Test Verification Status</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setActiveWaterCalendarIndex(null);
-                          setStep6OpenDropdown(
-                            isTestVerifDropdownOpen ? null : { entryIndex: idx, field: 'testVerification' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.testVerificationStatus}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isTestVerifDropdownOpen && (
-                        <View style={styles.dropdownMenu}>
-                          {['Select...', 'Verified', 'Could Not Verify'].map((opt) => {
-                            const isSelected = entry.testVerificationStatus === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[styles.dropdownMenuItem, isSelected && styles.dropdownMenuItemActive]}
-                                onPress={() => {
-                                  setWaterSourcesList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, testVerificationStatus: opt } : item
-                                    )
-                                  );
-                                  setStep6OpenDropdown(null);
-                                }}
-                              >
-                                <Text style={[styles.dropdownMenuText, isSelected && styles.dropdownMenuTextActive]}>
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 13. Notes */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Notes</Text>
-                      <View style={styles.notesTextareaContainer}>
-                        <TextInput
-                          style={styles.notesTextareaInput}
-                          value={entry.notes}
-                          onChangeText={(txt) =>
-                            setWaterSourcesList((prev) =>
-                              prev.map((item, i) => (i === idx ? { ...item, notes: txt } : item))
-                            )
-                          }
-                          placeholder=""
-                          placeholderTextColor={adminColors.muted}
-                          multiline
-                          textAlignVertical="top"
-                        />
-                        <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color={adminColors.muted} />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-
-              {/* + Add another water source */}
-              <TouchableOpacity
-                style={styles.addWaterSourceBtn}
-                onPress={() => {
-                  setWaterSourcesList((prev) => [
-                    ...prev,
-                    {
-                      id: String(prev.length + 1),
-                      sourceName: 'Select...',
-                      sourceType: 'Select...',
-                      location: '',
-                      usePurposes: [],
-                      verification: 'Select...',
-                      condition: 'Select...',
-                      testDate: '',
-                      testingMethod: 'Select...',
-                      testingDevice: 'Select...',
-                      uploadedReport: null,
-                      phMeasurementStatus: 'Select...',
-                      testVerificationStatus: 'Select...',
-                      notes: '',
-                    },
-                  ]);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.addWaterSourceBtnText}>+ Add another water source</Text>
-              </TouchableOpacity>
-            </View>
-          ) : currentStep === 7 ? (
-            /* ─── Step 7: Farm Practices Checklist (Screenshots 1-5) ─── */
-            <View>
-              {STEP7_SECTIONS_CONFIG.map((sec, secIndex) => {
-                const data = step7Data[sec.key];
-                const isDropdownOpen = step7OpenDropdown === sec.key;
-
-                return (
-                  <View key={sec.key} style={{ marginTop: secIndex === 0 ? 2 : 20 }}>
-                    {/* Section Title */}
-                    <Text style={styles.step7SectionHeader}>{sec.title}</Text>
-
-                    {/* Inspection Result * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Inspection Result <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep7OpenDropdown(isDropdownOpen ? null : sec.key);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{data.inspectionResult}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isDropdownOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP7_INSPECTION_RESULTS.map((opt) => {
-                            const isSelected = data.inspectionResult === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep7Data((prev) => ({
-                                    ...prev,
-                                    [sec.key]: { ...prev[sec.key], inspectionResult: opt },
-                                  }));
-                                  setStep7OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Notes */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Notes</Text>
-                      <View style={styles.notesTextareaContainer}>
-                        <TextInput
-                          style={styles.notesTextareaInput}
-                          value={data.notes}
-                          onChangeText={(txt) => {
-                            setStep7Data((prev) => ({
-                              ...prev,
-                              [sec.key]: { ...prev[sec.key], notes: txt },
-                            }));
-                          }}
-                          placeholder=""
-                          placeholderTextColor={adminColors.muted}
-                          multiline
-                          textAlignVertical="top"
-                        />
-                        <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color={adminColors.muted} />
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Evidence (existing) */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Evidence (existing)</Text>
-                      <TouchableOpacity
-                        style={styles.step7SearchBox}
-                        onPress={() => {
-                          setStep7EvidenceModalSection(sec.key);
-                          setStep7EvidenceSearchText('');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownSelectorText,
-                            (!data.evidence || data.evidence === 'Select...') && {
-                              color: adminColors.muted,
-                              fontWeight: '400',
-                            },
-                          ]}
-                        >
-                          {data.evidence || 'Select...'}
-                        </Text>
-                        <SearchIcon size={17} color={adminColors.brand} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Upload evidence */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Upload evidence</Text>
-                      {data.uploadedFile ? (
-                        <View style={styles.uploadedFileCard}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                            <FileTextIcon size={18} color={adminColors.brand} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.uploadedFileName} numberOfLines={1}>
-                                {data.uploadedFile.name}
-                              </Text>
-                              <Text style={styles.uploadedFileSize}>{data.uploadedFile.size}</Text>
-                            </View>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => {
-                              setStep7Data((prev) => ({
-                                ...prev,
-                                [sec.key]: { ...prev[sec.key], uploadedFile: null },
-                              }));
-                            }}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          >
-                            <CloseXIcon size={16} color={adminColors.danger.text} />
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.uploadEvidenceDashedBox}
-                          onPress={() => {
-                            const defaultName = `${sec.title.toLowerCase().replace(/\s+/g, '_')}_evidence.pdf`;
-                            setStep7Data((prev) => ({
-                              ...prev,
-                              [sec.key]: {
-                                ...prev[sec.key],
-                                uploadedFile: { name: defaultName, size: '1.2 MB' },
-                              },
-                            }));
-                            Alert.alert('File Uploaded', `${defaultName} attached successfully.`);
-                          }}
-                          activeOpacity={0.75}
-                        >
-                          <UploadFileIcon size={19} color={adminColors.brand} />
-                          <Text style={styles.uploadEvidenceText}>Upload file</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : currentStep === 8 ? (
-            /* ─── Step 8: Documents & Evidence (Screenshots 1 to 5) ─── */
-            <View>
-              {/* Existing documents & evidence */}
-              <Text style={styles.step8SectionHeader}>Existing documents & evidence</Text>
-
-              {/* FMB Sketch Card */}
-              <View style={styles.step8DocCard}>
-                <View style={styles.step8DocCardLeft}>
-                  <FileTextIcon size={20} color={adminColors.brand} />
-                  <View>
-                    <Text style={styles.step8DocTitle}>FMB Sketch</Text>
-                    <Text style={styles.step8DocSub}>On file</Text>
-                  </View>
-                </View>
-                <View style={styles.step8DocActionsRow}>
-                  <TouchableOpacity
-                    style={styles.step8DocActionBtn}
-                    onPress={() => {
-                      setCertPdfModalDoc({
-                        title: 'FMB Sketch Survey Document',
-                        fileName: 'FMB_Sketch_Survey_42_Nilgiris.pdf',
-                        certNumber: 'FMB-2026-NIL-42',
-                        validThrough: 'Permanent Record',
-                        agency: 'Dept of Survey & Land Records, TN',
-                      });
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.step8DocActionBtnText}>View</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.step8DocActionBtn}
-                    onPress={() => {
-                      Alert.alert(
-                        'Download Complete',
-                        'FMB_Sketch_Survey_42_Nilgiris.pdf downloaded successfully to your device storage.'
-                      );
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.step8DocActionBtnText}>Download</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* PGS Organic Certificate Card */}
-              <View style={styles.step8DocCard}>
-                <View style={styles.step8DocCardLeft}>
-                  <FileTextIcon size={20} color={adminColors.brand} />
-                  <View>
-                    <Text style={styles.step8DocTitle}>PGS Organic Certificate</Text>
-                    <Text style={styles.step8DocSub}>On file</Text>
-                  </View>
-                </View>
-                <View style={styles.step8DocActionsRow}>
-                  <TouchableOpacity
-                    style={styles.step8DocActionBtn}
-                    onPress={() => {
-                      setCertPdfModalDoc({
-                        title: 'PGS Organic Certificate',
-                        fileName: 'PGS_India_Green_Certificate_2026.pdf',
-                        certNumber: 'PGS-IND-2026-0892',
-                        validThrough: '31-12-2027',
-                        agency: 'PGS-India Regional Council',
-                      });
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.step8DocActionBtnText}>View</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.step8DocActionBtn}
-                    onPress={() => {
-                      Alert.alert(
-                        'Download Complete',
-                        'PGS_India_Green_Certificate_2026.pdf downloaded successfully to your device storage.'
-                      );
-                    }}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.step8DocActionBtnText}>Download</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Add evidence Header */}
-              <Text style={[styles.step8SectionHeader, { marginTop: 18 }]}>Add evidence</Text>
-
-              {/* Evidence Entries List */}
-              {step8EvidenceList.map((entry, idx) => {
-                const isCatOpen =
-                  step8OpenDropdown?.entryIndex === idx && step8OpenDropdown.field === 'category';
-                const isDocTypeOpen =
-                  step8OpenDropdown?.entryIndex === idx && step8OpenDropdown.field === 'documentType';
-                const isVerifOpen =
-                  step8OpenDropdown?.entryIndex === idx && step8OpenDropdown.field === 'verificationStatus';
-                const isMissingOpen =
-                  step8OpenDropdown?.entryIndex === idx && step8OpenDropdown.field === 'missingReason';
-
-                return (
-                  <View key={entry.id} style={idx > 0 ? styles.step8SubsequentEntryBox : undefined}>
-                    {step8EvidenceList.length > 1 && (
-                      <View style={styles.step8EntryHeaderRow}>
-                        <Text style={styles.step8EntryHeaderTitle}>Evidence #{idx + 1}</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            setStep8EvidenceList((prev) => prev.filter((_, i) => i !== idx));
-                          }}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        >
-                          <Text style={styles.step8RemoveText}>Remove</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {/* Field 1: Evidence Category * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Evidence Category <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep8OpenDropdown(
-                            isCatOpen ? null : { entryIndex: idx, field: 'category' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.category}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isCatOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP8_EVIDENCE_CATEGORIES.map((opt) => {
-                            const isSelected = entry.category === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep8EvidenceList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, category: opt } : item
-                                    )
-                                  );
-                                  setStep8OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Field 2: Related Inspection Section * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Related Inspection Section <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.step7SearchBox}
-                        onPress={() => {
-                          setStep8RelatedModalIndex(idx);
-                          setStep8RelatedSearchText('');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownSelectorText,
-                            (!entry.relatedSection || entry.relatedSection === 'Select...') && {
-                              color: adminColors.muted,
-                              fontWeight: '400',
-                            },
-                          ]}
-                        >
-                          {entry.relatedSection || 'Select...'}
-                        </Text>
-                        <SearchIcon size={17} color={adminColors.brand} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Field 3: Document Type */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Document Type</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep8OpenDropdown(
-                            isDocTypeOpen ? null : { entryIndex: idx, field: 'documentType' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.documentType}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isDocTypeOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP8_DOCUMENT_TYPES.map((opt) => {
-                            const isSelected = entry.documentType === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep8EvidenceList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, documentType: opt } : item
-                                    )
-                                  );
-                                  setStep8OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Field 4: Evidence File */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Evidence File</Text>
-                      {entry.uploadedFile ? (
-                        <View style={styles.uploadedFileCard}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-                            <FileTextIcon size={18} color={adminColors.brand} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={styles.uploadedFileName} numberOfLines={1}>
-                                {entry.uploadedFile.name}
-                              </Text>
-                              <Text style={styles.uploadedFileSize}>{entry.uploadedFile.size}</Text>
-                            </View>
-                          </View>
-                          <TouchableOpacity
-                            onPress={() => {
-                              setStep8EvidenceList((prev) =>
-                                prev.map((item, i) =>
-                                  i === idx ? { ...item, uploadedFile: null } : item
-                                )
-                              );
-                            }}
-                            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          >
-                            <CloseXIcon size={16} color={adminColors.danger.text} />
-                          </TouchableOpacity>
-                        </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={styles.uploadEvidenceDashedBox}
-                          onPress={() => {
-                            const defaultName = `evidence_doc_${idx + 1}.pdf`;
-                            setStep8EvidenceList((prev) =>
-                              prev.map((item, i) =>
-                                i === idx
-                                  ? {
-                                      ...item,
-                                      uploadedFile: { name: defaultName, size: '2.1 MB' },
-                                    }
-                                  : item
-                              )
-                            );
-                            Alert.alert('File Uploaded', `${defaultName} attached successfully.`);
-                          }}
-                          activeOpacity={0.75}
-                        >
-                          <UploadFileIcon size={19} color={adminColors.brand} />
-                          <Text style={styles.uploadEvidenceText}>Upload file</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-
-                    {/* Field 5: Evidence Verification Status */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Evidence Verification Status</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep8OpenDropdown(
-                            isVerifOpen ? null : { entryIndex: idx, field: 'verificationStatus' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.verificationStatus}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isVerifOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP8_VERIFICATION_STATUSES.map((opt) => {
-                            const isSelected = entry.verificationStatus === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep8EvidenceList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, verificationStatus: opt } : item
-                                    )
-                                  );
-                                  setStep8OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Field 6: Missing Document Reason * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Missing Document Reason <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep8OpenDropdown(
-                            isMissingOpen ? null : { entryIndex: idx, field: 'missingReason' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.missingReason}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isMissingOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP8_MISSING_REASONS.map((opt) => {
-                            const isSelected = entry.missingReason === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep8EvidenceList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, missingReason: opt } : item
-                                    )
-                                  );
-                                  setStep8OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Field 7: Notes */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Notes</Text>
-                      <View style={styles.notesTextareaContainer}>
-                        <TextInput
-                          style={styles.notesTextareaInput}
-                          value={entry.notes}
-                          onChangeText={(txt) => {
-                            setStep8EvidenceList((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, notes: txt } : item
-                              )
-                            );
-                          }}
-                          placeholder=""
-                          placeholderTextColor={adminColors.muted}
-                          multiline
-                          textAlignVertical="top"
-                        />
-                        <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color={adminColors.muted} />
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-
-              {/* + Add Evidence Button */}
-              <TouchableOpacity
-                style={styles.step8AddEvidenceBtn}
-                onPress={() => {
-                  setStep8EvidenceList((prev) => [
-                    ...prev,
-                    {
-                      id: String(Date.now()),
-                      category: 'Select...',
-                      relatedSection: 'Select...',
-                      documentType: 'Select...',
-                      uploadedFile: null,
-                      verificationStatus: 'Select...',
-                      missingReason: 'Select...',
-                      notes: '',
-                    },
-                  ]);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.step8AddEvidenceBtnText}>+ Add Evidence</Text>
-              </TouchableOpacity>
-            </View>
-          ) : currentStep === 9 ? (
-            /* ─── Step 9: Inspection Observations & Findings (Screenshots 1 to 5) ─── */
-            <View>
-              {/* Header */}
-              <Text style={styles.step8SectionHeader}>Add a supporting observation</Text>
-
-              {/* Info Banner */}
-              <View style={styles.step9InfoBanner}>
-                <InfoIcon size={18} color={adminColors.brand} />
-                <Text style={styles.step9InfoBannerText}>
-                  These are Farmer Admin supporting observations. They are kept separate from the official audit findings.
-                </Text>
-              </View>
-
-              {/* Observation Entries List */}
-              {step9ObservationsList.map((entry, idx) => {
-                const isCatOpen =
-                  step9OpenDropdown?.entryIndex === idx && step9OpenDropdown.field === 'category';
-                const isRecOpen =
-                  step9OpenDropdown?.entryIndex === idx && step9OpenDropdown.field === 'recommendation';
-                const isFollowUpOpen =
-                  step9OpenDropdown?.entryIndex === idx && step9OpenDropdown.field === 'followUp';
-
-                return (
-                  <View key={entry.id} style={idx > 0 ? styles.step8SubsequentEntryBox : { marginTop: 14 }}>
-                    {step9ObservationsList.length > 1 && (
-                      <View style={styles.step8EntryHeaderRow}>
-                        <Text style={styles.step8EntryHeaderTitle}>Observation #{idx + 1}</Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            setStep9ObservationsList((prev) => prev.filter((_, i) => i !== idx));
-                          }}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                        >
-                          <Text style={styles.step8RemoveText}>Remove</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {/* Field 1: Related Section * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Related Section <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.step7SearchBox}
-                        onPress={() => {
-                          setStep9RelatedModalIndex(idx);
-                          setStep9RelatedSearchText('');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownSelectorText,
-                            (!entry.relatedSection || entry.relatedSection === 'Select...') && {
-                              color: adminColors.muted,
-                              fontWeight: '400',
-                            },
-                          ]}
-                        >
-                          {entry.relatedSection || 'Select...'}
-                        </Text>
-                        <SearchIcon size={17} color={adminColors.brand} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Field 2: Observation Category * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Observation Category <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep9OpenDropdown(
-                            isCatOpen ? null : { entryIndex: idx, field: 'category' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.category}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isCatOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP9_OBSERVATION_CATEGORIES.map((opt) => {
-                            const isSelected = entry.category === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep9ObservationsList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, category: opt } : item
-                                    )
-                                  );
-                                  setStep9OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Field 3: Observation * */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>
-                        Observation <Text style={{ color: adminColors.danger.text }}>*</Text>
-                      </Text>
-                      <View style={styles.notesTextareaContainer}>
-                        <TextInput
-                          style={styles.notesTextareaInput}
-                          value={entry.observation}
-                          onChangeText={(txt) => {
-                            setStep9ObservationsList((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, observation: txt } : item
-                              )
-                            );
-                          }}
-                          placeholder=""
-                          placeholderTextColor={adminColors.muted}
-                          multiline
-                          textAlignVertical="top"
-                        />
-                        <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color={adminColors.muted} />
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Field 4: Follow-up Recommendation */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Follow-up Recommendation</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep9OpenDropdown(
-                            isRecOpen ? null : { entryIndex: idx, field: 'recommendation' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.followUpRecommendation}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isRecOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP9_FOLLOWUP_RECOMMENDATIONS.map((opt) => {
-                            const isSelected = entry.followUpRecommendation === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep9ObservationsList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, followUpRecommendation: opt } : item
-                                    )
-                                  );
-                                  setStep9OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* Field 5: Recommendation Notes (optional) */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Recommendation Notes (optional)</Text>
-                      <View style={styles.notesTextareaContainer}>
-                        <TextInput
-                          style={styles.notesTextareaInput}
-                          value={entry.recommendationNotes}
-                          onChangeText={(txt) => {
-                            setStep9ObservationsList((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, recommendationNotes: txt } : item
-                              )
-                            );
-                          }}
-                          placeholder=""
-                          placeholderTextColor={adminColors.muted}
-                          multiline
-                          textAlignVertical="top"
-                        />
-                        <View style={styles.resizeHandleWrap}>
-                          <ResizeHandleIcon size={12} color={adminColors.muted} />
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Field 6: Evidence Reference */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Evidence Reference</Text>
-                      <TouchableOpacity
-                        style={styles.step7SearchBox}
-                        onPress={() => {
-                          setStep9EvidenceRefModalIndex(idx);
-                          setStep9EvidenceRefSearchText('');
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.dropdownSelectorText,
-                            (!entry.evidenceReference || entry.evidenceReference === 'Select...') && {
-                              color: adminColors.muted,
-                              fontWeight: '400',
-                            },
-                          ]}
-                        >
-                          {entry.evidenceReference || 'Select...'}
-                        </Text>
-                        <SearchIcon size={17} color={adminColors.brand} />
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Field 7: Follow-up Required (Yes / No) */}
-                    <View style={styles.formFieldGroup}>
-                      <Text style={styles.formLabel}>Follow-up Required</Text>
-                      <TouchableOpacity
-                        style={styles.dropdownSelectorBox}
-                        onPress={() => {
-                          setStep9OpenDropdown(
-                            isFollowUpOpen ? null : { entryIndex: idx, field: 'followUp' }
-                          );
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.dropdownSelectorText}>{entry.followUpRequired}</Text>
-                        <ChevronDownIcon size={16} color={adminColors.ink} />
-                      </TouchableOpacity>
-
-                      {isFollowUpOpen && (
-                        <View style={styles.step7DropdownMenu}>
-                          {STEP9_FOLLOWUP_REQUIRED_OPTIONS.map((opt) => {
-                            const isSelected = entry.followUpRequired === opt;
-                            return (
-                              <TouchableOpacity
-                                key={opt}
-                                style={[
-                                  styles.step7DropdownMenuItem,
-                                  isSelected && styles.step7DropdownMenuItemActive,
-                                ]}
-                                onPress={() => {
-                                  setStep9ObservationsList((prev) =>
-                                    prev.map((item, i) =>
-                                      i === idx ? { ...item, followUpRequired: opt } : item
-                                    )
-                                  );
-                                  setStep9OpenDropdown(null);
-                                }}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step7DropdownMenuText,
-                                    isSelected && styles.step7DropdownMenuTextActive,
-                                  ]}
-                                >
-                                  {opt}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-
-              {/* + Add Observation Button */}
-              <TouchableOpacity
-                style={styles.step8AddEvidenceBtn}
-                onPress={() => {
-                  setStep9ObservationsList((prev) => [
-                    ...prev,
-                    {
-                      id: String(Date.now()),
-                      relatedSection: 'Select...',
-                      category: 'Select...',
-                      observation: '',
-                      followUpRecommendation: 'Select...',
-                      recommendationNotes: '',
-                      evidenceReference: 'Select...',
-                      followUpRequired: 'Select...',
-                    },
-                  ]);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.step8AddEvidenceBtnText}>+ Add Observation</Text>
-              </TouchableOpacity>
-
-              {/* Status Hint */}
-              <Text style={styles.step9EmptyHint}>
-                {step9ObservationsList.length === 1 && !step9ObservationsList[0]?.observation
-                  ? 'No supporting observations added yet.'
-                  : `${step9ObservationsList.length} supporting observation(s) added.`}
-              </Text>
-
-              {/* Official audit findings (read-only) */}
-              <Text style={[styles.step8SectionHeader, { marginTop: 18 }]}>
-                Official audit findings (read-only)
-              </Text>
-
-              <View style={styles.step9FindingCard}>
-                <Text style={styles.step9FindingText}>No official findings recorded yet</Text>
-              </View>
-
-              <View style={styles.step9NoticeCard}>
-                <ProhibitedIcon size={18} color={adminColors.muted} />
-                <Text style={styles.step9NoticeText}>
-                  Official findings, severity, status, red-flag state and audit completion are set by the authorized audit workflow. Farmer Admin cannot change them.
-                </Text>
-              </View>
-            </View>
-          ) : currentStep === 10 ? (
-            /* ─── Step 10: Farmer Admin Assessment (Screenshots 1 to 5) ─── */
-            <View>
-              {/* Field 1: Overall Assessment * */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>
-                  Overall Assessment <Text style={{ color: adminColors.danger.text }}>*</Text>
-                </Text>
-                <TouchableOpacity
-                  style={styles.dropdownSelectorBox}
-                  onPress={() =>
-                    setStep10OpenDropdown(step10OpenDropdown === 'overall' ? null : 'overall')
-                  }
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.dropdownSelectorText,
-                      step10OverallAssessment === 'Select...' && { color: adminColors.muted, fontWeight: '400' },
-                    ]}
-                  >
-                    {step10OverallAssessment}
-                  </Text>
-                  <ChevronDownIcon size={16} color={adminColors.ink} />
-                </TouchableOpacity>
-
-                {step10OpenDropdown === 'overall' && (
-                  <View style={styles.step7DropdownMenu}>
-                    {STEP10_OVERALL_ASSESSMENT_OPTIONS.map((opt) => {
-                      const isSelected = step10OverallAssessment === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          style={[
-                            styles.step7DropdownMenuItem,
-                            isSelected && styles.step7DropdownMenuItemActive,
-                          ]}
-                          onPress={() => {
-                            setStep10OverallAssessment(opt);
-                            setStep10OpenDropdown(null);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.step7DropdownMenuText,
-                              isSelected && styles.step7DropdownMenuTextActive,
-                            ]}
-                          >
-                            {opt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-
-              {/* Field 2: Strengths Observed */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>Strengths Observed</Text>
-                <View style={styles.notesTextareaContainer}>
-                  <TextInput
-                    style={styles.notesTextareaInput}
-                    value={step10StrengthsObserved}
-                    onChangeText={setStep10StrengthsObserved}
-                    placeholder=""
-                    placeholderTextColor={adminColors.muted}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color={adminColors.muted} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Field 3: Follow-up Required */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>Follow-up Required</Text>
-                <TouchableOpacity
-                  style={styles.dropdownSelectorBox}
-                  onPress={() =>
-                    setStep10OpenDropdown(step10OpenDropdown === 'followUp' ? null : 'followUp')
-                  }
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.dropdownSelectorText,
-                      step10FollowUpRequired === 'Select...' && { color: adminColors.muted, fontWeight: '400' },
-                    ]}
-                  >
-                    {step10FollowUpRequired}
-                  </Text>
-                  <ChevronDownIcon size={16} color={adminColors.ink} />
-                </TouchableOpacity>
-
-                {step10OpenDropdown === 'followUp' && (
-                  <View style={styles.step7DropdownMenu}>
-                    {STEP10_FOLLOWUP_REQUIRED_OPTIONS.map((opt) => {
-                      const isSelected = step10FollowUpRequired === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          style={[
-                            styles.step7DropdownMenuItem,
-                            isSelected && styles.step7DropdownMenuItemActive,
-                          ]}
-                          onPress={() => {
-                            setStep10FollowUpRequired(opt);
-                            setStep10OpenDropdown(null);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.step7DropdownMenuText,
-                              isSelected && styles.step7DropdownMenuTextActive,
-                            ]}
-                          >
-                            {opt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-
-              {/* Field 4: Recommendation */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>Recommendation</Text>
-                <TouchableOpacity
-                  style={styles.dropdownSelectorBox}
-                  onPress={() =>
-                    setStep10OpenDropdown(step10OpenDropdown === 'recommendation' ? null : 'recommendation')
-                  }
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.dropdownSelectorText,
-                      step10Recommendation === 'Select...' && { color: adminColors.muted, fontWeight: '400' },
-                    ]}
-                  >
-                    {step10Recommendation}
-                  </Text>
-                  <ChevronDownIcon size={16} color={adminColors.ink} />
-                </TouchableOpacity>
-
-                {step10OpenDropdown === 'recommendation' && (
-                  <View style={styles.step7DropdownMenu}>
-                    {STEP10_RECOMMENDATION_OPTIONS.map((opt) => {
-                      const isSelected = step10Recommendation === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          style={[
-                            styles.step7DropdownMenuItem,
-                            isSelected && styles.step7DropdownMenuItemActive,
-                          ]}
-                          onPress={() => {
-                            setStep10Recommendation(opt);
-                            setStep10OpenDropdown(null);
-                          }}
-                        >
-                          <Text
-                            style={[
-                              styles.step7DropdownMenuText,
-                              isSelected && styles.step7DropdownMenuTextActive,
-                            ]}
-                          >
-                            {opt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-
-              {/* Field 5: Supporting Remarks */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>Supporting Remarks</Text>
-                <View style={styles.notesTextareaContainer}>
-                  <TextInput
-                    style={styles.notesTextareaInput}
-                    value={step10SupportingRemarks}
-                    onChangeText={setStep10SupportingRemarks}
-                    placeholder=""
-                    placeholderTextColor={adminColors.muted}
-                    multiline
-                    textAlignVertical="top"
-                  />
-                  <View style={styles.resizeHandleWrap}>
-                    <ResizeHandleIcon size={12} color={adminColors.muted} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Field 6: Official Audit Score (Locked) */}
-              <View style={styles.formFieldGroup}>
-                <View style={styles.labelWithLockRow}>
-                  <Text style={styles.formLabel}>Official Audit Score</Text>
-                  <LockIcon size={13} color={adminColors.brand} />
-                </View>
-                <View style={styles.step10ScoreCard}>
-                  <Text style={styles.step10ScoreText}>Not scored yet</Text>
-                </View>
-                <Text style={styles.step10ScoreCaption}>
-                  Audit Rating (max 100) is separate from the Farm Rating module and cannot be edited here.
-                </Text>
-              </View>
-            </View>
-          ) : currentStep === 11 ? (
-            /* ─── Step 11: Add External Audit (Screenshots 1 & 3) ─── */
-            <View>
-              {/* Card 1: Farmer & Farm Details */}
-              <View style={styles.step11SectionHeaderRow}>
-                <GreenLeafOutlineIcon size={18} color={adminColors.success.text} />
-                <Text style={styles.step11SectionHeaderTitle}>Farmer & Farm Details</Text>
-              </View>
-
-              <View style={styles.step11WhiteCard}>
-                {/* Row 1: Farmer ID & Farmer Name */}
-                <View style={styles.step11GridRow}>
-                  <View style={{ flex: 1, marginRight: 10 }}>
-                    <Text style={styles.step11FieldLabel}>Farmer ID</Text>
-                    <View style={styles.step11ReadonlyBox}>
-                      <Text style={styles.step11ReadonlyText}>{selectedRecord.farmerId || 'F-0256'}</Text>
-                    </View>
-                  </View>
-                  <View style={{ flex: 1.4 }}>
-                    <Text style={styles.step11FieldLabel}>Farmer Name</Text>
-                    <View style={styles.step11ReadonlyBox}>
-                      <Text style={styles.step11ReadonlyText}>{selectedRecord.farmerName || 'Ramesh Kumar'}</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Row 2: Zone, Farms, Total Area */}
-                <View style={[styles.step11GridRow, { marginTop: 12 }]}>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <Text style={styles.step11FieldLabel}>Zone</Text>
-                    <View style={styles.step11ReadonlyBox}>
-                      <Text style={styles.step11ReadonlyText}>Coonoor</Text>
-                    </View>
-                  </View>
-                  <View style={{ flex: 0.9, marginRight: 8 }}>
-                    <Text style={styles.step11FieldLabel}>Farms</Text>
-                    <View style={styles.step11ReadonlyBox}>
-                      <Text style={styles.step11ReadonlyText}>3</Text>
-                    </View>
-                  </View>
-                  <View style={{ flex: 1.2 }}>
-                    <Text style={styles.step11FieldLabel}>Total Area</Text>
-                    <View style={styles.step11ReadonlyBox}>
-                      <Text style={styles.step11ReadonlyText}>4.25 Acre</Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-
-              {/* Card 2: External Audit Information */}
-              <View style={styles.step11SectionHeaderRow}>
-                <GreenFileTextOutlineIcon size={18} color={adminColors.success.text} />
-                <Text style={styles.step11SectionHeaderTitle}>External Audit Information</Text>
-              </View>
-
-              {/* Field: Issuing Organization * */}
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>
-                  Issuing Organization <Text style={{ color: adminColors.danger.text }}>*</Text>
-                </Text>
-                <TextInput
-                  style={styles.step11Input}
-                  value={step11IssuingOrg}
-                  onChangeText={setStep11IssuingOrg}
-                  placeholder="Enter organization name"
-                  placeholderTextColor={adminColors.muted}
-                />
-              </View>
-
-              {/* Field Row: Audit Date * & Report Expiry Date * */}
-              <View style={styles.step11GridRow}>
-                <View style={{ flex: 1, marginRight: 10 }}>
-                  <Text style={styles.formLabel}>
-                    Audit Date <Text style={{ color: adminColors.danger.text }}>*</Text>
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.step11DateSelectorBox}
-                    onPress={() =>
-                      setStep11ActiveDateField(step11ActiveDateField === 'auditDate' ? null : 'auditDate')
-                    }
-                    activeOpacity={0.8}
-                  >
-                    <CalendarIcon size={16} color={adminColors.muted} />
-                    <Text
-                      style={[
-                        styles.step11DateText,
-                        !step11AuditDate && { color: adminColors.muted, fontWeight: '400' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {step11AuditDate || 'Select audit date'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.formLabel}>
-                    Report Expiry Date <Text style={{ color: adminColors.danger.text }}>*</Text>
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.step11DateSelectorBox}
-                    onPress={() =>
-                      setStep11ActiveDateField(step11ActiveDateField === 'expiryDate' ? null : 'expiryDate')
-                    }
-                    activeOpacity={0.8}
-                  >
-                    <CalendarIcon size={16} color={adminColors.muted} />
-                    <Text
-                      style={[
-                        styles.step11DateText,
-                        !step11ReportExpiryDate && { color: adminColors.muted, fontWeight: '400' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {step11ReportExpiryDate || 'Select expiry date'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Field: Next Audit Date * */}
-              <View style={[styles.formFieldGroup, { marginTop: 12 }]}>
-                <Text style={styles.formLabel}>
-                  Next Audit Date <Text style={{ color: adminColors.danger.text }}>*</Text>
-                </Text>
-                <TouchableOpacity
-                  style={styles.step11DateSelectorBox}
-                  onPress={() =>
-                    setStep11ActiveDateField(step11ActiveDateField === 'nextAuditDate' ? null : 'nextAuditDate')
-                  }
-                  activeOpacity={0.8}
-                >
-                  <CalendarIcon size={16} color={adminColors.muted} />
-                  <Text
-                    style={[
-                      styles.step11DateText,
-                      !step11NextAuditDate && { color: adminColors.muted, fontWeight: '400' },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {step11NextAuditDate || 'Select next audit date'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Calendar Popup Dropdown if active */}
-              {renderStep11Calendar()}
-
-              {/* Card 3: Audit Report Upload */}
-              <View style={[styles.step11SectionHeaderRow, { marginTop: 8 }]}>
-                <GreenCloudUploadOutlineIcon size={18} color={adminColors.success.text} />
-                <Text style={styles.step11SectionHeaderTitle}>Audit Report Upload</Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.step11UploadDashedBox}
-                onPress={() => {
-                  if (step11UploadedReport) {
-                    Alert.alert('Report Attached', 'Do you want to replace or remove this audit report?', [
-                      { text: 'Remove', style: 'destructive', onPress: () => setStep11UploadedReport(null) },
-                      { text: 'Keep', style: 'cancel' },
-                    ]);
-                  } else {
-                    setStep11UploadedReport({
-                      name: 'External_Audit_Report_2026.pdf',
-                      size: '2.4 MB',
-                    });
-                    Alert.alert('File Uploaded', 'External_Audit_Report_2026.pdf (2.4 MB) uploaded successfully.');
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                {step11UploadedReport ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <GreenFileTextOutlineIcon size={24} color={adminColors.brand} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.step11UploadedFileName}>{step11UploadedReport.name}</Text>
-                      <Text style={styles.step11UploadedFileSize}>{step11UploadedReport.size} · Tap to manage</Text>
-                    </View>
-                    <CertCheckIcon size={20} color={adminColors.success.text} />
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                    <GreenFileTextOutlineIcon size={28} color={adminColors.muted} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.step11UploadTitle}>Tap to upload audit report</Text>
-                      <Text style={styles.step11UploadSub}>PDF, JPG, PNG (Max 10 MB)</Text>
-                    </View>
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Card 4: Additional Details */}
-              <View style={[styles.step11SectionHeaderRow, { marginTop: 14 }]}>
-                <GreenNotesOutlineIcon size={18} color={adminColors.success.text} />
-                <Text style={styles.step11SectionHeaderTitle}>Additional Details</Text>
-              </View>
-
-              <View style={styles.formFieldGroup}>
-                <Text style={styles.formLabel}>Remarks / Notes</Text>
-                <View style={styles.step11TextareaContainer}>
-                  <TextInput
-                    style={styles.step11TextareaInput}
-                    value={step11Remarks}
-                    onChangeText={(val) => {
-                      if (val.length <= 500) setStep11Remarks(val);
-                    }}
-                    placeholder="Enter any remarks or notes (optional)"
-                    placeholderTextColor={adminColors.muted}
-                    multiline
-                    maxLength={500}
-                    textAlignVertical="top"
-                  />
-                  <Text style={styles.step11CounterText}>{step11Remarks.length}/500</Text>
-                </View>
-              </View>
-            </View>
-          ) : (
-            /* ─── Step 12: Farmer Rating (Screenshot 4) ─── */
-            <View>
-              {/* 10 Category Cards */}
-              {STEP12_RATING_CATEGORIES.map((cat) => {
-                const score = step12Scores[cat.id];
-                const isExpanded = step12ExpandedCategory === cat.id;
-
-                const renderCategoryIcon = (iconName: Step12RatingCategory['iconName']) => {
-                  switch (iconName) {
-                    case 'verified':
-                      return <VerifiedBadgeIcon size={18} color={adminColors.brand} />;
-                    case 'layers':
-                      return <LayersIcon size={18} color={adminColors.brand} />;
-                    case 'tractor':
-                      return <TractorIcon size={18} color={adminColors.brand} />;
-                    case 'leaf':
-                      return <LeafIcon size={18} color={adminColors.brand} />;
-                    case 'fruit':
-                      return <ProduceFruitIcon size={18} color={adminColors.brand} />;
-                    case 'qr':
-                      return <QrCodeIcon size={18} color={adminColors.brand} />;
-                    case 'users':
-                      return <UsersIcon size={18} color={adminColors.brand} />;
-                    case 'landmark':
-                      return <LandmarkIcon size={18} color={adminColors.brand} />;
-                    case 'store':
-                      return <StoreIcon size={18} color={adminColors.brand} />;
-                    case 'lightbulb':
-                      return <LightbulbIcon size={18} color={adminColors.brand} />;
-                    default:
-                      return <VerifiedBadgeIcon size={18} color={adminColors.brand} />;
-                  }
-                };
-
-                return (
-                  <View key={cat.id} style={styles.step11CategoryCard}>
-                    <TouchableOpacity
-                      style={styles.step11CategoryHeader}
-                      onPress={() =>
-                        setStep12ExpandedCategory(isExpanded ? null : cat.id)
-                      }
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.step11CategoryHeaderLeft}>
-                        {renderCategoryIcon(cat.iconName)}
-                        <Text style={styles.step11CategoryTitle}>{cat.title}</Text>
-                      </View>
-
-                      <View style={styles.step11CategoryHeaderRight}>
-                        {score === null ? (
-                          <View style={styles.step11PillNotAssessed}>
-                            <Text style={styles.step11PillNotAssessedText}>Not assessed</Text>
-                          </View>
-                        ) : (
-                          <View style={styles.step11PillAssessed}>
-                            <Text style={styles.step11PillAssessedText}>{score}/10</Text>
-                          </View>
-                        )}
-                        {isExpanded ? (
-                          <ChevronUpIcon size={16} color={adminColors.muted} />
-                        ) : (
-                          <ChevronDownIcon size={16} color={adminColors.muted} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Accordion Body */}
-                    {isExpanded && (
-                      <View style={styles.step11CategoryBody}>
-                        <Text style={styles.step11ScoreLabel}>Score (1-10)</Text>
-
-                        {/* Row 1: 1 - 5 */}
-                        <View style={styles.step11ScoreGridRow}>
-                          {[1, 2, 3, 4, 5].map((num) => {
-                            const isSelected = score === num;
-                            return (
-                              <TouchableOpacity
-                                key={num}
-                                style={[
-                                  styles.step11ScoreNumBtn,
-                                  isSelected && styles.step11ScoreNumBtnActive,
-                                ]}
-                                onPress={() => {
-                                  setStep12Scores((prev) => ({
-                                    ...prev,
-                                    [cat.id]: prev[cat.id] === num ? null : num,
-                                  }));
-                                }}
-                                activeOpacity={0.75}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step11ScoreNumText,
-                                    isSelected && styles.step11ScoreNumTextActive,
-                                  ]}
-                                >
-                                  {num}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-
-                        {/* Row 2: 6 - 10 */}
-                        <View style={styles.step11ScoreGridRow}>
-                          {[6, 7, 8, 9, 10].map((num) => {
-                            const isSelected = score === num;
-                            return (
-                              <TouchableOpacity
-                                key={num}
-                                style={[
-                                  styles.step11ScoreNumBtn,
-                                  isSelected && styles.step11ScoreNumBtnActive,
-                                ]}
-                                onPress={() => {
-                                  setStep12Scores((prev) => ({
-                                    ...prev,
-                                    [cat.id]: prev[cat.id] === num ? null : num,
-                                  }));
-                                }}
-                                activeOpacity={0.75}
-                              >
-                                <Text
-                                  style={[
-                                    styles.step11ScoreNumText,
-                                    isSelected && styles.step11ScoreNumTextActive,
-                                  ]}
-                                >
-                                  {num}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </View>
-
-                        {/* Previous Audit Subtext */}
-                        <Text style={styles.step11PrevAuditText}>
-                          Previous audit (AUD-2026-0031, 15 Jul 2026): {cat.previousAudit}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-
-              {/* Read-only Farm Rating notice */}
-              <View style={[styles.step9NoticeCard, { marginTop: 6, marginBottom: 12 }]}>
-                <ProhibitedIcon size={18} color={adminColors.muted} />
-                <Text style={styles.step9NoticeText}>
-                  This is the farmer's Farm Rating. It is separate from the official Audit Score, which stays read-only.
-                </Text>
-              </View>
-            </View>
-          )}
+          ) : null}
 
         </ScrollView>
 
         {/* Fixed Bottom Save Action */}
         <View style={styles.stepBottomBar}>
-          {currentStep === 12 ? (
-            <TouchableOpacity
-              style={styles.primaryOrangeBtn}
-              onPress={() => {
-                setCompletedSections((prev) => ({ ...prev, 12: true }));
-                Alert.alert(
-                  'Steps Completed',
-                  'All 12 inspection sections have been completed successfully.',
-                  [{ text: 'OK', onPress: () => setCurrentView('audit_inspection') }]
-                );
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryOrangeBtnText}>Save</Text>
-            </TouchableOpacity>
-          ) : currentStep === 11 ? (
-            <TouchableOpacity
-              style={styles.primaryOrangeBtn}
-              onPress={() => {
-                setCompletedSections((prev) => ({ ...prev, 11: true }));
-                setCurrentStep(12);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryOrangeBtnText}>Save</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={styles.primaryOrangeBtn}
-              onPress={handleSaveStep}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryOrangeBtnText}>Save</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.primaryOrangeBtn}
+            onPress={handleSaveStep}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.primaryOrangeBtnText}>Save</Text>
+          </TouchableOpacity>
         </View>
 
         {/* FMB Sketch Document Preview Popup Modal */}
@@ -8525,44 +5847,59 @@ const styles = StyleSheet.create({
     ...adminType.rowTitle,
     color: adminColors.ink,
   },
+  badgeCancelled: {
+    backgroundColor: adminColors.danger.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: adminRadius.sm,
+  },
+  badgeCancelledText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.danger.text,
+  },
   badgeUpcoming: {
     backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeUpcomingText: {
     ...adminType.caption,
+    fontWeight: '700',
     color: adminColors.warning.text,
   },
   badgeScheduled: {
     backgroundColor: adminColors.info.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeScheduledText: {
     ...adminType.caption,
+    fontWeight: '700',
     color: adminColors.info.text,
   },
   badgeInProgress: {
     backgroundColor: adminColors.purple.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeInProgressText: {
     ...adminType.caption,
+    fontWeight: '700',
     color: adminColors.purple.text,
   },
   badgeCompleted: {
     backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeCompletedText: {
     ...adminType.caption,
+    fontWeight: '700',
     color: adminColors.success.text,
   },
 
@@ -9313,7 +6650,7 @@ const styles = StyleSheet.create({
   outlineOrangeBtn: {
     height: 48,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.lg,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
     alignItems: 'center',
@@ -9322,6 +6659,8 @@ const styles = StyleSheet.create({
   },
   outlineOrangeBtnText: {
     ...adminType.body,
+    fontSize: 14.5,
+    fontWeight: '800',
     color: adminColors.brandDeep,
   },
   detailBottomActionRow: {
@@ -10038,25 +7377,30 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     backgroundColor: adminColors.card,
-    borderRadius: 8,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: adminColors.muted,
+    borderColor: adminColors.border,
     marginTop: 4,
     overflow: 'hidden',
+    ...adminShadow.md,
   },
   dropdownMenuItem: {
     paddingVertical: 10,
     paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.canvas,
   },
   dropdownMenuItemActive: {
-    backgroundColor: adminColors.muted,
+    backgroundColor: adminColors.brandTint,
   },
   dropdownMenuText: {
     ...adminType.body,
+    fontSize: 13,
     color: adminColors.ink,
   },
   dropdownMenuTextActive: {
-    color: adminColors.onBrand,
+    color: adminColors.brandDeep,
+    fontWeight: '700',
   },
 
   // ─── Step 2 Styles (FMB & Land Verification) ───
@@ -11766,5 +9110,104 @@ const styles = StyleSheet.create({
   outlineScheduleVisitBtnText: {
     ...adminType.body,
     color: adminColors.ink,
+  },
+
+  // ─── Small Document Popup Styles ───
+  docModalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  docModalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: 20,
+    ...adminShadow.lg,
+  },
+  docModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  docModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  docModalHeaderTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    color: adminColors.ink,
+  },
+  docModalMetaRow: {
+    flexDirection: 'row',
+    backgroundColor: adminColors.canvas,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: 16,
+  },
+  docModalPreviewBox: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginBottom: 20,
+  },
+  docModalPreviewTitle: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  docModalPreviewSubtitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 2,
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  docModalBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  docModalDownloadBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docModalDownloadBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  docModalCloseBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docModalCloseBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '700',
   },
 });

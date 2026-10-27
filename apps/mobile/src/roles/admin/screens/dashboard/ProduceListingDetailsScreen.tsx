@@ -91,7 +91,21 @@ function IdBadgeIcon({ size = 16, color = adminColors.brandDeep }: { size?: numb
 export interface ProduceListingDetailsScreenProps {
   listingId?: string | undefined;
   cropName?: string | undefined;
+  grade?: string | undefined;
   farmerName?: string | undefined;
+  farmerId?: string | undefined;
+  zone?: string | undefined;
+  farmingMethod?: string | undefined;
+  quantityKg?: number | undefined;
+  harvestDate?: string | undefined;
+  qualityInfo?: string | undefined;
+  pricePerKg?: number | undefined;
+  fairPriceCeiling?: number | undefined;
+  effectiveFrom?: string | undefined;
+  showChips?: boolean | undefined;
+  showQuantityRequirement?: boolean | undefined;
+  showFullHistoryBtn?: boolean | undefined;
+  showReviewListingBtn?: boolean | undefined;
   onBack: () => void;
   onViewFarmer?: (farmerId: string) => void;
   onViewFullHistory?: () => void;
@@ -100,17 +114,35 @@ export interface ProduceListingDetailsScreenProps {
 }
 
 export function ProduceListingDetailsScreen({
-  listingId,
-  cropName,
-  farmerName,
+  listingId = 'PL-001245',
+  cropName = 'Tomato',
+  grade = 'Grade 1',
+  farmerName = 'Ramesh Kumar',
+  farmerId = 'FR-00241',
+  zone = 'Coonoor',
+  farmingMethod = 'Organic',
+  quantityKg = 50,
+  harvestDate = '28 Sep 2026',
+  qualityInfo = 'Grade 1, no visible defects',
+  pricePerKg = 100,
+  fairPriceCeiling = 105,
+  effectiveFrom = '1 Sep 2026',
+  showChips = false,
+  showQuantityRequirement = false,
+  showFullHistoryBtn = false,
+  showReviewListingBtn = false,
   onBack,
-  onViewFarmer,
+  onViewFarmer: _onViewFarmer,
   onViewFullHistory,
   onReviewListing,
   onNavigateToVerification,
 }: ProduceListingDetailsScreenProps) {
   const [selectedFarmerType, setSelectedFarmerType] = useState<'Other Farmer' | 'Own Listing'>('Other Farmer');
   const [modalMessage, setModalMessage] = useState<string | null>(null);
+
+  const displayFarmer = selectedFarmerType === 'Own Listing' ? 'Suresh Chakravarthi (You)' : farmerName;
+  const displayFarmerId = selectedFarmerType === 'Own Listing' ? 'FR-00241' : farmerId;
+  const displayZone = selectedFarmerType === 'Own Listing' ? 'Coonoor' : zone;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -128,10 +160,10 @@ export function ProduceListingDetailsScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
 
-          <Text style={styles.headerTitle}>{t('produceListingDetails.title')}</Text>
+          <Text style={styles.headerTitle}>Produce Listing Details</Text>
         </View>
 
-        <Text style={styles.headerSubtitle}>{listingId} · {t('produceListingDetails.subtitle')}</Text>
+        <Text style={styles.headerSubtitle}>{listingId} · Pending Review</Text>
       </View>
 
       {/* ─── Scrollable Body ─── */}
@@ -140,99 +172,95 @@ export function ProduceListingDetailsScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Top Filter Chips: Other Farmer / Own Listing ─── */}
-        <View style={styles.chipsRow}>
-          <TouchableOpacity
-            style={[
-              styles.chip,
-              selectedFarmerType === 'Other Farmer' ? styles.chipActive : styles.chipInactive,
-            ]}
-            onPress={() => setSelectedFarmerType('Other Farmer')}
-            activeOpacity={0.7}
-          >
-            <Text
+        {/* ─── Optional Top Filter Chips: Other Farmer / Own Listing ─── */}
+        {showChips && (
+          <View style={styles.chipsRow}>
+            <TouchableOpacity
               style={[
-                styles.chipText,
-                selectedFarmerType === 'Other Farmer'
-                  ? styles.chipTextActive
-                  : styles.chipTextInactive,
+                styles.chip,
+                selectedFarmerType === 'Other Farmer' ? styles.chipActive : styles.chipInactive,
               ]}
+              onPress={() => setSelectedFarmerType('Other Farmer')}
+              activeOpacity={0.7}
             >
-              {t('produceListingDetails.chip.otherFarmer')}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.chipText,
+                  selectedFarmerType === 'Other Farmer'
+                    ? styles.chipTextActive
+                    : styles.chipTextInactive,
+                ]}
+              >
+                {t('produceListingDetails.chip.otherFarmer')}
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.chip,
-              selectedFarmerType === 'Own Listing' ? styles.chipActive : styles.chipInactive,
-            ]}
-            onPress={() => setSelectedFarmerType('Own Listing')}
-            activeOpacity={0.7}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.chipText,
-                selectedFarmerType === 'Own Listing'
-                  ? styles.chipTextActive
-                  : styles.chipTextInactive,
+                styles.chip,
+                selectedFarmerType === 'Own Listing' ? styles.chipActive : styles.chipInactive,
               ]}
+              onPress={() => setSelectedFarmerType('Own Listing')}
+              activeOpacity={0.7}
             >
-              {t('produceListingDetails.chip.ownListing')}
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.chipText,
+                  selectedFarmerType === 'Own Listing'
+                    ? styles.chipTextActive
+                    : styles.chipTextInactive,
+                ]}
+              >
+                {t('produceListingDetails.chip.ownListing')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ─── 1. Farmer Information ─── */}
-        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.farmerInfo')}</Text>
+        <Text style={styles.sectionTitle}>Farmer Information</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farmer</Text>
-              <Text style={styles.fieldValue}>
-                {selectedFarmerType === 'Own Listing' ? 'Suresh Chakravarthi (You)' : farmerName}
-              </Text>
+              <Text style={styles.fieldValue}>{displayFarmer}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farmer ID</Text>
-              <Text style={styles.fieldValue}>
-                {selectedFarmerType === 'Own Listing' ? 'FR-00241' : 'FR-00192'}
-              </Text>
+              <Text style={styles.fieldValue}>{displayFarmerId}</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Zone</Text>
-              <Text style={styles.fieldValue}>
-                {selectedFarmerType === 'Own Listing' ? 'Coonoor' : 'Ooty'}
-              </Text>
+              <Text style={styles.fieldValue}>{displayZone}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farming Method</Text>
-              <Text style={styles.fieldValue}>Organic</Text>
+              <Text style={styles.fieldValue}>{farmingMethod}</Text>
             </View>
           </View>
         </View>
 
         {/* ─── 2. Listing Overview ─── */}
-        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.listingOverview')}</Text>
+        <Text style={styles.sectionTitle}>Listing Overview</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Crop</Text>
-              <Text style={styles.fieldValue}>{cropName ?? ''}</Text>
+              <Text style={styles.fieldValue}>{cropName}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Grade</Text>
-              <Text style={styles.fieldValue}>Grade 1</Text>
+              <Text style={styles.fieldValue}>{grade}</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Listing ID</Text>
-              <Text style={styles.fieldValue}>{listingId ?? ''}</Text>
+              <Text style={styles.fieldValue}>{listingId}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Status</Text>
@@ -247,37 +275,42 @@ export function ProduceListingDetailsScreen({
         </View>
 
         {/* ─── 3. Produce Information ─── */}
-        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.produceInfo')}</Text>
+        <Text style={styles.sectionTitle}>Produce Information</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Quantity</Text>
-              <Text style={styles.fieldValue}>50 KG</Text>
+              <Text style={styles.fieldValue}>{`${quantityKg} KG`}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Harvest Date</Text>
-              <Text style={styles.fieldValue}>28 Sep 2026</Text>
+              <Text style={styles.fieldValue}>{harvestDate}</Text>
             </View>
           </View>
 
           <View style={{ marginTop: adminSpacing.md }}>
             <Text style={styles.fieldLabel}>Quality Information</Text>
-            <Text style={styles.fieldValue}>Grade 1, no visible defects</Text>
+            <Text style={styles.fieldValue}>{qualityInfo}</Text>
           </View>
         </View>
 
-        {/* ─── 4. Pricing ─── */}
-        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.pricing')}</Text>
+        {/* ─── 4. Pricing (Exact Screenshot 2) ─── */}
+        <Text style={styles.sectionTitle}>Pricing</Text>
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Farmer Listed Price</Text>
-              <Text style={styles.fieldValue}>₹100/KG</Text>
+              <Text style={styles.fieldValue}>{`₹${pricePerKg}/KG`}</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Fair Price Reference</Text>
-              <Text style={styles.fieldValue}>₹95–₹105/KG</Text>
+              <Text style={styles.fieldLabel}>Fair Price Ceiling</Text>
+              <Text style={styles.fieldValue}>{`₹${fairPriceCeiling}/KG`}</Text>
             </View>
+          </View>
+
+          <View style={{ marginTop: adminSpacing.md }}>
+            <Text style={styles.fieldLabel}>Effective From</Text>
+            <Text style={styles.fieldValue}>{effectiveFrom}</Text>
           </View>
 
           <View style={{ marginTop: adminSpacing.md }}>
@@ -288,38 +321,42 @@ export function ProduceListingDetailsScreen({
           </View>
         </View>
 
-        {/* ─── 5. Quantity Requirement ─── */}
-        <Text style={styles.sectionTitle}>{t('produceListingDetails.section.qtyRequirement')}</Text>
-        <View style={styles.card}>
-          <View style={styles.flowRow}>
-            <View style={styles.flowCol}>
-              <Text style={styles.flowLabel}>AVAILABLE</Text>
-              <Text style={styles.flowValue}>50 KG</Text>
+        {/* ─── 5. Quantity Requirement (Optional) ─── */}
+        {showQuantityRequirement && (
+          <>
+            <Text style={styles.sectionTitle}>{t('produceListingDetails.section.qtyRequirement')}</Text>
+            <View style={styles.card}>
+              <View style={styles.flowRow}>
+                <View style={styles.flowCol}>
+                  <Text style={styles.flowLabel}>AVAILABLE</Text>
+                  <Text style={styles.flowValue}>{`${quantityKg} KG`}</Text>
+                </View>
+
+                <ArrowRightIcon size={18} color={adminColors.muted} />
+
+                <View style={styles.flowCol}>
+                  <Text style={styles.flowLabel}>TOHFA REQUIRED</Text>
+                  <Text style={styles.flowValue}>30 KG</Text>
+                </View>
+
+                <ArrowRightIcon size={18} color={adminColors.muted} />
+
+                <View style={styles.flowCol}>
+                  <Text style={styles.flowLabel}>REQUIRED PURCHASE</Text>
+                  <Text style={styles.flowValue}>30 KG</Text>
+                </View>
+              </View>
             </View>
 
-            <ArrowRightIcon size={18} color={adminColors.muted} />
-
-            <View style={styles.flowCol}>
-              <Text style={styles.flowLabel}>TOHFA REQUIRED</Text>
-              <Text style={styles.flowValue}>30 KG</Text>
-            </View>
-
-            <ArrowRightIcon size={18} color={adminColors.muted} />
-
-            <View style={styles.flowCol}>
-              <Text style={styles.flowLabel}>REQUIRED PURCHASE</Text>
-              <Text style={styles.flowValue}>30 KG</Text>
-            </View>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={() => onNavigateToVerification?.()}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.outlineActionBtnText}>{t('produceListingDetails.action.purchase')}</Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.outlineActionBtn}
+              onPress={() => onNavigateToVerification?.()}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.outlineActionBtnText}>{t('produceListingDetails.action.purchase')}</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         {/* ─── 6. Certification ─── */}
         <Text style={styles.sectionTitle}>{t('produceListingDetails.section.certification')}</Text>
@@ -373,13 +410,16 @@ export function ProduceListingDetailsScreen({
           </View>
         </View>
 
-        <TouchableOpacity
-          style={styles.outlineActionBtn}
-          onPress={onViewFullHistory}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.outlineActionBtnText}>{t('produceListingDetails.action.fullHistory')}</Text>
-        </TouchableOpacity>
+        {/* Optional View Full History Button */}
+        {showFullHistoryBtn && (
+          <TouchableOpacity
+            style={styles.outlineActionBtn}
+            onPress={onViewFullHistory}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineActionBtnText}>{t('produceListingDetails.action.fullHistory')}</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Own Listing Notice Banner */}
         {selectedFarmerType === 'Own Listing' && (
@@ -394,37 +434,39 @@ export function ProduceListingDetailsScreen({
           </View>
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: showReviewListingBtn ? 100 : 28 }} />
       </ScrollView>
 
-      {/* ─── Sticky Bottom Action Bar: Review Listing ─── */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={[
-            styles.reviewListingBtn,
-            selectedFarmerType === 'Own Listing' && styles.reviewListingBtnDisabled,
-          ]}
-          onPress={() => {
-            if (selectedFarmerType === 'Own Listing') {
-              setModalMessage(
-                t('produceListingDetails.ownListingNotice')
-              );
-              return;
-            }
-            onReviewListing?.();
-          }}
-          activeOpacity={selectedFarmerType === 'Own Listing' ? 0.9 : 0.85}
-        >
-          <Text
+      {/* ─── Optional Sticky Bottom Action Bar: Review Listing ─── */}
+      {showReviewListingBtn && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
             style={[
-              styles.reviewListingBtnText,
-              selectedFarmerType === 'Own Listing' && styles.reviewListingBtnTextDisabled,
+              styles.reviewListingBtn,
+              selectedFarmerType === 'Own Listing' && styles.reviewListingBtnDisabled,
             ]}
+            onPress={() => {
+              if (selectedFarmerType === 'Own Listing') {
+                setModalMessage(
+                  t('produceListingDetails.ownListingNotice')
+                );
+                return;
+              }
+              onReviewListing?.();
+            }}
+            activeOpacity={selectedFarmerType === 'Own Listing' ? 0.9 : 0.85}
           >
-            {t('produceListingDetails.action.review')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              style={[
+                styles.reviewListingBtnText,
+                selectedFarmerType === 'Own Listing' && styles.reviewListingBtnTextDisabled,
+              ]}
+            >
+              {t('produceListingDetails.action.review')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ─── Notice / Info Modal ─── */}
       <Modal
@@ -461,7 +503,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.lg,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',

@@ -59,6 +59,7 @@ export const DISPUTE_STATUS_OPTIONS: readonly ('All' | DisputeStatus)[] = [
   'All',
   'Under Review',
   'Awaiting TOHFA',
+  'Awaiting Farmer',
   'Open',
   'Escalated',
   'Resolved',
