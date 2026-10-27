@@ -35,6 +35,7 @@ import {
   AdminFarmerDetailScreen,
   AdminFarmMapScreen,
   AdminRatingScorecardScreen,
+  DEMO_APPLICATIONS,
   type ApplicationListItem,
   type FarmerListItem,
 } from '../farmers';
@@ -605,6 +606,95 @@ function QuickStaffAttendanceIcon({ size = 24, color = adminColors.brand }: { si
       <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
       <Path d="M9 14l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function QuickWarehouseActionIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8.5 21V13h7v8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="8.5" y1="16" x2="15.5" y2="16" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function QuickCalendarActionIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="2" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="8" cy="14" r="1.1" fill={color} />
+      <Circle cx="12" cy="14" r="1.1" fill={color} />
+      <Circle cx="16" cy="14" r="1.1" fill={color} />
+      <Circle cx="8" cy="18" r="1.1" fill={color} />
+      <Circle cx="12" cy="18" r="1.1" fill={color} />
+      <Circle cx="16" cy="18" r="1.1" fill={color} />
+    </Svg>
+  );
+}
+
+function QuickGroupUsersIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 21v-2a4 4 0 0 1 3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21v-2a4 4 0 0 1 4-4h0a4 4 0 0 1 4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="7" r="3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="5" cy="10" r="2.2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="19" cy="10" r="2.2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function QuickReceiveGoodsIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v8M8.5 11.5L12 15l3.5-3.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="7" y1="18" x2="17" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function QuickProduceListIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="9" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="9" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Line x1="9" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="4.5" cy="6" r="1.5" fill={color} />
+      <Circle cx="4.5" cy="12" r="1.5" fill={color} />
+      <Circle cx="4.5" cy="18" r="1.5" fill={color} />
+    </Svg>
+  );
+}
+
+function QuickTransferStockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h14M15 5l3 3-3 3" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 16H6M9 13l-3 3 3 3" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function QuickCashTopUpIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="2" y="6" width="17" height="12" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="10.5" cy="12" r="2.5" stroke={color} strokeWidth="2" />
+      <Path d="M19 10v6a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 6V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -6186,7 +6276,7 @@ export function TohfaAdminDashboardScreen({
 
   // Toggle state to hide / show cards as requested by user
   const [showAllMetrics, setShowAllMetrics] = useState(false);
-  const [showAllActions, setShowAllActions] = useState(false);
+  const [showAllActions, setShowAllActions] = useState(true);
 
   // Search query & Date filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -6250,6 +6340,7 @@ export function TohfaAdminDashboardScreen({
   >('scheduleAudit');
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [selectedAdminApplication, setSelectedAdminApplication] = useState<ApplicationListItem | null>(null);
+  const [farmersMainTab, setFarmersMainTab] = useState<'farmers' | 'applications'>('farmers');
   const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
   const [salesSubScreen, setSalesSubScreen] = useState<
     'overview' | 'online' | 'market' | 'horeca' | 'b2b' | 'fulfillment' | 'invoice' | 'returns'
@@ -6733,11 +6824,10 @@ export function TohfaAdminDashboardScreen({
   };
 
   const handleOpenPendingApplications = () => {
-    if (onNavigate) {
-      onNavigate('AdminPendingApplications');
-    } else {
-      setDashboardSubScreen('pendingApplications');
-    }
+    setFarmersMainTab('applications');
+    setActiveTab('Farmers');
+    setSelectedAdminFarmer(null);
+    setSelectedAdminApplication(null);
   };
 
   const handleOpenListingApproval = () => {
@@ -6783,7 +6873,10 @@ export function TohfaAdminDashboardScreen({
       created: 'Created 05 Oct 2026',
       actionLabel: 'Review Application',
       onAction: () => {
-        handleOpenPendingApplications();
+        const app = DEMO_APPLICATIONS.find(a => a.id === 'app-2026-0101') || DEMO_APPLICATIONS[0];
+        setSelectedAdminApplication(app ?? null);
+        setFarmersMainTab('applications');
+        setActiveTab('Farmers');
       },
     },
     {
@@ -6908,83 +7001,136 @@ export function TohfaAdminDashboardScreen({
   // If collapsed, hide extra cards and show only the first 6 cards matching mockup; if expanded show all 11
   const displayedMetrics = showAllMetrics ? allMetricCards : allMetricCards.slice(0, 6);
 
-  // Quick action items matching user mockup
+  // Quick action items matching user mockup (16 actions, 3 columns)
   const allQuickActions = [
     {
       id: 'qa_farmers',
-      label: 'Review farmer\napplications',
-      icon: <QuickUserSearchIcon />,
+      label: 'Review farmer applications',
+      icon: <QuickUserSearchIcon size={26} />,
       action: handleOpenPendingApplications,
     },
     {
+      id: 'qa_add_warehouse',
+      label: 'Add Warehouse',
+      icon: <QuickWarehouseActionIcon size={26} />,
+      action: () => {
+        setOperationsSubScreen('addWarehouse');
+        setActiveTab('Operations');
+      },
+    },
+    {
       id: 'qa_audit',
-      label: 'Open audit\ncalendar',
-      icon: <CalendarIcon size={24} />,
+      label: 'Open audit calendar',
+      icon: <QuickCalendarActionIcon size={26} />,
       action: handleOpenScheduleAudit,
     },
     {
+      id: 'qa_create_staff',
+      label: 'Create Staff',
+      icon: <QuickGroupUsersIcon size={26} />,
+      action: () => {
+        setWorkforceSubScreen('create');
+        setActiveTab('Workforce');
+      },
+    },
+    {
+      id: 'qa_receive_goods',
+      label: 'Receive Goods',
+      icon: <QuickReceiveGoodsIcon size={26} />,
+      action: () => {
+        setOperationsSubScreen('stockVerification');
+        setActiveTab('Operations');
+      },
+    },
+    {
+      id: 'qa_produce_list',
+      label: 'Produce list',
+      icon: <QuickProduceListIcon size={26} />,
+      action: () => {
+        setDashboardSubScreen('listingApproval');
+      },
+    },
+    {
+      id: 'qa_transfer_stock',
+      label: 'Transfer Stock',
+      icon: <QuickTransferStockIcon size={26} />,
+      action: () => {
+        setOperationsSubScreen('transfers');
+        setActiveTab('Operations');
+      },
+    },
+    {
       id: 'qa_prices',
-      label: 'Manage retail\nprices',
-      icon: <QuickTagIcon />,
+      label: 'Manage retail prices',
+      icon: <QuickTagIcon size={26} />,
       action: () => {
         setPricingReturnTab('Home');
         setDashboardSubScreen('marketPricingHome');
       },
     },
     {
-      id: 'qa_purchases',
-      label: 'Review purchases\nand payouts',
-      icon: <QuickReceiptIcon />,
+      id: 'qa_cash_topup',
+      label: 'Cash Top-Up',
+      icon: <QuickCashTopUpIcon size={26} />,
       action: () => {
-        if (onNavigate) onNavigate('PurchaseOrders');
+        setFinanceSubScreen('customerWallet');
+        setActiveTab('Finance');
+      },
+    },
+    {
+      id: 'qa_purchases',
+      label: 'Purchases and payouts',
+      icon: <QuickReceiptIcon size={26} />,
+      action: () => {
+        setFinanceSubScreen('duesPayouts');
+        setActiveTab('Finance');
       },
     },
     {
       id: 'qa_sales',
-      label: 'Review sales and\ninvoices',
-      icon: <QuickBagIcon />,
-      action: () => setActiveTab('Finance'),
-    },
-    {
-      id: 'qa_reports',
-      label: 'Open operational\nreports',
-      icon: <QuickDocIcon />,
-      action: () => setActiveTab('Reports'),
-    },
-    {
-      id: 'qa_finance',
-      label: 'Review finance\nand payouts',
-      icon: <QuickWalletIcon />,
-      action: () => setActiveTab('Finance'),
-    },
-    {
-      id: 'qa_inputs',
-      label: 'Manage inputs\nand pest',
-      icon: <QuickLeafIcon />,
+      label: 'Sales and invoices',
+      icon: <QuickBagIcon size={26} />,
       action: () => {
-        setActiveTab('More');
-        setInputsPestScreen('home');
+        setFinanceSubScreen('invoicesGst');
+        setActiveTab('Finance');
       },
     },
     {
       id: 'qa_support',
-      label: 'Customer support\nand refunds',
-      icon: <QuickSupportIcon />,
+      label: 'Customer support and refunds',
+      icon: <QuickSupportIcon size={26} />,
       action: handleOpenSupport,
     },
     {
-      id: 'qa_warehouse',
-      label: 'Inventory and\nwarehouse',
-      icon: <QuickWarehouseIcon />,
+      id: 'qa_finance',
+      label: 'Review finance and payouts',
+      icon: <QuickWalletIcon size={26} />,
       action: () => {
-        setOperationsSubScreen(null);
-        setActiveTab('Operations');
+        setFinanceSubScreen(null);
+        setActiveTab('Finance');
+      },
+    },
+    {
+      id: 'qa_inputs',
+      label: 'Manage inputs and pest',
+      icon: <QuickLeafIcon size={26} />,
+      action: () => {
+        setInputsPestScreen('home');
+        setActiveTab('More');
+      },
+    },
+    {
+      id: 'qa_reports',
+      label: 'Open operational reports',
+      icon: <QuickDocIcon size={26} />,
+      action: () => {
+        setActiveTab('Reports');
       },
     },
     {
       id: 'qa_staff',
-      label: 'Manage staff\nand salary',
-      icon: <QuickBadgeStaffIcon />,
+      label: 'Manage staff and salary',
+      icon: <QuickBadgeStaffIcon size={26} />,
       action: () => {
         setWorkforceSubScreen('dashboard');
         setActiveTab('Workforce');
@@ -9712,12 +9858,28 @@ export function TohfaAdminDashboardScreen({
               ) : dashboardSubScreen === 'reportBuilder' ? (
                 <ReportBuilderScreen onBack={() => setDashboardSubScreen(null)} />
               ) : dashboardSubScreen === 'pendingApplications' ? (
-                <AdminPendingApplicationsScreen
-                  onBack={() => setDashboardSubScreen(null)}
-                  onSelectApplication={() => {
-                    if (onNavigate) onNavigate('AdminPendingApplications');
-                  }}
-                />
+                selectedAdminApplication ? (
+                  <AdminApplicationDetailScreen
+                    application={selectedAdminApplication}
+                    onBack={() => setSelectedAdminApplication(null)}
+                    onApprove={() => {
+                      setSelectedAdminApplication(null);
+                      Alert.alert('Approved', 'Application has been approved successfully.');
+                    }}
+                    onReject={() => {
+                      setSelectedAdminApplication(null);
+                      Alert.alert('Rejected', 'Application has been rejected.');
+                    }}
+                  />
+                ) : (
+                  <AdminPendingApplicationsScreen
+                    onBack={() => setDashboardSubScreen(null)}
+                    onSelectApplication={() => {
+                      const app = DEMO_APPLICATIONS.find(a => a.id === 'app-2026-0101') || DEMO_APPLICATIONS[0];
+                      setSelectedAdminApplication(app ?? null);
+                    }}
+                  />
+                )
               ) : (
                 <ScrollView
                   style={styles.scroll}
@@ -9944,11 +10106,11 @@ export function TohfaAdminDashboardScreen({
 
                     {/* Show few actions / Show more actions toggle button */}
                     <TouchableOpacity
-                      style={styles.toggleMetricsButton}
+                      style={styles.toggleActionsButton}
                       onPress={() => setShowAllActions((prev) => !prev)}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.toggleMetricsText}>
+                      <Text style={styles.toggleActionsText}>
                         {showAllActions ? 'Show few actions' : 'Show more actions'}
                       </Text>
                     </TouchableOpacity>
@@ -10371,6 +10533,7 @@ export function TohfaAdminDashboardScreen({
               ) : (
                 <AdminAllFarmersScreen
                   showBottomNav={false}
+                  initialTab={farmersMainTab}
                   onBack={() => setActiveTab('More')}
                   onSelectFarmer={(f) => {
                     setSelectedAdminFarmer(f);
@@ -10774,603 +10937,6 @@ export function TohfaAdminDashboardScreen({
               <View style={{ height: adminSpacing.xxl }} />
             </ScrollView>
           )
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            WORK QUEUE TAB (M1-S03 · Work Queue)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'WorkQueue' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.workQueueScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.subScreenHeaderBanner}>
-              <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-                <Defs>
-                  <LinearGradient id="workQueueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={adminColors.brand} />
-                    <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#workQueueGrad)" />
-              </Svg>
-
-              <View style={styles.subScreenHeaderTopRow}>
-                <TouchableOpacity
-                  style={styles.backIconButton}
-                  onPress={() => setActiveTab('Home')}
-                  activeOpacity={0.8}
-                >
-                  <BackArrowWhiteIcon size={22} />
-                </TouchableOpacity>
-                <Text style={styles.subScreenHeaderTitle}>Work Queue</Text>
-                <View style={{ width: 36 }} />
-              </View>
-            </View>
-
-            {/* Search and Filter Box */}
-            <View style={styles.workQueueSearchContainer}>
-              <View style={styles.workQueueSearchBar}>
-                <SearchIcon size={18} color={adminColors.muted} />
-                <TextInput
-                  style={styles.workQueueSearchInput}
-                  placeholder="Search common or scientific name"
-                  placeholderTextColor={adminColors.placeholder}
-                  value={workQueueSearch}
-                  onChangeText={setWorkQueueSearch}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowWorkQueueFilterModal(true)}
-                  activeOpacity={0.7}
-                  style={styles.workQueueFilterTrigger}
-                >
-                  <FilterSlidersIcon size={18} color={adminColors.brand} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Status & pending count row */}
-              <Text style={styles.workQueueCountText}>
-                6 pending · 3 blocked / exception
-              </Text>
-            </View>
-
-            {/* Task Cards List */}
-            <View style={styles.workQueueTaskList}>
-              {workQueueTasks
-                .filter((t) => {
-                  if (!workQueueSearch.trim()) return true;
-                  const q = workQueueSearch.toLowerCase();
-                  return (
-                    t.title.toLowerCase().includes(q) ||
-                    t.name.toLowerCase().includes(q) ||
-                    t.code.toLowerCase().includes(q) ||
-                    t.detail.toLowerCase().includes(q)
-                  );
-                })
-                .map((task) => (
-                  <View key={task.id} style={styles.workQueueCard}>
-                    <View style={styles.workQueueCardTopRow}>
-                      <Text style={styles.workQueueCardTitle}>{task.title}</Text>
-                      <View
-                        style={[
-                          styles.workQueueBadge,
-                          task.badgeTone === 'danger'
-                            ? styles.workQueueBadgeDanger
-                            : styles.workQueueBadgeWarning,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.workQueueBadgeText,
-                            task.badgeTone === 'danger'
-                              ? styles.workQueueBadgeTextDanger
-                              : styles.workQueueBadgeTextWarning,
-                          ]}
-                        >
-                          {task.badge}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <Text style={styles.workQueuePersonName}>{task.name}</Text>
-                    <Text style={styles.workQueueTaskCode}>{task.code}</Text>
-                    <Text style={styles.workQueueTaskDetail}>{task.detail}</Text>
-                    <Text style={styles.workQueueTaskCreated}>{task.created}</Text>
-
-                    <TouchableOpacity
-                      style={styles.workQueueActionButton}
-                      onPress={task.onAction}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={styles.workQueueActionText}>{task.actionLabel}</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-            </View>
-
-            {/* Screen footer code */}
-            <Text style={styles.screenFooterCode}>M1-S03 · Work Queue</Text>
-            <View style={{ height: adminSpacing.xxl }} />
-          </ScrollView>
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            OPERATIONS TAB (M1-S04 · Operations Overview)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Operations' && (
-          <AdminOperationsOverviewScreen
-            onBack={() => setActiveTab('Home')}
-            onExportReports={() => {
-              Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
-            }}
-          />
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            FARMERS TAB
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Farmers' && (
-          selectedAdminApplication ? (
-            <AdminApplicationDetailScreen
-              application={selectedAdminApplication}
-              onBack={() => setSelectedAdminApplication(null)}
-              onApprove={() => {
-                setSelectedAdminApplication(null);
-                Alert.alert('Approved', 'Application has been approved successfully.');
-              }}
-              onReject={() => {
-                setSelectedAdminApplication(null);
-                Alert.alert('Rejected', 'Application has been rejected.');
-              }}
-            />
-          ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
-            <AdminFarmMapScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-            />
-          ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
-            <AdminRatingScorecardScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => { }}
-            />
-          ) : selectedAdminFarmer ? (
-            <AdminFarmerDetailScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setSelectedAdminFarmer(null)}
-              onOpenFarmMap={() => setFarmerSubScreen('map')}
-              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
-            />
-          ) : (
-            <AdminAllFarmersScreen
-              showBottomNav={false}
-              onBack={() => setActiveTab('More')}
-              onSelectFarmer={(f) => {
-                setSelectedAdminFarmer(f);
-              }}
-              onReviewApplication={(app) => {
-                setSelectedAdminApplication(app);
-              }}
-            />
-          )
-        )}
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            FINANCE TAB (M1-S04 · Sales & Finance Overview)
-           ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Finance' && (
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.financeScrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Header Banner */}
-            <View style={styles.subScreenHeaderBanner}>
-              <Svg height="100%" width="100%" style={StyleSheet.absoluteFillObject}>
-                <Defs>
-                  <LinearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor={adminColors.brand} />
-                    <Stop offset="1" stopColor={adminColors.brand} stopOpacity={0.94} />
-                  </LinearGradient>
-                </Defs>
-                <Rect width="100%" height="100%" fill="url(#financeGrad)" />
-              </Svg>
-
-              <View style={styles.subScreenHeaderTopRow}>
-                <TouchableOpacity
-                  style={styles.backIconButton}
-                  onPress={() => setActiveTab('Home')}
-                  activeOpacity={0.8}
-                >
-                  <BackArrowWhiteIcon size={22} />
-                </TouchableOpacity>
-                <Text style={styles.subScreenHeaderTitle}>Sales & Finance Overview</Text>
-                <TouchableOpacity
-                  style={styles.headerPillIconButton}
-                  onPress={() => setShowFinanceFilterModal(true)}
-                  activeOpacity={0.8}
-                >
-                  <FilterSlidersIcon size={18} color={adminColors.onBrand} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* ── Section A: Sales overview ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>A · Sales overview</Text>
-
-              {/* Order value metrics card */}
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Order value</Text>
-                    <Text style={styles.financeMetricValue}>₹71,190</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Gross value of orders placed in the period, excluding cancelled and returned.
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Invoiced amount</Text>
-                    <Text style={styles.financeMetricValue}>₹69,570</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Value of B2B and Horeca orders with a generated invoice.
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Collected amount</Text>
-                    <Text style={styles.financeMetricValue}>₹69,570</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Value of orders whose payment is Paid.
-                  </Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.financeMetricRow}>
-                  <View style={styles.financeMetricHeaderRow}>
-                    <Text style={styles.financeMetricTitle}>Refunded amount</Text>
-                    <Text style={styles.financeMetricValue}>₹0</Text>
-                  </View>
-                  <Text style={styles.financeMetricSubtext}>
-                    Refund cases completed in the period.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Orders by status (7) */}
-              <Text style={styles.financeSubHeading}>Orders by status (7)</Text>
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>2</Text>
-                  <Text style={styles.kpiTileLabel}>Placed</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Packed</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Ready for Pickup</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>5</Text>
-                  <Text style={styles.kpiTileLabel}>Delivered</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Returned</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>0</Text>
-                  <Text style={styles.kpiTileLabel}>Cancelled</Text>
-                </View>
-              </View>
-
-              {/* Sales by channel */}
-              <Text style={styles.financeSubHeading}>Sales by channel</Text>
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Online</Text>
-                  <Text style={styles.summaryRowValue}>₹0</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Live Market</Text>
-                  <Text style={styles.summaryRowValue}>₹1,620</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Horeca</Text>
-                  <Text style={styles.summaryRowValue}>₹20,130</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>B2B</Text>
-                  <Text style={styles.summaryRowValue}>₹49,440</Text>
-                </View>
-              </View>
-
-              {/* B2B and Horeca */}
-              <Text style={styles.financeSubHeading}>B2B and Horeca</Text>
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Orders</Text>
-                  <Text style={styles.summaryRowValue}>5</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Invoices generated / pending</Text>
-                  <Text style={styles.summaryRowValue}>5 / 0</Text>
-                </View>
-              </View>
-
-              <View style={[styles.financeSummaryCard, { marginTop: adminSpacing.sm }]}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Cancelled orders</Text>
-                  <Text style={styles.summaryRowValue}>0</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Returned orders</Text>
-                  <Text style={styles.summaryRowValue}>0</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeCaptionNote}>
-                Filters applied here: Date range, Sales channel, Warehouse, Customer type, Payment status.
-              </Text>
-            </View>
-
-            {/* ── Section B: Farmer payouts ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>B · Farmer payouts</Text>
-
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>3</Text>
-                  <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Pending approval</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Successful</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>2</Text>
-                  <Text style={styles.kpiTileLabel}>Failed or on hold</Text>
-                </View>
-              </View>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Payout value requested in the period</Text>
-                  <Text style={styles.summaryRowValue}>₹60,070</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Payouts in the period</Text>
-                  <Text style={styles.summaryRowValue}>5</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* ── Section C: Customer refunds ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>C · Customer refunds</Text>
-
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Awaiting review</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Awaiting processing</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Completed</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Failed</Text>
-                </View>
-              </View>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Unresolved complaints</Text>
-                  <Text style={styles.summaryRowValue}>2</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeCaptionNote}>
-                Refund statuses are current; the date range applies only to the refunded amount above.
-              </Text>
-
-              <TouchableOpacity
-                style={styles.financeOutlineButton}
-                onPress={() => {
-                  if (onNavigate) onNavigate('Customers');
-                  else Alert.alert('Customers', 'Opening customers overview.');
-                }}
-                activeOpacity={0.75}
-              >
-                <Text style={styles.financeOutlineButtonText}>Customers</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* ── Section D: Finance and reconciliation ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>D · Finance and reconciliation</Text>
-
-              <View style={styles.kpiTileGrid}>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>2</Text>
-                  <Text style={styles.kpiTileLabel}>Vouchers awaiting approval</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>1</Text>
-                  <Text style={styles.kpiTileLabel}>Reconciliation mismatches</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>3</Text>
-                  <Text style={styles.kpiTileLabel}>Salary payouts to process</Text>
-                </View>
-                <View style={styles.kpiTileItem}>
-                  <Text style={styles.kpiTileValue}>3</Text>
-                  <Text style={styles.kpiTileLabel}>Records awaiting approval</Text>
-                </View>
-              </View>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>
-                    Reconciliation: matched / pending review / mismatch
-                  </Text>
-                  <Text style={styles.summaryRowValue}>1 / 1 / 1</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Voucher value awaiting approval</Text>
-                  <Text style={styles.summaryRowValue}>₹11,000</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeCaptionNote}>
-                Wallet and ledger figures come from the Accounts & Finance records. Filters other than the vouchers listed do not apply.
-              </Text>
-            </View>
-
-            {/* ── Section E: Price compliance ── */}
-            <View style={styles.financeSection}>
-              <Text style={styles.financeSectionHeading}>E · Price compliance</Text>
-
-              <View style={styles.financeSummaryCard}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Retail prices needing action</Text>
-                  <Text style={styles.summaryRowValue}>1</Text>
-                </View>
-                <View style={styles.summaryDivider} />
-
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryRowLabel}>Retail prices above the ceiling</Text>
-                  <Text style={styles.summaryRowValue}>1</Text>
-                </View>
-              </View>
-
-              <Text style={styles.financeSubHeading}>Fair-price ceiling (reference only)</Text>
-
-              {/* Price compliance table */}
-              <View style={styles.complianceListCard}>
-                {[
-                  {
-                    name: 'Tomato · Grade A',
-                    ceiling: 'Ceiling Rs. 60 · Retail Rs. 55',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                  {
-                    name: 'Carrot · Grade A',
-                    ceiling: 'Ceiling Rs. 70 · Retail Rs. 74',
-                    status: 'Above ceiling',
-                    tone: 'danger' as const,
-                  },
-                  {
-                    name: 'Cabbage · Grade B',
-                    ceiling: 'Ceiling Rs. 35 · Retail Rs. 32',
-                    status: 'Needs action',
-                    tone: 'warning' as const,
-                  },
-                  {
-                    name: 'Beans · Grade A',
-                    ceiling: 'Ceiling Rs. 90 · Retail Rs. 84',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                  {
-                    name: 'Potato · Grade B',
-                    ceiling: 'Ceiling Rs. 40 · Retail Rs. 38',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                  {
-                    name: 'Garlic · Grade A',
-                    ceiling: 'Ceiling Rs. 210 · Retail Rs. 198',
-                    status: 'Within ceiling',
-                    tone: 'success' as const,
-                  },
-                ].map((item, index, arr) => (
-                  <View key={item.name}>
-                    <View style={styles.complianceRow}>
-                      <Text style={styles.complianceItemName}>{item.name}</Text>
-                      <View style={styles.complianceRightCol}>
-                        <Text style={styles.complianceCeilingText}>{item.ceiling}</Text>
-                        <View
-                          style={[
-                            styles.compliancePill,
-                            item.tone === 'success' && styles.compliancePillSuccess,
-                            item.tone === 'danger' && styles.compliancePillDanger,
-                            item.tone === 'warning' && styles.compliancePillWarning,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.compliancePillText,
-                              item.tone === 'success' && styles.compliancePillTextSuccess,
-                              item.tone === 'danger' && styles.compliancePillTextDanger,
-                              item.tone === 'warning' && styles.compliancePillTextWarning,
-                            ]}
-                          >
-                            {item.status}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    {index < arr.length - 1 && <View style={styles.summaryDivider} />}
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Export reports full-width button */}
-            <TouchableOpacity
-              style={styles.exportReportsButton}
-              onPress={() => {
-                Alert.alert(
-                  'Export Reports',
-                  'Sales and finance report exported successfully in PDF and Excel formats.'
-                );
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.exportReportsButtonText}>Export reports</Text>
-            </TouchableOpacity>
-
-            {/* Screen footer code */}
-            <Text style={styles.screenFooterCode}>M1-S04 · Sales & Finance Overview</Text>
-            <View style={{ height: adminSpacing.xxl }} />
-          </ScrollView>
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -12617,33 +12183,49 @@ const styles = StyleSheet.create({
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: adminSpacing.md,
+    columnGap: 10,
+    rowGap: 10,
+    justifyContent: 'flex-start',
   },
   quickActionTile: {
     width: '31%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: 6,
+    borderColor: '#E5E7EB',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 96,
+    minHeight: 104,
     ...adminShadow.sm,
   },
   quickActionIconBox: {
-    marginBottom: adminSpacing.sm,
+    marginBottom: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickActionTileLabel: {
-    ...adminType.caption,
-    color: adminColors.ink,
+    fontSize: 12,
+    color: '#111827',
     textAlign: 'center',
-    lineHeight: 14,
-    fontWeight: '600',
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  toggleActionsButton: {
+    backgroundColor: adminColors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    height: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+  },
+  toggleActionsText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#4B5563',
   },
 
   // 7 & 8. Summary Cards (Operations & Sales/Finance)

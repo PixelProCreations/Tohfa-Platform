@@ -26,6 +26,7 @@ import {
   adminType,
 } from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
+import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
 
 function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -87,6 +88,27 @@ export type FarmerDetailTabType =
   | 'Soil'
   | 'Product listing';
 
+export interface CategoryRating {
+  id: string;
+  name: string;
+  score: number;
+  max: number;
+  notes?: string;
+}
+
+export const DEFAULT_CATEGORY_RATINGS: CategoryRating[] = [
+  { id: 'cert', name: 'Certification & Compliance', score: 8, max: 10 },
+  { id: 'soil', name: 'Soil & Land Management', score: 7, max: 10 },
+  { id: 'farming', name: 'Farming Practices', score: 8, max: 10 },
+  { id: 'env', name: 'Environmental Sustainability', score: 7, max: 10 },
+  { id: 'produce', name: 'Produce Quality & Yield', score: 8, max: 10 },
+  { id: 'trace', name: 'Traceability & Transparency', score: 9, max: 10 },
+  { id: 'social', name: 'Social & Labor Practices', score: 7, max: 10 },
+  { id: 'finance', name: 'Financial & Operational', score: 8, max: 10 },
+  { id: 'market', name: 'Market & Buyer Relations', score: 8, max: 10 },
+  { id: 'innov', name: 'Innovation & Improvement', score: 8, max: 10 },
+];
+
 export interface AdminFarmerDetailScreenProps {
   farmer: FarmerListItem;
   onBack: () => void;
@@ -119,9 +141,17 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   };
 
   const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(normalizeTab(initialTab));
-  const [accountStatus, setAccountStatus] = useState<'Active' | 'Inactive' | 'Terminated'>(
-    farmer.status === 'DISABLED' ? 'Inactive' : 'Active'
+  const [accountStatus, setAccountStatus] = useState<'Active' | 'Inactive' | 'Disabled' | 'Terminated'>(
+    farmer.status === 'DISABLED' ? 'Disabled' : 'Active'
   );
+
+  // Edit Farm Rating & Profile states
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingRating, setIsEditingRating] = useState(false);
+  const [categoryRatings, setCategoryRatings] = useState<CategoryRating[]>(DEFAULT_CATEGORY_RATINGS);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>('cert');
+
+  const totalRatingScore = categoryRatings.reduce((sum, item) => sum + item.score, 0);
 
   useEffect(() => {
     setActiveTab(normalizeTab(initialTab));
@@ -206,13 +236,30 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   const handleConfirmTerminate = () => {
     if (!reasonInput.trim()) {
-      Alert.alert('Required', 'Please enter a reason for termination.');
+      Alert.alert('Required', 'Please enter a reason.');
       return;
     }
-    setAccountStatus('Terminated');
+    setAccountStatus('Disabled');
     setTerminateModalVisible(false);
     onDisable?.();
-    Alert.alert('Account Terminated', 'Farmer account has been terminated permanently.');
+    Alert.alert('Account Disabled', 'Farmer account has been disabled.');
+  };
+
+  const handleSelectScore = (categoryId: string, score: number) => {
+    setCategoryRatings((prev) =>
+      prev.map((cat) => (cat.id === categoryId ? { ...cat, score } : cat))
+    );
+  };
+
+  const handleUpdateNotes = (categoryId: string, notes: string) => {
+    setCategoryRatings((prev) =>
+      prev.map((cat) => (cat.id === categoryId ? { ...cat, notes } : cat))
+    );
+  };
+
+  const handleSaveRatings = () => {
+    setIsEditingRating(false);
+    Alert.alert('Rating Saved', 'Farm rating updated successfully.');
   };
 
   const handleOpenVerifyModal = (recordId: string) => {
@@ -255,6 +302,213 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     Alert.alert('Correction Requested', `Correction request for ${activeRecordId} has been sent.`);
   };
 
+  // ─── SUBVIEW: EDIT FARMER PROFILE (Latest Screenshots) ───
+  if (isEditingProfile) {
+    return (
+      <AdminEditFarmerScreen
+        farmer={farmer}
+        onBack={() => setIsEditingProfile(false)}
+        onSave={() => {
+          setIsEditingProfile(false);
+        }}
+      />
+    );
+  }
+
+  // ─── SUBVIEW: EDIT FARM RATING (Images 3 & 4) ───
+  if (isEditingRating) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ─── Header: Edit Farm Rating ─── */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => setIsEditingRating(false)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Farmer Profile"
+            >
+              <BackArrowWhiteIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Farm Rating</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: 110 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Profile Top Card */}
+          <View style={styles.profileSummaryCard}>
+            <View style={styles.profileTopRow}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{farmer.initials || 'RK'}</Text>
+              </View>
+
+              <View style={styles.profileDetailsCol}>
+                <View style={styles.nameBadgeRow}>
+                  <Text style={styles.farmerName}>{farmer.name || 'Ramesh Kumar'}</Text>
+                  <View
+                    style={[
+                      styles.activePill,
+                      accountStatus === 'Inactive' && { backgroundColor: '#F3F4F6' },
+                      (accountStatus === 'Terminated' || accountStatus === 'Disabled') && { backgroundColor: '#FFEBEE' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.activePillText,
+                        accountStatus === 'Inactive' && { color: '#6B7280' },
+                        (accountStatus === 'Terminated' || accountStatus === 'Disabled') && { color: '#D32F2F' },
+                      ]}
+                    >
+                      {accountStatus}
+                    </Text>
+                  </View>
+                </View>
+
+                <Text style={styles.farmerIdPhone}>
+                  {farmer.code || 'FMR-00124'} · {farmer.mobile || '+91 90000 20000'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Badges Row */}
+            <View style={styles.badgesRow}>
+              <View style={styles.neutralPill}>
+                <Text style={styles.neutralPillText}>{farmer.farmingType || 'Natural'}</Text>
+              </View>
+              <View style={styles.greenPill}>
+                <Text style={styles.greenPillText}>KYC Verified</Text>
+              </View>
+              <View style={styles.redPill}>
+                <Text style={styles.redPillText}>Certification expired</Text>
+              </View>
+              <View style={styles.neutralPill}>
+                <Text style={styles.neutralPillText}>Since 10 Jan 2026</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Section Heading: Edit Rating */}
+          <Text style={styles.editRatingSectionTitle}>Edit Rating</Text>
+
+          {/* Accordion Categories */}
+          {categoryRatings.map((cat) => {
+            const isExpanded = expandedCategory === cat.id;
+            return (
+              <View key={cat.id} style={styles.accordionCard}>
+                <TouchableOpacity
+                  style={styles.accordionHeader}
+                  onPress={() => setExpandedCategory(isExpanded ? null : cat.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.accordionCategoryTitle}>{cat.name}</Text>
+                  <View style={styles.accordionScorePill}>
+                    <Text style={styles.accordionScoreText}>{cat.score}/{cat.max}</Text>
+                  </View>
+                  <View style={styles.accordionChevron}>
+                    {isExpanded ? (
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                        <Path d="M18 15l-6-6-6 6" stroke="#4B5563" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    ) : (
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                        <Path d="M6 9l6 6 6-6" stroke="#4B5563" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {isExpanded && (
+                  <View style={styles.accordionBody}>
+                    {/* Numbers Grid: 1-5 and 6-10 */}
+                    <View style={styles.scoreRow}>
+                      {[1, 2, 3, 4, 5].map((num) => {
+                        const isSelected = cat.score === num;
+                        return (
+                          <TouchableOpacity
+                            key={num}
+                            style={[
+                              styles.scoreButton,
+                              isSelected && styles.scoreButtonSelected,
+                            ]}
+                            onPress={() => handleSelectScore(cat.id, num)}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={[
+                                styles.scoreButtonText,
+                                isSelected && styles.scoreButtonTextSelected,
+                              ]}
+                            >
+                              {num}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <View style={styles.scoreRow}>
+                      {[6, 7, 8, 9, 10].map((num) => {
+                        const isSelected = cat.score === num;
+                        return (
+                          <TouchableOpacity
+                            key={num}
+                            style={[
+                              styles.scoreButton,
+                              isSelected && styles.scoreButtonSelected,
+                            ]}
+                            onPress={() => handleSelectScore(cat.id, num)}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={[
+                                styles.scoreButtonText,
+                                isSelected && styles.scoreButtonTextSelected,
+                              ]}
+                            >
+                              {num}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    {/* Notes (optional) Input */}
+                    <TextInput
+                      style={styles.accordionNotesInput}
+                      placeholder="Notes (optional)"
+                      placeholderTextColor="#9CA3AF"
+                      multiline
+                      value={cat.notes || ''}
+                      onChangeText={(val) => handleUpdateNotes(cat.id, val)}
+                    />
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* Fixed Save Rating Bottom Bar */}
+        <View style={styles.fixedBottomBar}>
+          <TouchableOpacity
+            style={styles.saveRatingBtn}
+            onPress={handleSaveRatings}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveRatingBtnText}>Save Rating</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -272,20 +526,30 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <BackArrowWhiteIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Farmer Profile</Text>
-          {onEdit && (
-            <TouchableOpacity
-              style={[styles.backButton, { marginLeft: 'auto' }]}
-              onPress={() => onEdit(activeTab)}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Edit"
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.backButton, { marginLeft: 'auto' }]}
+            onPress={() => setIsEditingProfile(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Farmer Profile"
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -496,7 +760,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 onPress={handleOpenTerminateModal}
                 activeOpacity={0.8}
               >
-                <Text style={styles.terminateBtnText}>Terminate Account</Text>
+                <Text style={styles.terminateBtnText}>Disable Account</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -586,7 +850,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <Text style={styles.tableValue}>15 Jan 2026</Text>
             </View>
 
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.tableLabel}>Soil type</Text>
               <Text style={styles.tableValue}>Loam</Text>
             </View>
@@ -706,49 +970,9 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           </View>
         )}
 
-        {/* ─── TAB 6: RATINGS (M3-S04d · Ratings tab) ─── */}
+        {/* ─── TAB 6: RATINGS (Image 2) ─── */}
         {activeTab === 'Ratings' && (
           <>
-            {/* Current Rating Hero Card */}
-            <View style={styles.ratingScoreCard}>
-              <Text style={styles.ratingScoreLabel}>CURRENT RATING</Text>
-              <View style={styles.ratingScoreRow}>
-                <Text style={styles.ratingBigNumber}>3.0</Text>
-                <Text style={styles.ratingDenominator}> / 5</Text>
-              </View>
-              <Text style={styles.ratingEffectiveText}>
-                Effective 01 Aug 2026 · Source: Audit assessment · By Auditor
-              </Text>
-            </View>
-
-            {/* Rating Metadata Table Card */}
-            <View style={styles.detailsCard}>
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Previous rating</Text>
-                <Text style={styles.tableValue}>—</Text>
-              </View>
-
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Effective</Text>
-                <Text style={styles.tableValue}>10 Jan 2026, 09:30</Text>
-              </View>
-
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Changed by</Text>
-                <Text style={styles.tableValue}>System</Text>
-              </View>
-
-              <View style={styles.tableRow}>
-                <Text style={styles.tableLabel}>Reason</Text>
-                <Text style={styles.tableValue}>Initial assessment</Text>
-              </View>
-
-              <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.tableLabel}>Scale</Text>
-                <Text style={styles.tableValue}>1 to 100, steps of 5.0</Text>
-              </View>
-            </View>
-
             {/* Rating Categories Section */}
             <Text style={styles.sectionHeaderTitle}>Rating categories</Text>
 
@@ -756,7 +980,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.categoryOverallCard}>
               <Text style={styles.categoryOverallLabel}>NEW OVERALL RATING</Text>
               <View style={styles.categoryOverallRow}>
-                <Text style={styles.categoryBigNumber}>78</Text>
+                <Text style={styles.categoryBigNumber}>{totalRatingScore}</Text>
                 <Text style={styles.categoryDenominator}> / 100</Text>
               </View>
               <Text style={styles.categoryPreviousText}>Previous: 68 / 100</Text>
@@ -764,80 +988,18 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
             {/* Categories Breakdown Table */}
             <View style={styles.detailsCard}>
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Certification & Compliance</Text>
-                <Text style={styles.categoryScore}>8/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Soil & Land Management</Text>
-                <Text style={styles.categoryScore}>7/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Farming Practices</Text>
-                <Text style={styles.categoryScore}>8/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Environmental Sustainability</Text>
-                <Text style={styles.categoryScore}>7/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Produce Quality & Yield</Text>
-                <Text style={styles.categoryScore}>8/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Traceability & Transparency</Text>
-                <Text style={styles.categoryScore}>9/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Social & Labor Practices</Text>
-                <Text style={styles.categoryScore}>7/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Financial & Operational</Text>
-                <Text style={styles.categoryScore}>8/10</Text>
-              </View>
-
-              <View style={styles.categoryRow}>
-                <Text style={styles.categoryLabel}>Market & Buyer Relations</Text>
-                <Text style={styles.categoryScore}>8/10</Text>
-              </View>
-
-              <View style={[styles.categoryRow, { borderBottomWidth: 0 }]}>
-                <Text style={styles.categoryLabel}>Innovation & Improvement</Text>
-                <Text style={styles.categoryScore}>8/10</Text>
-              </View>
-            </View>
-
-            {/* History Section */}
-            <Text style={styles.sectionHeaderTitle}>History</Text>
-
-            {/* History Item 1 */}
-            <View style={styles.ratingHistoryCard}>
-              <View style={styles.ratingHistoryHeaderRow}>
-                <Text style={styles.ratingHistoryScore}>3.0 / 5</Text>
-                <Text style={styles.ratingHistoryDate}>01 Aug 2026</Text>
-              </View>
-              <Text style={styles.ratingHistorySubtitle}>
-                Previous 2.5 · Source: Audit assessment · By Auditor
-              </Text>
-            </View>
-
-            {/* History Item 2 */}
-            <View style={styles.ratingHistoryCard}>
-              <View style={styles.ratingHistoryHeaderRow}>
-                <Text style={styles.ratingHistoryScore}>2.5 / 5</Text>
-                <Text style={styles.ratingHistoryDate}>02 Feb 2026</Text>
-              </View>
-              <Text style={styles.ratingHistorySubtitle}>
-                Previous — (first rating) · By Priya Nair
-              </Text>
+              {categoryRatings.map((cat, idx) => (
+                <View
+                  key={cat.id}
+                  style={[
+                    styles.categoryRow,
+                    idx === categoryRatings.length - 1 && { borderBottomWidth: 0 },
+                  ]}
+                >
+                  <Text style={styles.categoryLabel}>{cat.name}</Text>
+                  <Text style={styles.categoryScore}>{cat.score}/{cat.max}</Text>
+                </View>
+              ))}
             </View>
           </>
         )}
@@ -915,8 +1077,39 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           </View>
         )}
 
-        <View style={{ height: adminSpacing.xxxl }} />
+        <View style={{ height: activeTab === 'Ratings' ? 80 : adminSpacing.xxxl }} />
       </ScrollView>
+
+      {/* ─── Sticky Bottom Action Bar: Edit Rating (Only in Ratings tab - Image 2) ─── */}
+      {activeTab === 'Ratings' && (
+        <View style={styles.ratingsBottomBar}>
+          <TouchableOpacity
+            style={styles.editRatingBottomBtn}
+            onPress={() => setIsEditingRating(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Rating"
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+              <Path
+                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            <Text style={styles.editRatingBottomBtnText}>Edit Rating</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ══════════════════════════════════════════════════════════════════════
           MODAL 1: DEACTIVATE THIS ACCOUNT? (Image 1 Screen 2)
@@ -1017,7 +1210,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             onPress={() => setTerminateModalVisible(false)}
           />
           <View style={styles.bottomSheetCard}>
-            <Text style={styles.bottomSheetTitle}>Terminate this account?</Text>
+            <Text style={styles.bottomSheetTitle}>Disable this account?</Text>
 
             <View style={styles.summaryTableCard}>
               <View style={styles.summaryTableRow}>
@@ -1026,11 +1219,11 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               </View>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Action</Text>
-                <Text style={styles.summaryTableValue}>Terminate</Text>
+                <Text style={styles.summaryTableValue}>Disable</Text>
               </View>
               <View style={[styles.summaryTableRow, { borderBottomWidth: 0 }]}>
                 <Text style={styles.summaryTableLabel}>Status</Text>
-                <Text style={styles.summaryTableValue}>Active to Terminate</Text>
+                <Text style={styles.summaryTableValue}>Active to Disable</Text>
               </View>
             </View>
 
@@ -1041,8 +1234,6 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               style={styles.textAreaInput}
               multiline
               numberOfLines={3}
-              placeholder="Enter reason for termination"
-              placeholderTextColor={adminColors.muted}
               value={reasonInput}
               onChangeText={setReasonInput}
             />
@@ -1052,20 +1243,10 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               style={styles.textAreaInput}
               multiline
               numberOfLines={3}
-              placeholder="Add internal note"
-              placeholderTextColor={adminColors.muted}
               value={internalNoteInput}
               onChangeText={setInternalNoteInput}
             />
             <Text style={styles.inputHelperText}>Up to 200 characters</Text>
-
-            {/* Warning Permanent Banner */}
-            <View style={styles.terminateWarningBanner}>
-              <BanAlertIcon size={18} color="#D32F2F" />
-              <Text style={styles.terminateWarningText}>
-                Terminating this account is permanent. The user will lose access, and the account cannot be reactivated or edited. This action cannot be undone.
-              </Text>
-            </View>
 
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
@@ -1073,7 +1254,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 onPress={handleConfirmTerminate}
                 activeOpacity={0.8}
               >
-                <Text style={styles.terminateSubmitBtnText}>Terminate</Text>
+                <Text style={styles.terminateSubmitBtnText}>Disable</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -1514,7 +1695,7 @@ const styles = StyleSheet.create({
     ...adminType.sectionHead,
     fontSize: 14,
     fontWeight: '800',
-    color: adminColors.ink,
+    color: adminColors.brandDeep,
     marginBottom: adminSpacing.sm,
   },
   lifecycleCard: {
@@ -1620,16 +1801,16 @@ const styles = StyleSheet.create({
   },
   actionLinksRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: adminSpacing.md,
-    paddingTop: adminSpacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: '#F5F0EA',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xs,
   },
   actionLinkText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: adminColors.ink,
+    ...adminType.sectionHead,
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
   },
   disclaimerNote: {
     fontSize: 11,
@@ -1900,7 +2081,7 @@ const styles = StyleSheet.create({
   },
   terminateSubmitBtn: {
     flex: 1,
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,
     paddingVertical: 12,
     alignItems: 'center',
@@ -2134,5 +2315,148 @@ const styles = StyleSheet.create({
   appendOnlyText: {
     fontSize: 12,
     color: adminColors.muted,
+  },
+
+  // ─── Edit Farm Rating Screen & Accordion Styles (Images 3 & 4) ───
+  editRatingSectionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#5B3A29',
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  accordionCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    marginBottom: 10,
+    overflow: 'hidden',
+  },
+  accordionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  accordionCategoryTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  accordionScorePill: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 8,
+  },
+  accordionScoreText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  accordionChevron: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accordionBody: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 4,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 6,
+  },
+  scoreButton: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scoreButtonSelected: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  scoreButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  scoreButtonTextSelected: {
+    color: '#FFFFFF',
+  },
+  accordionNotesInput: {
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 65,
+    textAlignVertical: 'top',
+    marginTop: 8,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  fixedBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    ...adminShadow.md,
+  },
+  saveRatingBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: 14,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveRatingBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  ratingsBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? adminSpacing.xl : adminSpacing.md,
+    ...adminShadow.lg,
+  },
+  editRatingBottomBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editRatingBottomBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: adminColors.onBrand,
   },
 });

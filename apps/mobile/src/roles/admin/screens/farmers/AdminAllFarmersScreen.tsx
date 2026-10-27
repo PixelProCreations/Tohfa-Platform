@@ -329,6 +329,7 @@ interface Props {
   onReviewApplication?: (application: ApplicationListItem) => void;
   onNavigateTab?: (tab: 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile') => void;
   showBottomNav?: boolean;
+  initialTab?: 'farmers' | 'applications';
 }
 
 export const AdminAllFarmersScreen: React.FC<Props> = ({
@@ -337,10 +338,17 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
   onReviewApplication,
   onNavigateTab,
   showBottomNav = false,
+  initialTab = 'farmers',
 }) => {
-  const [activeMainTab, setActiveMainTab] = useState<'farmers' | 'applications'>('farmers');
+  const [activeMainTab, setActiveMainTab] = useState<'farmers' | 'applications'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveMainTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Filtered farmers
   const filteredFarmers = DEMO_ALL_FARMERS.filter((f) => {
@@ -557,7 +565,12 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
                 const isApproved = app.status === 'Approved';
 
                 return (
-                  <View key={app.id} style={styles.applicationCard}>
+                  <TouchableOpacity
+                    key={app.id}
+                    style={styles.applicationCard}
+                    onPress={() => onReviewApplication?.(app)}
+                    activeOpacity={0.8}
+                  >
                     <View style={styles.cardHeaderRow}>
                       <Text style={styles.cardName}>{app.name}</Text>
                       <View
@@ -602,7 +615,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
                         <Text style={styles.reviewAppBtnText}>Review Application</Text>
                       </TouchableOpacity>
                     )}
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
