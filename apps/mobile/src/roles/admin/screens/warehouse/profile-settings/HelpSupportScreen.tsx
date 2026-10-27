@@ -175,17 +175,23 @@ const CATEGORIES: readonly { id: FaqCategory; shortLabel: string; Icon: (props: 
   { id: 'Account & Security', shortLabel: 'Security', Icon: ShieldIcon },
 ];
 
+import { useHelpSupport } from './useProfileSettingsData';
+
 const TICKET_TONE = { Open: 'warning', 'Under Review': 'warning', Resolved: 'success' } as const;
 
 export function HelpSupportScreen({
   can,
   onBack,
-  faqs = FAQ_ITEMS,
+  faqs: customFaqs,
   tickets = SUPPORT_TICKETS,
   onReportIssue,
 }: HelpSupportScreenProps) {
   const [category, setCategory] = useState<FaqCategory | null>(null);
   const [query, setQuery] = useState('');
+
+  const { faqs: liveFaqs } = useHelpSupport(category ?? undefined);
+  const faqs = customFaqs ?? (liveFaqs.length > 0 ? liveFaqs : FAQ_ITEMS);
+
   const [expandedId, setExpandedId] = useState<string | null>(faqs[0]?.id ?? null);
 
   const handleReportIssue = (cat: FaqCategory) => {

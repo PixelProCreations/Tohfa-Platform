@@ -28,6 +28,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import type { WarehouseContactInfo, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
 import { PROFILE_WAREHOUSES, WAREHOUSE_CONTACTS } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   DirectionsIcon,
   LinkCard,
@@ -57,12 +58,15 @@ export function ContactScreen({
   scope,
   onBack,
   onTabChange,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
   contacts = WAREHOUSE_CONTACTS,
 }: ContactScreenProps) {
   const isMain = isAllWarehouses(scope);
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const contact = recordFor(contacts, warehouseId);
   const warehouseName = warehouseNameOf(scope, warehouseId, warehouseOptions);

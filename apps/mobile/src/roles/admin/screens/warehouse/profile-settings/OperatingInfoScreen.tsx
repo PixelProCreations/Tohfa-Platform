@@ -29,6 +29,7 @@ import {
 import { StatusDot } from './ProfileParts';
 import type { OperatingInfo, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
 import { OPERATING_INFO, PROFILE_WAREHOUSES } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { DetailRow, recordFor, singleWarehouseId, SingleWarehouseHeader, warehouseProfileLayout } from './WarehouseProfileParts';
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
@@ -43,13 +44,16 @@ export function OperatingInfoScreen({
   scope,
   onBack,
   onTabChange,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
   operatingInfo = OPERATING_INFO,
   today = new Date(),
 }: OperatingInfoScreenProps) {
   const isMain = isAllWarehouses(scope);
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const info = recordFor(operatingInfo, warehouseId);
   const todayName = !isMain ? 'Thursday' : WEEKDAYS[today.getDay()];

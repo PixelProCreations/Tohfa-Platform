@@ -43,6 +43,8 @@ import {
 import { BlockIcon } from './ProfileParts';
 import type { DocumentCategory, WarehouseDocItem, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
 import { PROFILE_WAREHOUSES, WAREHOUSE_DOCUMENTS } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useWarehouseDocuments } from './useProfileSettingsData';
 import { warehouseNameOf, warehouseProfileLayout, WarningTriangleIcon } from './WarehouseProfileParts';
 
 type CategoryFilter = 'All' | DocumentCategory;
@@ -85,15 +87,22 @@ export function DocumentsScreen({
   scope,
   onBack,
   onTabChange,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  documents = WAREHOUSE_DOCUMENTS,
+  documents: customDocuments,
 }: DocumentsScreenProps) {
   const isMain = isAllWarehouses(scope);
   const [localSelection, setLocalSelection] = useState<string | undefined>(undefined);
   const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
   const select = onSelectWarehouse ?? setLocalSelection;
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+
+  const warehouseId = scope.warehouseId ?? (selected === 'ALL' ? undefined : selected);
+  const { documents: liveDocs } = useWarehouseDocuments(warehouseId);
+  const documents = customDocuments ?? (liveDocs.length > 0 ? liveDocs : WAREHOUSE_DOCUMENTS);
 
   const [category, setCategory] = useState<CategoryFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');

@@ -48,6 +48,8 @@ import type {
   WarehouseSelectionProps,
 } from './types';
 import { PROFILE_WAREHOUSES, STORAGE_HIERARCHY, STORAGE_LOCATIONS, STORAGE_SECTIONS } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useStorageLocations } from './useProfileSettingsData';
 import { FillBar, formatKg, warehouseNameOf, warehouseProfileLayout } from './WarehouseProfileParts';
 
 type StatusFilter = 'All' | 'Active' | 'Inactive';
@@ -66,10 +68,10 @@ export function StorageInfoScreen({
   onBack,
   onTabChange,
   onSelectLocation,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  locations = STORAGE_LOCATIONS,
+  locations: customLocations,
   sections = STORAGE_SECTIONS,
   hierarchy = STORAGE_HIERARCHY,
 }: StorageInfoScreenProps) {
@@ -78,6 +80,13 @@ export function StorageInfoScreen({
   const [localSelection, setLocalSelection] = useState<string | undefined>(undefined);
   const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
   const select = onSelectWarehouse ?? setLocalSelection;
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+
+  const warehouseId = scope.warehouseId ?? (selected === 'ALL' ? undefined : selected);
+  const { locations: liveLocations, capacity: liveCapacity } = useStorageLocations(warehouseId);
+  const locations = customLocations ?? (liveLocations.length > 0 ? liveLocations : STORAGE_LOCATIONS);
 
   const [filter, setFilter] = useState<StatusFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -96,9 +105,9 @@ export function StorageInfoScreen({
     return matchesFilter && matchesSearch;
   });
 
-  const totalKg = visibleLocations.reduce((sum, loc) => sum + loc.capacityKg, 0);
-  const usedKg = visibleLocations.reduce((sum, loc) => sum + loc.currentKg, 0);
-  const usedPercent = totalKg > 0 ? (usedKg / totalKg) * 100 : 0;
+  const totalKg = liveCapacity?.capacityKg ? Math.round(parseFloat(liveCapacity.capacityKg)) : visibleLocations.reduce((sum, loc) => sum + loc.capacityKg, 0);
+  const usedKg = liveCapacity?.usedKg ? Math.round(parseFloat(liveCapacity.usedKg)) : visibleLocations.reduce((sum, loc) => sum + loc.currentKg, 0);
+  const usedPercent = liveCapacity?.utilizationPercent ?? (totalKg > 0 ? (usedKg / totalKg) * 100 : 0);
   const activeCount = visibleLocations.filter((loc) => loc.status === 'Active').length;
   const occupiedCount = visibleLocations.filter((loc) => loc.currentKg > 0).length;
 
@@ -217,7 +226,7 @@ export function StorageInfoScreen({
                 </Text>
                 <View style={styles.locStats}>
                   <CapacityCell label="Capacity" value={formatKg(loc.capacityKg)} />
-                  <CapacityCell label="Current" value={formatKg(loc.currentKg)} />
+                  <CapacityCell label="Current" value={loc.currentKg > 0 ? formatKg(loc.currentKg) : '—'} />
                 </View>
               </>
             );

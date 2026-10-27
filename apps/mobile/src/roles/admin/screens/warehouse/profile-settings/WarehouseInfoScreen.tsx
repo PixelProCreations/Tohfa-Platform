@@ -39,6 +39,8 @@ import Svg, { Path } from 'react-native-svg';
 import { MenuCard, MenuRow } from './ProfileParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo, StorageLocationItem } from './types';
 import { PROFILE_WAREHOUSES, STORAGE_LOCATIONS, WAREHOUSE_PROFILES } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useWarehouseProfile } from './useProfileSettingsData';
 import {
   ClockIcon,
   CloseIcon,
@@ -96,16 +98,20 @@ export function WarehouseInfoScreen({
   onTabChange,
   onOpen,
   onEdit,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  profiles = WAREHOUSE_PROFILES,
+  profiles: customProfiles,
   storageLocations = STORAGE_LOCATIONS,
 }: WarehouseInfoScreenProps) {
   const [showMap, setShowMap] = useState(false);
 
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
-  const profile = recordFor(profiles, warehouseId);
+  const { profileInfo: liveProfileInfo } = useWarehouseProfile(warehouseId);
+  const profile = customProfiles ? recordFor(customProfiles, warehouseId) : (liveProfileInfo ?? recordFor(WAREHOUSE_PROFILES, warehouseId));
   const locationCount = storageLocations.filter((loc) => loc.warehouseId === warehouseId).length;
 
   const isMainWarehouse = isAllWarehouses(scope);

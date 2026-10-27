@@ -18,6 +18,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { Card, CheckIcon, isAllWarehouses, SectionTitle, StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { defaultProfile, roleLabelOf } from './fixtures';
+import { useUserProfile } from './useProfileSettingsData';
 import { BlockIcon, KeyIcon, MenuCard, MenuRow, profileLayout, StatusDot, StatusRow } from './ProfileParts';
 import type { AdminAccountProfile, WarehouseScreenBaseProps } from './types';
 
@@ -28,7 +29,8 @@ export interface SecurityScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function SecurityScreen({ scope, onBack, profile, onChangePassword, onViewSessionSecurity }: SecurityScreenProps) {
-  const account = profile ?? defaultProfile(scope);
+  const { profile: liveProfile } = useUserProfile(scope);
+  const account = profile ?? liveProfile ?? defaultProfile(scope);
 
   return (
     <WalletScreen title="Security" onBack={onBack}>

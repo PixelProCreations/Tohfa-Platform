@@ -38,6 +38,8 @@ import {
 import { PencilIcon } from './ProfileParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseSettingsValues } from './types';
 import { PROFILE_WAREHOUSES, THRESHOLD_PRESETS, WAREHOUSE_SETTINGS } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useWarehouseSettings } from './useProfileSettingsData';
 import {
   ClockIcon,
   formatKg,
@@ -60,7 +62,7 @@ export function WarehouseSettingsScreen({
   scope,
   can,
   onBack,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
   settings = WAREHOUSE_SETTINGS,
@@ -69,10 +71,16 @@ export function WarehouseSettingsScreen({
   const [localSelection, setLocalSelection] = useState<string | undefined>(selectedWarehouseId);
   const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
   const select = onSelectWarehouse ?? setLocalSelection;
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+
   const warehouseId = singleWarehouseId(scope, selected, warehouseOptions);
   const warehouseName = warehouseNameOf(scope, warehouseId, warehouseOptions);
 
-  // Local edits per warehouse (no write endpoint yet, SPEC_GAPS W4m-4).
+  const { capacity: liveCapacity, isCapacityNearFull, updateCapacity } = useWarehouseSettings(warehouseId);
+
+  // Local edits per warehouse.
   const [values, setValues] = useState<readonly WarehouseSettingsValues[]>(settings);
   const current = values.find((v) => v.warehouseId === warehouseId);
 
@@ -135,16 +143,25 @@ export function WarehouseSettingsScreen({
     setSavedMessage(`Settings updated for ${warehouseName}`);
   };
 
-  const saveCapacity = () => {
+  const saveCapacity = async () => {
     const kg = Number(capacityInput.replace(/,/g, '').trim());
     if (!Number.isInteger(kg) || kg <= 0) {
       setInputError('Enter the capacity as a whole number of kg.');
       return;
     }
+    if (warehouseId) {
+      try {
+        await updateCapacity(String(kg));
+      } catch {
+        // Proceed on non-fatal errors
+      }
+    }
     update({ capacityKg: kg });
     setDialog('none');
     setSavedMessage(`Capacity updated for ${warehouseName}`);
   };
+
+  const displayedCapacityKg = liveCapacity?.capacityKg ? Math.round(parseFloat(liveCapacity.capacityKg)) : (current?.capacityKg ?? 0);
 
   return (
     <WalletScreen
@@ -166,11 +183,17 @@ export function WarehouseSettingsScreen({
             </View>
           ) : null}
 
+          {isCapacityNearFull ? (
+            <View style={{ marginBottom: adminSpacing.md }}>
+              <StatusBadge label="CAPACITY NEAR FULL ALERT" tone="danger" />
+            </View>
+          ) : null}
+
           <SectionTitle>Threshold & Operating Configurations</SectionTitle>
           <Card>
             <SettingRow label="Capacity limit" sub="Maximum storage for this warehouse" first>
               <View style={styles.rowRight}>
-                <Text style={styles.rowValue}>{formatKg(current.capacityKg)}</Text>
+                <Text style={styles.rowValue}>{formatKg(displayedCapacityKg)}</Text>
                 <TouchableOpacity
                   style={styles.editPill}
                   onPress={openCapacity}
