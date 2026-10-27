@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,609 +11,1034 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import Svg, { Path, Rect } from 'react-native-svg';
 import {
   adminColors,
-  adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
   adminType,
-  ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
-import type { FarmerDetailTabType } from './AdminFarmerDetailScreen';
 
-const P = {
-  bg: adminColors.canvas,
-  cardBg: adminColors.card,
-  cardBorder: adminColors.border,
-  ink: adminColors.ink,
-  titleBrown: adminColors.brandDeep,
-  subtitle: adminColors.muted,
-  orange: adminColors.brand,
-  orangeBg: adminColors.brandTint,
-  textSecondary: adminColors.muted,
-  inputBorder: adminColors.border,
-  inputBg: adminColors.card,
-  greenBg: adminColors.success.bg,
-  greenText: adminColors.success.text,
-  redBg: adminColors.danger.bg,
-  redText: adminColors.danger.text,
-  amberBg: adminColors.warning.bg,
-  amberText: adminColors.warning.text,
-  tabActiveBg: adminColors.brand,
-  tabActiveText: adminColors.onBrand,
-  tabInactiveText: adminColors.ink,
-  tabContainerBorder: adminColors.border,
-};
+function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CalendarIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ChevronDownIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LockIcon({ size = 14, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="11" width="16" height="11" rx="2" stroke={color} strokeWidth="2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function UploadIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 interface Props {
   farmer: FarmerListItem;
-  initialTab?: FarmerDetailTabType;
+  initialTab?: any;
   onBack: () => void;
-  onSave?: (updatedFarmer: FarmerListItem, activeTab: FarmerDetailTabType) => void;
+  onSave?: (updatedFarmer: FarmerListItem, activeTab?: any) => void;
   onNavigateToEditCategories?: () => void;
 }
 
 export const AdminEditFarmerScreen: React.FC<Props> = ({
   farmer,
-  initialTab = 'Overview',
   onBack,
   onSave,
-  onNavigateToEditCategories,
 }) => {
-  const activeTab = initialTab;
+  // Personal information
+  const [fullName, setFullName] = useState(farmer.name || 'Ramesh Kumar');
+  const [mobileNumber, setMobileNumber] = useState('98765 00124');
+  const [email, setEmail] = useState('');
+  const [dob, setDob] = useState('12 Apr 1982');
+  const [gender, setGender] = useState('Male');
 
-  // Overview fields
-  const [name, setName] = useState(farmer.name);
-  const [code, setCode] = useState(farmer.code);
-  const [farmName, setFarmName] = useState(farmer.farmName ?? 'Wild Eden Organic Farms');
-  const [location, setLocation] = useState(farmer.location);
-  const [mobile, setMobile] = useState(farmer.mobile ?? '+91 98XXX XX891');
-  const [aadhaar, setAadhaar] = useState(farmer.aadhaar ?? 'XXXX XXXX 3390');
-  const [status, setStatus] = useState<'ACTIVE' | 'DISABLED'>(farmer.status);
+  // Address
+  const [addressLine1, setAddressLine1] = useState('12 Hill Road');
+  const [addressLine2, setAddressLine2] = useState('');
+  const [village, setVillage] = useState('Coonoor');
+  const [pinCode, setPinCode] = useState('643101');
+  const [district, setDistrict] = useState('Nilgiris');
 
-  // Farm fields
-  const [farmSize, setFarmSize] = useState(farmer.farmSize ?? '2.8 acres');
-  const [fmbZones, setFmbZones] = useState(farmer.fmbZones ?? '4 zones marked');
-  const [primaryCrops, setPrimaryCrops] = useState(farmer.primaryCrops ?? 'Potato, Garlic, Nilgiris Carrots');
-  const [soilType, setSoilType] = useState(farmer.soilType ?? 'Red Humus Loam (High Organic Matter)');
-  const [irrigation, setIrrigation] = useState(farmer.irrigation ?? 'Micro-Drip & Rainwater Harvesting Pit');
+  // Zone & farm assignment
+  const [zone, setZone] = useState('Coonoor');
+  const [warehouse, setWarehouse] = useState('Sub Warehouse, Coonoor');
+  const [farmingType, setFarmingType] = useState<'Organic' | 'Natural' | 'Conventional'>('Organic');
 
-  // KYC fields
-  const [aadhaarStatus, setAadhaarStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>(farmer.aadhaarStatus ?? 'Verified');
-  const [pattaStatus, setPattaStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>(farmer.pattaStatus ?? 'Verified');
-  const [passbookStatus, setPassbookStatus] = useState<'Verified' | 'Pending' | 'Uploaded'>(farmer.passbookStatus ?? 'Verified');
-  const [certStatus, setCertStatus] = useState<'Verified' | 'Pending' | 'Expired'>(farmer.certStatus ?? 'Verified');
-  const [kycNotes, setKycNotes] = useState(farmer.kycNotes ?? 'Identity and patta verified against Tamil Nadu Revenue Land Records.');
+  // Farm details
+  const [farmName, setFarmName] = useState(farmer.farmName || 'Ramesh Kumar Farm');
+  const [totalArea, setTotalArea] = useState('4.25');
 
-  // Ratings fields
-  const [ratingScore, setRatingScore] = useState(String(farmer.rating ?? 718));
-  const [ratingTier, setRatingTier] = useState(farmer.ratingTier ?? 'Good');
-
-  const getHeaderTitle = () => {
-    switch (activeTab) {
-      case 'Farm':
-        return 'Edit Farm Details';
-      case 'KYC':
-        return 'Edit KYC Documents';
-      case 'Ratings':
-        return 'Edit Ratings';
-      case 'Overview':
-      default:
-        return 'Edit Overview';
-    }
-  };
+  // Plots
+  const [plots, setPlots] = useState([
+    {
+      id: 'plt_1',
+      title: 'Plot 1 · Zone A',
+      meta: '2.25 acres · Rectangular · Tomato',
+    },
+    {
+      id: 'plt_2',
+      title: 'Plot 2 · Zone B',
+      meta: '1.5 acres · Even · Carrot',
+    },
+  ]);
 
   const handleSave = () => {
     const updated: FarmerListItem = {
       ...farmer,
-      name,
-      code,
+      name: fullName,
       farmName,
-      location,
-      mobile,
-      aadhaar,
-      status,
-      farmSize,
-      fmbZones,
-      primaryCrops,
-      soilType,
-      irrigation,
-      aadhaarStatus,
-      pattaStatus,
-      passbookStatus,
-      certStatus,
-      kycNotes,
-      rating: parseInt(ratingScore, 10) || farmer.rating,
-      ratingTier,
+      location: `${village}, ${zone}`,
+      mobile: `+91 ${mobileNumber}`,
     };
     if (onSave) {
-      onSave(updated, activeTab);
-    } else {
-      onBack();
+      onSave(updated);
     }
+    Alert.alert('Success', 'Farmer profile changes saved successfully.', [
+      { text: 'OK', onPress: onBack },
+    ]);
+  };
+
+  const handleDeletePlot = (plotId: string) => {
+    Alert.alert('Delete Plot', 'Are you sure you want to remove this plot?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => setPlots((prev) => prev.filter((p) => p.id !== plotId)),
+      },
+    ]);
   };
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Header bar */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
-              stroke={adminColors.ink}
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>{getHeaderTitle()}</Text>
-
-        <TouchableOpacity style={styles.saveHeaderBtn} onPress={handleSave} activeOpacity={0.8}>
-          <Text style={styles.saveHeaderBtnText}>Save</Text>
-        </TouchableOpacity>
+      {/* ─── Header: Edit Farmer Profile ─── */}
+      <View style={styles.headerBanner}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <BackArrowWhiteIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Edit Farmer Profile</Text>
+        </View>
       </View>
 
       <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* OVERVIEW TAB */}
-        {activeTab === 'Overview' && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeading}>Farmer Identity & Profile</Text>
-
-            <Text style={styles.fieldLabel}>Farmer Full Name</Text>
-            <TextInput
-              style={styles.textInput}
-              value={name}
-              onChangeText={setName}
-              placeholder="e.g. Ramasamy S."
-            />
-
-            <Text style={styles.fieldLabel}>Farmer Code / ID</Text>
-            <TextInput
-              style={styles.textInput}
-              value={code}
-              onChangeText={setCode}
-              placeholder="#TOHFA-F-00189"
-            />
-
-            <Text style={styles.fieldLabel}>Estate / Farm Name</Text>
-            <TextInput
-              style={styles.textInput}
-              value={farmName}
-              onChangeText={setFarmName}
-              placeholder="Wild Eden Organic Farms"
-            />
-
-            <Text style={styles.fieldLabel}>Hill District Location</Text>
-            <TextInput
-              style={styles.textInput}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Ooty / Kotagiri / Coonoor"
-            />
-
-            <Text style={styles.fieldLabel}>Contact Mobile Number</Text>
-            <TextInput
-              style={styles.textInput}
-              value={mobile}
-              onChangeText={setMobile}
-              keyboardType="phone-pad"
-            />
-
-            <Text style={styles.fieldLabel}>Aadhaar Card Reference</Text>
-            <TextInput
-              style={styles.textInput}
-              value={aadhaar}
-              onChangeText={setAadhaar}
-            />
-
-            <Text style={styles.fieldLabel}>Account Status</Text>
-            <View style={styles.statusToggleRow}>
-              <TouchableOpacity
-                style={[styles.statusToggleBtn, status === 'ACTIVE' && styles.statusToggleActiveGreen]}
-                onPress={() => setStatus('ACTIVE')}
-              >
-                <Text style={[styles.statusToggleText, status === 'ACTIVE' && styles.statusToggleTextActive]}>
-                  ✓ Active Account
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.statusToggleBtn, status === 'DISABLED' && styles.statusToggleActiveRed]}
-                onPress={() => setStatus('DISABLED')}
-              >
-                <Text style={[styles.statusToggleText, status === 'DISABLED' && styles.statusToggleTextActive]}>
-                  ✕ Disabled / Suspended
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* FARM TAB */}
-        {activeTab === 'Farm' && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeading}>Agricultural Land & Crops</Text>
-
-            <Text style={styles.fieldLabel}>Total Farm Size (Acres / Cents)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={farmSize}
-              onChangeText={setFarmSize}
-              placeholder="2.8 acres"
-            />
-
-            <Text style={styles.fieldLabel}>FMB Survey Zones Count</Text>
-            <TextInput
-              style={styles.textInput}
-              value={fmbZones}
-              onChangeText={setFmbZones}
-              placeholder="4 zones marked"
-            />
-
-            <Text style={styles.fieldLabel}>Primary Hill Crops</Text>
-            <TextInput
-              style={styles.textInput}
-              value={primaryCrops}
-              onChangeText={setPrimaryCrops}
-              placeholder="Potato, Garlic, Hill Carrots"
-            />
-
-            <Text style={styles.fieldLabel}>Soil Health Classification</Text>
-            <TextInput
-              style={styles.textInput}
-              value={soilType}
-              onChangeText={setSoilType}
-              placeholder="Red Humus Loam"
-            />
-
-            <Text style={styles.fieldLabel}>Irrigation Infrastructure</Text>
-            <TextInput
-              style={styles.textInput}
-              value={irrigation}
-              onChangeText={setIrrigation}
-              placeholder="Micro-Drip & Rainwater Harvesting"
-            />
-          </View>
-        )}
-
-        {/* KYC TAB */}
-        {activeTab === 'KYC' && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeading}>KYC & Document Verification</Text>
-
-            <Text style={styles.fieldLabel}>Aadhaar Card Status</Text>
-            <View style={styles.pillRow}>
-              {(['Verified', 'Uploaded', 'Pending'] as const).map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.pillOption, aadhaarStatus === s && styles.pillOptionActive]}
-                  onPress={() => setAadhaarStatus(s)}
-                >
-                  <Text style={[styles.pillOptionText, aadhaarStatus === s && styles.pillOptionTextActive]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Land Ownership Patta / Chitta</Text>
-            <View style={styles.pillRow}>
-              {(['Verified', 'Uploaded', 'Pending'] as const).map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.pillOption, pattaStatus === s && styles.pillOptionActive]}
-                  onPress={() => setPattaStatus(s)}
-                >
-                  <Text style={[styles.pillOptionText, pattaStatus === s && styles.pillOptionTextActive]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Bank Account Passbook / Cancelled Cheque</Text>
-            <View style={styles.pillRow}>
-              {(['Verified', 'Uploaded', 'Pending'] as const).map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.pillOption, passbookStatus === s && styles.pillOptionActive]}
-                  onPress={() => setPassbookStatus(s)}
-                >
-                  <Text style={[styles.pillOptionText, passbookStatus === s && styles.pillOptionTextActive]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>PGS / Organic Certification</Text>
-            <View style={styles.pillRow}>
-              {(['Verified', 'Pending', 'Expired'] as const).map((s) => (
-                <TouchableOpacity
-                  key={s}
-                  style={[styles.pillOption, certStatus === s && styles.pillOptionActive]}
-                  onPress={() => setCertStatus(s)}
-                >
-                  <Text style={[styles.pillOptionText, certStatus === s && styles.pillOptionTextActive]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>KYC Officer Verification Notes</Text>
-            <TextInput
-              style={[styles.textInput, styles.textArea]}
-              value={kycNotes}
-              onChangeText={setKycNotes}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-        )}
-
-        {/* RATINGS TAB */}
-        {activeTab === 'Ratings' && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeading}>Compliance & Rating Standing</Text>
-
-            <Text style={styles.fieldLabel}>Total Compliance Score (out of 1000)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={ratingScore}
-              onChangeText={(val) => {
-                setRatingScore(val);
-                const n = parseInt(val, 10);
-                if (n >= 750) setRatingTier('Excellent');
-                else if (n >= 700) setRatingTier('Good');
-                else if (n >= 650) setRatingTier('Moderate');
-                else setRatingTier('Poor');
-              }}
-              keyboardType="numeric"
-            />
-
-            <Text style={styles.fieldLabel}>Compliance Tier</Text>
-            <View style={styles.pillRow}>
-              {(['Excellent', 'Good', 'Moderate', 'Poor'] as const).map((t) => (
-                <TouchableOpacity
-                  key={t}
-                  style={[styles.pillOption, ratingTier === t && styles.pillOptionActive]}
-                  onPress={() => setRatingTier(t)}
-                >
-                  <Text style={[styles.pillOptionText, ratingTier === t && styles.pillOptionTextActive]}>{t}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {onNavigateToEditCategories ? (
-              <TouchableOpacity
-                style={styles.editCategoriesCardBtn}
-                onPress={onNavigateToEditCategories}
-                activeOpacity={0.85}
-              >
-                <Icon name="edit" size={18} color={adminColors.onBrand} style={{ marginRight: 8 }} />
-                <Text style={styles.editCategoriesCardBtnText}>Edit All 10 Category Scores</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        )}
-
-        {/* Bottom Save Action Button */}
-        <TouchableOpacity style={styles.saveBottomBtn} onPress={handleSave} activeOpacity={0.85}>
-          <Text style={styles.saveBottomBtnText}>
-            Save {activeTab === 'KYC' ? 'KYC Documents' : activeTab === 'Farm' ? 'Farm Details' : activeTab === 'Ratings' ? 'Rating Details' : 'Overview Details'}
+        {/* ─── SECTION 1: Personal information ─── */}
+        <Text style={styles.sectionHeading}>Personal information</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>
+            Full name <Text style={styles.reqStar}>*</Text>
           </Text>
+          <TextInput
+            style={styles.input}
+            value={fullName}
+            onChangeText={setFullName}
+            placeholder="Enter full name"
+            placeholderTextColor={adminColors.placeholder}
+          />
+
+          <Text style={styles.fieldLabel}>
+            Mobile number <Text style={styles.reqStar}>*</Text>
+          </Text>
+          <View style={styles.phoneInputRow}>
+            <View style={styles.phonePrefixBox}>
+              <Text style={styles.phonePrefixText}>+91</Text>
+            </View>
+            <TextInput
+              style={styles.phoneInput}
+              value={mobileNumber}
+              onChangeText={setMobileNumber}
+              keyboardType="phone-pad"
+              placeholder="98765 00000"
+              placeholderTextColor={adminColors.placeholder}
+            />
+          </View>
+
+          <Text style={styles.fieldLabel}>Email (optional)</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Not provided"
+            placeholderTextColor={adminColors.placeholder}
+            keyboardType="email-address"
+          />
+
+          <Text style={styles.fieldLabel}>Date of birth</Text>
+          <View style={styles.pickerInputRow}>
+            <Text style={styles.pickerInputText}>{dob}</Text>
+            <CalendarIcon />
+          </View>
+
+          <Text style={styles.fieldLabel}>Gender</Text>
+          <View style={styles.pickerInputRow}>
+            <Text style={styles.pickerInputText}>{gender}</Text>
+            <ChevronDownIcon />
+          </View>
+        </View>
+
+        {/* ─── SECTION 2: Identity (locked) ─── */}
+        <Text style={styles.sectionHeading}>Identity (locked)</Text>
+        <View style={styles.lockedIdentityCard}>
+          <View style={styles.lockedRow}>
+            <Text style={styles.lockedLabel}>Farmer ID</Text>
+            <View style={styles.lockedValueRow}>
+              <Text style={styles.lockedValueText}>{farmer.code || 'FMR-00124'}</Text>
+              <LockIcon />
+            </View>
+          </View>
+
+          <View style={styles.lockedDivider} />
+
+          <View style={styles.lockedRow}>
+            <Text style={styles.lockedLabel}>Identity (Aadhaar)</Text>
+            <View style={styles.lockedValueRow}>
+              <Text style={styles.lockedValueText}>125378300124</Text>
+              <LockIcon />
+            </View>
+          </View>
+        </View>
+
+        {/* ─── SECTION 3: Address ─── */}
+        <Text style={styles.sectionHeading}>Address</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>
+            Address line 1 <Text style={styles.reqStar}>*</Text>
+          </Text>
+          <TextInput
+            style={styles.input}
+            value={addressLine1}
+            onChangeText={setAddressLine1}
+            placeholder="Address line 1"
+            placeholderTextColor={adminColors.placeholder}
+          />
+
+          <Text style={styles.fieldLabel}>Address line 2</Text>
+          <TextInput
+            style={styles.input}
+            value={addressLine2}
+            onChangeText={setAddressLine2}
+            placeholder="Optional"
+            placeholderTextColor={adminColors.placeholder}
+          />
+
+          <View style={styles.twoColRow}>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>Village / Town</Text>
+              <TextInput
+                style={styles.input}
+                value={village}
+                onChangeText={setVillage}
+                placeholder="Village / Town"
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>PIN code</Text>
+              <TextInput
+                style={styles.input}
+                value={pinCode}
+                onChangeText={setPinCode}
+                keyboardType="numeric"
+                placeholder="643101"
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+          </View>
+
+          <Text style={styles.fieldLabel}>District</Text>
+          <View style={styles.pickerInputRow}>
+            <Text style={styles.pickerInputText}>{district}</Text>
+            <ChevronDownIcon />
+          </View>
+        </View>
+
+        {/* ─── SECTION 4: Zone & farm assignment ─── */}
+        <Text style={styles.sectionHeading}>Zone & farm assignment</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>
+            Zone <Text style={styles.reqStar}>*</Text>
+          </Text>
+          <View style={[styles.pickerInputRow, styles.zonePickerActive]}>
+            <Text style={[styles.pickerInputText, { fontWeight: '700', color: adminColors.ink }]}>
+              {zone}
+            </Text>
+            <ChevronDownIcon color={adminColors.brand} />
+          </View>
+          <Text style={styles.zoneHelperNote}>
+            Changing the zone updates the farmer's reporting warehouse and audit coverage.
+          </Text>
+
+          <Text style={styles.fieldLabel}>Assigned warehouse</Text>
+          <View style={styles.pickerInputRow}>
+            <Text style={styles.pickerInputText}>{warehouse}</Text>
+            <ChevronDownIcon />
+          </View>
+
+          <Text style={styles.fieldLabel}>Farming type</Text>
+          <View style={styles.farmingTypeRow}>
+            {(['Organic', 'Natural', 'Conventional'] as const).map((type) => {
+              const isSelected = farmingType === type;
+              return (
+                <TouchableOpacity
+                  key={type}
+                  style={[styles.farmingTypePill, isSelected && styles.farmingTypePillSelected]}
+                  onPress={() => setFarmingType(type)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.farmingTypePillText,
+                      isSelected && styles.farmingTypePillTextSelected,
+                    ]}
+                  >
+                    {type}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* ─── SECTION 5: Farm details ─── */}
+        <Text style={styles.sectionHeading}>Farm details</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>Farm name</Text>
+          <TextInput
+            style={styles.input}
+            value={farmName}
+            onChangeText={setFarmName}
+            placeholder="Farm name"
+            placeholderTextColor={adminColors.placeholder}
+          />
+
+          <View style={styles.twoColRow}>
+            <View style={styles.col}>
+              <Text style={styles.fieldLabel}>Total area</Text>
+              <View style={styles.unitInputRow}>
+                <TextInput
+                  style={styles.unitInputField}
+                  value={totalArea}
+                  onChangeText={setTotalArea}
+                  keyboardType="numeric"
+                />
+                <View style={styles.unitSuffixBox}>
+                  <Text style={styles.unitSuffixText}>acres</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={[styles.col, { flex: 1.2 }]}>
+              <Text style={styles.fieldLabel}>Plots recorded</Text>
+              <View style={styles.readOnlyInputBox}>
+                <Text style={styles.readOnlyInputText} numberOfLines={1}>
+                  Edited in Farm & Land
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* ─── SECTION 6: Farm FMB & zones on map ─── */}
+        <Text style={styles.sectionHeading}>Farm FMB & zones on map</Text>
+        <View style={styles.card}>
+          {/* Map Preview Grid */}
+          <View style={styles.mapContainer}>
+            <Svg width="100%" height="150" viewBox="0 0 320 150">
+              {/* Subtle background grid pattern */}
+              <Rect width="320" height="150" fill="#F4EFE6" />
+              {/* Plot 1: Green polygon */}
+              <Rect
+                x="80"
+                y="30"
+                width="110"
+                height="55"
+                rx="4"
+                fill="rgba(34, 197, 94, 0.22)"
+                stroke="#15803D"
+                strokeWidth="2.5"
+              />
+              {/* Plot 2: Blue polygon */}
+              <Rect
+                x="160"
+                y="65"
+                width="80"
+                height="45"
+                rx="4"
+                fill="rgba(59, 130, 246, 0.22)"
+                stroke="#1E3A8A"
+                strokeWidth="2.5"
+              />
+            </Svg>
+            <View style={styles.mapTagPill}>
+              <Text style={styles.mapTagPillText}>FMB map (demo)</Text>
+            </View>
+          </View>
+
+          {/* Plots List */}
+          <View style={styles.plotsListContainer}>
+            {plots.map((plot, idx) => (
+              <View key={plot.id}>
+                {idx > 0 && <View style={styles.plotDivider} />}
+                <View style={styles.plotItemRow}>
+                  <View style={styles.plotInfoCol}>
+                    <Text style={styles.plotTitleText}>{plot.title}</Text>
+                    <Text style={styles.plotMetaText}>{plot.meta}</Text>
+                  </View>
+                  <View style={styles.plotActionsRow}>
+                    <TouchableOpacity
+                      onPress={() => Alert.alert('View Plot', `Viewing ${plot.title}`)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.plotActionText}>View</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => Alert.alert('Edit Plot', `Editing ${plot.title}`)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.plotActionText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeletePlot(plot.id)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.plotActionText, { color: '#D32F2F' }]}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={styles.addDashedBtn}
+              onPress={() => Alert.alert('Add Plot', 'Open plot zone creation')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addDashedBtnText}>+ Add plot / zone</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ─── SECTION 7: Documents ─── */}
+        <Text style={styles.sectionHeading}>Documents</Text>
+
+        {/* Document 1: Identity proof (Aadhaar) */}
+        <View style={styles.docCard}>
+          <View style={styles.docHeaderRow}>
+            <Text style={styles.docTitle}>Identity proof (Aadhaar)</Text>
+            <View style={styles.verifiedBadge}>
+              <Text style={styles.verifiedBadgeText}>Verified</Text>
+            </View>
+          </View>
+          <Text style={styles.docSubtitle}>aadhaar_scan.pdf · Uploaded 2 Nov 2025</Text>
+          <View style={styles.docButtonsRow}>
+            <TouchableOpacity
+              style={styles.docOutlineBtn}
+              onPress={() => Alert.alert('Preview', 'Opening Aadhaar document preview')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.docOutlineBtnText}>Preview</Text>
+            </TouchableOpacity>
+            <View style={[styles.docOutlineBtn, styles.docDisabledBtn]}>
+              <Text style={styles.docDisabledBtnText}>Replace (locked)</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Document 2: Land ownership proof */}
+        <View style={styles.docCard}>
+          <View style={styles.docHeaderRow}>
+            <Text style={styles.docTitle}>Land ownership proof</Text>
+            <View style={styles.verifiedBadge}>
+              <Text style={styles.verifiedBadgeText}>Verified</Text>
+            </View>
+          </View>
+          <Text style={styles.docSubtitle}>land_ownership.pdf · Uploaded 2 Nov 2025</Text>
+          <View style={styles.docButtonsRow}>
+            <TouchableOpacity
+              style={styles.docOutlineBtn}
+              onPress={() => Alert.alert('Preview', 'Opening Land Ownership preview')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.docOutlineBtnText}>Preview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.docOutlineBtn, { borderColor: adminColors.brand }]}
+              onPress={() => Alert.alert('Replace Document', 'Upload replacement land ownership proof')}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.docOutlineBtnText, { color: adminColors.brand }]}>
+                Replace Document
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Document 3: Farm certification (Needs correction) */}
+        <View style={[styles.docCard, styles.docCardCorrection]}>
+          <View style={styles.docHeaderRow}>
+            <Text style={styles.docTitle}>Farm certification</Text>
+            <View style={styles.needsCorrectionBadge}>
+              <Text style={styles.needsCorrectionBadgeText}>Needs correction</Text>
+            </View>
+          </View>
+          <Text style={styles.docSubtitle}>cert_copy.pdf · The certificate copy is not legible.</Text>
+          <View style={styles.docButtonsRow}>
+            <TouchableOpacity
+              style={styles.docOutlineBtn}
+              onPress={() => Alert.alert('Preview', 'Opening Farm Certification preview')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.docOutlineBtnText}>Preview</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.docSolidBrandBtn}
+              onPress={() => Alert.alert('Replace Document', 'Upload new farm certification document')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.docSolidBrandBtnText}>Replace Document</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Add Another Document Button */}
+        <TouchableOpacity
+          style={styles.addDashedBtn}
+          onPress={() => Alert.alert('Add Document', 'Upload additional document')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.addDocRow}>
+            <UploadIcon />
+            <Text style={[styles.addDashedBtnText, { marginLeft: 8 }]}>Add another document</Text>
+          </View>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        {/* Disclaimer Note */}
+        <View style={styles.disclaimerBox}>
+          <Text style={styles.disclaimerText}>
+            Farmer ID and identity (Aadhaar) are locked and cannot be edited. A verified document is
+            replaced, not edited in place; the previous version stays in history.
+          </Text>
+        </View>
+
+        <View style={{ height: adminSpacing.xxxl + 80 }} />
       </ScrollView>
+
+      {/* ─── Sticky Bottom Action Bar ─── */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.cancelBtn} onPress={onBack} activeOpacity={0.8}>
+          <Text style={styles.cancelBtnText}>Cancel</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8}>
+          <Text style={styles.saveBtnText}>Save Changes</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
 
+// ─── Stylesheet ──────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: P.bg,
+    backgroundColor: adminColors.canvas,
   },
-  header: {
+  headerBanner: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: 6,
+    paddingBottom: adminSpacing.md,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 10,
+    gap: adminSpacing.sm,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: adminColors.card,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...adminShadow.sm,
+    padding: 4,
+    marginRight: 4,
   },
   headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
     fontSize: 18,
     fontWeight: '800',
-    color: P.titleBrown,
   },
-  saveHeaderBtn: {
-    backgroundColor: P.orange,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 12,
-  },
-  saveHeaderBtnText: {
-    color: adminColors.onBrand,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: adminColors.card,
-    marginHorizontal: 20,
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: P.tabContainerBorder,
-    marginBottom: 14,
-  },
-  tabButton: {
+  scroll: {
     flex: 1,
-    paddingVertical: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
+    backgroundColor: adminColors.canvas,
   },
-  tabButtonActive: {
-    backgroundColor: P.tabActiveBg,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: P.tabInactiveText,
-  },
-  tabTextActive: {
-    color: P.tabActiveText,
-    fontWeight: '700',
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-  },
-  sectionCard: {
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: P.cardBorder,
-    padding: 18,
-    marginBottom: 16,
+  scrollContent: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.xxxl + 60,
   },
   sectionHeading: {
-    fontSize: 16,
+    ...adminType.sectionHead,
+    fontSize: 14,
     fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 14,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+  },
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
   },
   fieldLabel: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: P.subtitle,
-    marginTop: 12,
+    color: adminColors.ink,
+    marginTop: adminSpacing.sm,
     marginBottom: 6,
   },
-  textInput: {
-    backgroundColor: adminColors.canvas,
+  reqStar: {
+    color: '#D32F2F',
+    fontWeight: '800',
+  },
+  input: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: P.inputBorder,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 10,
-    fontSize: 14.5,
-    color: P.ink,
+    fontSize: 13,
+    color: adminColors.ink,
   },
-  textArea: {
-    minHeight: 76,
-    textAlignVertical: 'top',
-  },
-  statusToggleRow: {
+  phoneInputRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    overflow: 'hidden',
+    backgroundColor: adminColors.card,
   },
-  statusToggleBtn: {
+  phonePrefixBox: {
+    backgroundColor: '#F5EFEB',
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRightWidth: 1,
+    borderRightColor: adminColors.border,
+  },
+  phonePrefixText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  phoneInput: {
     flex: 1,
+    paddingHorizontal: adminSpacing.md,
     paddingVertical: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.inputBorder,
-    alignItems: 'center',
-    backgroundColor: adminColors.canvas,
+    fontSize: 13,
+    color: adminColors.ink,
   },
-  statusToggleActiveGreen: {
-    backgroundColor: P.greenBg,
-    borderColor: P.greenText,
-  },
-  statusToggleActiveRed: {
-    backgroundColor: P.redBg,
-    borderColor: P.redText,
-  },
-  statusToggleText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: P.subtitle,
-  },
-  statusToggleTextActive: {
-    fontWeight: '700',
-    color: P.ink,
-  },
-  pillRow: {
+  pickerInputRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 10,
+  },
+  pickerInputText: {
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  lockedIdentityCard: {
+    backgroundColor: '#F7F3EE',
+    borderWidth: 1,
+    borderColor: '#DFCFC4',
+    borderStyle: 'dashed',
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+  },
+  lockedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  lockedLabel: {
+    fontSize: 12.5,
+    color: adminColors.muted,
+  },
+  lockedValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  lockedValueText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  lockedDivider: {
+    height: 1,
+    backgroundColor: '#EBE2D8',
+    marginVertical: 4,
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+  },
+  col: {
+    flex: 1,
+  },
+  zonePickerActive: {
+    backgroundColor: '#FAF5EE',
+    borderColor: adminColors.brand,
+    borderWidth: 1.5,
+  },
+  zoneHelperNote: {
+    fontSize: 11,
+    color: adminColors.brand,
+    marginTop: 6,
+    lineHeight: 15,
+  },
+  farmingTypeRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
     marginTop: 4,
   },
-  pillOption: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
+  farmingTypePill: {
+    flex: 1,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: P.inputBorder,
-    backgroundColor: adminColors.canvas,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pillOptionActive: {
-    backgroundColor: P.orangeBg,
-    borderColor: P.orange,
+  farmingTypePillSelected: {
+    backgroundColor: '#FDEEE3',
+    borderColor: adminColors.brand,
+    borderWidth: 1.5,
   },
-  pillOptionText: {
+  farmingTypePillText: {
     fontSize: 12.5,
-    color: P.subtitle,
-    fontWeight: '600',
-  },
-  pillOptionTextActive: {
-    color: P.orange,
     fontWeight: '700',
+    color: adminColors.ink,
   },
-  editCategoriesCardBtn: {
+  farmingTypePillTextSelected: {
+    color: adminColors.brandDeep,
+    fontWeight: '800',
+  },
+  unitInputRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 12,
-    paddingVertical: 13,
-    marginTop: 18,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    overflow: 'hidden',
   },
-  editCategoriesCardBtnText: {
-    color: adminColors.onBrand,
-    fontSize: 14,
-    fontWeight: '700',
+  unitInputField: {
+    flex: 1,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 10,
+    fontSize: 13,
+    color: adminColors.ink,
+    backgroundColor: adminColors.card,
   },
-  saveBottomBtn: {
-    backgroundColor: P.orange,
-    borderRadius: 14,
-    paddingVertical: 15,
-    alignItems: 'center',
+  unitSuffixBox: {
+    backgroundColor: '#F5EFEB',
+    paddingHorizontal: 12,
     justifyContent: 'center',
+    alignItems: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: adminColors.border,
+  },
+  unitSuffixText: {
+    fontSize: 12,
+    color: adminColors.muted,
+  },
+  readOnlyInputBox: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 11,
+  },
+  readOnlyInputText: {
+    fontSize: 12.5,
+    color: adminColors.muted,
+  },
+  mapContainer: {
+    borderRadius: adminRadius.lg,
+    overflow: 'hidden',
+    position: 'relative',
+    marginBottom: adminSpacing.md,
+  },
+  mapTagPill: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     ...adminShadow.sm,
   },
-  saveBottomBtnText: {
-    color: adminColors.onBrand,
-    fontSize: 15,
+  mapTagPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  plotsListContainer: {
+    gap: adminSpacing.sm,
+  },
+  plotItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  plotInfoCol: {
+    flex: 1,
+  },
+  plotTitleText: {
+    fontSize: 13,
     fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 2,
+  },
+  plotMetaText: {
+    fontSize: 11.5,
+    color: adminColors.muted,
+  },
+  plotActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  plotActionText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+  },
+  plotDivider: {
+    height: 1,
+    backgroundColor: '#F5F0EA',
+    marginVertical: 4,
+  },
+  addDashedBtn: {
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    borderStyle: 'dashed',
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  addDashedBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.brand,
+  },
+  addDocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  docCardCorrection: {
+    borderColor: '#EF4444',
+    borderWidth: 1.2,
+  },
+  docHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  docTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  docSubtitle: {
+    fontSize: 11.5,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.md,
+  },
+  docButtonsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+  },
+  docOutlineBtn: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docOutlineBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+  },
+  docDisabledBtn: {
+    backgroundColor: '#FAFAF9',
+  },
+  docDisabledBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.muted,
+  },
+  docSolidBrandBtn: {
+    flex: 1,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  docSolidBrandBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  verifiedBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: adminRadius.full,
+  },
+  verifiedBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#2E7D32',
+  },
+  needsCorrectionBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: adminRadius.full,
+  },
+  needsCorrectionBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#B45309',
+  },
+  disclaimerBox: {
+    backgroundColor: '#F5EFEB',
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
+  },
+  disclaimerText: {
+    fontSize: 11.5,
+    color: adminColors.muted,
+    lineHeight: 17,
+  },
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? adminSpacing.xl : adminSpacing.md,
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    ...adminShadow.lg,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  saveBtn: {
+    flex: 1,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.onBrand,
   },
 });

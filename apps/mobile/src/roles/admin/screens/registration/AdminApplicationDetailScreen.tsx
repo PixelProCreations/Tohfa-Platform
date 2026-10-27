@@ -72,6 +72,7 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
       : 'Waiting on document verification.'
   );
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
+  const [bottomActionView, setBottomActionView] = useState<'scheduleAudit' | 'decision'>('scheduleAudit');
 
   const applicantName = application.applicantName ?? application.name ?? 'Sathish Kumar';
   const appCode = application.code ?? 'APP-2026-0101';
@@ -92,11 +93,41 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
     Alert.alert('Progress Saved', 'Review notes and verification progress saved successfully.');
   };
 
+  const handleScheduleAudit = () => {
+    Alert.alert(
+      'Schedule Audit',
+      'Audit has been scheduled for Sathish Kumar Farm. Ready to review decision.',
+      [
+        {
+          text: 'Proceed to Decision',
+          onPress: () => setBottomActionView('decision'),
+        },
+        {
+          text: 'OK',
+          onPress: () => setBottomActionView('decision'),
+        },
+      ]
+    );
+  };
+
   const handleApprove = () => {
     if (isBlocked) {
       Alert.alert(
         'Approval Blocked',
-        'Identity proof is unverified or the FMB sketch is missing. Please verify all requirements before approving.'
+        'Identity proof is unverified or the FMB sketch is missing. Would you like to mark all requirements verified and approve?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Verify & Approve',
+            onPress: () => {
+              setDocVerified(true);
+              setFmbMissing(false);
+              setReviewNotes('All requirements met. Ready for approval.');
+              setCurrentStatus('Approved');
+              onApprove?.();
+            },
+          },
+        ]
       );
       return;
     }
@@ -481,17 +512,29 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
       {/* ─── Sticky Bottom Action Bar (Pending State) ─── */}
       {!isApproved && (
         <View style={styles.bottomActionBar}>
-          <TouchableOpacity
-            style={[styles.approveBtn, isBlocked ? styles.approveBtnDisabled : styles.approveBtnEnabled]}
-            onPress={handleApprove}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.approveBtnText}>Approve</Text>
-          </TouchableOpacity>
+          {bottomActionView === 'scheduleAudit' ? (
+            <TouchableOpacity
+              style={styles.scheduleAuditBtn}
+              onPress={handleScheduleAudit}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.scheduleAuditBtnText}>Schedule Audit</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.approveBtn, isBlocked ? styles.approveBtnDisabled : styles.approveBtnEnabled]}
+                onPress={handleApprove}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.approveBtnText}>Approve</Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.8}>
-            <Text style={styles.rejectBtnText}>Reject</Text>
-          </TouchableOpacity>
+              <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.8}>
+                <Text style={styles.rejectBtnText}>Reject</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       )}
 
@@ -883,6 +926,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: adminSpacing.md,
     ...adminShadow.lg,
+  },
+  scheduleAuditBtn: {
+    flex: 1,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduleAuditBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.onBrand,
   },
   approveBtn: {
     flex: 1,
