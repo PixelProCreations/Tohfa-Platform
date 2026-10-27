@@ -100,6 +100,20 @@ export const cashCloseResponse = z.object({
 });
 export type CashCloseResponse = z.infer<typeof cashCloseResponse>;
 
+/**
+ * BR-133 (UNCONFIRMED naming): the same day's figures summed over every active warehouse the caller
+ * may see. No `openingFrom`: each warehouse has its own opening date.
+ */
+export const cashFiguresTotal = z.object({
+  warehouseCount: z.number().int().min(0),
+  openingCash: moneyResponse,
+  cashSales: moneyResponse,
+  cashTopUps: moneyResponse,
+  cashExpenses: moneyResponse,
+  expectedClosing: moneyResponse,
+});
+export type CashFiguresTotal = z.infer<typeof cashFiguresTotal>;
+
 export const dailySummaryResponse = z.object({
   warehouseId: z.string().uuid(),
   date: z.string(),
@@ -107,6 +121,8 @@ export const dailySummaryResponse = z.object({
   system: systemFigures,
   /** The stored close for this warehouse and day, or null when the day is still open. */
   closed: cashCloseResponse.nullable(),
+  /** BR-133: the same figures summed over every active warehouse in the caller's scope. */
+  totalAcrossWarehouses: cashFiguresTotal,
 });
 export type DailySummaryResponse = z.infer<typeof dailySummaryResponse>;
 

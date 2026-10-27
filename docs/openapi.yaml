@@ -14303,8 +14303,14 @@ paths:
         A Sub Warehouse Admin defaults to their own warehouse (another one is 404); a caller not
         confined to a warehouse (Main, Super Admin, Tohfa Admin) must send `warehouseId` (422), an
         existing active warehouse (422).
+
+        `totalAcrossWarehouses` (BR-133) is the same five figures for the same day summed over every
+        ACTIVE warehouse the caller may see: an unconfined caller every active warehouse, a Sub Warehouse
+        Admin only its own (so the total equals its own figures). It is the same whichever `warehouseId`
+        is named; each row is converted to integer paise before it is summed. The per-warehouse figures
+        above are unchanged. Its name and the active-only reading are UNCONFIRMED.
       x-permission: finance.cash_close.manage
-      x-business-rules: [BR-74]
+      x-business-rules: [BR-74, BR-133]
       parameters:
         - { name: date, in: query, required: true, description: 'A real YYYY-MM-DD date (Asia/Kolkata calendar day).', schema: { type: string, format: date } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -22260,7 +22266,7 @@ components:
 
     DailyCashSummary:
       type: object
-      required: [warehouseId, date, system, closed]
+      required: [warehouseId, date, system, closed, totalAcrossWarehouses]
       properties:
         warehouseId: { type: string, format: uuid }
         date: { type: string, format: date }
@@ -22268,6 +22274,24 @@ components:
         closed:
           allOf: [{ $ref: '#/components/schemas/CashClose' }]
           nullable: true
+        totalAcrossWarehouses: { $ref: '#/components/schemas/CashFiguresTotal' }
+
+    CashFiguresTotal:
+      type: object
+      description: |
+        BR-133 (naming and the active-only reading UNCONFIRMED): the BR-74 figures of the same Asia/Kolkata day
+        summed over every ACTIVE, not deleted warehouse the caller may see (an unconfined caller all of them, a Sub
+        Warehouse Admin only its own). `openingCash` is the sum of each warehouse's own opening cash (no single
+        opening date exists, so there is no `openingFrom`). Every row is converted to integer paise before it is
+        summed; `expectedClosing` = openingCash + cashSales + cashTopUps - cashExpenses in integer paise.
+      required: [warehouseCount, openingCash, cashSales, cashTopUps, cashExpenses, expectedClosing]
+      properties:
+        warehouseCount: { type: integer, minimum: 0, description: 'How many warehouses the total covers.' }
+        openingCash: { $ref: '#/components/schemas/Money' }
+        cashSales: { $ref: '#/components/schemas/Money' }
+        cashTopUps: { $ref: '#/components/schemas/Money' }
+        cashExpenses: { $ref: '#/components/schemas/Money' }
+        expectedClosing: { $ref: '#/components/schemas/Money' }
 
     WarehouseStaffCreate:
       type: object

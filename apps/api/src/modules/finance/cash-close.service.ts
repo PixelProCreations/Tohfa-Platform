@@ -28,9 +28,16 @@ import {
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { isCalendarDate } from '../certifications/certifications.schema.js';
-import { cashCloseRepo, type CashCloseCursor, type CashCloseRepo, type DayFigures } from './cash-close.repo.js';
+import {
+  cashCloseRepo,
+  type CashCloseCursor,
+  type CashCloseRepo,
+  type DayFigures,
+  type DayFiguresTotalPaise,
+} from './cash-close.repo.js';
 import type {
   CashCloseResponse,
+  CashFiguresTotal,
   CreateCashCloseBody,
   DailySummaryQuery,
   DailySummaryResponse,
@@ -92,6 +99,29 @@ function toSystemFigures(figures: DayFigures): SystemFigures {
   return { ...figures, expectedClosing: expectedClosing(figures) };
 }
 
+/** A SUM in integer paise (text, from SQL). Refuses a non-safe integer rather than let a float round it. */
+function paise(text: string): number {
+  const value = Number(text);
+  if (!Number.isSafeInteger(value)) throw new Error(`cash total paise out of range: ${text}`);
+  return value;
+}
+
+/** BR-133: the across-warehouse total, with the expected closing in exact integer paise. */
+function toTotal(total: DayFiguresTotalPaise): CashFiguresTotal {
+  const opening = paise(total.openingCash);
+  const sales = paise(total.cashSales);
+  const topUps = paise(total.cashTopUps);
+  const expenses = paise(total.cashExpenses);
+  return {
+    warehouseCount: total.warehouseCount,
+    openingCash: fromPaise(opening),
+    cashSales: fromPaise(sales),
+    cashTopUps: fromPaise(topUps),
+    cashExpenses: fromPaise(expenses),
+    expectedClosing: fromPaise(opening + sales + topUps - expenses),
+  };
+}
+
 export function createCashCloseService(
   deps: CashCloseServiceDeps = { repo: cashCloseRepo, db: pool, runTx: withTransaction },
 ): CashCloseService {
@@ -110,7 +140,15 @@ export function createCashCloseService(
       await requireActiveWarehouse(db, warehouseId, 'query.warehouseId');
       const figures = await repo.dayFigures(db, warehouseId, query.date);
       const closed = await repo.findByWarehouseAndDate(db, warehouseId, query.date);
-      return { warehouseId, date: query.date, system: toSystemFigures(figures), closed };
+      // BR-133: read only after the requested warehouse passed the scope and active checks above.
+      const total = await repo.dayFiguresTotal(db, scope, query.date);
+      return {
+        warehouseId,
+        date: query.date,
+        system: toSystemFigures(figures),
+        closed,
+        totalAcrossWarehouses: toTotal(total),
+      };
     },
 
     async close(scope, idempotencyKey, body) {

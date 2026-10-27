@@ -3237,6 +3237,25 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-133 — The daily cash summary also totals the day's cash figures across every warehouse the caller may see
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-27): owner request "Group D" D6(c) for the admin mobile Daily Cash Summary; extends BR-74 (the figures and their day) and BR-30 (scope); `docs/rbac.json` `finance.cash_close.manage` (existing code, unchanged) |
+| **Status** | DERIVED (the field name `totalAcrossWarehouses` and the active-only reading are UNCONFIRMED) |
+| **Layer** | Server-side: `cashCloseRepo.dayFiguresTotal` (one query, `warehouseScopeFilter`), `cashCloseService.dailySummary`; no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/finance/daily-summary` keeps its per-warehouse figures unchanged and also carries `totalAcrossWarehouses`: `warehouseCount` and the five BR-74 figures (`openingCash`, `cashSales`, `cashTopUps`, `cashExpenses`, `expectedClosing`) for the same Asia/Kolkata day, summed over every warehouse the caller may see that is active and not deleted (the warehouses a summary may be asked for at all: an inactive one is 422 there). The scope is `warehouseScopeFilter`: a caller not confined to a warehouse (Super Admin, TOHFA Admin, Main) totals every active warehouse; a Sub Warehouse Admin only its own, so its total equals its own figures. The definitions are BR-74's, warehouse by warehouse (cash sales, cash top-ups and cash expenses of the day; opening cash = the counted cash of that warehouse's latest earlier close, 0 with none), so the total always equals the sum of the per-warehouse summaries of those warehouses. Each row is converted to integer paise in SQL (`amount * 100`, exact for `numeric(12,2)`) before it is summed, and `expectedClosing` is computed in integer paise; no float is involved. The total does not depend on which `warehouseId` is named and does not relax the existing requirement to name one. Nothing is written.
+
+**Failure mode if unenforced.** The owner adds four screens by hand (with float drift), or a Sub admin's total leaks another warehouse's cash.
+
+**Test contract.** (`apps/api/src/modules/finance/cash-close.total.test.ts`)
+- `BR-133a` An all-scope caller's total is the exact sum over every active warehouse (an inactive warehouse is left out), equal to the sum of each warehouse's own summary and the same whichever warehouse is named; the per-warehouse figures are unchanged.
+- `BR-133b` A Sub admin's total covers only its own warehouse and equals its own figures.
+- `BR-133c` A day with no cash anywhere totals 0.00 for every figure.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
