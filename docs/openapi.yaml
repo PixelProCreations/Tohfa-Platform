@@ -10124,9 +10124,12 @@ paths:
       tags: [Inventory]
       operationId: getStockLedger
       summary: Append-only stock ledger
-      description: The ledger is the source of truth for stock; batch quantities are derived from it (BR-37). Rows are never updated or deleted.
+      description: |
+        The ledger is the source of truth for stock; batch quantities are derived from it (BR-37). Rows are never updated or deleted.
+        Each row names who recorded it (`createdByName`) and, for a row an approved stock adjustment inserted, the
+        adjustment's approver (`approvedByName`), read in the same query (BR-130).
       x-permission: inventory.stock_ledger.view_own
-      x-business-rules: [BR-30, BR-37]
+      x-business-rules: [BR-30, BR-37, BR-130]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -10151,6 +10154,31 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/stock-ledger/{id}:
+    get:
+      tags: [Inventory]
+      operationId: getStockLedgerEntry
+      summary: Read one stock ledger row
+      description: |
+        One append-only ledger row, in exactly the shape of a `GET /admin/stock-ledger` item (names included,
+        BR-130). Read-only: there is no write path to the ledger here. Same permission and the same warehouse
+        scope as the list: a row of a warehouse outside the caller's scope (a Sub Warehouse Admin reading another
+        warehouse) and an unknown id are the same 404 `NOT_FOUND` with the same body, never 403 (BR-30).
+      x-permission: inventory.stock_ledger.view_own
+      x-business-rules: [BR-30, BR-37, BR-130]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: The ledger row.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StockLedgerEntry' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/stock-adjustments:
     get:
       tags: [Inventory]
@@ -10161,9 +10189,10 @@ paths:
         (rbac.json has no separate view code; everyone who raises or decides adjustments holds it).
         Super, TOHFA and Main Warehouse Admin see every warehouse; a Sub Warehouse Admin only its own,
         and a `warehouseId` of another warehouse is an empty page, never 403 (BR-30). Filters:
-        `status`, `warehouseId`, `batchId`, `adjustmentType`. Strict query.
+        `status`, `warehouseId`, `batchId`, `adjustmentType`. Strict query. Each row names its creator and
+        approver (`createdByName`, `approvedByName`, BR-130).
       x-permission: inventory.stock_adjustment.create
-      x-business-rules: [BR-30, BR-37]
+      x-business-rules: [BR-30, BR-37, BR-130]
       parameters:
         - { name: status, in: query, schema: { $ref: '#/components/schemas/StockAdjustmentStatus' } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
@@ -10229,9 +10258,9 @@ paths:
       summary: Read one stock adjustment
       description: |
         Requires `inventory.stock_adjustment.create`. An adjustment of another warehouse (for a Sub
-        Warehouse Admin) and an unknown id are the same 404 (BR-30).
+        Warehouse Admin) and an unknown id are the same 404 (BR-30). Names its creator and approver (BR-130).
       x-permission: inventory.stock_adjustment.create
-      x-business-rules: [BR-30, BR-37]
+      x-business-rules: [BR-30, BR-37, BR-130]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -20832,7 +20861,7 @@ components:
     StockLedgerEntry:
       type: object
       description: An append-only ledger row. Rows are immutable; corrections are new rows (BR-37).
-      required: [id, batchId, warehouseId, txnType, qtyDeltaKg, balanceAfterKg, performedAt]
+      required: [id, batchId, warehouseId, txnType, qtyDeltaKg, balanceAfterKg, performedAt, createdByName, approvedByName]
       properties:
         id: { type: string, format: uuid }
         batchId: { type: string, format: uuid }
@@ -20845,6 +20874,12 @@ components:
         performedBy: { type: [string, 'null'], format: uuid }
         performedAt: { type: string, format: date-time }
         remarks: { type: [string, 'null'] }
+        createdByName:
+          type: [string, 'null']
+          description: 'BR-130: `users.full_name` of `performedBy` (the ledger row''s `created_by`); null when the row has no recorder or the user row is gone.'
+        approvedByName:
+          type: [string, 'null']
+          description: 'BR-130: for a row an approved stock adjustment inserted (the adjustment whose `ledgerEntryId` is this row), the `users.full_name` of that adjustment''s approver; null for every other row.'
 
     StockAdjustmentType:
       type: string
@@ -20879,7 +20914,7 @@ components:
       description: |
         A manual stock correction (BR-37). Creating one moves no stock; approval by an admin other
         than `createdBy` inserts the ledger row named by `ledgerEntryId`.
-      required: [id, batchId, batchCode, warehouseId, cropId, grade, adjustmentType, qtyDeltaKg, reason, status, createdBy, createdAt, approvedBy, approvedAt, rejectedBy, rejectedAt, rejectionReason, ledgerEntryId, verificationId, updatedAt]
+      required: [id, batchId, batchCode, warehouseId, cropId, grade, adjustmentType, qtyDeltaKg, reason, status, createdBy, createdByName, createdAt, approvedBy, approvedByName, approvedAt, rejectedBy, rejectedAt, rejectionReason, ledgerEntryId, verificationId, updatedAt]
       properties:
         id: { type: string, format: uuid }
         batchId: { type: string, format: uuid }
@@ -20892,8 +20927,10 @@ components:
         reason: { type: string }
         status: { $ref: '#/components/schemas/StockAdjustmentStatus' }
         createdBy: { type: string, format: uuid }
+        createdByName: { type: [string, 'null'], description: 'BR-130: `users.full_name` of `createdBy`; null only if the user row is gone.' }
         createdAt: { type: string, format: date-time }
         approvedBy: { type: [string, 'null'], format: uuid }
+        approvedByName: { type: [string, 'null'], description: 'BR-130: `users.full_name` of `approvedBy`; null while not approved.' }
         approvedAt: { type: [string, 'null'], format: date-time }
         rejectedBy: { type: [string, 'null'], format: uuid }
         rejectedAt: { type: [string, 'null'], format: date-time }

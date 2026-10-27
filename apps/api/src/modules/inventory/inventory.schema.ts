@@ -99,6 +99,25 @@ export const stockLedgerEntrySchema = z.object({
 });
 export type StockLedgerEntryView = z.infer<typeof stockLedgerEntrySchema>;
 
+/** GET /v1/admin/stock-ledger/:id */
+export const ledgerEntryIdParams = z
+  .object({
+    id: z.string().uuid('Stock ledger entry id must be a UUID'),
+  })
+  .strict();
+export type LedgerEntryIdParams = z.infer<typeof ledgerEntryIdParams>;
+
+/**
+ * BR-130: a ledger row as the admin reads serve it (list and detail): the row plus the names of
+ * who recorded it and, for a row an approved adjustment inserted, that adjustment's approver.
+ * Internal writers keep returning `StockLedgerEntryView`; only the reads carry the names.
+ */
+export const stockLedgerEntryAdminSchema = stockLedgerEntrySchema.extend({
+  createdByName: z.string().nullable(),
+  approvedByName: z.string().nullable(),
+});
+export type StockLedgerEntryAdminView = z.infer<typeof stockLedgerEntryAdminSchema>;
+
 export interface CreateBatchInput {
   batchCode: string;
   warehouseId: string;

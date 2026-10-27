@@ -3160,7 +3160,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
-### BR-129 � The read-only customer wallet summary reports total credited and total used, summed from the ledger in integer paise
+### BR-129 — The read-only customer wallet summary reports total credited and total used, summed from the ledger in integer paise
 | | |
 |---|---|
 | **Source** | Derived rule (added 2026-10-26): owner request "Group D" D4; extends BR-93 (read-only wallet view, same scope); `docs/rbac.json` `customer.wallet.view` (existing code, unchanged) |
@@ -3177,6 +3177,26 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 **Test contract.** (`apps/api/src/modules/customers/customers.db.test.ts`, `customers.test.ts`)
 - `BR-129a` Credits of every type sum into `totalCredited` and only ORDER_DEBIT and SUBSCRIPTION_DEBIT into `totalUsed`, exactly (500.00 + 0.10 + 0.20 + 10.00 + 1.00 = 511.30); the service renders paise as 2-decimal Money strings.
 - `BR-129b` A wallet with no rows reports 0.00 for both; an out-of-scope customer is still 404.
+
+---
+
+### BR-130 — Stock adjustment and stock ledger rows name who created and who approved them, and one ledger row is readable alone inside the list's scope
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-27): owner request "Group D" D5 for the admin mobile stock screens; extends BR-37 (ledger-first, separate approval) and BR-30 (scope); `docs/rbac.json` `inventory.stock_adjustment.create` and `inventory.stock_ledger.view_own` (existing codes, unchanged) |
+| **Status** | DERIVED (the names are read LIVE from `users.full_name`, not snapshotted: UNCONFIRMED) |
+| **Layer** | Server-side: `stockAdjustmentsRepo` (`SELECT_ADJUSTMENT`), `inventoryRepo.listStockLedger` / `getStockLedgerEntryById` (LEFT JOINs in the same query); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** Every stock adjustment response (`GET /admin/stock-adjustments`, `GET /admin/stock-adjustments/{id}`, and the create, approve and reject responses, which share the shape) carries `createdByName` (the `users.full_name` of `createdBy`) and `approvedByName` (of `approvedBy`; `null` while the adjustment is not approved). Every stock ledger row (`GET /admin/stock-ledger`) carries `createdByName` (the `users.full_name` of the row's `created_by`, exposed as `performedBy`; `null` when the row has none) and `approvedByName`: a ledger row has no approver column, so it is derivable only for a row an approved adjustment inserted (`stock_adjustments.ledger_entry_id` = the row's id, BR-37b), where it is that adjustment's approver; for every other row it is `null`. Both are LEFT JOINs in the list or detail query itself (no per-row lookup) and are `null`, never an error, when a user row is missing. The names are read when the row is served, so a renamed user shows the new name on old rows. `GET /admin/stock-ledger/{id}` returns one row in exactly the list item's shape, with the list's permission and the list's `scopedWhere` warehouse filter: a row outside the caller's scope and an unknown id are the same 404 `NOT_FOUND` with the same body, never 403 (BR-30). Nothing here writes: no ledger row, adjustment, balance or audit row is created or changed. Scope filters of the existing lists are unchanged.
+
+**Failure mode if unenforced.** The mobile screen resolves names one row at a time, or a detail read lets a Sub admin confirm that another warehouse's ledger row exists.
+
+**Test contract.** (`apps/api/src/modules/stock-adjustments/stock-adjustments.names.test.ts`, `apps/api/src/modules/inventory/stock-ledger-detail.test.ts`)
+- `BR-130a` An adjustment's list and detail rows name the creator; an approved one names the approver, a pending or rejected one has `approvedByName` null.
+- `BR-130b` A ledger row names its recorder; the row an approved adjustment inserted names the adjustment's approver; any other row (and a row with no recorder) has `null` names.
+- `BR-130c` `GET /admin/stock-ledger/{id}` returns the list item's exact shape for a row in scope; a row of another warehouse (Sub admin) and an unknown id are the same 404 with the same body.
+- `BR-130d` Over HTTP the detail is 401 without a token, 403 for a farmer or customer (no grant), 422 for a malformed id and 404 for an unknown id; a Farmer Admin (`view`, no warehouse) gets the list's fail-closed result, so a 404.
 
 ---
 

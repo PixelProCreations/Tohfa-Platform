@@ -92,8 +92,12 @@ export const stockAdjustmentResponse = z.object({
   reason: z.string(),
   status: z.enum(ADJUSTMENT_STATUSES),
   createdBy: z.string().uuid(),
+  /** BR-130: `users.full_name` of `createdBy`, joined in the same query; null only if the user row is gone. */
+  createdByName: z.string().nullable(),
   createdAt: z.string(),
   approvedBy: z.string().uuid().nullable(),
+  /** BR-130: `users.full_name` of `approvedBy`; null while the adjustment is not approved. */
+  approvedByName: z.string().nullable(),
   approvedAt: z.string().nullable(),
   rejectedBy: z.string().uuid().nullable(),
   rejectedAt: z.string().nullable(),

@@ -22,6 +22,7 @@ import type {
   ListStockLedgerQuery,
   ProduceGrade,
   RecordMovementInput,
+  StockLedgerEntryAdminView,
   StockLedgerEntryView,
 } from './inventory.schema.js';
 import { allocationsService } from '../allocations/allocations.service.js';
@@ -175,6 +176,21 @@ export class InventoryService {
     db: Executor = pool,
   ): Promise<ListStockLedgerResult> {
     return this.repo.listStockLedger(db, scope, filters);
+  }
+
+  /**
+   * BR-130: one ledger row, read-only, in the list item's shape. The repo applies the list's scope
+   * filter, so a row outside the scope comes back null exactly like an unknown id: both are the same
+   * 404 with the same detail (BR-30; a 403 would confirm the row exists).
+   */
+  async getStockLedgerEntry(scope: ResolvedScope, id: string, db: Executor = pool): Promise<StockLedgerEntryAdminView> {
+    const entry = await this.repo.getStockLedgerEntryById(db, scope, id);
+    if (entry === null) {
+      throw new AppError(GenericProblemCode.NOT_FOUND, {
+        detail: `No stock ledger entry with id ${id} is visible to you.`,
+      });
+    }
+    return entry;
   }
 
   /**

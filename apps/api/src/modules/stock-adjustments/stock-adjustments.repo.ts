@@ -67,8 +67,10 @@ interface AdjustmentRow {
   reason: string;
   status: AdjustmentStatus;
   created_by: string;
+  created_by_name: string | null;
   created_at: Date;
   approved_by: string | null;
+  approved_by_name: string | null;
   approved_at: Date | null;
   rejected_by: string | null;
   rejected_at: Date | null;
@@ -93,8 +95,10 @@ function toAdjustment(row: AdjustmentRow): StockAdjustment {
     reason: row.reason,
     status: row.status,
     createdBy: row.created_by,
+    createdByName: row.created_by_name,
     createdAt: row.created_at.toISOString(),
     approvedBy: row.approved_by,
+    approvedByName: row.approved_by_name,
     approvedAt: iso(row.approved_at),
     rejectedBy: row.rejected_by,
     rejectedAt: iso(row.rejected_at),
@@ -105,15 +109,20 @@ function toAdjustment(row: AdjustmentRow): StockAdjustment {
   };
 }
 
+// BR-130: the creator's and approver's names are LEFT JOINs in this same statement (never a per-row
+// lookup); `FOR UPDATE OF a` in lockAdjustment still locks only the adjustment row.
 const SELECT_ADJUSTMENT = `
   SELECT a.id, a.batch_id, b.batch_code, a.warehouse_id, b.crop_id, b.grade::text AS grade,
          a.adjustment_type, a.qty_delta::text AS qty_delta, a.reason, a.status,
-         a.created_by, a.created_at, a.approved_by, a.approved_at,
+         a.created_by, cu.full_name AS created_by_name, a.created_at,
+         a.approved_by, au.full_name AS approved_by_name, a.approved_at,
          a.rejected_by, a.rejected_at, a.rejection_reason, a.ledger_entry_id,
          v.id AS verification_id, a.updated_at
     FROM stock_adjustments a
     JOIN inventory_batches b ON b.id = a.batch_id
-    LEFT JOIN stock_verifications v ON v.adjustment_id = a.id`;
+    LEFT JOIN stock_verifications v ON v.adjustment_id = a.id
+    LEFT JOIN users cu ON cu.id = a.created_by
+    LEFT JOIN users au ON au.id = a.approved_by`;
 
 export const stockAdjustmentsRepo: StockAdjustmentsRepo = {
   async findBatch(db, batchId) {
