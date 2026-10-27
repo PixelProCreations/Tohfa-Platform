@@ -33,13 +33,6 @@ import {
   WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import {
-  ATTENDANCE_DATE_HEADER,
-  ATTENDANCE_HISTORY,
-  HISTORY_RANGE_DATES,
-  STAFF_MONTH_SUMMARIES,
-  STAFF_WAREHOUSES,
-} from './fixtures';
 import { AttendanceStatusText, ChevronRightIcon, ListCard, ListRow } from './StaffParts';
 import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -50,6 +43,14 @@ type HistoryRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
 type GroupBy = 'Date' | 'Staff';
 const RANGES: readonly HistoryRange[] = ['Today', '7 Days', '30 Days', 'This Month'];
 const GROUPS: readonly GroupBy[] = ['Date', 'Staff'];
+
+const ATTENDANCE_DATE_HEADER = '25 SEP';
+const HISTORY_RANGE_DATES: Readonly<Record<HistoryRange, { from: string; to: string }>> = {
+  Today: { from: '25 Sep 2026', to: '25 Sep 2026' },
+  '7 Days': { from: '19 Sep 2026', to: '25 Sep 2026' },
+  '30 Days': { from: '26 Aug 2026', to: '25 Sep 2026' },
+  'This Month': { from: '01 Sep 2026', to: '25 Sep 2026' },
+};
 
 export interface AttendanceHistoryScreenProps extends WarehouseScreenBaseProps {
   /** Today chip: open the Attendance overview (folded Today's Attendance). */
@@ -82,13 +83,13 @@ export function AttendanceHistoryScreen({
   const [showFilterScreen, setShowFilterScreen] = useState(false);
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : STAFF_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const { entries: liveEntries } = useAttendanceHistoryList(scope, selectedWarehouseId);
-  const entries = customEntries ?? (liveEntries.length > 0 ? liveEntries : ATTENDANCE_HISTORY);
+  const entries = customEntries ?? liveEntries;
 
-  const { staffSummaries: liveSummaries } = useAttendanceSummary(scope, selectedWarehouseId);
-  const monthSummaries = customMonthSummaries ?? (liveSummaries.length > 0 ? liveSummaries : STAFF_MONTH_SUMMARIES);
+  const { summaries: liveSummaries } = useAttendanceSummary(scope, selectedWarehouseId);
+  const monthSummaries = customMonthSummaries ?? liveSummaries;
 
   const inRange = (olderThanWeek: boolean | undefined, dateHeader?: string) => {
     if (range === 'Today') return dateHeader === undefined ? !olderThanWeek : dateHeader === ATTENDANCE_DATE_HEADER;

@@ -16,15 +16,6 @@ import React from 'react';
 import { ScrollView } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import {
-  SAMPLE_DATE,
-  SAMPLE_FISCAL_TAG,
-  SAMPLE_TIME,
-  SAMPLE_TRANSACTION_ID,
-  SAMPLE_WALLET_CUSTOMER,
-  sampleProcessedBy,
-  warehouseNameOf,
-} from './fixtures';
 import { getCustomerWalletTxn, type WalletTransactionDto } from '../../../api/customers';
 import { mapWalletTransactionDtoToRecord } from './mappers';
 import type { WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
@@ -59,17 +50,17 @@ export function TopUpDetailsScreen({ scope, onBack, transaction = {}, variant = 
     );
   }
 
-  const dateTime = activeTxn.dateTime ?? `${SAMPLE_DATE}, ${SAMPLE_TIME}`;
+  const dateTime = activeTxn.dateTime ?? '';
   const warehouse =
-    activeTxn.warehouseName ?? (activeTxn.warehouseId ? warehouseNameOf(activeTxn.warehouseId) : scope.warehouseName ?? '');
-  const processedBy = activeTxn.processedBy ?? sampleProcessedBy(scope);
-  const transactionId = activeTxn.transactionId ?? SAMPLE_TRANSACTION_ID;
+    activeTxn.warehouseName ?? activeTxn.warehouseId ?? scope.warehouseName ?? '';
+  const processedBy = activeTxn.processedBy ?? (scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin'));
+  const transactionId = activeTxn.transactionId ?? '—';
   const type = activeTxn.type ?? 'Cash Top-Up';
   // Negative rule: Wallet totals (credited/used) and transaction status -> '—' or hide row
   const status = '—';
-  const amount = activeTxn.amount ?? '₹2,000';
+  const amount = activeTxn.amount ?? '—';
   const previousBalance = activeTxn.previousBalance ?? '—';
-  const newBalance = activeTxn.newBalance ?? '₹4,500';
+  const newBalance = activeTxn.newBalance ?? '—';
 
   if (variant === 'transaction') {
     return (
@@ -94,7 +85,7 @@ export function TopUpDetailsScreen({ scope, onBack, transaction = {}, variant = 
                 { label: 'Warehouse', value: warehouse },
               ],
               [{ label: 'Processed By', value: processedBy }],
-              [{ label: 'Reference ID', value: activeTxn.referenceId ?? activeTxn.fiscalCashTag ?? SAMPLE_FISCAL_TAG }],
+              [{ label: 'Reference ID', value: activeTxn.referenceId ?? activeTxn.fiscalCashTag ?? '—' }],
             ]}
           />
         </ScrollView>
@@ -109,8 +100,8 @@ export function TopUpDetailsScreen({ scope, onBack, transaction = {}, variant = 
         <InfoCard
           rows={[
             [
-              { label: 'Name', value: activeTxn.customerName ?? SAMPLE_WALLET_CUSTOMER.name },
-              { label: 'Customer ID', value: activeTxn.customerId ?? SAMPLE_WALLET_CUSTOMER.id },
+              { label: 'Name', value: activeTxn.customerName ?? '—' },
+              { label: 'Customer ID', value: activeTxn.customerId ?? '—' },
             ],
           ]}
         />
@@ -135,7 +126,7 @@ export function TopUpDetailsScreen({ scope, onBack, transaction = {}, variant = 
             ],
             [
               { label: 'Type', value: type },
-              { label: 'Fiscal Cash Tag', value: activeTxn.fiscalCashTag ?? SAMPLE_FISCAL_TAG },
+              { label: 'Fiscal Cash Tag', value: activeTxn.fiscalCashTag ?? '—' },
             ],
             [{ label: 'Date/Time', value: dateTime }],
           ]}

@@ -17,11 +17,16 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { InfoCard, InfoNote, isAllWarehouses, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
-import { ATTENDANCE_DATE_TEXT, DEFAULT_ATTENDANCE_RECORD } from './fixtures';
 import { ProhibitedIcon, RingTimeline } from './StaffParts';
 import type { AttendanceRecord, WarehouseScreenBaseProps } from './types';
+
+const FALLBACK_ATTENDANCE_RECORD: AttendanceRecord = {
+  id: '',
+  name: '—',
+  role: '—',
+  status: 'Not Checked In',
+};
 
 export interface AttendanceDetailScreenProps extends WarehouseScreenBaseProps {
   /** The record tapped on Attendance; the default demo record when opened without one. */
@@ -29,8 +34,8 @@ export interface AttendanceDetailScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function AttendanceDetailScreen({ scope, onBack, record }: AttendanceDetailScreenProps) {
-  const rec = record ?? DEFAULT_ATTENDANCE_RECORD;
-  const dateText = rec.dateText ?? ATTENDANCE_DATE_TEXT;
+  const rec = record ?? FALLBACK_ATTENDANCE_RECORD;
+  const dateText = rec.dateText ?? '—';
 
   return (
     <WalletScreen title="Attendance Detail" onBack={onBack}>

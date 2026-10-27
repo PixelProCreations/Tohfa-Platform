@@ -23,7 +23,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { SAMPLE_DATE, SAMPLE_FISCAL_TAG, SAMPLE_TIME, SAMPLE_WALLET_CUSTOMER, sampleProcessedBy } from './fixtures';
 import type { Money } from '@tohfa/shared-types';
 import { createCashTopup } from '../../../api/wallet';
 import { mapWalletTransactionDtoToRecord } from './mappers';
@@ -49,15 +48,15 @@ export interface ConfirmCashTopUpScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfirmed }: ConfirmCashTopUpScreenProps) {
-  const customerName = draft.customerName ?? SAMPLE_WALLET_CUSTOMER.name;
-  const customerCode = draft.customerCode ?? SAMPLE_WALLET_CUSTOMER.id;
-  const [currentBalance, setCurrentBalance] = useState<number>(draft.currentBalance ?? 4500);
-  const topUpAmount = draft.topUpAmount ?? 2000;
+  const customerName = draft.customerName ?? '';
+  const customerCode = draft.customerCode ?? '';
+  const [currentBalance, setCurrentBalance] = useState<number>(draft.currentBalance ?? 0);
+  const topUpAmount = draft.topUpAmount ?? 0;
   const warehouseName = draft.warehouseName ?? scope.warehouseName ?? '';
-  const processedBy = draft.processedBy ?? sampleProcessedBy(scope);
-  const fiscalCashTag = draft.fiscalCashTag ?? SAMPLE_FISCAL_TAG;
-  const dateStr = draft.dateStr ?? SAMPLE_DATE;
-  const timeStr = draft.timeStr ?? SAMPLE_TIME;
+  const processedBy = draft.processedBy ?? (scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin'));
+  const fiscalCashTag = draft.fiscalCashTag ?? '';
+  const dateStr = draft.dateStr ?? '';
+  const timeStr = draft.timeStr ?? '';
 
   const [askFinalConfirm, setAskFinalConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,8 +70,8 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
     if (!canConfirm || isSubmitting) return;
     setAskFinalConfirm(false);
     setIsSubmitting(true);
-    const targetWarehouseId = (scope.warehouseId ?? draft.warehouseId) || 'WH-COON';
-    const customerIdToUse = draft.customerId ?? draft.customerCode ?? 'CUS-001245';
+    const targetWarehouseId = (scope.warehouseId ?? draft.warehouseId) || '';
+    const customerIdToUse = draft.customerId ?? draft.customerCode ?? '';
 
     try {
       const liveDto = await createCashTopup(

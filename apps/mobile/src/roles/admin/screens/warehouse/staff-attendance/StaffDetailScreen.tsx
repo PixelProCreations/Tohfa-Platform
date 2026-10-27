@@ -35,13 +35,6 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import {
-  DEFAULT_STAFF_MEMBER,
-  DRIVER_DELIVERY_SUMMARY,
-  STAFF_ACTIVITY,
-  STAFF_ATTENDANCE_SUMMARY,
-  staffWarehouseName,
-} from './fixtures';
 import { ProhibitedIcon, RingTimeline, StaffAvatar } from './StaffParts';
 import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
 import { useAttendanceSummary, useStaffDetail } from './useStaffData';
@@ -66,6 +59,14 @@ export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
   onAssignDelivery?: ((staff: StaffMember) => void) | undefined;
 }
 
+const DRIVER_DELIVERY_SUMMARY = {
+  completedToday: 0,
+  pendingToday: 0,
+  completedTotal: 0,
+  cancelled: 0,
+  failed: 0,
+};
+
 export function StaffDetailScreen({
   scope,
   can,
@@ -77,12 +78,21 @@ export function StaffDetailScreen({
   onViewAttendanceHistory,
   onAssignDelivery,
 }: StaffDetailScreenProps) {
+  const fallbackMember: StaffMember = {
+    id: staff?.id ?? '',
+    name: staff?.name ?? '—',
+    staffId: staff?.staffId ?? '—',
+    type: staff?.type ?? 'warehouse',
+    role: staff?.role ?? '—',
+    status: staff?.status ?? 'Active',
+    attendance: staff?.attendance ?? 'Present',
+    warehouseId: staff?.warehouseId ?? scope.warehouseId,
+  };
   const { staff: fetchedStaff } = useStaffDetail(staff?.id);
-  const member = fetchedStaff ?? staff ?? DEFAULT_STAFF_MEMBER;
+  const member = fetchedStaff ?? staff ?? fallbackMember;
 
-  const { summary: attSummary } = useAttendanceSummary(scope, undefined, undefined, member.id);
-  const staffCounts = attSummary?.byStaff?.find((s) => s.staffId === member.id) ?? attSummary?.totals;
-  const summary = staffCounts ? { present: staffCounts.present, absent: staffCounts.absent, leave: staffCounts.leave } : STAFF_ATTENDANCE_SUMMARY;
+  const { totals: attTotals } = useAttendanceSummary(scope, undefined, undefined, member.id);
+  const summary = attTotals ?? { present: 0, absent: 0, leave: 0 };
 
   if (!hasStaffRosterAccess(can, scope)) {
     return (
@@ -94,12 +104,8 @@ export function StaffDetailScreen({
 
   const isDriver = member.type === 'driver';
   const isMain = isAllWarehouses(scope);
-  const warehouseName = member.warehouseId ? staffWarehouseName(member.warehouseId) : scope.warehouseName ?? '';
-  const timeline = STAFF_ACTIVITY.map((item) => ({
-    id: item.id,
-    title: item.id === 'a-2' && warehouseName ? `Assigned to ${warehouseName}` : item.title,
-    subtitle: item.when,
-  }));
+  const warehouseName = member.warehouseId ?? scope.warehouseName ?? '';
+  const timeline: { id: string; title: string; subtitle?: string }[] = [];
 
   const handleAssignDelivery = () => {
     if (onAssignDelivery) {

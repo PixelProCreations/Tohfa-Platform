@@ -12,8 +12,7 @@ export function rupeesFromMoney(m: Money | string | number | null | undefined): 
     try {
       paise = toPaise(parseMoney(String(m)));
     } catch {
-      const num = parseFloat(String(m));
-      paise = isNaN(num) ? 0 : Math.round(num * 100);
+      paise = 0;
     }
   }
   const isNeg = paise < 0;

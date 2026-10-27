@@ -1,5 +1,15 @@
 /**
- * Real warehouse options for Main admin pickers from GET /warehouses.
+ * The real warehouse list for a Main-admin warehouse picker, from GET
+ * /warehouses (warehouse.all.view). Replaces the fixture pickers keyed by
+ * 'WH-OOTY'-style ids, which are not uuids and which the server rejects.
+ *
+ * Pass `enabled: false` for a caller without warehouse.all.view (a Sub admin
+ * gets 403 here; its only warehouse is scope.warehouseId, BR-30). Every
+ * decision lives in api/warehouseList.ts, which is tested; this is only the
+ * TanStack Query wrapper.
+ *
+ * Usage:
+ *   const { options, isLoading, error, refresh } = useWarehouseOptions({ enabled: can('warehouse.all.view') });
  */
 import { useMemo } from 'react';
 import { useAdminQuery } from '../../../api/hooks';

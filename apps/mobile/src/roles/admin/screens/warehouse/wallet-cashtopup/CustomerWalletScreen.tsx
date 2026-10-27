@@ -19,7 +19,6 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import { useCustomerWallet } from './useWalletData';
 import { rupeesFromMoney } from './mappers';
 import type { ResolvedWalletCustomer, WalletCustomer, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
@@ -45,6 +44,8 @@ export interface CustomerWalletScreenProps extends WarehouseScreenBaseProps {
   onOpenTransaction?: ((transaction: WalletTransactionRecord) => void) | undefined;
 }
 
+const EMPTY_TRANSACTIONS: readonly WalletTransactionRecord[] = [];
+
 function isDebit(tx: WalletTransactionRecord): boolean {
   return (tx.amount ?? '').trim().startsWith('-');
 }
@@ -54,7 +55,7 @@ export function CustomerWalletScreen({
   can,
   onBack,
   customer,
-  transactions = CUSTOMER_WALLET_TRANSACTIONS,
+  transactions = EMPTY_TRANSACTIONS,
   onCashTopUp,
   onOpenTransaction,
 }: CustomerWalletScreenProps) {
@@ -65,13 +66,13 @@ export function CustomerWalletScreen({
 
   const displayBalance = summary
     ? rupeesFromMoney(summary.balance)
-    : (customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
+    : (customer?.balance ?? '₹0');
 
   const active: ResolvedWalletCustomer = {
-    name: customer?.name ?? SAMPLE_WALLET_CUSTOMER.name,
-    id: customer?.id ?? SAMPLE_WALLET_CUSTOMER.id,
+    name: customer?.name ?? '—',
+    id: customer?.id ?? '—',
     customerId: customer?.customerId ?? '',
-    mobile: customer?.mobile ?? SAMPLE_WALLET_CUSTOMER.mobile,
+    mobile: customer?.mobile ?? '—',
     balance: displayBalance,
     totalCredited: '—',
     totalUsed: '—',

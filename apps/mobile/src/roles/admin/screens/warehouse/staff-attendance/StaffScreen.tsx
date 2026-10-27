@@ -38,7 +38,6 @@ import {
   WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
 import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
 import { StaffFiltersScreen } from './StaffFiltersScreen';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -106,9 +105,9 @@ export function StaffScreen({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : STAFF_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
-  const { members: liveMembers, loading: membersLoading } = useStaffList(scope, selectedWarehouseId);
+  const { staff: liveMembers, loading: membersLoading } = useStaffList(scope, selectedWarehouseId);
   const members = customMembers ?? liveMembers;
 
   const { summary: rollCallSummary, loading: rollCallLoading } = useRollCall(scope, selectedWarehouseId);
@@ -220,7 +219,9 @@ export function StaffScreen({
           <Text style={styles.meta}>
             {staff.type === 'driver' ? 'Driver ID: ' : 'Staff ID: '}
             {staff.staffId}
-            {isMain && staff.warehouseId ? ` · ${staffWarehouseName(staff.warehouseId)}` : ''}
+            {isMain && staff.warehouseId
+              ? ` · ${warehouseOptions.find((w) => w.warehouseId === staff.warehouseId)?.warehouseName ?? staff.warehouseId}`
+              : ''}
           </Text>
           {isMain ? (
             <View style={styles.badgeRow}>
@@ -264,30 +265,29 @@ export function StaffScreen({
   return frame(
     <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
 
-
       <View style={styles.kpiGrid}>
         <OverviewDashboardCard
-          value={String(rollCallSummary.total)}
+          value={String(rollCallSummary?.total ?? scoped.length)}
           title="Total Staff"
           subtitle="All rostered"
           icon="orders"
         />
         <OverviewDashboardCard
-          value={String(rollCallSummary.present)}
+          value={String(rollCallSummary?.present ?? count((m) => m.attendance === 'Present'))}
           title="Present Today"
           subtitle="On duty"
           icon="pickup"
           tone="success"
         />
         <OverviewDashboardCard
-          value={String(rollCallSummary.absent)}
+          value={String(rollCallSummary?.absent ?? count((m) => m.attendance === 'Absent'))}
           title="Absent"
           subtitle="Needs attention"
           icon="alert"
           tone="danger"
         />
         <OverviewDashboardCard
-          value={String(rollCallSummary.leave)}
+          value={String(rollCallSummary?.leave ?? count((m) => m.attendance === 'On Leave'))}
           title="On Leave"
           subtitle="Approved leave"
           icon="receiving"

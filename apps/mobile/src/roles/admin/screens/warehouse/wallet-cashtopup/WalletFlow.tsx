@@ -27,7 +27,6 @@ import { CustomerWalletScreen } from './CustomerWalletScreen';
 import { DailyCashScreen } from './DailyCashScreen';
 import { DailyCashSummaryScreen } from './DailyCashSummaryScreen';
 import { FiscalTagScreen } from './FiscalTagScreen';
-import { SAMPLE_TRANSACTION_ID, WALLET_WAREHOUSES } from './fixtures';
 import { TopUpDetailsScreen } from './TopUpDetailsScreen';
 import { TopUpHistoryScreen } from './TopUpHistoryScreen';
 import { TopUpSuccessScreen } from './TopUpSuccessScreen';
@@ -213,7 +212,7 @@ export function WalletFlow({
             finishWizard('TopUpSuccess', {
               customer: params.customer,
               transaction: liveTxn ?? {
-                transactionId: SAMPLE_TRANSACTION_ID,
+                transactionId: 'TXN-' + Date.now(),
                 type: 'Cash Top-Up',
                 status: '—',
                 customerName: draft.customerName,

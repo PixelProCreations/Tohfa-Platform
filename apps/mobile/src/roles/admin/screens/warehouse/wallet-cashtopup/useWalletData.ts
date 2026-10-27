@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Money } from '@tohfa/shared-types';
+import { parseMoney, toPaise, type Money } from '@tohfa/shared-types';
 import {
   createCashTopup,
   lookupCustomers,
@@ -27,6 +27,15 @@ import type {
   WalletTransactionRecord,
   WarehouseScope,
 } from './types';
+
+function moneyToWholeRupees(val: Money | string | null | undefined): number {
+  if (!val) return 0;
+  try {
+    return Math.floor(toPaise(parseMoney(String(val))) / 100);
+  } catch {
+    return 0;
+  }
+}
 
 /** Generates a simple UUID-v4-like idempotency key. */
 function generateIdempotencyKey(): string {
@@ -156,11 +165,11 @@ export function useDailyCashData(scope: WarehouseScope, selectedWarehouseId?: st
     cashInEntries: CashLedgerEntry[];
     cashOutEntries: CashLedgerEntry[];
   }>({
-    openingCash: 15000,
+    openingCash: 0,
     directSales: 0,
     cashTopUps: 0,
     expenses: 0,
-    expectedClosing: 15000,
+    expectedClosing: 0,
     cashInEntries: [],
     cashOutEntries: [],
   });
@@ -177,17 +186,13 @@ export function useDailyCashData(scope: WarehouseScope, selectedWarehouseId?: st
         warehouseId: effectiveWarehouseId,
       });
       const sys = summaryRes.system;
-      const parseAmt = (val: unknown) => {
-        const num = parseFloat(String(val || '0'));
-        return isNaN(num) ? 0 : num;
-      };
 
       setData({
-        openingCash: parseAmt(sys.openingCash),
-        directSales: parseAmt(sys.cashSales),
-        cashTopUps: parseAmt(sys.cashTopUps),
-        expenses: parseAmt(sys.cashExpenses),
-        expectedClosing: parseAmt(sys.expectedClosing),
+        openingCash: moneyToWholeRupees(sys.openingCash),
+        directSales: moneyToWholeRupees(sys.cashSales),
+        cashTopUps: moneyToWholeRupees(sys.cashTopUps),
+        expenses: moneyToWholeRupees(sys.cashExpenses),
+        expectedClosing: moneyToWholeRupees(sys.expectedClosing),
         cashInEntries: [],
         cashOutEntries: [],
       });

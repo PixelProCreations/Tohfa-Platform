@@ -25,7 +25,6 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { CASH_LEDGER, SAMPLE_DATE, WALLET_WAREHOUSES, warehouseNameOf } from './fixtures';
 import { useDailyCashData } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { CashLedgerEntry, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -55,12 +54,7 @@ export interface DailyCashScreenProps extends WarehouseScreenBaseProps {
   hideWarehouseFilter?: boolean | undefined;
 }
 
-/** Mock day figures (whole rupees) until the cash ledger API exists. */
-const OPENING_CASH = 15000;
-const DIRECT_SALES = 8500;
-const CASH_TOP_UPS = 5000;
-const EXPENSES = 6420;
-const EXPECTED_CLOSING = OPENING_CASH + DIRECT_SALES + CASH_TOP_UPS - EXPENSES;
+const EMPTY_ENTRIES: readonly CashLedgerEntry[] = [];
 
 type Breakdown = 'Cash In' | 'Cash Out';
 const BREAKDOWNS: readonly Breakdown[] = ['Cash In', 'Cash Out'];
@@ -69,13 +63,14 @@ export function DailyCashScreen({
   scope,
   can,
   onBack,
-  date = SAMPLE_DATE,
-  entries = CASH_LEDGER,
+  date,
+  entries = EMPTY_ENTRIES,
   warehouseOptions,
   initialWarehouseId,
   hideWarehouseFilter = false,
 }: DailyCashScreenProps) {
-  const [actualCash, setActualCash] = useState('21,980');
+  const displayDate = date ?? new Date().toISOString().slice(0, 10);
+  const [actualCash, setActualCash] = useState('');
   const [differenceReason, setDifferenceReason] = useState('');
   const [breakdown, setBreakdown] = useState<Breakdown>('Cash In');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
@@ -85,13 +80,10 @@ export function DailyCashScreen({
 
   const liveCash = useDailyCashData(scope, selectedWarehouseId);
   const effectiveOpening = liveCash.openingCash;
-  const effectiveDirectSales = liveCash.directSales > 0 ? liveCash.directSales : DIRECT_SALES;
-  const effectiveTopUps = liveCash.cashTopUps > 0 ? liveCash.cashTopUps : CASH_TOP_UPS;
-  const effectiveExpenses = liveCash.expenses > 0 ? liveCash.expenses : EXPENSES;
-  const effectiveClosing =
-    liveCash.directSales > 0 || liveCash.cashTopUps > 0 || liveCash.expenses > 0
-      ? liveCash.expectedClosing
-      : EXPECTED_CLOSING;
+  const effectiveDirectSales = liveCash.directSales;
+  const effectiveTopUps = liveCash.cashTopUps;
+  const effectiveExpenses = liveCash.expenses;
+  const effectiveClosing = liveCash.expectedClosing;
 
   // NO CODE for the daily cash ledger yet (SPEC_GAPS W4i-3): show it only to
   // admins who can see the finance data it is built from.
@@ -116,13 +108,13 @@ export function DailyCashScreen({
         : entries.filter((e) => e.type === 'Cash Out' && inScope(scope, e.warehouseId, selectedWarehouseId));
   const headerLabel = isAllWarehouses(scope)
     ? undefined
-    : `${scope.warehouseName ?? scope.warehouseId} · ${date}`;
+    : `${scope.warehouseName ?? scope.warehouseId} · ${displayDate}`;
 
   const handleSubmit = () => {
     // No rbac code covers reconciliation (SPEC_GAPS W4i-3); the server must own it.
     Alert.alert(
       'Reconciliation Submitted',
-      `Daily Cash Reconciliation for ${date} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatRupees(Math.abs(difference))}`,
+      `Daily Cash Reconciliation for ${displayDate} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatRupees(Math.abs(difference))}`,
       [{ text: 'OK', onPress: onBack }],
     );
   };
@@ -130,7 +122,7 @@ export function DailyCashScreen({
   return (
     <WalletScreen
       title="Daily Cash Summary"
-      subtitle={isAllWarehouses(scope) ? date : undefined}
+      subtitle={isAllWarehouses(scope) ? displayDate : undefined}
       onBack={onBack}
       headerExtra={
         hideWarehouseFilter ? undefined : (
@@ -146,7 +138,9 @@ export function DailyCashScreen({
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         {isAllWarehouses(scope) && selectedWarehouseId !== undefined ? (
-          <Text style={styles.selectedNote}>Showing {warehouseNameOf(selectedWarehouseId)}</Text>
+          <Text style={styles.selectedNote}>
+            Showing {effectiveWarehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? selectedWarehouseId}
+          </Text>
         ) : null}
 
         <SectionTitle>Opening Balance</SectionTitle>

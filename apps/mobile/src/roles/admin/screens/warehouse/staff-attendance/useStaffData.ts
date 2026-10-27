@@ -1,30 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  getStaff,
-  listStaff,
-  updateStaff,
-  type CreateStaffBody,
-  type StaffDto,
-  type StaffStatus,
-  type UpdateStaffBody,
-  STAFF_LIST_MAX_LIMIT,
-} from '../../../api/staff';
-import {
+  type AttendanceCounts,
+  type AttendanceHistoryDto,
+  type AttendanceStatusCode,
+  type MarkAttendanceBody,
+  type RollCallDto,
   getAttendanceHistory,
   getAttendanceSummary,
   getRollCall,
   listAttendance,
   markAttendance,
-  type AttendanceDto,
-  type AttendanceHistoryDto,
-  type AttendanceStatusCode,
-  type AttendanceSummaryDto,
-  type MarkAttendanceBody,
-  type RollCallDto,
 } from '../../../api/attendance';
 import {
+  type CreateStaffBody,
+  type StaffDto,
+  type StaffStatus,
+  type UpdateStaffBody,
+  createStaff,
+  deactivateStaff,
+  getStaff,
+  listStaff,
+  updateStaff,
+} from '../../../api/staff';
+import {
   mapAttendanceDtoToHistoryEntry,
-  mapAttendanceDtoToRecord,
   mapRollCallItemDtoToRecord,
   mapStaffAttendanceCountsToMonthSummary,
   mapStaffDtoToMember,
@@ -37,80 +36,89 @@ import type {
   WarehouseScope,
 } from './types';
 
-/** Formats date in YYYY-MM-DD for IST. */
-export function getTodayIstDateString(): string {
-  try {
-    const d = new Date();
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(d);
-  } catch {
-    return new Date().toISOString().split('T')[0] ?? '';
-  }
-}
-
-/** Formats current month as YYYY-MM for IST. */
-export function getCurrentIstMonthString(): string {
-  const full = getTodayIstDateString();
-  return full.slice(0, 7);
-}
-
-function resolveWarehouseId(scope?: WarehouseScope, selectedWarehouseId?: string): string | undefined {
-  if (scope?.warehouseId) {
-    return scope.warehouseId;
-  }
-  if (!selectedWarehouseId || selectedWarehouseId === 'ALL') {
-    return undefined;
-  }
-  return selectedWarehouseId;
-}
-
 export function useStaffList(
-  scope?: WarehouseScope,
+  scope: WarehouseScope,
   selectedWarehouseId?: string,
   status?: StaffStatus,
-  q?: string,
+  searchQuery?: string,
 ) {
-  const [loading, setLoading] = useState(false);
+  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [members, setMembers] = useState<StaffMember[]>([]);
-
-  const warehouseId = resolveWarehouseId(scope, selectedWarehouseId);
 
   const fetchStaff = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listStaff({
-        warehouseId,
+      const page = await listStaff({
+        warehouseId: targetWarehouseId,
         status,
-        q: q?.trim() || undefined,
-        limit: STAFF_LIST_MAX_LIMIT,
+        q: searchQuery,
+        limit: 100,
       });
-      const mapped = (res.items ?? []).map(mapStaffDtoToMember);
-      setMembers(mapped);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load staff list');
-      setMembers([]);
+      setStaff(page.items.map(mapStaffDtoToMember));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch staff');
     } finally {
       setLoading(false);
     }
-  }, [warehouseId, status, q]);
+  }, [targetWarehouseId, status, searchQuery]);
 
   useEffect(() => {
-    void fetchStaff();
+    fetchStaff();
   }, [fetchStaff]);
 
-  return { members, loading, error, refetch: fetchStaff };
+  return { staff, loading, error, refresh: fetchStaff };
+}
+
+export function useRollCall(
+  scope: WarehouseScope,
+  selectedWarehouseId?: string,
+  date?: string,
+) {
+  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
+  const [summary, setSummary] = useState<RollCallDto['summary'] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchRollCall = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getRollCall({
+        warehouseId: targetWarehouseId,
+        date,
+      });
+      setSummary(res.summary);
+      setRecords(res.items.map(mapRollCallItemDtoToRecord));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch roll call');
+    } finally {
+      setLoading(false);
+    }
+  }, [targetWarehouseId, date]);
+
+  useEffect(() => {
+    fetchRollCall();
+  }, [fetchRollCall]);
+
+  return {
+    records,
+    summary,
+    // Negative rule: derive staffCount from attendance roll-call summary total
+    staffCount: summary?.total ?? 0,
+    loading,
+    error,
+    refresh: fetchRollCall,
+  };
 }
 
 export function useStaffDetail(staffId?: string) {
+  const [staff, setStaff] = useState<StaffMember | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [staff, setStaff] = useState<StaffMember | null>(null);
 
   const fetchDetail = useCallback(async () => {
     if (!staffId) {
@@ -120,207 +128,183 @@ export function useStaffDetail(staffId?: string) {
     setLoading(true);
     setError(null);
     try {
-      const res = await getStaff(staffId);
-      setStaff(mapStaffDtoToMember(res));
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load staff member');
-      setStaff(null);
+      const dto = await getStaff(staffId);
+      setStaff(mapStaffDtoToMember(dto));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch staff details');
     } finally {
       setLoading(false);
     }
   }, [staffId]);
 
   useEffect(() => {
-    void fetchDetail();
+    fetchDetail();
   }, [fetchDetail]);
 
-  return { staff, loading, error, refetch: fetchDetail };
-}
-
-export function useRollCall(
-  scope?: WarehouseScope,
-  selectedWarehouseId?: string,
-  date?: string,
-) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [rollCall, setRollCall] = useState<RollCallDto | null>(null);
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-
-  const warehouseId = resolveWarehouseId(scope, selectedWarehouseId);
-
-  const fetchRollCall = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await getRollCall({
-        warehouseId,
-        date: date || undefined,
-      });
-      setRollCall(res);
-      const mapped = (res.items ?? []).map(mapRollCallItemDtoToRecord);
-      setRecords(mapped);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load roll call');
-      setRollCall(null);
-      setRecords([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [warehouseId, date]);
-
-  useEffect(() => {
-    void fetchRollCall();
-  }, [fetchRollCall]);
-
-  const summary = rollCall?.summary ?? {
-    present: 0,
-    absent: 0,
-    leave: 0,
-    notMarked: 0,
-    total: 0,
-  };
-
-  // Enforces negative rule: staffCount as own field -> derive from attendance roll-call summary.total
-  const staffCount = summary.total;
-
-  return {
-    rollCall,
-    records,
-    summary,
-    staffCount,
-    loading,
-    error,
-    refetch: fetchRollCall,
-  };
+  return { staff, loading, error, refresh: fetchDetail };
 }
 
 export function useAttendanceSummary(
-  scope?: WarehouseScope,
+  scope: WarehouseScope,
   selectedWarehouseId?: string,
   month?: string,
   staffId?: string,
 ) {
-  const [loading, setLoading] = useState(false);
+  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const [summaries, setSummaries] = useState<StaffMonthSummary[]>([]);
+  const [totals, setTotals] = useState<AttendanceCounts | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [summary, setSummary] = useState<AttendanceSummaryDto | null>(null);
-  const [staffSummaries, setStaffSummaries] = useState<StaffMonthSummary[]>([]);
-
-  const warehouseId = resolveWarehouseId(scope, selectedWarehouseId);
-  const effectiveMonth = month ?? getCurrentIstMonthString();
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      const effectiveMonth = month ?? new Date().toISOString().slice(0, 7);
       const res = await getAttendanceSummary({
-        warehouseId,
+        warehouseId: targetWarehouseId,
         month: effectiveMonth,
         staffId,
       });
-      setSummary(res);
-      const label = effectiveMonth;
-      const mapped = (res.byStaff ?? []).map((s) => mapStaffAttendanceCountsToMonthSummary(s, label));
-      setStaffSummaries(mapped);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load attendance summary');
-      setSummary(null);
-      setStaffSummaries([]);
+      setTotals(res.totals);
+      setSummaries(
+        res.byStaff.map((s) => mapStaffAttendanceCountsToMonthSummary(s, effectiveMonth)),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch attendance summary');
     } finally {
       setLoading(false);
     }
-  }, [warehouseId, effectiveMonth, staffId]);
+  }, [targetWarehouseId, month, staffId]);
 
   useEffect(() => {
-    void fetchSummary();
+    fetchSummary();
   }, [fetchSummary]);
 
-  return { summary, staffSummaries, loading, error, refetch: fetchSummary };
+  return { summaries, totals, loading, error, refresh: fetchSummary };
 }
 
-export function useAttendanceHistoryList(
-  scope?: WarehouseScope,
-  selectedWarehouseId?: string,
+export function useAttendanceHistory(
+  scope: WarehouseScope,
   staffId?: string,
-  from?: string,
-  to?: string,
-  status?: AttendanceStatusCode,
+  date?: string,
 ) {
-  const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState<AttendanceHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [entries, setEntries] = useState<AttendanceHistoryEntry[]>([]);
-
-  const warehouseId = resolveWarehouseId(scope, selectedWarehouseId);
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await listAttendance({
-        warehouseId,
-        staffId,
-        from,
-        to,
-        status,
-        limit: 100,
-      });
-      const mapped = (res.items ?? []).map(mapAttendanceDtoToHistoryEntry);
-      setEntries(mapped);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load attendance history');
-      setEntries([]);
+      if (staffId && date) {
+        // Individual day history
+        const dto: AttendanceHistoryDto = await getAttendanceHistory(staffId, date);
+        // Map individual history items if available, or list attendance for that day
+        const res = await listAttendance({
+          staffId,
+          warehouseId: scope.warehouseId,
+          from: date,
+          to: date,
+        });
+        setHistory(res.items.map(mapAttendanceDtoToHistoryEntry));
+      } else {
+        const res = await listAttendance({
+          staffId,
+          warehouseId: scope.warehouseId,
+          limit: 100,
+        });
+        setHistory(res.items.map(mapAttendanceDtoToHistoryEntry));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch attendance history');
     } finally {
       setLoading(false);
     }
-  }, [warehouseId, staffId, from, to, status]);
+  }, [scope.warehouseId, staffId, date]);
 
   useEffect(() => {
-    void fetchHistory();
+    fetchHistory();
   }, [fetchHistory]);
 
-  return { entries, loading, error, refetch: fetchHistory };
+  return { history, loading, error, refresh: fetchHistory };
+}
+
+export function useStaffMutations() {
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const mutateUpdate = async (id: string, body: UpdateStaffBody): Promise<StaffMember> => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const updated = await updateStaff(id, body);
+      return mapStaffDtoToMember(updated);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update staff';
+      setSaveError(msg);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const mutateDeactivate = async (id: string): Promise<StaffMember> => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await deactivateStaff(id);
+      return mapStaffDtoToMember(res);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to deactivate staff';
+      setSaveError(msg);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const mutateMarkAttendance = async (
+    staffId: string,
+    date: string,
+    body: MarkAttendanceBody,
+  ) => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      return await markAttendance(staffId, date, body);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to mark attendance';
+      setSaveError(msg);
+      throw err;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return {
+    saving,
+    saveError,
+    updateStaff: mutateUpdate,
+    deactivateStaff: mutateDeactivate,
+    markAttendance: mutateMarkAttendance,
+  };
 }
 
 export function useUpdateStaff() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const update = useCallback(async (id: string, body: UpdateStaffBody) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await updateStaff(id, body);
-      return res;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to update staff';
-      setError(msg);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return { update, loading, error };
+  const { updateStaff, saving, saveError } = useStaffMutations();
+  return { update: updateStaff, loading: saving, error: saveError };
 }
 
 export function useMarkAttendance() {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const mark = useCallback(async (staffId: string, date: string, body: MarkAttendanceBody) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await markAttendance(staffId, date, body);
-      return res;
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to mark attendance';
-      setError(msg);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return { mark, loading, error };
+  const { markAttendance, saving, saveError } = useStaffMutations();
+  return { mark: markAttendance, loading: saving, error: saveError };
 }
+
+export function useAttendanceHistoryList(scope: WarehouseScope, selectedWarehouseId?: string) {
+  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const { history, loading, error, refresh } = useAttendanceHistory({ warehouseId: targetWarehouseId });
+  return { entries: history, loading, error, refresh };
+}
+
+

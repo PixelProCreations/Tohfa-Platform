@@ -11,7 +11,6 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { SAMPLE_DATE, SAMPLE_FISCAL_TAG, SAMPLE_TIME, SAMPLE_TRANSACTION_ID, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type { WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   BellRingIcon,
@@ -37,13 +36,13 @@ export function TopUpSuccessScreen({ scope, onBack, transaction = {}, onDone, on
     type: transaction.type ?? 'Cash Top-Up',
     // Negative rule: Wallet totals (credited/used) and transaction status -> '—' or hide row
     status: '—',
-    newBalance: transaction.newBalance ?? '₹6,500.00',
-    amount: transaction.amount ?? '₹2,000.00',
-    transactionId: transaction.transactionId ?? SAMPLE_TRANSACTION_ID,
-    customerName: transaction.customerName ?? SAMPLE_WALLET_CUSTOMER.name,
-    fiscalCashTag: transaction.fiscalCashTag ?? SAMPLE_FISCAL_TAG,
+    newBalance: transaction.newBalance ?? '—',
+    amount: transaction.amount ?? '—',
+    transactionId: transaction.transactionId ?? '—',
+    customerName: transaction.customerName ?? '—',
+    fiscalCashTag: transaction.fiscalCashTag ?? '—',
     warehouseName: transaction.warehouseName ?? scope.warehouseName ?? '',
-    dateTime: transaction.dateTime ?? `${SAMPLE_DATE}, ${SAMPLE_TIME}`,
+    dateTime: transaction.dateTime ?? '',
   };
 
   return (

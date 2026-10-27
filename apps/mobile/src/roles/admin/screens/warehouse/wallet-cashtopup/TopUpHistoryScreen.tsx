@@ -12,7 +12,6 @@ import React, { useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { TOP_UP_HISTORY, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
 import type { TopUpHistoryRow, TopUpStatus, WalletTransactionRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
@@ -44,8 +43,10 @@ const STATUS_TONE: Record<TopUpStatus, 'success' | 'warning' | 'danger'> = {
   Failed: 'danger',
 };
 
+const EMPTY_ROWS: readonly TopUpHistoryRow[] = [];
+
 /** The history row as a top-up record for the details screen (mock balances). */
-export function toTopUpRecord(row: TopUpHistoryRow, scope: WarehouseScope): WalletTransactionRecord {
+export function toTopUpRecord(row: TopUpHistoryRow, scope: WarehouseScope, warehouseName?: string): WalletTransactionRecord {
   return {
     customerName: row.customerName,
     customerId: row.customerId,
@@ -58,10 +59,10 @@ export function toTopUpRecord(row: TopUpHistoryRow, scope: WarehouseScope): Wall
     type: 'Cash Top-Up',
     fiscalCashTag: row.fiscalTag,
     dateTime: `${row.date}, ${row.time}`,
-    processedBy: sampleProcessedBy(scope),
+    processedBy: scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin'),
     createdAt: `${row.date}, ${row.time}`,
     warehouseId: row.warehouseId,
-    warehouseName: warehouseNameOf(row.warehouseId),
+    warehouseName: warehouseName ?? row.warehouseId,
   };
 }
 
@@ -72,7 +73,7 @@ export function TopUpHistoryScreen({
   scope,
   onBack,
   onTabChange,
-  rows = TOP_UP_HISTORY,
+  rows = EMPTY_ROWS,
   warehouseOptions,
   onSelectTransaction,
 }: TopUpHistoryScreenProps) {
@@ -192,33 +193,36 @@ export function TopUpHistoryScreen({
         {filtered.length === 0 ? (
           <EmptyState title="No top-ups found" subtitle="Try another search or filter." />
         ) : (
-          filtered.map((row) => (
-            <TouchableOpacity
-              key={row.id}
-              style={styles.rowCard}
-              onPress={() => onSelectTransaction(toTopUpRecord(row, scope))}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-            >
-              <View style={styles.rowTop}>
-                <Text style={styles.rowId}>{row.id}</Text>
-                <StatusBadge label={row.status} tone={STATUS_TONE[row.status]} />
-              </View>
-              <Text style={styles.rowCustomer}>
-                {row.customerName} · {row.customerId}
-              </Text>
-              <View style={styles.rowMiddle}>
-                <Text style={styles.rowMeta}>Fiscal Tag: {row.fiscalTag}</Text>
-                <Text style={styles.rowAmount}>{row.amount}</Text>
-              </View>
-              <View style={styles.rowBottom}>
-                <Text style={styles.rowMeta}>
-                  {allWarehouses ? `${row.date} · ${warehouseNameOf(row.warehouseId)}` : row.date}
+          filtered.map((row) => {
+            const whName = effectiveWarehouseOptions.find((w) => w.warehouseId === row.warehouseId)?.warehouseName ?? row.warehouseId;
+            return (
+              <TouchableOpacity
+                key={row.id}
+                style={styles.rowCard}
+                onPress={() => onSelectTransaction(toTopUpRecord(row, scope, whName))}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+              >
+                <View style={styles.rowTop}>
+                  <Text style={styles.rowId}>{row.id}</Text>
+                  <StatusBadge label={row.status} tone={STATUS_TONE[row.status]} />
+                </View>
+                <Text style={styles.rowCustomer}>
+                  {row.customerName} · {row.customerId}
                 </Text>
-                <Text style={styles.rowMeta}>{row.time}</Text>
-              </View>
-            </TouchableOpacity>
-          ))
+                <View style={styles.rowMiddle}>
+                  <Text style={styles.rowMeta}>Fiscal Tag: {row.fiscalTag}</Text>
+                  <Text style={styles.rowAmount}>{row.amount}</Text>
+                </View>
+                <View style={styles.rowBottom}>
+                  <Text style={styles.rowMeta}>
+                    {allWarehouses ? `${row.date} · ${whName}` : row.date}
+                  </Text>
+                  <Text style={styles.rowMeta}>{row.time}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
 
         {itemsCount < scoped.length ? (

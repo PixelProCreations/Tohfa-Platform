@@ -21,10 +21,11 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 import { CASH_TOPUP_CAP_PAISE, formatCashTopUpCap, validateTopUpAmount } from '../../../config/businessThresholds';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { SAMPLE_WALLET_CUSTOMER, TOP_UP_PRESETS, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
 import { useCustomerLookup } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { CashTopUpDraft, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
+
+const TOP_UP_PRESETS: readonly number[] = [500, 1000, 2000, 5000];
 import {
   AmountRow,
   ArrowForwardIcon,
@@ -98,9 +99,9 @@ export function CashTopUpScreen({
     }
   }, [lookupResults]);
 
-  const custName = activeCustomer?.name ?? SAMPLE_WALLET_CUSTOMER.name;
-  const custCode = activeCustomer?.id ?? SAMPLE_WALLET_CUSTOMER.id;
-  const baseBalance = rupeesOf(activeCustomer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance);
+  const custName = activeCustomer?.name ?? '';
+  const custCode = activeCustomer?.customerId ?? activeCustomer?.id ?? '';
+  const baseBalance = activeCustomer?.balance ? rupeesOf(activeCustomer.balance) : 0;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [amount, setAmount] = useState<number>(2000);
@@ -126,8 +127,12 @@ export function CashTopUpScreen({
   }
 
   const warehouseId = scope.warehouseId ?? collectedAt;
-  const warehouseName = isAllWarehouses(scope) ? warehouseNameOf(warehouseId) : (scope.warehouseName ?? '');
-  const processor = processedBy ?? sampleProcessedBy(scope);
+  const warehouseName =
+    effectiveWarehouseOptions.find((w) => w.warehouseId === warehouseId)?.warehouseName ??
+    scope.warehouseName ??
+    warehouseId ??
+    '';
+  const processor = processedBy ?? (scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin'));
   const newBalance = baseBalance + (amount || 0);
 
   const handleSelectPreset = (value: number) => {

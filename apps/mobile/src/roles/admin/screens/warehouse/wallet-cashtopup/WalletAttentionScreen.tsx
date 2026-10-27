@@ -25,7 +25,6 @@ import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { ATTENTION_ISSUES, warehouseNameOf } from './fixtures';
 import type { AttentionCategory, AttentionIssue, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   ChipGroup,
@@ -63,12 +62,14 @@ const CATEGORY_LABEL: Record<AttentionCategory, string> = {
 /** Secondary actions with no governing rbac code that must never be offered (SPEC_GAPS W4i-2). */
 const NEVER_RENDERED = new Set(['Refund Cash to Customer']);
 
+const EMPTY_ISSUES: readonly AttentionIssue[] = [];
+
 export function WalletAttentionScreen({
   scope,
   can,
   onBack,
   initialCategory = 'all',
-  issues: sourceIssues = ATTENTION_ISSUES,
+  issues: sourceIssues = EMPTY_ISSUES,
   onRetryTopUp,
   onOpenDailyCash,
   onReviewTransaction,
@@ -123,7 +124,8 @@ export function WalletAttentionScreen({
         customerName: item.customer,
         customerId: item.customerId,
         amount: item.amount,
-        status: 'Completed',
+        // Negative rule: Wallet totals (credited/used) and transaction status -> '—' or hide row
+        status: '—',
         type: 'Cash Top-Up',
         fiscalCashTag: 'Missing',
         dateTime: item.time,
@@ -170,7 +172,7 @@ export function WalletAttentionScreen({
                     <Text style={styles.amountText}>{item.amount}</Text>
                   </View>
                 </View>
-                {isAllWarehouses(scope) ? <Text style={styles.meta}>{warehouseNameOf(item.warehouseId)}</Text> : null}
+                {isAllWarehouses(scope) ? <Text style={styles.meta}>{item.warehouseId}</Text> : null}
                 <View style={styles.descriptionBox}>
                   <Text style={styles.description}>{item.description}</Text>
                 </View>
