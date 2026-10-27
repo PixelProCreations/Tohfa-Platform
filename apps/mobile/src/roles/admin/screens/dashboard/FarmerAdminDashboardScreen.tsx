@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   SafeAreaView,
@@ -52,12 +53,22 @@ import { PestLibraryScreen, type PestItem, SAMPLE_PESTS } from './PestLibraryScr
 import { ApplicationGuideScreen } from './ApplicationGuideScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
-import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
+import { MarketPricingHomeScreen, MarketPricingOverviewScreen } from '../pricing';
 import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
 import { CategoriesGradesScreen } from './CategoriesGradesScreen';
 import { PriceHistoryScreen } from './PriceHistoryScreen';
 import { RetailPricingScreen, type RetailPriceItem } from './RetailPricingScreen';
 import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
+import {
+  ProduceControlCalendarScreen,
+  ProduceControlFiltersModal,
+  ZoneCropBreakdownScreen,
+  CropRecordDetailScreen,
+  HarvestForecastInsightsScreen,
+  CropHistoryRecordsScreen,
+  CompareCropCyclesModal,
+  ExportCropRecordsModal,
+} from './ProduceControlScreens';
 import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
@@ -2079,6 +2090,7 @@ export function FarmerAdminDashboardScreen({
     | 'farmer_pest_incidents'
     | 'pest_incident_detail'
     | 'market_pricing'
+    | 'market_pricing_overview'
     | 'fair_price'
     | 'categories_grades'
     | 'price_history'
@@ -2144,6 +2156,20 @@ export function FarmerAdminDashboardScreen({
   const [farmerProfileReturnSubView, setFarmerProfileReturnSubView] = useState<'none' | 'audit_schedule' | 'verification_approval' | 'pest_incident_detail'>('none');
   const [incidentReturnSubView, setIncidentReturnSubView] = useState<'inputs_pest' | 'farmer_pest_incidents'>('inputs_pest');
   const [farmersInternalView, setFarmersInternalView] = useState<'list' | 'search_filter' | 'profile'>('list');
+  const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<any>(null);
+  const [selectedAdminApplication, setSelectedAdminApplication] = useState<any>(null);
+  const [produceControlScreen, setProduceControlScreen] = useState<
+    'calendar' | 'zoneBreakdown' | 'cropDetail' | 'harvestForecast' | 'cropHistory' | null
+  >('calendar');
+  const [showProduceFiltersModal, setShowProduceFiltersModal] = useState(false);
+  const [showExportCropModal, setShowExportCropModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>([]);
+  const [produceFilterFarmer, setProduceFilterFarmer] = useState('All farmers');
+  const [produceFilterZone, setProduceFilterZone] = useState('All zones');
+  const [produceFilterCrop, setProduceFilterCrop] = useState('All crops');
+  const [produceFilterSeason, setProduceFilterSeason] = useState('All seasons');
+  const [produceFilterGrowthStage, setProduceFilterGrowthStage] = useState('All stages');
 
   // Navigation History Stack to ensure all back icons navigate to the exact previous screen
   interface NavState {
@@ -2177,6 +2203,7 @@ export function FarmerAdminDashboardScreen({
     | 'farmer_pest_incidents'
     | 'pest_incident_detail'
     | 'market_pricing'
+    | 'market_pricing_overview'
     | 'fair_price'
     | 'categories_grades'
     | 'price_history'
@@ -2783,11 +2810,47 @@ export function FarmerAdminDashboardScreen({
     return (
       <MarketPricingHomeScreen
         onBack={() => goBack()}
+        onNavigateOverview={() => pushNavigation({ subView: 'market_pricing_overview' })}
         onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
         onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
         onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}
         onNavigateToRetailPricing={() => pushNavigation({ subView: 'retail_pricing' })}
         onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
+      />
+    );
+  }
+
+  // Module 7: Market & Pricing Overview (Tabs for Pricing Records & Ceilings)
+  if (subView === 'market_pricing_overview') {
+    return (
+      <MarketPricingOverviewScreen
+        onBack={() => goBack()}
+        onEditRetailPrice={() => {
+          Alert.alert(
+            'Permission Denied',
+            'Farmer Admin accounts have read-only access to retail prices per platform RBAC policy.'
+          );
+        }}
+        onViewBreakdown={(item) => {
+          pushNavigation({
+            subView: 'markup_breakdown',
+            selectedRetailItem: {
+              id: item.id,
+              cropGrade: `${item.product} · ${item.grade}`,
+              product: item.product,
+              grade: item.grade,
+              purchasePrice: item.farmerPurchasePrice || item.ceiling,
+              markup: '10%',
+              expenses: '₹10.00',
+              expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+              retailPrice: item.retailPrice !== 'none' ? item.retailPrice : item.ceiling,
+              customerDiscount: '₹5.00',
+              effectiveDate: item.updatedAt,
+              status: item.badge === 'Compliant' ? 'Compliant' : 'Review needed',
+              category: 'Vegetables',
+            },
+          });
+        }}
       />
     );
   }
@@ -3529,19 +3592,74 @@ export function FarmerAdminDashboardScreen({
           </ScrollView>
         )}
 
-        {/* ─── Farmers Tab (Matching Screenshot 1) ─── */}
+        {/* ─── Farmers Tab (Modern Tohfa Admin Design + RBAC) ─── */}
         {activeTab === 'Farmers' && (
-          <FarmersDirectoryScreen
-            onBack={() => goBack('Home')}
-            onViewChange={(view) => setFarmersInternalView(view)}
-            onNavigateAuditHistory={() => {
-              pushNavigation({
-                subView: 'audit_schedule',
-                auditInitialFilter: 'history',
-                auditInitialView: 'history',
-              });
-            }}
-          />
+          selectedAdminFarmer ? (
+            <AdminFarmerDetailScreen
+              farmer={selectedAdminFarmer}
+              onBack={() => setSelectedAdminFarmer(null)}
+              // onEdit is NOT passed -> hides Edit button (RBAC: farmer.profile.edit: none)
+              // onDisable is NOT passed -> hides Deactivate/Terminate buttons (RBAC: farmer.account.disable: none)
+            />
+          ) : selectedAdminApplication ? (
+            <AdminApplicationDetailScreen
+              application={selectedAdminApplication}
+              onBack={() => setSelectedAdminApplication(null)}
+            />
+          ) : (
+            <AdminAllFarmersScreen
+              showBottomNav={false}
+              onBack={() => goBack('Home')}
+              onSelectFarmer={(f) => setSelectedAdminFarmer(f)}
+              onReviewApplication={(app) => setSelectedAdminApplication(app)}
+            />
+          )
+        )}
+
+        {/* ─── Produce Tab (Produce Control Calendar from Tohfa Admin) ─── */}
+        {activeTab === 'Produce' && (
+          produceControlScreen === 'zoneBreakdown' ? (
+            <ZoneCropBreakdownScreen
+              onBack={() => setProduceControlScreen('calendar')}
+              onOpenFilters={() => setShowProduceFiltersModal(true)}
+              onSelectCropRecord={(_recordId) => setProduceControlScreen('cropDetail')}
+            />
+          ) : produceControlScreen === 'cropDetail' ? (
+            <CropRecordDetailScreen
+              onBack={() => setProduceControlScreen('zoneBreakdown')}
+              onOpenFarmerProfile={() => {
+                setProduceControlScreen('calendar');
+                setActiveTab('Farmers');
+              }}
+            />
+          ) : produceControlScreen === 'harvestForecast' ? (
+            <HarvestForecastInsightsScreen
+              onBack={() => setProduceControlScreen('calendar')}
+              onOpenExportModal={() => setShowExportCropModal(true)}
+              onOpenFilters={() => setShowProduceFiltersModal(true)}
+            />
+          ) : produceControlScreen === 'cropHistory' ? (
+            <CropHistoryRecordsScreen
+              onBack={() => setProduceControlScreen('calendar')}
+              onOpenCompareModal={() => setShowCompareModal(true)}
+              onSelectCropRecord={(_recordId) => setProduceControlScreen('cropDetail')}
+              onOpenFilters={() => setShowProduceFiltersModal(true)}
+              selectedCompareIds={selectedCompareIds}
+              onToggleCompare={(recordId) => {
+                setSelectedCompareIds((prev) =>
+                  prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]
+                );
+              }}
+            />
+          ) : (
+            <ProduceControlCalendarScreen
+              onBack={() => goBack('Home')}
+              onOpenFilters={() => setShowProduceFiltersModal(true)}
+              onNavigateToZoneBreakdown={() => setProduceControlScreen('zoneBreakdown')}
+              onNavigateToHarvestForecast={() => setProduceControlScreen('harvestForecast')}
+              onNavigateToCropHistory={() => setProduceControlScreen('cropHistory')}
+            />
+          )
         )}
 
         {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
@@ -3815,8 +3933,14 @@ export function FarmerAdminDashboardScreen({
 
       {/* ─── Bottom Tab Bar (Only show on the 5 primary dashboard screens) ─── */}
       {subView === 'none' &&
+        produceControlScreen !== 'zoneBreakdown' &&
+        produceControlScreen !== 'cropDetail' &&
+        produceControlScreen !== 'harvestForecast' &&
+        produceControlScreen !== 'cropHistory' &&
+        !selectedAdminFarmer &&
+        !selectedAdminApplication &&
         (activeTab === 'Home' ||
-          (activeTab === 'Farmers' && farmersInternalView === 'list') ||
+          activeTab === 'Farmers' ||
           activeTab === 'Produce' ||
           activeTab === 'Audits' ||
           (activeTab === 'More' && moreSubScreen === 'menu')) && (
@@ -3842,7 +3966,8 @@ export function FarmerAdminDashboardScreen({
                 setNavStack([]);
                 setSubView('none');
                 setMoreSubScreen('menu');
-                setFarmersInternalView('list');
+                setSelectedAdminFarmer(null);
+                setSelectedAdminApplication(null);
                 setActiveTab('Farmers');
               }}
               accessibilityRole="tab"
@@ -3858,6 +3983,7 @@ export function FarmerAdminDashboardScreen({
                 setNavStack([]);
                 setSubView('none');
                 setMoreSubScreen('menu');
+                setProduceControlScreen('calendar');
                 setActiveTab('Produce');
               }}
               accessibilityRole="tab"
@@ -3898,6 +4024,42 @@ export function FarmerAdminDashboardScreen({
             </Pressable>
           </View>
         )}
+
+      {/* Produce Control Filters Modal */}
+      <ProduceControlFiltersModal
+        visible={showProduceFiltersModal}
+        onClose={() => setShowProduceFiltersModal(false)}
+        selectedFarmer={produceFilterFarmer}
+        onChangeFarmer={setProduceFilterFarmer}
+        selectedZone={produceFilterZone}
+        onChangeZone={setProduceFilterZone}
+        selectedCrop={produceFilterCrop}
+        onChangeCrop={setProduceFilterCrop}
+        selectedSeason={produceFilterSeason}
+        onChangeSeason={setProduceFilterSeason}
+        selectedGrowthStage={produceFilterGrowthStage}
+        onChangeGrowthStage={setProduceFilterGrowthStage}
+      />
+
+      {/* Export Crop Records Modal */}
+      <ExportCropRecordsModal
+        visible={showExportCropModal}
+        onClose={() => setShowExportCropModal(false)}
+        onDownloadCSV={() => {
+          setShowExportCropModal(false);
+          Alert.alert('Download CSV', 'Crop records exported successfully as CSV.');
+        }}
+      />
+
+      {/* Compare Crop Cycles Modal */}
+      <CompareCropCyclesModal
+        visible={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        onExportDetails={() => {
+          setShowCompareModal(false);
+          Alert.alert('Export Details', 'Crop cycle comparison exported successfully.');
+        }}
+      />
     </SafeAreaView>
   );
 }

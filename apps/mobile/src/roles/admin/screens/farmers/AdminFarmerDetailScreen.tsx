@@ -482,23 +482,25 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             </View>
 
             {/* Action Buttons Row */}
-            <View style={styles.actionButtonsRow}>
-              <TouchableOpacity
-                style={styles.deactivateBtn}
-                onPress={handleOpenDeactivateModal}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.deactivateBtnText}>Deactivate account</Text>
-              </TouchableOpacity>
+            {onDisable ? (
+              <View style={styles.actionButtonsRow}>
+                <TouchableOpacity
+                  style={styles.deactivateBtn}
+                  onPress={handleOpenDeactivateModal}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.deactivateBtnText}>Deactivate account</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.terminateBtn}
-                onPress={handleOpenTerminateModal}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.terminateBtnText}>Terminate Account</Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  style={styles.terminateBtn}
+                  onPress={handleOpenTerminateModal}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.terminateBtnText}>Terminate Account</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </>
         )}
 
