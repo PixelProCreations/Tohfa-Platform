@@ -2137,7 +2137,7 @@ export function FarmerAdminDashboardScreen({
   const [purchaseOrderDetailReturnSubView, setPurchaseOrderDetailReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
   const [confirmTermsReturnSubView, setConfirmTermsReturnSubView] = useState<'purchases' | 'purchase_orders'>('purchase_orders');
   const [purchaseOrderReturnSubView, setPurchaseOrderReturnSubView] = useState<'purchase_orders' | 'dispute_detail'>('purchase_orders');
-  const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report'>('calendar');
+  const [auditInitialFilter, setAuditInitialFilter] = useState<'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view'>('calendar');
   const [auditInitialId, setAuditInitialId] = useState<string | undefined>(undefined);
   const [auditInitialView, setAuditInitialView] = useState<any>(undefined);
   const [auditReturnSubView, setAuditReturnSubView] = useState<'none' | 'farmer_profile' | 'verification_approval'>('none');
@@ -2186,7 +2186,6 @@ export function FarmerAdminDashboardScreen({
     | 'farmer_ratings'
     | 'disputes'
     | 'dispute_detail'
-    | 'dispute_timeline'
     | 'dispute_resolution'
     | 'farmers_management';
     moreSubScreen?:
@@ -2215,7 +2214,7 @@ export function FarmerAdminDashboardScreen({
     selectedModerationItem?: CommunityModerationItem | undefined;
     farmersInternalView?: ('list' | 'search_filter' | 'profile') | undefined;
     listingInitialFilter?: ('all' | 'pending' | 'counter') | undefined;
-    auditInitialFilter?: ('all' | 'field_visit' | 'history' | 'calendar' | 'report') | undefined;
+    auditInitialFilter?: ('all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view') | undefined;
     auditInitialId?: string | undefined;
     auditInitialView?: any;
     selectedPestForIncident?: string | undefined;
@@ -2535,44 +2534,6 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // Module 4: Screen 1 - Purchases (Image 1 Left)
-  if (subView === 'purchases') {
-    return (
-      <FarmerPurchasesScreen
-        onBack={() => goBack()}
-        onNavigatePurchaseOrders={() => pushNavigation({ subView: 'purchase_orders' })}
-        onNavigateReadyForCollection={() => {
-          pushNavigation({
-            subView: 'confirm_purchase_terms',
-            activeOrderId: 'PO-2026-00119',
-          });
-        }}
-        onNavigatePurchaseHistory={() => pushNavigation({ subView: 'purchase_history' })}
-        onNavigateProduceListings={() => {
-          pushNavigation({ subView: 'produce_listings' });
-        }}
-        onViewPurchaseOrder={(orderId) => {
-          pushNavigation({
-            subView: 'purchase_order_detail',
-            activeOrderId: orderId,
-          });
-        }}
-        onProcessHandover={(orderId) => {
-          pushNavigation({
-            subView: 'farmer_handover',
-            activeOrderId: orderId || 'PO-2026-00124',
-          });
-        }}
-        onCollect={(orderId) => {
-          pushNavigation({
-            subView: 'confirm_purchase_terms',
-            activeOrderId: orderId || 'PO-2026-00119',
-          });
-        }}
-        onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-      />
-    );
-  }
 
   // Module 4: Screen 2 - Purchase Orders (Image 1 Middle)
   if (subView === 'purchase_orders') {
@@ -3040,8 +3001,8 @@ export function FarmerAdminDashboardScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, Produce, & Audits pages) ─── */}
-      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Produce' && activeTab !== 'Audits' && (
+      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, & Audits pages) ─── */}
+      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Audits' && (
         <View style={styles.header}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleWrap}>
@@ -3566,21 +3527,6 @@ export function FarmerAdminDashboardScreen({
           />
         )}
 
-        {/* ─── Produce Tab (Image 1 Mockup) ─── */}
-        {activeTab === 'Produce' && (
-          <FarmerProduceTabScreen
-            onBack={() => goBack('Home')}
-            onNavigateToListings={(filter) => {
-              pushNavigation({
-                subView: 'produce_listings',
-                listingInitialFilter: filter || 'all',
-              });
-            }}
-            onNavigateToHistory={() => pushNavigation({ subView: 'produce_history' })}
-            onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-          />
-        )}
-
         {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
         {activeTab === 'Audits' && (
           <FarmerAuditsTabScreen
@@ -3597,14 +3543,18 @@ export function FarmerAdminDashboardScreen({
                         ? 'history'
                         : preFilter === 'report'
                           ? 'report'
-                          : 'calendar',
+                          : preFilter === 'calendar_view'
+                            ? 'calendar_view'
+                            : 'calendar',
                 auditInitialId: auditId,
                 auditInitialView:
                   preFilter === 'report'
                     ? 'audit_report'
                     : preFilter === 'history'
                       ? 'history'
-                      : 'calendar',
+                      : preFilter === 'calendar_view'
+                        ? 'calendar_view'
+                        : 'calendar',
               });
             }}
             onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
@@ -3615,7 +3565,6 @@ export function FarmerAdminDashboardScreen({
         {activeTab === 'More' && moreSubScreen === 'menu' && (
           <FarmerAdminMoreScreen
             onBack={() => goBack('Home')}
-            onNavigatePurchases={() => pushNavigation({ subView: 'purchases' })}
             onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
             onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
             onNavigateProduceListings={() => pushNavigation({ subView: 'produce_listings' })}
@@ -3851,7 +3800,6 @@ export function FarmerAdminDashboardScreen({
       {subView === 'none' &&
         (activeTab === 'Home' ||
           (activeTab === 'Farmers' && farmersInternalView === 'list') ||
-          activeTab === 'Produce' ||
           activeTab === 'Audits' ||
           (activeTab === 'More' && moreSubScreen === 'menu')) && (
           <View style={styles.tabBar}>

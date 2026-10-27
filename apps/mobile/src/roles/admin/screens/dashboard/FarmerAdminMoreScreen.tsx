@@ -220,18 +220,6 @@ export function FarmerAdminMoreScreen({
 }: FarmerAdminMoreScreenProps) {
   const menuItems = [
     {
-      id: 'purchases',
-      title: t('farmerAdminMore.menu.purchases'),
-      icon: <ReceiptIcon size={20} />,
-      onPress: () => {
-        if (onNavigatePurchases) {
-          onNavigatePurchases();
-        } else if (onNavigateProduceListings) {
-          onNavigateProduceListings();
-        }
-      },
-    },
-    {
       id: 'inputs',
       title: t('farmerAdminMore.menu.inputsPests'),
       icon: <LeafIcon size={20} />,
