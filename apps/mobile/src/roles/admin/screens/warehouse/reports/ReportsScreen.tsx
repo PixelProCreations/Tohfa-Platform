@@ -43,6 +43,7 @@ import { OverviewDashboardCard } from '../../../components';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './fixtures';
 import type { ReportCode, ReportScreenType } from './types';
 import {
@@ -92,8 +93,11 @@ export function ReportsScreen({
   scope,
   can,
   canExport,
-  warehouseOptions = REPORT_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
 }: ReportsScreenProps) {
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : REPORT_WAREHOUSES);
+
   const [currentScreen, setCurrentScreen] = useState<ReportScreenType>('main');
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month'>('Today');
