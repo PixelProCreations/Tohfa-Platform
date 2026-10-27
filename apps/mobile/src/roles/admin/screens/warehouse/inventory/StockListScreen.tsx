@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { formatKgNumber } from '../../../money/quantity';
 import type { InventoryLiveStateProps, InventoryScreenBaseProps, ProductStock } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
@@ -235,6 +236,8 @@ export function StockListScreen({
   initialTab = 'Stock',
   warehouseOptions,
   routeParams,
+  products,
+  isLoading,
 }: StockListScreenProps) {
   const isSub = scope.warehouseId !== undefined;
   const initialMainView: MainStockView =
@@ -268,47 +271,10 @@ export function StockListScreen({
   );
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   const [searchQuery, setSearchQuery] = useState('');
+  // Tracks which product was tapped in the consolidated list to pass to detail sub-views.
+  const [selectedProduct, setSelectedProduct] = useState<ProductStock | null>(null);
 
-  const stockItems = [
-    {
-      id: 'tomato',
-      name: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Healthy Stock',
-      available: '245 KG',
-      reserved: '50 KG',
-      allocated: '120 KG',
-      detailProduct: 'Tomato G1',
-    },
-    {
-      id: 'carrot',
-      name: 'Carrot',
-      grade: 'Grade 1',
-      status: 'Low Stock',
-      available: '12 KG',
-      reserved: '0 KG',
-      allocated: '0 KG',
-      detailProduct: 'Carrot G1',
-    },
-    {
-      id: 'beetroot',
-      name: 'Beetroot',
-      grade: 'Grade 1',
-      status: 'Healthy Stock',
-      available: '60 KG',
-      reserved: '5 KG',
-      allocated: '15 KG',
-    },
-    {
-      id: 'spinach',
-      name: 'Spinach',
-      grade: 'Grade 2',
-      status: 'Out of Stock',
-      available: '0 KG',
-      reserved: '0 KG',
-      allocated: '0 KG',
-    },
-  ];
+  const liveProducts = products ?? [];
 
   if (!isSub && mainView !== 'warehouse_stock') {
     const getHeaderTitle = () => {
@@ -359,26 +325,39 @@ export function StockListScreen({
               <View style={styles.tableCard}>
                 <View style={styles.tableHeaderRow}>
                   <Text style={[styles.tableColHeader, { flex: 1.4 }]}>PRODUCT</Text>
+                  {/* Per-warehouse breakdown has no API backing — columns show '—'. */}
                   <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center' }]}>OOTY/COO</Text>
                   <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'center' }]}>KOT/GUD</Text>
-                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'right' }]}>TOTAL</Text>
+                  <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'right' }]}>AVAIL.</Text>
                 </View>
-                <TouchableOpacity
-                  style={styles.tableDataRow}
-                  activeOpacity={0.7}
-                  onPress={() => setMainView('consolidated_detail')}
-                >
-                  <Text style={[styles.tableCell, { flex: 1.4 }]}>Tomato G1</Text>
-                  <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>120/80</Text>
-                  <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>50/40</Text>
-                  <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>290 KG</Text>
-                </TouchableOpacity>
+                {isLoading && liveProducts.length === 0 ? null : liveProducts.map((p) => (
+                  <TouchableOpacity
+                    key={`${p.cropId}-${p.grade}`}
+                    style={styles.tableDataRow}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      setSelectedProduct(p);
+                      setMainView('consolidated_detail');
+                    }}
+                  >
+                    <Text style={[styles.tableCell, { flex: 1.4 }]}>{`${p.productName} ${p.gradeLabel}`}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{'—'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, textAlign: 'center' }]}>{'—'}</Text>
+                    <Text style={[styles.tableCell, { flex: 1, textAlign: 'right' }]}>
+                      {`${formatKgNumber(p.availableGrams)} kg`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
 
             {mainView === 'consolidated_detail' && (
               <View>
-                <Text style={styles.mainSectionTitle}>Consolidated Stock Detail — Tomato Grade 1</Text>
+                <Text style={styles.mainSectionTitle}>
+                  {selectedProduct
+                    ? `Consolidated Detail — ${selectedProduct.productName} ${selectedProduct.gradeLabel}`
+                    : 'Consolidated Stock Detail'}
+                </Text>
                 <View style={styles.detailGrid}>
                   <TouchableOpacity
                     style={styles.detailCard}
@@ -410,7 +389,9 @@ export function StockListScreen({
                   <TouchableOpacity
                     style={styles.detailCard}
                     activeOpacity={0.7}
-                    onPress={() => onNavigate?.('M3S03', { product: 'Tomato G1' })}
+                    onPress={() => onNavigate?.('M3S03', selectedProduct
+                      ? { cropId: selectedProduct.cropId, grade: selectedProduct.grade }
+                      : undefined)}
                   >
                     <ProductDetailIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>Product Detail</Text>
@@ -419,7 +400,9 @@ export function StockListScreen({
                   <TouchableOpacity
                     style={styles.detailCard}
                     activeOpacity={0.7}
-                    onPress={() => onNavigate?.('M3S04')}
+                    onPress={() => onNavigate?.('M3S04', selectedProduct
+                      ? { cropId: selectedProduct.cropId, grade: selectedProduct.grade }
+                      : undefined)}
                   >
                     <ViewBatchesIcon color={adminColors.brand} />
                     <Text style={styles.detailCardLabel}>View Batches</Text>
@@ -438,28 +421,17 @@ export function StockListScreen({
             )}
 
             {mainView === 'distribution' && (
+              // Per-warehouse stock breakdown has no API endpoint; values unavailable.
               <View>
-                <Text style={styles.mainSectionTitle}>Warehouse Distribution — Tomato Grade 1</Text>
+                <Text style={styles.mainSectionTitle}>
+                  {selectedProduct ? `Warehouse Distribution — ${selectedProduct.productName} ${selectedProduct.gradeLabel}` : 'Warehouse Distribution'}
+                </Text>
                 <View style={styles.distListCard}>
-                  <View style={styles.distRow}>
-                    <Text style={styles.distWarehouseName}>Ooty</Text>
-                    <Text style={styles.distWarehouseQty}>120 KG</Text>
-                  </View>
-                  <View style={styles.distRow}>
-                    <Text style={styles.distWarehouseName}>Coonoor</Text>
-                    <Text style={styles.distWarehouseQty}>80 KG</Text>
-                  </View>
-                  <View style={styles.distRow}>
-                    <Text style={styles.distWarehouseName}>Kotagiri</Text>
-                    <Text style={styles.distWarehouseQty}>50 KG</Text>
-                  </View>
-                  <View style={styles.distRow}>
-                    <Text style={styles.distWarehouseName}>Gudalur Market</Text>
-                    <Text style={styles.distWarehouseQty}>40 KG</Text>
-                  </View>
                   <View style={[styles.distRow, styles.distRowLast]}>
-                    <Text style={styles.distTotalLabel}>Total</Text>
-                    <Text style={styles.distTotalQty}>290 KG</Text>
+                    <Text style={styles.distTotalLabel}>Available (all warehouses)</Text>
+                    <Text style={styles.distTotalQty}>
+                      {selectedProduct ? `${formatKgNumber(selectedProduct.availableGrams)} kg` : '—'}
+                    </Text>
                   </View>
                 </View>
               </View>
@@ -471,30 +443,36 @@ export function StockListScreen({
                 <View style={styles.availCard}>
                   <View style={styles.availRow}>
                     <View style={styles.availCol}>
+                      {/* 'Total' (received grams) is not on ProductStock — no API. */}
                       <Text style={styles.availLabel}>Total</Text>
-                      <Text style={styles.availValue}>290 KG</Text>
+                      <Text style={styles.availValue}>{'—'}</Text>
                     </View>
                     <View style={styles.availCol}>
                       <Text style={styles.availLabel}>Available</Text>
-                      <Text style={styles.availValue}>210 KG</Text>
+                      <Text style={styles.availValue}>
+                        {selectedProduct ? `${formatKgNumber(selectedProduct.availableGrams)} kg` : '—'}
+                      </Text>
                     </View>
                   </View>
 
                   <View style={styles.availRow}>
                     <View style={styles.availCol}>
                       <Text style={styles.availLabel}>Reserved</Text>
-                      <Text style={styles.availValue}>40 KG</Text>
+                      <Text style={styles.availValue}>
+                        {selectedProduct ? `${formatKgNumber(selectedProduct.reservedGrams)} kg` : '—'}
+                      </Text>
                     </View>
                     <View style={styles.availCol}>
+                      {/* Allocated and Consumed have no field on ProductStock — no API. */}
                       <Text style={styles.availLabel}>Allocated</Text>
-                      <Text style={styles.availValue}>30 KG</Text>
+                      <Text style={styles.availValue}>{'—'}</Text>
                     </View>
                   </View>
 
                   <View style={[styles.availRow, { marginBottom: 0 }]}>
                     <View style={styles.availCol}>
                       <Text style={styles.availLabel}>Consumed</Text>
-                      <Text style={styles.availValue}>10 KG</Text>
+                      <Text style={styles.availValue}>{'—'}</Text>
                     </View>
                     <View style={styles.availCol} />
                   </View>
@@ -503,16 +481,15 @@ export function StockListScreen({
             )}
 
             {mainView === 'comparison' && (
+              // Per-warehouse comparison (capacity %) has no API endpoint; values unavailable.
               <View>
-                <Text style={styles.mainSectionTitle}>Warehouse Comparison — Tomato Grade 1</Text>
+                <Text style={styles.mainSectionTitle}>
+                  {selectedProduct ? `Warehouse Comparison — ${selectedProduct.productName} ${selectedProduct.gradeLabel}` : 'Warehouse Comparison'}
+                </Text>
                 <View style={styles.compListCard}>
-                  <View style={styles.compRow}>
-                    <Text style={styles.compWarehouseName}>Ooty</Text>
-                    <Text style={styles.compWarehouseStat}>120 KG · 82% cap</Text>
-                  </View>
                   <View style={[styles.compRow, styles.compRowLast]}>
-                    <Text style={styles.compWarehouseName}>Coonoor</Text>
-                    <Text style={styles.compWarehouseStat}>80 KG · 68% cap</Text>
+                    <Text style={styles.compWarehouseName}>Per-warehouse breakdown</Text>
+                    <Text style={styles.compWarehouseStat}>{'—'}</Text>
                   </View>
                 </View>
               </View>
@@ -523,12 +500,10 @@ export function StockListScreen({
     );
   }
 
-  // Rows without a product-detail fixture (detailProduct) are not tappable, so
-  // M3S03 never opens on a product it would have to render as someone else's.
   const query = searchQuery.trim().toLowerCase();
-  const filteredItems = query
-    ? stockItems.filter((item) => item.name.toLowerCase().includes(query) || item.grade.toLowerCase().includes(query))
-    : stockItems;
+  const filteredProducts = query
+    ? liveProducts.filter((p) => p.productName.toLowerCase().includes(query) || p.gradeLabel.toLowerCase().includes(query))
+    : liveProducts;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -617,28 +592,38 @@ export function StockListScreen({
             />
           </View>
 
-          {/* Stock Items */}
-          {filteredItems.map((item) => {
-            const isHealthy = item.status === 'Healthy Stock';
-            const detailProduct = item.detailProduct;
+          {/* Stock Items — live from /admin/batches aggregated per crop+grade. */}
+          {isLoading && filteredProducts.length === 0 ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Text style={styles.stockGrade}>Loading…</Text>
+            </View>
+          ) : null}
+          {filteredProducts.map((p: ProductStock) => {
+            const isHealthy = p.level === 'inStock';
+            const isLow = p.level === 'low';
+            // StockLevel → human label mapping (matches server labels).
+            const levelLabel = isHealthy ? 'Healthy Stock' : isLow ? 'Low Stock' : 'Out of Stock';
             return (
               <TouchableOpacity
-                key={item.id}
+                key={`${p.cropId}-${p.grade}`}
                 style={styles.stockCard}
-                disabled={detailProduct === undefined}
-                onPress={() => {
-                  if (detailProduct !== undefined) onNavigate?.('M3S03', { product: detailProduct });
-                }}
+                onPress={() => onNavigate?.('M3S03', { cropId: p.cropId, grade: p.grade })}
                 activeOpacity={0.7}
               >
                 <View style={styles.stockHeader}>
                   <View style={styles.stockTitleColumn}>
-                    <Text style={styles.stockName}>{item.name}</Text>
-                    <Text style={styles.stockGrade}>{item.grade}</Text>
+                    <Text style={styles.stockName}>{p.productName}</Text>
+                    <Text style={styles.stockGrade}>{p.gradeLabel}</Text>
                   </View>
-                  <View style={[styles.statusBadge, isHealthy ? styles.healthyBadge : styles.alertBadge]}>
-                    <Text style={[styles.statusBadgeText, isHealthy ? styles.healthyBadgeText : styles.alertBadgeText]}>
-                      {item.status}
+                  <View style={[
+                    styles.statusBadge,
+                    isHealthy ? styles.healthyBadge : isLow ? styles.lowBadge : styles.alertBadge,
+                  ]}>
+                    <Text style={[
+                      styles.statusBadgeText,
+                      isHealthy ? styles.healthyBadgeText : isLow ? styles.lowBadgeText : styles.alertBadgeText,
+                    ]}>
+                      {levelLabel}
                     </Text>
                   </View>
                 </View>
@@ -648,24 +633,23 @@ export function StockListScreen({
                   <View style={styles.stockStatsGroup}>
                     <View style={styles.stockStat}>
                       <Text style={styles.stockStatLabel}>Available</Text>
-                      <Text style={styles.stockStatValue}>{item.available}</Text>
+                      <Text style={styles.stockStatValue}>{`${formatKgNumber(p.availableGrams)} kg`}</Text>
                     </View>
                     <View style={styles.stockStat}>
                       <Text style={styles.stockStatLabel}>Reserved</Text>
-                      <Text style={styles.stockStatValue}>{item.reserved}</Text>
+                      <Text style={styles.stockStatValue}>{`${formatKgNumber(p.reservedGrams)} kg`}</Text>
                     </View>
+                    {/* Allocated has no field on ProductStock — no API. */}
                     <View style={styles.stockStat}>
                       <Text style={styles.stockStatLabel}>Allocated</Text>
-                      <Text style={styles.stockStatValue}>{item.allocated}</Text>
+                      <Text style={styles.stockStatValue}>{'—'}</Text>
                     </View>
                   </View>
 
-                  {detailProduct !== undefined ? (
-                    <View style={styles.viewLinkRow}>
-                      <Text style={styles.viewLink}>View</Text>
-                      <Text style={styles.viewChevron}>›</Text>
-                    </View>
-                  ) : null}
+                  <View style={styles.viewLinkRow}>
+                    <Text style={styles.viewLink}>View</Text>
+                    <Text style={styles.viewChevron}>›</Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             );
@@ -778,6 +762,12 @@ const styles = StyleSheet.create({
   },
   healthyBadgeText: {
     color: adminColors.success.text,
+  },
+  lowBadge: {
+    backgroundColor: adminColors.warning.bg,
+  },
+  lowBadgeText: {
+    color: adminColors.warning.text,
   },
   alertBadge: {
     backgroundColor: adminColors.danger.bg,
