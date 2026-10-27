@@ -127,6 +127,9 @@ function fakeRepo(rows: WarehouseDetail[]): RecordingRepo {
       repo.stored.set(id, capacityKg);
       return capacityKg;
     },
+    async capacityThresholdPercent(): Promise<number | null> {
+      return 90;
+    },
   };
   return repo;
 }
@@ -688,6 +691,7 @@ describeIfDatabase('warehouses (PostgreSQL)', () => {
           usedKg: '3500.125',
           availableKg: '6499.875',
           utilizationPercent: 35,
+          thresholdPercent: 90,
         });
       });
     });
@@ -733,6 +737,7 @@ describeIfDatabase('warehouses (PostgreSQL)', () => {
           usedKg: '0.000',
           availableKg: '10000.000',
           utilizationPercent: 0,
+          thresholdPercent: 90,
         });
       });
     });
@@ -744,7 +749,7 @@ describeIfDatabase('warehouses (PostgreSQL)', () => {
 
       expect(res.status).toBe(200);
       expect(Object.keys(res.body).sort()).toEqual(
-        ['availableKg', 'capacityKg', 'usedKg', 'utilizationPercent', 'warehouseId'],
+        ['availableKg', 'capacityKg', 'thresholdPercent', 'usedKg', 'utilizationPercent', 'warehouseId'],
       );
       expect(res.body.warehouseId).toBe(idOf('WH-OOTY'));
       expect(res.body.capacityKg).toBe('50000.000');

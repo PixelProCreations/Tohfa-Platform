@@ -922,8 +922,12 @@ paths:
         (`capacityKg` null), `availableKg` and `utilizationPercent` are null too.
         Scoping is as for `GET /warehouses/{id}`: a Sub Warehouse Admin sees only its own
         warehouse; any other id is 404 `NOT_FOUND`, never 403 (BR-30, BR-66).
+        `thresholdPercent` is `system_config.alert_capacity_utilization_percent`, read on every call
+        through the same reader the `CAPACITY_NEAR_FULL` alert uses (BR-77f); null when that key is
+        missing or unusable, exactly when the alert is not raised (BR-131). It is a display value only:
+        nothing is refused against it.
       x-permission: warehouse.own.view
-      x-business-rules: [BR-30, BR-66]
+      x-business-rules: [BR-30, BR-66, BR-131]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
@@ -938,6 +942,7 @@ paths:
                 usedKg: '12500.250'
                 availableKg: '17499.750'
                 utilizationPercent: 41.67
+                thresholdPercent: 90
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -958,7 +963,7 @@ paths:
         Whether Main Warehouse Admin may set capacity is an open contradiction (Chapter 6
         says yes, the permission matrix says Super Admin only); Chapter 6 is implemented.
       x-permission: warehouse.capacity.set
-      x-business-rules: [BR-23, BR-35, BR-66]
+      x-business-rules: [BR-23, BR-35, BR-66, BR-131]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       requestBody:
@@ -16070,7 +16075,7 @@ components:
         Capacity of one warehouse and its derived usage (BR-66). `usedKg` is the sum of
         `qty_available` of the warehouse's ACTIVE batches; it is a read-only derivation,
         not a business rule. Nothing is clamped.
-      required: [warehouseId, capacityKg, usedKg, availableKg, utilizationPercent]
+      required: [warehouseId, capacityKg, usedKg, availableKg, utilizationPercent, thresholdPercent]
       properties:
         warehouseId: { type: string, format: uuid }
         capacityKg: { type: string, nullable: true, pattern: '^\d+\.\d{3}$', example: '30000.000' }
@@ -16086,6 +16091,16 @@ components:
           nullable: true
           description: usedKg / capacityKg * 100 rounded to 2 decimals; above 100 when over capacity.
           example: 41.67
+        thresholdPercent:
+          type: number
+          nullable: true
+          minimum: 0
+          maximum: 100
+          description: |
+            BR-131: `system_config.alert_capacity_utilization_percent` (0 to 100), the utilization at or above
+            which the `CAPACITY_NEAR_FULL` alert is raised (BR-77f). Null when the key is missing or unusable
+            (then no such alert is raised either). Independent of `capacityKg`: present even while no capacity is set.
+          example: 90
 
     OperatingHoursDay:
       description: One weekday of the operating hours (an unconfirmed default format, BR-80).

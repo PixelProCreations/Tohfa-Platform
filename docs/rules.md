@@ -3200,6 +3200,25 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-131 — Warehouse capacity reports the near-full alert threshold, read from system_config by the alerts' own reader
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-27): owner request "Group D" D6(a) for the admin mobile capacity card; extends BR-66 (capacity is derived) and BR-77f (the `CAPACITY_NEAR_FULL` alert); `docs/rbac.json` `warehouse.own.view` / `warehouse.capacity.set` (existing codes, unchanged) |
+| **Status** | DERIVED (the threshold value itself is the placeholder of open contradiction 25: UNCONFIRMED) |
+| **Layer** | Server-side: `warehousesRepo.capacityThresholdPercent` delegating to `tasksAlertsRepo.getAlertThresholds`; `warehousesService.getCapacity` / `setCapacity`; no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /warehouses/{id}/capacity` (and the `PATCH` response, which shares the shape) carries `thresholdPercent`: the value of `system_config.alert_capacity_utilization_percent`, read on every call through the very reader the alerts use (`tasksAlertsRepo.getAlertThresholds`), so the capacity card and the `CAPACITY_NEAR_FULL` alert can never disagree. A usable value is a JSON number from 0 to 100 and is returned as a JSON number; anything else (key missing, a string, null, below 0, above 100) is `null`, which is exactly when the alert is not raised (BR-77: "a missing or unusable threshold means that alert type is not raised"). No constant stands in for a missing value. It does not depend on `capacityKg` (present even while no capacity is set), it is a display value only (nothing is refused or clamped against it), and the endpoint's scope is unchanged (out of scope is still 404).
+
+**Failure mode if unenforced.** A hard-coded 90 on the device drifts from the alert threshold the owner configures, or a missing key silently shows a made-up threshold while no alert is raised.
+
+**Test contract.** (`apps/api/src/modules/warehouses/warehouse-capacity-threshold.test.ts`, `warehouses.test.ts`)
+- `BR-131a` The service returns the repo's threshold with the capacity, for GET and for the PATCH response; out of scope is still 404 and reads no threshold.
+- `BR-131b` Against PostgreSQL the value is the configured one (90 seeded; 95.5 after a change) and equals the alerts reader's; a missing or unusable value is `null`; a warehouse with no capacity still carries it.
+- `BR-131c` Through the real router the capacity payload key set is the documented one, `thresholdPercent` included.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

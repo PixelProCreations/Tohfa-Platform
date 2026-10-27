@@ -108,4 +108,14 @@ export const warehouseCapacityResponse = z.object({
   availableKg: z.string().nullable(),
   utilizationPercent: z.number().nullable(),
 });
+/** The capacity derivation as the repo reads it (BR-66), before the threshold is attached. */
 export type WarehouseCapacityResponse = z.infer<typeof warehouseCapacityResponse>;
+
+/**
+ * BR-131: the response adds `thresholdPercent`, `system_config.alert_capacity_utilization_percent`
+ * as the CAPACITY_NEAR_FULL alert reads it (BR-77f); null when missing or unusable.
+ */
+export const warehouseCapacityViewResponse = warehouseCapacityResponse.extend({
+  thresholdPercent: z.number().min(0).max(100).nullable(),
+});
+export type WarehouseCapacityView = z.infer<typeof warehouseCapacityViewResponse>;

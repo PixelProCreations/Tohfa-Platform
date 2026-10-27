@@ -15,6 +15,7 @@
  */
 import type { Executor } from '../../db/pool.js';
 import type { ScopedWhere } from '../../rbac/requirePermission.js';
+import { tasksAlertsRepo } from '../tasks-alerts/tasks-alerts.repo.js';
 import type {
   ListWarehousesQuery,
   WarehouseCapacityResponse,
@@ -95,6 +96,11 @@ export interface WarehousesRepo {
     id: string,
     scope: ScopedWhere,
   ): Promise<WarehouseCapacityResponse | null>;
+  /**
+   * BR-131: `alert_capacity_utilization_percent` through the alerts' own reader (BR-77f), so the
+   * capacity card and the CAPACITY_NEAR_FULL alert agree; null when missing or unusable.
+   */
+  capacityThresholdPercent(db: Executor): Promise<number | null>;
   /** Row-locks the warehouse and returns its current capacity (the before image). */
   lockCapacity(db: Executor, id: string, scope: ScopedWhere): Promise<CapacityRow | null>;
   /** Writes `warehouses.capacity_kg` and returns the stored (normalised) value. */
@@ -216,6 +222,14 @@ export const warehousesRepo: WarehousesRepo = {
       availableKg: row.available_kg,
       utilizationPercent: row.utilization_percent === null ? null : Number(row.utilization_percent),
     };
+  },
+
+  async capacityThresholdPercent(db): Promise<number | null> {
+    // The reader validates the value (a JSON number from 0 to 100) and hands it over as a decimal
+    // string; a percentage is not money, and the alert compares it in NUMERIC, so Number() is exact
+    // enough for display and never used for arithmetic here.
+    const { capacityPercent } = await tasksAlertsRepo.getAlertThresholds(db);
+    return capacityPercent === null ? null : Number(capacityPercent);
   },
 
   async lockCapacity(db, id, scope): Promise<CapacityRow | null> {
