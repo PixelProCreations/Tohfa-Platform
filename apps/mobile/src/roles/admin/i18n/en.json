@@ -8,19 +8,15 @@
   "warehouseScope.error.failed": "Check your connection and try again.",
   "warehouseScope.retry": "Retry",
   "warehouseScope.signOut": "Sign out",
-
   "async.loading": "Loading…",
   "async.error.title": "This could not be loaded",
   "async.retry": "Retry",
   "async.empty.title": "Nothing here yet",
-
   "admin.error.generic": "Something went wrong. Please try again.",
   "admin.error.network": "No connection. Check your internet and try again.",
-
   "admin.error.reason.UPI_TXN_REF_REUSED": "This UPI reference has already been used for another sale.",
   "admin.error.reason.UPI_NOT_VERIFIED": "The UPI payment could not be verified yet. The sale stays pending.",
   "admin.error.reason.PRICE_NOT_SET": "This product has no price set, so it cannot be sold.",
-
   "admin.error.CERT_EXPIRED": "The farmer's certification has expired.",
   "admin.error.CERT_UNVERIFIED": "The farmer's certificate has not been verified yet.",
   "admin.error.CERT_MISSING": "The farmer has no valid certificate on file.",
@@ -81,9 +77,7 @@
   "admin.error.PAYLOAD_TOO_LARGE": "This is too large to upload.",
   "admin.error.RATE_LIMITED": "Too many attempts. Please wait a moment and try again.",
   "admin.error.INTERNAL": "Something went wrong on our side. Please try again.",
-
   "unit.kg": "{{value}} kg",
-
   "datetime.month.1": "Jan",
   "datetime.month.2": "Feb",
   "datetime.month.3": "Mar",
@@ -109,7 +103,6 @@
   "datetime.hourAgo": "1 hour ago",
   "datetime.hoursAgo": "{{count}} hours ago",
   "datetime.daysAgo": "{{count}} days ago",
-
   "alert.batch_near_expiry.title": "Batch near expiry",
   "alert.batch_near_expiry.message": "Batch {{batchCode}} expires on {{expiryOn}} · {{qtyAvailableKg}} left",
   "alert.low_stock.title": "Low stock",
@@ -118,7 +111,6 @@
   "alert.capacity_near_full.message": "{{utilizationPercent}}% used · {{usedKg}} of {{capacityKg}}",
   "alert.unknown.title": "Warehouse alert",
   "alert.unknown.message": "A warehouse condition needs attention.",
-
   "alerts.filter.active": "Active",
   "alerts.filter.snoozed": "Snoozed",
   "alerts.dismiss": "Dismiss",
@@ -126,7 +118,6 @@
   "alerts.empty.active": "No alerts right now.",
   "alerts.empty.snoozed": "No snoozed alerts.",
   "alerts.actionFailed.title": "The alert could not be updated",
-
   "notifications.title": "Notifications",
   "notifications.markAllRead": "Mark all read",
   "notifications.filter.all": "All",
@@ -135,7 +126,6 @@
   "notifications.empty.subtitle": "New notifications will appear here.",
   "notifications.empty.unread": "No unread notifications.",
   "notifications.actionFailed.title": "Notifications could not be updated",
-
   "billing.noValue": "—",
   "billing.status.issued": "Issued",
   "billing.status.draft": "Draft",
@@ -163,7 +153,6 @@
   "billing.empty.invoices": "No invoices yet",
   "billing.empty.filtered": "No invoices match your search",
   "billing.loadMore": "Load more",
-
   "profile.noValue": "—",
   "profile.role.SUB_WH_ADMIN": "Sub Warehouse Admin",
   "profile.role.MAIN_WH_ADMIN": "Main Warehouse Admin",
@@ -255,7 +244,6 @@
   "profile.help.questionCount": "{{count}} Questions",
   "profile.help.categoryTitle": "{{category}} FAQS",
   "profile.help.empty": "No help articles have been published yet.",
-
   "returns.status.PENDING": "New",
   "returns.status.INSPECTED": "Inspected",
   "returns.status.APPROVED": "Approved",
@@ -351,7 +339,6 @@
   "returns.refund.viewHistory": "View Return History",
   "returns.error.INVALID_STATE_TRANSITION": "This return has moved on since you opened it. Go back to see its current status.",
   "returns.error.NOT_FOUND": "This return was not found.",
-
   "inventory.crop.unnamed": "Unnamed crop",
   "inventory.product.label": "{{product}} · {{grade}}",
   "inventory.grade.GRADE_1": "Grade 1",
@@ -394,7 +381,6 @@
   "inventory.level.out": "Out of stock",
   "inventory.product.notFound": "This product has no stock in this warehouse.",
   "inventory.batch.receivedOn": "Received {{date}}",
-
   "receiving.shipmentStatus.expected": "Expected",
   "receiving.shipmentStatus.awaitingQc": "Awaiting QC",
   "receiving.shipmentStatus.receiving": "Receiving",
@@ -455,7 +441,6 @@
   "receiving.wizard.done": "Done",
   "receiving.wizard.receiptKept": "Receipt {{grn}} is recorded. Retry completes its quality check; it does not record the delivery again.",
   "receiving.wizard.unknownOutcome": "We could not confirm whether this was saved. Retry checks first, so nothing is recorded twice.",
-
   "orders.noValue": "—",
   "orders.status.pendingPayment": "Payment Pending",
   "orders.status.confirmed": "Confirmed",
@@ -522,7 +507,6 @@
   "orders.pickup.otpHint": "Ask the customer for the 4-digit pickup code of this order. Too many wrong codes lock it.",
   "orders.pickup.notReady": "This order is {{status}}. A pickup code can be checked once it is ready for pickup.",
   "orders.pickup.attemptsLeft": "{{count}} attempts left before the code is locked.",
-
   "customers.noValue": "—",
   "customers.status.active": "Active",
   "customers.status.inactive": "Inactive",
@@ -680,7 +664,6 @@
   "customers.wallet.detail.dateTime": "Date/Time",
   "customers.wallet.detail.warehouse": "Warehouse",
   "customers.wallet.detail.reference": "Reference ID",
-
   "applicationGuide.title": "Application Guide",
   "applicationGuide.section.pest": "Pest",
   "applicationGuide.pestName": "Pest Name",
@@ -709,7 +692,6 @@
   "applicationGuide.section.incidents": "Farmer Incidents",
   "applicationGuide.sampleIncidents": "12 incidents related to this pest",
   "applicationGuide.viewIncidents": "View Incidents",
-
   "approvedInputs.title": "Approved Inputs",
   "approvedInputs.subtitle": "Bio-inputs, fertilizers, manures & soil amendments",
   "approvedInputs.searchPlaceholder": "Search by input name or code...",
@@ -735,7 +717,6 @@
   "approvedInputs.filterByCategory": "Category",
   "approvedInputs.filterByFarmingType": "Farming Type",
   "approvedInputs.filterByStatus": "Status",
-
   "categoriesGrades.title": "Categories & Grades",
   "categoriesGrades.subtitle": "Quality standards & grade definitions",
   "categoriesGrades.tab.categories": "Categories",
@@ -745,7 +726,6 @@
   "categoriesGrades.detail.totalProducts": "Total Products",
   "categoriesGrades.detail.associatedProducts": "Associated Products",
   "categoriesGrades.detail.backToCategories": "Back to Categories",
-
   "collectionConfirmation.title": "Collection Confirmation",
   "collectionConfirmation.subtitle": "Verify received produce quantities and details",
   "collectionConfirmation.section.orderSummary": "Order Summary",
@@ -759,7 +739,6 @@
   "collectionConfirmation.qualityResult": "Quality Verification",
   "collectionConfirmation.acknowledgement": "I confirm that the above produce has been received, inspected, and verified according to Tohfa procurement standards.",
   "collectionConfirmation.confirmBtn": "Confirm & Finalize Collection",
-
   "confirmPurchaseTerms.title": "Confirm Purchase Terms",
   "confirmPurchaseTerms.subtitle": "Final verification of agreed terms with farmer",
   "confirmPurchaseTerms.section.terms": "Agreed Procurement Terms",
@@ -772,7 +751,6 @@
   "confirmPurchaseTerms.totalAmount": "Total Procurement Value",
   "confirmPurchaseTerms.acknowledgement": "I confirm that both parties have mutually agreed upon the final quantity, pricing, and handover terms stated above.",
   "confirmPurchaseTerms.confirmBtn": "Confirm & Lock Terms",
-
   "farmerActivity.title": "Activity",
   "farmerActivity.subtitle": "Recent farmer actions and system events",
   "farmerActivity.all": "All",
@@ -786,7 +764,6 @@
   "farmerActivity.earlier": "Earlier",
   "farmerActivity.detail.title": "Activity Detail",
   "farmerActivity.detail.viewFarmer": "View Farmer Profile",
-
   "farmerAdminActivity.title": "Farmer Admin Activity",
   "farmerAdminActivity.subtitle": "Audit trail of admin operations and reviews",
   "farmerAdminActivity.tab.all": "All Activity",
@@ -794,7 +771,6 @@
   "farmerAdminActivity.tab.rejections": "Rejections",
   "farmerAdminActivity.tab.handovers": "Handovers",
   "farmerAdminActivity.empty": "No activity recorded for this filter",
-
   "farmerAdminMore.title": "More",
   "farmerAdminMore.menu.purchases": "Purchases",
   "farmerAdminMore.menu.inputsPests": "Inputs & Pest Management",
@@ -802,13 +778,11 @@
   "farmerAdminMore.menu.ratings": "Ratings",
   "farmerAdminMore.menu.issues": "Issues",
   "farmerAdminMore.menu.settings": "Settings",
-
   "farmerAdminNotifications.title": "Notifications",
   "farmerAdminNotifications.viewListing": "View Listing",
   "farmerAdminNotifications.viewAudit": "View Audit",
   "farmerAdminNotifications.viewDispute": "View Dispute",
   "farmerAdminNotifications.empty": "No notifications yet",
-
   "farmerAuditsTab.title": "Audits",
   "farmerAuditsTab.subtitle": "Audit Dashboard / Calendar",
   "farmerAuditsTab.kpi.upcoming": "UPCOMING AUDITS",
@@ -833,7 +807,6 @@
   "farmerAuditsTab.modal.reportsTitle": "Audit & Compliance Reports",
   "farmerAuditsTab.modal.reportsDesc": "Generate or export official field verification logs and smallholder adherence summaries.",
   "farmerAuditsTab.modal.done": "Done",
-
   "farmerHandover.title": "Farmer Handover",
   "farmerHandover.status.awaiting": "Status: Awaiting Handover",
   "farmerHandover.label.farmer": "Farmer",
@@ -852,7 +825,6 @@
   "farmerHandover.label.notes": "Notes",
   "farmerHandover.placeholder.notes": "Optional notes",
   "farmerHandover.action.confirm": "Confirm Handover",
-
   "farmerHistory.title": "Farmer History",
   "farmerHistory.category.all": "All",
   "farmerHistory.category.profile": "Profile",
@@ -868,7 +840,6 @@
   "farmerHistory.detail.reference": "Reference",
   "farmerHistory.detail.status": "Status",
   "farmerHistory.detail.viewFarmer": "View Farmer Profile",
-
   "farmerIssues.title": "Farmer Issues",
   "farmerIssues.detail.title": "Issue Detail",
   "farmerIssues.kpi.open": "OPEN",
@@ -881,7 +852,6 @@
   "farmerIssues.detail.relatedRecord": "Related Record",
   "farmerIssues.detail.description": "Description",
   "farmerIssues.detail.created": "Created",
-
   "farmerPestIncidents.title": "Farmer Pest Incidents",
   "farmerPestIncidents.subtitle": "Monitor pest incidents reported by TOHFA farmers",
   "farmerPestIncidents.filters.title": "Filters",
@@ -897,7 +867,6 @@
   "farmerPestIncidents.filter.apply": "Apply",
   "farmerPestIncidents.filter.clear": "Clear Filters",
   "farmerPestIncidents.search.placeholder": "Search incidents, pests, crops...",
-
   "farmerProduce.title": "Farmer Produce",
   "farmerProduce.kpi.totalListings": "TOTAL LISTINGS",
   "farmerProduce.kpi.pending": "PENDING",
@@ -907,7 +876,6 @@
   "farmerProduce.tab.pending": "Pending",
   "farmerProduce.tab.approved": "Approved",
   "farmerProduce.tab.rejected": "Rejected",
-
   "farmerProduceTab.title": "Produce",
   "farmerProduceTab.subtitle": "Produce Listings · Farmer Produce Control",
   "farmerProduceTab.kpi.pendingReview": "PENDING REVIEW",
@@ -923,7 +891,6 @@
   "farmerProduceTab.section.quickActions": "Quick Actions",
   "farmerProduceTab.action.pendingListings": "Produce Listings",
   "farmerProduceTab.action.listingHistory": "Listing History",
-
   "farmerProductListings.title": "Farmer Produce Listing",
   "farmerProductListings.subtitle": "Listings Pending Review",
   "farmerProductListings.search.placeholder": "Search crop, farmer name, or zone...",
@@ -937,7 +904,6 @@
   "farmerProductListings.label.listedProducts": "LISTED PRODUCTS",
   "farmerProductListings.badge.pending": "Pending",
   "farmerProductListings.submittedAt": "Submitted {{time}}",
-
   "farmerProfileDetail.title": "Farmer Profile",
   "farmerProfileDetail.tab.overview": "Overview",
   "farmerProfileDetail.tab.farm": "Farm",
@@ -956,7 +922,6 @@
   "farmerProfileDetail.badge.certified": "Certified",
   "farmerProfileDetail.prohibitedNotice": "Farmer profile modifications are restricted to verified administrators.",
   "farmerProfileDetail.disclaimer": "Data is synchronized with regional agricultural authority registries.",
-
   "farmerPurchases.title": "Purchases",
   "farmerPurchases.subtitle": "Purchase Management",
   "farmerPurchases.kpi.pendingPurchases": "PENDING PURCHASES",
@@ -972,7 +937,6 @@
   "farmerPurchases.quickAction.readyForCollection": "Ready for Collection",
   "farmerPurchases.quickAction.purchaseHistory": "Purchase History",
   "farmerPurchases.quickAction.produceListings": "Produce Listings",
-
   "farmersDirectory.title": "Farmers",
   "farmersDirectory.subtitle": "Farmer Community",
   "farmersDirectory.kpi.allFarmers": "ALL FARMERS",
@@ -983,7 +947,6 @@
   "farmersDirectory.label.farming": "Farming",
   "farmersDirectory.label.rating": "Rating",
   "farmersDirectory.label.status": "Status",
-
   "handoverConfirmation.title": "Handover Confirmation",
   "handoverConfirmation.destination": "Destination",
   "handoverConfirmation.dispatchQuantity": "Dispatch quantity",
@@ -1004,7 +967,6 @@
   "handoverConfirmation.action.details": "View Handover Details",
   "handoverConfirmation.action.history": "View History",
   "handoverConfirmation.backLabel": "Go back",
-
   "handoverDetails.backLabel": "Go back",
   "handoverDetails.subtitle": "Completed - Main warehouse",
   "handoverDetails.section.manifest": "Handover manifest",
@@ -1036,7 +998,6 @@
   "handoverDetails.step.acknowledgement.desc": "Received 30 KG.",
   "handoverDetails.step.completed.title": "Handover completed",
   "handoverDetails.step.completed.desc": "Received in full.",
-
   "handoverHistory.title": "Handover History",
   "handoverHistory.subtitle": "Review completed and previous actives.",
   "handoverHistory.backLabel": "Go back",
@@ -1057,7 +1018,6 @@
   "handoverHistory.filterPage.destination": "DESTINATION",
   "handoverHistory.filterPage.reset": "Reset",
   "handoverHistory.filterPage.apply": "Apply Filters",
-
   "inputDetail.backLabel": "Go back",
   "inputDetail.statusLabel": "Status: ",
   "inputDetail.section.basicInfo": "Basic Information",
@@ -1074,7 +1034,6 @@
   "inputDetail.label.method": "Application Method",
   "inputDetail.label.usage": "Recommended Usage",
   "inputDetail.label.frequency": "Frequency",
-
   "inputsPestHome.title": "Inputs & Pest",
   "inputsPestHome.subtitle": "Inputs & Pest Management",
   "inputsPestHome.backLabel": "Go back",
@@ -1089,7 +1048,6 @@
   "inputsPestHome.quickAction.applicationGuides": "Application Guides",
   "inputsPestHome.quickAction.pestIncidents": "Pest Incidents",
   "inputsPestHome.section.recentActivity": "Recent Farmer Pest Activity",
-
   "listingHistory.title": "Listing History",
   "listingHistory.backLabel": "Go back",
   "listingHistory.event.created": "Listing Created",
@@ -1097,7 +1055,6 @@
   "listingHistory.event.assigned": "Assigned to Farmer Admin",
   "listingHistory.event.reviewed": "Listing Reviewed",
   "listingHistory.event.counterSent": "Counter Offer Sent",
-
   "markupPricingBreakdown.title": "Markup & Pricing Breakdown",
   "markupPricingBreakdown.backLabel": "Go back",
   "markupPricingBreakdown.section.pricingFlow": "Pricing Flow",
@@ -1108,7 +1065,6 @@
   "markupPricingBreakdown.label.customerDiscount": "Customer Discount",
   "markupPricingBreakdown.label.finalCustomerPrice": "Final Customer Price",
   "markupPricingBreakdown.section.expenseBreakdown": "Expense Breakdown",
-
   "pestIncidentDetail.title": "Incident Detail",
   "pestIncidentDetail.subtitle": "Monitor pest incidents reported by TOHFA farmers",
   "pestIncidentDetail.backLabel": "Go back",
@@ -1141,11 +1097,9 @@
   "pestIncidentDetail.label.notes": "Notes",
   "pestIncidentDetail.action.viewApplicationGuide": "View Application Guide",
   "pestIncidentDetail.label.status": "Status",
-
   "pestLibrary.title": "Pest & Pesticide Library",
   "pestLibrary.backLabel": "Go back",
   "pestLibrary.searchPlaceholder": "Pest name, scientific name, crop, symptom, treatment",
-
   "produceDamageInspection.title": "Produce Verification & Approval",
   "produceDamageInspection.backLabel": "Go back",
   "produceDamageInspection.section.steps": "Verification steps",
@@ -1164,7 +1118,6 @@
   "produceDamageInspection.summaryFootnote": "Preliminary only: verified minus damaged. It is not a purchase approval; the purchase quantity also follows the grade result and TOHFA's remaining requirement.",
   "produceDamageInspection.action.prevStep": "Previous Step",
   "produceDamageInspection.action.continue": "Continue",
-
   "produceFairPriceCheck.title": "Produce Verification & Approval",
   "produceFairPriceCheck.backLabel": "Go back",
   "produceFairPriceCheck.section.steps": "Verification steps",
@@ -1177,7 +1130,6 @@
   "produceFairPriceCheck.waitingSubtitle": "Select a grade first; the price reference depends on the grade.",
   "produceFairPriceCheck.action.prevStep": "Previous Step",
   "produceFairPriceCheck.action.continue": "Continue",
-
   "produceFinalEligibilityDecision.title": "Produce Verification & Approval",
   "produceFinalEligibilityDecision.backLabel": "Go back",
   "produceFinalEligibilityDecision.section.steps": "Verification steps",
@@ -1203,7 +1155,6 @@
   "produceFinalEligibilityDecision.action.reject": "Reject",
   "produceFinalEligibilityDecision.action.review": "Send for Further Review",
   "produceFinalEligibilityDecision.action.prevStep": "Previous Step",
-
   "produceGradeCheck.title": "Produce Verification & Approval",
   "produceGradeCheck.backLabel": "Go back",
   "produceGradeCheck.section.steps": "Verification steps",
@@ -1224,7 +1175,6 @@
   "produceGradeCheck.uploadText": "Upload file",
   "produceGradeCheck.action.prevStep": "Previous Step",
   "produceGradeCheck.action.continue": "Continue",
-
   "produceListingDetails.title": "Produce Listing Details",
   "produceListingDetails.subtitle": "Pending Review",
   "produceListingDetails.backLabel": "Go back",
@@ -1243,7 +1193,6 @@
   "produceListingDetails.ownListingTitle": "Your Own Listing",
   "produceListingDetails.ownListingNotice": "This listing belongs to you as a farmer. You cannot review, approve, or purchase your own produce listing — an independent Farmer Admin or SA must perform this verification.",
   "produceListingDetails.done": "Done",
-
   "produceListings.title": "Produce Listings",
   "produceListings.backLabel": "Go back",
   "produceListings.pendingCounter": "24 Pending",
@@ -1255,7 +1204,6 @@
   "produceListings.filterPage.zone": "Zone",
   "produceListings.filterPage.clearAll": "Clear All",
   "produceListings.filterPage.apply": "Apply Filters",
-
   "produceQualityVerification.title": "Produce Verification & Approval",
   "produceQualityVerification.backLabel": "Go back",
   "produceQualityVerification.section.steps": "Verification steps",
@@ -1272,7 +1220,6 @@
   "produceQualityVerification.alert.completedMsg": "Quality verification checks recorded successfully. Proceeding to Step 3 Grade Check.",
   "produceQualityVerification.alert.photoTitle": "Photograph Attached",
   "produceQualityVerification.alert.photoMsg": "quality_inspection_photo_01.jpg attached.",
-
   "produceVerificationApproval.title": "Produce Verification & Approval",
   "produceVerificationApproval.backLabel": "Go back",
   "produceVerificationApproval.section.steps": "Verification steps",
@@ -1308,7 +1255,6 @@
   "produceVerificationApproval.alert.requiredMsg": "Please enter the verified available quantity in KG.",
   "produceVerificationApproval.alert.fileTitle": "File Attached",
   "produceVerificationApproval.alert.fileMsg": "weighing_slip_001.jpg attached successfully.",
-
   "purchaseHistory.title": "Purchase History",
   "purchaseHistory.backLabel": "Go back",
   "purchaseHistory.filterPage.title": "Filter History",
@@ -1322,7 +1268,6 @@
   "purchaseHistory.label.collectionDate": "Collection date",
   "purchaseHistory.label.total": "Total",
   "purchaseHistory.label.quantity": "Quantity",
-
   "purchaseOrderDetail.title": "Purchase Order",
   "purchaseOrderDetail.subtitle": "Awaiting Handover",
   "purchaseOrderDetail.backLabel": "Go back",
@@ -1338,7 +1283,6 @@
   "purchaseOrderDetail.label.agreedPrice": "Agreed Price",
   "purchaseOrderDetail.label.totalAmount": "Total Purchase Amount",
   "purchaseOrderDetail.action.processHandover": "Process Handover",
-
   "purchaseOrders.title": "Purchase Orders",
   "purchaseOrders.backLabel": "Go back",
   "purchaseOrders.filterPage.title": "Filter Purchase Orders",
@@ -1352,7 +1296,6 @@
   "purchaseOrders.action.viewOrder": "View",
   "purchaseOrders.action.handover": "Handover",
   "purchaseOrders.action.collect": "Collect",
-
   "retailPricing.title": "Retail Pricing",
   "retailPricing.backLabel": "Go back",
   "retailPricing.filterLabel": "Filters",
@@ -1373,7 +1316,6 @@
   "retailPricing.filters.clearAll": "Clear All",
   "retailPricing.filters.apply": "Apply Filters",
   "retailPricing.empty": "No retail prices found",
-
   "reviewProduceListing.title": "Review Produce Listing",
   "reviewProduceListing.backLabel": "Go back",
   "reviewProduceListing.badge.normal": "Normal",
@@ -1385,7 +1327,6 @@
   "reviewProduceListing.item.pricingCompliance": "Pricing & Fair-price compliance",
   "reviewProduceListing.item.certification": "Certification",
   "reviewProduceListing.item.tohfaReq": "TOHFA requirement",
-
   "searchFarmers.title": "Search Farmers",
   "searchFarmers.backLabel": "Go back",
   "searchFarmers.searchPlaceholder": "Farmer ID / Name / Zone",
@@ -1397,7 +1338,6 @@
   "searchFarmers.filter.status": "Status",
   "searchFarmers.action.clear": "Clear Filters",
   "searchFarmers.action.apply": "Apply Filters",
-
   "fairPriceCeiling.title": "Fair Price",
   "fairPriceCeiling.backLabel": "Go back",
   "fairPriceCeiling.searchPlaceholder": "Crop, product, crop code, category",
@@ -1412,7 +1352,6 @@
   "fairPriceCeiling.filters.clearAll": "Clear All",
   "fairPriceCeiling.filters.apply": "Apply Filters",
   "fairPriceCeiling.empty": "No fair prices found",
-
   "listingApprovalQueue.title": "Listing Approval Queue",
   "listingApprovalQueue.backLabel": "Go back",
   "listingApprovalQueue.subtitleSingular": "1 listing awaiting review",
@@ -1422,7 +1361,6 @@
   "listingApprovalQueue.action.counter": "Counter",
   "listingApprovalQueue.action.reject": "Reject",
   "listingApprovalQueue.empty": "No listings awaiting approval",
-
   "marketPricingHome.title": "Market & Pricing",
   "marketPricingHome.subtitle": "Market & Pricing Dashboard",
   "marketPricingHome.backLabel": "Go back",
@@ -1440,7 +1378,6 @@
   "marketPricingHome.action.priceHistory": "Price History",
   "marketPricingHome.action.retailPricing": "Retail Pricing",
   "marketPricingHome.disclaimer": "Farmer Admins have view-only access to price ceilings and retail pricing configured by TOHFA Super Admins.",
-
   "priceHistory.title": "Price History",
   "priceHistory.backLabel": "Go back",
   "priceHistory.searchPlaceholder": "Search crop, grade, category...",
@@ -1460,7 +1397,6 @@
   "priceHistory.filters.apply": "Apply Filters",
   "priceHistory.infoBanner": "Price history reflects changes in TOHFA fair price ceilings and retail prices over time. Configured by Super Admins.",
   "priceHistory.empty": "No price history records found",
-
   "farmerRatings.title": "Farmer Ratings",
   "farmerRatings.subtitle": "Overview & analytics",
   "farmerRatings.overview.recentlyUpdated": "RECENTLY UPDATED",
@@ -1491,7 +1427,6 @@
   "farmerRatings.review.confirmSubmit": "Confirm & Submit",
   "farmerRatings.review.goBack": "Go Back",
   "farmerRatings.permission.title": "Admin Permissions Required",
-
   "farmerAdminDashboard.header.title": "Farmer Admin",
   "farmerAdminDashboard.header.subtitle": "Farmer Community",
   "farmerAdminDashboard.greeting.sub": "Here's your Farmer Admin activity for today.",
@@ -1503,14 +1438,12 @@
   "farmerAdminDashboard.tab.produce": "Produce",
   "farmerAdminDashboard.tab.audits": "Audits",
   "farmerAdminDashboard.tab.more": "More",
-
   "mainWarehouseAdminDashboard.header.title": "Main Warehouse Admin",
   "mainWarehouseAdminDashboard.tab.home": "Home",
   "mainWarehouseAdminDashboard.tab.receiving": "Receiving",
   "mainWarehouseAdminDashboard.tab.inventory": "Inventory",
   "mainWarehouseAdminDashboard.tab.more": "More",
   "mainWarehouseAdminDashboard.action.manageSwa": "Manage SWA Accounts",
-
   "auditSchedule.title": "Audit Schedule & Field Visits",
   "auditSchedule.header.calendar": "Audit Calendar",
   "auditSchedule.header.history": "Audit History",
@@ -1526,7 +1459,6 @@
   "auditSchedule.filter.today": "Today",
   "auditSchedule.filter.upcoming": "Upcoming",
   "auditSchedule.filter.completed": "Completed",
-
   "farmerDisputes.title": "Disputes & Mediation",
   "farmerDisputes.subtitle": "Farmer complaints and mediation records",
   "farmerDisputes.searchPlaceholder": "Search by dispute ID, farmer or subject...",
@@ -1535,17 +1467,14 @@
   "farmerDisputes.detail.title": "Dispute Detail",
   "farmerDisputes.overview.section": "Dispute Overview",
   "farmerDisputes.resolve": "Resolve Dispute",
-
   "farmerSecurity.title": "Security & Privacy",
   "farmerSecurity.subtitle": "Password, sessions, and activity logs",
-
   "farmerProfile.title": "Admin Profile",
   "farmerProfile.subtitle": "Agricultural Officer & Field Inspector",
   "farmerProfile.edit.title": "Edit Profile",
   "farmerProfile.edit.subtitle": "Update your administrator details",
   "farmerProfile.updated.title": "Profile Updated",
   "farmerProfile.updated.subtitle": "Your changes have been saved successfully",
-
   "mainDashboard.greeting.morning": "Good morning, {{name}}",
   "mainDashboard.greeting.afternoon": "Good afternoon, {{name}}",
   "mainDashboard.greeting.evening": "Good evening, {{name}}",
@@ -1600,7 +1529,6 @@
   "storageOps.activity.direction.OUTBOUND": "Outbound",
   "storageOps.activity.subtitle": "{{reference}} · {{warehouse}}",
   "storageOps.activity.subtitleWithQty": "{{reference}} · {{qty}} · {{warehouse}}",
-
   "storageOps.activity.status.AWAITING_QC": "Awaiting QC",
   "storageOps.activity.status.ACCEPTED": "Accepted",
   "storageOps.activity.status.PARTIALLY_ACCEPTED": "Partially accepted",
@@ -1620,12 +1548,9 @@
   "storageOps.activity.status.APPROVED": "Approved",
   "storageOps.activity.status.REFUND_PENDING_BANK": "Bank refund pending",
   "storageOps.activity.status.REFUNDED": "Refunded",
-
   "storageOps.activity.notAvailable.title": "Warehouse activity is not available",
   "storageOps.activity.notAvailable.subtitle": "Your role does not include the warehouse activity log.",
-
   "mainDashboard.kgUpper": "{{value}} KG",
-
   "mainDashboard.ops.expected": "Expected",
   "mainDashboard.ops.arrived": "Arrived",
   "mainDashboard.ops.discrepancies": "Discrepancies",
@@ -1638,7 +1563,6 @@
   "mainDashboard.alert.detail.time": "Time",
   "mainDashboard.alert.detail.description": "Description",
   "mainDashboard.stock.total": "Total",
-
   "receiving.shipmentStatus.rejected": "Rejected",
   "receiving.qc.problem.breakdown": "Damaged and spoiled together cannot be more than the rejected weight.",
   "receiving.qty.kg": "{{value}} KG",
@@ -1698,7 +1622,6 @@
   "receiving.doc.pointsValue": "{{passed}} of {{total}} passed",
   "receiving.doc.checkedBy": "Checked By",
   "receiving.doc.discrepancies": "Discrepancies",
-
   "receiving.stat.expected": "Expected",
   "receiving.stat.received": "Received",
   "receiving.stat.accepted": "Accepted",
@@ -1706,7 +1629,6 @@
   "receiving.stat.arrived": "Arrived",
   "receiving.timeline.arrived": "Arrived",
   "receiving.timeline.qualityChecked": "Quality Checked",
-
   "transfers.status.PENDING_APPROVAL": "Pending SA Approval",
   "transfers.status.IN_TRANSIT": "In Transit",
   "transfers.status.RECEIVED": "Completed",
@@ -1781,7 +1703,6 @@
   "transfers.summary.received": "Received: {{value}}",
   "transfers.summary.discrepancy": "Discrepancy: {{value}}",
   "transfers.summary.batch": "Batch: {{value}}",
-
   "receiving.dash.tile.expectedToday": "Expected Today",
   "receiving.dash.tile.awaitingReceiving": "Awaiting Receiving",
   "receiving.dash.tile.awaitingQc": "Awaiting QC",
@@ -1799,7 +1720,6 @@
   "receiving.dash.queue.qcPending": "QC Pending",
   "receiving.dash.refresh": "Refresh",
   "receiving.issueKind.qcPending": "QC Pending",
-
   "receiving.wizard.qc.code": "{{n}} — REQUIRED",
   "receiving.wizard.qc.appearance": "Appearance",
   "receiving.wizard.qc.size": "Size Uniformity",
@@ -1817,13 +1737,10 @@
   "receiving.wizard.outcome.accept": "Accept",
   "receiving.wizard.outcome.partial": "Partial Accept",
   "receiving.wizard.outcome.reject": "Reject",
-
   "receiving.filters.reset": "Reset",
   "receiving.filters.apply": "Apply Filters",
   "receiving.filters.all": "All",
-
   "transfers.inspection.failed.title": "Could not record the receipt",
-
   "receiving.shipment.shipmentId": "Shipment ID",
   "receiving.shipment.type": "Type",
   "receiving.shipment.typeFarmerAdmin": "Farmer/Admin Consolidated",
@@ -1833,7 +1750,6 @@
   "receiving.shipment.createdDate": "Created Date",
   "receiving.shipment.actualArrival": "Actual Arrival",
   "receiving.shipment.timelineLink": "Timeline →",
-
   "receiving.history.receiptId": "Receipt ID",
   "receiving.history.shipmentId": "Shipment ID",
   "receiving.history.warehouse": "Warehouse",
@@ -1843,11 +1759,9 @@
   "receiving.history.supplier": "Supplier",
   "receiving.history.variance": "Variance",
   "receiving.history.noDiscrepancies": "No damage or mismatch reports for this receipt.",
-
   "receiving.issues.pendingChecks": "Pending Checks",
   "receiving.issues.rejected": "Rejected",
   "receiving.issues.partiallyAccepted": "Partially Accepted",
-
   "receiving.wizard.acceptAddInventory": "Accept & Add to Inventory ({{qty}})",
   "receiving.wizard.acceptedQty": "Accepted Qty",
   "receiving.wizard.acceptedQuantity": "Accepted Quantity",
@@ -1968,6 +1882,148 @@
   "receiving.wizard.viewBatchAtLocation": "{{code}}\nFull {{qty}} {{product}} allocated to {{location}}.",
   "receiving.wizard.viewBatchText": "{{code}}\nFull {{qty}} {{product}}.",
   "receiving.wizard.warehouse": "Warehouse",
-
-  "receiving.wizard.confirmLocationComplete": "Confirm Location Assignment & Complete Receiving →"
+  "receiving.wizard.confirmLocationComplete": "Confirm Location Assignment & Complete Receiving →",
+  "inventory.allocation.title": "Stock Allocation",
+  "inventory.allocation.tab.stock": "Stock",
+  "inventory.allocation.tab.ledger": "Ledger",
+  "inventory.allocation.tab.allocation": "Allocation",
+  "inventory.allocation.tab.verify": "Verify",
+  "inventory.allocation.splitTitle": "Total Stock Split",
+  "inventory.allocation.splitSubtitle": "Share of allocated stock",
+  "inventory.allocation.stat.allocated": "ALLOCATED",
+  "inventory.allocation.stat.consumed": "CONSUMED",
+  "inventory.allocation.stat.reserved": "RESERVED",
+  "inventory.allocation.stat.available": "AVAILABLE",
+  "stockShared.pair": "{{first}} · {{second}}",
+  "stockShared.open": "Open",
+  "stockShared.keep": "Keep",
+  "stockShared.loadMore": "Load more",
+  "stockShared.kgPlaceholder": "0.000 kg",
+  "stockShared.batch.title": "Batch",
+  "stockShared.batch.empty": "No active batches with stock in this warehouse.",
+  "stockShared.field.batch": "Batch",
+  "stockShared.field.product": "Product",
+  "stockShared.field.location": "Storage location",
+  "stockShared.field.available": "On the shelf now",
+  "stockShared.field.reference": "Reference",
+  "stockShared.tile.system": "SYSTEM",
+  "stockShared.tile.counted": "COUNTED",
+  "stockShared.tile.variance": "VARIANCE",
+  "stockCount.hub.title": "Stock Verification",
+  "stockCount.hub.note": "A physical count never changes stock. A difference becomes a stock adjustment that another admin approves.",
+  "stockCount.hub.start": "Start Physical Count",
+  "stockCount.hub.varianceLink": "Variance review",
+  "stockCount.hub.historyLink": "Adjustment history",
+  "stockCount.hub.recent": "Recent counts",
+  "stockCount.list.empty": "No stock counts recorded yet.",
+  "stockCount.row.detail": "System {{system}} · Counted {{counted}} · Variance {{variance}}",
+  "stockCount.row.variance": "Variance {{variance}}",
+  "stockCount.status.RECORDED": "Variance found",
+  "stockCount.status.RECONCILED": "Reconciled",
+  "stockCount.status.DISPUTED": "Disputed",
+  "stockCount.status.unknown": "Status not known",
+  "stockCount.count.title": "Physical Count",
+  "stockCount.count.countedLabel": "Counted quantity (kg)",
+  "stockCount.count.notesLabel": "Notes (optional)",
+  "stockCount.count.notesPlaceholder": "Anything the reviewer should know about this count",
+  "stockCount.count.submit": "Record Count",
+  "stockCount.count.note": "The system quantity is taken from the stock ledger when you record the count, so the variance is worked out on the server.",
+  "stockCount.form.error.batch": "Choose the batch you counted.",
+  "stockCount.form.error.count": "Enter the counted quantity in kg, with at most 3 decimals.",
+  "stockCount.form.error.notesLong": "Notes can be at most 1000 characters.",
+  "stockCount.review.title": "Variance Review",
+  "stockCount.review.queueNote": "Counts that found a difference between the shelf and the stock ledger.",
+  "stockCount.review.empty": "No counts with a variance.",
+  "stockCount.review.notFound": "This count could not be found.",
+  "stockCount.review.countedAt": "Counted",
+  "stockCount.review.figures": "Count result",
+  "stockCount.review.notes": "Notes: {{text}}",
+  "stockCount.review.matched": "The count matches the stock ledger. Nothing to adjust.",
+  "stockCount.review.raised": "An adjustment for this variance has been raised. Adjustment status: {{status}}.",
+  "stockCount.review.ledgerNote": "The count never overwrites the system quantity. Raising an adjustment sends the variance for approval; stock moves only when another admin approves it.",
+  "stockCount.review.raise": "Raise Adjustment",
+  "stockCount.review.raiseConfirmTitle": "Raise an adjustment?",
+  "stockCount.review.raiseConfirmBody": "A count correction of {{variance}} will be sent for approval.",
+  "stockCount.review.viewAdjustment": "View Adjustment",
+  "stockAdj.batch.adjust": "Adjust Stock",
+  "stockAdj.status.PENDING": "Pending approval",
+  "stockAdj.status.APPROVED": "Approved",
+  "stockAdj.status.REJECTED": "Rejected",
+  "stockAdj.status.unknown": "Status not known",
+  "stockAdj.type.DAMAGE": "Damage",
+  "stockAdj.type.SHRINKAGE": "Shrinkage",
+  "stockAdj.type.COUNT_CORRECTION": "Count correction",
+  "stockAdj.type.EXPIRY": "Expiry",
+  "stockAdj.type.unknown": "Other",
+  "stockAdj.filter.ALL": "All",
+  "stockAdj.direction.remove": "Remove stock",
+  "stockAdj.direction.add": "Add stock",
+  "stockAdj.history.title": "Adjustment History",
+  "stockAdj.history.new": "New Adjustment",
+  "stockAdj.history.empty": "No adjustments in this status.",
+  "stockAdj.request.title": "Stock Adjustment Request",
+  "stockAdj.request.type": "Type",
+  "stockAdj.request.direction": "Direction",
+  "stockAdj.request.qtyLabel": "Quantity (kg)",
+  "stockAdj.request.reasonLabel": "Reason",
+  "stockAdj.request.reasonPlaceholder": "Why the stock needs adjusting (at least 5 characters)",
+  "stockAdj.request.submit": "Submit Adjustment Request",
+  "stockAdj.request.note": "Nothing changes on submit. The adjustment waits for another admin to approve it, and only then is it written to the stock ledger.",
+  "stockAdj.form.error.batch": "Choose the batch to adjust.",
+  "stockAdj.form.error.qty": "Enter a quantity above zero in kg, with at most 3 decimals.",
+  "stockAdj.form.error.qtyAboveAvailable": "You cannot remove more than the batch holds.",
+  "stockAdj.form.error.direction": "This type can only remove stock.",
+  "stockAdj.form.error.reasonShort": "Write a reason of at least 5 characters.",
+  "stockAdj.form.error.reasonLong": "The reason can be at most 500 characters.",
+  "stockAdj.detail.title": "Stock Adjustment",
+  "stockAdj.detail.notFound": "This adjustment could not be found.",
+  "stockAdj.detail.summary": "Adjustment summary",
+  "stockAdj.detail.type": "Type",
+  "stockAdj.detail.quantity": "Quantity",
+  "stockAdj.detail.created": "Raised",
+  "stockAdj.detail.decided": "Decided",
+  "stockAdj.detail.reason": "Reason",
+  "stockAdj.detail.rejectionReason": "Rejected: {{text}}",
+  "stockAdj.detail.pendingNote": "Waiting for approval. Stock has not changed yet.",
+  "stockAdj.detail.approvedNote": "Approved and written to the stock ledger.",
+  "stockAdj.detail.noApprovePermission": "Another admin with approval rights decides this adjustment.",
+  "stockAdj.detail.approve": "Approve",
+  "stockAdj.detail.approveConfirmTitle": "Approve this adjustment?",
+  "stockAdj.detail.approveConfirmBody": "{{qty}} will be written to the stock ledger for batch {{batch}}.",
+  "stockAdj.detail.reject": "Reject",
+  "stockAdj.detail.rejectConfirm": "Confirm Reject",
+  "stockAdj.detail.rejectReasonLabel": "Reason for rejecting",
+  "stockAdj.detail.rejectReasonPlaceholder": "Tell the requester why",
+  "stockAdj.detail.viewCount": "View Count",
+  "stockAdj.detail.viewLedger": "View Stock Ledger",
+  "stockAdj.error.selfApproval": "You raised this adjustment, so another admin must approve or reject it.",
+  "stockAdj.error.state": "This adjustment has already been decided. Refresh to see its status.",
+  "stockAdj.error.stockUnavailable": "The batch no longer holds enough stock for this adjustment.",
+  "stockAdj.error.forbidden": "You do not have permission to decide stock adjustments.",
+  "inventory.movementDetail.title": "Movement Detail",
+  "inventory.movementDetail.notFound": "This movement could not be opened. Go back to the stock ledger and tap it again.",
+  "inventory.movementDetail.section": "Movement",
+  "inventory.movementDetail.remarks": "Remarks",
+  "inventory.movementDetail.ledgerNote": "Ledger entries are never edited. A correction is recorded as a new movement.",
+  "inventory.movementDetail.field.type": "Movement type",
+  "inventory.movementDetail.field.warehouse": "Warehouse",
+  "inventory.movementDetail.field.quantity": "Quantity",
+  "inventory.movementDetail.field.balanceAfter": "Balance after",
+  "inventory.movementDetail.field.product": "Product",
+  "inventory.movementDetail.field.batch": "Batch",
+  "inventory.movementDetail.field.reference": "Reference",
+  "inventory.movementDetail.field.performedAt": "Date & time",
+  "inventory.movementDetail.ref.GOODS_RECEIPT": "Goods receipt",
+  "inventory.movementDetail.ref.ORDER": "Order",
+  "inventory.movementDetail.ref.STOCK_TRANSFER": "Stock transfer",
+  "inventory.movementDetail.ref.STOCK_ADJUSTMENT": "Stock adjustment",
+  "inventory.movementDetail.ref.RETURN_REQUEST": "Return request",
+  "inventory.allocation.detailTitle": "{{name}} Allocation Detail",
+  "inventory.allocation.detail.allocated": "Allocated",
+  "inventory.allocation.detail.reserved": "Reserved",
+  "inventory.allocation.detail.available": "Available",
+  "inventory.allocation.detailClose": "Close",
+  "inventory.allocation.openDetail": "Open {{name}} allocation detail",
+  "inventory.allocation.fcfsNote": "Online stock is first come, first served: a customer's cart holds stock from the Online bucket when they add it, and an order larger than the Online bucket's available stock is refused rather than taken from Reserve. Channel percentages are set by the Super Admin; this screen does not change them.",
+  "stockShared.field.warehouse": "Warehouse"
 }
