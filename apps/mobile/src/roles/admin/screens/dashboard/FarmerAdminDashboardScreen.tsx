@@ -2186,6 +2186,7 @@ export function FarmerAdminDashboardScreen({
     | 'farmer_ratings'
     | 'disputes'
     | 'dispute_detail'
+    | 'dispute_timeline'
     | 'dispute_resolution'
     | 'farmers_management';
     moreSubScreen?:
@@ -2797,22 +2798,23 @@ export function FarmerAdminDashboardScreen({
       <FairPriceCeilingScreen
         onBack={() => goBack()}
         onNavigateToBreakdown={(item) => {
+          if (!item) return;
           pushNavigation({
             subView: 'markup_breakdown',
             selectedRetailItem: {
               id: item.id,
-              cropGrade: `${item.crop} · ${item.grade}`,
-              product: item.crop,
+              cropGrade: `${item.product} · ${item.grade}`,
+              product: item.product,
               grade: item.grade,
-              purchasePrice: item.purchasePrice || '₹80.00/kg',
-              markup: item.markup || '10%',
+              purchasePrice: item.ceilingText || '₹80.00/kg',
+              markup: '10%',
               expenses: '₹10.00',
-              expensesDetail: item.expensesDetail || 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
-              retailPrice: item.retailPrice || '₹98.00/kg',
-              customerDiscount: item.customerDiscount || '₹5.00',
+              expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+              retailPrice: item.ceilingText || '₹98.00/kg',
+              customerDiscount: '₹5.00',
               effectiveDate: item.effectiveFrom,
               status: 'Active',
-              category: item.category === 'Fruits' ? 'Fruits' : 'Vegetables',
+              category: item.category === 'Root crops & bulbs' ? 'Root crops & bulbs' : item.category === 'Spices' ? 'Spices' : 'Vegetables',
             },
           });
         }}
@@ -2844,9 +2846,24 @@ export function FarmerAdminDashboardScreen({
       <RetailPricingScreen
         onBack={() => goBack()}
         onSelectBreakdown={(item) => {
+          if (!item) return;
           pushNavigation({
             subView: 'markup_breakdown',
-            selectedRetailItem: item,
+            selectedRetailItem: {
+              id: item.id,
+              cropGrade: `${item.product} · ${item.grade}`,
+              product: item.product,
+              grade: item.grade,
+              purchasePrice: item.ceilingText || '₹80.00/kg',
+              markup: '10%',
+              expenses: '₹10.00',
+              expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
+              retailPrice: item.retailText || '₹98.00/kg',
+              customerDiscount: '₹5.00',
+              effectiveDate: item.effectiveDate,
+              status: item.status,
+              category: item.category,
+            },
           });
         }}
       />
@@ -3800,6 +3817,7 @@ export function FarmerAdminDashboardScreen({
       {subView === 'none' &&
         (activeTab === 'Home' ||
           (activeTab === 'Farmers' && farmersInternalView === 'list') ||
+          activeTab === 'Produce' ||
           activeTab === 'Audits' ||
           (activeTab === 'More' && moreSubScreen === 'menu')) && (
           <View style={styles.tabBar}>

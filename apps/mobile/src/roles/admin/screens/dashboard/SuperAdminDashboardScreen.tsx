@@ -693,12 +693,26 @@ export function SuperAdminDashboardScreen({
             <FairPriceCeilingScreen
               onBack={() => setPricingSubScreen('home')}
               onUpdatePrice={(item) => {
-                setSelectedPriceCrop(item);
+                if (item) {
+                  setSelectedPriceCrop({
+                    name: item.product,
+                    category: item.category,
+                    price: item.priceVal ?? 0,
+                    lastUpdate: item.effectiveFrom || 'Today',
+                  });
+                }
                 setPricingSubScreen('update_price');
               }}
               onBulkUpdate={() => setPricingSubScreen('bulk_update')}
               onViewHistory={(item) => {
-                setSelectedPriceCrop(item);
+                if (item) {
+                  setSelectedPriceCrop({
+                    name: item.product,
+                    category: item.category,
+                    price: item.priceVal ?? 0,
+                    lastUpdate: item.effectiveFrom || 'Today',
+                  });
+                }
                 setPricingSubScreen('price_history');
               }}
             />
