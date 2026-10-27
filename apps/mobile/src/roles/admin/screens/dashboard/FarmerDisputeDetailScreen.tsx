@@ -1003,8 +1003,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   neutralChip: {
-    backgroundColor: '#F4F3EE',
-    borderRadius: 6,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -1015,8 +1015,8 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   internalBlueChip: {
-    backgroundColor: '#DCECFE',
-    borderRadius: 6,
+    backgroundColor: adminColors.info.bg,
+    borderRadius: adminRadius.sm,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontSize: 11,
     fontWeight: '700',
-    color: '#0A58CA',
+    color: adminColors.info.text,
   },
   actionsTopRow: {
     flexDirection: 'row',

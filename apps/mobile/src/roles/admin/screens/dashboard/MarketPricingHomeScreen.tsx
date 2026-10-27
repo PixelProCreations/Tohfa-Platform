@@ -415,8 +415,8 @@ const styles = StyleSheet.create({
   notificationBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },

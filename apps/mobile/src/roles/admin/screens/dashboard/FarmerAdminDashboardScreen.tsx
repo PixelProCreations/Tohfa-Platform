@@ -29,7 +29,6 @@ import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 import { FarmerAdminActivityScreen } from './FarmerAdminActivityScreen';
 import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
 import { FarmerAdminMoreScreen } from './FarmerAdminMoreScreen';
-import { FarmerSupportScreen } from './FarmerSupportScreen';
 import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
 import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
 import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
@@ -301,28 +300,6 @@ function PeopleGroupIcon({ size = 24, color = adminColors.brand }: { size?: numb
   );
 }
 
-function SpeechBubbleIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Front speech bubble */}
-      <Path
-        d="M3 7a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H7l-4 3.5V7z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Back speech bubble (Image 1 Left Exact) */}
-      <Path
-        d="M16 6h3a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-1v2.5l-3-2.5"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function StarRatingsIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -389,1620 +366,6 @@ function TabMoreIcon({ active }: { active: boolean }) {
   );
 }
 
-// ─── Community Module SVG Icons ─────────────────────────────────────────────
-
-function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
-      <Path d="M20 20l-4-4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function FilterSlidersIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Circle cx="8" cy="6" r="2.2" fill={adminColors.card} stroke={color} strokeWidth="2" />
-      <Circle cx="16" cy="12" r="2.2" fill={adminColors.card} stroke={color} strokeWidth="2" />
-      <Circle cx="10" cy="18" r="2.2" fill={adminColors.card} stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function FlagIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function UserAvatarIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function PhotoImageIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="3" stroke={color} strokeWidth="1.8" />
-      <Circle cx="8.5" cy="8.5" r="1.5" stroke={color} strokeWidth="1.8" />
-      <Path d="M21 15l-5-5L5 21" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-// ─── Community Module Types & Data ──────────────────────────────────────────
-
-export interface CommunityGroup {
-  id: string;
-  name: string;
-  region: string;
-  membersCount: number;
-  latestActivity: string;
-  status: 'Active' | 'Inactive';
-  created: string;
-  reportedCount: number;
-  recentPosts30Days: string;
-  reportedOpen: string;
-  moderationSummary: string;
-}
-
-export interface CommunityMember {
-  id: string;
-  name: string;
-  joined: string;
-  status: 'Active' | 'Inactive';
-  lastActive: string;
-}
-
-export interface CommunityPost {
-  id: string;
-  groupName: string;
-  title: string;
-  author: string;
-  date: string;
-  status: 'Active' | 'Reported' | 'Under Review';
-  content: string;
-  attachments: string[];
-}
-
-const COMMUNITY_GROUPS: CommunityGroup[] = [
-  {
-    id: 'GRP-0021',
-    name: 'Coonoor Organic Farmers',
-    region: 'Coonoor',
-    membersCount: 6,
-    latestActivity: '10 Oct 2026',
-    status: 'Active',
-    created: '12 Mar 2025',
-    reportedCount: 2,
-    recentPosts30Days: '4 (30 days)',
-    reportedOpen: '2 open',
-    moderationSummary: '1 reported · 1 under review · 0 resolved',
-  },
-  {
-    id: 'GRP-0022',
-    name: 'Coonoor Women Growers',
-    region: 'Coonoor',
-    membersCount: 5,
-    latestActivity: '06 Oct 2026',
-    status: 'Active',
-    created: '18 Apr 2025',
-    reportedCount: 0,
-    recentPosts30Days: '2 (30 days)',
-    reportedOpen: '0 open',
-    moderationSummary: '0 reported · 0 under review · 1 resolved',
-  },
-  {
-    id: 'GRP-0024',
-    name: 'Coonoor Terrace Farmers',
-    region: 'Coonoor',
-    membersCount: 3,
-    latestActivity: '20 Sep 2026',
-    status: 'Inactive',
-    created: '05 Jan 2025',
-    reportedCount: 0,
-    recentPosts30Days: '0 (30 days)',
-    reportedOpen: '0 open',
-    moderationSummary: '0 reported · 0 under review · 0 resolved',
-  },
-];
-
-const COMMUNITY_MEMBERS: CommunityMember[] = [
-  { id: 'FMR-00124', name: 'Ramesh Kumar', joined: 'Joined 12 Mar 2025', status: 'Active', lastActive: '09 Oct 2026' },
-  { id: 'FMR-00131', name: 'Selvi', joined: 'Joined 02 Apr 2025', status: 'Active', lastActive: '10 Oct 2026' },
-  { id: 'FMR-00177', name: 'Meena', joined: 'Joined 20 May 2025', status: 'Active', lastActive: '—' },
-  { id: 'FMR-00203', name: 'Lakshmi', joined: 'Joined 11 Jun 2025', status: 'Active', lastActive: '—' },
-  { id: 'FMR-00240', name: 'Anand', joined: 'Joined 01 Aug 2025', status: 'Active', lastActive: '08 Oct 2026' },
-  { id: 'FMR-00245', name: 'Devi', joined: 'Joined 15 Jan 2026', status: 'Active', lastActive: '07 Oct 2026' },
-];
-
-const COMMUNITY_POSTS: CommunityPost[] = [
-  {
-    id: 'POST-1050',
-    groupName: 'Coonoor Organic Farmers',
-    title: 'Photos of the new drip line',
-    author: 'Selvi',
-    date: '10 Oct 2026',
-    status: 'Active',
-    content: 'Finished the drip line on the upper terrace. Photos attached, happy to share the layout.',
-    attachments: ['drip-line-1.jpg', 'drip-line-2.jpg'],
-  },
-  {
-    id: 'POST-1049',
-    groupName: 'Coonoor Organic Farmers',
-    title: 'Organic pest management practices',
-    author: 'Selvi',
-    date: '09 Oct 2026',
-    status: 'Active',
-    content: 'Sharing the neem oil and garlic extract schedule we tested on our tomato plots. Effective against leaf curl without synthetic chemicals.',
-    attachments: [],
-  },
-  {
-    id: 'POST-1048',
-    groupName: 'Coonoor Organic Farmers',
-    title: 'Compost mixing method',
-    author: 'Ramesh Kumar',
-    date: '09 Oct 2026',
-    status: 'Active',
-    content: 'Shared my compost mixing method for the carrot beds this season.',
-    attachments: [],
-  },
-  {
-    id: 'POST-1047',
-    groupName: 'Coonoor Organic Farmers',
-    title: 'Carrots for sale',
-    author: 'Anand',
-    date: '08 Oct 2026',
-    status: 'Reported',
-    content: 'Fresh organic carrots for sale this week. I also sprayed a chemical pesticide last month but they are fine to eat.',
-    attachments: [],
-  },
-  {
-    id: 'POST-1046',
-    groupName: 'Coonoor Organic Farmers',
-    title: 'Price discussion',
-    author: 'Devi',
-    date: '07 Oct 2026',
-    status: 'Under Review',
-    content: 'Offering carrots well below market price to everyone, and please do not sell through TOHFA.',
-    attachments: [],
-  },
-];
-
-export interface CommunityModerationItem {
-  id: string;
-  status: 'Reported' | 'Under Review' | 'Resolved';
-  title: string;
-  groupName: string;
-  reason: string;
-  date: string;
-  reportedDate: string;
-  description: string;
-  postContent: string;
-  postAuthor: string;
-}
-
-const COMMUNITY_MODERATION_ITEMS: CommunityModerationItem[] = [
-  {
-    id: 'RPT-2026-0031',
-    status: 'Reported',
-    title: 'Carrots for sale',
-    groupName: 'Coonoor Organic Farmers',
-    reason: 'Content requires review',
-    date: '09 Oct 2026',
-    reportedDate: '09 Oct 2026',
-    description: 'The post sells produce as organic while mentioning a chemical spray.',
-    postContent:
-      'Fresh organic carrots for sale this week. I also sprayed a chemical pesticide last month but they are fine to eat.',
-    postAuthor: 'Anand',
-  },
-  {
-    id: 'RPT-2026-0029',
-    status: 'Under Review',
-    title: 'Price discussion',
-    groupName: 'Coonoor Organic Farmers',
-    reason: 'Misleading information',
-    date: '08 Oct 2026',
-    reportedDate: '08 Oct 2026',
-    description: 'Offering below market rates and instructing members not to sell via official channels.',
-    postContent: 'Offering carrots well below market price to everyone, and please do not sell through TOHFA.',
-    postAuthor: 'Devi',
-  },
-  {
-    id: 'RPT-2026-0024',
-    status: 'Resolved',
-    title: 'Reply about market stall',
-    groupName: 'Coonoor Women Growers',
-    reason: 'Abusive language',
-    date: '05 Oct 2026',
-    reportedDate: '05 Oct 2026',
-    description: 'Disagreement in replies using non-constructive tone towards market organizers.',
-    postContent: 'Disagreement over weekend market stall allocation.',
-    postAuthor: 'Ramesh Kumar',
-  },
-  {
-    id: 'RPT-2026-0020',
-    status: 'Resolved',
-    title: 'Imported fertiliser offer',
-    groupName: 'Coonoor Women Growers',
-    reason: 'Spam or advertising',
-    date: '03 Oct 2026',
-    reportedDate: '03 Oct 2026',
-    description: 'Third-party synthetic fertilizer vendor advertisement without authorization.',
-    postContent: 'Contact external phone number for discounted bulk chemical inputs.',
-    postAuthor: 'Selvi',
-  },
-];
-
-// ─── Community Module Screen Components ─────────────────────────────────────
-
-interface FarmerCommunityManagementScreenProps {
-  onBack?: () => void;
-  onOpenNotifications: () => void;
-  onViewAllGroups: () => void;
-  onViewRecentPosts: () => void;
-  onViewModerationQueue: () => void;
-  onViewPost: (post: CommunityPost) => void;
-}
-
-function FarmerCommunityManagementScreen({
-  onBack,
-  onOpenNotifications,
-  onViewAllGroups,
-  onViewRecentPosts,
-  onViewModerationQueue,
-  onViewPost,
-}: FarmerCommunityManagementScreenProps) {
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            {onBack && (
-              <TouchableOpacity
-                onPress={onBack}
-                activeOpacity={0.7}
-                style={commStyles.backBtn}
-                accessibilityLabel="Go back"
-              >
-                <BackArrowIcon size={22} color={adminColors.onBrand} />
-              </TouchableOpacity>
-            )}
-            <PeopleGroupIcon size={24} color={adminColors.onBrand} />
-            <Text style={commStyles.headerTitle}>Community Management</Text>
-          </View>
-          <TouchableOpacity
-            style={commStyles.notificationBtn}
-            onPress={onOpenNotifications}
-            activeOpacity={0.8}
-            accessibilityLabel="Notifications"
-          >
-            <BellHeaderIcon size={20} color={adminColors.onBrand} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={commStyles.sectionHead}>Recent community activity</Text>
-
-        {COMMUNITY_POSTS.map((post) => (
-          <View key={post.id} style={commStyles.card}>
-            <Text style={commStyles.activityGroupText}>New post in {post.groupName}</Text>
-            <Text style={commStyles.activityTitleText}>{post.title}</Text>
-            <Text style={commStyles.activityAuthorText}>Author: {post.author}</Text>
-            <Text style={commStyles.activityDateText}>{post.date}</Text>
-
-            {post.status === 'Reported' && (
-              <View style={commStyles.badgeReported}>
-                <Text style={commStyles.badgeReportedText}>Reported</Text>
-              </View>
-            )}
-
-            {post.status === 'Under Review' && (
-              <View style={commStyles.badgeUnderReview}>
-                <Text style={commStyles.badgeUnderReviewText}>Under Review</Text>
-              </View>
-            )}
-
-            <TouchableOpacity
-              onPress={() => onViewPost(post)}
-              activeOpacity={0.7}
-              style={{ alignSelf: 'flex-start' }}
-            >
-              <Text style={commStyles.viewLink}>View Post</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        <Text style={[commStyles.sectionHead, { marginTop: 16 }]}>Quick actions</Text>
-
-        <View style={commStyles.quickActionsRow}>
-          <TouchableOpacity
-            style={commStyles.quickActionCard}
-            onPress={onViewAllGroups}
-            activeOpacity={0.75}
-          >
-            <PeopleGroupIcon size={24} color={adminColors.brand} />
-            <Text style={commStyles.quickActionLabel}>View All Groups</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={commStyles.quickActionCard}
-            onPress={onViewRecentPosts}
-            activeOpacity={0.75}
-          >
-            <SpeechBubbleIcon size={24} color={adminColors.brand} />
-            <Text style={commStyles.quickActionLabel}>View Recent Posts</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={commStyles.quickActionCard}
-            onPress={onViewModerationQueue}
-            activeOpacity={0.75}
-          >
-            <FlagIcon size={22} color={adminColors.brand} />
-            <Text style={commStyles.quickActionLabel}>Moderation Queue</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 48 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerGroupsScreenProps {
-  onBack: () => void;
-  onViewGroup: (group: CommunityGroup) => void;
-}
-
-function FarmerGroupsScreen({ onBack, onViewGroup }: FarmerGroupsScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
-  const [showFilterModal, setShowFilterModal] = useState(false);
-
-  const filteredGroups = useMemo(() => {
-    return COMMUNITY_GROUPS.filter((g) => {
-      const matchSearch =
-        !searchQuery ||
-        g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        g.region.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        g.id.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchStatus = statusFilter === 'All' || g.status === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  }, [searchQuery, statusFilter]);
-
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn} accessibilityLabel="Back">
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Farmer Groups</Text>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={commStyles.searchBar}>
-          <SearchIcon size={18} color={adminColors.muted} />
-          <TextInput
-            style={commStyles.searchInput}
-            placeholder="Search group name or region"
-            placeholderTextColor={adminColors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ fontSize: 14, color: adminColors.muted }}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={commStyles.filterBtn}
-          onPress={() => setShowFilterModal(true)}
-          activeOpacity={0.75}
-        >
-          <FilterSlidersIcon size={18} color={adminColors.ink} />
-          <Text style={commStyles.filterBtnText}>Filters</Text>
-        </TouchableOpacity>
-
-        <Text style={commStyles.countText}>{filteredGroups.length} groups</Text>
-
-        {filteredGroups.map((group) => (
-          <View key={group.id} style={commStyles.card}>
-            <Text style={commStyles.groupTitleText}>{group.name}</Text>
-            <Text style={commStyles.groupMetaText}>Group ID: {group.id}</Text>
-            <Text style={commStyles.groupMetaText}>Region: {group.region}</Text>
-            <Text style={commStyles.groupMetaText}>
-              Members: {group.membersCount} · Latest activity: {group.latestActivity}
-            </Text>
-
-            <View style={commStyles.badgeRow}>
-              {group.status === 'Active' ? (
-                <View style={commStyles.badgeActive}>
-                  <Text style={commStyles.badgeActiveText}>Active</Text>
-                </View>
-              ) : (
-                <View style={commStyles.badgeInactive}>
-                  <Text style={commStyles.badgeInactiveText}>Inactive</Text>
-                </View>
-              )}
-
-              {group.reportedCount > 0 && (
-                <View style={[commStyles.badgeReported, { marginLeft: 6 }]}>
-                  <Text style={commStyles.badgeReportedText}>{group.reportedCount} reported</Text>
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity
-              onPress={() => onViewGroup(group)}
-              activeOpacity={0.7}
-              style={{ alignSelf: 'flex-start' }}
-            >
-              <Text style={commStyles.viewLink}>View Group</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        <View style={{ height: 48 }} />
-      </ScrollView>
-
-      {/* Filter Modal */}
-      <Modal visible={showFilterModal} transparent animationType="fade" onRequestClose={() => setShowFilterModal(false)}>
-        <Pressable style={commStyles.modalOverlay} onPress={() => setShowFilterModal(false)}>
-          <Pressable style={commStyles.modalCard} onPress={(e) => e.stopPropagation()}>
-            <Text style={commStyles.modalTitle}>Filter Groups</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginVertical: 16 }}>
-              {(['All', 'Active', 'Inactive'] as const).map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[commStyles.filterOptionPill, statusFilter === st && commStyles.filterOptionPillActive]}
-                  onPress={() => setStatusFilter(st)}
-                >
-                  <Text style={[commStyles.filterOptionText, statusFilter === st && commStyles.filterOptionTextActive]}>
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <TouchableOpacity style={commStyles.modalDoneBtn} onPress={() => setShowFilterModal(false)}>
-              <Text style={commStyles.modalDoneBtnText}>Apply</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerGroupDetailScreenProps {
-  group: CommunityGroup;
-  onBack: () => void;
-  onNavigateMembers: () => void;
-  onNavigatePosts: () => void;
-}
-
-function FarmerGroupDetailScreen({
-  group,
-  onBack,
-  onNavigateMembers,
-  onNavigatePosts,
-}: FarmerGroupDetailScreenProps) {
-  const [activeTabPill, setActiveTabPill] = useState<'Overview' | 'Members' | 'Posts' | 'Reported'>('Overview');
-
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn} accessibilityLabel="Back">
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Group Detail</Text>
-          </View>
-        </View>
-        <Text style={commStyles.headerSubtitle}>{group.name}</Text>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Card 1: 3x2 Grid */}
-        <View style={commStyles.card}>
-          <View style={commStyles.gridRow}>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Group ID</Text>
-              <Text style={commStyles.gridValue}>{group.id}</Text>
-            </View>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Region / Zone</Text>
-              <Text style={commStyles.gridValue}>{group.region}</Text>
-            </View>
-          </View>
-
-          <View style={commStyles.gridRow}>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Status</Text>
-              <Text style={commStyles.gridValue}>{group.status}</Text>
-            </View>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Members</Text>
-              <Text style={commStyles.gridValue}>{group.membersCount}</Text>
-            </View>
-          </View>
-
-          <View style={[commStyles.gridRow, { marginBottom: 0 }]}>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Created</Text>
-              <Text style={commStyles.gridValue}>{group.created}</Text>
-            </View>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Latest activity</Text>
-              <Text style={commStyles.gridValue}>{group.latestActivity}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Card 2: Recent posts & Moderation summary */}
-        <View style={commStyles.card}>
-          <View style={commStyles.gridRow}>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Recent posts</Text>
-              <Text style={commStyles.gridValue}>{group.recentPosts30Days}</Text>
-            </View>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Reported content</Text>
-              <Text style={commStyles.gridValue}>{group.reportedOpen}</Text>
-            </View>
-          </View>
-
-          <View style={{ marginTop: 8 }}>
-            <Text style={commStyles.gridLabel}>Moderation summary</Text>
-            <Text style={commStyles.gridValue}>{group.moderationSummary}</Text>
-          </View>
-        </View>
-
-        {/* Tab Pills */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 6 }}>
-          <View style={commStyles.pillRow}>
-            <TouchableOpacity
-              style={activeTabPill === 'Overview' ? commStyles.pillActive : commStyles.pillInactive}
-              onPress={() => setActiveTabPill('Overview')}
-              activeOpacity={0.8}
-            >
-              <Text style={activeTabPill === 'Overview' ? commStyles.pillActiveText : commStyles.pillInactiveText}>
-                Overview
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={commStyles.pillInactive}
-              onPress={() => {
-                setActiveTabPill('Members');
-                onNavigateMembers();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={commStyles.pillInactiveText}>Members</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={commStyles.pillInactive}
-              onPress={() => {
-                setActiveTabPill('Posts');
-                onNavigatePosts();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={commStyles.pillInactiveText}>Posts & Activity</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={commStyles.pillInactive}
-              onPress={() => {
-                setActiveTabPill('Reported');
-                onNavigatePosts();
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={commStyles.pillInactiveText}>Reported Content</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-
-        <View style={{ height: 48 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerGroupMembersScreenProps {
-  groupName: string;
-  onBack: () => void;
-}
-
-function FarmerGroupMembersScreen({ groupName, onBack }: FarmerGroupMembersScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredMembers = useMemo(() => {
-    if (!searchQuery) return COMMUNITY_MEMBERS;
-    return COMMUNITY_MEMBERS.filter(
-      (m) =>
-        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        m.id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [searchQuery]);
-
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn} accessibilityLabel="Back">
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Group Members</Text>
-          </View>
-        </View>
-        <Text style={commStyles.headerSubtitle}>{groupName}</Text>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={commStyles.searchBar}>
-          <SearchIcon size={18} color={adminColors.muted} />
-          <TextInput
-            style={commStyles.searchInput}
-            placeholder="Search group name or region"
-            placeholderTextColor={adminColors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ fontSize: 14, color: adminColors.muted }}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {filteredMembers.map((member) => (
-          <View key={member.id} style={commStyles.memberCard}>
-            <View style={commStyles.memberAvatarWrap}>
-              <UserAvatarIcon size={20} color={adminColors.brandDeep} />
-            </View>
-
-            <View style={commStyles.memberInfoCol}>
-              <Text style={commStyles.memberNameText}>{member.name}</Text>
-              <Text style={commStyles.memberSubText}>
-                {member.id} · {member.joined}
-              </Text>
-            </View>
-
-            <View style={commStyles.memberRightCol}>
-              <View style={commStyles.badgeActive}>
-                <Text style={commStyles.badgeActiveText}>{member.status}</Text>
-              </View>
-              <Text style={commStyles.memberDateText}>{member.lastActive}</Text>
-            </View>
-          </View>
-        ))}
-
-        <View style={{ height: 48 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerGroupPostsScreenProps {
-  groupName: string;
-  initialFilter?: 'all' | 'reported';
-  onBack: () => void;
-  onSelectPost: (post: CommunityPost) => void;
-}
-
-function FarmerGroupPostsScreen({
-  groupName,
-  initialFilter = 'all',
-  onBack,
-  onSelectPost,
-}: FarmerGroupPostsScreenProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const filteredPosts = useMemo(() => {
-    return COMMUNITY_POSTS.filter((p) => {
-      if (initialFilter === 'reported' && p.status === 'Active') return false;
-      if (!searchQuery) return true;
-      return (
-        p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.content.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    });
-  }, [searchQuery, initialFilter]);
-
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn} accessibilityLabel="Back">
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Posts & Activity</Text>
-          </View>
-        </View>
-        <Text style={commStyles.headerSubtitle}>{groupName}</Text>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={commStyles.searchBar}>
-          <SearchIcon size={18} color={adminColors.muted} />
-          <TextInput
-            style={commStyles.searchInput}
-            placeholder="Search group name or region"
-            placeholderTextColor={adminColors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ fontSize: 14, color: adminColors.muted }}>✕</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {filteredPosts.map((post) => (
-          <TouchableOpacity
-            key={post.id}
-            style={commStyles.card}
-            onPress={() => onSelectPost(post)}
-            activeOpacity={0.8}
-          >
-            <View style={commStyles.postHeaderRow}>
-              <Text style={commStyles.postTitleText}>{post.title}</Text>
-              {post.status === 'Active' && (
-                <View style={commStyles.badgeActive}>
-                  <Text style={commStyles.badgeActiveText}>Active</Text>
-                </View>
-              )}
-              {post.status === 'Reported' && (
-                <View style={commStyles.badgeReported}>
-                  <Text style={commStyles.badgeReportedText}>Reported</Text>
-                </View>
-              )}
-              {post.status === 'Under Review' && (
-                <View style={commStyles.badgeUnderReview}>
-                  <Text style={commStyles.badgeUnderReviewText}>Under Review</Text>
-                </View>
-              )}
-            </View>
-
-            <Text style={commStyles.postContentSnippet}>{post.content}</Text>
-            <Text style={commStyles.postFooterText}>
-              {post.author} · {post.date}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <View style={{ height: 48 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerPostDetailScreenProps {
-  post: CommunityPost;
-  onBack: () => void;
-}
-
-function FarmerPostDetailScreen({ post, onBack }: FarmerPostDetailScreenProps) {
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn} accessibilityLabel="Back">
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Post Detail</Text>
-          </View>
-        </View>
-        <Text style={commStyles.headerSubtitle}>
-          {post.id} · {post.status}
-        </Text>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={commStyles.card}>
-          <Text style={commStyles.postDetailTitle}>{post.title}</Text>
-          <Text style={commStyles.postDetailBody}>{post.content}</Text>
-          <Text style={commStyles.postDetailMeta}>
-            By {post.author} · {post.groupName} · {post.date}
-          </Text>
-        </View>
-
-        {post.attachments && post.attachments.length > 0 && (
-          <View style={{ marginTop: 4 }}>
-            {post.attachments.map((file, idx) => (
-              <View key={idx} style={commStyles.attachmentCard}>
-                <PhotoImageIcon size={20} color={adminColors.brandDeep} />
-                <Text style={commStyles.attachmentName}>{file}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        <View style={{ height: 48 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerModerationQueueScreenProps {
-  items: CommunityModerationItem[];
-  onBack: () => void;
-  onSelectItem: (item: CommunityModerationItem) => void;
-}
-
-export function FarmerModerationQueueScreen({
-  items,
-  onBack,
-  onSelectItem,
-}: FarmerModerationQueueScreenProps) {
-  const openCount = items.filter((i) => i.status !== 'Resolved').length;
-
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn}>
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Moderation Queue</Text>
-          </View>
-        </View>
-        <Text style={commStyles.headerSubtitle}>
-          Review reported content from regional farmer groups
-        </Text>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Top Summary Cards */}
-        <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
-          <View style={[commStyles.card, { flex: 1, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 0 }]}>
-            <Text style={{ fontSize: 10.5, fontWeight: '700', color: adminColors.muted, letterSpacing: 0.5 }}>
-              OPEN REPORTS
-            </Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: adminColors.warning.text, marginTop: 4 }}>
-              {openCount}
-            </Text>
-          </View>
-
-          <View style={[commStyles.card, { flex: 1, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 0 }]}>
-            <Text style={{ fontSize: 10.5, fontWeight: '700', color: adminColors.muted, letterSpacing: 0.5 }}>
-              RESOLVED
-            </Text>
-            <Text style={{ fontSize: 24, fontWeight: '800', color: adminColors.success.text, marginTop: 4 }}>
-              3
-            </Text>
-          </View>
-        </View>
-
-        {/* Report Cards List */}
-        {items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={commStyles.card}
-            onPress={() => onSelectItem(item)}
-            activeOpacity={0.75}
-          >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: adminColors.ink }}>
-                {item.id}
-              </Text>
-              <View
-                style={
-                  item.status === 'Reported'
-                    ? commStyles.badgeReported
-                    : item.status === 'Under Review'
-                      ? commStyles.badgeUnderReview
-                      : commStyles.badgeActive
-                }
-              >
-                <Text
-                  style={
-                    item.status === 'Reported'
-                      ? commStyles.badgeReportedText
-                      : item.status === 'Under Review'
-                        ? commStyles.badgeUnderReviewText
-                        : commStyles.badgeActiveText
-                  }
-                >
-                  {item.status}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={{ fontSize: 14.5, fontWeight: '800', color: adminColors.ink, marginTop: 8 }}>
-              {item.title}
-            </Text>
-
-            <Text style={{ fontSize: 11.5, color: adminColors.muted, marginTop: 6, lineHeight: 16 }}>
-              {item.groupName} · Reason: {item.reason} · {item.date}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-interface FarmerModerationReviewScreenProps {
-  item: CommunityModerationItem;
-  onBack: () => void;
-  onRecordAction: (actionId: string, notes: string) => void;
-}
-
-export function FarmerModerationReviewScreen({
-  item,
-  onBack,
-  onRecordAction,
-}: FarmerModerationReviewScreenProps) {
-  const [selectedAction, setSelectedAction] = useState<string>('resolve');
-  const [reviewNotes, setReviewNotes] = useState<string>('');
-
-  const ACTIONS = [
-    {
-      id: 'resolve',
-      title: 'Mark as Resolved',
-      description: 'Closes the report. The content stays visible.',
-    },
-    {
-      id: 'remove',
-      title: 'Remove Content',
-      description: 'Closes the report and removes the content. Requires a confirmed permission — not yet confirmed.',
-    },
-    {
-      id: 'return',
-      title: 'Return for Further Review',
-      description: 'Keeps the report open and marks it Under Review.',
-    },
-  ];
-
-  return (
-    <SafeAreaView style={commStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={commStyles.header}>
-        <View style={commStyles.headerTopRow}>
-          <View style={commStyles.headerTitleWrap}>
-            <TouchableOpacity onPress={onBack} activeOpacity={0.7} style={commStyles.backBtn}>
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={commStyles.headerTitle}>Moderation Review</Text>
-          </View>
-        </View>
-        <Text style={commStyles.headerSubtitle}>
-          {item.id} · {item.status}
-        </Text>
-      </View>
-
-      <ScrollView
-        style={commStyles.scroll}
-        contentContainerStyle={commStyles.scrollPad}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Report Section */}
-        <Text style={commStyles.sectionHead}>Report</Text>
-        <View style={commStyles.card}>
-          <View style={commStyles.gridRow}>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Reason</Text>
-              <Text style={[commStyles.gridValue, { marginTop: 4 }]}>{item.reason}</Text>
-            </View>
-            <View style={commStyles.gridCol}>
-              <Text style={commStyles.gridLabel}>Reported</Text>
-              <Text style={[commStyles.gridValue, { marginTop: 4 }]}>{item.reportedDate}</Text>
-            </View>
-          </View>
-
-          <View style={{ marginTop: 8 }}>
-            <Text style={commStyles.gridLabel}>Description</Text>
-            <Text style={{ fontSize: 13, color: adminColors.ink, marginTop: 4, lineHeight: 18 }}>
-              {item.description}
-            </Text>
-          </View>
-        </View>
-
-        {/* Reported Content Section */}
-        <Text style={[commStyles.sectionHead, { marginTop: 8 }]}>Reported Content</Text>
-        <View style={commStyles.card}>
-          <Text style={{ fontSize: 14.5, fontWeight: '800', color: adminColors.ink }}>
-            {item.title}
-          </Text>
-          <Text style={{ fontSize: 12.5, color: adminColors.ink, marginTop: 8, lineHeight: 18 }}>
-            {item.postContent}
-          </Text>
-          <Text style={{ fontSize: 11.5, color: adminColors.muted, marginTop: 12 }}>
-            By {item.postAuthor} · {item.groupName}
-          </Text>
-        </View>
-
-        {/* Moderation Action Section */}
-        <Text style={[commStyles.sectionHead, { marginTop: 8 }]}>Moderation Action</Text>
-        {ACTIONS.map((action) => {
-          const isSelected = selectedAction === action.id;
-          return (
-            <TouchableOpacity
-              key={action.id}
-              style={[
-                commStyles.card,
-                {
-                  padding: 14,
-                  marginBottom: 10,
-                  borderColor: isSelected ? adminColors.brand : adminColors.border,
-                  borderWidth: isSelected ? 1.5 : 1,
-                },
-              ]}
-              onPress={() => setSelectedAction(action.id)}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontSize: 14, fontWeight: '800', color: adminColors.ink }}>
-                {action.title}
-              </Text>
-              <Text style={{ fontSize: 11.5, color: adminColors.muted, marginTop: 3, lineHeight: 16 }}>
-                {action.description}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-
-        {/* Review Notes */}
-        <View style={{ marginTop: 4, marginBottom: 16 }}>
-          <Text style={{ fontSize: 12.5, fontWeight: '700', color: adminColors.ink, marginBottom: 8 }}>
-            Review Notes <Text style={{ color: adminColors.danger.text }}>*</Text>
-          </Text>
-          <TextInput
-            style={{
-              backgroundColor: adminColors.card,
-              borderRadius: adminRadius.md,
-              borderWidth: 1,
-              borderColor: adminColors.border,
-              minHeight: 80,
-              padding: 12,
-              fontSize: 13,
-              color: adminColors.ink,
-              textAlignVertical: 'top',
-            }}
-            multiline
-            numberOfLines={3}
-            value={reviewNotes}
-            onChangeText={setReviewNotes}
-            placeholder=""
-            placeholderTextColor={adminColors.placeholder}
-          />
-        </View>
-
-        {/* Record Action Button */}
-        <TouchableOpacity
-          style={{
-            backgroundColor: adminColors.brand,
-            borderRadius: adminRadius.lg,
-            paddingVertical: 14,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginBottom: 40,
-          }}
-          onPress={() => onRecordAction(selectedAction, reviewNotes)}
-          activeOpacity={0.85}
-        >
-          <Text style={{ color: adminColors.onBrand, fontSize: 15, fontWeight: '800' }}>
-            Record Action
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-const commStyles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: adminColors.canvas,
-  },
-  header: {
-    backgroundColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm,
-    paddingBottom: adminSpacing.md,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  backBtn: {
-    padding: 4,
-    marginRight: 4,
-  },
-  headerTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: adminColors.onBrand,
-  },
-  headerSubtitle: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: adminColors.onBrand,
-    opacity: 0.95,
-    marginTop: 4,
-    paddingLeft: 34,
-  },
-  notificationBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: adminColors.headerIcon.bg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollPad: {
-    padding: adminSpacing.lg,
-  },
-  sectionHead: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
-    marginBottom: 12,
-  },
-  card: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
-    marginBottom: 12,
-    ...adminShadow.sm,
-  },
-  activityGroupText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  activityTitleText: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: adminColors.ink,
-    marginTop: 2,
-  },
-  activityAuthorText: {
-    fontSize: 12,
-    color: adminColors.muted,
-    marginTop: 6,
-  },
-  activityDateText: {
-    fontSize: 12,
-    color: adminColors.muted,
-    marginTop: 2,
-  },
-  viewLink: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: adminColors.brandDeep,
-    marginTop: 10,
-  },
-  badgeReported: {
-    backgroundColor: adminColors.danger.bg,
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-  },
-  badgeReportedText: {
-    color: adminColors.danger.text,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  badgeUnderReview: {
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 100,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-  },
-  badgeUnderReviewText: {
-    color: adminColors.info.text,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  badgeActive: {
-    backgroundColor: adminColors.success.bg,
-    borderRadius: 100,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  badgeActiveText: {
-    color: adminColors.success.text,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  badgeInactive: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 100,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    alignSelf: 'flex-start',
-  },
-  badgeInactiveText: {
-    color: adminColors.muted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  quickActionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 20,
-  },
-  quickActionCard: {
-    flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 18,
-    paddingHorizontal: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 96,
-    ...adminShadow.sm,
-  },
-  quickActionLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: adminColors.ink,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 15,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 12,
-    height: 44,
-    marginBottom: 10,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 13,
-    color: adminColors.ink,
-    paddingVertical: 0,
-  },
-  filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    height: 42,
-    marginBottom: 10,
-  },
-  filterBtnText: {
-    marginLeft: 8,
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  countText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: adminColors.ink,
-    marginBottom: 10,
-  },
-  groupTitleText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  groupMetaText: {
-    fontSize: 12,
-    color: adminColors.muted,
-    marginTop: 3,
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  gridRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  gridCol: {
-    flex: 1,
-  },
-  gridLabel: {
-    fontSize: 11,
-    color: adminColors.muted,
-    fontWeight: '500',
-  },
-  gridValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: adminColors.ink,
-    marginTop: 2,
-  },
-  pillRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pillActive: {
-    backgroundColor: adminColors.brand,
-    borderRadius: 100,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  pillActiveText: {
-    color: adminColors.onBrand,
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  pillInactive: {
-    backgroundColor: adminColors.card,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  pillInactiveText: {
-    color: adminColors.brandDeep,
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  memberCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 12,
-    marginBottom: 10,
-    ...adminShadow.sm,
-  },
-  memberAvatarWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: adminColors.brandTint,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  memberInfoCol: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  memberNameText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  memberSubText: {
-    fontSize: 11.5,
-    color: adminColors.muted,
-    marginTop: 2,
-  },
-  memberRightCol: {
-    alignItems: 'flex-end',
-  },
-  memberDateText: {
-    fontSize: 11,
-    color: adminColors.muted,
-    marginTop: 4,
-  },
-  postHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  postTitleText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '800',
-    color: adminColors.ink,
-    marginRight: 8,
-  },
-  postContentSnippet: {
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: adminColors.ink,
-    marginTop: 6,
-  },
-  postFooterText: {
-    fontSize: 11.5,
-    color: adminColors.muted,
-    marginTop: 8,
-  },
-  postDetailTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  postDetailBody: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: adminColors.ink,
-    marginTop: 8,
-  },
-  postDetailMeta: {
-    fontSize: 11.5,
-    color: adminColors.muted,
-    marginTop: 12,
-  },
-  attachmentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 12,
-    marginBottom: 8,
-  },
-  attachmentName: {
-    marginLeft: 10,
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: adminOverlay.scrim,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  modalCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: 20,
-    width: '100%',
-    maxWidth: 320,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: adminColors.ink,
-  },
-  filterOptionPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 100,
-    backgroundColor: adminColors.canvas,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
-  filterOptionPillActive: {
-    backgroundColor: adminColors.brand,
-    borderColor: adminColors.brand,
-  },
-  filterOptionText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: adminColors.ink,
-  },
-  filterOptionTextActive: {
-    color: adminColors.onBrand,
-  },
-  modalDoneBtn: {
-    marginTop: 12,
-    backgroundColor: adminColors.brand,
-    paddingVertical: 10,
-    borderRadius: adminRadius.md,
-    alignItems: 'center',
-  },
-  modalDoneBtnText: {
-    color: adminColors.onBrand,
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-});
-
 export type AuditScheduleInitialView =
   | 'history'
   | 'audit_detail'
@@ -2051,7 +414,6 @@ export function FarmerAdminDashboardScreen({
     | 'handover_details'
     | 'admin_activity'
     | 'notifications'
-    | 'farmer_support'
     | 'profile'
     | 'purchases'
     | 'purchase_orders'
@@ -2086,22 +448,10 @@ export function FarmerAdminDashboardScreen({
     | 'dispute_detail'
     | 'dispute_timeline'
     | 'dispute_resolution'
-    | 'community'
-    | 'community_groups'
-    | 'community_group_detail'
-    | 'community_members'
-    | 'community_posts'
-    | 'community_post_detail'
-    | 'community_moderation_queue'
-    | 'community_moderation_review'
   >('menu');
   const [selectedDispute, setSelectedDispute] = useState<DisputeItem | undefined>(undefined);
-  const [selectedCommunityGroup, setSelectedCommunityGroup] = useState<CommunityGroup>(COMMUNITY_GROUPS[0]!);
-  const [selectedCommunityPost, setSelectedCommunityPost] = useState<CommunityPost>(COMMUNITY_POSTS[0]!);
-  const [selectedModerationItem, setSelectedModerationItem] = useState<CommunityModerationItem>(
-    COMMUNITY_MODERATION_ITEMS[0]!
-  );
-  const [communityPostsFilter, setCommunityPostsFilter] = useState<'all' | 'reported'>('all');
+  const [disputeDetailReturnTo, setDisputeDetailReturnTo] = useState<'menu' | 'disputes'>('menu');
+  const [timelineReturnTo, setTimelineReturnTo] = useState<'menu' | 'disputes' | 'dispute_detail'>('dispute_detail');
   const [activeHandoverId, setActiveHandoverId] = useState<string>('HO-2026-0002');
   const [activeOrderId, setActiveOrderId] = useState<string>('PO-2026-00124');
   const [activeInputItem, setActiveInputItem] = useState<ApprovedInputItem | undefined>(undefined);
@@ -2142,7 +492,6 @@ export function FarmerAdminDashboardScreen({
       | 'handover_details'
       | 'admin_activity'
       | 'notifications'
-      | 'farmer_support'
       | 'profile'
       | 'purchases'
       | 'purchase_orders'
@@ -2171,36 +520,24 @@ export function FarmerAdminDashboardScreen({
       | 'dispute_timeline'
       | 'dispute_resolution';
     moreSubScreen?:
-    | 'menu'
-    | 'disputes'
-    | 'dispute_detail'
-    | 'dispute_timeline'
-    | 'dispute_resolution'
-    | 'community'
-    | 'community_groups'
-    | 'community_group_detail'
-    | 'community_members'
-    | 'community_posts'
-    | 'community_post_detail'
-    | 'community_moderation_queue'
-    | 'community_moderation_review'
-    | undefined;
+      | 'menu'
+      | 'disputes'
+      | 'dispute_detail'
+      | 'dispute_timeline'
+      | 'dispute_resolution'
+      | undefined;
     selectedDispute?: DisputeItem | undefined;
     activeIncidentItem?: IncidentItem | undefined;
     activeOrderId?: string | undefined;
     activeHandoverId?: string | undefined;
     activeInputItem?: ApprovedInputItem | undefined;
     selectedRetailItem?: RetailPriceItem | undefined;
-    selectedCommunityGroup?: CommunityGroup | undefined;
-    selectedCommunityPost?: CommunityPost | undefined;
-    selectedModerationItem?: CommunityModerationItem | undefined;
     farmersInternalView?: ('list' | 'search_filter' | 'profile') | undefined;
     listingInitialFilter?: ('all' | 'pending' | 'counter') | undefined;
     auditInitialFilter?: ('all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view') | undefined;
     auditInitialId?: string | undefined;
     auditInitialView?: AuditScheduleInitialView | undefined;
     selectedPestForIncident?: string | undefined;
-    communityPostsFilter?: ('all' | 'reported') | undefined;
     activeProduceFarmerName?: string | undefined;
     activeProduceFarmerId?: string | undefined;
     activeProduceZone?: string | undefined;
@@ -2223,16 +560,12 @@ export function FarmerAdminDashboardScreen({
       activeHandoverId,
       activeInputItem,
       selectedRetailItem,
-      selectedCommunityGroup,
-      selectedCommunityPost,
-      selectedModerationItem,
       farmersInternalView,
       listingInitialFilter,
       auditInitialFilter,
       auditInitialId,
       auditInitialView,
       selectedPestForIncident,
-      communityPostsFilter,
       activeProduceFarmerName,
       activeProduceFarmerId,
       activeProduceZone,
@@ -2253,16 +586,12 @@ export function FarmerAdminDashboardScreen({
     if (next.activeHandoverId !== undefined) setActiveHandoverId(next.activeHandoverId);
     if (next.activeInputItem !== undefined) setActiveInputItem(next.activeInputItem);
     if (next.selectedRetailItem !== undefined) setSelectedRetailItem(next.selectedRetailItem);
-    if (next.selectedCommunityGroup !== undefined) setSelectedCommunityGroup(next.selectedCommunityGroup);
-    if (next.selectedCommunityPost !== undefined) setSelectedCommunityPost(next.selectedCommunityPost);
-    if (next.selectedModerationItem !== undefined) setSelectedModerationItem(next.selectedModerationItem);
     if (next.farmersInternalView !== undefined) setFarmersInternalView(next.farmersInternalView);
     if (next.listingInitialFilter !== undefined) setListingInitialFilter(next.listingInitialFilter);
     if (next.auditInitialFilter !== undefined) setAuditInitialFilter(next.auditInitialFilter);
     if (next.auditInitialId !== undefined) setAuditInitialId(next.auditInitialId);
     if (next.auditInitialView !== undefined) setAuditInitialView(next.auditInitialView);
     if (next.selectedPestForIncident !== undefined) setSelectedPestForIncident(next.selectedPestForIncident);
-    if (next.communityPostsFilter !== undefined) setCommunityPostsFilter(next.communityPostsFilter);
     if (next.activeProduceFarmerName !== undefined) setActiveProduceFarmerName(next.activeProduceFarmerName);
     if (next.activeProduceFarmerId !== undefined) setActiveProduceFarmerId(next.activeProduceFarmerId);
     if (next.activeProduceZone !== undefined) setActiveProduceZone(next.activeProduceZone);
@@ -2286,16 +615,12 @@ export function FarmerAdminDashboardScreen({
       if (prev.activeHandoverId !== undefined) setActiveHandoverId(prev.activeHandoverId);
       if (prev.activeInputItem !== undefined) setActiveInputItem(prev.activeInputItem);
       if (prev.selectedRetailItem !== undefined) setSelectedRetailItem(prev.selectedRetailItem);
-      if (prev.selectedCommunityGroup !== undefined) setSelectedCommunityGroup(prev.selectedCommunityGroup);
-      if (prev.selectedCommunityPost !== undefined) setSelectedCommunityPost(prev.selectedCommunityPost);
-      if (prev.selectedModerationItem !== undefined) setSelectedModerationItem(prev.selectedModerationItem);
       if (prev.farmersInternalView !== undefined) setFarmersInternalView(prev.farmersInternalView);
       if (prev.listingInitialFilter !== undefined) setListingInitialFilter(prev.listingInitialFilter);
       if (prev.auditInitialFilter !== undefined) setAuditInitialFilter(prev.auditInitialFilter);
       if (prev.auditInitialId !== undefined) setAuditInitialId(prev.auditInitialId);
       if (prev.auditInitialView !== undefined) setAuditInitialView(prev.auditInitialView);
       if (prev.selectedPestForIncident !== undefined) setSelectedPestForIncident(prev.selectedPestForIncident);
-      if (prev.communityPostsFilter !== undefined) setCommunityPostsFilter(prev.communityPostsFilter);
       if (prev.activeProduceFarmerName !== undefined) setActiveProduceFarmerName(prev.activeProduceFarmerName);
       if (prev.activeProduceFarmerId !== undefined) setActiveProduceFarmerId(prev.activeProduceFarmerId);
       if (prev.activeProduceZone !== undefined) setActiveProduceZone(prev.activeProduceZone);
@@ -2642,26 +967,6 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // If currently in Farmer Support subview
-  if (subView === 'farmer_support') {
-    return (
-      <FarmerSupportScreen
-        onBack={() => goBack()}
-        onNavigateFarmerProfile={(_farmerId) => {
-          pushNavigation({ subView: 'farmer_profile' });
-        }}
-        onNavigateProduceListing={(_listingId) => {
-          pushNavigation({ subView: 'product_listings' });
-        }}
-        onTabChange={(tab) => {
-          setNavStack([]);
-          setSubView('none');
-          setMoreSubScreen('menu');
-          setActiveTab(tab);
-        }}
-      />
-    );
-  }
 
 
   // Module 1: Admin Profile subview
@@ -3271,7 +1576,14 @@ export function FarmerAdminDashboardScreen({
 
 
             {/* 5. Needs Your Attention Section */}
-            <Text style={styles.sectionTitle}>Needs Your Attention</Text>
+            <Text
+              style={[
+                styles.sectionTitle,
+                { marginTop: adminSpacing.lg, marginBottom: adminSpacing.sm },
+              ]}
+            >
+              Needs Your Attention
+            </Text>
 
             {/* Attention Item 1: Tomato Grade 1 */}
             <TouchableOpacity
@@ -3290,10 +1602,6 @@ export function FarmerAdminDashboardScreen({
                     Farmer: Ramesh · Quantity: 50 KG · Listed Price: ₹100/KG
                   </Text>
                 </View>
-              </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>Review Listing →</Text>
               </View>
             </TouchableOpacity>
 
@@ -3319,10 +1627,6 @@ export function FarmerAdminDashboardScreen({
                     Farmer: Kumar · Crop: Beans · Quantity: 75 KG · Requires response
                   </Text>
                 </View>
-              </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>View →</Text>
               </View>
             </TouchableOpacity>
 
@@ -3350,10 +1654,6 @@ export function FarmerAdminDashboardScreen({
                   </Text>
                 </View>
               </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>View Audit →</Text>
-              </View>
             </TouchableOpacity>
 
             {/* Attention Item 4: Farmer Dispute */}
@@ -3376,10 +1676,6 @@ export function FarmerAdminDashboardScreen({
                   <Text style={styles.attentionCardTitle}>Farmer Dispute — DSP-00128</Text>
                   <Text style={styles.attentionCardMeta}>Farmer vs Farmer · Status: Open</Text>
                 </View>
-              </View>
-
-              <View style={{ alignSelf: 'flex-start', marginTop: 8, marginLeft: 34 }}>
-                <Text style={styles.attentionActionLink}>View Dispute →</Text>
               </View>
             </TouchableOpacity>
 
@@ -3546,22 +1842,16 @@ export function FarmerAdminDashboardScreen({
               {/* Row 1, Col 3: Audit Calendar */}
               <TouchableOpacity
                 style={styles.quickCard}
-                onPress={() => {
-                  pushNavigation({
-                    subView: 'audit_schedule',
-                    auditInitialFilter: 'calendar',
-                    auditInitialView: 'calendar',
-                  });
-                }}
+                onPress={() => pushNavigation({ tab: 'Audits' })}
                 activeOpacity={0.75}
               >
                 <CalendarOutlineIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Audit Calendar</Text>
               </TouchableOpacity>
 
-              {/* Row 2, Col 1: Review Disputes */}
+              {/* Row 2: Review Disputes (Single Full Row Tab) */}
               <TouchableOpacity
-                style={styles.quickCard}
+                style={styles.quickCardFull}
                 onPress={() => {
                   pushNavigation({
                     subView: 'disputes',
@@ -3572,30 +1862,6 @@ export function FarmerAdminDashboardScreen({
               >
                 <ExactScalesIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Review Disputes</Text>
-              </TouchableOpacity>
-
-              {/* Row 2, Col 2: Community */}
-              <TouchableOpacity
-                style={styles.quickCard}
-                onPress={() => {
-                  pushNavigation({
-                    moreSubScreen: 'community',
-                  });
-                }}
-                activeOpacity={0.75}
-              >
-                <SpeechBubbleIcon size={24} color={adminColors.brand} />
-                <Text style={styles.quickCardLabel}>Community</Text>
-              </TouchableOpacity>
-
-              {/* Row 2, Col 3: Ratings */}
-              <TouchableOpacity
-                style={styles.quickCard}
-                onPress={() => pushNavigation({ subView: 'farmer_ratings' })}
-                activeOpacity={0.85}
-              >
-                <StarRatingsIcon size={24} color={adminColors.brand} />
-                <Text style={styles.quickCardLabel}>Ratings</Text>
               </TouchableOpacity>
             </View>
 
@@ -3663,7 +1929,6 @@ export function FarmerAdminDashboardScreen({
               pushNavigation({ subView: 'disputes' });
             }}
             onNavigateProfile={() => pushNavigation({ subView: 'profile' })}
-            onNavigateFarmerSupport={() => pushNavigation({ subView: 'farmer_support' })}
             onNavigateNotifications={() => pushNavigation({ subView: 'notifications' })}
             onSwitchRole={() =>
               setModalItem({
@@ -3680,10 +1945,6 @@ export function FarmerAdminDashboardScreen({
                 pushNavigation({ subView: 'farmer_ratings' });
               } else if (title === 'Disputes') {
                 pushNavigation({ subView: 'disputes' });
-              } else if (title === 'Farmer Support') {
-                pushNavigation({ subView: 'farmer_support' });
-              } else if (title === 'Community') {
-                pushNavigation({ moreSubScreen: 'community' });
               } else if (title === 'Profile') {
                 pushNavigation({ subView: 'profile' });
               } else {
@@ -3758,107 +2019,6 @@ export function FarmerAdminDashboardScreen({
             onBack={() => goBack()}
             onResolvedSuccess={(updated) => {
               setSelectedDispute(updated);
-              goBack();
-            }}
-          />
-        )}
-
-        {/* ─── Community Module Sub-Screens ─── */}
-        {moreSubScreen === 'community' && (
-          <FarmerCommunityManagementScreen
-            onBack={() => goBack()}
-            onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-            onViewAllGroups={() => pushNavigation({ moreSubScreen: 'community_groups' })}
-            onViewRecentPosts={() => {
-              pushNavigation({
-                moreSubScreen: 'community_posts',
-                communityPostsFilter: 'all',
-              });
-            }}
-            onViewModerationQueue={() => {
-              pushNavigation({ moreSubScreen: 'community_moderation_queue' });
-            }}
-            onViewPost={(post) => {
-              pushNavigation({
-                moreSubScreen: 'community_post_detail',
-                selectedCommunityPost: post,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_groups' && (
-          <FarmerGroupsScreen
-            onBack={() => goBack()}
-            onViewGroup={(group) => {
-              pushNavigation({
-                moreSubScreen: 'community_group_detail',
-                selectedCommunityGroup: group,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_group_detail' && (
-          <FarmerGroupDetailScreen
-            group={selectedCommunityGroup}
-            onBack={() => goBack()}
-            onNavigateMembers={() => pushNavigation({ moreSubScreen: 'community_members' })}
-            onNavigatePosts={() => {
-              pushNavigation({
-                moreSubScreen: 'community_posts',
-                communityPostsFilter: 'all',
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_members' && (
-          <FarmerGroupMembersScreen
-            groupName={selectedCommunityGroup.name}
-            onBack={() => goBack()}
-          />
-        )}
-
-        {moreSubScreen === 'community_posts' && (
-          <FarmerGroupPostsScreen
-            groupName={selectedCommunityGroup.name}
-            initialFilter={communityPostsFilter}
-            onBack={() => goBack()}
-            onSelectPost={(post) => {
-              pushNavigation({
-                moreSubScreen: 'community_post_detail',
-                selectedCommunityPost: post,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_post_detail' && (
-          <FarmerPostDetailScreen
-            post={selectedCommunityPost}
-            onBack={() => goBack()}
-          />
-        )}
-
-        {moreSubScreen === 'community_moderation_queue' && (
-          <FarmerModerationQueueScreen
-            items={COMMUNITY_MODERATION_ITEMS}
-            onBack={() => goBack()}
-            onSelectItem={(item) => {
-              pushNavigation({
-                moreSubScreen: 'community_moderation_review',
-                selectedModerationItem: item,
-              });
-            }}
-          />
-        )}
-
-        {moreSubScreen === 'community_moderation_review' && (
-          <FarmerModerationReviewScreen
-            item={selectedModerationItem}
-            onBack={() => goBack()}
-            onRecordAction={() => {
               goBack();
             }}
           />
@@ -4351,7 +2511,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // ─── Quick Actions (Image 4 Exact 6-Tile Grid) ───
+  // ─── Quick Actions (Image 1: 5-Tile Grid) ───
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -4367,6 +2527,30 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     paddingVertical: 16,
     paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickCardWide: {
+    width: '48.5%', // 2 columns for row 2
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  quickCardFull: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,

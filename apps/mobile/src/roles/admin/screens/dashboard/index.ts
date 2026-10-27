@@ -29,8 +29,6 @@ export * from './FarmerAdminActivityScreen';
 export * from './FarmerAdminNotificationsScreen';
 export * from './FarmerAdminMoreScreen';
 export * from './FarmerAdminProfileScreen';
-export * from './FarmerSupportScreen';
-export * from './FarmerSupportFilterScreen';
 export * from './FarmerDisputesMediationScreen';
 export * from './FarmerDisputesFilterScreen';
 export * from './FarmerDisputeDetailScreen';

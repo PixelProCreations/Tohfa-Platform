@@ -13,8 +13,23 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { t } from '../../i18n';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M12 19l-7-7 7-7"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 function CalendarHeaderIcon({ size = 24, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -62,7 +77,7 @@ function ChevronRightIcon({ size = 18, color = adminColors.ink }: { size?: numbe
   );
 }
 
-function ActionCalendarIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function ActionCalendarIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="17" rx="3" stroke={color} strokeWidth="1.8" />
@@ -79,7 +94,7 @@ function ActionCalendarIcon({ size = 26, color = '#F0562A' }: { size?: number; c
   );
 }
 
-function HistoryClockIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function HistoryClockIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -95,7 +110,7 @@ function HistoryClockIcon({ size = 26, color = '#F0562A' }: { size?: number; col
   );
 }
 
-function DocumentReportIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function DocumentReportIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -135,6 +150,7 @@ export interface FarmerAuditsTabScreenProps {
 export function FarmerAuditsTabScreen({
   onNavigateSchedule,
   onOpenNotifications,
+  onBack,
 }: FarmerAuditsTabScreenProps) {
   const [selectedDay, setSelectedDay] = useState<number>(8);
   const [showReportsModal, setShowReportsModal] = useState(false);
@@ -180,12 +196,22 @@ export function FarmerAuditsTabScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Orange / Terracotta Header (Image 2) ─── */}
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleWrap}>
+            {onBack && (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                accessibilityLabel="Go back"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+            )}
             <CalendarHeaderIcon size={24} color={adminColors.onBrand} />
             <Text style={styles.headerTitle}>{t('farmerAuditsTab.title') || 'Audits'}</Text>
           </View>
@@ -207,58 +233,43 @@ export function FarmerAuditsTabScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 4 KPI Cards (2x2 Grid, Image 2) ─── */}
-        <View style={styles.kpiContainer}>
-          <View style={styles.kpiRow}>
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={() => onNavigateSchedule('calendar')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.kpiLabel}>UPCOMING AUDITS</Text>
-              <Text style={styles.kpiValueBlack}>8</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={() => onNavigateSchedule('calendar')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.kpiLabel}>TODAY AUDIT</Text>
-              <Text style={styles.kpiValueBlack}>3</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.kpiRow}>
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={() => onNavigateSchedule('calendar')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.kpiLabel}>PENDING AUDIT</Text>
-              <Text style={styles.kpiValueOrange}>2</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.kpiCard}
-              onPress={() => onNavigateSchedule('history')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.kpiLabel}>COMPLETED AUDITS</Text>
-              <Text style={styles.kpiValueGreen}>24</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* ─── 4 Summary KPI Cards (Static Display Only, matching Overview reference design) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+          <OverviewDashboardCard
+            value="8"
+            title="Upcoming Audits"
+            subtitle="Scheduled audits"
+            icon="orders"
+            disabled
+          />
+          <OverviewDashboardCard
+            value="3"
+            title="Today Audit"
+            subtitle="Due today"
+            icon="pickup"
+            disabled
+          />
+          <OverviewDashboardCard
+            value="2"
+            title="Pending Audit"
+            subtitle="Needs action"
+            icon="alert"
+            tone="warning"
+            disabled
+          />
+          <OverviewDashboardCard
+            value="24"
+            title="Completed Audits"
+            subtitle="Audited & verified"
+            icon="box"
+            tone="success"
+            disabled
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Audit Calendar Header Row (Image 2) ─── */}
         <View style={styles.calendarSectionHeader}>
           <Text style={styles.calendarSectionTitle}>Audit Calendar</Text>
-          <TouchableOpacity
-            onPress={() => onNavigateSchedule('calendar')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.calendarSectionLink}>View →</Text>
-          </TouchableOpacity>
         </View>
 
         {/* ─── Month Navigation Row (Image 2) ─── */}
@@ -267,7 +278,7 @@ export function FarmerAuditsTabScreen({
             style={styles.navCircleBtn}
             activeOpacity={0.7}
           >
-            <ChevronLeftIcon size={18} color="#1A1A1A" />
+            <ChevronLeftIcon size={18} color={adminColors.ink} />
           </TouchableOpacity>
 
           <Text style={styles.monthTitle}>October 2026</Text>
@@ -276,7 +287,7 @@ export function FarmerAuditsTabScreen({
             style={styles.navCircleBtn}
             activeOpacity={0.7}
           >
-            <ChevronRightIcon size={18} color="#1A1A1A" />
+            <ChevronRightIcon size={18} color={adminColors.ink} />
           </TouchableOpacity>
         </View>
 
@@ -313,20 +324,24 @@ export function FarmerAuditsTabScreen({
           })}
         </View>
 
-        {/* ─── Selected Date Section (Image 2 & 3) ─── */}
-        <View style={styles.selectedDateInfoWrap}>
-          <Text style={styles.selectedDateTitle}>{selectedDay} October 2026</Text>
-          <Text style={styles.selectedDateSubtitle}>
-            {selectedDay === 8 ? '1 Audit on this date' : 'Audits scheduled on this date'}
-          </Text>
+        {/* ─── Selected Date Section with View Link ─── */}
+        <View style={styles.selectedDateRow}>
+          <View style={styles.selectedDateInfoWrap}>
+            <Text style={styles.selectedDateTitle}>{selectedDay} October 2026</Text>
+            <Text style={styles.selectedDateSubtitle}>
+              {selectedDay === 8 ? '1 Audit on this date' : 'Audits scheduled on this date'}
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => onNavigateSchedule('calendar')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.calendarSectionLink}>View →</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* ─── Audit Cards (Image 2 & 3) ─── */}
-        <TouchableOpacity
-          style={styles.auditCard}
-          onPress={() => onNavigateSchedule('calendar', 'AUD-2026-0042')}
-          activeOpacity={0.85}
-        >
+        {/* ─── Audit Cards (Static Display Only) ─── */}
+        <View style={styles.auditCard}>
           <View style={styles.auditCardTopRow}>
             <Text style={styles.auditTitle}>Quarterly Farm Audit</Text>
             <View style={styles.badgeScheduled}>
@@ -335,13 +350,9 @@ export function FarmerAuditsTabScreen({
           </View>
           <Text style={styles.auditSubtitle}>Ramesh Kumar · Internal</Text>
           <Text style={styles.auditDate}>15 Oct 2026</Text>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={styles.auditCard}
-          onPress={() => onNavigateSchedule('calendar', 'AUD-2026-0039')}
-          activeOpacity={0.85}
-        >
+        <View style={styles.auditCard}>
           <View style={styles.auditCardTopRow}>
             <Text style={styles.auditTitle}>External Compliance Audit</Text>
             <View style={styles.badgeScheduled}>
@@ -350,7 +361,7 @@ export function FarmerAuditsTabScreen({
           </View>
           <Text style={styles.auditSubtitle}>Kumar · Ooty</Text>
           <Text style={styles.auditDate}>20 Oct 2026</Text>
-        </TouchableOpacity>
+        </View>
 
         {/* ─── Quick Actions Section (Image 3) ─── */}
         <Text style={styles.quickActionsHeading}>Quick Actions</Text>
@@ -361,7 +372,7 @@ export function FarmerAuditsTabScreen({
               onPress={() => onNavigateSchedule('calendar_view')}
               activeOpacity={0.8}
             >
-              <ActionCalendarIcon size={26} color="#F0562A" />
+              <ActionCalendarIcon size={26} color={adminColors.brand} />
               <Text style={styles.quickActionLabel}>Audit Calendar</Text>
             </TouchableOpacity>
 
@@ -370,7 +381,7 @@ export function FarmerAuditsTabScreen({
               onPress={() => onNavigateSchedule('history')}
               activeOpacity={0.8}
             >
-              <HistoryClockIcon size={26} color="#F0562A" />
+              <HistoryClockIcon size={26} color={adminColors.brand} />
               <Text style={styles.quickActionLabel}>Audit History</Text>
             </TouchableOpacity>
           </View>
@@ -380,7 +391,7 @@ export function FarmerAuditsTabScreen({
             onPress={() => onNavigateSchedule('report', 'AUD-2026-0042')}
             activeOpacity={0.8}
           >
-            <DocumentReportIcon size={26} color="#F0562A" />
+            <DocumentReportIcon size={26} color={adminColors.brand} />
             <Text style={styles.quickActionLabel}>Reports</Text>
           </TouchableOpacity>
         </View>
@@ -449,10 +460,10 @@ export function FarmerAuditsTabScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     paddingTop: adminSpacing.sm,
     paddingBottom: adminSpacing.md + 2,
     paddingHorizontal: 16,
@@ -467,6 +478,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  backBtn: {
+    paddingRight: adminSpacing.xs,
+    paddingVertical: adminSpacing.xs,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   headerTitle: {
     color: adminColors.onBrand,
     fontSize: 22,
@@ -477,7 +494,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -492,27 +509,27 @@ const styles = StyleSheet.create({
 
   // ─── 2x2 KPI Cards ───
   kpiContainer: {
-    gap: 12,
-    marginBottom: 20,
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.xl,
   },
   kpiRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   kpiCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
     ...adminShadow.sm,
   },
   kpiLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#6E6660',
+    color: adminColors.muted,
     letterSpacing: 0.3,
     textTransform: 'uppercase',
     marginBottom: 6,
@@ -520,19 +537,19 @@ const styles = StyleSheet.create({
   kpiValueBlack: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: adminColors.ink,
     letterSpacing: -0.5,
   },
   kpiValueOrange: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#F0562A',
+    color: adminColors.brand,
     letterSpacing: -0.5,
   },
   kpiValueGreen: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#2E7D32',
+    color: adminColors.success.text,
     letterSpacing: -0.5,
   },
 
@@ -541,17 +558,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
   },
   calendarSectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#8D4A27',
+    color: adminColors.brandDeep,
   },
   calendarSectionLink: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#F0562A',
+    color: adminColors.brand,
   },
 
   // ─── Month Navigation ───
@@ -559,16 +576,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: adminSpacing.lg,
     paddingHorizontal: 2,
   },
   navCircleBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E8E4DF',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
     ...adminShadow.sm,
@@ -576,14 +593,14 @@ const styles = StyleSheet.create({
   monthTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: adminColors.ink,
   },
 
   // ─── Weekdays ───
   weekdaysRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   weekdayCell: {
     width: `${100 / 7}%`,
@@ -592,14 +609,14 @@ const styles = StyleSheet.create({
   weekdayText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#7A736E',
+    color: adminColors.muted,
   },
 
   // ─── Days Grid ───
   daysGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 20,
+    marginBottom: adminSpacing.xl,
   },
   dayCellWrap: {
     width: `${100 / 7}%`,
@@ -609,25 +626,25 @@ const styles = StyleSheet.create({
   dayCell: {
     width: '100%',
     height: 48,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 4,
   },
   dayCellSelected: {
-    backgroundColor: '#F0562A',
-    borderColor: '#F0562A',
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
   },
   dayText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: adminColors.ink,
   },
   dayTextSelected: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   dotContainer: {
     height: 8,
@@ -642,31 +659,31 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.onBrand,
   },
   greenDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#2E7D32',
+    backgroundColor: adminColors.success.text,
   },
   orangeDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#D97706',
+    backgroundColor: adminColors.warning.text,
   },
   orangeDotSmall: {
     width: 3.5,
     height: 3.5,
     borderRadius: 1.75,
-    backgroundColor: '#D97706',
+    backgroundColor: adminColors.warning.text,
   },
   grayDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#9E9E9E',
+    backgroundColor: adminColors.muted,
   },
   multiDotRow: {
     flexDirection: 'row',
@@ -675,30 +692,37 @@ const styles = StyleSheet.create({
   },
 
   // ─── Selected Date Section ───
+  selectedDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+  },
   selectedDateInfoWrap: {
-    marginBottom: 12,
+    flex: 1,
+    paddingRight: adminSpacing.sm,
   },
   selectedDateTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: adminColors.ink,
   },
   selectedDateSubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#7A736E',
+    color: adminColors.muted,
     marginTop: 2,
   },
 
   // ─── Audit Cards ───
   auditCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    marginBottom: adminSpacing.md,
     ...adminShadow.sm,
   },
   auditCardTopRow: {
@@ -710,53 +734,53 @@ const styles = StyleSheet.create({
   auditTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: adminColors.ink,
     letterSpacing: -0.2,
   },
   badgeScheduled: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: adminColors.info.bg,
     paddingHorizontal: 12,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: adminRadius.sm,
   },
   badgeScheduledText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1976D2',
+    color: adminColors.info.text,
   },
   auditSubtitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6E6660',
+    color: adminColors.muted,
     marginBottom: 4,
   },
   auditDate: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#6E6660',
+    color: adminColors.muted,
   },
 
   // ─── Quick Actions (Image 3) ───
   quickActionsHeading: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#8D4A27',
-    marginTop: 8,
-    marginBottom: 12,
+    color: adminColors.brandDeep,
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
   quickActionsContainer: {
-    gap: 12,
+    gap: adminSpacing.md,
   },
   quickActionsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: adminSpacing.md,
   },
   quickActionHalfCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
+    borderColor: adminColors.border,
     paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -765,10 +789,10 @@ const styles = StyleSheet.create({
   },
   quickActionFullCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
+    borderColor: adminColors.border,
     paddingVertical: 20,
     alignItems: 'center',
     justifyContent: 'center',
@@ -778,7 +802,7 @@ const styles = StyleSheet.create({
   quickActionLabel: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1A1A1A',
+    color: adminColors.ink,
     textAlign: 'center',
   },
 
@@ -836,7 +860,7 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
   },
   modalCloseBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     height: 44,
     borderRadius: adminRadius.md,
     alignItems: 'center',
