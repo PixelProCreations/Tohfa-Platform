@@ -13,6 +13,8 @@ export {
   SUB_NOTIFICATIONS,
   defaultNotifications,
 } from './fixtures';
+export * from './mappers';
+export * from './useNotificationsData';
 export type {
   AlertRecordTarget,
   ApprovalAlertItem,
