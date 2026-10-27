@@ -35,6 +35,14 @@ const allScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.SUPER_ADMIN,
 const subScope = (warehouseId: string) =>
   aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.SUB_WH_ADMIN, permission: 'inventory.stock_ledger.view_own', warehouseIds: [warehouseId] });
 
+// The pool is closed ONCE, after every describe in this file: a describe that closed it would leave
+// the next one unable to reach the database.
+afterAll(async () => {
+  if (process.env['DATABASE_URL'] === undefined) return;
+  const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+  await Promise.allSettled([closePool(), closeRedis()]);
+});
+
 describe('stock ledger detail service (stub repo) — BR-130', () => {
   it('BR-130c: a row the repo does not return (unknown, or outside the scope) is 404 NOT_FOUND with one detail text, never 403', async () => {
     const seen: string[] = [];
@@ -126,12 +134,10 @@ describeIfDatabase('stock ledger names and detail (PostgreSQL, rolled back) — 
     if (!ready) return;
     await client.query('ROLLBACK');
     client.release();
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
-  it('BR-130b: list rows name the recorder; the row an approved adjustment inserted names its approver; other rows have null names', async () => {
-    if (!ready) return;
+  it('BR-130b: list rows name the recorder; the row an approved adjustment inserted names its approver; other rows have null names', async (ctx) => {
+    if (!ready) return ctx.skip();
     const { inventoryRepo } = await import('./inventory.repo.js');
     const page = await inventoryRepo.listStockLedger(client, allScope, listStockLedgerQuery.parse({ batchId: ids.batch, limit: 10 }));
     const byId = new Map(page.items.map((item) => [item.id, item]));
@@ -149,8 +155,8 @@ describeIfDatabase('stock ledger names and detail (PostgreSQL, rolled back) — 
     expect(sub.items).toEqual([]);
   });
 
-  it('BR-130c: the detail is the list item exactly, for an all-scope caller and for the Sub admin of the row\'s warehouse', async () => {
-    if (!ready) return;
+  it('BR-130c: the detail is the list item exactly, for an all-scope caller and for the Sub admin of the row\'s warehouse', async (ctx) => {
+    if (!ready) return ctx.skip();
     const { inventoryRepo } = await import('./inventory.repo.js');
     const service = new InventoryService(inventoryRepo);
     const page = await inventoryRepo.listStockLedger(client, allScope, listStockLedgerQuery.parse({ batchId: ids.batch, limit: 10 }));
@@ -162,8 +168,8 @@ describeIfDatabase('stock ledger names and detail (PostgreSQL, rolled back) — 
     expect(coonoor).toMatchObject({ id: ids.coonoorRow, warehouseId: coonoorId, createdByName: 'BR130 Ledger Recorder', approvedByName: null });
   });
 
-  it('BR-130c: another warehouse\'s row (Sub admin) and an unknown id are the same 404 NOT_FOUND, never 403', async () => {
-    if (!ready) return;
+  it('BR-130c: another warehouse\'s row (Sub admin) and an unknown id are the same 404 NOT_FOUND, never 403', async (ctx) => {
+    if (!ready) return ctx.skip();
     const { inventoryRepo } = await import('./inventory.repo.js');
     const service = new InventoryService(inventoryRepo);
     const unknownId = newId();
@@ -202,8 +208,6 @@ describeIfDatabase('GET /v1/admin/stock-ledger/{id} (real router) — BR-130', (
   afterAll(async () => {
     if (!ready) return;
     if (server !== undefined) await new Promise<void>((resolve) => server.close(() => resolve()));
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const get = (id: string, who?: string) => {
@@ -211,8 +215,8 @@ describeIfDatabase('GET /v1/admin/stock-ledger/{id} (real router) — BR-130', (
     return who === undefined ? req : req.set('Authorization', `Bearer ${tokens[who]!}`);
   };
 
-  it('BR-130d: 401 without a token, 403 for a farmer or customer, 422 for a malformed id, 404 problem+json for an unknown id', async () => {
-    if (!ready) return;
+  it('BR-130d: 401 without a token, 403 for a farmer or customer, 422 for a malformed id, 404 problem+json for an unknown id', async (ctx) => {
+    if (!ready) return ctx.skip();
     expect((await get(newId())).status).toBe(401);
     expect((await get(newId(), 'farmer')).status).toBe(403);
     expect((await get(newId(), 'customer')).status).toBe(403);

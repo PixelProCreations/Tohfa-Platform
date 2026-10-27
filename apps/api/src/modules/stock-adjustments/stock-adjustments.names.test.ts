@@ -80,8 +80,8 @@ describeIfDatabase('stock adjustment creator and approver names (PostgreSQL, rol
     await Promise.allSettled([closePool(), closeRedis()]);
   });
 
-  it('BR-130a: list rows name the creator; only the approved one names an approver (pending and rejected are null)', async () => {
-    if (!ready) return;
+  it('BR-130a: list rows name the creator; only the approved one names an approver (pending and rejected are null)', async (ctx) => {
+    if (!ready) return ctx.skip();
     const { stockAdjustmentsRepo } = await import('./stock-adjustments.repo.js');
     const { items, total } = await stockAdjustmentsRepo.list(client, listAdjustmentsQuery.parse({ batchId: ids.batch }), null);
     expect(total).toBe(3);
@@ -95,8 +95,8 @@ describeIfDatabase('stock adjustment creator and approver names (PostgreSQL, rol
     expect(other).toEqual({ items: [], total: 0 });
   });
 
-  it('BR-130a: the detail (and the row-locked read the decisions use) carries the same names as the list row', async () => {
-    if (!ready) return;
+  it('BR-130a: the detail (and the row-locked read the decisions use) carries the same names as the list row', async (ctx) => {
+    if (!ready) return ctx.skip();
     const { stockAdjustmentsRepo } = await import('./stock-adjustments.repo.js');
     const { createStockAdjustmentsService } = await import('./stock-adjustments.service.js');
     const { items } = await stockAdjustmentsRepo.list(client, listAdjustmentsQuery.parse({ batchId: ids.batch }), null);
