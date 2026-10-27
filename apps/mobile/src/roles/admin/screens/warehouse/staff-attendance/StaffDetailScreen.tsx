@@ -44,6 +44,7 @@ import {
 } from './fixtures';
 import { ProhibitedIcon, RingTimeline, StaffAvatar } from './StaffParts';
 import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
+import { useAttendanceSummary, useStaffDetail } from './useStaffData';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
 function DeliveryTruckIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -76,6 +77,13 @@ export function StaffDetailScreen({
   onViewAttendanceHistory,
   onAssignDelivery,
 }: StaffDetailScreenProps) {
+  const { staff: fetchedStaff } = useStaffDetail(staff?.id);
+  const member = fetchedStaff ?? staff ?? DEFAULT_STAFF_MEMBER;
+
+  const { summary: attSummary } = useAttendanceSummary(scope, undefined, undefined, member.id);
+  const staffCounts = attSummary?.byStaff?.find((s) => s.staffId === member.id) ?? attSummary?.totals;
+  const summary = staffCounts ? { present: staffCounts.present, absent: staffCounts.absent, leave: staffCounts.leave } : STAFF_ATTENDANCE_SUMMARY;
+
   if (!hasStaffRosterAccess(can, scope)) {
     return (
       <WalletScreen title="Staff Detail" onBack={onBack}>
@@ -84,11 +92,9 @@ export function StaffDetailScreen({
     );
   }
 
-  const member = staff ?? DEFAULT_STAFF_MEMBER;
   const isDriver = member.type === 'driver';
   const isMain = isAllWarehouses(scope);
   const warehouseName = member.warehouseId ? staffWarehouseName(member.warehouseId) : scope.warehouseName ?? '';
-  const summary = STAFF_ATTENDANCE_SUMMARY;
   const timeline = STAFF_ACTIVITY.map((item) => ({
     id: item.id,
     title: item.id === 'a-2' && warehouseName ? `Assigned to ${warehouseName}` : item.title,

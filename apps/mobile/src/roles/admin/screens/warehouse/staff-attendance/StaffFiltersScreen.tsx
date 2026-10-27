@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -12,6 +12,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -137,6 +138,13 @@ export function StaffFiltersScreen({
   onBack,
   onApply,
 }: StaffFiltersScreenProps) {
+  const { options } = useWarehouseOptions();
+  const effectiveWarehouses = useMemo(() => {
+    if (warehouses !== DEFAULT_WAREHOUSE_OPTIONS) return warehouses;
+    if (options.length === 0) return DEFAULT_WAREHOUSE_OPTIONS;
+    return [{ id: 'ALL', name: 'All Warehouses' }, ...options.map((o) => ({ id: o.warehouseId, name: o.warehouseName }))];
+  }, [warehouses, options]);
+
   const [searchQuery, setSearchQuery] = useState(initialFilters.searchQuery);
   const [role, setRole] = useState(initialFilters.role);
   const [attendance, setAttendance] = useState(initialFilters.attendance);
@@ -307,7 +315,7 @@ export function StaffFiltersScreen({
               <Text style={styles.sectionTitle}>Warehouse</Text>
             </View>
             <View style={styles.chipWrap}>
-              {warehouses.map((w) => {
+              {effectiveWarehouses.map((w) => {
                 const active = w.id === selectedWarehouse;
                 return (
                   <TouchableOpacity

@@ -42,6 +42,8 @@ import {
 } from './fixtures';
 import { AttendanceStatusText, ChevronRightIcon, ListCard, ListRow } from './StaffParts';
 import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useAttendanceHistoryList, useAttendanceSummary } from './useStaffData';
 import type { AttendanceHistoryEntry, StaffMonthSummary, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 type HistoryRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
@@ -65,9 +67,9 @@ export function AttendanceHistoryScreen({
   onTabChange,
   onNavigateToToday,
   initialWarehouseId,
-  warehouseOptions = STAFF_WAREHOUSES,
-  entries = ATTENDANCE_HISTORY,
-  monthSummaries = STAFF_MONTH_SUMMARIES,
+  warehouseOptions: customWarehouseOptions,
+  entries: customEntries,
+  monthSummaries: customMonthSummaries,
 }: AttendanceHistoryScreenProps) {
   const isMain = isAllWarehouses(scope);
   const [range, setRange] = useState<HistoryRange>('This Month');
@@ -78,6 +80,15 @@ export function AttendanceHistoryScreen({
   const [attendanceFilter, setAttendanceFilter] = useState<'All' | 'Present' | 'Absent' | 'On Leave'>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [showFilterScreen, setShowFilterScreen] = useState(false);
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : STAFF_WAREHOUSES);
+
+  const { entries: liveEntries } = useAttendanceHistoryList(scope, selectedWarehouseId);
+  const entries = customEntries ?? (liveEntries.length > 0 ? liveEntries : ATTENDANCE_HISTORY);
+
+  const { staffSummaries: liveSummaries } = useAttendanceSummary(scope, selectedWarehouseId);
+  const monthSummaries = customMonthSummaries ?? (liveSummaries.length > 0 ? liveSummaries : STAFF_MONTH_SUMMARIES);
 
   const inRange = (olderThanWeek: boolean | undefined, dateHeader?: string) => {
     if (range === 'Today') return dateHeader === undefined ? !olderThanWeek : dateHeader === ATTENDANCE_DATE_HEADER;
