@@ -49,6 +49,8 @@ import {
   type AuditScheduleRecord,
   INITIAL_SCHEDULE_RECORDS,
 } from './fixtures';
+import { FarmerInspectionFindingsScreen } from './FarmerInspectionFindingsScreen';
+import { FarmerDocumentsFindingsScreen } from './FarmerDocumentsFindingsScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -877,6 +879,8 @@ export function AuditScheduleScreen({
     | 'inspection'
     | 'audit_inspection'
     | 'inspection_step'
+    | 'inspection_findings'
+    | 'documents_findings'
   >(
     initialView === 'calendar_view'
       ? 'calendar'
@@ -2327,22 +2331,73 @@ export function AuditScheduleScreen({
                 <Text style={styles.auditSummaryValBold}>80/100</Text>
               </View>
             </View>
-
-            <TouchableOpacity
-              style={styles.outlineOrangeBtn}
-              onPress={() => {
-                setPreviousView('detail');
-                setCurrentView('history');
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.outlineOrangeBtnText}>View Audit History</Text>
-            </TouchableOpacity>
           </View>
+
+          <TouchableOpacity
+            style={styles.outlineOrangeBtn}
+            onPress={() => {
+              setPreviousView('detail');
+              setCurrentView('history');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineOrangeBtnText}>View Audit History</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.outlineOrangeBtn, { marginTop: 12 }]}
+            onPress={() => {
+              setPreviousView('detail');
+              setCurrentView('inspection_findings');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.outlineOrangeBtnText}>Inspection / Findings</Text>
+          </TouchableOpacity>
 
           <View style={{ height: 24 }} />
         </ScrollView>
       </SafeAreaView>
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: INSPECTION / FINDINGS (Images 2 & 3)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (currentView === 'inspection_findings') {
+    const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
+    return (
+      <FarmerInspectionFindingsScreen
+        record={record}
+        onBack={() => {
+          setPreviousView('inspection_findings');
+          setCurrentView('detail');
+        }}
+        onNavigateSupportAudit={() => {
+          setPreviousView('inspection_findings');
+          setCurrentView('documents_findings');
+        }}
+      />
+    );
+  }
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // SCREEN: DOCUMENTS & FINDINGS (Images 4 & 5)
+  // ───────────────────────────────────────────────────────────────────────────
+  if (currentView === 'documents_findings') {
+    const record = selectedRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
+    return (
+      <FarmerDocumentsFindingsScreen
+        record={record}
+        onBack={() => {
+          setPreviousView('documents_findings');
+          setCurrentView('inspection_findings');
+        }}
+        onSubmitSuccess={() => {
+          setPreviousView('documents_findings');
+          setCurrentView('detail');
+        }}
+      />
     );
   }
 
@@ -6595,7 +6650,7 @@ const styles = StyleSheet.create({
   outlineOrangeBtn: {
     height: 48,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.lg,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
     alignItems: 'center',
@@ -6604,6 +6659,8 @@ const styles = StyleSheet.create({
   },
   outlineOrangeBtnText: {
     ...adminType.body,
+    fontSize: 14.5,
+    fontWeight: '800',
     color: adminColors.brandDeep,
   },
   detailBottomActionRow: {
@@ -7320,25 +7377,30 @@ const styles = StyleSheet.create({
   },
   dropdownMenu: {
     backgroundColor: adminColors.card,
-    borderRadius: 8,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: adminColors.muted,
+    borderColor: adminColors.border,
     marginTop: 4,
     overflow: 'hidden',
+    ...adminShadow.md,
   },
   dropdownMenuItem: {
     paddingVertical: 10,
     paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.canvas,
   },
   dropdownMenuItemActive: {
-    backgroundColor: adminColors.muted,
+    backgroundColor: adminColors.brandTint,
   },
   dropdownMenuText: {
     ...adminType.body,
+    fontSize: 13,
     color: adminColors.ink,
   },
   dropdownMenuTextActive: {
-    color: adminColors.onBrand,
+    color: adminColors.brandDeep,
+    fontWeight: '700',
   },
 
   // ─── Step 2 Styles (FMB & Land Verification) ───
@@ -9129,7 +9191,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   docModalDownloadBtnText: {
-    ...adminType.button,
+    ...adminType.rowTitle,
     color: adminColors.brand,
     fontWeight: '700',
   },
@@ -9144,7 +9206,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   docModalCloseBtnText: {
-    ...adminType.button,
+    ...adminType.rowTitle,
     color: adminColors.ink,
     fontWeight: '700',
   },
