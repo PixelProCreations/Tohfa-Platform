@@ -155,6 +155,8 @@ export function toAdminOrderListItem(record: AdminOrderListRecord): AdminOrderLi
     placedAt: record.placedAt,
     customerName: record.buyerName ?? null,
     customerMobileMasked: maskMobile(record.buyerMobile ?? null),
+    packedAt: record.packedAt ?? null,
+    readyAt: record.readyAt ?? null,
   };
 }
 

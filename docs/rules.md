@@ -2386,6 +2386,8 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 **Owner amendment 2026-10-23.** The admin mobile order queue needs to show who the order is for. The owner amended this rule to allow exactly two buyer fields on the list item, `customerName` and the masked mobile `customerMobileMasked` (BR-92). Nothing else changes: the scope confinement, the CUSTOMER/FARMER/FARMER_ADMIN 403s, the empty-not-403 filter and every farm-identity prohibition stand as before.
 
+**Owner amendment 2026-10-26 (D1).** The list item also carries two fulfilment timestamps, both nullable ISO instants: `packedAt`, the order's `packed_at` column (the value the BR-99 detail reports as `packedAt`), and `readyAt`, the earliest `order_status_history` row with `to_status = 'READY_FOR_PICKUP'` (`orders` has no such column; earliest is UNCONFIRMED, though no transition re-enters that status). Both are read in the list query itself (a column and a LEFT JOIN LATERAL aggregate), not per row from the service. The documented key set is now the thirteen keys above plus `packedAt` and `readyAt`; every farm-identity prohibition, the buyer-PII prohibition and the masked-mobile rule are unchanged. Search (`q`) is BR-127.
+
 **Failure mode if unenforced.** Any customer with the app lists every order of every customer and warehouse (order numbers, totals, channels, warehouses), and a Sub admin learns from a 403 that another warehouse has orders on a given day.
 
 **Test contract.**
@@ -2393,7 +2395,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-101b` 401 without a token; FARMER and FARMER_ADMIN get 403 on the list.
 - `BR-101c` A Sub admin lists only its warehouse; `warehouseId` of another warehouse is `200` with an empty page, the same body as an unknown warehouse id, never 403.
 - `BR-101d` MAIN_WH_ADMIN, TOHFA_ADMIN and SUPER_ADMIN list both warehouses; `warehouseId` narrows to one.
-- `BR-101e` A list item's key set equals the documented set; no farm-identity, address or OTP key at any depth, and no buyer or mobile key other than the two allowed by the owner amendment of 2026-10-23 (`customerName`, `customerMobileMasked`). `customerMobileMasked` equals the BR-92 mask of the buyer's stored mobile (`*` for every character but the last four), the full mobile (and any run of more than four of its digits) never appears in the JSON, and no farmer's name appears either.
+- `BR-101e` A list item's key set equals the documented set (since the owner amendment of 2026-10-26 including `packedAt` and `readyAt`, which equal the order's `packed_at` and its first `READY_FOR_PICKUP` history row, null when absent); no farm-identity, address or OTP key at any depth, and no buyer or mobile key other than the two allowed by the owner amendment of 2026-10-23 (`customerName`, `customerMobileMasked`). `customerMobileMasked` equals the BR-92 mask of the buyer's stored mobile (`*` for every character but the last four), the full mobile (and any run of more than four of its digits) never appears in the JSON, and no farmer's name appears either.
 
 ---
 
@@ -3112,6 +3114,27 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 - `BR-126e` A storage location of the destination is copied to the batch (id and text, the code when no text); one of another warehouse, an unknown or an inactive one is 422 and nothing is written.
 - `BR-126f` A replay returns the same receipt number and writes nothing twice; the same key with an added field is 409 `IDEMPOTENCY_KEY_REUSED`.
 - `BR-126g` The database refuses a breakdown above the shortfall and a `RECEIVED` transfer without a receipt number.
+
+---
+
+### BR-127 — The admin order queue takes a literal text search of the order number and the buyer name that only narrows the scoped set
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group D" D1 for the admin mobile order queue; extends BR-101 (scope) and follows BR-122 (literal search); `docs/rbac.json` `order.list.view_all` (existing code, unchanged) |
+| **Status** | DERIVED (the searched fields are UNCONFIRMED: implementer default awaiting the owner) |
+| **Layer** | Server-side: `adminOrdersQuerySchema` / `fulfilmentRepo.listAdminOrders`; no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/orders` accepts an optional `q`. It is trimmed and must then be 1-100 characters (422 `VALIDATION_FAILED` otherwise). It keeps an order when its order number, or its buyer's name as the detail names the buyer (BR-99: the registered customer's `users.full_name`, else the counter sale's `walk_in_name`), contains `q` case-insensitively. It is a literal substring match: `%`, `_` and `\` match those characters only (escaped before the `ILIKE ... ESCAPE '\'`), and the value reaches SQL only as a bound parameter. No mobile number (registered or walk-in) is searched: it is buyer PII the list shows only masked (BR-92), and a search on it would let a caller confirm a full number digit by digit. `q` is ANDed with the existing filters and the unchanged BR-101/BR-30 scope filter, so it never reveals an order the caller could not already list; outside the scope the page is empty, never 403. Ordering and the keyset cursor are unchanged, so a cursor issued without `q` still works.
+
+**Failure mode if unenforced.** A search box that treats `%` as "everything" or injects SQL; a Sub admin finding another warehouse's orders by name; or a mobile-number search that turns a masked number back into a full one.
+
+**Test contract.** (`apps/api/src/modules/orders/fulfilment.list.test.ts`)
+- `BR-127a` `q` is trimmed; blank, whitespace-only or 101 characters is refused; 100 is accepted.
+- `BR-127b` `q` matches the order number, the registered buyer's name and the walk-in name case-insensitively; `%` and `_` match literally; no match is an empty 200 page.
+- `BR-127c` A registered or walk-in mobile number (whole, or a run of its digits) matches nothing.
+- `BR-127d` A Sub admin's search never matches another warehouse's order (empty 200, not 403); an unconfined caller's does; blank or 101 characters is 422 over HTTP.
+- `BR-127e` With `q` set, paging one row at a time returns exactly the full filtered list in order; a cursor issued without `q` still works with it.
 
 ---
 

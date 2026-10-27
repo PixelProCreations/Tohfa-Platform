@@ -13,6 +13,7 @@ import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
 import { AppError } from '../../http/problem.js';
 import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
 import { decodeAdminOrderCursor, encodeAdminOrderCursor } from './fulfilment.cursor.js';
+import { likeContains } from '../purchase-orders/purchase-orders.repo.js';
 import type {
   AdminOrderChannel,
   AdminOrderFulfilmentType,
@@ -116,6 +117,8 @@ const isoOrNull = (value: Date | null): string | null => (value === null ? null 
 export interface AdminOrderListRecord extends AdminOrderSummary {
   buyerName: string | null;
   buyerMobile: string | null;
+  packedAt: string | null;
+  readyAt: string | null;
 }
 
 interface FulfilmentOrderRow {
@@ -132,6 +135,8 @@ interface FulfilmentOrderRow {
   placedAt: string | Date;
   buyerName: string | null;
   buyerMobile: string | null;
+  packedAt: Date | null;
+  readyAt: Date | null;
   /** Microsecond UTC text of placed_at, for the keyset cursor only (never in a response). */
   placedAtCursor: string;
 }
@@ -284,6 +289,19 @@ export const fulfilmentRepo: FulfilmentRepo = {
       values.push(query.deliveryDate);
     }
 
+    // BR-127: a literal, case-insensitive search of the order number and the buyer NAME as the
+    // detail names it (the registered customer's users.full_name, else the walk-in name). Never a
+    // mobile number: those are PII and masked in the response (BR-92). Bound, wildcards escaped,
+    // ANDed with the scope filter above, so it only narrows the visible set.
+    if (query.q !== undefined) {
+      const at = `$${idx++}`;
+      conditions.push(
+        `(o.order_number ILIKE ${at} ESCAPE '\\' OR ` +
+          `(CASE WHEN o.customer_id IS NOT NULL THEN u.full_name ELSE o.walk_in_name END) ILIKE ${at} ESCAPE '\\')`,
+      );
+      values.push(likeContains(query.q));
+    }
+
     if (query.cursor !== undefined) {
       // The route validated the cursor (adminOrdersQuerySchema). A caller that skipped validation
       // still never reaches the ::timestamptz cast with a value we did not produce.
@@ -311,10 +329,20 @@ export const fulfilmentRepo: FulfilmentRepo = {
              -- BR-101 owner amendment 2026-10-23: the buyer, as the detail (BR-99) names it. Joined
              -- here, not looked up per row; LEFT JOINs so a walk-in sale (no customer) still lists.
              CASE WHEN o.customer_id IS NOT NULL THEN u.full_name ELSE o.walk_in_name END AS "buyerName",
-             CASE WHEN o.customer_id IS NOT NULL THEN u.mobile ELSE o.walk_in_mobile END AS "buyerMobile"
+             CASE WHEN o.customer_id IS NOT NULL THEN u.mobile ELSE o.walk_in_mobile END AS "buyerMobile",
+             -- BR-101 owner amendment 2026-10-26: packedAt is the column the detail (BR-99) reports;
+             -- readyAt is the first READY_FOR_PICKUP history row (orders has no such column). Part
+             -- of this one query, never a per-row lookup from the service.
+             o.packed_at AS "packedAt",
+             rdy.ready_at AS "readyAt"
         FROM orders o
         LEFT JOIN customers c ON c.id = o.customer_id
         LEFT JOIN users u ON u.id = c.user_id
+        LEFT JOIN LATERAL (
+              SELECT min(h.created_at) AS ready_at
+                FROM order_status_history h
+               WHERE h.order_id = o.id AND h.to_status = 'READY_FOR_PICKUP'
+        ) rdy ON TRUE
        WHERE ${conditions.join(' AND ')}
        ORDER BY o.placed_at DESC, o.id DESC
         LIMIT $${idx}
@@ -336,6 +364,8 @@ export const fulfilmentRepo: FulfilmentRepo = {
       placedAt: new Date(r.placedAt).toISOString(),
       buyerName: r.buyerName,
       buyerMobile: r.buyerMobile,
+      packedAt: r.packedAt === null ? null : new Date(r.packedAt).toISOString(),
+      readyAt: r.readyAt === null ? null : new Date(r.readyAt).toISOString(),
     }));
 
     let nextCursor: string | null = null;

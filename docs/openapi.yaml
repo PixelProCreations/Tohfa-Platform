@@ -11208,11 +11208,16 @@ paths:
         `WAREHOUSE_SCOPE_VIOLATION` (a provisioning error, from requirePermission). Items carry no
         farm identity (BR-16). Owner amendment 2026-10-23 (BR-101): an item carries the buyer's
         `customerName` and `customerMobileMasked` (masked to its last four digits for every scope,
-        BR-92), the same buyer the order detail names; no other buyer PII. Paging is keyset on
-        (`placedAt`, `id`) at microsecond precision; a `cursor` this endpoint did not return is 422
-        `VALIDATION_FAILED`.
+        BR-92), the same buyer the order detail names; no other buyer PII. Owner amendment
+        2026-10-26 (BR-101): an item also carries `packedAt` (the order's `packed_at`, as the detail
+        reports it) and `readyAt` (the first `READY_FOR_PICKUP` status-history row), both nullable.
+        Search (BR-127, searched fields UNCONFIRMED): `q` keeps orders whose order number or buyer
+        name (the registered customer's name, else the walk-in name) contains it as a literal,
+        case-insensitive substring; never a mobile number. ANDed with the scope filter. Paging is
+        keyset on (`placedAt`, `id`) at microsecond precision, unchanged by `q`; a `cursor` this
+        endpoint did not return is 422 `VALIDATION_FAILED`.
       x-permission: order.list.view_all
-      x-business-rules: [BR-101, BR-30, BR-16, BR-92]
+      x-business-rules: [BR-101, BR-127, BR-30, BR-16, BR-92]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -11220,6 +11225,7 @@ paths:
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: channel, in: query, schema: { $ref: '#/components/schemas/SalesChannel' } }
         - { name: deliveryDate, in: query, schema: { type: string, format: date } }
+        - { name: q, in: query, description: 'Literal, case-insensitive substring of the order number or the buyer name (registered customer or walk-in); never a mobile number. Trimmed, 1-100 characters (BR-127).', schema: { type: string, minLength: 1, maxLength: 100 } }
       responses:
         '200':
           description: Paged orders.
@@ -21185,12 +21191,15 @@ components:
         fields plus the buyer's name and masked mobile, and nothing else. No farm identity
         (`farmerId`, farm name, location, GPS, FMB: BR-16), no customer id, no full mobile, e-mail,
         address or OTP. The buyer is the one the order detail names (`AdminOrderDetail.buyer`): the
-        registered customer, or the walk-in buyer of a counter sale with no customer.
+        registered customer, or the walk-in buyer of a counter sale with no customer. Owner
+        amendment 2026-10-26: plus `packedAt` and `readyAt`.
       allOf:
         - $ref: '#/components/schemas/OrderSummary'
         - type: object
-          required: [customerName, customerMobileMasked]
+          required: [customerName, customerMobileMasked, packedAt, readyAt]
           properties:
+            packedAt: { type: [string, 'null'], format: date-time, description: 'The order''s `packed_at`, the value `AdminOrderDetail.packedAt` reports; null until packed.' }
+            readyAt: { type: [string, 'null'], format: date-time, description: 'The first `READY_FOR_PICKUP` row of the order''s status history; null when it never was.' }
             customerName: { type: [string, 'null'], description: 'The buyer name; null when the order records none.' }
             customerMobileMasked:
               description: The buyer mobile masked to its last four digits for every scope (BR-92); null when none is stored.

@@ -22,6 +22,9 @@ export const adminOrdersQuerySchema = z.object({
   warehouseId: z.string().uuid().optional(),
   channel: z.enum(salesChannels).optional(),
   deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  // BR-127: a literal, case-insensitive substring of the order number or the buyer name (never a
+  // mobile number). Trimmed; blank or longer than 100 characters is 422. Same shape as BR-122's `q`.
+  q: z.string().trim().min(1, 'q must not be blank').max(100, 'q must be at most 100 characters').optional(),
 });
 export type AdminOrdersQuery = z.infer<typeof adminOrdersQuerySchema>;
 
@@ -94,6 +97,10 @@ export interface AdminOrderSummary {
 export interface AdminOrderListItem extends AdminOrderSummary {
   customerName: string | null;
   customerMobileMasked: string | null;
+  /** BR-101 owner amendment 2026-10-26: `orders.packed_at`, the value the detail reports. */
+  packedAt: string | null;
+  /** BR-101 owner amendment 2026-10-26: the first READY_FOR_PICKUP row of order_status_history. */
+  readyAt: string | null;
 }
 
 export interface AdminOrderDetail extends AdminOrderSummary {
