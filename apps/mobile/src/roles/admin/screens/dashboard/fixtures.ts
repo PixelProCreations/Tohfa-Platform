@@ -368,7 +368,7 @@ export const INITIAL_SCHEDULE_RECORDS: AuditScheduleRecord[] = [
 
 // ─── Module 9: Disputes & Mediation Fixtures ─────────────────────────────────
 
-export type DisputeStatus = 'Under Review' | 'Awaiting TOHFA' | 'Open' | 'Escalated' | 'Resolved';
+export type DisputeStatus = 'Under Review' | 'Awaiting TOHFA' | 'Awaiting Farmer' | 'Open' | 'Escalated' | 'Resolved';
 export type DisputeCategory =
   | 'Payment & Payout'
   | 'Purchase & Collection'

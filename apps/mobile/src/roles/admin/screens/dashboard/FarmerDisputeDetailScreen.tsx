@@ -146,6 +146,7 @@ export function FarmerDisputeDetailScreen({
   const [showRecipientPicker, setShowRecipientPicker] = useState(false);
   const [requestText, setRequestText] = useState('');
   const [attachmentName, setAttachmentName] = useState<string | null>(null);
+  const [requestInfoStep, setRequestInfoStep] = useState<'form' | 'review'>('form');
 
   const [resolutionSummary, setResolutionSummary] = useState('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -185,10 +186,42 @@ export function FarmerDisputeDetailScreen({
       Alert.alert('Required', 'Please specify the information requested.');
       return;
     }
+    setShowRecipientPicker(false);
+    setRequestInfoStep('review');
+  };
+
+  const handleSendRequest = () => {
+    const isFarmer = requestRecipient.toLowerCase().includes('farmer');
+    const newStatus = isFarmer ? 'Awaiting Farmer' : 'Awaiting TOHFA';
+
+    setCurrentDispute((prev) => ({
+      ...prev,
+      status: newStatus,
+      lastActivityDate: '09 Oct 2026',
+      detailedTimeline: [
+        {
+          id: `tle-${Date.now()}`,
+          type: 'status',
+          title: 'Information requested',
+          description: `Requested information from ${requestRecipient}: "${requestText.trim()}"`,
+          author: 'Suresh Kumar',
+          timestamp: '09 Oct 2026, 11:00',
+        },
+        ...(prev.detailedTimeline ?? []),
+      ],
+    }));
+
     setShowRequestInfoModal(false);
+    setRequestInfoStep('form');
     triggerToast(`Information request sent to ${requestRecipient}.`);
     setRequestText('');
     setAttachmentName(null);
+  };
+
+  const handleCloseRequestModal = () => {
+    setShowRequestInfoModal(false);
+    setRequestInfoStep('form');
+    setShowRecipientPicker(false);
   };
 
   const handleUploadAttachment = () => {
@@ -473,7 +506,10 @@ export function FarmerDisputeDetailScreen({
 
         <TouchableOpacity
           style={styles.fullOutlineActionBtn}
-          onPress={() => setShowRequestInfoModal(true)}
+          onPress={() => {
+            setRequestInfoStep('form');
+            setShowRequestInfoModal(true);
+          }}
           activeOpacity={0.8}
         >
           <Text style={styles.outlineActionBtnText}>Request Information</Text>
@@ -598,116 +634,177 @@ export function FarmerDisputeDetailScreen({
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* ─── POPUP 2: Request Information Popup (Image 5 Right: M10-S02b) ─── */}
+      {/* ─── POPUP 2: Request Information & Review Request Popup ─── */}
       <Modal
         visible={showRequestInfoModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowRequestInfoModal(false)}
+        onRequestClose={handleCloseRequestModal}
       >
-        <TouchableWithoutFeedback onPress={() => setShowRequestInfoModal(false)}>
+        <TouchableWithoutFeedback onPress={handleCloseRequestModal}>
           <View style={styles.bottomSheetOverlay}>
             <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
               <View style={styles.bottomSheetCard}>
-                <Text style={styles.bottomSheetTitle}>Request Information</Text>
+                {requestInfoStep === 'form' ? (
+                  <>
+                    <Text style={styles.bottomSheetTitle}>Request Information</Text>
 
-                <Text style={styles.sheetLabel}>
-                  Recipient <Text style={styles.redAsterisk}>*</Text>
-                </Text>
-                <TouchableOpacity
-                  style={styles.sheetDropdown}
-                  onPress={() => setShowRecipientPicker((v) => !v)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.sheetDropdownText,
-                      !requestRecipient && { color: adminColors.placeholder },
-                    ]}
-                  >
-                    {requestRecipient || 'Select a recipient'}
-                  </Text>
-                  <ChevronDownIcon size={16} color={adminColors.ink} />
-                </TouchableOpacity>
-
-                {showRecipientPicker && (
-                  <View style={styles.dropdownMenu}>
-                    {[
-                      'Ramesh Kumar (Farmer)',
-                      'Procurement Team (TOHFA)',
-                      'Collection Team (TOHFA)',
-                      'Quality Control Team (TOHFA)',
-                    ].map((rec) => (
-                      <TouchableOpacity
-                        key={rec}
+                    <Text style={styles.sheetLabel}>
+                      Recipient <Text style={styles.redAsterisk}>*</Text>
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.sheetDropdown}
+                      onPress={() => setShowRecipientPicker((v) => !v)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
                         style={[
-                          styles.dropdownItem,
-                          requestRecipient === rec && styles.dropdownItemActive,
+                          styles.sheetDropdownText,
+                          !requestRecipient && { color: adminColors.placeholder },
                         ]}
-                        onPress={() => {
-                          setRequestRecipient(rec);
-                          setShowRecipientPicker(false);
-                        }}
                       >
-                        <Text
-                          style={[
-                            styles.dropdownItemText,
-                            requestRecipient === rec && styles.dropdownItemTextActive,
-                          ]}
-                        >
-                          {rec}
-                        </Text>
+                        {requestRecipient || 'Select a recipient'}
+                      </Text>
+                      <ChevronDownIcon size={16} color={adminColors.ink} />
+                    </TouchableOpacity>
+
+                    {showRecipientPicker && (
+                      <View style={styles.dropdownMenu}>
+                        {[
+                          'TOHFA (no department assigned) (TOHFA)',
+                          `${currentDispute.raisedBy || 'Ramesh Kumar'} (Farmer)`,
+                          'Procurement Team (TOHFA)',
+                          'Collection Team (TOHFA)',
+                          'Quality Control Team (TOHFA)',
+                        ].map((rec) => (
+                          <TouchableOpacity
+                            key={rec}
+                            style={[
+                              styles.dropdownItem,
+                              requestRecipient === rec && styles.dropdownItemActive,
+                            ]}
+                            onPress={() => {
+                              setRequestRecipient(rec);
+                              setShowRecipientPicker(false);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownItemText,
+                                requestRecipient === rec && styles.dropdownItemTextActive,
+                              ]}
+                            >
+                              {rec}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    <Text style={styles.sheetLabel}>
+                      Information requested <Text style={styles.redAsterisk}>*</Text>
+                    </Text>
+                    <View style={styles.textareaWrapper}>
+                      <TextInput
+                        style={styles.sheetTextarea}
+                        placeholder=""
+                        placeholderTextColor={adminColors.placeholder}
+                        multiline
+                        value={requestText}
+                        onChangeText={setRequestText}
+                      />
+                      <View style={styles.resizeGripPos}>
+                        <ResizeGripIcon size={12} color={adminColors.muted} />
+                      </View>
+                    </View>
+
+                    <Text style={styles.sheetLabel}>Supporting attachment (optional)</Text>
+                    <TouchableOpacity
+                      style={styles.dashedUploadBox}
+                      onPress={handleUploadAttachment}
+                      activeOpacity={0.75}
+                    >
+                      <UploadFileIcon size={18} color={adminColors.brandDeep} />
+                      <Text style={styles.uploadBoxText}>
+                        {attachmentName ? attachmentName : 'Upload file'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.sheetButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.sheetButton}
+                        onPress={handleReviewRequest}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.sheetButtonText}>Review Request</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
+
+                      <TouchableOpacity
+                        style={styles.sheetButton}
+                        onPress={handleCloseRequestModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.sheetButtonText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.bottomSheetTitle}>Review Request</Text>
+
+                    <View style={styles.reviewCard}>
+                      <Text style={styles.reviewLabel}>Recipient</Text>
+                      <Text style={styles.reviewRecipientValue}>{requestRecipient}</Text>
+
+                      <Text style={styles.reviewInfoLabel}>Information requested</Text>
+                      <Text style={styles.reviewTextValue}>{requestText}</Text>
+
+                      {attachmentName ? (
+                        <>
+                          <Text style={styles.reviewAttachmentLabel}>Supporting attachment</Text>
+                          <Text style={styles.reviewAttachmentValue}>{attachmentName}</Text>
+                        </>
+                      ) : null}
+                    </View>
+
+                    <Text style={styles.reviewNoticeText}>
+                      Sent through the existing notification system. The dispute moves to{' '}
+                      <Text style={styles.reviewNoticeAwaiting}>Awaiting</Text>{' '}
+                      <Text style={styles.reviewNoticeRule}>
+                        {requestRecipient.toLowerCase().includes('farmer')
+                          ? 'Farmer (proposed rule)'
+                          : 'TOHFA (proposed rule)'}
+                      </Text>
+                      .
+                    </Text>
+
+                    <View style={styles.reviewButtonsRow}>
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={handleSendRequest}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reviewBtnText}>Send Request</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={() => setRequestInfoStep('form')}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reviewBtnText}>Back to Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.reviewBtn}
+                        onPress={handleCloseRequestModal}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={styles.reviewBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
-
-                <Text style={styles.sheetLabel}>
-                  Information requested <Text style={styles.redAsterisk}>*</Text>
-                </Text>
-                <View style={styles.textareaWrapper}>
-                  <TextInput
-                    style={styles.sheetTextarea}
-                    placeholder=""
-                    placeholderTextColor={adminColors.placeholder}
-                    multiline
-                    value={requestText}
-                    onChangeText={setRequestText}
-                  />
-                  <View style={styles.resizeGripPos}>
-                    <ResizeGripIcon size={12} color={adminColors.muted} />
-                  </View>
-                </View>
-
-                <Text style={styles.sheetLabel}>Supporting attachment (optional)</Text>
-                <TouchableOpacity
-                  style={styles.dashedUploadBox}
-                  onPress={handleUploadAttachment}
-                  activeOpacity={0.75}
-                >
-                  <UploadFileIcon size={18} color={adminColors.brandDeep} />
-                  <Text style={styles.uploadBoxText}>
-                    {attachmentName ? attachmentName : 'Upload file'}
-                  </Text>
-                </TouchableOpacity>
-
-                <View style={styles.sheetButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.sheetButton}
-                    onPress={handleReviewRequest}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.sheetButtonText}>Review Request</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.sheetButton}
-                    onPress={() => setShowRequestInfoModal(false)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.sheetButtonText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1218,6 +1315,96 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '700',
     color: adminColors.ink,
+  },
+
+  // Review Request Step (Screen 2 within the same modal)
+  reviewCard: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
+    padding: 16,
+    marginBottom: 16,
+  },
+  reviewLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  reviewRecipientValue: {
+    ...adminType.body,
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 16,
+  },
+  reviewInfoLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0D7A74',
+    marginBottom: 4,
+  },
+  reviewTextValue: {
+    ...adminType.body,
+    fontSize: 15,
+    fontWeight: '800',
+    color: adminColors.ink,
+    lineHeight: 21,
+  },
+  reviewAttachmentLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  reviewAttachmentValue: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  reviewNoticeText: {
+    ...adminType.body,
+    fontSize: 12,
+    color: adminColors.muted,
+    lineHeight: 18,
+    marginBottom: 20,
+  },
+  reviewNoticeAwaiting: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  reviewNoticeRule: {
+    color: adminColors.info.text,
+    fontWeight: '700',
+  },
+  reviewButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+  },
+  reviewBtn: {
+    flex: 1,
+    height: 44,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  reviewBtnText: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+    textAlign: 'center',
   },
 
   // Center Modal Fallback
