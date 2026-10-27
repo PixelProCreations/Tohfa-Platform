@@ -116,55 +116,6 @@ import {
   type DiscrepancyRow,
 } from './wizardDraft';
 
-function ArrowBackBrownIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChainLinkIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function EyeOffIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 function QuestionCircleIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -211,13 +162,11 @@ function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: num
 import {
   AlertCircleOutlineIcon,
   BackArrowIcon,
-  CameraPlusIcon,
   CheckboxSquareIcon,
   CheckmarkCircleOutlineIcon,
   CheckmarkIcon,
   ChevronDownIcon,
   ChevronRightSmall,
-  ClipboardChecklistIcon,
   ClockSmallIcon,
   CrateInventoryIcon,
   CrossCircleIcon,
@@ -226,11 +175,9 @@ import {
   FileTextIcon,
   HistoryIcon,
   NotEqualIcon,
-  NoticeBox,
   PartialAcceptIcon,
   PencilDraftIcon,
   PermissionNote,
-  PictureIcon,
   QcCriterionIcon,
   QrCodeIcon,
   RECEIVING_CODES,
@@ -239,11 +186,9 @@ import {
   RejectCircleIcon,
   RightArrowIcon,
   ScaleIcon,
-  SearchIcon,
   SendPaperAirplaneIcon,
   StarIcon,
   StepperHeader,
-  TrashOutlineRedIcon,
   TruckDeliveryIcon,
   WarningTriangleIcon,
 } from './ReceivingParts';
