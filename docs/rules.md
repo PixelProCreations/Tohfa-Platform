@@ -3160,6 +3160,26 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-129 � The read-only customer wallet summary reports total credited and total used, summed from the ledger in integer paise
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group D" D4; extends BR-93 (read-only wallet view, same scope); `docs/rbac.json` `customer.wallet.view` (existing code, unchanged) |
+| **Status** | DERIVED (which debits count as "used" is UNCONFIRMED: implementer default awaiting the owner) |
+| **Layer** | Server-side: `customersRepo.findWallet` (SQL aggregates in the same query as the balance); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /admin/customers/{customerId}/wallet` carries `totalCredited` and `totalUsed`, both `Money`, always present. `totalCredited` is the sum of every `CREDIT` row of the customer's `wallet_transactions` (TOPUP_CASH, TOPUP_DIGITAL, ORDER_REFUND, credit ADJUSTMENT, and anything else credited). `totalUsed` is the sum of the `DEBIT` rows of type `ORDER_DEBIT` or `SUBSCRIPTION_DEBIT`, the customer paying for something; a debit `ADJUSTMENT` (a correction) and `PAYOUT_DEBIT` (farmer-only) are not usage, and a refund is not netted out of usage (it is a credit). Each row is converted to integer paise (`amount * 100`, exact for `numeric(12,2)`) before it is summed, and the sum is rendered as Money once; no float is involved. Both are 0.00 for a wallet with no rows. The scope is BR-93's, unchanged: an out-of-scope customer is 404 before anything is read. The ledger is only read: no write, no status column, no balance write. `GET /wallets/me` is unchanged.
+
+**Not implemented: a per-transaction `status`.** A ledger row is inserted only in the transaction that settles the money (a digital top-up is credited in the same transaction that marks its `topups` row `SUCCESS`; pending and failed top-ups have no ledger row), so every `wallet_transactions` row is a completed movement and the ledger carries nothing that could honestly vary a status. A constant would add no information and a mutable column would break the append-only ledger. Options for the owner: (a) list `topups` rows in `PENDING` / `FAILED` beside the ledger as a separate, non-ledger feed; (b) a new migration adding an append-only `wallet_transaction_events` table (status changes as rows); (c) document that every ledger row is `COMPLETED` by construction and add the constant.
+
+**Failure mode if unenforced.** Totals that drift from the ledger by float rounding, or a "used" figure that silently includes corrections.
+
+**Test contract.** (`apps/api/src/modules/customers/customers.db.test.ts`, `customers.test.ts`)
+- `BR-129a` Credits of every type sum into `totalCredited` and only ORDER_DEBIT and SUBSCRIPTION_DEBIT into `totalUsed`, exactly (500.00 + 0.10 + 0.20 + 10.00 + 1.00 = 511.30); the service renders paise as 2-decimal Money strings.
+- `BR-129b` A wallet with no rows reports 0.00 for both; an out-of-scope customer is still 404.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

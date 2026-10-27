@@ -143,6 +143,9 @@ function stubRepo(overrides: Partial<CustomersRepo> = {}): CustomersRepo {
       status: 'ACTIVE',
       currency: 'INR',
       ledgerBalance: '150',
+      // BR-129: integer paise as text, as the repo's SQL aggregates return them.
+      totalCreditedPaise: '20000',
+      totalUsedPaise: '5000',
       transactionCount: 2,
       lastTransactionAt: '2026-09-01T10:00:00.000Z',
     })),
@@ -501,6 +504,13 @@ describe('customers service: sub-resources (BR-91, BR-90, BR-93)', () => {
     expect(res.balance).toBe('150.00');
     expect(typeof res.balance).toBe('string');
     expect(res.customerId).toBe(IDS.customer);
+  });
+
+  it('BR-129a: the wallet summary renders totalCredited and totalUsed from integer paise as 2-decimal Money strings', async () => {
+    const res = await service(stubRepo()).getWallet(subOoty('customer.wallet.view'), IDS.customer);
+    expect(adminCustomerWalletSummarySchema.parse(res)).toEqual(res);
+    expect(res.totalCredited).toBe('200.00');
+    expect(res.totalUsed).toBe('50.00');
   });
 
   it('BR-93: a visible customer with no wallet is 404, not an invented zero wallet', async () => {

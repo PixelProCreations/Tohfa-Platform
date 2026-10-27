@@ -14960,9 +14960,11 @@ paths:
       description: |
         Read-only (BR-93): there is no credit, debit, adjustment or top-up route under
         `/admin/customers`. `balance` equals the sum of the customer's ledger rows exactly. 404 when
-        the customer is outside the scope (BR-91).
+        the customer is outside the scope (BR-91). `totalCredited` and `totalUsed` (BR-129) are
+        integer-paise sums over the same ledger rows: every CREDIT row, and the ORDER_DEBIT and
+        SUBSCRIPTION_DEBIT rows (the usage definition is UNCONFIRMED).
       x-permission: customer.wallet.view
-      x-business-rules: [BR-93, BR-91]
+      x-business-rules: [BR-93, BR-91, BR-129]
       parameters:
         - { $ref: '#/components/parameters/CustomerIdPathParam' }
       responses:
@@ -22944,12 +22946,14 @@ components:
     AdminCustomerWalletSummary:
       type: object
       description: Read-only (BR-93). `balance` equals the sum of the ledger exactly.
-      required: [customerId, walletId, balance, currency, status, transactionCount, lastTransactionAt]
+      required: [customerId, walletId, balance, totalCredited, totalUsed, currency, status, transactionCount, lastTransactionAt]
       additionalProperties: false
       properties:
         customerId: { type: string, format: uuid }
         walletId: { type: string, format: uuid }
         balance: { $ref: '#/components/schemas/Money' }
+        totalCredited: { $ref: '#/components/schemas/Money', description: 'BR-129: the sum of every CREDIT ledger row (top-ups, refunds, credit adjustments), in integer paise; refunds are not netted against usage.' }
+        totalUsed: { $ref: '#/components/schemas/Money', description: 'BR-129 (UNCONFIRMED definition): the sum of the ORDER_DEBIT and SUBSCRIPTION_DEBIT ledger rows, in integer paise; ADJUSTMENT debits are excluded.' }
         currency: { type: string, enum: [INR] }
         status: { type: string, enum: [ACTIVE, FROZEN, CLOSED], description: 'Every value the `wallets.status` CHECK allows (migration 0007).' }
         transactionCount: { type: integer, minimum: 0 }

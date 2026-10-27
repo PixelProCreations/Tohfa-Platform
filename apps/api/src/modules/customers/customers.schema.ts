@@ -243,6 +243,10 @@ export const adminCustomerWalletSummarySchema = z
     customerId: z.string().uuid(),
     walletId: z.string().uuid(),
     balance: moneySchema,
+    /** BR-129: every CREDIT ledger row, summed in integer paise. */
+    totalCredited: moneySchema,
+    /** BR-129 (UNCONFIRMED): ORDER_DEBIT and SUBSCRIPTION_DEBIT rows, summed in integer paise. */
+    totalUsed: moneySchema,
     currency: z.literal('INR'),
     status: z.enum(['ACTIVE', 'FROZEN', 'CLOSED']),
     transactionCount: z.number().int().min(0),

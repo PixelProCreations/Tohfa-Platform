@@ -16,7 +16,7 @@
  *           into tickets ("call me on ..."), and the ticket shapes are otherwise contact-free.
  *  - BR-98  the active window is read from system_config on every request.
  */
-import { parseMoney } from '@tohfa/shared-types';
+import { fromPaise, parseMoney, type Money } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
@@ -281,6 +281,16 @@ const afterTime = (cursor: string | undefined): TimeKey | undefined =>
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
+/**
+ * BR-129: a SUM in integer paise (text, from SQL) as Money. Refuses a non-safe integer rather than
+ * let a float round it (CLAUDE.md 2.2).
+ */
+function paiseToMoney(text: string): Money {
+  const paise = Number(text);
+  if (!Number.isSafeInteger(paise)) throw new Error(`wallet total paise out of range: ${text}`);
+  return fromPaise(paise);
+}
+
 export function createCustomersService(deps: Partial<CustomersServiceDeps> = {}): CustomersService {
   const repo = deps.repo ?? customersRepo;
   const db = deps.db ?? pool;
@@ -408,6 +418,8 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
         customerId,
         walletId: wallet.walletId,
         balance: parseMoney(wallet.ledgerBalance),
+        totalCredited: paiseToMoney(wallet.totalCreditedPaise),
+        totalUsed: paiseToMoney(wallet.totalUsedPaise),
         currency: 'INR',
         status: wallet.status as AdminCustomerWalletSummary['status'],
         transactionCount: wallet.transactionCount,

@@ -95,12 +95,24 @@ export interface OrderRow {
   cursorTs: string;
 }
 
+/**
+ * BR-129 (UNCONFIRMED): the ledger types that are the customer USING wallet money: paying for an
+ * order or a subscription. Excluded from "used": an ADJUSTMENT debit (a correction, not a purchase)
+ * and PAYOUT_DEBIT (a farmer withdrawal; never on a customer wallet). Refunds are not netted out:
+ * an ORDER_REFUND is a CREDIT and counts in the credited total.
+ */
+export const WALLET_USAGE_TYPES = ['ORDER_DEBIT', 'SUBSCRIPTION_DEBIT'] as const;
+
 export interface WalletSummaryRow {
   walletId: string;
   status: string;
   currency: string;
   /** Sum of the ledger (credits minus debits), NUMERIC as text. */
   ledgerBalance: string;
+  /** BR-129: SUM of every CREDIT row, integer paise as text (bigint never passes through a float). */
+  totalCreditedPaise: string;
+  /** BR-129: SUM of the usage DEBIT rows (`WALLET_USAGE_TYPES`), integer paise as text. */
+  totalUsedPaise: string;
   transactionCount: number;
   lastTransactionAt: string | null;
 }
@@ -656,13 +668,19 @@ export const customersRepo: CustomersRepo = {
       status: string;
       currency: string;
       ledger_balance: string;
+      credited_paise: string;
+      used_paise: string;
       txn_count: number;
       last_at: Date | null;
     }>(
-      `SELECT w.id, w.status, w.currency, l.ledger_balance, l.txn_count, l.last_at
+      // BR-129: both totals are aggregates over the same append-only ledger rows as the balance, each
+      // row converted to integer paise before it is summed (numeric(12,2) * 100 is exact).
+      `SELECT w.id, w.status, w.currency, l.ledger_balance, l.credited_paise, l.used_paise, l.txn_count, l.last_at
          FROM wallets w
          CROSS JOIN LATERAL (
            SELECT COALESCE(sum(CASE WHEN t.direction = 'CREDIT' THEN t.amount ELSE -t.amount END), 0)::numeric(14,2)::text AS ledger_balance,
+                  COALESCE(sum((t.amount * 100)::bigint) FILTER (WHERE t.direction = 'CREDIT'), 0)::text AS credited_paise,
+                  COALESCE(sum((t.amount * 100)::bigint) FILTER (WHERE t.direction = 'DEBIT' AND t.type::text = ANY($2::text[])), 0)::text AS used_paise,
                   count(*)::int AS txn_count,
                   max(t.created_at) AS last_at
              FROM wallet_transactions t
@@ -670,7 +688,7 @@ export const customersRepo: CustomersRepo = {
          ) l
         WHERE w.customer_id = $1
         LIMIT 1`,
-      [customerId],
+      [customerId, [...WALLET_USAGE_TYPES]],
     );
     const row = res.rows[0];
     if (row === undefined) return null;
@@ -679,6 +697,8 @@ export const customersRepo: CustomersRepo = {
       status: row.status,
       currency: row.currency,
       ledgerBalance: row.ledger_balance,
+      totalCreditedPaise: row.credited_paise,
+      totalUsedPaise: row.used_paise,
       transactionCount: row.txn_count,
       lastTransactionAt: iso(row.last_at),
     };
