@@ -220,7 +220,8 @@ export type ReceivingRoute =
   | 'ActivityTimeline'
   | 'PendingQueue'
   | 'TransferReceiving'
-  | 'TransferDetail';
+  | 'TransferDetail'
+  | 'TransferInspection';
 
 /** Every id is a uuid (the people-readable PO / GRN / transfer numbers are display only). */
 export interface ReceivingRouteParams {

@@ -4,7 +4,7 @@
  *
  *   Dashboard -> Incoming Shipments -> Search & Filters (facets back to the list)
  *                                   -> Shipment Detail -> Goods Receiving wizard
- *                                   -> Transfer Detail (an inbound transfer row)
+ *                                   -> Transfer Detail (an inbound transfer row) -> Transfer Inspection (receive)
  *             -> Receiving History  -> Receiving History Detail -> wizard / shipment
  *             -> Quality Issues     -> wizard (resume the receipt awaiting QC)
  *             -> Activity Timeline / Pending Queue (Main)
@@ -31,7 +31,7 @@ import { useFlowBack } from '../useFlowBack';
 
 import { BatchListScreen } from '../inventory/BatchListScreen';
 import { GoodsReceivingWizardScreen } from './GoodsReceivingWizardScreen';
-import { TransferReceivingScreen, TransferDetailScreen } from '../transfers';
+import { TransferDetailScreen, TransferReceivingInspectionScreen, TransferReceivingScreen } from '../transfers';
 import { IncomingShipmentsScreen, PendingQueueScreen, ReceivingActivityScreen } from './IncomingShipmentsScreen';
 import type { LiveQualityIssue, LiveReceivingFilters } from './liveTypes';
 import { EMPTY_LIVE_FILTERS } from './mappers';
@@ -328,25 +328,25 @@ export function ReceivingFlow({
         <TransferReceivingScreen
           {...common}
           onSelectTransfer={(id) => navigate('TransferDetail', { transferId: id })}
-          onStartTransferInspection={(id) => navigate('TransferDetail', { transferId: id })}
+          onStartTransferInspection={(id) => navigate('TransferInspection', { transferId: id })}
         />
       );
     case 'TransferDetail':
-      if (params.transferId === undefined) {
-        // No transfer to show: list them instead of a made-up one.
-        return (
-          <TransferReceivingScreen
-            {...common}
-            onSelectTransfer={(id) => navigate('TransferDetail', { transferId: id })}
-            onStartTransferInspection={(id) => navigate('TransferDetail', { transferId: id })}
-          />
-        );
-      }
+      // The screen reads the transfer by uuid; without one it shows its own "not found".
       return (
         <TransferDetailScreen
           {...common}
           transferId={params.transferId}
+          onTrackReceiving={(id) => navigate('TransferInspection', { transferId: id })}
           onBackToTransfers={back}
+        />
+      );
+    case 'TransferInspection':
+      return (
+        <TransferReceivingInspectionScreen
+          {...common}
+          transferId={params.transferId}
+          onCompleteTransfer={() => back()}
         />
       );
     default:
