@@ -34,6 +34,7 @@ import { SalesScreen } from './SalesScreen';
 import { SALE_WAREHOUSES } from './SalesParts';
 import { SelectCustomerScreen } from './SelectCustomerScreen';
 import { SelectProductsScreen } from './SelectProductsScreen';
+import { useSalesList } from './useSalesData';
 import type {
   PermissionCheck,
   SaleCustomer,
@@ -91,6 +92,10 @@ export function SalesFlow({
   const [itemsCount, setItemsCount] = useState(2);
   const [method, setMethod] = useState<SalePaymentMethod>('Cash');
   const [salesFilters, setSalesFilters] = useState<SalesFilterState>(DEFAULT_SALES_FILTERS);
+
+  // Live sales list for the SalesHistory screen.
+  // Sub scope sends its own warehouseId (BR-30); Main sends undefined (all).
+  const salesList = useSalesList(scope, can, scope.warehouseId);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Keyed on the param values, not the object, so a host that
@@ -253,6 +258,7 @@ export function SalesFlow({
         <SalesHistoryScreen
           {...common}
           filters={salesFilters}
+          sales={salesList.items.length > 0 ? salesList.items : undefined}
           onOpenFilters={() => navigate('SalesFilters')}
           onSelectSale={(sale) => navigate('SaleDetail', { sale })}
         />

@@ -19,6 +19,7 @@ import { useFlowBack } from '../useFlowBack';
 
 import { ApproveReturnScreen } from './ApproveReturnScreen';
 import { SAMPLE_REFUND_AMOUNT, SAMPLE_RETURN_HISTORY_RECORD, SAMPLE_RMA } from './fixtures';
+import { useReturnList } from './useReturnData';
 import { InspectProductScreen } from './InspectProductScreen';
 import { RefundCompletedScreen } from './RefundCompletedScreen';
 import { RefundFailedScreen } from './RefundFailedScreen';
@@ -84,6 +85,11 @@ export function ReturnsFlow({
   const params: ReturnsRouteParams = current.params ?? {};
   const rma = params.rma ?? SAMPLE_RMA;
 
+  // Live returns list for the ReturnsIssues screen.
+  // The screen has its own warehouse selector for client-side filtering;
+  // here we load all returns for the scope (sub = own warehouse, main = all).
+  const returnList = useReturnList(scope, can, undefined);
+
   const navigate = (screen: ReturnsRoute, nextParams?: ReturnsRouteParams) => {
     setStack((prev) => [...prev, { screen, params: nextParams }]);
   };
@@ -114,6 +120,7 @@ export function ReturnsFlow({
         <ReturnsIssuesScreen
           {...common}
           warehouseOptions={warehouseOptions}
+          items={returnList.items.length > 0 ? returnList.items : undefined}
           onSelectRma={(selected) => navigate('RmaDetail', { rma: selected })}
           onNavigateToHistory={() => navigate('ReturnHistory')}
           onNavigateToNotifications={onNavigateToNotifications}

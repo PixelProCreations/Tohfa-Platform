@@ -21,6 +21,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { CustomerDetailsScreen } from './CustomerDetailsScreen';
 import { CustomerIssueDetailScreen } from './CustomerIssueDetailScreen';
 import { CustomerIssuesScreen } from './CustomerIssuesScreen';
@@ -29,10 +30,10 @@ import { CustomerSearchScreen } from './CustomerSearchScreen';
 import { CustomersListScreen } from './CustomersListScreen';
 import { CustomerSupportDetailScreen } from './CustomerSupportDetailScreen';
 import { CustomerFiltersScreen, type CustomerFilterValues } from './CustomerFiltersScreen';
-import { CUSTOMER_WAREHOUSES } from './fixtures';
 import { OrderFiltersScreen } from './OrderFiltersScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
 import { SupportHistoryScreen } from './SupportHistoryScreen';
+import { useCustomerList, CUSTOMER_WAREHOUSE_LIST_CODE } from './useCustomerData';
 import type {
   CustomerRef,
   CustomersExternalRoute,
@@ -103,7 +104,7 @@ export function CustomersFlow({
   onBack,
   onTabChange,
   onNavigateToNotifications,
-  warehouseOptions = CUSTOMER_WAREHOUSES,
+  warehouseOptions,
   renderExternalScreen,
   inlineExternalRoutes = EXTERNAL_ROUTES,
   onOpenExternal,
@@ -113,6 +114,16 @@ export function CustomersFlow({
   const [customerFilters, setCustomerFilters] = useState<CustomerFilterValues | undefined>(undefined);
   const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
   const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
+  // Live warehouse options for the Main-admin warehouse picker (ignored for Sub).
+  const liveWarehouses = useWarehouseOptions({
+    enabled: can(CUSTOMER_WAREHOUSE_LIST_CODE),
+    activeOnly: true,
+  });
+  const effectiveWarehouseOptions = warehouseOptions ?? liveWarehouses.options;
+  // Warehouse narrowing for the customer list (Main picks a warehouse; Sub is always its own).
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  // Live customer list for the current scope + selected warehouse.
+  const customerList = useCustomerList(scope, can, selectedWarehouseId);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Hosts keep these props referentially stable.
@@ -156,7 +167,8 @@ export function CustomersFlow({
       return (
         <CustomersListScreen
           {...common}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
+          customers={customerList.items.length > 0 ? customerList.items : undefined}
           onNavigateToSearch={() => navigate('CustomerSearch')}
           onSelectCustomer={(selected) => navigate('CustomerDetails', { customer: selected })}
           onNavigateToNotifications={onNavigateToNotifications}
@@ -167,7 +179,7 @@ export function CustomersFlow({
       return (
         <CustomerFiltersScreen
           {...common}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           initialFilters={
             customerFilters ?? {
               searchQuery: '',
@@ -209,7 +221,7 @@ export function CustomersFlow({
         <CustomerOrdersScreen
           {...common}
           customer={customer}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           appliedFilters={orderFilters}
           defaultFilter={params.defaultFilter}
           onOpenFilters={() => navigate('OrderFilters')}
@@ -223,7 +235,7 @@ export function CustomersFlow({
           config="order"
           variant="customer"
           customerName={customer?.name}
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           initialFilters={orderFilters}
           onApplyFilters={(next) => {
             setOrderFilters(next);
@@ -246,7 +258,7 @@ export function CustomersFlow({
         <OrderFiltersScreen
           {...common}
           config="purchase"
-          warehouseOptions={warehouseOptions}
+          warehouseOptions={effectiveWarehouseOptions}
           initialFilters={purchaseFilters}
           onApplyFilters={(next) => {
             setPurchaseFilters(next);

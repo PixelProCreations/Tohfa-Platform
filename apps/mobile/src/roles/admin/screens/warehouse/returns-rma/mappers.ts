@@ -100,8 +100,8 @@ export function conditionLabel(condition: ReturnItemCondition | null | undefined
  *   issueCategory, salesChannel, paymentStatus — not in the returns schema
  *   requestedResolution — not structured in the API (only reason text)
  */
-export function toRmaRecord(dto: ReturnRequestDto): RmaRecord {
-  const firstItem = dto.items[0];
+export function toRmaRecord(dto: ReturnRequestDto | ReturnSummaryDto): RmaRecord {
+  const firstItem = 'items' in dto ? (dto as ReturnRequestDto).items[0] : undefined;
   return {
     id: dto.id,
     rmaId: deriveRmaId(dto.id),

@@ -17,6 +17,7 @@ import { useFlowBack } from '../useFlowBack';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
 import { OrderFiltersScreen } from '../customers';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { CancelOrderScreen } from './CancelOrderScreen';
 import { DeliveryPreparationScreen } from './DeliveryPreparationScreen';
 import { DispatchScreen } from './DispatchScreen';
@@ -26,6 +27,7 @@ import { OrderIssueScreen } from './OrderIssueScreen';
 import { OrderStatusHistoryScreen } from './OrderStatusHistoryScreen';
 import { OrdersDashboardScreen } from './OrdersDashboardScreen';
 import { OrdersListScreen } from './OrdersListScreen';
+import { useOrderList, ORDER_WAREHOUSE_LIST_CODE } from './useOrderData';
 import { PackingScreen } from './PackingScreen';
 import { PickupOtpScreen } from './PickupOtpScreen';
 import { ReadyForPickupScreen } from './ReadyForPickupScreen';
@@ -84,6 +86,18 @@ export function OrdersFlow({
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params = current.params;
 
+  // Live warehouse list for the order list's warehouse selector (Main-only).
+  const liveWarehouses = useWarehouseOptions({
+    enabled: can(ORDER_WAREHOUSE_LIST_CODE),
+    activeOnly: true,
+  });
+  // Warehouse id currently selected in the order list (Main's own filter; Sub ignores it).
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    (params?.warehouseId as string | undefined) ?? undefined,
+  );
+  // Live order rows for the list screen.
+  const orderList = useOrderList(scope, can, selectedWarehouseId);
+
   const navigate = (screen: string, nextParams?: OrdersRouteParams) => {
     setStack((prev) => [...prev, { screen, params: nextParams ?? null }]);
   };
@@ -118,7 +132,14 @@ export function OrdersFlow({
         return <OrdersDashboardScreen {...common} routeParams={params ?? undefined} onTabChange={onTabChange} />;
       case 'M5S02':
       case 'M5S02_OrdersList':
-        return <OrdersListScreen {...common} routeParams={params ?? undefined} />;
+        return (
+          <OrdersListScreen
+            {...common}
+            routeParams={params ?? undefined}
+            orders={orderList.items.length > 0 ? orderList.items : undefined}
+            warehouses={liveWarehouses.options.length > 0 ? liveWarehouses.options.map((o) => ({ id: o.warehouseId, name: o.warehouseName })) : undefined}
+          />
+        );
       case 'M5S03':
       case 'M5S03_SearchFilters':
         // The order-queue filters are the shared OrderFiltersScreen ('order'
