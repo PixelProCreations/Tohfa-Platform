@@ -3256,6 +3256,24 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-134 — A system message carries its announcement type, GENERAL unless one was set
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-27): owner request "Group D" D6(d) for the admin mobile system-message cards, owner decision 2026-10-27 to add a `type` column; extends BR-65 (visibility unchanged); `docs/rbac.json` `notification.own.view` / `notification.own.mark_read` (existing interim codes, unchanged) |
+| **Status** | DERIVED (the value set `GENERAL`, `MAINTENANCE`, `ALERT`, `PROMOTION` is UNCONFIRMED: implementer proposal, the owner has not defined the kinds) |
+| **Layer** | Database: `announcements.type` (`db/migrations/0081_announcement_type.sql`), `NOT NULL DEFAULT 'GENERAL'` with `announcements_type_chk`; server-side: `systemMessagesRepo` (selected with the other columns), `systemMessagesService` mapping |
+| **Scope** | Track 1 |
+
+**Rule.** Every announcement has a `type`, one of `GENERAL`, `MAINTENANCE`, `ALERT`, `PROMOTION`, enforced by a CHECK constraint; any other value is rejected by the database. The column defaults to `GENERAL`, so every announcement that existed before migration 0081 reads as `GENERAL`, and every existing insert path that does not name a type keeps working unchanged. The system-message reads (`GET /system-messages`, `GET /system-messages/{id}`, and the `POST /system-messages/{id}/read` response, which reuses the same item) carry `type`, always present. It is informational only: it changes no visibility (BR-65 is unchanged), there is no `type` filter on the list (an unknown query parameter is still 422), and no endpoint creates or edits announcements.
+
+**Failure mode if unenforced.** The admin app guesses a kind from the title, or a free-text kind lets an unknown value reach a client switch with no case for it.
+
+**Test contract.** (`apps/api/src/modules/system-messages/system-messages.test.ts`)
+- `BR-134a` The service maps the row's type onto the item; the response schema requires `type` and rejects a value outside the set.
+- `BR-134b` Against the real database: an announcement inserted without a type reads as `GENERAL` on list and detail, one inserted as `MAINTENANCE` reads as `MAINTENANCE`, and a type outside the set is rejected by the CHECK constraint.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

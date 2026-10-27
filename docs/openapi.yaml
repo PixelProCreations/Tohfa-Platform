@@ -12224,7 +12224,7 @@ paths:
         INTERIM permission: there is no dedicated system-message code in docs/rbac.json, so the
         own-notification code is reused.
       x-permission: notification.own.view
-      x-business-rules: [BR-65]
+      x-business-rules: [BR-65, BR-134]
       parameters:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
@@ -12256,7 +12256,7 @@ paths:
         Same visibility rule as the list. A message that is hidden, expired, not yet started,
         deleted, zone-scoped or aimed at another warehouse or role is `404`.
       x-permission: notification.own.view
-      x-business-rules: [BR-65]
+      x-business-rules: [BR-65, BR-134]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -12280,7 +12280,7 @@ paths:
         see is `404`. Writes no audit row.
         INTERIM permission: reuses the own-notification mark-read code.
       x-permission: notification.own.mark_read
-      x-business-rules: [BR-65]
+      x-business-rules: [BR-65, BR-134]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -21522,10 +21522,18 @@ components:
     SystemMessage:
       type: object
       description: An announcement as seen by one caller. Carries no warehouse, zone or role id.
-      required: [id, scope, title, body, locale, startsAt, endsAt, createdAt, isRead, readAt]
+      required: [id, scope, type, title, body, locale, startsAt, endsAt, createdAt, isRead, readAt]
       properties:
         id: { type: string, format: uuid }
         scope: { type: string, enum: [SYSTEM_WIDE, WAREHOUSE, ROLE] }
+        type:
+          type: string
+          enum: [GENERAL, MAINTENANCE, ALERT, PROMOTION]
+          description: |
+            BR-134: the announcement's kind, `announcements.type` (migration 0081), `GENERAL` for
+            every announcement written without one. UNCONFIRMED value set: implementer proposal,
+            the owner has not defined the kinds. Informational only: it filters nothing and
+            changes no visibility (there is no `type` query parameter).
         title: { type: string }
         body: { type: string }
         locale: { $ref: '#/components/schemas/Locale' }
