@@ -116,6 +116,9 @@ export function createAdminAccountsService(deps: Partial<AdminAccountsServiceDep
         throw new AppError('FORBIDDEN', { detail: 'You cannot disable your own account.' });
       }
 
+      // Catch Postgres deadlock (40P01): two admins disabling each other at the
+      // same time lock rows in opposite order. Surface it as CONFLICT so the
+      // caller can retry rather than getting an opaque 500.
       const outcome = await transaction(async (tx) => {
         const target = await repo.findAdminForUpdate(tx, userId);
         if (target === null) throw notFound(userId);
@@ -151,6 +154,11 @@ export function createAdminAccountsService(deps: Partial<AdminAccountsServiceDep
           changedFields: changedFields(before, after),
         });
         return { changed: true, status: toStatus(updated, roleCodes) };
+      }).catch((err: unknown) => {
+        if (err instanceof Error && 'code' in err && (err as { code: string }).code === '40P01') {
+          throw new AppError('CONFLICT', { detail: 'A concurrent request conflicted. Retry the operation.' });
+        }
+        throw err;
       });
 
       if (outcome.changed) await invalidateAccessTokens(userId);

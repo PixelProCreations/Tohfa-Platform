@@ -88,12 +88,15 @@ export const adminAccountsRepo: AdminAccountsRepo = {
     );
     const row = account.rows[0];
     if (row === undefined) return null;
+    // Lock user_roles alongside the users row so the hierarchy level cannot be
+    // changed between this read and the assertPredicate call (TOCTOU fix).
     const roles = await db.query<AdminRoleRow>(
       `SELECT DISTINCT r.code, r.hierarchy_level::int AS level
          FROM user_roles ur
          JOIN roles r ON r.id = ur.role_id
         WHERE ur.user_id = $1 AND ${LIVE_ROLE}
-        ORDER BY level, r.code`,
+        ORDER BY level, r.code
+        FOR UPDATE OF ur`,
       [userId],
     );
     if (roles.rows.length === 0) return null;

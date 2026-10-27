@@ -308,8 +308,7 @@ export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps>
     async listDocuments(scope, farmerId) {
       await requireVisible(db, scope, farmerId);
       const rows = await repo.listDocuments(db, farmerId);
-      const items: AdminFarmerDocument[] = [];
-      for (const row of rows) items.push(await toDocument(row));
+      const items = await Promise.all(rows.map(toDocument));
       return { items };
     },
 
