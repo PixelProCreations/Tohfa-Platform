@@ -428,6 +428,50 @@ describe('admin farmers: documents and the idempotent verify (BR-108e, BR-35)', 
     expect(auditInserts(log)).toEqual([]);
   });
 
+  it('BR-108e: verify takes the scoped farmer row lock before reading the document, not a non-locking visibility check', async () => {
+    const doc = aDocument();
+    const { repo } = fakeRepo({ document: doc });
+    const order: string[] = [];
+    const tracked: AdminFarmersRepo = {
+      ...repo,
+      async isVisible(...args) {
+        order.push('isVisible');
+        return repo.isVisible(...args);
+      },
+      async lockFarmer(...args) {
+        order.push(`lockFarmer:${args[2].sql}`);
+        return repo.lockFarmer(...args);
+      },
+      async findDocumentForUpdate(...args) {
+        order.push('findDocumentForUpdate');
+        return repo.findDocumentForUpdate(...args);
+      },
+    };
+    const scope = tohfaScope('farmer.document.verify');
+    await serviceWith(tracked).verifyDocument(scope, FARMER, doc.id);
+    expect(order).toEqual([`lockFarmer:${farmerScopeFilter(scope).sql}`, 'findDocumentForUpdate']);
+  });
+
+  it('BR-108a: verifying a document of a farmer outside the caller\'s scope is 404 (never 403) and nothing is read or written', async () => {
+    const doc = aDocument();
+    const { repo, calls } = fakeRepo({ profile: null, document: doc });
+    let documentRead = false;
+    const tracked: AdminFarmersRepo = {
+      ...repo,
+      async findDocumentForUpdate(...args) {
+        documentRead = true;
+        return repo.findDocumentForUpdate(...args);
+      },
+    };
+    const log: RecordedQuery[] = [];
+    const error = await caught(serviceWith(tracked, log).verifyDocument(tohfaScope('farmer.document.verify'), FARMER, doc.id));
+    expect(error.code).toBe('NOT_FOUND');
+    expect(error.status).toBe(404);
+    expect(documentRead).toBe(false);
+    expect(calls.markVerified).toEqual([]);
+    expect(auditInserts(log)).toEqual([]);
+  });
+
   it('BR-108e: a document that is not this farmer\'s (or deleted) is 404 and nothing is written', async () => {
     const { repo, calls } = fakeRepo({ document: null });
     const log: RecordedQuery[] = [];

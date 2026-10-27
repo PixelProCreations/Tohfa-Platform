@@ -315,7 +315,13 @@ export function createAdminFarmersService(deps: Partial<AdminFarmersServiceDeps>
 
     async verifyDocument(scope, farmerId, documentId) {
       return transaction(async (tx) => {
-        await requireVisible(tx, scope, farmerId);
+        // Same order as `update`: the scoped farmer row lock comes first, so the
+        // scope is evaluated on a row no one can re-zone or soft-delete until
+        // this transaction ends. A non-locking visibility check followed by a
+        // lock on the document alone left a window where the farmer could move
+        // out of the caller's scope between the check and the verify. A farmer
+        // outside the scope is 404, never 403 (BR-108a).
+        if (!(await repo.lockFarmer(tx, farmerId, farmerScopeFilter(scope)))) throw notFound(farmerId);
         const current = await repo.findDocumentForUpdate(tx, farmerId, documentId);
         if (current === null) {
           throw new AppError('NOT_FOUND', { detail: `No document with id "${documentId}" for this farmer.` });
