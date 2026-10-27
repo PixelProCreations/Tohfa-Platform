@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
+import { formatKgNumber } from '../../../money/quantity';
 import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import { SWAHeader } from '../../swa/components';
 
@@ -14,79 +15,63 @@ export interface BatchListScreenProps extends InventoryScreenBaseProps, Inventor
   hasMore?: boolean | undefined;
 }
 
-export function BatchListScreen({ scope, onNavigate, onBack }: BatchListScreenProps) {
-  const batches = [
-    {
-      id: 'BAT-2026-00124',
-      product: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Active',
-      available: '95 KG',
-      storage: 'Cold Storage · A03',
-      dateText: 'Received 24 Sep 2026',
-    },
-    {
-      id: 'BAT-2026-00125',
-      product: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Active',
-      available: '150 KG',
-      storage: 'Cold Storage · A04',
-      dateText: 'Received 24 Sep 2026',
-    },
-    {
-      id: 'BAT-2026-00098',
-      product: 'Tomato',
-      grade: 'Grade 1',
-      status: 'Active',
-      available: '0 KG',
-      storage: 'Cold Storage · A01',
-      dateText: 'Fully consumed',
-    },
-  ];
+export function BatchListScreen({ scope, onNavigate, onBack, batches, isLoading, onLoadMore, hasMore }: BatchListScreenProps) {
+  const liveBatches = batches ?? [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
+        <SWAHeader
           title="Batches"
-          subtitle="Tomato · Grade 1 · 5 Active Batches"
+          subtitle={liveBatches.length > 0 ? `${liveBatches[0]!.productName} · ${liveBatches[0]!.gradeLabel} · ${liveBatches.length} batch${liveBatches.length !== 1 ? 'es' : ''}` : 'Loading…'}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
         />
-        
+
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {batches.map((batch, index) => (
-          <TouchableOpacity
-            key={index}
-            style={styles.batchCard}
-            onPress={() => onNavigate?.('M3S05')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.batchHeader}>
-              <Text style={styles.batchId}>{batch.id}</Text>
-              <View style={styles.activeBadge}>
-                <Text style={styles.activeBadgeText}>{batch.status}</Text>
-              </View>
+          {isLoading && liveBatches.length === 0 ? (
+            <View style={{ paddingTop: 24, alignItems: 'center' }}>
+              <Text style={styles.batchDate}>Loading…</Text>
             </View>
-            <Text style={styles.batchProduct}>{batch.product} · {batch.grade}</Text>
-            
-            <View style={styles.batchStatsRow}>
-              <View style={styles.batchStatCol}>
-                <Text style={styles.batchStatLabel}>Available</Text>
-                <Text style={styles.batchStatValueAvailable}>{batch.available}</Text>
+          ) : null}
+          {liveBatches.map((batch: BatchRow) => (
+            <TouchableOpacity
+              key={batch.id}
+              style={styles.batchCard}
+              onPress={() => onNavigate?.('M3S05', { batchId: batch.id })}
+              activeOpacity={0.7}
+            >
+              <View style={styles.batchHeader}>
+                <Text style={styles.batchId}>{batch.batchCode}</Text>
+                <View style={styles.activeBadge}>
+                  <Text style={styles.activeBadgeText}>{batch.statusLabel}</Text>
+                </View>
               </View>
-              <View style={styles.batchStatCol}>
-                <Text style={styles.batchStatLabel}>Storage</Text>
-                <Text style={styles.batchStatValueStorage}>{batch.storage}</Text>
+              <Text style={styles.batchProduct}>{`${batch.productName} · ${batch.gradeLabel}`}</Text>
+
+              <View style={styles.batchStatsRow}>
+                <View style={styles.batchStatCol}>
+                  <Text style={styles.batchStatLabel}>Available</Text>
+                  <Text style={styles.batchStatValueAvailable}>
+                    {batch.availableGrams !== null ? `${formatKgNumber(batch.availableGrams)} kg` : '—'}
+                  </Text>
+                </View>
+                <View style={styles.batchStatCol}>
+                  <Text style={styles.batchStatLabel}>Storage</Text>
+                  <Text style={styles.batchStatValueStorage}>{batch.storageLocation ?? '—'}</Text>
+                </View>
               </View>
-            </View>
-            
-            <Text style={styles.batchDate}>{batch.dateText}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+
+              <Text style={styles.batchDate}>{batch.receivedOn ? `Received ${batch.receivedOn}` : ''}</Text>
+            </TouchableOpacity>
+          ))}
+          {hasMore ? (
+            <TouchableOpacity onPress={onLoadMore} style={{ paddingVertical: 16, alignItems: 'center' }}>
+              <Text style={styles.batchDate}>Load more ↓</Text>
+            </TouchableOpacity>
+          ) : null}
+        </ScrollView>
       </View>
     </SafeAreaView>
   );

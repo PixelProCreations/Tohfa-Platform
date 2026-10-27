@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
+import { formatKgNumber } from '../../../money/quantity';
 import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
@@ -36,8 +37,8 @@ function VerifyIcon({ color = adminColors.brandDeep }: { color?: string }) {
   );
 }
 
-export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: BatchDetailScreenProps) {
-  const warehouse = (scope.warehouseName ?? String(routeParams?.warehouseName ?? 'Coonoor')).replace(' Warehouse', '');
+export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams, batch, isLoading }: BatchDetailScreenProps) {
+  const warehouse = (scope.warehouseName ?? String(routeParams?.warehouseName ?? '')).replace(' Warehouse', '');
 
   return (
     <View style={styles.root}>
@@ -45,13 +46,15 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
 
       {/* Fixed Header */}
       <SWAHeader
-        title="BAT-2026-00124"
-        subtitle="Tomato · Grade 1"
+        title={batch?.batchCode ?? (isLoading ? '…' : '—')}
+        subtitle={batch ? `${batch.productName} · ${batch.gradeLabel}` : ''}
         onBack={onBack}
         badge={
-          <View style={styles.activeBadge}>
-            <Text style={styles.activeBadgeText}>Active</Text>
-          </View>
+          batch ? (
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>{batch.statusLabel}</Text>
+            </View>
+          ) : null
         }
       />
 
@@ -68,41 +71,45 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Batch Code</Text>
-                <Text style={styles.fieldValue}>BAT-2026-00124</Text>
+                <Text style={styles.fieldValue}>{batch?.batchCode ?? '—'}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Product</Text>
-                <Text style={styles.fieldValue}>Tomato</Text>
+                <Text style={styles.fieldValue}>{batch?.productName ?? '—'}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Grade</Text>
-                <Text style={styles.fieldValue}>Grade 1</Text>
+                <Text style={styles.fieldValue}>{batch?.gradeLabel ?? '—'}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Warehouse</Text>
-                <Text style={styles.fieldValue}>{warehouse}</Text>
+                <Text style={styles.fieldValue}>{warehouse || '—'}</Text>
               </View>
             </View>
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Storage Location</Text>
-                <Text style={styles.fieldValue}>Cold Storage · A03</Text>
+                <Text style={styles.fieldValue}>{batch?.storageLocation ?? '—'}</Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Received Quantity</Text>
-                <Text style={styles.fieldValue}>100 KG</Text>
+                <Text style={styles.fieldValue}>
+                  {batch?.receivedGrams !== null && batch?.receivedGrams !== undefined ? `${formatKgNumber(batch.receivedGrams)} kg` : '—'}
+                </Text>
               </View>
             </View>
             <View style={[styles.gridRow, { marginBottom: 0 }]}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Available Quantity</Text>
-                <Text style={styles.fieldValue}>95 KG</Text>
+                <Text style={styles.fieldValue}>
+                  {batch?.availableGrams !== null && batch?.availableGrams !== undefined ? `${formatKgNumber(batch.availableGrams)} kg` : '—'}
+                </Text>
               </View>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Received Date</Text>
-                <Text style={styles.fieldValue}>24 Sep 2026</Text>
+                <Text style={styles.fieldValue}>{batch?.receivedOn ?? '—'}</Text>
               </View>
             </View>
           </View>
@@ -115,14 +122,15 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
             <Text style={styles.sectionMuted}>Internal only</Text>
           </View>
           <View style={styles.card}>
+            {/* BR-16: Source farmer is NOT shown here — internal only, not carried on BatchRow. */}
             <View style={[styles.gridRow, { marginBottom: 0 }]}>
               <View style={styles.gridCol}>
                 <Text style={styles.fieldLabel}>Goods Receipt</Text>
-                <Text style={styles.fieldValue}>GR-1024</Text>
+                <Text style={styles.fieldValue}>{'—'}</Text>
               </View>
               <View style={styles.gridCol}>
-                <Text style={styles.fieldLabel}>Source Farmer</Text>
-                <Text style={styles.fieldValue}>Internal reference</Text>
+                <Text style={styles.fieldLabel}>Expiry Date</Text>
+                <Text style={styles.fieldValue}>{batch?.expiryOn || '—'}</Text>
               </View>
             </View>
           </View>
@@ -133,15 +141,19 @@ export function BatchDetailScreen({ scope, onNavigate, onBack, routeParams }: Ba
           <Text style={styles.sectionTitle}>Stock Movement Summary</Text>
           <View style={styles.movementRow}>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>100 KG</Text>
+              <Text style={styles.movementValue}>
+                {batch?.receivedGrams !== null && batch?.receivedGrams !== undefined ? `${formatKgNumber(batch.receivedGrams)} kg` : '—'}
+              </Text>
               <Text style={styles.movementLabel}>RECEIVED</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>20 KG</Text>
+              <Text style={styles.movementValue}>{'—'}</Text>
               <Text style={styles.movementLabel}>DISPATCHED</Text>
             </View>
             <View style={styles.movementCard}>
-              <Text style={styles.movementValue}>10 KG</Text>
+              <Text style={styles.movementValue}>
+                {batch?.reservedGrams !== null && batch?.reservedGrams !== undefined ? `${formatKgNumber(batch.reservedGrams)} kg` : '—'}
+              </Text>
               <Text style={styles.movementLabel}>RESERVED</Text>
             </View>
           </View>
