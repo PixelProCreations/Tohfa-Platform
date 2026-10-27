@@ -17,6 +17,7 @@
 import { useCallback, useMemo } from 'react';
 import { listAlerts, type AlertItemDto } from '../../../api/alerts';
 import { useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
+import { listStockAdjustments, type StockAdjustmentDto } from '../../../api/stockAdjustments';
 import {
   getBatch,
   listAllocations,
@@ -278,4 +279,26 @@ export function useInventoryWarehouseName(
   const own = inventoryWarehouseName(scope, [], warehouseId);
   const list = useWarehouseOptions({ enabled: warehouseId !== undefined && own === undefined && can(WAREHOUSE_LIST_CODE) });
   return own ?? inventoryWarehouseName(scope, list.options, warehouseId);
+}
+
+export interface LiveAdjustmentList extends LiveQueryState {
+  adjustments: readonly StockAdjustmentDto[];
+  total: number;
+}
+
+/**
+ * Stock adjustment list for the warehouse (first 100, newest first).
+ * Uses offset pagination — the list is short enough that a single page covers
+ * the common case. A Sub admin's own-warehouse filter applies via BR-30.
+ */
+export function useStockAdjustmentList(warehouseId: string | undefined): LiveAdjustmentList {
+  const query = useAdminQuery(
+    adminKeys.scoped('adjustments', warehouseId, { page: 1, pageSize: 100 }),
+    (signal) => listStockAdjustments({ warehouseId, page: 1, pageSize: 100 }, signal),
+  );
+  return {
+    ...queryState(query),
+    adjustments: query.data?.items ?? [],
+    total: query.data?.total ?? 0,
+  };
 }

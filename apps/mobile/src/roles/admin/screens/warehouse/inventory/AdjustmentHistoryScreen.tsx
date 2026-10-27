@@ -10,12 +10,12 @@ import {
   Platform,
 } from 'react-native';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import type { AdjustmentFilter } from './adjustmentMappers';
 import Svg, { Path, Rect } from 'react-native-svg';
 
-export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {
-  /** Rows to show; defaults to the design sample. */
+export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Live adjustment rows; empty array while loading. */
   adjustments?: readonly AdjustmentHistoryItem[] | undefined;
   /** Initial filter applied when the screen opens (from the dashboard deep-link). */
   initialFilter?: AdjustmentFilter | string | undefined;
@@ -49,31 +49,11 @@ export interface AdjustmentHistoryItem {
   warehouseId?: string | undefined;
 }
 
-const ADJUSTMENTS: AdjustmentHistoryItem[] = [
-  {
-    id: 'ADJ-000128',
-    status: 'Pending Approval',
-    statusKey: 'Pending',
-    product: 'Tomato · Grade 1 · -5 KG · 16 Sep 2026, 2:30 PM',
-  },
-  {
-    id: 'ADJ-000119',
-    status: 'Approved',
-    statusKey: 'Approved',
-    product: 'Beans · Grade 1 · -2 KG · 15 Sep 2026, 4:10 PM',
-  },
-  {
-    id: 'ADJ-000103',
-    status: 'Rejected',
-    statusKey: 'Rejected',
-    product: 'Beetroot · Grade 1 · -8 KG · 10 Sep 2026, 11:05 AM',
-  },
-];
-
-export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments = ADJUSTMENTS }: AdjustmentHistoryScreenProps) {
+export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments, isLoading }: AdjustmentHistoryScreenProps) {
+  const liveAdjustments = adjustments ?? [];
   const [activeTab, setActiveTab] = useState<'All' | 'Pending' | 'Approved' | 'Rejected'>('All');
 
-  const filteredAdjustments = adjustments.filter((item) => {
+  const filteredAdjustments = liveAdjustments.filter((item) => {
     // Sub: only adjustments created in its own warehouse. Main sees all.
     if (scope.warehouseId !== undefined && item.warehouseId !== undefined && item.warehouseId !== scope.warehouseId) {
       return false;
@@ -131,6 +111,11 @@ export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments
           </View>
 
           {/* Adjustments List matching Image 5 */}
+          {isLoading && filteredAdjustments.length === 0 ? (
+            <View style={{ padding: 24, alignItems: 'center' }}>
+              <Text style={styles.cardSubtext}>Loading…</Text>
+            </View>
+          ) : null}
           {filteredAdjustments.map((item) => {
             const isPending = item.status === 'Pending Approval';
             const isApproved = item.status === 'Approved';
@@ -141,7 +126,7 @@ export function AdjustmentHistoryScreen({ scope, onNavigate, onBack, adjustments
                 key={item.id}
                 style={styles.card}
                 activeOpacity={0.7}
-                onPress={() => onNavigate?.('M3S17')}
+                onPress={() => onNavigate?.('M3S17', { adjustmentId: item.id })}
               >
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardId}>{item.id}</Text>

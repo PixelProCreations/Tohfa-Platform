@@ -72,9 +72,19 @@ import {
   useBatchList,
   useInventoryWarehouseName,
   useLowStockRows,
+  useStockAdjustmentList,
   useStockLedger,
   useStockSummary,
 } from './useInventoryData';
+import {
+  adjustmentStatusLabel,
+  adjustmentStatusTone,
+  adjustmentTypeLabel,
+} from './adjustmentMappers';
+import { parseKgToGrams } from '../../../money/quantity';
+import { gradeLabel, signedKg } from './mappers';
+import { formatAdminDate } from '../../../utils/datetime';
+import type { AdjustmentHistoryItem } from './AdjustmentHistoryScreen';
 
 /** Navigation handle given to `renderExternalScreen`. */
 export interface InventoryFlowNavigation {
@@ -307,6 +317,45 @@ function LiveLowStockRoute({
   );
 }
 
+function LiveAdjustmentHistoryRoute({
+  warehouseId,
+  initialFilter,
+  ...common
+}: RouteCommon & { initialFilter?: string | undefined }) {
+  const live = useStockAdjustmentList(warehouseId);
+  const now = new Date();
+  const adjustments: AdjustmentHistoryItem[] = live.adjustments.map((dto) => {
+    const statusKey: 'Pending' | 'Approved' | 'Rejected' =
+      dto.status === 'PENDING' ? 'Pending' : dto.status === 'APPROVED' ? 'Approved' : 'Rejected';
+    const deltaGrams = parseKgToGrams(dto.qtyDeltaKg);
+    const product = [
+      gradeLabel(dto.grade),
+      adjustmentTypeLabel(dto.adjustmentType),
+      signedKg(deltaGrams),
+      formatAdminDate(dto.createdAt, now),
+    ].join(' · ');
+    return {
+      id: dto.id,
+      status: adjustmentStatusLabel(dto.status),
+      statusKey,
+      product,
+      warehouseId: dto.warehouseId,
+    };
+  });
+  return (
+    <AdjustmentHistoryScreen
+      {...common}
+      adjustments={adjustments}
+      initialFilter={initialFilter}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
 export function InventoryFlow({
   scope,
   can,
@@ -434,7 +483,7 @@ export function InventoryFlow({
       case 'M3S13':
         return <StockAdjustmentRequestScreen {...live} presetBatchId={batchIdParam(params)} />;
       case 'M3S14':
-        return <AdjustmentHistoryScreen {...live} initialFilter={adjustmentFilterOf(params?.status)} />;
+        return <LiveAdjustmentHistoryRoute {...live} initialFilter={adjustmentFilterOf(params?.status)} />;
       case 'M3S15':
         return <LiveMovementDetailRoute {...live} />;
       case 'M3S16':
@@ -442,7 +491,7 @@ export function InventoryFlow({
       case 'M3S17': {
         const adjustmentId = uuidParam(params, 'adjustmentId');
         // No id (the Main dashboard's approval link): the approval queue.
-        if (adjustmentId === undefined) return <AdjustmentHistoryScreen {...live} initialFilter="PENDING" />;
+        if (adjustmentId === undefined) return <LiveAdjustmentHistoryRoute {...live} initialFilter="PENDING" />;
         return <AdjustmentDetailScreen {...live} adjustmentId={adjustmentId} />;
       }
       case 'M3S18':
