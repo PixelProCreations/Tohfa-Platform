@@ -791,9 +791,10 @@ paths:
         `GET /warehouses/{id}` (BR-66). Super Admin, Tohfa Admin and Main Warehouse Admin
         see all four warehouses (BR-23). `capacityKg` is a decimal string with 3 decimals;
         `operatingHours` is the stored JSON passed through unchanged (no format is
-        specified yet).
+        specified yet). `staffCount` is the number of live admin users bound to the
+        warehouse (BR-132).
       x-permission: warehouse.all.view
-      x-business-rules: [BR-23, BR-24, BR-66]
+      x-business-rules: [BR-23, BR-24, BR-66, BR-132]
       parameters:
         - name: q
           in: query
@@ -846,9 +847,9 @@ paths:
         Warehouse Admin receive any warehouse; a Sub Warehouse Admin receives only its own.
         Any other id (another warehouse, or one that does not exist) returns the same 404
         `NOT_FOUND`, never 403, so the response does not confirm the warehouse exists
-        (BR-30, BR-66).
+        (BR-30, BR-66). Carries `staffCount` (BR-132).
       x-permission: warehouse.own.view
-      x-business-rules: [BR-30, BR-66]
+      x-business-rules: [BR-30, BR-66, BR-132]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       responses:
@@ -886,7 +887,7 @@ paths:
         whether a phone and hours are set, and the names of the fields that changed; never the
         phone number or the hours (BR-35, BR-80).
       x-permission: warehouse.profile.edit
-      x-business-rules: [BR-23, BR-30, BR-35, BR-80]
+      x-business-rules: [BR-23, BR-30, BR-35, BR-80, BR-132]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       requestBody:
@@ -16042,8 +16043,8 @@ components:
   schemas:
     Warehouse:
       type: object
-      description: A warehouse holding consolidated farmer inventory (BR-24).
-      required: [id, code, name, type, isActive, createdAt]
+      description: A warehouse holding consolidated farmer inventory (BR-24). Admin-only (every warehouse route is).
+      required: [id, code, name, type, isActive, createdAt, staffCount]
       properties:
         id: { type: string, format: uuid }
         code: { type: string, example: WH-CBE-MAIN }
@@ -16068,6 +16069,15 @@ components:
         marketDayOfWeek: { type: integer, nullable: true, minimum: 0, maximum: 6 }
         isActive: { type: boolean }
         createdAt: { type: string, format: date-time }
+        staffCount:
+          type: integer
+          minimum: 0
+          description: |
+            BR-132 (UNCONFIRMED definition): the number of DISTINCT users that are `ACTIVE`, not soft-deleted, and
+            hold a live role binding on this warehouse (`user_roles.warehouse_id` = this id, so a Sub or Main
+            Warehouse Admin binding; live = `valid_from <= now()` and `valid_to` null or in the future). A user
+            bound twice counts once. Non-login warehouse staff (`warehouse_staff`, Module 14) are NOT counted.
+          example: 3
 
     WarehouseCapacity:
       type: object

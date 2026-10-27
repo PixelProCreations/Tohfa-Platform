@@ -3219,6 +3219,24 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-132 — The admin warehouse payload counts the live admin users bound to the warehouse
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-27): owner request "Group D" D6(b) for the admin mobile warehouse cards; extends BR-66 (warehouse read scope) and BR-25 (Sub admins are bound to one warehouse); `docs/rbac.json` `warehouse.all.view` / `warehouse.own.view` / `warehouse.profile.edit` (existing codes, unchanged) |
+| **Status** | DERIVED (what counts as "staff" is UNCONFIRMED: implementer default awaiting the owner) |
+| **Layer** | Server-side: `warehousesRepo.list` / `findById` (one grouped LEFT JOIN over `user_roles` and `users`); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** Every warehouse payload (`GET /warehouses`, `GET /warehouses/{id}`, and the `PATCH /warehouses/{id}` profile response, which reuses the detail read) carries `staffCount`, an integer: the number of DISTINCT users with a `user_roles` row whose `warehouse_id` is the warehouse (only `SUB_WH_ADMIN` and `MAIN_WH_ADMIN` rows can carry one, `user_roles_warehouse_only_for_wh_roles_chk`), live now (`valid_from <= now()` and `valid_to` null or later than now: the `LIVE_ROLE` reading of the admin-account modules, which end a role by setting `valid_to = now()`), whose user is `ACTIVE` and not soft-deleted. A user bound twice to the same warehouse counts once; a warehouse with nobody is 0. It is computed by one grouped aggregate joined into the list or detail query, never a per-row lookup, and never changes which warehouses a caller sees. Non-login warehouse staff (`warehouse_staff`, Module 14) are not counted; counting them instead, or as well, is the open alternative. Every warehouse route is admin-only (`FARMER` and `CUSTOMER` hold `none` on all three codes), so no customer-facing response gains the field.
+
+**Failure mode if unenforced.** The card counts disabled or ended admins, double-counts a user holding two bindings, or issues one query per warehouse.
+
+**Test contract.** (`apps/api/src/modules/warehouses/warehouse-staff-count.test.ts`)
+- `BR-132a` Distinct ACTIVE, undeleted users with a live binding are counted (a binding ending in the future is live); ended, future-dated, disabled, pending, deleted and other-warehouse bindings are not; the list and the detail agree and the list repeats no warehouse.
+- `BR-132b` Through the real router the detail and list carry the live count and the documented key set; a customer is still 403 on both.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

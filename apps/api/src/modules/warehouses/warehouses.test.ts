@@ -64,6 +64,7 @@ function aDetail(overrides: Partial<WarehouseDetail> = {}): WarehouseDetail {
     operatingHours: null,
     isMarketDayVenue: false,
     marketDayOfWeek: null,
+    staffCount: 0,
     ...overrides,
   };
 }

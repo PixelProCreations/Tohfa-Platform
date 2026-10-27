@@ -70,6 +70,8 @@ export const warehouseDetailResponse = warehouseResponse.extend({
   operatingHours: z.unknown(),
   isMarketDayVenue: z.boolean(),
   marketDayOfWeek: z.number().int().nullable(),
+  /** BR-132 (UNCONFIRMED definition): distinct ACTIVE, undeleted users with a live role binding on this warehouse. */
+  staffCount: z.number().int().min(0),
 });
 export type WarehouseDetail = z.infer<typeof warehouseDetailResponse>;
 

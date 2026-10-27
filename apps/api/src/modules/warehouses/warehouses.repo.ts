@@ -41,6 +41,7 @@ interface WarehouseRow {
   market_day_of_week: number | null;
   is_active: boolean;
   created_at: Date;
+  staff_count: number;
 }
 
 function toWarehouse(row: WarehouseRow): WarehouseDetail {
@@ -63,6 +64,7 @@ function toWarehouse(row: WarehouseRow): WarehouseDetail {
     marketDayOfWeek: row.market_day_of_week,
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
+    staffCount: row.staff_count,
   };
 }
 
@@ -110,7 +112,27 @@ export interface WarehousesRepo {
 const SELECT_COLUMNS = `
   w.id, w.code, w.name, w.type, w.address, w.city, w.pincode, w.lat, w.lng,
   w.capacity_kg, w.operating_hours, w.contact_phone, w.is_market_day_venue,
-  w.market_day_of_week, w.is_active, w.created_at
+  w.market_day_of_week, w.is_active, w.created_at,
+  COALESCE(sc.staff_count, 0) AS staff_count
+`;
+
+/**
+ * BR-132 (UNCONFIRMED definition): distinct ACTIVE, undeleted users holding a LIVE role binding on
+ * the warehouse. Only SUB_WH_ADMIN and MAIN_WH_ADMIN rows can carry a warehouse_id
+ * (user_roles_warehouse_only_for_wh_roles_chk). "Live" is the admin-accounts LIVE_ROLE reading:
+ * started, and not ended (an ended role has valid_to <= now()). One grouped aggregate LEFT JOINed
+ * into the read, so a warehouse costs no extra query and no row is repeated.
+ */
+const STAFF_COUNT_JOIN = `
+  LEFT JOIN (
+        SELECT ur.warehouse_id, count(DISTINCT ur.user_id)::int AS staff_count
+          FROM user_roles ur
+          JOIN users u ON u.id = ur.user_id
+         WHERE ur.warehouse_id IS NOT NULL
+           AND ur.valid_from <= now() AND (ur.valid_to IS NULL OR ur.valid_to > now())
+           AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+         GROUP BY ur.warehouse_id
+  ) sc ON sc.warehouse_id = w.id
 `;
 
 interface CapacityDbRow {
@@ -160,6 +182,7 @@ export const warehousesRepo: WarehousesRepo = {
     const rows = await db.query<WarehouseRow>(
       `SELECT ${SELECT_COLUMNS}
          FROM warehouses w
+         ${STAFF_COUNT_JOIN}
         WHERE ${where}
         ORDER BY w.code ASC
         LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
@@ -180,6 +203,7 @@ export const warehousesRepo: WarehousesRepo = {
     const result = await db.query<WarehouseRow>(
       `SELECT ${SELECT_COLUMNS}
          FROM warehouses w
+         ${STAFF_COUNT_JOIN}
         WHERE w.id = $1 AND w.deleted_at IS NULL AND ${scoped.sql}
         LIMIT 1`,
       params,
