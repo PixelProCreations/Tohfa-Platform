@@ -17960,15 +17960,21 @@ components:
     AdminFarmerCertificationSummary:
       type: object
       description: |
-        Counts over the farmer's live certificates. `expired` and `qualifying` use today's Asia/Kolkata
-        date; `qualifying` counts VERIFIED, unexpired PGS/NPOP certificates (BR-02).
-      required: [total, verified, unverified, rejected, expired, qualifying, nextQualifyingExpiry]
+        Counts over the farmer's live certificates (BR-108c). Expiry uses today's Asia/Kolkata date; a
+        certificate expiring today is still current. The status buckets partition the certificates:
+        `verifiedCurrent + verifiedExpired + unverified + rejected = total`. `verified` is
+        `verifiedCurrent + verifiedExpired`. `expired` counts every certificate past its expiry whatever
+        its status, so it overlaps the status buckets by definition and is not part of the partition.
+        `qualifying` counts VERIFIED, unexpired PGS/NPOP certificates (BR-02).
+      required: [total, verified, verifiedCurrent, verifiedExpired, unverified, rejected, expired, qualifying, nextQualifyingExpiry]
       properties:
         total: { type: integer, minimum: 0 }
-        verified: { type: integer, minimum: 0 }
+        verified: { type: integer, minimum: 0, description: 'verifiedCurrent + verifiedExpired.' }
+        verifiedCurrent: { type: integer, minimum: 0, description: VERIFIED and not yet expired. }
+        verifiedExpired: { type: integer, minimum: 0, description: VERIFIED but past its expiry date. }
         unverified: { type: integer, minimum: 0 }
         rejected: { type: integer, minimum: 0 }
-        expired: { type: integer, minimum: 0 }
+        expired: { type: integer, minimum: 0, description: Every certificate past its expiry, any status; overlaps the status buckets. }
         qualifying: { type: integer, minimum: 0 }
         nextQualifyingExpiry: { type: [string, 'null'], format: date, description: Earliest expiry among qualifying certificates. }
 

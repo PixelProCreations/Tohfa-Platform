@@ -35,6 +35,7 @@ import {
 } from './admin-farmers.repo.js';
 import { adminFarmersRouter } from './admin-farmers.routes.js';
 import {
+  adminFarmerCertificationSummary,
   adminFarmerDetail,
   adminFarmerListItem,
   listAdminFarmersQuery,
@@ -159,7 +160,7 @@ function fakeRepo(
       return [];
     },
     async findCertificationSummary() {
-      return { total: 0, verified: 0, unverified: 0, rejected: 0, expired: 0, qualifying: 0, nextQualifyingExpiry: null };
+      return { total: 0, verified: 0, verifiedCurrent: 0, verifiedExpired: 0, unverified: 0, rejected: 0, expired: 0, qualifying: 0, nextQualifyingExpiry: null };
     },
     async updateUser(_db, _userId, patch) {
       calls.updateUser.push(patch);
@@ -526,6 +527,15 @@ describe('admin farmers: payout destinations and subscription (BR-108f, BR-53, B
 // ---------------------------------------------------------------------------
 // 2. Request schemas
 // ---------------------------------------------------------------------------
+describe('admin farmers: certification summary shape (BR-108c)', () => {
+  it('BR-108c: the summary splits VERIFIED into current and expired, so an expired verified certificate is not reported as plainly verified', () => {
+    const base = { total: 3, verified: 2, unverified: 1, rejected: 0, expired: 2, qualifying: 1, nextQualifyingExpiry: '2027-01-01' };
+    // Without the split the summary cannot be told apart from one with two live verified certificates.
+    expect(adminFarmerCertificationSummary.safeParse(base).success).toBe(false);
+    expect(adminFarmerCertificationSummary.safeParse({ ...base, verifiedCurrent: 1, verifiedExpired: 1 }).success).toBe(true);
+  });
+});
+
 describe('admin farmers: request schemas (BR-108b, BR-108d)', () => {
   it('BR-108b: the directory accepts q, status, zoneId, ratingTier, limit; refuses unknown keys, bad enums, a foreign cursor and limit > 100', () => {
     expect(listAdminFarmersQuery.safeParse({ q: 'mur', status: 'ACTIVE', zoneId: ZONE_A, ratingTier: 'GOOD', limit: '50' }).success).toBe(true);
@@ -835,15 +845,21 @@ describeIfDatabase('admin farmers (PostgreSQL, rolled back)', () => {
       await tx.query(
         `INSERT INTO certifications (farmer_id, cert_type, cert_number, issuing_body, issued_on, expires_on, verification_status, verified_by, verified_at)
          VALUES ($1, 'PGS', $2, 'PGS India', CURRENT_DATE - 30, CURRENT_DATE + 300, 'VERIFIED', $3, now()),
-                ($1, 'NPOP', $4, 'APEDA', CURRENT_DATE - 400, CURRENT_DATE - 1, 'UNVERIFIED', NULL, NULL)`,
-        [w.farmerA, `${w.tag}-1`, w.admin, `${w.tag}-2`],
+                ($1, 'NPOP', $4, 'APEDA', CURRENT_DATE - 400, CURRENT_DATE - 1, 'UNVERIFIED', NULL, NULL),
+                ($1, 'NPOP', $5, 'APEDA', CURRENT_DATE - 400, CURRENT_DATE - 1, 'VERIFIED', $3, now())`,
+        [w.farmerA, `${w.tag}-1`, w.admin, `${w.tag}-2`, `${w.tag}-3`],
       );
       const detail = await service(tx).get(superScope(), w.farmerA);
       expect(adminFarmerDetail.parse(detail)).toEqual(detail);
       expect(detail.landLocations.map((l) => l.name)).toEqual(['Upper field', 'Lower field']);
       expect(detail.landLocations[0]).toMatchObject({ areaAcres: 2.5, centroid: { lat: 11.4, lng: 76.7 }, isPrimary: true, hasBoundary: false });
       expect(detail.landLocations[0]!.plots).toEqual([expect.objectContaining({ name: 'Zone 1', areaAcres: 1.25 })]);
-      expect(detail.certificationSummary).toMatchObject({ total: 2, verified: 1, unverified: 1, rejected: 0, expired: 1, qualifying: 1 });
+      // BR-108c: the expired VERIFIED certificate is verifiedExpired, never verifiedCurrent; the status
+      // buckets partition total, and `expired` is the any-status expiry count that crosses them.
+      const summary = detail.certificationSummary;
+      expect(summary).toMatchObject({ total: 3, verified: 2, verifiedCurrent: 1, verifiedExpired: 1, unverified: 1, rejected: 0, expired: 2, qualifying: 1 });
+      expect(summary.verifiedCurrent + summary.verifiedExpired + summary.unverified + summary.rejected).toBe(summary.total);
+      expect(summary.verified).toBe(summary.verifiedCurrent + summary.verifiedExpired);
       expect(detail.certificationSummary.nextQualifyingExpiry).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(detail.aadhaarLast4).toBe('4321');
       expect(JSON.stringify(detail)).not.toContain('tok-secret');

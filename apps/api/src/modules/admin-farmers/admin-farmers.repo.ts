@@ -481,7 +481,8 @@ export const adminFarmersRepo: AdminFarmersRepo = {
     // "Today" is the Asia/Kolkata date, as everywhere certificates are judged (certifications.repo.ts).
     const result = await db.query<{
       total: number;
-      verified: number;
+      verified_current: number;
+      verified_expired: number;
       unverified: number;
       rejected: number;
       expired: number;
@@ -490,9 +491,15 @@ export const adminFarmersRepo: AdminFarmersRepo = {
     }>(
       `WITH today AS (SELECT (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')::date AS d)
        SELECT count(*)::int AS total,
-              count(*) FILTER (WHERE c.verification_status = 'VERIFIED')::int AS verified,
+              -- VERIFIED is split on expiry so a lapsed verified certificate is never reported as
+              -- live (BR-108c). A certificate expiring today is still current, as in BR-02.
+              -- expires_on is NOT NULL today; a NULL would be treated as non-expiring.
+              count(*) FILTER (WHERE c.verification_status = 'VERIFIED'
+                                 AND (c.expires_on IS NULL OR c.expires_on >= today.d))::int AS verified_current,
+              count(*) FILTER (WHERE c.verification_status = 'VERIFIED' AND c.expires_on < today.d)::int AS verified_expired,
               count(*) FILTER (WHERE c.verification_status = 'UNVERIFIED')::int AS unverified,
               count(*) FILTER (WHERE c.verification_status = 'REJECTED')::int AS rejected,
+              -- Any status: deliberately overlaps the buckets above.
               count(*) FILTER (WHERE c.expires_on < today.d)::int AS expired,
               count(*) FILTER (WHERE c.verification_status = 'VERIFIED' AND c.expires_on >= today.d
                                  AND c.cert_type::text = ANY($2::text[]))::int AS qualifying,
@@ -505,7 +512,9 @@ export const adminFarmersRepo: AdminFarmersRepo = {
     const row = result.rows[0]!;
     return {
       total: row.total,
-      verified: row.verified,
+      verified: row.verified_current + row.verified_expired,
+      verifiedCurrent: row.verified_current,
+      verifiedExpired: row.verified_expired,
       unverified: row.unverified,
       rejected: row.rejected,
       expired: row.expired,

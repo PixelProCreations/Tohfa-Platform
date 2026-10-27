@@ -139,9 +139,17 @@ export const adminFarmerLandLocation = z.object({
 });
 export type AdminFarmerLandLocation = z.infer<typeof adminFarmerLandLocation>;
 
+/**
+ * BR-108c. `verifiedCurrent + verifiedExpired + unverified + rejected === total` (one bucket per
+ * certificate, by status, with VERIFIED split on expiry). `verified` is kept as their sum. `expired`
+ * is a different axis: every certificate past its expiry whatever its status, so it overlaps the
+ * status buckets by definition and must not be added to them.
+ */
 export const adminFarmerCertificationSummary = z.object({
   total: z.number().int(),
   verified: z.number().int(),
+  verifiedCurrent: z.number().int(),
+  verifiedExpired: z.number().int(),
   unverified: z.number().int(),
   rejected: z.number().int(),
   expired: z.number().int(),
