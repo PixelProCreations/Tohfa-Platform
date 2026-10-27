@@ -38,7 +38,6 @@ import {
   isAllWarehouses,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { APPROVAL_ALERTS, NOTIFICATION_WAREHOUSES } from './fixtures';
 import { AlertTriangleIcon, canOpenAlertRecord } from './NotificationParts';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { ApprovalAlertItem, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -76,7 +75,7 @@ export function ApprovalAlertsScreen({
   scope,
   can,
   onBack,
-  alerts = APPROVAL_ALERTS,
+  alerts = [],
   warehouseOptions: customWarehouseOptions,
   onOpenRecord,
 }: ApprovalAlertsScreenProps) {
@@ -87,7 +86,7 @@ export function ApprovalAlertsScreen({
   const [priority, setPriority] = useState<PriorityFilter>('All Priority');
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : NOTIFICATION_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   // Sub saw only open alerts; Main's status chips can bring resolved ones in.
   const scoped = useMemo(

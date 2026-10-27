@@ -22,7 +22,6 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { ApprovalAlertsScreen } from './ApprovalAlertsScreen';
-import { defaultNotifications, NOTIFICATION_WAREHOUSES } from './fixtures';
 import { NotificationDetailScreen } from './NotificationDetailScreen';
 import { NotificationsScreen } from './NotificationsScreen';
 import { NotificationSettingsScreen } from '../profile-settings/NotificationSettingsScreen';
@@ -85,10 +84,10 @@ export function NotificationsFlow({
   onOpenAlertRecord,
 }: NotificationsFlowProps) {
   const [stack, setStack] = useState<NotificationsStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  const [localItems, setLocalItems] = useState<readonly NotificationItem[]>(() => defaultNotifications(scope));
+  const [localItems, setLocalItems] = useState<readonly NotificationItem[]>([]);
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : NOTIFICATION_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const { items: liveItems, markOneRead: apiMarkRead, markAllRead: apiMarkAllRead } = useNotificationsList();
 
