@@ -2,11 +2,14 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager } from 'react-native';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type BatchDetailScreenProps = InventoryScreenBaseProps;
+export interface BatchDetailScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The batch to show; undefined while loading. */
+  batch?: BatchRow | undefined;
+}
 
 function LedgerIcon({ color = adminColors.brandDeep }: { color?: string }) {
   return (

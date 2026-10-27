@@ -2,21 +2,16 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, LowStockRow } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-/** One low-stock row. `warehouseName` is shown in the Main (all-warehouses) view. */
-export interface LowStockItem {
-  name: string;
-  available: string;
-  threshold: string;
-  warehouseName?: string | undefined;
-}
-
-export interface LowStockScreenProps extends InventoryScreenBaseProps {
-  /** Rows to show; defaults to the design sample. Thresholds come from system_config, never from this app. */
-  items?: readonly LowStockItem[] | undefined;
+export interface LowStockScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /**
+   * Live rows from the LOW_STOCK alert feed. Thresholds come from system_config
+   * (BR-32); never from a constant in this app. Empty when loading (never fake data).
+   */
+  items?: readonly LowStockRow[] | undefined;
   /** 'Initiate Transfer' (absorbed from the Main LowStockAlertsScreen). Rendered only with transfer.inter_warehouse.initiate. */
   onInitiateTransfer?: (() => void) | undefined;
 }
@@ -55,34 +50,8 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
   // 'Adjust Thresholds' is NOT carried over: alert.threshold.configure is none
   // for both warehouse roles.
   const canInitiateTransfer = can('transfer.inter_warehouse.initiate');
-  const sampleItems: LowStockItem[] = [
-    {
-      name: 'Carrot — Grade 1',
-      available: '12 KG',
-      threshold: '20 KG',
-    },
-    {
-      name: 'Beans — Grade 1',
-      available: '8 KG',
-      threshold: '15 KG',
-    },
-    {
-      name: 'Spinach — Grade 2',
-      available: '0 KG',
-      threshold: '10 KG',
-    },
-    {
-      name: 'Beetroot — Grade 1',
-      available: '6 KG',
-      threshold: '12 KG',
-    },
-    {
-      name: 'Cow Milk',
-      available: '4 L',
-      threshold: '10 L',
-    },
-  ];
-  const lowStockItems = items ?? sampleItems;
+  // No sampleItems fallback — never show fake data. Empty means loading or none.
+  const lowStockItems = items ?? [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -110,12 +79,12 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
             </Text>
           </View>
 
-          {/* Low Stock Items matching Image 4 Left */}
-          {lowStockItems.map((item, index) => (
+          {/* Low Stock Items — live from the LOW_STOCK alert feed. */}
+          {lowStockItems.map((item: LowStockRow) => (
             <TouchableOpacity
-              key={index}
+              key={item.id}
               style={styles.itemCard}
-              onPress={() => onNavigate?.('M3S03')}
+              onPress={() => onNavigate?.('M3S03', { cropId: item.cropId, grade: item.grade })}
               activeOpacity={0.7}
             >
               <View style={styles.itemRow}>
@@ -124,11 +93,8 @@ export function LowStockScreen({ scope, can, onNavigate, onBack, items, onInitia
                 </View>
                 <View style={styles.itemContent}>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  {allWarehouses && item.warehouseName ? (
-                    <Text style={styles.itemDetails}>{item.warehouseName}</Text>
-                  ) : null}
                   <Text style={styles.itemDetails}>
-                    Available {item.available} · Configured Threshold {item.threshold}
+                    {`Available ${item.available} · Configured Threshold ${item.threshold}`}
                   </Text>
                 </View>
                 <ChevronRightIcon color={adminColors.danger.text} size={18} />

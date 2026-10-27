@@ -2,11 +2,16 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryScreenBaseProps, StockMovementRow } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type StockMovementDetailScreenProps = InventoryScreenBaseProps;
+export interface StockMovementDetailScreenProps extends InventoryScreenBaseProps {
+  /** The movement row extracted from route params (BR-37: no per-id ledger read). */
+  movement?: StockMovementRow | undefined;
+  /** Warehouse name for display; resolved by useInventoryWarehouseName. */
+  warehouseName?: string | undefined;
+}
 
 const TIMELINE_EVENTS = [
   { label: 'Movement Created', time: '10:40 AM' },

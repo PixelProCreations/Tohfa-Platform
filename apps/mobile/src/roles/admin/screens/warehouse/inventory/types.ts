@@ -50,6 +50,14 @@ export interface InventoryScreenBaseProps extends WarehouseScreenBaseProps {
   /** The Main selector's warehouse (undefined = all). Owned by InventoryFlow; ignored for a Sub scope. */
   selectedWarehouseId?: string | undefined;
   onSelectWarehouse?: ((warehouseId: string | undefined) => void) | undefined;
+  /**
+   * The effective warehouse id for this screen's API requests.
+   * Computed by inventoryWarehouseFilter (BR-30): Sub always sends its own id,
+   * Main sends the picker selection (or undefined for all warehouses).
+   * Passed by InventoryFlow via RouteCommon; screens that need it read it here
+   * rather than re-deriving it.
+   */
+  warehouseId?: string | undefined;
 }
 
 /** The request state a live inventory screen draws (pick it with queryViewState). */

@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, SafeAreaView } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, ProductStock } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 import { useFlowBack } from '../useFlowBack';
 
-export interface StockListScreenProps extends InventoryScreenBaseProps {
-  initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify';
+export interface StockListScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify' | undefined;
+  /** Live products from /admin/batches (aggregated per crop+grade). */
+  products?: readonly ProductStock[] | undefined;
+  /** False when some batch page loads were incomplete (BR-100 partial). */
+  complete?: boolean | undefined;
 }
 
 // ─── Main Warehouse Consolidated Stock Icons ────────────────────────────────

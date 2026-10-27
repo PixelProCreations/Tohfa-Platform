@@ -15,7 +15,10 @@ import type { InventoryScreenBaseProps, PhysicalCountResult } from './types';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type PhysicalCountScreenProps = InventoryScreenBaseProps;
+export interface PhysicalCountScreenProps extends InventoryScreenBaseProps {
+  /** Pre-selected batch id (from the Verify/Adjust CTA on the ledger). */
+  presetBatchId?: string | undefined;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 

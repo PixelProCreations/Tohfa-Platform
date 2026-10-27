@@ -13,8 +13,22 @@
  * stock) was absorbed into the profile-settings StorageInfoScreen (W4 part B);
  * the 'M3S08' key renders that screen so ProductStockDetail's "View Storage
  * Locations" keeps working.
+ *
+ * Data is live and owned here (API integration plan, phase 3): each read-only
+ * route's container fetches its own data through ./useInventoryData.ts and
+ * passes it to the screen. The warehouse every request sends is computed once
+ * with inventoryWarehouseFilter: a Sub scope always sends its own warehouse
+ * uuid (BR-30), the Main view the warehouse picked in its selector (held here
+ * so it survives moving between screens), or none for all warehouses.
+ *
+ * Stock counts (M3S10-M3S12, BR-107) and stock adjustments (M3S13, M3S14,
+ * M3S17, BR-37) are gated by permission (availability.ts). Without the code
+ * the flow refuses the route and renders the dashboard instead.
+ * M3S15 (Movement Detail) renders the ledger row carried in the route params:
+ * there is no GET /admin/stock-ledger/{id}.
  */
 import React, { useEffect, useState } from 'react';
+import { inventoryRouteArea, isAreaAvailable } from '../availability';
 import { useFlowBack } from '../useFlowBack';
 import { StatusBar, View } from 'react-native';
 import { adminColors } from '../../../theme';
@@ -39,7 +53,28 @@ import { VarianceReviewScreen } from './VarianceReviewScreen';
 import { StorageInfoScreen } from '../profile-settings/StorageInfoScreen';
 import { StorageLocationDetailScreen } from '../storage-ops/StorageLocationDetailScreen';
 import { TransfersFlow } from '../transfers/TransfersFlow';
-import type { InventoryRouteParams, PermissionCheck, WarehouseScope, WarehouseTab } from './types';
+import type { Grade } from '../../../api/inventory';
+import { adjustmentFilterOf } from './adjustmentMappers';
+import { movementParam } from './movementDetailMappers';
+import { inventoryWarehouseFilter } from './mappers';
+import type {
+  InventoryProductRef,
+  InventoryRouteParams,
+  InventoryScreenBaseProps,
+  PermissionCheck,
+  WarehouseScope,
+  WarehouseTab,
+} from './types';
+import {
+  useAllBatches,
+  useAllocationDashboard,
+  useBatch,
+  useBatchList,
+  useInventoryWarehouseName,
+  useLowStockRows,
+  useStockLedger,
+  useStockSummary,
+} from './useInventoryData';
 
 /** Navigation handle given to `renderExternalScreen`. */
 export interface InventoryFlowNavigation {
@@ -70,10 +105,212 @@ interface StackEntry {
   params: InventoryRouteParams;
 }
 
+/** The first screen of the module; also what a refused (hidden) route renders. */
+const HOME_SCREEN = 'M3S01';
+
+const GRADES: readonly Grade[] = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT'];
+
+/** A string route param, or undefined. */
+function stringParam(params: InventoryRouteParams, key: string): string | undefined {
+  const value: unknown = params?.[key];
+  return typeof value === 'string' && value !== '' ? value : undefined;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A batch uuid route param, or undefined. */
+function batchIdParam(params: InventoryRouteParams): string | undefined {
+  return uuidParam(params, 'batchId');
+}
+
+/** A uuid route param, or undefined for anything else. */
+function uuidParam(params: InventoryRouteParams, key: string): string | undefined {
+  const value = stringParam(params, key);
+  return value !== undefined && UUID_RE.test(value) ? value : undefined;
+}
+
+/** The product a route param names, or undefined when it names none. */
+function productParam(params: InventoryRouteParams): InventoryProductRef | undefined {
+  const cropId = stringParam(params, 'cropId');
+  const grade = stringParam(params, 'grade');
+  if (cropId === undefined || grade === undefined) return undefined;
+  const known = GRADES.find((g) => g === grade);
+  return known === undefined ? undefined : { cropId, grade: known };
+}
+
+/** Props the flow hands every screen, plus the warehouse every request sends. */
+type RouteCommon = InventoryScreenBaseProps & { warehouseId: string | undefined };
+
+function LiveDashboardRoute({
+  warehouseId,
+  onInitiateTransfer,
+  ...common
+}: RouteCommon & { onInitiateTransfer?: (() => void) | undefined }) {
+  const live = useStockSummary(warehouseId);
+  return (
+    <InventoryDashboardScreen
+      {...common}
+      onInitiateTransfer={onInitiateTransfer}
+      summary={live.summary}
+      allocatedGrams={live.allocatedGrams}
+      lowStockCount={live.lowStockCount}
+      complete={live.complete}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+function LiveStockListRoute({
+  warehouseId,
+  initialTab,
+  ...common
+}: RouteCommon & { initialTab?: 'Stock' | 'Ledger' | 'Allocation' | 'Verify' | undefined }) {
+  const live = useStockSummary(warehouseId);
+  return (
+    <StockListScreen
+      {...common}
+      initialTab={initialTab}
+      products={live.summary.products}
+      complete={live.complete}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+function LiveProductRoute({ warehouseId, ...common }: RouteCommon) {
+  const ref = productParam(common.routeParams ?? null);
+  const live = useStockSummary(warehouseId);
+  const allocation = useAllocationDashboard(warehouseId, ref);
+  const product =
+    ref === undefined ? undefined : live.summary.products.find((p) => p.cropId === ref.cropId && p.grade === ref.grade);
+  return (
+    <ProductStockDetailScreen
+      {...common}
+      product={product}
+      allocation={allocation.dashboard}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={() => {
+        live.refresh();
+        allocation.refresh();
+      }}
+      isRefreshing={live.isRefreshing || allocation.isRefreshing}
+    />
+  );
+}
+
+function LiveBatchListRoute({ warehouseId, ...common }: RouteCommon) {
+  const ref = productParam(common.routeParams ?? null);
+  const list = useBatchList(warehouseId, ref?.cropId, ref?.grade);
+  return (
+    <BatchListScreen
+      {...common}
+      batches={list.items}
+      isLoading={list.isLoading}
+      error={list.error}
+      onRetry={list.refresh}
+      onRefresh={list.refresh}
+      isRefreshing={list.isRefreshing}
+      onLoadMore={list.loadMore}
+      hasMore={list.hasMore}
+    />
+  );
+}
+
+function LiveBatchDetailRoute({ warehouseId, ...common }: RouteCommon) {
+  const live = useBatch(warehouseId, batchIdParam(common.routeParams ?? null));
+  return (
+    <BatchDetailScreen
+      {...common}
+      batch={live.batch}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+function LiveLedgerRoute({ warehouseId, ...common }: RouteCommon) {
+  const batches = useAllBatches(warehouseId);
+  const ledger = useStockLedger(warehouseId, batchIdParam(common.routeParams ?? null), batches.items);
+  return (
+    <StockLedgerScreen
+      {...common}
+      movements={ledger.items}
+      batches={batches.items}
+      isLoading={ledger.isLoading}
+      error={ledger.error}
+      onRetry={ledger.refresh}
+      onRefresh={() => {
+        ledger.refresh();
+        batches.refresh();
+      }}
+      isRefreshing={ledger.isRefreshing}
+      onLoadMore={ledger.loadMore}
+      hasMore={ledger.hasMore}
+    />
+  );
+}
+
+function LiveAllocationRoute({ warehouseId, ...common }: RouteCommon) {
+  const live = useAllocationDashboard(warehouseId);
+  return (
+    <StockAllocationDashboardScreen
+      {...common}
+      dashboard={live.dashboard}
+      rowCount={live.rowCount}
+      complete={live.complete}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
+function LiveMovementDetailRoute({ warehouseId: _warehouseId, ...common }: RouteCommon) {
+  const movement = movementParam(common.routeParams ?? null);
+  // No row, no uuid: the hook fetches nothing and the screen shows "not found".
+  const warehouseName = useInventoryWarehouseName(common.scope, common.can, movement?.warehouseId);
+  return <StockMovementDetailScreen {...common} movement={movement} warehouseName={warehouseName} />;
+}
+
+function LiveLowStockRoute({
+  warehouseId,
+  onInitiateTransfer,
+  ...common
+}: RouteCommon & { onInitiateTransfer?: (() => void) | undefined }) {
+  const live = useLowStockRows(warehouseId);
+  return (
+    <LowStockScreen
+      {...common}
+      items={live.rows}
+      onInitiateTransfer={onInitiateTransfer}
+      isLoading={live.isLoading}
+      error={live.error}
+      onRetry={live.refresh}
+      onRefresh={live.refresh}
+      isRefreshing={live.isRefreshing}
+    />
+  );
+}
+
 export function InventoryFlow({
   scope,
   can,
-  initialScreen = 'M3S01',
+  initialScreen = HOME_SCREEN,
   initialParams = null,
   onBack,
   onTabChange,
@@ -82,6 +319,16 @@ export function InventoryFlow({
   renderExternalScreen,
 }: InventoryFlowProps) {
   const [stack, setStack] = useState<StackEntry[]>([{ screen: initialScreen, params: initialParams }]);
+  // Main only: the warehouse picked in the selector (undefined = all). A Sub
+  // scope ignores it; inventoryWarehouseFilter always sends its own warehouse.
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  const warehouseId = inventoryWarehouseFilter(scope, selectedWarehouseId);
+
+  /** False for a route of an area hidden from this viewer (no API, or no permission). */
+  const isRouteAvailable = (screen: string): boolean => {
+    const area = inventoryRouteArea(screen);
+    return area === undefined || isAreaAvailable(area, can);
+  };
 
   // The Sub shell re-targets the open module (e.g. a dashboard tile jumps to
   // 'M3S10'); a new initial screen restarts the stack, as the old shell did.
@@ -93,6 +340,7 @@ export function InventoryFlow({
   const params = current.params;
 
   const navigate = (screen: string, nextParams?: InventoryRouteParams) => {
+    if (!isRouteAvailable(screen)) return;
     setStack((prev) => [...prev, { screen, params: nextParams ?? null }]);
   };
 
@@ -119,12 +367,18 @@ export function InventoryFlow({
     onTabChange,
     routeParams: params ?? undefined,
     warehouseOptions,
+    selectedWarehouseId,
+    onSelectWarehouse: setSelectedWarehouseId,
   };
+  const live: RouteCommon = { ...common, warehouseId };
+
+  // A deep link or an old host key into an area with no API opens the dashboard.
+  const screen = isRouteAvailable(current.screen) ? current.screen : HOME_SCREEN;
 
   const renderScreen = (): React.ReactNode => {
-    switch (current.screen) {
+    switch (screen) {
       case 'M3S01':
-        return <InventoryDashboardScreen {...common} onInitiateTransfer={onInitiateTransfer ?? (() => navigate('Transfers'))} />;
+        return <LiveDashboardRoute {...live} onInitiateTransfer={onInitiateTransfer ?? (() => navigate('Transfers'))} />;
       case 'Transfers':
       case 'transfers':
       case 'inter_warehouse_transfer':
@@ -136,17 +390,17 @@ export function InventoryFlow({
       case 'initiate_new_transfer':
         return <TransfersFlow scope={scope} can={can} initialScreen="InitiateNewTransfer" onBack={back} />;
       case 'M3S02':
-        return <StockListScreen {...common} initialTab={params?.initialTab} />;
+        return <LiveStockListRoute {...live} initialTab={params?.initialTab} />;
       case 'M3S03':
-        return <ProductStockDetailScreen {...common} />;
+        return <LiveProductRoute {...live} />;
       case 'M3S04':
-        return <BatchListScreen {...common} />;
+        return <LiveBatchListRoute {...live} />;
       case 'M3S05':
-        return <BatchDetailScreen {...common} />;
+        return <LiveBatchDetailRoute {...live} />;
       case 'M3S06':
-        return <StockLedgerScreen {...common} />;
+        return <LiveLedgerRoute {...live} />;
       case 'M3S07':
-        return <StockAllocationDashboardScreen {...common} />;
+        return <LiveAllocationRoute {...live} />;
       case 'M3S08':
         return (
           <StorageInfoScreen
@@ -170,28 +424,32 @@ export function InventoryFlow({
           />
         );
       case 'M3S09':
-        return <LowStockScreen {...common} onInitiateTransfer={onInitiateTransfer} />;
+        return <LiveLowStockRoute {...live} onInitiateTransfer={onInitiateTransfer} />;
       case 'M3S10':
-        return <StockVerificationScreen {...common} />;
+        return <StockVerificationScreen {...live} />;
       case 'M3S11':
-        return <PhysicalCountScreen {...common} />;
+        return <PhysicalCountScreen {...live} presetBatchId={batchIdParam(params)} />;
       case 'M3S12':
-        return <VarianceReviewScreen {...common} />;
+        return <VarianceReviewScreen {...live} verificationId={uuidParam(params, 'verificationId')} />;
       case 'M3S13':
-        return <StockAdjustmentRequestScreen {...common} />;
+        return <StockAdjustmentRequestScreen {...live} presetBatchId={batchIdParam(params)} />;
       case 'M3S14':
-        return <AdjustmentHistoryScreen {...common} />;
+        return <AdjustmentHistoryScreen {...live} initialFilter={adjustmentFilterOf(params?.status)} />;
       case 'M3S15':
-        return <StockMovementDetailScreen {...common} />;
+        return <LiveMovementDetailRoute {...live} />;
       case 'M3S16':
         return <InventoryFiltersScreen {...common} />;
-      case 'M3S17':
-        return <AdjustmentDetailScreen {...common} />;
+      case 'M3S17': {
+        const adjustmentId = uuidParam(params, 'adjustmentId');
+        // No id (the Main dashboard's approval link): the approval queue.
+        if (adjustmentId === undefined) return <AdjustmentHistoryScreen {...live} initialFilter="PENDING" />;
+        return <AdjustmentDetailScreen {...live} adjustmentId={adjustmentId} />;
+      }
       case 'M3S18':
         return <StockMovementReceiptScreen {...common} />;
       default: {
         const external = renderExternalScreen?.(current.screen, params, { navigate, back });
-        return external ?? <InventoryDashboardScreen {...common} />;
+        return external ?? <LiveDashboardRoute {...live} onInitiateTransfer={onInitiateTransfer ?? (() => navigate('Transfers'))} />;
       }
     }
   };

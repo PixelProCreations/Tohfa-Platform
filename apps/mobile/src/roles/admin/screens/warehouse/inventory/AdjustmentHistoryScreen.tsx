@@ -11,11 +11,14 @@ import {
 } from 'react-native';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
+import type { AdjustmentFilter } from './adjustmentMappers';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 export interface AdjustmentHistoryScreenProps extends InventoryScreenBaseProps {
   /** Rows to show; defaults to the design sample. */
   adjustments?: readonly AdjustmentHistoryItem[] | undefined;
+  /** Initial filter applied when the screen opens (from the dashboard deep-link). */
+  initialFilter?: AdjustmentFilter | string | undefined;
 }
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────

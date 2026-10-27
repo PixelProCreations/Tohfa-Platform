@@ -13,7 +13,10 @@ import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-export type AdjustmentDetailScreenProps = InventoryScreenBaseProps;
+export interface AdjustmentDetailScreenProps extends InventoryScreenBaseProps {
+  /** The adjustment to show; undefined shows the approval queue header. */
+  adjustmentId?: string | undefined;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 

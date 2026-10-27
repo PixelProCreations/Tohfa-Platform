@@ -2,11 +2,18 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { AllocationDashboard, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type StockAllocationDashboardScreenProps = InventoryScreenBaseProps;
+export interface StockAllocationDashboardScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Live allocation dashboard from /admin/allocations (aggregated). */
+  dashboard?: AllocationDashboard | undefined;
+  /** Total raw rows loaded (for display). */
+  rowCount?: number | undefined;
+  /** False when some allocation page loads were incomplete. */
+  complete?: boolean | undefined;
+}
 
 
 function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {

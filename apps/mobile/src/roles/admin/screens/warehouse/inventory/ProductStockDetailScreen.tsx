@@ -2,11 +2,16 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { AllocationDashboard, InventoryLiveStateProps, InventoryScreenBaseProps, ProductStock } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
+export interface ProductStockDetailScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The product (crop+grade) whose detail is shown. */
+  product?: ProductStock | undefined;
+  /** Allocation breakdown across channels for this product. */
+  allocation?: AllocationDashboard | undefined;
+}
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 

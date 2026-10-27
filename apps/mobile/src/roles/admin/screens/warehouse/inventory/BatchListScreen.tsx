@@ -2,10 +2,17 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import { SWAHeader } from '../../swa/components';
 
-export type BatchListScreenProps = InventoryScreenBaseProps;
+export interface BatchListScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Live batches from /admin/batches for the selected product. */
+  batches?: readonly BatchRow[] | undefined;
+  /** Load the next cursor page. */
+  onLoadMore?: (() => void) | undefined;
+  /** True when more pages remain. */
+  hasMore?: boolean | undefined;
+}
 
 export function BatchListScreen({ scope, onNavigate, onBack }: BatchListScreenProps) {
   const batches = [
