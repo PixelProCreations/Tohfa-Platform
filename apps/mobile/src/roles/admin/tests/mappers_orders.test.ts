@@ -4,6 +4,7 @@
  * Tests written first (CLAUDE.md 2.6); they FAIL until mappers.ts exists.
  */
 import { describe, expect, it } from 'vitest';
+import type { Money } from '@tohfa/shared-types';
 import type { AdminOrderDetailDto, OrderSummaryDto } from '../api/orders';
 import {
   orderStatusLabel,
@@ -25,7 +26,7 @@ const SUMMARY: OrderSummaryDto = {
   fulfillmentType: 'WAREHOUSE_PICKUP',
   warehouseId: 'wh-coon',
   itemCount: 4,
-  totalAmount: '850.00',
+  totalAmount: '850.00' as Money,
   paymentStatus: 'PAID',
   deliveryDate: '2026-09-24',
   placedAt: '2026-09-24T04:32:00.000Z',
@@ -53,18 +54,18 @@ const DETAIL: AdminOrderDetailDto = {
       name: 'Tomato',
       grade: 'GRADE_1',
       qtyKg: '2.000',
-      unitPrice: '100.00',
+      unitPrice: '100.00' as Money,
       gstRate: '5.00',
-      gstAmount: '10.00',
-      lineTotal: '210.00',
+      gstAmount: '10.00' as Money,
+      lineTotal: '210.00' as Money,
     },
   ],
   totals: {
-    subtotal: '800.00',
-    deliveryFee: '0.00',
-    discount: '0.00',
-    gst: '50.00',
-    total: '850.00',
+    subtotal: '800.00' as Money,
+    deliveryFee: '0.00' as Money,
+    discount: '0.00' as Money,
+    gst: '50.00' as Money,
+    total: '850.00' as Money,
   },
   invoice: null,
   fulfilment: {

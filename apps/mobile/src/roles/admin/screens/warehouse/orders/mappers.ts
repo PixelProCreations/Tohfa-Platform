@@ -212,7 +212,7 @@ export function toOrderRow(dto: OrderSummaryDto, warehouseName: string): OrderLi
     time: formatOrderTime(dto.placedAt),
     action,
     actionScreen,
-    actionStep,
+    ...(actionStep !== undefined ? { actionStep } : {}),
   };
 }
 

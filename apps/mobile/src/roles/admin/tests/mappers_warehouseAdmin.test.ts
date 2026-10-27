@@ -4,6 +4,7 @@
  * Tests written first (CLAUDE.md 2.6); they FAIL until mappers.ts exists.
  */
 import { describe, expect, it } from 'vitest';
+import type { AlertType } from '../api/alerts';
 import type { WarehouseDto, WarehouseCapacityDto } from '../api/warehouses';
 import type { SubAdminDto } from '../api/subAdmins';
 import {
@@ -136,12 +137,12 @@ describe('nearFullFromAlerts', () => {
   });
 
   it('returns true when CAPACITY_NEAR_FULL alert exists for the warehouse', () => {
-    const alerts = [{ warehouseId: 'wh-ooty', type: 'CAPACITY_NEAR_FULL', id: 'a1', state: 'ACTIVE', triggeredAt: '' }];
+    const alerts = [{ warehouseId: 'wh-ooty', type: 'CAPACITY_NEAR_FULL' as AlertType }];
     expect(nearFullFromAlerts(alerts, 'wh-ooty')).toBe(true);
   });
 
   it('returns false when CAPACITY_NEAR_FULL alert is for another warehouse', () => {
-    const alerts = [{ warehouseId: 'wh-coon', type: 'CAPACITY_NEAR_FULL', id: 'a1', state: 'ACTIVE', triggeredAt: '' }];
+    const alerts = [{ warehouseId: 'wh-coon', type: 'CAPACITY_NEAR_FULL' as AlertType }];
     expect(nearFullFromAlerts(alerts, 'wh-ooty')).toBe(false);
   });
 });

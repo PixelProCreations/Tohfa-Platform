@@ -8,7 +8,7 @@
  * BR-16: No farmerId or GPS in output.
  * BR-92: Buyer name comes from the API's `SaleBuyerDto.name` (masked for WALK_IN).
  */
-import type { ChannelOrderListItemDto, SaleListItemDto, ChannelOrderStatus } from '../../../api/sales';
+import type { ChannelOrderListItemDto, SaleListItemDto } from '../../../api/sales';
 import type { ChannelOrderItem, SaleRecord } from './types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -27,7 +27,7 @@ function formatDate(iso: string): string {
 // ─── Status labels ────────────────────────────────────────────────────────────
 
 /** Display label for a channel order status. */
-export function channelOrderStatusLabel(status: ChannelOrderStatus | string): string {
+export function channelOrderStatusLabel(status: string): string {
   const MAP: Record<string, string> = {
     PENDING_PAYMENT: 'Pending Payment',
     CONFIRMED: 'Confirmed',

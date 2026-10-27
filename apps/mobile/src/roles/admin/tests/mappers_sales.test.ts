@@ -34,7 +34,7 @@ const SALE_LIST_ITEM: SaleListItemDto = {
   saleNumber: 'SAL-00124',
   channel: 'DIRECT',
   status: 'PICKED_UP',
-  paymentStatus: 'PAID',
+  paymentStatus: 'CONFIRMED',
   paymentMethod: 'CASH',
   warehouseId: 'wh-coon',
   buyer: {

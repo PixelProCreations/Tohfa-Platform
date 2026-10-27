@@ -6,6 +6,7 @@
  * They FAIL until ./screens/warehouse/customers/mappers.ts exists.
  */
 import { describe, expect, it } from 'vitest';
+import type { Money } from '@tohfa/shared-types';
 import type { AdminCustomerListItemDto, AdminCustomerOrderDto, AdminCustomerPurchaseDto, AdminCustomerIssueDto, AdminCustomerSupportTicketDto, CustomerListSummaryDto } from '../api/customers';
 import {
   toCustomerRecord,
@@ -44,7 +45,7 @@ const CUSTOMER_ORDER: AdminCustomerOrderDto = {
   paymentMethod: 'WALLET',
   warehouseId: 'wh-coon',
   itemCount: 3,
-  totalAmount: '850.00',
+  totalAmount: '850.00' as Money,
   invoiceNumber: 'INV-001',
   placedAt: '2026-09-24T08:00:00.000Z',
   completedAt: null,
@@ -59,8 +60,8 @@ const PURCHASE: AdminCustomerPurchaseDto = {
   productName: 'Tomato',
   grade: 'GRADE_1',
   qtyKg: '2.000',
-  unitPrice: '100.00',
-  lineTotal: '200.00',
+  unitPrice: '100.00' as Money,
+  lineTotal: '200.00' as Money,
   purchasedAt: '2026-09-24T08:00:00.000Z',
 };
 
