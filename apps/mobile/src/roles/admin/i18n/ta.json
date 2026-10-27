@@ -443,5 +443,7 @@
   "receiving.wizard.viewBatch": "தொகுதியைப் பார்",
   "receiving.wizard.viewBatchAtLocation": "{{code}}\nமுழு {{qty}} {{product}} {{location}} இடத்துக்கு ஒதுக்கப்பட்டது.",
   "receiving.wizard.viewBatchText": "{{code}}\nமுழு {{qty}} {{product}}.",
-  "receiving.wizard.warehouse": "கிடங்கு"
+  "receiving.wizard.warehouse": "கிடங்கு",
+
+  "receiving.wizard.confirmLocationComplete": "இட ஒதுக்கீட்டை உறுதிசெய்து வரவை முடி →"
 }

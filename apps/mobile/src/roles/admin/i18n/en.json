@@ -1967,5 +1967,7 @@
   "receiving.wizard.viewBatch": "View Batch",
   "receiving.wizard.viewBatchAtLocation": "{{code}}\nFull {{qty}} {{product}} allocated to {{location}}.",
   "receiving.wizard.viewBatchText": "{{code}}\nFull {{qty}} {{product}}.",
-  "receiving.wizard.warehouse": "Warehouse"
+  "receiving.wizard.warehouse": "Warehouse",
+
+  "receiving.wizard.confirmLocationComplete": "Confirm Location Assignment & Complete Receiving →"
 }
