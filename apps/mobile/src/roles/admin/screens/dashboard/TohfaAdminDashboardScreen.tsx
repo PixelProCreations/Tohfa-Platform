@@ -29,7 +29,7 @@ import {
   adminType,
 } from '../../theme';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components';
-import { makeCan, type Can } from '../../permissions/can';
+import { makeCan } from '../../permissions/can';
 import {
   AdminAllFarmersScreen,
   AdminFarmerDetailScreen,
@@ -70,7 +70,6 @@ import {
   AllRecentReportsScreen,
 } from '../reports';
 import {
-  FinancialDashboardScreen,
   PLStatementScreen,
 } from '../finance';
 import { PurchaseDuesPayoutsScreen } from '../finance/PurchaseDuesPayoutsScreen';
@@ -93,6 +92,19 @@ import { InputDetailScreen } from './InputDetailScreen';
 import { PestLibraryScreen, AddNewPestScreen } from './PestLibraryScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
+import { CommunityKnowledgeHomeScreen } from './CommunityKnowledgeHomeScreen';
+import { CreateContentScreen, type ContentTypeOption, type CreateContentInitialData } from './CreateContentScreen';
+import { CreateGroupScreen } from './CreateGroupScreen';
+import { CreateCommunityScreen } from './CreateCommunityScreen';
+import { AddVideoScreen } from './AddVideoScreen';
+import { CommunityDetailsScreen } from './CommunityDetailsScreen';
+import { CommunitiesListScreen } from './CommunitiesListScreen';
+import { GroupsListScreen } from './GroupsListScreen';
+import { QuestionAnswerChatScreen } from './QuestionAnswerChatScreen';
+import { ArticleDetailsScreen } from './ArticleDetailsScreen';
+import { ContentItemDetailScreen } from './ContentItemDetailScreen';
+import { ContentPendingReviewScreen } from './ContentPendingReviewScreen';
+import { KnowledgeLibraryScreen } from './KnowledgeLibraryScreen';
 import {
   AuditManagementScreen,
   AuditScheduleAssignmentScreen,
@@ -4052,12 +4064,12 @@ function CircularFilterButton({ onPress }: { onPress?: () => void }) {
       accessibilityLabel="Filter customers"
     >
       <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-        <Line x1="4" y1="6" x2="20" y2="6" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-        <Line x1="4" y1="12" x2="20" y2="12" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-        <Line x1="4" y1="18" x2="20" y2="18" stroke="#FFFFFF" strokeWidth="2" strokeLinecap="round" />
-        <Circle cx="15" cy="6" r="2.2" fill="#FFFFFF" />
-        <Circle cx="9" cy="12" r="2.2" fill="#FFFFFF" />
-        <Circle cx="16" cy="18" r="2.2" fill="#FFFFFF" />
+        <Line x1="4" y1="6" x2="20" y2="6" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+        <Line x1="4" y1="12" x2="20" y2="12" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+        <Line x1="4" y1="18" x2="20" y2="18" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+        <Circle cx="15" cy="6" r="2.2" fill={adminColors.onBrand} />
+        <Circle cx="9" cy="12" r="2.2" fill={adminColors.onBrand} />
+        <Circle cx="16" cy="18" r="2.2" fill={adminColors.onBrand} />
       </Svg>
     </TouchableOpacity>
   );
@@ -4073,7 +4085,7 @@ function CircularPlusButton({ onPress }: { onPress?: () => void }) {
       accessibilityLabel="Add customer"
     >
       <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-        <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" />
+        <Path d="M12 5v14M5 12h14" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" />
       </Svg>
     </TouchableOpacity>
   );
@@ -4091,14 +4103,14 @@ function CircularEditButton({ onPress }: { onPress?: () => void }) {
       <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
         <Path
           d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-          stroke="#FFFFFF"
+          stroke={adminColors.onBrand}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         <Path
           d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-          stroke="#FFFFFF"
+          stroke={adminColors.onBrand}
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -4134,7 +4146,7 @@ function GstBuildingActionIcon({ size = 26, color = adminColors.brand }: { size?
   );
 }
 
-function LockIcon({ size = 14, color = '#6B7280' }: { size?: number; color?: string }) {
+function LockIcon({ size = 14, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="11" width="16" height="11" rx="2" stroke={color} strokeWidth="2" />
@@ -4643,6 +4655,8 @@ function CustomersManagementScreen({
   onOpenGstBusiness: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState('This week');
 
   const metrics = [
     { value: '18', label: 'Total Customers' },
@@ -4679,12 +4693,12 @@ function CustomersManagementScreen({
               accessibilityRole="button"
               accessibilityLabel="Back to More menu"
             >
-              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+              <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <CustomersManagementHeaderIcon size={22} color="#FFFFFF" />
+            <CustomersManagementHeaderIcon size={22} color={adminColors.onBrand} />
             <Text style={customerStyles.headerTitle}>Customers Management</Text>
           </View>
-          <CircularFilterButton onPress={() => Alert.alert('Filters', 'Filter customer periods.')} />
+          <CircularFilterButton onPress={() => setShowPeriodModal(true)} />
         </View>
       </View>
 
@@ -4695,11 +4709,11 @@ function CustomersManagementScreen({
       >
         {/* Search Bar */}
         <View style={customerStyles.searchBox}>
-          <SearchIcon size={18} color="#8C7E74" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={customerStyles.searchInput}
             placeholder="Search ID, name, mobile, GSTIN"
-            placeholderTextColor="#8C7E74"
+            placeholderTextColor={adminColors.placeholder}
             value={search}
             onChangeText={setSearch}
           />
@@ -4794,6 +4808,61 @@ function CustomersManagementScreen({
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Period Filter Modal */}
+      <Modal
+        visible={showPeriodModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPeriodModal(false)}
+      >
+        <TouchableOpacity
+          style={customerStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowPeriodModal(false)}
+        >
+          <TouchableOpacity
+            style={customerStyles.modalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={customerStyles.modalTitle}>Filter Customer Period</Text>
+
+            <Text style={customerStyles.filterSectionTitle}>Select Period</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {['This week', 'Last week', 'This month', 'Last 30 days', 'All time'].map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[customerStyles.filterChip, selectedPeriod === p && customerStyles.filterChipActive]}
+                  onPress={() => setSelectedPeriod(p)}
+                >
+                  <Text style={[customerStyles.filterChipText, selectedPeriod === p && customerStyles.filterChipTextActive]}>
+                    {p}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={customerStyles.modalButtonsRow}>
+              <TouchableOpacity
+                style={customerStyles.modalResetBtn}
+                onPress={() => {
+                  setSelectedPeriod('This week');
+                  setShowPeriodModal(false);
+                }}
+              >
+                <Text style={customerStyles.modalResetBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={customerStyles.modalApplyBtn}
+                onPress={() => setShowPeriodModal(false)}
+              >
+                <Text style={customerStyles.modalApplyBtnText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -4810,12 +4879,26 @@ function CustomerDirectoryScreen({
   onAddNewCustomer: () => void;
 }) {
   const [search, setSearch] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filterType, setFilterType] = useState<'All' | 'Individual' | 'B2B'>('All');
+  const [filterStatus, setFilterStatus] = useState<'All' | 'Active' | 'Pending activation'>('All');
+  const [filterWarehouse, setFilterWarehouse] = useState<string>('All');
 
   const filtered = CUSTOMERS_DATA.filter((c) => {
+    if (filterType !== 'All' && c.type !== filterType) return false;
+    if (filterStatus !== 'All' && c.status !== filterStatus) return false;
+    if (filterWarehouse !== 'All' && c.preferredWarehouse !== filterWarehouse) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return c.name.toLowerCase().includes(q) || c.id.toLowerCase().includes(q) || c.type.toLowerCase().includes(q);
   });
+
+  const handleResetFilters = () => {
+    setFilterType('All');
+    setFilterStatus('All');
+    setFilterWarehouse('All');
+    setShowFilterModal(false);
+  };
 
   return (
     <View style={customerStyles.rootContainer}>
@@ -4836,7 +4919,7 @@ function CustomerDirectoryScreen({
         <View style={customerStyles.headerTopRow}>
           <View style={customerStyles.headerTitleWithIconRow}>
             <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+              <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={customerStyles.headerTitle}>Customer Directory</Text>
           </View>
@@ -4851,15 +4934,19 @@ function CustomerDirectoryScreen({
       >
         {/* Search Bar with filter */}
         <View style={customerStyles.searchBox}>
-          <SearchIcon size={18} color="#8C7E74" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={customerStyles.searchInput}
             placeholder="Search..."
-            placeholderTextColor="#8C7E74"
+            placeholderTextColor={adminColors.placeholder}
             value={search}
             onChangeText={setSearch}
           />
-          <TouchableOpacity onPress={() => Alert.alert('Filter', 'Filter directory.')} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.7}
+            style={(filterType !== 'All' || filterStatus !== 'All' || filterWarehouse !== 'All') ? customerStyles.filterBtnActive : undefined}
+          >
             <FilterSlidersIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
         </View>
@@ -4897,6 +4984,92 @@ function CustomerDirectoryScreen({
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Suitable Filter Popup Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <TouchableOpacity
+          style={customerStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFilterModal(false)}
+        >
+          <TouchableOpacity
+            style={customerStyles.modalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={customerStyles.modalTitle}>Filter Customer Directory</Text>
+
+            {/* Customer Type */}
+            <Text style={customerStyles.filterSectionTitle}>Customer Type</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {(['All', 'Individual', 'B2B'] as const).map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[customerStyles.filterChip, filterType === t && customerStyles.filterChipActive]}
+                  onPress={() => setFilterType(t)}
+                >
+                  <Text style={[customerStyles.filterChipText, filterType === t && customerStyles.filterChipTextActive]}>
+                    {t}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Status */}
+            <Text style={customerStyles.filterSectionTitle}>Status</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {(['All', 'Active', 'Pending activation'] as const).map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[customerStyles.filterChip, filterStatus === s && customerStyles.filterChipActive]}
+                  onPress={() => setFilterStatus(s)}
+                >
+                  <Text style={[customerStyles.filterChipText, filterStatus === s && customerStyles.filterChipTextActive]}>
+                    {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Preferred Warehouse */}
+            <Text style={customerStyles.filterSectionTitle}>Preferred Warehouse</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {['All', 'Ooty', 'Coonoor', 'Kotagiri'].map((w) => (
+                <TouchableOpacity
+                  key={w}
+                  style={[customerStyles.filterChip, filterWarehouse === w && customerStyles.filterChipActive]}
+                  onPress={() => setFilterWarehouse(w)}
+                >
+                  <Text style={[customerStyles.filterChipText, filterWarehouse === w && customerStyles.filterChipTextActive]}>
+                    {w}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Actions */}
+            <View style={customerStyles.modalButtonsRow}>
+              <TouchableOpacity
+                style={customerStyles.modalResetBtn}
+                onPress={handleResetFilters}
+              >
+                <Text style={customerStyles.modalResetBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={customerStyles.modalApplyBtn}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={customerStyles.modalApplyBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -4987,7 +5160,7 @@ function AddCustomerScreen({
         <View style={customerStyles.headerTopRow}>
           <View style={customerStyles.headerTitleWithIconRow}>
             <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+              <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={customerStyles.headerTitle}>Add customer</Text>
           </View>
@@ -5004,7 +5177,7 @@ function AddCustomerScreen({
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            Customer name <Text style={{ color: '#EF4444' }}>*</Text>
+            Customer name <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <TextInput
             style={customerStyles.formInputBoxEditable}
@@ -5016,7 +5189,7 @@ function AddCustomerScreen({
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            Mobile number <Text style={{ color: '#EF4444' }}>*</Text>
+            Mobile number <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <TextInput
             style={customerStyles.formInputBoxEditable}
@@ -5047,7 +5220,7 @@ function AddCustomerScreen({
             activeOpacity={0.7}
           >
             <Text style={customerStyles.formDropdownText}>{customerType}</Text>
-            <ChevronDownIcon size={16} color="#4B5563" />
+            <ChevronDownIcon size={16} color={adminColors.muted} />
           </TouchableOpacity>
         </View>
 
@@ -5195,7 +5368,7 @@ function AddCustomerScreen({
             activeOpacity={0.7}
           >
             <Text style={customerStyles.formDropdownText}>{warehouse}</Text>
-            <ChevronDownIcon size={16} color="#4B5563" />
+            <ChevronDownIcon size={16} color={adminColors.muted} />
           </TouchableOpacity>
           <Text style={customerStyles.formHelperNote}>Communication preferences are not configured, so they are not collected.</Text>
         </View>
@@ -5234,10 +5407,52 @@ function CustomerDetailScreen({
   customer: CustomerItem | null;
   onBack: () => void;
 }) {
-  const [activeTab, setActiveTab] = useState<'Personal' | 'Purchase History' | 'Business'>('Personal');
-
   const item = customer ?? DEFAULT_CUSTOMER;
   const isB2B = item.isB2B || item.type === 'B2B';
+
+  const [activeTab, setActiveTab] = useState<'Personal' | 'Purchase History' | 'Business'>('Personal');
+  const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
+
+  // Editable fields state
+  const [custName, setCustName] = useState(item.name);
+  const [custPhone, setCustPhone] = useState(item.phone);
+  const [custEmail, setCustEmail] = useState(item.email || '');
+  const [custAddress, setCustAddress] = useState(item.address || '44 Industrial Estate, Ooty, Tamil Nadu 643005');
+  const [custStatus, setCustStatus] = useState(item.status);
+  const [custType, setCustType] = useState(item.displayType || (isB2B ? 'B2B' : 'Individual'));
+
+  // Form edit states
+  const [editName, setEditName] = useState(custName);
+  const [editPhone, setEditPhone] = useState(custPhone);
+  const [editEmail, setEditEmail] = useState(custEmail);
+  const [editAddress, setEditAddress] = useState(custAddress);
+  const [editStatus, setEditStatus] = useState(custStatus);
+  const [editType, setEditType] = useState(custType);
+
+  const handleOpenEdit = () => {
+    setEditName(custName);
+    setEditPhone(custPhone);
+    setEditEmail(custEmail);
+    setEditAddress(custAddress);
+    setEditStatus(custStatus);
+    setEditType(custType);
+    setShowEditCustomerModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editName.trim()) {
+      Alert.alert('Required', 'Customer name is required.');
+      return;
+    }
+    setCustName(editName.trim());
+    setCustPhone(editPhone.trim());
+    setCustEmail(editEmail.trim());
+    setCustAddress(editAddress.trim());
+    setCustStatus(editStatus);
+    setCustType(editType);
+    setShowEditCustomerModal(false);
+    Alert.alert('Updated', 'Customer details updated successfully.');
+  };
 
   return (
     <View style={customerStyles.rootContainer}>
@@ -5259,14 +5474,15 @@ function CustomerDetailScreen({
           <View style={customerStyles.headerTitleCol}>
             <View style={customerStyles.headerTitleWithIconRow}>
               <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+                <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={customerStyles.headerTitle}>Customer details</Text>
             </View>
             <Text style={customerStyles.headerSubtitle}>
-              {item.id} · {item.displayType || (isB2B ? 'B2B' : 'online')} · {item.status}
+              {item.id} · {custType} · {custStatus}
             </Text>
           </View>
+          <CircularEditButton onPress={handleOpenEdit} />
         </View>
       </View>
 
@@ -5317,7 +5533,7 @@ function CustomerDetailScreen({
         <View style={customerStyles.detailsCard}>
           <View style={customerStyles.detailRow}>
             <Text style={customerStyles.detailLabel}>Customer name</Text>
-            <Text style={customerStyles.detailValue}>{item.name}</Text>
+            <Text style={customerStyles.detailValue}>{custName}</Text>
           </View>
 
           <View style={customerStyles.detailRow}>
@@ -5327,23 +5543,23 @@ function CustomerDetailScreen({
 
           <View style={customerStyles.detailRow}>
             <Text style={customerStyles.detailLabel}>Customer type</Text>
-            <Text style={customerStyles.detailValue}>{item.displayType || (isB2B ? 'B2B' : 'online')}</Text>
+            <Text style={customerStyles.detailValue}>{custType}</Text>
           </View>
 
           <View style={customerStyles.detailRow}>
             <Text style={customerStyles.detailLabel}>Mobile</Text>
-            <Text style={customerStyles.detailValue}>{item.phone}</Text>
+            <Text style={customerStyles.detailValue}>{custPhone}</Text>
           </View>
 
           <View style={customerStyles.detailRow}>
             <Text style={customerStyles.detailLabel}>Email</Text>
-            <Text style={customerStyles.detailValue}>{item.email || '—'}</Text>
+            <Text style={customerStyles.detailValue}>{custEmail || '—'}</Text>
           </View>
 
           <View style={[customerStyles.detailRow, { alignItems: 'flex-start' }]}>
             <Text style={[customerStyles.detailLabel, { marginTop: 2 }]}>Address</Text>
             <Text style={[customerStyles.detailValue, { flex: 1, textAlign: 'right', marginLeft: 16 }]}>
-              {item.address || '44 Industrial Estate, Ooty, Tamil Nadu 643005'}
+              {custAddress}
             </Text>
           </View>
 
@@ -5359,7 +5575,7 @@ function CustomerDetailScreen({
 
           <View style={[customerStyles.detailRow, { borderBottomWidth: 0 }]}>
             <Text style={customerStyles.detailLabel}>Status</Text>
-            <Text style={[customerStyles.detailValue, { color: '#137333' }]}>{item.status}</Text>
+            <Text style={[customerStyles.detailValue, { color: adminColors.success.text }]}>{custStatus}</Text>
           </View>
         </View>
 
@@ -5398,6 +5614,112 @@ function CustomerDetailScreen({
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Edit Customer Popup Modal */}
+      <Modal
+        visible={showEditCustomerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditCustomerModal(false)}
+      >
+        <TouchableOpacity
+          style={customerStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEditCustomerModal(false)}
+        >
+          <TouchableOpacity
+            style={customerStyles.modalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={customerStyles.modalTitle}>Edit Customer Details</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 380 }}>
+              <Text style={customerStyles.modalLabel}>Customer Name *</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Full Name"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Mobile Number</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="Mobile"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Email Address</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Email"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Address</Text>
+              <TextInput
+                style={[customerStyles.modalInput, { height: 56, textAlignVertical: 'top' }]}
+                value={editAddress}
+                onChangeText={setEditAddress}
+                placeholder="Address"
+                placeholderTextColor={adminColors.placeholder}
+                multiline
+              />
+
+              <Text style={customerStyles.modalLabel}>Customer Type</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {['Individual', 'B2B'].map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[customerStyles.filterChip, editType === t && customerStyles.filterChipActive]}
+                    onPress={() => setEditType(t)}
+                  >
+                    <Text style={[customerStyles.filterChipText, editType === t && customerStyles.filterChipTextActive]}>
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={customerStyles.modalLabel}>Status</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {(['Active', 'Pending activation'] as const).map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[customerStyles.filterChip, editStatus === s && customerStyles.filterChipActive]}
+                    onPress={() => setEditStatus(s)}
+                  >
+                    <Text style={[customerStyles.filterChipText, editStatus === s && customerStyles.filterChipTextActive]}>
+                      {s}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={customerStyles.modalButtonsRow}>
+              <TouchableOpacity
+                style={customerStyles.modalResetBtn}
+                onPress={() => setShowEditCustomerModal(false)}
+              >
+                <Text style={customerStyles.modalResetBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={customerStyles.modalApplyBtn}
+                onPress={handleSaveEdit}
+              >
+                <Text style={customerStyles.modalApplyBtnText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -5412,12 +5734,27 @@ function GstBusinessScreen({
   onSelectBusiness: (biz: GstBusinessItem) => void;
 }) {
   const [search, setSearch] = useState('');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'All' | 'Recorded' | 'Incomplete'>('All');
+  const [filterBusinessType, setFilterBusinessType] = useState<string>('All');
+  const [filterGstinStatus, setFilterGstinStatus] = useState<'All' | 'Has GSTIN' | 'Missing GSTIN'>('All');
 
   const filtered = GST_BUSINESS_DATA.filter((b) => {
+    if (filterStatus !== 'All' && b.status !== filterStatus) return false;
+    if (filterBusinessType !== 'All' && b.businessType !== filterBusinessType) return false;
+    if (filterGstinStatus === 'Has GSTIN' && !b.gstin) return false;
+    if (filterGstinStatus === 'Missing GSTIN' && b.gstin) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return b.legalName.toLowerCase().includes(q) || b.id.toLowerCase().includes(q) || b.gstin.toLowerCase().includes(q);
   });
+
+  const handleResetFilters = () => {
+    setFilterStatus('All');
+    setFilterBusinessType('All');
+    setFilterGstinStatus('All');
+    setShowFilterModal(false);
+  };
 
   return (
     <View style={customerStyles.rootContainer}>
@@ -5438,7 +5775,7 @@ function GstBusinessScreen({
         <View style={customerStyles.headerTopRow}>
           <View style={customerStyles.headerTitleWithIconRow}>
             <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+              <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={customerStyles.headerTitle}>GST & Business</Text>
           </View>
@@ -5452,15 +5789,19 @@ function GstBusinessScreen({
       >
         {/* Search Bar with filter */}
         <View style={customerStyles.searchBox}>
-          <SearchIcon size={18} color="#8C7E74" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={customerStyles.searchInput}
             placeholder="Search..."
-            placeholderTextColor="#8C7E74"
+            placeholderTextColor={adminColors.placeholder}
             value={search}
             onChangeText={setSearch}
           />
-          <TouchableOpacity onPress={() => Alert.alert('Filter', 'Filter GST businesses.')} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.7}
+            style={(filterStatus !== 'All' || filterBusinessType !== 'All' || filterGstinStatus !== 'All') ? customerStyles.filterBtnActive : undefined}
+          >
             <FilterSlidersIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
         </View>
@@ -5500,6 +5841,92 @@ function GstBusinessScreen({
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Suitable Filter Popup Modal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <TouchableOpacity
+          style={customerStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowFilterModal(false)}
+        >
+          <TouchableOpacity
+            style={customerStyles.modalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={customerStyles.modalTitle}>Filter GST & Business</Text>
+
+            {/* Status Filter */}
+            <Text style={customerStyles.filterSectionTitle}>Status</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {(['All', 'Recorded', 'Incomplete'] as const).map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[customerStyles.filterChip, filterStatus === s && customerStyles.filterChipActive]}
+                  onPress={() => setFilterStatus(s)}
+                >
+                  <Text style={[customerStyles.filterChipText, filterStatus === s && customerStyles.filterChipTextActive]}>
+                    {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Business Type */}
+            <Text style={customerStyles.filterSectionTitle}>Business Type</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {['All', 'Wholesale trader', 'Supplier', 'Hotel', 'Distributor'].map((bt) => (
+                <TouchableOpacity
+                  key={bt}
+                  style={[customerStyles.filterChip, filterBusinessType === bt && customerStyles.filterChipActive]}
+                  onPress={() => setFilterBusinessType(bt)}
+                >
+                  <Text style={[customerStyles.filterChipText, filterBusinessType === bt && customerStyles.filterChipTextActive]}>
+                    {bt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* GSTIN Status */}
+            <Text style={customerStyles.filterSectionTitle}>GSTIN Status</Text>
+            <View style={customerStyles.filterChipsRow}>
+              {(['All', 'Has GSTIN', 'Missing GSTIN'] as const).map((gs) => (
+                <TouchableOpacity
+                  key={gs}
+                  style={[customerStyles.filterChip, filterGstinStatus === gs && customerStyles.filterChipActive]}
+                  onPress={() => setFilterGstinStatus(gs)}
+                >
+                  <Text style={[customerStyles.filterChipText, filterGstinStatus === gs && customerStyles.filterChipTextActive]}>
+                    {gs}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Modal Buttons */}
+            <View style={customerStyles.modalButtonsRow}>
+              <TouchableOpacity
+                style={customerStyles.modalResetBtn}
+                onPress={handleResetFilters}
+              >
+                <Text style={customerStyles.modalResetBtnText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={customerStyles.modalApplyBtn}
+                onPress={() => setShowFilterModal(false)}
+              >
+                <Text style={customerStyles.modalApplyBtnText}>Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -5514,6 +5941,83 @@ function GstBusinessDetailScreen({
   onBack: () => void;
 }) {
   const item = business ?? DEFAULT_GST_BUSINESS;
+
+  // Local state for business details
+  const [legalName, setLegalName] = useState(item.legalName);
+  const [businessType, setBusinessType] = useState(item.businessType);
+  const [contactPerson, setContactPerson] = useState(item.contactPerson);
+  const [phone, setPhone] = useState(item.phone);
+  const [email, setEmail] = useState(item.email || '');
+  const [gstin, setGstin] = useState(item.gstin || '');
+  const [gstAddress, setGstAddress] = useState(item.gstAddress || '44 Industrial Estate, Ooty');
+  const [billingAddressLine1, setBillingAddressLine1] = useState(item.billingAddressLine1 || '44 Industrial Estate');
+  const [billingAddressLine2] = useState(item.billingAddressLine2 || '');
+  const [city, setCity] = useState(item.city || 'Ooty');
+  const [state, setState] = useState(item.state || 'Tamil Nadu');
+  const [pinCode, setPinCode] = useState(item.pinCode || '643005');
+  const [country] = useState(item.country || 'India');
+  const [status, setStatus] = useState(item.status);
+  const [missingInfo, setMissingInfo] = useState(item.missingInfo || (item.status === 'Incomplete' ? 'GSTIN, Billing Address' : 'None'));
+  const [lastUpdatedFull, setLastUpdatedFull] = useState(item.lastUpdatedFull || '5 Oct 2026, 10:00');
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editLegalName, setEditLegalName] = useState(legalName);
+  const [editBusinessType, setEditBusinessType] = useState(businessType);
+  const [editContactPerson, setEditContactPerson] = useState(contactPerson);
+  const [editPhone, setEditPhone] = useState(phone);
+  const [editEmail, setEditEmail] = useState(email);
+  const [editGstin, setEditGstin] = useState(gstin);
+  const [editGstAddress, setEditGstAddress] = useState(gstAddress);
+  const [editBillingAddress, setEditBillingAddress] = useState(billingAddressLine1);
+  const [editCity, setEditCity] = useState(city);
+  const [editState, setEditState] = useState(state);
+  const [editPinCode, setEditPinCode] = useState(pinCode);
+  const [editStatus, setEditStatus] = useState(status);
+
+  const handleOpenEdit = () => {
+    setEditLegalName(legalName);
+    setEditBusinessType(businessType);
+    setEditContactPerson(contactPerson);
+    setEditPhone(phone);
+    setEditEmail(email);
+    setEditGstin(gstin);
+    setEditGstAddress(gstAddress);
+    setEditBillingAddress(billingAddressLine1);
+    setEditCity(city);
+    setEditState(state);
+    setEditPinCode(pinCode);
+    setEditStatus(status);
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = () => {
+    if (!editLegalName.trim()) {
+      Alert.alert('Required', 'Legal/business name is required.');
+      return;
+    }
+    setLegalName(editLegalName.trim());
+    setBusinessType(editBusinessType);
+    setContactPerson(editContactPerson.trim());
+    setPhone(editPhone.trim());
+    setEmail(editEmail.trim());
+    setGstin(editGstin.trim());
+    setGstAddress(editGstAddress.trim());
+    setBillingAddressLine1(editBillingAddress.trim());
+    setCity(editCity.trim());
+    setState(editState.trim());
+    setPinCode(editPinCode.trim());
+    setStatus(editStatus);
+
+    if (editStatus === 'Incomplete' || !editGstin.trim() || !editBillingAddress.trim()) {
+      setMissingInfo(editGstin.trim() ? 'Billing Address' : 'GSTIN, Billing Address');
+    } else {
+      setMissingInfo('None');
+    }
+    setLastUpdatedFull('Just now');
+    setShowEditModal(false);
+    Alert.alert('Updated', 'GST & Business details updated successfully.');
+  };
 
   return (
     <View style={customerStyles.rootContainer}>
@@ -5534,11 +6038,11 @@ function GstBusinessDetailScreen({
         <View style={customerStyles.headerTopRow}>
           <View style={customerStyles.headerTitleWithIconRow}>
             <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <BackArrowWhiteIcon size={22} color="#FFFFFF" />
+              <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
             <Text style={customerStyles.headerTitle}>GST & Business Details</Text>
           </View>
-          <CircularEditButton onPress={() => Alert.alert('Edit Mode', 'Edit mode for GST & Business.')} />
+          <CircularEditButton onPress={handleOpenEdit} />
         </View>
       </View>
 
@@ -5551,7 +6055,7 @@ function GstBusinessDetailScreen({
         <View style={customerStyles.summaryBox}>
           <View style={customerStyles.summaryBoxRow}>
             <Text style={customerStyles.summaryBoxLabel}>Missing required information</Text>
-            <Text style={customerStyles.summaryBoxValue}>{item.missingInfo || 'None'}</Text>
+            <Text style={customerStyles.summaryBoxValue}>{missingInfo}</Text>
           </View>
           <View style={customerStyles.summaryBoxRow}>
             <Text style={customerStyles.summaryBoxLabel}>Invoices issued</Text>
@@ -5559,7 +6063,7 @@ function GstBusinessDetailScreen({
           </View>
           <View style={[customerStyles.summaryBoxRow, { borderBottomWidth: 0 }]}>
             <Text style={customerStyles.summaryBoxLabel}>Last updated</Text>
-            <Text style={customerStyles.summaryBoxValue}>{item.lastUpdatedFull || '5 Oct 2026, 10:00'}</Text>
+            <Text style={customerStyles.summaryBoxValue}>{lastUpdatedFull}</Text>
           </View>
         </View>
 
@@ -5568,40 +6072,40 @@ function GstBusinessDetailScreen({
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            Legal/business name <Text style={{ color: '#EF4444' }}>*</Text>
+            Legal/business name <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.legalName}</Text>
+            <Text style={customerStyles.formInputText}>{legalName}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            Business type <Text style={{ color: '#EF4444' }}>*</Text>
+            Business type <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.businessType}</Text>
+            <Text style={customerStyles.formInputText}>{businessType}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>Contact person</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.contactPerson}</Text>
+            <Text style={customerStyles.formInputText}>{contactPerson}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>Business phone</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.phone}</Text>
+            <Text style={customerStyles.formInputText}>{phone}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>Business email</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={[customerStyles.formInputText, { color: '#9CA3AF' }]}>{item.email || ' '}</Text>
+            <Text style={[customerStyles.formInputText, { color: adminColors.muted }]}>{email || ' '}</Text>
           </View>
         </View>
 
@@ -5611,7 +6115,7 @@ function GstBusinessDetailScreen({
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>GSTIN</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.gstin || ' '}</Text>
+            <Text style={customerStyles.formInputText}>{gstin || ' '}</Text>
           </View>
           <Text style={customerStyles.formHelperNote}>Format is checked. It is recorded, not verified with GST.</Text>
         </View>
@@ -5619,14 +6123,14 @@ function GstBusinessDetailScreen({
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>Registered business name</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.legalName}</Text>
+            <Text style={customerStyles.formInputText}>{legalName}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>GST registered address</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.gstAddress || '44 Industrial Estate, Ooty'}</Text>
+            <Text style={customerStyles.formInputText}>{gstAddress}</Text>
           </View>
         </View>
 
@@ -5634,7 +6138,7 @@ function GstBusinessDetailScreen({
           <View style={customerStyles.formLabelRow}>
             <Text style={customerStyles.formLabel}>GST registration status</Text>
             <View style={{ marginLeft: 6 }}>
-              <LockIcon size={13} color="#6B7280" />
+              <LockIcon size={13} color={adminColors.muted} />
             </View>
           </View>
           <View style={[customerStyles.formInputBox, customerStyles.formInputBoxLocked]}>
@@ -5648,7 +6152,7 @@ function GstBusinessDetailScreen({
           <View style={customerStyles.formLabelRow}>
             <Text style={customerStyles.formLabel}>Verification reference or date</Text>
             <View style={{ marginLeft: 6 }}>
-              <LockIcon size={13} color="#6B7280" />
+              <LockIcon size={13} color={adminColors.muted} />
             </View>
           </View>
           <View style={[customerStyles.formInputBox, customerStyles.formInputBoxLocked]}>
@@ -5663,56 +6167,217 @@ function GstBusinessDetailScreen({
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            Address line 1 <Text style={{ color: '#EF4444' }}>*</Text>
+            Address line 1 <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.billingAddressLine1 || '44 Industrial Estate'}</Text>
+            <Text style={customerStyles.formInputText}>{billingAddressLine1}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>Address line 2</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={[customerStyles.formInputText, { color: '#9CA3AF' }]}>{item.billingAddressLine2 || ' '}</Text>
+            <Text style={[customerStyles.formInputText, { color: adminColors.muted }]}>{billingAddressLine2 || ' '}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            City <Text style={{ color: '#EF4444' }}>*</Text>
+            City <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.city || 'Ooty'}</Text>
+            <Text style={customerStyles.formInputText}>{city}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            State <Text style={{ color: '#EF4444' }}>*</Text>
+            State <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.state || 'Tamil Nadu'}</Text>
+            <Text style={customerStyles.formInputText}>{state}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>
-            PIN code <Text style={{ color: '#EF4444' }}>*</Text>
+            PIN code <Text style={{ color: adminColors.danger.text }}>*</Text>
           </Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.pinCode || '643005'}</Text>
+            <Text style={customerStyles.formInputText}>{pinCode}</Text>
           </View>
         </View>
 
         <View style={customerStyles.formFieldGroup}>
           <Text style={customerStyles.formLabel}>Country</Text>
           <View style={customerStyles.formInputBox}>
-            <Text style={customerStyles.formInputText}>{item.country || 'India'}</Text>
+            <Text style={customerStyles.formInputText}>{country}</Text>
           </View>
         </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Edit GST & Business Details Popup Modal */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <TouchableOpacity
+          style={customerStyles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEditModal(false)}
+        >
+          <TouchableOpacity
+            style={customerStyles.modalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <Text style={customerStyles.modalTitle}>Edit GST & Business Details</Text>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <Text style={customerStyles.modalLabel}>Legal / Business Name *</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editLegalName}
+                onChangeText={setEditLegalName}
+                placeholder="Business Name"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Business Type</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {['Wholesale trader', 'Supplier', 'Hotel', 'Distributor', 'Retailer'].map((bt) => (
+                  <TouchableOpacity
+                    key={bt}
+                    style={[customerStyles.filterChip, editBusinessType === bt && customerStyles.filterChipActive]}
+                    onPress={() => setEditBusinessType(bt)}
+                  >
+                    <Text style={[customerStyles.filterChipText, editBusinessType === bt && customerStyles.filterChipTextActive]}>
+                      {bt}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={customerStyles.modalLabel}>Contact Person</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editContactPerson}
+                onChangeText={setEditContactPerson}
+                placeholder="Contact Person"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Business Phone</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder="Phone"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Business Email</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editEmail}
+                onChangeText={setEditEmail}
+                placeholder="Email"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>GSTIN</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editGstin}
+                onChangeText={setEditGstin}
+                placeholder="GSTIN (e.g. 33AABCN1234F1Z5)"
+                placeholderTextColor={adminColors.placeholder}
+                autoCapitalize="characters"
+              />
+
+              <Text style={customerStyles.modalLabel}>GST Registered Address</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editGstAddress}
+                onChangeText={setEditGstAddress}
+                placeholder="Registered Address"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>Billing Address</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editBillingAddress}
+                onChangeText={setEditBillingAddress}
+                placeholder="Billing Address Line 1"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>City</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editCity}
+                onChangeText={setEditCity}
+                placeholder="City"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>State</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editState}
+                onChangeText={setEditState}
+                placeholder="State"
+                placeholderTextColor={adminColors.placeholder}
+              />
+
+              <Text style={customerStyles.modalLabel}>PIN Code</Text>
+              <TextInput
+                style={customerStyles.modalInput}
+                value={editPinCode}
+                onChangeText={setEditPinCode}
+                placeholder="PIN code"
+                placeholderTextColor={adminColors.placeholder}
+                keyboardType="number-pad"
+              />
+
+              <Text style={customerStyles.modalLabel}>Status</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {(['Recorded', 'Incomplete'] as const).map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    style={[customerStyles.filterChip, editStatus === st && customerStyles.filterChipActive]}
+                    onPress={() => setEditStatus(st)}
+                  >
+                    <Text style={[customerStyles.filterChipText, editStatus === st && customerStyles.filterChipTextActive]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <View style={customerStyles.modalButtonsRow}>
+              <TouchableOpacity
+                style={customerStyles.modalResetBtn}
+                onPress={() => setShowEditModal(false)}
+              >
+                <Text style={customerStyles.modalResetBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={customerStyles.modalApplyBtn}
+                onPress={handleSaveEdit}
+              >
+                <Text style={customerStyles.modalApplyBtnText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -5722,7 +6387,7 @@ function GstBusinessDetailScreen({
 const customerStyles = StyleSheet.create({
   rootContainer: {
     flex: 1,
-    backgroundColor: '#F8F6F0',
+    backgroundColor: adminColors.canvas,
   },
   headerBanner: {
     paddingTop: adminSpacing.sm,
@@ -5757,12 +6422,13 @@ const customerStyles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   headerSubtitle: {
     fontSize: 12,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
+    color: adminColors.onBrand,
+    opacity: 0.88,
     marginTop: 4,
     marginLeft: 34,
   },
@@ -5770,7 +6436,7 @@ const customerStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -5785,12 +6451,12 @@ const customerStyles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     paddingHorizontal: 16,
     height: 46,
     borderWidth: 1,
-    borderColor: '#E8E2D8',
+    borderColor: adminColors.border,
     marginBottom: 12,
     gap: 10,
   },
@@ -5799,6 +6465,11 @@ const customerStyles = StyleSheet.create({
     fontSize: 13.5,
     color: adminColors.ink,
     paddingVertical: 0,
+  },
+  filterBtnActive: {
+    backgroundColor: adminColors.brandTint,
+    borderRadius: 8,
+    padding: 2,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -5809,12 +6480,12 @@ const customerStyles = StyleSheet.create({
   metricCard: {
     flexBasis: '48%',
     flexGrow: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
   },
   metricValue: {
     fontSize: 24,
@@ -5824,28 +6495,28 @@ const customerStyles = StyleSheet.create({
   metricLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 4,
   },
   helperNote: {
     fontSize: 11,
-    color: '#78716C',
+    color: adminColors.muted,
     marginTop: 14,
     lineHeight: 16,
   },
   sectionHeading: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#451A03',
+    color: adminColors.brandDeep,
     marginTop: 20,
     marginBottom: 12,
   },
   chartCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
   },
   progressRow: {
     flexDirection: 'row',
@@ -5856,13 +6527,13 @@ const customerStyles = StyleSheet.create({
     width: 75,
     fontSize: 12.5,
     fontWeight: '600',
-    color: '#4B5563',
+    color: adminColors.ink,
   },
   progressTrack: {
     flex: 1,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#EAE4DC',
+    backgroundColor: adminColors.border,
     overflow: 'hidden',
   },
   progressFill: {
@@ -5875,14 +6546,14 @@ const customerStyles = StyleSheet.create({
     textAlign: 'right',
     fontSize: 13,
     fontWeight: '800',
-    color: '#1F1A17',
+    color: adminColors.ink,
   },
   recentCustomerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
     marginBottom: 10,
   },
   cardTopRow: {
@@ -5898,7 +6569,7 @@ const customerStyles = StyleSheet.create({
     color: adminColors.ink,
   },
   badgePending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -5906,10 +6577,10 @@ const customerStyles = StyleSheet.create({
   badgePendingText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   badgeActive: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -5917,10 +6588,10 @@ const customerStyles = StyleSheet.create({
   badgeActiveText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#137333',
+    color: adminColors.success.text,
   },
   badgeRecorded: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -5928,10 +6599,10 @@ const customerStyles = StyleSheet.create({
   badgeRecordedText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#137333',
+    color: adminColors.success.text,
   },
   badgeIncomplete: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -5939,11 +6610,11 @@ const customerStyles = StyleSheet.create({
   badgeIncompleteText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#DC2626',
+    color: adminColors.danger.text,
   },
   customerCardSubtext: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 6,
     lineHeight: 17,
   },
@@ -5953,12 +6624,12 @@ const customerStyles = StyleSheet.create({
   },
   quickActionCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingVertical: 18,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -5971,31 +6642,31 @@ const customerStyles = StyleSheet.create({
   },
   directoryCountText: {
     fontSize: 12.5,
-    color: '#6B7280',
+    color: adminColors.muted,
     fontWeight: '600',
     marginBottom: 10,
     marginTop: 2,
   },
   customerCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
     marginBottom: 10,
   },
   customerCardIncomplete: {
-    borderColor: '#EF4444',
-    borderWidth: 1.2,
+    borderColor: adminColors.danger.border,
+    borderWidth: 1.5,
   },
   customerCardMetaLine1: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 6,
   },
   customerCardMetaLine2: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 3,
   },
   segmentedTabsRow: {
@@ -6005,12 +6676,12 @@ const customerStyles = StyleSheet.create({
     marginBottom: 4,
   },
   tabPill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 18,
     paddingVertical: 7,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
   },
   tabPillActive: {
     backgroundColor: adminColors.brand,
@@ -6022,15 +6693,15 @@ const customerStyles = StyleSheet.create({
     color: adminColors.ink,
   },
   tabPillTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   detailsCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
   },
   detailRow: {
     flexDirection: 'row',
@@ -6038,12 +6709,12 @@ const customerStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE5DC',
+    borderBottomColor: adminColors.border,
     borderStyle: 'dashed',
   },
   detailLabel: {
     fontSize: 13,
-    color: '#6B7280',
+    color: adminColors.muted,
     fontWeight: '500',
   },
   detailValue: {
@@ -6053,16 +6724,16 @@ const customerStyles = StyleSheet.create({
   },
   maskedWarehouseNote: {
     fontSize: 11,
-    color: '#78716C',
+    color: adminColors.muted,
     marginTop: 10,
     lineHeight: 16,
   },
   orderPreviewCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
     marginBottom: 10,
   },
   orderCardId: {
@@ -6071,7 +6742,7 @@ const customerStyles = StyleSheet.create({
     color: adminColors.ink,
   },
   badgeWarningSoft: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
@@ -6079,25 +6750,25 @@ const customerStyles = StyleSheet.create({
   badgeWarningSoftText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   orderCardLine1: {
     fontSize: 11.5,
-    color: '#4B5563',
+    color: adminColors.ink,
     marginTop: 6,
   },
   orderCardLine2: {
     fontSize: 11.5,
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 3,
   },
   summaryBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#EAE4DC',
+    borderColor: adminColors.border,
     marginBottom: 12,
   },
   summaryBoxRow: {
@@ -6106,12 +6777,12 @@ const customerStyles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE5DC',
+    borderBottomColor: adminColors.border,
     borderStyle: 'dashed',
   },
   summaryBoxLabel: {
     fontSize: 13,
-    color: '#4B5563',
+    color: adminColors.ink,
     fontWeight: '500',
   },
   summaryBoxValue: {
@@ -6122,7 +6793,7 @@ const customerStyles = StyleSheet.create({
   formSectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#451A03',
+    color: adminColors.brandDeep,
     marginTop: 16,
     marginBottom: 8,
   },
@@ -6137,21 +6808,21 @@ const customerStyles = StyleSheet.create({
   formLabel: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: '#374151',
+    color: adminColors.ink,
     marginBottom: 6,
   },
   formInputBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingVertical: 11,
     paddingHorizontal: 14,
     justifyContent: 'center',
   },
   formInputBoxLocked: {
-    backgroundColor: '#EDE8E1',
-    borderColor: '#DDD6CC',
+    backgroundColor: adminColors.canvas,
+    borderColor: adminColors.border,
   },
   formInputText: {
     fontSize: 13.5,
@@ -6159,19 +6830,19 @@ const customerStyles = StyleSheet.create({
     color: adminColors.ink,
   },
   formInputTextLocked: {
-    color: '#4B5563',
+    color: adminColors.muted,
     fontWeight: '500',
   },
   formHelperNote: {
     fontSize: 11,
-    color: '#6B7280',
+    color: adminColors.muted,
     marginTop: 4,
   },
   formInputBoxEditable: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     height: 48,
     paddingHorizontal: 14,
     fontSize: 14,
@@ -6182,10 +6853,10 @@ const customerStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     height: 48,
     paddingHorizontal: 14,
   },
@@ -6199,9 +6870,9 @@ const customerStyles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F8F6F0',
+    backgroundColor: adminColors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#EBE4D8',
+    borderTopColor: adminColors.border,
   },
   addCustomerSaveBtn: {
     flex: 1,
@@ -6214,22 +6885,128 @@ const customerStyles = StyleSheet.create({
   addCustomerSaveText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   addCustomerCancelBtn: {
     flex: 1,
     height: 48,
     borderRadius: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addCustomerCancelText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#374151',
+    color: adminColors.ink,
+  },
+
+  // Modal styles (theme tokens, zero raw rgba/hex)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  modalCard: {
+    width: '92%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    ...adminShadow.md,
+  },
+  modalTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    marginBottom: 12,
+  },
+  filterSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  modalLabel: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  modalInput: {
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    color: adminColors.ink,
+    marginBottom: 6,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 4,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+  },
+  filterChipActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  filterChipTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  modalButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  modalResetBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  modalResetBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  modalApplyBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brand,
+  },
+  modalApplyBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.onBrand,
   },
 });
 
@@ -6259,6 +7036,36 @@ export function TohfaAdminDashboardScreen({
   >(null);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerItem | null>(null);
   const [selectedGstBusiness, setSelectedGstBusiness] = useState<GstBusinessItem | null>(null);
+
+  // Community & Knowledge Management Module State
+  const [communitySubScreen, setCommunitySubScreen] = useState<
+    'home' | 'create_content' | 'create_group' | 'create_community' | 'add_video' | 'community_details' | 'all_communities' | 'all_groups' | 'article_details' | 'content_item_detail' | 'content_pending_review' | 'qa_chat' | 'knowledge_library' | null
+  >(null);
+  const [createContentInitialType, setCreateContentInitialType] = useState<ContentTypeOption>('Article');
+  const [createContentInitialData, setCreateContentInitialData] = useState<CreateContentInitialData | undefined>(undefined);
+  const [groupNavOrigin, setGroupNavOrigin] = useState<'home' | 'all_groups'>('home');
+  const [communityNavOrigin, setCommunityNavOrigin] = useState<'home' | 'all_communities'>('home');
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>('comm-1');
+  const [articleNavOrigin, setArticleNavOrigin] = useState<'home' | 'content_item_detail' | 'content_pending_review'>('content_item_detail');
+
+  const resumedMulchingData: CreateContentInitialData = {
+    contentType: 'Article',
+    title: 'Mulching for water retention',
+    shortDescription: 'A demonstration of organic practices.',
+    farmingCategory: 'Crop Management',
+    selectedCrops: ['Tomato', 'Cabbage'],
+    selectedFarmingType: 'Organic',
+    suitableConditions: 'Sub-tropical and temperate highland zones',
+    instructions: 'Apply 2-3 inch mulch layer around the root zone, keeping 2 inches away from the plant stem.',
+    precautions: 'Do not enter an unverified dose, water or nutrient amount.',
+    referenceSources: 'https://video.example.org/organic',
+    visibility: 'Everyone',
+    announcementTitle: 'Mulching for water retention',
+    shortSummary: 'A demonstration of organic practices.',
+    fullDescription: 'Comprehensive guidance on mulch application across highland soils.',
+    announcementCategory: 'General Announcement',
+    audience: 'All',
+  };
 
   // Produce Control Module State (Screen 1/2: calendar, Screen 4: zoneBreakdown, Screen 5: cropDetail, Screen 6: harvestForecast, Screen 7: cropHistory)
   const [produceControlScreen, setProduceControlScreen] = useState<
@@ -6365,12 +7172,69 @@ export function TohfaAdminDashboardScreen({
   const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | null>(null);
 
   // Workforce & Staff State (Screenshots M14-S01, M14-S02, M14-S04, M14-S02b)
+  const [workforceActive, setWorkforceActive] = useState(false);
   const [workforceSubScreen, setWorkforceSubScreen] = useState<
     'dashboard' | 'management' | 'create' | 'attendance' | 'details'
   >('dashboard');
   const [workforceSearch, setWorkforceSearch] = useState('');
+  const [showWorkforceFilterModal, setShowWorkforceFilterModal] = useState(false);
+  const [workforceFilterRole, setWorkforceFilterRole] = useState<'All' | 'Warehouse staff' | 'Drivers' | 'Admin'>('All');
+  const [workforceFilterStatus, setWorkforceFilterStatus] = useState<'All' | 'Active' | 'Pending activation'>('All');
+  const [workforceFilterAttendance, setWorkforceFilterAttendance] = useState<'All' | 'Present' | 'Absent'>('All');
+  const [openDropdownField, setOpenDropdownField] = useState<string | null>(null);
+
   const [selectedStaffDetails, setSelectedStaffDetails] = useState<WorkforceStaffItem | null>(null);
   const [workforceStaffList, setWorkforceStaffList] = useState<WorkforceStaffItem[]>([
+    {
+      id: 'STF-0004',
+      employeeId: 'STF-0004',
+      name: 'Mahesh T',
+      avatarInitials: 'MT',
+      type: 'Staff',
+      role: 'Loading & sorting',
+      assignedRole: 'Warehouse staff',
+      warehouse: 'Main Warehouse, Ooty',
+      mobile: '+91 98451 00231',
+      maskedMobile: 'Mobile ••••• •0231',
+      email: 'mahesh.t@tohfa.com',
+      joiningDate: '1 Mar 2026',
+      workSection: 'Loading & Sorting',
+      status: 'Active',
+      todayAttendance: 'Present',
+      attendanceNote: 'Check-in / check-out: not tracked',
+      createdText: '1 Mar 2026 by System',
+      dateOfBirth: '15 Jun 1990',
+      gender: 'Male',
+      maritalStatus: 'Not provided',
+      alternateMobile: 'Not provided',
+      currentAddress: 'Kotagiri Road, Ooty, Tamil Nadu',
+      idType: 'Aadhaar',
+      idNumber: 'XXXX XXXX 4190',
+      verificationStatus: 'Verified',
+      verifiedByDate: 'Demo TOHFA Admin · 5 Mar 2026',
+      employmentType: 'Full-time',
+      department: 'Warehouse Operations',
+      designation: 'Loading Staff',
+      reportingManager: 'Demo Sub Warehouse Admin',
+      applicationRole: 'Warehouse Staff (no login)',
+      accountStatusText: 'No application access',
+      permissionsSummary: 'From RBAC: none (no login)',
+      lastLogin: 'Not applicable',
+      warehouseCode: 'Main Warehouse, Ooty (WH-MAIN)',
+      warehouseLocation: 'Ooty',
+      emergencyContactName: 'Lakshmi (spouse)',
+      emergencyContactPhone: '••••• •1190',
+      documents: [
+        { name: 'Aadhaar Card', filename: 'aadhaar_scan.pdf · Uploaded 1 Mar 2026', status: 'Verified' },
+        { name: 'Address Proof', filename: 'Illegible scan (demo reason) · Re-upload required', status: 'Rejected' },
+        { name: 'Employment Agreement', filename: '', status: 'Not uploaded' },
+      ],
+      auditHistory: [
+        { date: '1 Mar 2026, 09:00', actor: 'Demo Sub Warehouse Admin', action: 'Staff record created' },
+        { date: '2 Mar 2026, 10:30', actor: 'Demo TOHFA Admin', action: 'ID proof verified' },
+        { date: '10 Oct 2026, 11:00', actor: 'Demo Sub Warehouse Admin', action: 'Address proof rejected: illegible scan (demo)' },
+      ],
+    },
     {
       id: 'EMP-0007',
       employeeId: 'EMP-0007',
@@ -6447,52 +7311,6 @@ export function TohfaAdminDashboardScreen({
       ],
     },
     {
-      id: 'STF-0004',
-      employeeId: 'STF-0004',
-      name: 'Mahesh T',
-      avatarInitials: 'MT',
-      type: 'Staff',
-      role: 'Loading & sorting',
-      assignedRole: 'Warehouse staff',
-      warehouse: 'Main Warehouse, Ooty',
-      mobile: '+91 98451 00231',
-      maskedMobile: 'Mobile ****** ·0231',
-      email: 'mahesh.t@tohfa.com',
-      joiningDate: '1 Mar 2026',
-      workSection: 'Loading & sorting',
-      status: 'Active',
-      todayAttendance: 'Present',
-      attendanceNote: 'Check-in / check-out: not tracked',
-      createdText: '1 Mar 2026 by System',
-      dateOfBirth: '15 Jun 1990',
-      gender: 'Male',
-      maritalStatus: 'Not provided',
-      alternateMobile: 'Not provided',
-      currentAddress: 'Kotagiri Road, Ooty, Tamil Nadu',
-      idType: 'Aadhaar',
-      idNumber: 'XXXX XXXX 4190',
-      verificationStatus: 'Verified',
-      verifiedByDate: 'Demo TOHFA Admin · 5 Mar 2026',
-      employmentType: 'Full-time',
-      department: 'Warehouse Operations',
-      designation: 'Loading Staff',
-      reportingManager: 'Demo Sub Warehouse Admin',
-      applicationRole: 'Warehouse Staff (no login)',
-      accountStatusText: 'No application access',
-      permissionsSummary: 'From RBAC: none (no login)',
-      lastLogin: 'Not applicable',
-      warehouseCode: 'Main Warehouse, Ooty (WH-MAIN)',
-      warehouseLocation: 'Ooty',
-      emergencyContactName: 'Geetha (spouse)',
-      emergencyContactPhone: '••••• •4431',
-      documents: [
-        { name: 'Aadhaar Card', filename: 'aadhaar_doc.pdf · Uploaded 1 Mar 2026', status: 'Verified' },
-      ],
-      auditHistory: [
-        { date: '1 Mar 2026, 09:00', actor: 'Demo Sub Warehouse Admin', action: 'Staff record created' },
-      ],
-    },
-    {
       id: 'ADM-0009',
       employeeId: 'ADM-0009',
       name: 'Priya Nair',
@@ -6502,7 +7320,7 @@ export function TohfaAdminDashboardScreen({
       assignedRole: 'Sub Warehouse Admin',
       warehouse: 'Coonoor',
       mobile: '+91 97890 00149',
-      maskedMobile: 'Mobile ****** ·0149',
+      maskedMobile: 'Mobile ••••• •0149',
       email: 'priya.nair@tohfa.com',
       joiningDate: '12 Oct 2026',
       workSection: 'Sub Warehouse Admin',
@@ -6552,7 +7370,7 @@ export function TohfaAdminDashboardScreen({
       maskedMobile: 'Mobile ****** ·0001',
       email: 'demo.super.admin@example.com',
       joiningDate: 'Not tracked',
-      workSection: 'Loadman',
+      workSection: 'Loading & Sorting',
       status: 'Active',
       todayAttendance: 'Absent',
       attendanceNote: 'Corrected from Present by Demo TOHFA Admin - Reason: Marked in error',
@@ -6570,7 +7388,7 @@ export function TohfaAdminDashboardScreen({
       verifiedByDate: 'Demo TOHFA Admin · 29 Mar 2026',
       employmentType: 'Contract',
       department: 'Warehouse Operations',
-      designation: 'Loadman',
+      designation: 'Loading & Sorting',
       reportingManager: 'Demo Sub Warehouse Admin',
       applicationRole: 'Warehouse Staff (no login)',
       accountStatusText: 'No application access',
@@ -6578,14 +7396,17 @@ export function TohfaAdminDashboardScreen({
       lastLogin: 'Not applicable',
       warehouseCode: 'Main Warehouse, Ooty (WH-MAIN)',
       warehouseLocation: 'Ooty',
-      emergencyContactName: 'Mani S (brother)',
-      emergencyContactPhone: '••••• •5512',
+      emergencyContactName: 'Lakshmi (spouse)',
+      emergencyContactPhone: '••••• •1190',
       documents: [
-        { name: 'Aadhaar Card', filename: 'aadhaar_karthi.pdf · Uploaded 28 Mar 2026', status: 'Verified' },
+        { name: 'Aadhaar Card', filename: 'aadhaar_scan.pdf · Uploaded 1 Mar 2026', status: 'Verified' },
+        { name: 'Address Proof', filename: 'Illegible scan (demo reason) · Re-upload required', status: 'Rejected' },
+        { name: 'Employment Agreement', filename: '', status: 'Not uploaded' },
       ],
       auditHistory: [
-        { date: '28 Mar 2026, 09:00', actor: 'System', action: 'Staff record created' },
-        { date: '14 Oct 2026, 10:15', actor: 'Demo TOHFA Admin', action: 'Attendance corrected to Absent' },
+        { date: '1 Mar 2026, 09:00', actor: 'Demo Sub Warehouse Admin', action: 'Staff record created' },
+        { date: '2 Mar 2026, 10:30', actor: 'Demo TOHFA Admin', action: 'ID proof verified' },
+        { date: '10 Oct 2026, 11:00', actor: 'Demo Sub Warehouse Admin', action: 'Address proof rejected: illegible scan (demo)' },
       ],
     },
   ]);
@@ -6830,7 +7651,7 @@ export function TohfaAdminDashboardScreen({
     setSelectedAdminApplication(null);
   };
 
-  const handleOpenListingApproval = () => {
+  const _handleOpenListingApproval = () => {
     setDashboardSubScreen('listingApproval');
   };
 
@@ -7346,17 +8167,40 @@ export function TohfaAdminDashboardScreen({
   };
 
   const renderWorkforceDashboardScreen = () => {
-    const filteredStaff = workforceStaffList.filter((s) =>
-      s.name.toLowerCase().includes(workforceSearch.toLowerCase()) ||
-      s.id.toLowerCase().includes(workforceSearch.toLowerCase()) ||
-      s.role.toLowerCase().includes(workforceSearch.toLowerCase())
-    );
+    const filteredStaff = workforceStaffList.filter((s) => {
+      if (workforceFilterRole !== 'All') {
+        if (workforceFilterRole === 'Admin' && s.type !== 'Admin' && !s.role.includes('Admin')) return false;
+        if (workforceFilterRole === 'Drivers' && !s.role.toLowerCase().includes('driver')) return false;
+        if (workforceFilterRole === 'Warehouse staff' && !s.role.toLowerCase().includes('warehouse') && !s.role.toLowerCase().includes('loading')) return false;
+      }
+      if (workforceFilterStatus !== 'All' && s.status !== workforceFilterStatus) return false;
+      if (workforceFilterAttendance !== 'All' && s.todayAttendance !== workforceFilterAttendance) return false;
+      if (!workforceSearch.trim()) return true;
+      const q = workforceSearch.toLowerCase();
+      return (
+        s.name.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q) ||
+        s.role.toLowerCase().includes(q)
+      );
+    });
+
+    const adminCount = workforceStaffList.filter(s => s.type === 'Admin' || s.role.includes('Admin')).length;
+    const whCount = workforceStaffList.filter(s => s.role.toLowerCase().includes('warehouse') || s.role.toLowerCase().includes('loading') || s.role.toLowerCase().includes('staff')).length;
+    const driverCount = workforceStaffList.filter(s => s.role.toLowerCase().includes('driver')).length;
 
     return (
       <View style={styles.container}>
         {/* Header matching Screenshot 1 */}
         <View style={styles.workforceHeaderBanner}>
           <View style={styles.workforceHeaderTitleRow}>
+            <TouchableOpacity
+              style={styles.workforceBackBtn}
+              onPress={() => setWorkforceActive(false)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
+            </TouchableOpacity>
             <WorkforceBadgeIcon size={22} color={adminColors.onBrand} />
             <Text style={styles.workforceHeaderTitle}>Workforce & Staff</Text>
           </View>
@@ -7447,11 +8291,18 @@ export function TohfaAdminDashboardScreen({
                 value={workforceSearch}
                 onChangeText={setWorkforceSearch}
               />
-              <TouchableOpacity activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => setShowWorkforceFilterModal(true)}
+                activeOpacity={0.7}
+                style={(workforceFilterRole !== 'All' || workforceFilterStatus !== 'All' || workforceFilterAttendance !== 'All') ? { backgroundColor: adminColors.brandTint, borderRadius: 6, padding: 4 } : undefined}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <FilterSlidersIcon size={18} color={adminColors.brand} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.workforceSubCountText}>11 admin · 14 warehouse staff · 7 drivers</Text>
+            <Text style={styles.workforceSubCountText}>
+              {`${adminCount} admin · ${whCount} warehouse staff · ${driverCount} drivers`}
+            </Text>
           </View>
 
           {/* Directory Section */}
@@ -7505,7 +8356,7 @@ export function TohfaAdminDashboardScreen({
             ))}
           </View>
 
-          {/* Quick Actions Section (Screenshot 2) */}
+          {/* Quick Actions Section */}
           <View style={styles.workforceSection}>
             <Text style={styles.workforceSectionTitle}>Quick actions</Text>
             <View style={styles.workforceQuickActionsRow}>
@@ -7531,7 +8382,99 @@ export function TohfaAdminDashboardScreen({
 
           {/* Footer Code */}
           <Text style={styles.screenFooterCode}>M14-S01 · Dashboard & Directory</Text>
+          <View style={{ height: 32 }} />
         </ScrollView>
+
+        {/* Filter Modal */}
+        <Modal
+          visible={showWorkforceFilterModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowWorkforceFilterModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowWorkforceFilterModal(false)}
+          >
+            <TouchableOpacity
+              style={customerStyles.modalCard}
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={customerStyles.modalTitle}>Filter Workforce & Staff</Text>
+
+              {/* Role */}
+              <Text style={customerStyles.filterSectionTitle}>Role</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {(['All', 'Warehouse staff', 'Drivers', 'Admin'] as const).map((r) => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[customerStyles.filterChip, workforceFilterRole === r && customerStyles.filterChipActive]}
+                    onPress={() => setWorkforceFilterRole(r)}
+                  >
+                    <Text style={[customerStyles.filterChipText, workforceFilterRole === r && customerStyles.filterChipTextActive]}>
+                      {r}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Status */}
+              <Text style={customerStyles.filterSectionTitle}>Status</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {(['All', 'Active', 'Pending activation'] as const).map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[customerStyles.filterChip, workforceFilterStatus === s && customerStyles.filterChipActive]}
+                    onPress={() => setWorkforceFilterStatus(s)}
+                  >
+                    <Text style={[customerStyles.filterChipText, workforceFilterStatus === s && customerStyles.filterChipTextActive]}>
+                      {s}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Today's Attendance */}
+              <Text style={customerStyles.filterSectionTitle}>Today's Attendance</Text>
+              <View style={customerStyles.filterChipsRow}>
+                {(['All', 'Present', 'Absent'] as const).map((a) => (
+                  <TouchableOpacity
+                    key={a}
+                    style={[customerStyles.filterChip, workforceFilterAttendance === a && customerStyles.filterChipActive]}
+                    onPress={() => setWorkforceFilterAttendance(a)}
+                  >
+                    <Text style={[customerStyles.filterChipText, workforceFilterAttendance === a && customerStyles.filterChipTextActive]}>
+                      {a}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Modal Buttons */}
+              <View style={customerStyles.modalButtonsRow}>
+                <TouchableOpacity
+                  style={customerStyles.modalResetBtn}
+                  onPress={() => {
+                    setWorkforceFilterRole('All');
+                    setWorkforceFilterStatus('All');
+                    setWorkforceFilterAttendance('All');
+                    setShowWorkforceFilterModal(false);
+                  }}
+                >
+                  <Text style={customerStyles.modalResetBtnText}>Reset</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={customerStyles.modalApplyBtn}
+                  onPress={() => setShowWorkforceFilterModal(false)}
+                >
+                  <Text style={customerStyles.modalApplyBtnText}>Apply Filters</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </Modal>
       </View>
     );
   };
@@ -7829,14 +8772,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Gender</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Gender',
-                    options: ['Select', 'Male', 'Female', 'Other'],
-                    selected: createStaffGender,
-                    onSelect: (val) => setCreateStaffGender(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'gender' ? null : 'gender'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffGender !== 'Select' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -7844,21 +8780,45 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {openDropdownField === 'gender' && (
+                <View style={styles.workforceInlineDropdownMenu}>
+                  {(['Select', 'Male', 'Female', 'Other'] as const).map((opt, idx, arr) => {
+                    const isSelect = opt === 'Select';
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.workforceInlineDropdownItem,
+                          isSelect && styles.workforceInlineDropdownItemGrey,
+                          idx === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          setCreateStaffGender(opt);
+                          setOpenDropdownField(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.workforceInlineDropdownItemText,
+                            isSelect && styles.workforceInlineDropdownItemTextWhite,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
-            {/* Marital Status */}
+            {/* Marital Status (Screenshots 3 UI matching exact grey select) */}
             <View style={styles.workforceFormField}>
               <Text style={styles.workforceFormLabel}>Marital Status</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Marital Status',
-                    options: ['Select', 'Single', 'Married', 'Divorced', 'Widowed', 'Not provided'],
-                    selected: createStaffMarital,
-                    onSelect: (val) => setCreateStaffMarital(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'marital' ? null : 'marital'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffMarital !== 'Select' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -7866,6 +8826,37 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {openDropdownField === 'marital' && (
+                <View style={styles.workforceInlineDropdownMenu}>
+                  {(['Select', 'Married', 'Unmarried'] as const).map((opt, idx, arr) => {
+                    const isSelect = opt === 'Select';
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.workforceInlineDropdownItem,
+                          isSelect && styles.workforceInlineDropdownItemGrey,
+                          idx === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          setCreateStaffMarital(opt);
+                          setOpenDropdownField(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.workforceInlineDropdownItemText,
+                            isSelect && styles.workforceInlineDropdownItemTextWhite,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* Father's / Guardian's Name optional */}
@@ -7906,14 +8897,7 @@ export function TohfaAdminDashboardScreen({
               </View>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Preferred Language',
-                    options: ['Select', 'English', 'Tamil', 'Hindi', 'Malayalam', 'Kannada'],
-                    selected: createStaffLanguage,
-                    onSelect: (val) => setCreateStaffLanguage(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'language' ? null : 'language'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffLanguage !== 'Select' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -7921,6 +8905,37 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {openDropdownField === 'language' && (
+                <View style={styles.workforceInlineDropdownMenu}>
+                  {(['Select', 'Tamil', 'English', 'Hindi', 'Malayalam', 'Kannada', 'Telugu'] as const).map((opt, idx, arr) => {
+                    const isSelect = opt === 'Select';
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.workforceInlineDropdownItem,
+                          isSelect && styles.workforceInlineDropdownItemGrey,
+                          idx === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          setCreateStaffLanguage(opt);
+                          setOpenDropdownField(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.workforceInlineDropdownItemText,
+                            isSelect && styles.workforceInlineDropdownItemTextWhite,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* Blood Group */}
@@ -7928,14 +8943,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Blood Group</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Blood Group',
-                    options: ['Select', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-                    selected: createStaffBloodGroup,
-                    onSelect: (val) => setCreateStaffBloodGroup(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'bloodGroup' ? null : 'bloodGroup'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffBloodGroup !== 'Select' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -7943,6 +8951,37 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {openDropdownField === 'bloodGroup' && (
+                <View style={styles.workforceInlineDropdownMenu}>
+                  {(['Select', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const).map((opt, idx, arr) => {
+                    const isSelect = opt === 'Select';
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.workforceInlineDropdownItem,
+                          isSelect && styles.workforceInlineDropdownItemGrey,
+                          idx === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          setCreateStaffBloodGroup(opt);
+                          setOpenDropdownField(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.workforceInlineDropdownItemText,
+                            isSelect && styles.workforceInlineDropdownItemTextWhite,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </View>
 
@@ -8510,7 +9549,7 @@ export function TohfaAdminDashboardScreen({
                 {createStaffAccountAccess === 'login' ? (
                   <RadioSelectedIcon size={22} color={adminColors.brand} />
                 ) : (
-                  <RadioUnselectedIcon size={22} color="#9CA3AF" />
+                  <RadioUnselectedIcon size={22} color={adminColors.muted} />
                 )}
                 <View style={styles.workforceRadioTextCol}>
                   <Text style={styles.workforceRadioTitle}>Application login</Text>
@@ -8527,7 +9566,7 @@ export function TohfaAdminDashboardScreen({
                 {createStaffAccountAccess === 'no_login' ? (
                   <RadioSelectedIcon size={22} color={adminColors.brand} />
                 ) : (
-                  <RadioUnselectedIcon size={22} color="#9CA3AF" />
+                  <RadioUnselectedIcon size={22} color={adminColors.muted} />
                 )}
                 <View style={styles.workforceRadioTextCol}>
                   <Text style={styles.workforceRadioTitle}>No application access</Text>
@@ -8544,21 +9583,7 @@ export function TohfaAdminDashboardScreen({
               </View>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Application Role',
-                    options: [
-                      'Select...',
-                      'Warehouse Staff',
-                      'Sub Warehouse Admin',
-                      'Logistics Coordinator',
-                      'Inventory Manager',
-                      'TOHFA Admin',
-                    ],
-                    selected: createStaffApplicationRole,
-                    onSelect: (val) => setCreateStaffApplicationRole(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'applicationRole' ? null : 'applicationRole'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffApplicationRole !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -8566,6 +9591,37 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {openDropdownField === 'applicationRole' && (
+                <View style={styles.workforceInlineDropdownMenu}>
+                  {(['Select...', 'Warehouse Staff', 'Sub Warehouse Admin', 'Logistics Coordinator', 'Inventory Manager', 'TOHFA Admin'] as const).map((opt, idx, arr) => {
+                    const isSelect = opt === 'Select...';
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.workforceInlineDropdownItem,
+                          isSelect && styles.workforceInlineDropdownItemGrey,
+                          idx === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          setCreateStaffApplicationRole(opt);
+                          setOpenDropdownField(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.workforceInlineDropdownItemText,
+                            isSelect && styles.workforceInlineDropdownItemTextWhite,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
               <Text style={styles.workforceFormHelperText}>Only roles you may create are listed. The server checks this again.</Text>
             </View>
 
@@ -8577,7 +9633,7 @@ export function TohfaAdminDashboardScreen({
                   {createStaffEmail.trim() || 'Taken from the email address.'}
                 </Text>
               </View>
-              <Text style={[styles.workforceFormHelperText, { color: '#1F69B8' }]}>Choose a role to see what it can do.</Text>
+              <Text style={[styles.workforceFormHelperText, { color: adminColors.brand }]}>Choose a role to see what it can do.</Text>
             </View>
 
             {/* Account Status */}
@@ -8591,13 +9647,13 @@ export function TohfaAdminDashboardScreen({
           </View>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              CARD 8: 8  Emergency Contact (Screenshot 3)
+              CARD 7: 7  Emergency Contact (Screenshots 3 & User prompt: role 6 then 7 emergency)
              ══════════════════════════════════════════════════════════════════════ */}
           <View style={styles.workforceCreateCard}>
             <View style={styles.workforceCardHeader}>
               <View style={styles.workforceCardHeaderLeft}>
                 <View style={styles.workforceStepBadge}>
-                  <Text style={styles.workforceStepBadgeText}>8</Text>
+                  <Text style={styles.workforceStepBadgeText}>7</Text>
                 </View>
                 <View style={styles.workforceCardHeaderTextCol}>
                   <Text style={styles.workforceCreateCardTitle}>Emergency Contact</Text>
@@ -8624,14 +9680,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Relationship</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Relationship',
-                    options: ['Select...', 'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Other'],
-                    selected: createStaffEmergencyRel,
-                    onSelect: (val) => setCreateStaffEmergencyRel(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'relationship' ? null : 'relationship'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffEmergencyRel !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -8639,6 +9688,37 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {openDropdownField === 'relationship' && (
+                <View style={styles.workforceInlineDropdownMenu}>
+                  {(['Select...', 'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Other'] as const).map((opt, idx, arr) => {
+                    const isSelect = opt === 'Select...';
+                    return (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.workforceInlineDropdownItem,
+                          isSelect && styles.workforceInlineDropdownItemGrey,
+                          idx === arr.length - 1 && { borderBottomWidth: 0 },
+                        ]}
+                        onPress={() => {
+                          setCreateStaffEmergencyRel(opt);
+                          setOpenDropdownField(null);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={[
+                            styles.workforceInlineDropdownItemText,
+                            isSelect && styles.workforceInlineDropdownItemTextWhite,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* Primary Contact Number */}
@@ -8688,13 +9768,13 @@ export function TohfaAdminDashboardScreen({
           </View>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              CARD 9: 9  Document Uploads (Screenshots 3, 4 & 5)
+              CARD 8: 8  Document Uploads (Screenshots 3, 4 & 5)
              ══════════════════════════════════════════════════════════════════════ */}
           <View style={styles.workforceCreateCard}>
             <View style={styles.workforceCardHeader}>
               <View style={styles.workforceCardHeaderLeft}>
                 <View style={styles.workforceStepBadge}>
-                  <Text style={styles.workforceStepBadgeText}>9</Text>
+                  <Text style={styles.workforceStepBadgeText}>8</Text>
                 </View>
                 <View style={styles.workforceCardHeaderTextCol}>
                   <Text style={styles.workforceCreateCardTitle}>Document Uploads</Text>
@@ -8706,7 +9786,7 @@ export function TohfaAdminDashboardScreen({
 
             {/* Callout box */}
             <View style={styles.workforceIdCallout}>
-              <PolicySliderIcon size={20} color="#1C4E75" />
+              <PolicySliderIcon size={20} color={adminColors.info.text} />
               <Text style={styles.workforceIdCalloutText}>
                 Requirements follow policy, not a blanket rule: only the documents marked Required block creation. Files are checked for type and size here and again on the server. Uploads are simulated in this prototype.
               </Text>
@@ -9208,7 +10288,7 @@ export function TohfaAdminDashboardScreen({
             </View>
             <View style={styles.workforceDetailRow}>
               <Text style={styles.workforceDetailLabel}>Verification status</Text>
-              <Text style={[styles.workforceDetailValue, { color: '#2E7D32' }]}>{staff.verificationStatus || 'Verified'}</Text>
+              <Text style={[styles.workforceDetailValue, { color: adminColors.success.text }]}>{staff.verificationStatus || 'Verified'}</Text>
             </View>
             <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.workforceDetailLabel}>Verified by / date</Text>
@@ -9235,7 +10315,7 @@ export function TohfaAdminDashboardScreen({
           {/* 3. Bank Account Details */}
           <Text style={styles.workforceDetailsSectionHead}>Bank Account Details</Text>
           <View style={styles.workforceRestrictedBox}>
-            <LockOutlineIcon size={24} color="#6D5D52" />
+            <LockOutlineIcon size={24} color={adminColors.muted} />
             <Text style={styles.workforceRestrictedTitle}>Restricted</Text>
             <Text style={styles.workforceRestrictedDesc}>
               Your role does not have permission to view bank details.
@@ -9271,7 +10351,7 @@ export function TohfaAdminDashboardScreen({
             </View>
             <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.workforceDetailLabel}>Employment status</Text>
-              <Text style={[styles.workforceDetailValue, { color: '#2E7D32' }]}>{staff.status}</Text>
+              <Text style={[styles.workforceDetailValue, { color: adminColors.success.text }]}>{staff.status}</Text>
             </View>
           </View>
 
@@ -11140,6 +12220,158 @@ export function TohfaAdminDashboardScreen({
               incident={selectedIncident}
               onBack={() => setInputsPestScreen('pest_incidents')}
             />
+          ) : communitySubScreen === 'create_content' ? (
+            <CreateContentScreen
+              initialType={createContentInitialType}
+              initialData={createContentInitialData}
+              onBack={() => setCommunitySubScreen('home')}
+              onSubmitSuccess={() => {
+                setArticleNavOrigin('content_pending_review');
+                setCommunitySubScreen('content_pending_review');
+              }}
+              onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
+            />
+          ) : communitySubScreen === 'create_group' ? (
+            <CreateGroupScreen
+              onBack={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
+              onSubmitSuccess={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
+            />
+          ) : communitySubScreen === 'create_community' ? (
+            <CreateCommunityScreen
+              onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+              onSubmitSuccess={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+            />
+          ) : communitySubScreen === 'add_video' ? (
+            <AddVideoScreen
+              onBack={() => setCommunitySubScreen('home')}
+              onSubmitSuccess={() => {
+                setArticleNavOrigin('content_pending_review');
+                setCommunitySubScreen('content_pending_review');
+              }}
+            />
+          ) : communitySubScreen === 'community_details' ? (
+            <CommunityDetailsScreen
+              communityId={selectedCommunityId}
+              onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+              onNavigateKnowledgeDetail={() => setCommunitySubScreen('article_details')}
+            />
+          ) : communitySubScreen === 'all_communities' ? (
+            <CommunitiesListScreen
+              onBack={() => setCommunitySubScreen('home')}
+              onSelectCommunity={(commId) => {
+                setCommunityNavOrigin('all_communities');
+                if (commId) setSelectedCommunityId(commId);
+                setCommunitySubScreen('community_details');
+              }}
+              onNavigateCreateCommunity={() => {
+                setCommunityNavOrigin('all_communities');
+                setCommunitySubScreen('create_community');
+              }}
+            />
+          ) : communitySubScreen === 'all_groups' ? (
+            <GroupsListScreen
+              onBack={() => setCommunitySubScreen('home')}
+              onSelectGroup={() => {
+                setGroupNavOrigin('all_groups');
+                setCommunitySubScreen('create_group');
+              }}
+              onNavigateCreateGroup={() => {
+                setGroupNavOrigin('all_groups');
+                setCommunitySubScreen('create_group');
+              }}
+            />
+          ) : communitySubScreen === 'article_details' ? (
+            <ArticleDetailsScreen
+              onBack={() => setCommunitySubScreen(articleNavOrigin === 'home' ? 'home' : articleNavOrigin === 'content_pending_review' ? 'content_pending_review' : 'content_item_detail')}
+              onOpenChatThread={() => setCommunitySubScreen('qa_chat')}
+              onOpenContentDetails={() => setCommunitySubScreen('content_item_detail')}
+            />
+          ) : communitySubScreen === 'content_pending_review' ? (
+            <ContentPendingReviewScreen
+              onBack={() => setCommunitySubScreen('create_content')}
+              onNavigateEditContent={() => {
+                setCreateContentInitialData(resumedMulchingData);
+                setCommunitySubScreen('create_content');
+              }}
+              onPublishSuccess={() => {
+                setCommunitySubScreen('knowledge_library');
+              }}
+            />
+          ) : communitySubScreen === 'content_item_detail' ? (
+            <ContentItemDetailScreen
+              onBack={() => setCommunitySubScreen('knowledge_library')}
+              onNavigateChat={() => {
+                setArticleNavOrigin('content_item_detail');
+                setCommunitySubScreen('article_details');
+              }}
+              onNavigateMessages={() => {
+                setArticleNavOrigin('content_item_detail');
+                setCommunitySubScreen('article_details');
+              }}
+              onNavigateEditContent={() => {
+                setCreateContentInitialData(resumedMulchingData);
+                setCommunitySubScreen('create_content');
+              }}
+            />
+          ) : communitySubScreen === 'qa_chat' ? (
+            <QuestionAnswerChatScreen
+              onBack={() => setCommunitySubScreen('article_details')}
+            />
+          ) : communitySubScreen === 'knowledge_library' ? (
+            <KnowledgeLibraryScreen
+              onBack={() => setCommunitySubScreen('home')}
+              onSelectItem={(_item) => {
+                setArticleNavOrigin('content_item_detail');
+                setCommunitySubScreen('content_item_detail');
+              }}
+              onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
+              onNavigateCreateContent={() => {
+                setCreateContentInitialData(undefined);
+                setCommunitySubScreen('create_content');
+              }}
+            />
+          ) : communitySubScreen === 'home' ? (
+            <CommunityKnowledgeHomeScreen
+              onBack={() => setCommunitySubScreen(null)}
+              onNavigateCreateContent={(type) => {
+                setCreateContentInitialData(undefined);
+                setCreateContentInitialType(type || 'Article');
+                setCommunitySubScreen('create_content');
+              }}
+              onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
+              onNavigateKnowledgeLibrary={() => setCommunitySubScreen('knowledge_library')}
+              onNavigateCommunityDetails={(commId) => {
+                setCommunityNavOrigin('home');
+                if (commId) setSelectedCommunityId(commId);
+                setCommunitySubScreen('community_details');
+              }}
+              onNavigateAllCommunities={() => setCommunitySubScreen('all_communities')}
+              onNavigateCreateGroup={() => {
+                setGroupNavOrigin('home');
+                setCommunitySubScreen('create_group');
+              }}
+              onNavigateAllGroups={() => setCommunitySubScreen('all_groups')}
+              onNavigateCreateCommunity={() => {
+                setCommunityNavOrigin('home');
+                setCommunitySubScreen('create_community');
+              }}
+              onViewActivityDetails={() => {
+                setArticleNavOrigin('home');
+                setCommunitySubScreen('article_details');
+              }}
+            />
+          ) : workforceActive ? (
+            workforceSubScreen === 'management' ? (
+              renderWorkforceManagementScreen()
+            ) : workforceSubScreen === 'create' ? (
+              renderWorkforceCreateScreen()
+            ) : workforceSubScreen === 'attendance' ? (
+              renderWorkforceAttendanceScreen()
+            ) : workforceSubScreen === 'details' ? (
+              renderWorkforceDetailsScreen()
+            ) : (
+              renderWorkforceDashboardScreen()
+            )
           ) : (
             <AdminMoreMenuScreen
               onBack={() => setActiveTab('Home')}
@@ -11162,11 +12394,12 @@ export function TohfaAdminDashboardScreen({
                 } else if (optionId === 'finance') {
                   setActiveTab('Finance');
                 } else if (optionId === 'workforce') {
-                  if (onNavigate) onNavigate('Staff');
+                  setWorkforceActive(true);
+                  setWorkforceSubScreen('dashboard');
                 } else if (optionId === 'notifications') {
                   setActiveTab('Reports');
                 } else if (optionId === 'community') {
-                  if (onNavigate) onNavigate('Community');
+                  setCommunitySubScreen('home');
                 } else if (optionId === 'settings') {
                   setActiveTab('Profile');
                 }
@@ -11274,6 +12507,18 @@ export function TohfaAdminDashboardScreen({
         customerScreen !== 'add_customer' &&
         customerScreen !== 'gst_business' &&
         customerScreen !== 'gst_business_detail' &&
+        communitySubScreen !== 'create_content' &&
+        communitySubScreen !== 'create_group' &&
+        communitySubScreen !== 'create_community' &&
+        communitySubScreen !== 'add_video' &&
+        communitySubScreen !== 'community_details' &&
+        communitySubScreen !== 'all_communities' &&
+        communitySubScreen !== 'all_groups' &&
+        communitySubScreen !== 'article_details' &&
+        communitySubScreen !== 'content_item_detail' &&
+        communitySubScreen !== 'qa_chat' &&
+        communitySubScreen !== 'knowledge_library' &&
+        (!workforceActive || workforceSubScreen === 'dashboard') &&
         (activeTab !== 'Workforce' || workforceSubScreen === 'dashboard') && (
           <View style={styles.bottomNav}>
             {/* Tab 1: Home */}
@@ -11284,6 +12529,7 @@ export function TohfaAdminDashboardScreen({
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
                 setCustomerScreen(null);
+                setCommunitySubScreen(null);
                 setOperationsSubScreen(null);
                 setActiveTab('Home');
               }}
@@ -11314,6 +12560,7 @@ export function TohfaAdminDashboardScreen({
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
                 setCustomerScreen(null);
+                setCommunitySubScreen(null);
                 setOperationsSubScreen(null);
                 setActiveTab('WorkQueue');
               }}
@@ -11340,6 +12587,7 @@ export function TohfaAdminDashboardScreen({
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
                 setCustomerScreen(null);
+                setCommunitySubScreen(null);
                 setOperationsSubScreen(null);
                 setActiveTab('Operations');
               }}
@@ -11370,6 +12618,7 @@ export function TohfaAdminDashboardScreen({
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
                 setCustomerScreen(null);
+                setCommunitySubScreen(null);
                 setOperationsSubScreen(null);
                 setActiveTab('Finance');
               }}
@@ -11400,6 +12649,7 @@ export function TohfaAdminDashboardScreen({
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
                 setCustomerScreen(null);
+                setCommunitySubScreen(null);
                 setActiveTab('More');
               }}
               activeOpacity={0.7}
@@ -12786,7 +14036,7 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontSize: 11,
     fontWeight: '800',
-    color: '#7A7570',
+    color: adminColors.muted,
     marginBottom: 8,
     letterSpacing: 0.5,
   },
@@ -12815,7 +14065,7 @@ const styles = StyleSheet.create({
     ...adminType.sectionHead,
     fontSize: 14,
     fontWeight: '800',
-    color: '#4A3B32',
+    color: adminColors.brandDeep,
     marginBottom: 12,
   },
   workforceBarRow: {
@@ -12833,7 +14083,7 @@ const styles = StyleSheet.create({
   workforceBarTrack: {
     flex: 1,
     height: 8,
-    backgroundColor: '#E8E2D9',
+    backgroundColor: adminColors.border,
     borderRadius: 4,
     overflow: 'hidden',
     marginHorizontal: 8,
@@ -12845,12 +14095,12 @@ const styles = StyleSheet.create({
   },
   workforceBarFillGreen: {
     height: 8,
-    backgroundColor: '#2E7D32',
+    backgroundColor: adminColors.success.text,
     borderRadius: 4,
   },
   workforceBarFillRed: {
     height: 8,
-    backgroundColor: '#D32F2F',
+    backgroundColor: adminColors.danger.text,
     borderRadius: 4,
   },
   workforceBarCount: {
@@ -12871,7 +14121,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E0DCD6',
+    borderColor: adminColors.border,
     height: 44,
     paddingHorizontal: 12,
   },
@@ -12887,14 +14137,14 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontSize: 12,
     fontWeight: '600',
-    color: '#5C4E43',
+    color: adminColors.brandDeep,
     marginTop: 8,
   },
   workforceCard: {
     backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E4DD',
+    borderColor: adminColors.border,
     padding: 14,
     marginTop: 10,
     ...adminShadow.sm,
@@ -12943,7 +14193,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F0ECE6',
+    borderTopColor: adminColors.border,
   },
   workforceActionEdit: {
     ...adminType.body,
@@ -12956,7 +14206,7 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 13,
     fontWeight: '800',
-    color: '#D32F2F',
+    color: adminColors.danger.text,
   },
   workforceActionActivate: {
     ...adminType.body,
@@ -12965,7 +14215,7 @@ const styles = StyleSheet.create({
     color: adminColors.brand,
   },
   workforceActiveBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
@@ -12973,10 +14223,10 @@ const styles = StyleSheet.create({
   workforceActiveBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#2E7D32',
+    color: adminColors.success.text,
   },
   workforcePendingBadge: {
-    backgroundColor: '#FFF3E0',
+    backgroundColor: adminColors.warning.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
@@ -12984,10 +14234,10 @@ const styles = StyleSheet.create({
   workforcePendingBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#E65100',
+    color: adminColors.warning.text,
   },
   workforcePresentBadge: {
-    backgroundColor: '#E8F5E9',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
@@ -12995,10 +14245,10 @@ const styles = StyleSheet.create({
   workforcePresentBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#2E7D32',
+    color: adminColors.success.text,
   },
   workforceAbsentBadge: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: adminColors.danger.bg,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 12,
@@ -13006,7 +14256,7 @@ const styles = StyleSheet.create({
   workforceAbsentBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#D32F2F',
+    color: adminColors.danger.text,
   },
   workforceQuickActionsRow: {
     flexDirection: 'row',
@@ -13018,7 +14268,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E4DD',
+    borderColor: adminColors.border,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -13032,7 +14282,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   workforceAttendanceCardError: {
-    borderColor: '#E57373',
+    borderColor: adminColors.danger.border,
     borderWidth: 1.5,
   },
   workforceFormContainer: {
@@ -13049,7 +14299,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
+    borderColor: adminColors.border,
     padding: 16,
     marginBottom: 16,
     ...adminShadow.sm,
@@ -13068,7 +14318,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: '#FDF1E6',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -13077,7 +14327,7 @@ const styles = StyleSheet.create({
   workforceStepBadgeText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#B35312',
+    color: adminColors.brand,
   },
   workforceCardHeaderTextCol: {
     flex: 1,
@@ -13096,7 +14346,7 @@ const styles = StyleSheet.create({
   },
   workforceCardDivider: {
     height: 1,
-    backgroundColor: '#F0ECE6',
+    backgroundColor: adminColors.border,
     marginTop: 12,
     marginBottom: 16,
   },
@@ -13136,24 +14386,24 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 29,
-    backgroundColor: '#FDEEE2',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#F6D8C0',
+    borderColor: adminColors.border,
   },
   workforcePhotoPlaceholderQuestion: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#9A5B2D',
+    color: adminColors.brandDeep,
   },
   workforceUploadPhotoBtn: {
     flex: 1,
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -13169,7 +14419,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D8D3CC',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     height: 44,
     ...adminType.body,
@@ -13187,7 +14437,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D8D3CC',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     height: 44,
   },
@@ -13203,7 +14453,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D8D3CC',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     height: 44,
     flexDirection: 'row',
@@ -13218,7 +14468,7 @@ const styles = StyleSheet.create({
   workforceFormSelectPlaceholder: {
     ...adminType.body,
     fontSize: 14,
-    color: '#A0988E',
+    color: adminColors.muted,
   },
   workforceFormHelperText: {
     ...adminType.caption,
@@ -13226,31 +14476,61 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     marginTop: 4,
   },
+  workforceInlineDropdownMenu: {
+    backgroundColor: adminColors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    overflow: 'hidden',
+    marginTop: 4,
+    marginBottom: 8,
+    ...adminShadow.sm,
+  },
+  workforceInlineDropdownItem: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  workforceInlineDropdownItemGrey: {
+    backgroundColor: adminColors.muted,
+  },
+  workforceInlineDropdownItemText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  workforceInlineDropdownItemTextWhite: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
   workforceCheckboxBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     borderRadius: 10,
     padding: 12,
     marginTop: 8,
     marginBottom: 4,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: adminColors.canvas,
   },
   workforceCheckboxSquare: {
     width: 20,
     height: 20,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#4B5563',
+    borderColor: adminColors.muted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   workforceCheckboxSquareChecked: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#1F2937',
+    backgroundColor: adminColors.canvas,
+    borderColor: adminColors.ink,
   },
   workforceCheckboxBoxText: {
     ...adminType.body,
@@ -13262,9 +14542,9 @@ const styles = StyleSheet.create({
   workforceIdCallout: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#EAF2F8',
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#D4E6F1',
+    borderColor: adminColors.info.border,
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
@@ -13273,16 +14553,16 @@ const styles = StyleSheet.create({
   workforceIdCalloutText: {
     flex: 1,
     fontSize: 12,
-    color: '#1C4E75',
+    color: adminColors.info.text,
     lineHeight: 17,
     fontWeight: '500',
   },
   workforceUploadDropZone: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     borderRadius: 12,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     padding: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -13304,9 +14584,9 @@ const styles = StyleSheet.create({
   },
   workforceBrowseFilesBtn: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 18,
     paddingVertical: 8,
   },
@@ -13321,9 +14601,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderTopWidth: 1,
-    borderTopColor: '#ECE7E1',
+    borderTopColor: adminColors.border,
     paddingHorizontal: 14,
     paddingTop: 12,
     paddingBottom: 16,
@@ -13350,9 +14630,9 @@ const styles = StyleSheet.create({
   },
   workforceCreateCancelBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     height: 48,
     borderRadius: 12,
     alignItems: 'center',
@@ -13362,12 +14642,12 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 15,
     fontWeight: '700',
-    color: '#374151',
+    color: adminColors.ink,
   },
   workforceFooterCaption: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#6B7280',
+    color: adminColors.muted,
     textAlign: 'center',
     marginTop: 8,
     fontWeight: '600',
@@ -13378,8 +14658,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     marginBottom: 10,
   },
   workforceRadioCardSelected: {
@@ -13388,8 +14668,8 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#F09A55',
-    backgroundColor: '#FDF5EF',
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
     marginBottom: 10,
   },
   workforceRadioTextCol: {
@@ -13410,10 +14690,10 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   workforceStaticInputBox: {
-    backgroundColor: '#F4F2EE',
+    backgroundColor: adminColors.canvas,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#DFD9CE',
+    borderColor: adminColors.border,
     borderStyle: 'dashed',
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -13422,13 +14702,13 @@ const styles = StyleSheet.create({
   workforceStaticInputText: {
     ...adminType.body,
     fontSize: 14,
-    color: '#8A847C',
+    color: adminColors.muted,
   },
   workforceAccountStatusBox: {
-    backgroundColor: '#FAF5ED',
+    backgroundColor: adminColors.warning.bg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#F0DEBA',
+    borderColor: adminColors.warning.border,
     borderStyle: 'dashed',
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -13440,17 +14720,17 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 13,
     fontWeight: '800',
-    color: '#B45309',
+    color: adminColors.warning.text,
   },
   workforceAccountStatusSub: {
     ...adminType.caption,
     fontSize: 12,
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   workforceDocItem: {
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
+    borderBottomColor: adminColors.border,
   },
   workforceDocItemTitle: {
     ...adminType.body,
@@ -13469,45 +14749,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     alignSelf: 'flex-start',
     marginBottom: 6,
   },
   workforceDocPillText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#4B5563',
+    color: adminColors.muted,
   },
   workforceDocFileText: {
     ...adminType.caption,
     fontSize: 12,
-    color: '#6B7280',
+    color: adminColors.muted,
     marginBottom: 6,
   },
   workforceDocVerificationLabel: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: adminColors.muted,
     marginBottom: 3,
   },
   workforceDocVerificationPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     alignSelf: 'flex-start',
     marginBottom: 10,
   },
   workforceDocVerificationPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6B7280',
+    color: adminColors.muted,
   },
   workforceDocActionBtn: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     paddingHorizontal: 16,
     paddingVertical: 8,
     alignSelf: 'flex-start',
@@ -13529,11 +14809,11 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#A0988E',
+    borderColor: adminColors.muted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   workforceCheckboxChecked: {
     backgroundColor: adminColors.brand,
@@ -13552,7 +14832,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     backgroundColor: adminColors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#ECE7E1',
+    borderTopColor: adminColors.border,
   },
   workforceBtnPrimary: {
     flex: 1,
@@ -13570,9 +14850,9 @@ const styles = StyleSheet.create({
   },
   workforceBtnSecondary: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#D0C8BE',
+    borderColor: adminColors.border,
     height: 46,
     borderRadius: 10,
     alignItems: 'center',
@@ -13602,7 +14882,7 @@ const styles = StyleSheet.create({
   },
   workforceModalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -13610,7 +14890,7 @@ const styles = StyleSheet.create({
   workforceModalCard: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 22,
     paddingHorizontal: 20,
     paddingTop: 18,
@@ -13624,7 +14904,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
+    borderBottomColor: adminColors.border,
     marginBottom: 14,
   },
   workforceModalHeaderLeft: {
@@ -13637,14 +14917,14 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: '#F7EFE6',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   workforceModalAvatarText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#8C5320',
+    color: adminColors.brand,
   },
   workforceModalTitle: {
     ...adminType.title,
@@ -13662,15 +14942,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
   workforceModalInfoCard: {
-    backgroundColor: '#FAF8F5',
+    backgroundColor: adminColors.canvas,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#ECE7E1',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 4,
     marginBottom: 14,
@@ -13681,12 +14961,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 7.5,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
+    borderBottomColor: adminColors.border,
   },
   workforceModalRowLabel: {
     ...adminType.body,
     fontSize: 12,
-    color: '#78716C',
+    color: adminColors.muted,
     fontWeight: '500',
   },
   workforceModalRowValue: {
@@ -13698,10 +14978,10 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   workforceModalCorrectionCard: {
-    backgroundColor: '#FFFDF9',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F3E5D8',
+    borderColor: adminColors.border,
     padding: 14,
     marginBottom: 12,
   },
@@ -13709,20 +14989,20 @@ const styles = StyleSheet.create({
     ...adminType.sectionHead,
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#B45309',
+    color: adminColors.brand,
     marginBottom: 4,
   },
   workforceModalSectionSub: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#8C7E72',
+    color: adminColors.muted,
     marginBottom: 10,
   },
   workforceModalSelect: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     height: 44,
     flexDirection: 'row',
@@ -13730,10 +15010,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   workforceModalHistoryCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: adminColors.canvas,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: adminColors.border,
     padding: 12,
     marginBottom: 16,
   },
@@ -13746,18 +15026,18 @@ const styles = StyleSheet.create({
   workforceModalHistoryTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#4B5563',
+    color: adminColors.ink,
   },
   workforceModalHistoryDate: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: adminColors.muted,
   },
   workforceModalHistoryText: {
     ...adminType.body,
     fontSize: 12,
     fontWeight: '700',
-    color: '#1F2937',
+    color: adminColors.ink,
     marginTop: 2,
   },
   workforceModalActionsRow: {
@@ -13783,9 +15063,9 @@ const styles = StyleSheet.create({
   },
   workforceModalCancelBtn: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: adminColors.border,
     height: 48,
     borderRadius: 12,
     alignItems: 'center',
@@ -13795,12 +15075,12 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 15,
     fontWeight: '700',
-    color: '#374151',
+    color: adminColors.ink,
   },
   workforceModalFooterCaption: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: adminColors.muted,
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 4,
@@ -13829,7 +15109,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E8E4DD',
+    borderColor: adminColors.border,
     padding: 16,
     marginHorizontal: 16,
     marginTop: 14,
@@ -13843,7 +15123,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#F3E8DB',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -13851,7 +15131,7 @@ const styles = StyleSheet.create({
   workforceAvatarText: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#7D4F27',
+    color: adminColors.brand,
   },
   workforceProfileMeta: {
     flex: 1,
@@ -13879,7 +15159,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0EBE4',
+    borderTopColor: adminColors.border,
   },
   workforceProfileGridCol: {
     width: '48%',
@@ -13887,7 +15167,7 @@ const styles = StyleSheet.create({
   workforceGridLabel: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#7A7570',
+    color: adminColors.muted,
     marginBottom: 2,
   },
   workforceGridValue: {
@@ -13898,20 +15178,20 @@ const styles = StyleSheet.create({
   },
   workforceDetailsSectionHead: {
     ...adminType.sectionHead,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#4A3B32',
-    marginTop: 20,
+    color: adminColors.brandDeep,
+    marginTop: 22,
     marginHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   workforceDetailsCard: {
     backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E4DD',
-    paddingHorizontal: 14,
-    paddingVertical: 4,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 2,
     marginHorizontal: 16,
     ...adminShadow.sm,
   },
@@ -13919,22 +15199,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#E6E0D8',
+    borderColor: adminColors.border,
   },
   workforceDetailLabel: {
     ...adminType.body,
-    fontSize: 12,
-    color: '#7A7570',
+    fontSize: 13,
+    color: adminColors.muted,
   },
   workforceDetailValue: {
     ...adminType.body,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
     color: adminColors.ink,
-    maxWidth: '62%',
+    maxWidth: '65%',
     textAlign: 'right',
   },
   workforceDocActionsRow: {
@@ -13948,7 +15228,7 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D4C5B3',
+    borderColor: adminColors.border,
     backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -13957,15 +15237,15 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 12,
     fontWeight: '800',
-    color: '#5C3A1E',
+    color: adminColors.brand,
   },
   workforceDocBtnDisabled: {
     flex: 1,
     height: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E0DDD8',
-    backgroundColor: '#FAF8F5',
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -13973,14 +15253,14 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontSize: 12,
     fontWeight: '700',
-    color: '#A0988E',
+    color: adminColors.muted,
   },
   workforceRestrictedBox: {
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: '#D4C5B3',
+    borderColor: adminColors.border,
     borderRadius: 14,
-    backgroundColor: '#FAF7F2',
+    backgroundColor: adminColors.canvas,
     padding: 22,
     alignItems: 'center',
     justifyContent: 'center',
@@ -14003,16 +15283,17 @@ const styles = StyleSheet.create({
   },
   workforceDocCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E6E0D6',
-    padding: 12,
+    borderColor: adminColors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     marginHorizontal: 16,
-    marginTop: 8,
+    marginBottom: 10,
     ...adminShadow.sm,
   },
   workforceDocCardRejected: {
-    borderColor: '#EB5757',
+    borderColor: adminColors.danger.text,
     borderWidth: 1.5,
   },
   workforceDocCardHeader: {
@@ -14022,83 +15303,83 @@ const styles = StyleSheet.create({
   },
   workforceDocCardTitle: {
     ...adminType.body,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
     color: adminColors.ink,
   },
   workforceDocCardSub: {
     ...adminType.caption,
-    fontSize: 11,
+    fontSize: 12,
     color: adminColors.muted,
-    marginTop: 4,
+    marginTop: 6,
   },
   workforceDocBadgeVerified: {
-    backgroundColor: '#E8F5E9',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   workforceDocBadgeTextVerified: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#2E7D32',
+    color: adminColors.success.text,
   },
   workforceDocBadgeRejected: {
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: adminColors.danger.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   workforceDocBadgeTextRejected: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#D32F2F',
+    color: adminColors.danger.text,
   },
   workforceDocBadgeNotUploaded: {
-    backgroundColor: '#F0ECE6',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
     borderRadius: 6,
   },
   workforceDocBadgeTextNotUploaded: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#7A7570',
+    color: adminColors.muted,
   },
   workforceTimelineCard: {
     backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E4DD',
-    padding: 14,
+    borderColor: adminColors.border,
+    padding: 16,
     marginHorizontal: 16,
     ...adminShadow.sm,
   },
   workforceTimelineItem: {
-    paddingVertical: 6,
+    paddingVertical: 4,
   },
   workforceTimelineMeta: {
     ...adminType.caption,
-    fontSize: 11,
+    fontSize: 12,
     color: adminColors.muted,
-    marginBottom: 2,
+    marginBottom: 4,
   },
   workforceTimelineAction: {
     ...adminType.body,
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: '800',
     color: adminColors.ink,
   },
   workforceTimelineDivider: {
     borderBottomWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#E6E0D8',
-    marginVertical: 4,
+    borderColor: adminColors.border,
+    marginVertical: 10,
   },
   workforceDisclaimerText: {
     ...adminType.caption,
     fontSize: 11,
-    color: '#8A8077',
+    color: adminColors.muted,
     lineHeight: 16,
     marginHorizontal: 16,
     marginTop: 14,
