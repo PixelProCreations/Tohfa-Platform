@@ -17,6 +17,7 @@ import {
   invoiceTypes,
   type DownloadInvoiceQuery,
   type InvoiceDetailResponse,
+  type InvoiceDetailView,
   type InvoiceSummary,
   type InvoiceSummaryQuery,
   type InvoiceSummaryResponse,
@@ -60,7 +61,7 @@ export interface InvoicesService {
     actor: Actor,
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }>;
-  getInvoice(actor: Actor, id: string): Promise<InvoiceDetailResponse>;
+  getInvoice(actor: Actor, id: string): Promise<InvoiceDetailView>;
   /**
    * GET /invoices/summary (BR-30, BR-36): counts and totals by status and by type over exactly the
    * invoices `listInvoices` would return `actor` for the same filters. Out of scope is all zeros.

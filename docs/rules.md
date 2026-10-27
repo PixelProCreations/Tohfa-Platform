@@ -3138,6 +3138,28 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-128 — The invoice detail names its buyer and the buyer's GSTIN, within the detail's unchanged visibility
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-10-26): owner request "Group D" D2; extends BR-36 and BR-30 (visibility unchanged); `docs/rbac.json` `invoice.view_own` (existing code, unchanged) |
+| **Status** | DERIVED (reading the buyer LIVE instead of from an issue-time snapshot is UNCONFIRMED: `invoices` has no buyer snapshot column) |
+| **Layer** | Server-side: `invoicesRepo.findById` (one query with LEFT JOINs); no schema change |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /invoices/{id}` carries two more keys, always present: `buyerName` and `buyerGstin`. When the invoice has a customer, they are that customer's `users.full_name` and `customers.gstin` exactly as stored (GSTIN `null` when none is stored; nothing new is validated). When it has no customer and no farmer, `buyerName` is the walk-in name on its order (a counter sale, BR-86) and `buyerGstin` is `null`. A farmer-side invoice (purchase or payout) has no buyer on this surface: both are `null`, and no farmer name is ever placed in them. The endpoint is shared by every role; its visibility is unchanged (BR-36, BR-30): a customer reaches only their own invoice and so only their own name and GSTIN, a Sub admin only invoices of its warehouse's orders, and any other id is still 404 with the unknown-id body. No farm identity is added (BR-16). Because `invoices` stores no buyer snapshot, the two values are read when the detail is served, so a later profile edit shows on an already-issued invoice; making them immutable needs a migration adding snapshot columns written at issue (open, not done).
+
+**Failure mode if unenforced.** A B2B buyer cannot see the GSTIN its input-tax claim depends on; or the detail leaks another customer's GSTIN or a farmer's name.
+
+**Test contract.** (`apps/api/src/modules/invoices/invoice-buyer.test.ts`)
+- `BR-128a` An admin (scope `all`, and a Sub admin of the order's warehouse) reads the customer's name and GSTIN as stored; a customer with none is `null`; the detail key set is the documented one.
+- `BR-128b` A customer reads their own name and GSTIN on their own invoice; no farm key at any depth and no farmer name.
+- `BR-128c` Another customer's invoice, or one outside a Sub admin's warehouse, is still 404 and names neither buyer nor GSTIN.
+- `BR-128d` A walk-in counter-sale invoice names the walk-in buyer with a `null` GSTIN; the walk-in mobile never appears.
+- `BR-128e` A farmer purchase invoice has `null` buyer fields for the farmer and for an admin.
+- `BR-128f` Read live: a GSTIN added after issue shows on the next read (pins the UNCONFIRMED no-snapshot behaviour).
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |

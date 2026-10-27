@@ -1,6 +1,6 @@
 import type { Executor } from "../../db/pool.js";
 import type { InvoiceType, InvoiceStatus, Money } from "@tohfa/shared-types";
-import type { InvoiceDetailResponse, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
+import type { InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
 
 export interface InvoiceDbRow {
   id: string;
@@ -118,7 +118,7 @@ export interface InvoicesRepo {
   generateInvoiceNumber(db: Executor, fiscalYear: string, type: InvoiceType): Promise<string>;
   createInvoice(db: Executor, input: CreateInvoiceInput): Promise<InvoiceDetailResponse>;
   /** The invoice when it exists AND `visibility` covers it; otherwise null (one answer for both). */
-  findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailResponse | null>;
+  findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailView | null>;
   listInvoices(
     db: Executor,
     visibility: InvoiceVisibility,
@@ -280,11 +280,23 @@ export const invoicesRepo: InvoicesRepo = {
     };
   },
 
-  async findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailResponse | null> {
+  async findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailView | null> {
     const values: unknown[] = [id];
     const visible = visibilitySql(visibility, values);
-    const invRes = await db.query<InvoiceDbRow>(
-      "SELECT * FROM invoices WHERE invoices.id = $1 AND " + visible,
+    // BR-128: the buyer, read live (no snapshot column exists on invoices). The invoice's customer
+    // (name and GSTIN as stored), else the walk-in name on its order; a farmer-side invoice (or one
+    // with no buyer recorded) has none. The visibility predicate is unchanged, so a customer only
+    // ever reaches their own name and GSTIN, and every other id is still the same null (404).
+    const invRes = await db.query<InvoiceDbRow & { buyer_name: string | null; buyer_gstin: string | null }>(
+      "SELECT invoices.*, " +
+        "CASE WHEN invoices.customer_id IS NOT NULL THEN bu.full_name " +
+        "WHEN invoices.farmer_id IS NULL THEN bo.walk_in_name END AS buyer_name, " +
+        "CASE WHEN invoices.customer_id IS NOT NULL THEN bc.gstin END AS buyer_gstin " +
+        "FROM invoices " +
+        "LEFT JOIN customers bc ON bc.id = invoices.customer_id " +
+        "LEFT JOIN users bu ON bu.id = bc.user_id " +
+        "LEFT JOIN orders bo ON bo.id = invoices.order_id " +
+        "WHERE invoices.id = $1 AND " + visible,
       values,
     );
     const invoice = invRes.rows[0];
@@ -329,6 +341,8 @@ export const invoicesRepo: InvoicesRepo = {
       igst: invoice.igst as Money,
       gstInclusive: invoice.gst_inclusive,
       lines,
+      buyerName: invoice.buyer_name,
+      buyerGstin: invoice.buyer_gstin,
     };
   },
 

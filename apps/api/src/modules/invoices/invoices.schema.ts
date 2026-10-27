@@ -85,3 +85,15 @@ export interface InvoiceDetailResponse extends InvoiceSummaryResponse {
   gstInclusive: boolean;
   lines: InvoiceLineItem[];
 }
+
+/**
+ * GET /invoices/{id} (openapi `InvoiceDetail`, BR-128): the detail plus the buyer. `invoices` has
+ * no buyer snapshot column, so both are read live when the detail is served (UNCONFIRMED): the
+ * invoice's customer (`users.full_name`, `customers.gstin`), else the walk-in name on its order;
+ * null for an invoice with no buyer here (a farmer purchase or payout invoice). Only `findById`
+ * builds this; `createInvoice` keeps returning `InvoiceDetailResponse`.
+ */
+export interface InvoiceDetailView extends InvoiceDetailResponse {
+  buyerName: string | null;
+  buyerGstin: string | null;
+}

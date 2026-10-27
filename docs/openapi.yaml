@@ -11949,8 +11949,12 @@ paths:
         owner's invoice, or one outside a Sub Warehouse Admin's warehouse, is 404 `NOT_FOUND` with
         the same body as an id that does not exist, never 403 (BR-30, BR-36). 401 without a bearer
         token; 403 for a role without `invoice.view_own` (FARMER_ADMIN).
+        Buyer (BR-128): `buyerName` and `buyerGstin` name the invoice's buyer: its customer's name
+        and GSTIN as stored, else the walk-in name on its order (no GSTIN); both null on a farmer
+        purchase or payout invoice. There is no snapshot column on the invoice, so both are read
+        live when the detail is served (UNCONFIRMED). A customer only ever reaches their own.
       x-permission: invoice.view_own
-      x-business-rules: [BR-16, BR-30, BR-36]
+      x-business-rules: [BR-16, BR-30, BR-36, BR-128]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
@@ -21409,7 +21413,10 @@ components:
       allOf:
         - $ref: '#/components/schemas/Invoice'
         - type: object
+          required: [buyerName, buyerGstin]
           properties:
+            buyerName: { type: [string, 'null'], description: 'BR-128: the customer''s name, else the walk-in name on the order; null for a farmer-side invoice. Read live (no snapshot; UNCONFIRMED).' }
+            buyerGstin: { type: [string, 'null'], description: 'BR-128: the customer''s GSTIN exactly as stored; null when none is stored, for a walk-in and for a farmer-side invoice. Read live (no snapshot; UNCONFIRMED).' }
             placeOfSupply: { type: [string, 'null'] }
             cgst: { $ref: '#/components/schemas/Money' }
             sgst: { $ref: '#/components/schemas/Money' }
