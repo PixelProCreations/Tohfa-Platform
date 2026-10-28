@@ -36,7 +36,6 @@ import {
   SearchBar,
   StatusBadge,
 } from './BillingParts';
-import { BILLING_WAREHOUSES } from './fixtures';
 import type {
   InvoiceFilterState,
   InvoiceListLayout,
@@ -109,7 +108,7 @@ export function InvoiceListScreen({
   onNavigateToInvoiceDetail,
   onOpenFilters,
   appliedFilters,
-  warehouseOptions = BILLING_WAREHOUSES,
+  warehouseOptions = [],
   invoices: invoicesProp,
 }: InvoiceListScreenProps) {
   const { invoices: liveInvoices } = useInvoices({}, invoicesProp === undefined);
