@@ -28,7 +28,7 @@ import type {
   WarehouseScope,
 } from './types';
 
-function moneyToWholeRupees(val: Money | string | null | undefined): number {
+export function moneyToWholeRupees(val: Money | string | null | undefined): number {
   if (!val) return 0;
   try {
     return Math.floor(toPaise(parseMoney(String(val))) / 100);

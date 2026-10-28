@@ -19,8 +19,8 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { CASH_BREAKDOWN, SAMPLE_DATE, TOP_UP_HISTORY } from './fixtures';
-import { useCashTopupsReport } from './useWalletData';
+import { CASH_BREAKDOWN } from './fixtures';
+import { moneyToWholeRupees, useCashTopupsReport } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { TopUpHistoryRow, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
@@ -54,16 +54,13 @@ export interface DailyCashSummaryScreenProps extends WarehouseScreenBaseProps {
   onNavigateToDailyCash?: (() => void) | undefined;
 }
 
-/** Mock system-recorded cash for the day (whole rupees). */
-const SYSTEM_CASH = 18500;
-
 export function DailyCashSummaryScreen({
   scope,
   can,
   onBack,
   onTabChange,
-  date = SAMPLE_DATE,
-  rows = TOP_UP_HISTORY,
+  date,
+  rows = [],
   warehouseOptions,
   initialWarehouseId,
   onViewTopUpHistory,
@@ -75,15 +72,16 @@ export function DailyCashSummaryScreen({
     warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
   const { report } = useCashTopupsReport(scope, selectedWarehouseId);
 
-  const systemCash = report && report.total ? Math.round(parseFloat(String(report.total))) : SYSTEM_CASH;
-  const liveCount = report ? report.count : 24;
+  // Money is integer paise — convert via moneyToWholeRupees, never parseFloat
+  const systemCash = report?.total != null ? moneyToWholeRupees(report.total) : null;
+  const liveCount = report?.count ?? null;
 
-  const [physicalCount, setPhysicalCount] = useState(String(systemCash));
+  const [physicalCount, setPhysicalCount] = useState(systemCash != null ? String(systemCash) : '');
   const allWarehouses = isAllWarehouses(scope);
   const canTopUps = can('wallet.cash_topup.process');
 
   const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
-  const variance = parsedPhysical - systemCash;
+  const variance = systemCash != null ? parsedPhysical - systemCash : null;
   const todaysTopUps = rows.filter(
     (row) => row.date === date && inScope(scope, row.warehouseId, selectedWarehouseId),
   );
@@ -91,7 +89,7 @@ export function DailyCashSummaryScreen({
   const handleReconcile = () => {
     Alert.alert(
       'Reconciliation Submitted',
-      `Physical Cash: ${formatRupees(parsedPhysical)}\nVariance: ${variance === 0 ? '₹0 (Balanced)' : `${variance > 0 ? '+' : '-'}${formatRupees(Math.abs(variance))}`}`,
+      `Physical Cash: ${formatRupees(parsedPhysical)}\nVariance: ${variance == null ? 'N/A' : variance === 0 ? '₹0 (Balanced)' : `${variance > 0 ? '+' : '-'}${formatRupees(Math.abs(variance))}`}`,
       [{ text: 'OK' }],
     );
   };
@@ -110,29 +108,35 @@ export function DailyCashSummaryScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity
-          style={styles.dateCard}
-          onPress={() => Alert.alert('Select Date', 'Choose summary date to inspect.')}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <Text style={styles.dateText}>Today · {date}</Text>
-          <CalendarIcon />
-        </TouchableOpacity>
+        {date ? (
+          <TouchableOpacity
+            style={styles.dateCard}
+            onPress={() => Alert.alert('Select Date', 'Choose summary date to inspect.')}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <Text style={styles.dateText}>Today · {date}</Text>
+            <CalendarIcon />
+          </TouchableOpacity>
+        ) : null}
 
         {canTopUps ? (
           <>
-            <KpiRow
-              items={[
-                { value: String(liveCount), label: 'TRANSACTIONS' },
-                { value: String(liveCount), label: 'COMPLETED' },
-                { value: '0', label: 'PENDING' },
-              ]}
-            />
-            <Card centered>
-              <Text style={styles.totalLabel}>Total Cash Received</Text>
-              <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
-            </Card>
+            {liveCount != null ? (
+              <KpiRow
+                items={[
+                  { value: String(liveCount), label: 'TRANSACTIONS' },
+                  { value: String(liveCount), label: 'COMPLETED' },
+                  { value: '0', label: 'PENDING' },
+                ]}
+              />
+            ) : null}
+            {systemCash != null ? (
+              <Card centered>
+                <Text style={styles.totalLabel}>Total Cash Received</Text>
+                <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
+              </Card>
+            ) : null}
           </>
         ) : null}
 
@@ -143,21 +147,25 @@ export function DailyCashSummaryScreen({
           ))}
         </Card>
 
-        <SectionTitle>System vs. Physical Cash</SectionTitle>
-        <Card centered>
-          <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
-          <Text style={styles.stackLabel}>SYSTEM RECORDED</Text>
-          <View style={styles.arrow}>
-            <ArrowDownIcon />
-          </View>
-          <Text style={styles.bigValue}>{formatRupees(parsedPhysical)}</Text>
-          <Text style={styles.stackLabel}>PHYSICAL COUNTED</Text>
-          <View style={styles.arrow}>
-            <ArrowDownIcon />
-          </View>
-          <Text style={[styles.bigValue, variance === 0 ? styles.ok : styles.off]}>{formatRupees(Math.abs(variance))}</Text>
-          <Text style={styles.stackLabel}>VARIANCE</Text>
-        </Card>
+        {systemCash != null ? (
+          <>
+            <SectionTitle>System vs. Physical Cash</SectionTitle>
+            <Card centered>
+              <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
+              <Text style={styles.stackLabel}>SYSTEM RECORDED</Text>
+              <View style={styles.arrow}><ArrowDownIcon /></View>
+              <Text style={styles.bigValue}>{formatRupees(parsedPhysical)}</Text>
+              <Text style={styles.stackLabel}>PHYSICAL COUNTED</Text>
+              {variance != null ? (
+                <>
+                  <View style={styles.arrow}><ArrowDownIcon /></View>
+                  <Text style={[styles.bigValue, variance === 0 ? styles.ok : styles.off]}>{formatRupees(Math.abs(variance))}</Text>
+                  <Text style={styles.stackLabel}>VARIANCE</Text>
+                </>
+              ) : null}
+            </Card>
+          </>
+        ) : null}
 
         <SectionTitle right={<SectionHint>If supported</SectionHint>}>Physical Cash Counted</SectionTitle>
         <View style={styles.physicalBox}>
@@ -182,24 +190,28 @@ export function DailyCashSummaryScreen({
           </View>
         ) : null}
 
-        <SectionTitle>Reconciliation Status</SectionTitle>
-        <TouchableOpacity
-          onPress={onNavigateToDailyCash}
-          disabled={onNavigateToDailyCash === undefined}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-          accessibilityLabel="Open daily cash ledger"
-        >
-          <StatusBadge label={variance === 0 ? 'Reconciled' : 'Review Required'} tone={variance === 0 ? 'success' : 'warning'} />
-        </TouchableOpacity>
+        {variance != null ? (
+          <>
+            <SectionTitle>Reconciliation Status</SectionTitle>
+            <TouchableOpacity
+              onPress={onNavigateToDailyCash}
+              disabled={onNavigateToDailyCash === undefined}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Open daily cash ledger"
+            >
+              <StatusBadge label={variance === 0 ? 'Reconciled' : 'Review Required'} tone={variance === 0 ? 'success' : 'warning'} />
+            </TouchableOpacity>
+          </>
+        ) : null}
 
-        {canTopUps ? (
+        {canTopUps && liveCount != null ? (
           <>
             <SectionTitle>Transaction Breakdown</SectionTitle>
             <KpiRow
               items={[
-                { value: '24', label: 'COMPLETED' },
-                { value: '1', label: 'PENDING' },
+                { value: String(liveCount), label: 'COMPLETED' },
+                { value: '0', label: 'PENDING' },
                 { value: '0', label: 'FAILED' },
               ]}
             />
