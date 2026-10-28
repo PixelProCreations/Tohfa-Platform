@@ -194,7 +194,7 @@ export function mapCashTopupToReportRow(topup: CashTopupSummaryDto) {
 }
 
 export function mapExpenseToReportRow(exp: ExpenseDto) {
-  const amt = typeof exp.amount === 'string' ? parseFloat(exp.amount) : Number(exp.amount);
+  const amt = Number(exp.amount);
   return {
     id: exp.id,
     category: exp.category || 'General',

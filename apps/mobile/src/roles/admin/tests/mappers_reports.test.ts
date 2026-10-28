@@ -157,7 +157,7 @@ describe('Reports mappers', () => {
       createdAt: '2026-09-25T10:00:00Z',
     };
     const row = mapExpenseToReportRow(exp);
-    expect(row.id).toBe('EXP-001245');
+    expect(row.id).toBe('exp-1');
     expect(row.category).toBe('Transport');
     expect(row.amount).toBe('₹2,400');
     expect(row.amountNum).toBe(2400);
