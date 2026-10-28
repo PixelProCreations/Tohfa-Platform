@@ -2,31 +2,21 @@
 import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps, StockMovementRow } from './types';
+import { movementRouteParams } from './movementDetailMappers';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-/** One batch row of the cross-warehouse batch list (absorbed Main StockLedgerScreen). */
-export interface StockBatchItem {
-  id: string;
-  name: string;
-  quantityKg: number;
-  batchId: string;
-  zone: string;
-  receivedDate: string;
-  warehouseName?: string | undefined;
-}
-
-const SAMPLE_BATCHES: StockBatchItem[] = [
-  { id: '1', name: 'Carrots', quantityKg: 240, batchId: 'BT-4471', zone: 'Zone A-2', receivedDate: 'Received Sep 9' },
-  { id: '2', name: 'Cabbage', quantityKg: 180, batchId: 'BT-4460', zone: 'Zone B-1', receivedDate: 'Received Sep 7' },
-  { id: '3', name: 'Beetroot', quantityKg: 95, batchId: 'BT-4452', zone: 'Zone A-3', receivedDate: 'Received Sep 5' },
-];
-
-export interface StockLedgerScreenProps extends InventoryScreenBaseProps {
-  /** Batches for the all-warehouses view; defaults to the design sample. */
-  batches?: readonly StockBatchItem[] | undefined;
+export interface StockLedgerScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Ledger rows from /admin/stock-ledger (cursor page). */
+  movements?: readonly StockMovementRow[] | undefined;
+  /** All batches in scope — used for the cross-warehouse batch list (Main) and the Verify CTA. */
+  batches?: readonly BatchRow[] | undefined;
+  /** Load next cursor page of ledger rows. */
+  onLoadMore?: (() => void) | undefined;
+  /** True when more ledger pages remain. */
+  hasMore?: boolean | undefined;
 }
 
 // ─── Custom Icons matching Design Mockup ─────────────────────────────────────
@@ -140,7 +130,11 @@ export function StockLedgerScreen({
   onNavigate,
   onBack,
   warehouseOptions,
-  batches = SAMPLE_BATCHES,
+  movements,
+  batches,
+  isLoading,
+  onLoadMore,
+  hasMore,
 }: StockLedgerScreenProps) {
   const [activeTab, setActiveTab] = useState<'Stock' | 'Ledger' | 'Allocation' | 'Verify'>('Ledger');
   // rbac: stock_ledger.view_all MAIN=all, SUB=none. With it the ledger spans
@@ -153,7 +147,7 @@ export function StockLedgerScreen({
   );
   // 'Verify / Adjust a Batch': stock_adjustment.create MAIN=all, SUB=own.
   const canAdjust = can('inventory.stock_adjustment.create');
-  const firstBatch = batches[0];
+  const firstBatch = batches?.[0];
 
   return (
     <View style={styles.safeArea}>
@@ -227,123 +221,87 @@ export function StockLedgerScreen({
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Card 1: RECEIPT */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
+          {/* Live ledger rows from /admin/stock-ledger */}
+          {isLoading && !movements?.length ? (
+            <View style={styles.loadMoreRow}>
+              <Text style={styles.loadMoreText}>Loading…</Text>
+            </View>
+          ) : null}
+          {(movements ?? []).map((movement: StockMovementRow) => {
+            const dirIcon =
+              movement.direction === 'in' ? (
                 <DownArrowGreenIcon />
-                <Text style={styles.receiptTypeText}>RECEIPT</Text>
-              </View>
-              <Text style={styles.receiptQuantityText}>+100 KG</Text>
-            </View>
-
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>BAT-2026-00124</Text></Text>
-              <Text style={styles.timeText}>24 Sep · 10:54 AM</Text>
-            </View>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Ref <Text style={styles.metaValueText}>GR-1024</Text></Text>
-              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>100 KG</Text></Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 2: DISPATCH */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
+              ) : movement.direction === 'out' ? (
                 <UpArrowRedIcon />
-                <Text style={styles.dispatchTypeText}>DISPATCH</Text>
-              </View>
-              <Text style={styles.dispatchQuantityText}>-20 KG</Text>
-            </View>
-
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>ORD-10242</Text></Text>
-              <Text style={styles.timeText}>24 Sep · 02:30 PM</Text>
-            </View>
-
-            <View style={[styles.metaRow, { justifyContent: 'flex-end' }]}>
-              <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>80 KG</Text></Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 3: ALLOCATION_ONLINE */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
+              ) : (
                 <BranchArrowIcon />
-                <Text style={styles.allocationTypeText}>ALLOCATION_ONLINE</Text>
-              </View>
-              <Text style={styles.neutralQuantityText}>20 KG</Text>
-            </View>
-
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
-
-            <View style={[styles.metaRow, { justifyContent: 'flex-end', marginTop: 4 }]}>
-              <Text style={styles.timeText}>24 Sep · 02:32 PM</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* Card 4: RESERVATION_HOLD */}
-          <TouchableOpacity
-            style={styles.ledgerCard}
-            onPress={() => onNavigate?.('M3S15')}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cardTopRow}>
-              <View style={styles.typeWithIconRow}>
-                <LockSmallIcon />
-                <Text style={styles.allocationTypeText}>RESERVATION_HOLD</Text>
-              </View>
-              <Text style={styles.neutralQuantityText}>10 KG</Text>
-            </View>
-
-            <Text style={styles.productTitle}>Tomato · Grade 1</Text>
-
-            <View style={styles.metaRow}>
-              <Text style={styles.metaLabelText}>Order <Text style={styles.metaValueText}>ORD-10245</Text></Text>
-              <Text style={styles.timeText}>24 Sep · 03:10 PM</Text>
-            </View>
-          </TouchableOpacity>
+              );
+            const typeStyle =
+              movement.direction === 'in'
+                ? styles.receiptTypeText
+                : movement.direction === 'out'
+                  ? styles.dispatchTypeText
+                  : styles.allocationTypeText;
+            const qtyStyle =
+              movement.direction === 'in'
+                ? styles.receiptQuantityText
+                : movement.direction === 'out'
+                  ? styles.dispatchQuantityText
+                  : styles.neutralQuantityText;
+            return (
+              <TouchableOpacity
+                key={movement.id}
+                style={styles.ledgerCard}
+                onPress={() => onNavigate?.('M3S15', movementRouteParams(movement))}
+                activeOpacity={0.7}
+              >
+                <View style={styles.cardTopRow}>
+                  <View style={styles.typeWithIconRow}>
+                    {dirIcon}
+                    <Text style={typeStyle}>{movement.typeLabel}</Text>
+                  </View>
+                  {movement.deltaText ? <Text style={qtyStyle}>{movement.deltaText}</Text> : null}
+                </View>
+                {movement.productLabel ? <Text style={styles.productTitle}>{movement.productLabel}</Text> : null}
+                <View style={styles.metaRow}>
+                  {movement.batchCode ? (
+                    <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>{movement.batchCode}</Text></Text>
+                  ) : movement.refType && movement.refId ? (
+                    <Text style={styles.metaLabelText}>{movement.refType} <Text style={styles.metaValueText}>{movement.refId}</Text></Text>
+                  ) : <Text style={styles.metaLabelText} />}
+                  <Text style={styles.timeText}>{movement.performedAt}</Text>
+                </View>
+                {movement.balanceText ? (
+                  <View style={[styles.metaRow, { justifyContent: 'flex-end' }]}>
+                    <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{movement.balanceText}</Text></Text>
+                  </View>
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
 
           {/* Load Earlier Movements */}
-          <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7}>
-            <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
-          </TouchableOpacity>
+          {hasMore ? (
+            <TouchableOpacity style={styles.loadMoreRow} activeOpacity={0.7} onPress={onLoadMore}>
+              <Text style={styles.loadMoreText}>Load earlier movements ↓</Text>
+            </TouchableOpacity>
+          ) : null}
 
           {/* Batches across warehouses (absorbed Main StockLedgerScreen) */}
-          {canViewAll ? (
+          {canViewAll && batches && batches.length > 0 ? (
             <>
               <Text style={styles.batchSectionTitle}>Batches across warehouses</Text>
               {batches.map((item) => (
                 <View key={item.id} style={styles.batchCard}>
                   <View style={styles.batchRow}>
-                    <Text style={styles.batchName}>{item.name}</Text>
-                    <Text style={styles.batchName}>{item.quantityKg} kg</Text>
+                    <Text style={styles.batchName}>{item.productName}</Text>
+                    <Text style={styles.batchName}>{item.availableGrams !== null ? `${Math.round(item.availableGrams / 1000)} kg` : '—'}</Text>
                   </View>
                   <View style={styles.batchRow}>
                     <Text style={styles.batchMeta}>
-                      Batch {item.batchId} · {item.zone}
-                      {item.warehouseName ? ` · ${item.warehouseName}` : ''}
+                      {`Batch ${item.batchCode}${item.storageLocation ? ` · ${item.storageLocation}` : ''}`}
                     </Text>
-                    <Text style={styles.batchMeta}>{item.receivedDate}</Text>
+                    <Text style={styles.batchMeta}>{item.receivedOn ? `Received ${item.receivedOn}` : ''}</Text>
                   </View>
                 </View>
               ))}
@@ -356,10 +314,7 @@ export function StockLedgerScreen({
               activeOpacity={0.8}
               onPress={() =>
                 onNavigate?.('M3S11', {
-                  produceName: firstBatch.name,
-                  batchId: firstBatch.batchId,
-                  zone: firstBatch.zone,
-                  systemCount: firstBatch.quantityKg,
+                  batchId: firstBatch.id,
                 })
               }
             >

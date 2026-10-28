@@ -12,6 +12,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { WarehouseScreenBaseProps } from './types';
+import { useExpenseDetail } from './useFinanceData';
 
 /**
  * Expense detail, shared by Main Warehouse and Sub Warehouse admins.
@@ -189,6 +190,17 @@ export function ExpenseDetailScreen({
   const canLog = can('finance.expense.log');
   const [showReceiptScreen, setShowReceiptScreen] = useState(Boolean(isReceiptView));
 
+  const { expense: liveExpense, rawDto } = useExpenseDetail(expenseId);
+  const displayAmount = liveExpense ? liveExpense.amount.toLocaleString('en-IN') : (typeof amount === 'number' ? amount.toLocaleString('en-IN') : amount);
+  const displayCategory = liveExpense ? (liveExpense.categoryRef.split('·')[0]?.trim() || liveExpense.categoryRef) : category;
+  const displayDate = liveExpense ? liveExpense.timestamp : date;
+  const displayDescription = rawDto?.description || description;
+  const displayPaymentMethod = rawDto?.paymentMethod || paymentMethod;
+  const displayVendor = rawDto?.vendor || vendorPayee;
+  const displayStatus = liveExpense ? liveExpense.status : status;
+  const displayCreatedBy = rawDto?.recordedBy || createdBy;
+  const displayWarehouse = liveExpense?.warehouseName || warehouseLabel;
+
   useEffect(() => {
     if (isReceiptView !== undefined) {
       setShowReceiptScreen(isReceiptView);
@@ -252,7 +264,7 @@ export function ExpenseDetailScreen({
     }
   };
 
-  const formattedAmount = typeof amount === 'number' ? amount.toLocaleString() : amount;
+  const formattedAmount = displayAmount;
 
   // ─── Customized Receipt Screen (matches design colors) ───
   if (showReceiptScreen || isReceiptView) {
@@ -276,7 +288,7 @@ export function ExpenseDetailScreen({
             <View style={styles.headerTitleWrap}>
               <Text style={styles.headerTitle}>Expense Receipt</Text>
               <Text style={styles.headerSubtitle}>
-                {expenseId} · ▫ {status}
+                {expenseId} · ▫ {displayStatus}
               </Text>
             </View>
             <TouchableOpacity
@@ -311,7 +323,7 @@ export function ExpenseDetailScreen({
 
             {/* Title & Date */}
             <Text style={styles.voucherTitleText}>Official Expense Voucher</Text>
-            <Text style={styles.voucherDateText}>{date} · 10:30 AM IST</Text>
+            <Text style={styles.voucherDateText}>{displayDate} · 10:30 AM IST</Text>
 
             {/* Dashed / Divider Line */}
             <View style={styles.voucherDividerLine} />
@@ -320,7 +332,7 @@ export function ExpenseDetailScreen({
             <View style={styles.voucherAmountBox}>
               <Text style={styles.voucherAmountLabel}>TOTAL AMOUNT</Text>
               <Text style={styles.voucherAmountValue}>₹{formattedAmount}</Text>
-              <Text style={styles.voucherAmountSub}>{category} · Paid via {paymentMethod}</Text>
+              <Text style={styles.voucherAmountSub}>{displayCategory} · Paid via {displayPaymentMethod}</Text>
             </View>
 
             {/* Key Receipt Fields */}
@@ -331,35 +343,35 @@ export function ExpenseDetailScreen({
               </View>
               <View style={styles.voucherFieldCol}>
                 <Text style={styles.voucherFieldLabel}>Category</Text>
-                <Text style={styles.voucherFieldValue}>{category}</Text>
+                <Text style={styles.voucherFieldValue}>{displayCategory}</Text>
               </View>
             </View>
 
             <View style={[styles.voucherFieldGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.voucherFieldCol}>
                 <Text style={styles.voucherFieldLabel}>Payee / Vendor</Text>
-                <Text style={styles.voucherFieldValue}>{vendorPayee}</Text>
+                <Text style={styles.voucherFieldValue}>{displayVendor}</Text>
               </View>
               <View style={styles.voucherFieldCol}>
                 <Text style={styles.voucherFieldLabel}>Payment Method</Text>
-                <Text style={styles.voucherFieldValue}>{paymentMethod}</Text>
+                <Text style={styles.voucherFieldValue}>{displayPaymentMethod}</Text>
               </View>
             </View>
 
             <View style={[styles.voucherFieldGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.voucherFieldCol}>
                 <Text style={styles.voucherFieldLabel}>Warehouse</Text>
-                <Text style={styles.voucherFieldValue}>{warehouseLabel}</Text>
+                <Text style={styles.voucherFieldValue}>{displayWarehouse}</Text>
               </View>
               <View style={styles.voucherFieldCol}>
                 <Text style={styles.voucherFieldLabel}>Logged By</Text>
-                <Text style={styles.voucherFieldValue}>{createdBy}</Text>
+                <Text style={styles.voucherFieldValue}>{displayCreatedBy}</Text>
               </View>
             </View>
 
             <View style={[styles.voucherFieldFull, { marginTop: adminSpacing.md }]}>
               <Text style={styles.voucherFieldLabel}>Description</Text>
-              <Text style={styles.voucherFieldValue}>{description}</Text>
+              <Text style={styles.voucherFieldValue}>{displayDescription}</Text>
             </View>
 
             {/* Attached Supporting Document Card */}
@@ -422,7 +434,7 @@ export function ExpenseDetailScreen({
             <Text style={styles.headerTitle}>Expense Detail</Text>
             {!isShortVersion && (
               <Text style={styles.headerSubtitle}>
-                {expenseId} · ▫ {status}
+                {expenseId} · ▫ {displayStatus}
               </Text>
             )}
           </View>
@@ -447,7 +459,7 @@ export function ExpenseDetailScreen({
                 </View>
                 <View style={styles.gridCol}>
                   <Text style={styles.gridLabel}>Category</Text>
-                  <Text style={styles.gridValue}>{category}</Text>
+                  <Text style={styles.gridValue}>{displayCategory}</Text>
                 </View>
               </View>
 
@@ -458,7 +470,7 @@ export function ExpenseDetailScreen({
                 </View>
                 <View style={styles.gridCol}>
                   <Text style={styles.gridLabel}>Status</Text>
-                  <Text style={styles.gridValue}>{status}</Text>
+                  <Text style={styles.gridValue}>{displayStatus}</Text>
                 </View>
               </View>
             </View>
@@ -484,12 +496,12 @@ export function ExpenseDetailScreen({
                 <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Category</Text>
-                    <Text style={styles.gridValue}>{category}</Text>
+                    <Text style={styles.gridValue}>{displayCategory}</Text>
                   </View>
 
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Date</Text>
-                    <Text style={styles.gridValue}>{date}</Text>
+                    <Text style={styles.gridValue}>{displayDate}</Text>
                   </View>
                 </View>
               </View>
@@ -500,29 +512,29 @@ export function ExpenseDetailScreen({
               <Text style={styles.sectionHeading}>Expense Details</Text>
               <View style={styles.card}>
                 <Text style={styles.gridLabel}>Description</Text>
-                <Text style={styles.descriptionValue}>{description}</Text>
+                <Text style={styles.descriptionValue}>{displayDescription}</Text>
 
                 <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Payment Method</Text>
-                    <Text style={styles.gridValue}>{paymentMethod}</Text>
+                    <Text style={styles.gridValue}>{displayPaymentMethod}</Text>
                   </View>
 
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Vendor / Payee</Text>
-                    <Text style={styles.gridValue}>{vendorPayee}</Text>
+                    <Text style={styles.gridValue}>{displayVendor}</Text>
                   </View>
                 </View>
 
                 <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Warehouse</Text>
-                    <Text style={styles.gridValue}>{warehouseLabel}</Text>
+                    <Text style={styles.gridValue}>{displayWarehouse}</Text>
                   </View>
 
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Created By</Text>
-                    <Text style={styles.gridValue}>{createdBy}</Text>
+                    <Text style={styles.gridValue}>{displayCreatedBy}</Text>
                   </View>
                 </View>
               </View>

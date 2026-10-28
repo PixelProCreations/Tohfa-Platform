@@ -12,11 +12,22 @@
  * The old screen defaulted the warehouse to 'Coonoor' and listed three
  * invented zones; the picker now lists the active locations of that warehouse
  * with their free capacity (profile-settings STORAGE_LOCATIONS).
+ *
+ * Live mode (`live`, the Goods Receiving wizard's Sub storage step): the
+ * locations come from the API (code, name, type, capacity: no used KG, so no
+ * "free" figure and no full-location filter), and nothing is read from the
+ * fixtures. The batch line is omitted: the quality check creates the batch
+ * and sets this location in the same call (BR-106), so it does not exist yet.
+ * Without `live` the screen behaves exactly as before (StorageFlow).
  */
 import React, { useMemo, useState } from 'react';
 import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { kgLabel } from '../receiving-qc/mappers';
+import type { LiveStorageOption } from '../receiving-qc/liveTypes';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   CheckIcon,
   EmptyState,
@@ -42,6 +53,32 @@ export interface StorageLocationAssignmentScreenProps extends WarehouseScreenBas
   warehouseId?: string | undefined;
   /** Confirm Location Assignment: the chosen storage location id. */
   onConfirmAssignment?: ((locationId: string) => void) | undefined;
+  /** Live locations and confirm (the receiving wizard); see the file comment. */
+  live?: StorageAssignmentLive | undefined;
+}
+
+export interface StorageAssignmentLive {
+  options: readonly LiveStorageOption[];
+  isLoading: boolean;
+  error: unknown;
+  onRetry: () => void;
+  /** The warehouse's name (the scope's own for a Sub admin). */
+  warehouseName: string;
+  /** A confirm is in flight: the button is disabled (no double submit). */
+  confirming: boolean;
+  /** The chosen location id; undefined when the warehouse has no location set up (the location is optional). */
+  onConfirm: (locationId: string | undefined) => void;
+}
+
+/** One row of the picker, from the fixtures or from the API. */
+interface LocationRow {
+  id: string;
+  name: string;
+  type: string;
+  /** The chosen card's line: "A-01 · Cold Zone · 620 KG free" (fixtures) / "A-01 · Cold · Capacity: 2,000 KG" (live). */
+  sub: string;
+  /** The picker row's line: "A-01 · Capacity: 620 KG free" (fixtures) / "A-01 · Capacity: 2,000 KG" (live). */
+  rowSub: string;
 }
 
 export function StorageLocationAssignmentScreen({
@@ -53,30 +90,75 @@ export function StorageLocationAssignmentScreen({
   quantity = DEMO_ASSIGNMENT_BATCH.quantity,
   warehouseId,
   onConfirmAssignment,
+  live,
 }: StorageLocationAssignmentScreenProps) {
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(warehouseId);
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
-  const locations = useMemo(
-    () =>
-      effectiveWarehouseId === undefined
-        ? []
-        : locationsInScope(scope, selectedWarehouseId).filter((l) => l.status === 'Active' && l.capacityKg > l.currentKg),
-    [scope, selectedWarehouseId, effectiveWarehouseId],
-  );
+  const locations = useMemo((): LocationRow[] => {
+    if (live !== undefined) {
+      return live.options.map((l) => {
+        const capacity = l.capacityGrams === null ? '' : t('receiving.wizard.capacity', { qty: kgLabel(l.capacityGrams) });
+        return {
+          id: l.id,
+          name: l.label,
+          type: l.zone,
+          sub: [l.code, l.zone, capacity].filter((part) => part !== '').join(' · '),
+          rowSub: [l.code, capacity].filter((part) => part !== '').join(' · '),
+        };
+      });
+    }
+    return effectiveWarehouseId === undefined
+      ? []
+      : locationsInScope(scope, selectedWarehouseId)
+          .filter((l) => l.status === 'Active' && l.capacityKg > l.currentKg)
+          .map((l) => ({
+            id: l.id,
+            name: l.name,
+            type: l.type,
+            sub: `${l.code} · ${l.type} · ${formatKg(l.capacityKg - l.currentKg)} free`,
+            rowSub: `${l.code} · Capacity: ${formatKg(l.capacityKg - l.currentKg)} free`,
+          }));
+  }, [live, scope, selectedWarehouseId, effectiveWarehouseId]);
   const selected = locations.find((l) => l.id === selectedLocationId);
   const canAssign = can(STORAGE_CODES.batchAssign);
-  const warehouseLabel = effectiveWarehouseId === undefined ? 'Select a warehouse' : storageWarehouseName(effectiveWarehouseId);
+  const warehouseLabel =
+    live !== undefined
+      ? live.warehouseName
+      : effectiveWarehouseId === undefined
+        ? 'Select a warehouse'
+        : storageWarehouseName(effectiveWarehouseId);
+  /** Live: a warehouse with no location set up still completes receiving (the location is optional on the check). */
+  const liveNoLocations = live !== undefined && !live.isLoading && (live.error === null || live.error === undefined) && live.options.length === 0;
+  const footerButton =
+    live !== undefined ? (
+      (selected !== undefined || liveNoLocations) && canAssign ? (
+        <WalletFooter>
+          <WalletButton
+            label={t('receiving.wizard.confirmLocationComplete')}
+            disabled={live.confirming}
+            onPress={() => live.onConfirm(selected?.id)}
+          />
+        </WalletFooter>
+      ) : undefined
+    ) : selected && canAssign && onConfirmAssignment ? (
+      <WalletFooter>
+        <WalletButton
+          label="Confirm Location Assignment & Complete Receiving →"
+          onPress={() => onConfirmAssignment(selected.id)}
+        />
+      </WalletFooter>
+    ) : undefined;
 
   return (
     <WalletScreen
       title="Storage Location Assignment"
-      subtitle={`Batch ${batchId}`}
+      subtitle={live !== undefined ? undefined : t('receiving.wizard.batchSubtitle', { code: batchId })}
       onBack={onBack}
       headerExtra={
-        isAllWarehouses(scope) ? (
+        live === undefined && isAllWarehouses(scope) ? (
           <ScopeHeader
             scope={scope}
             warehouseOptions={STORAGE_WAREHOUSES}
@@ -93,27 +175,19 @@ export function StorageLocationAssignmentScreen({
           />
         ) : undefined
       }
-      footer={
-        selected && canAssign && onConfirmAssignment ? (
-          <WalletFooter>
-            <WalletButton
-              label="Confirm Location Assignment & Complete Receiving →"
-              onPress={() => onConfirmAssignment(selected.id)}
-            />
-          </WalletFooter>
-        ) : undefined
-      }
+      footer={footerButton}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <InfoCard
           rows={[
             [
-              { label: 'Warehouse', value: warehouseLabel },
-              { label: 'Batch', value: batchId },
+              { label: t('receiving.wizard.warehouse'), value: warehouseLabel },
+              // Live: no batch yet (the check creates it, BR-106), so no batch line.
+              ...(live !== undefined ? [] : [{ label: t('receiving.wizard.batch'), value: batchId }]),
             ],
             [
-              { label: 'Product', value: productName },
-              { label: 'Quantity', value: quantity },
+              { label: t('receiving.wizard.product'), value: productName },
+              { label: t('receiving.wizard.quantity'), value: quantity },
             ],
           ]}
         />
@@ -128,9 +202,7 @@ export function StorageLocationAssignmentScreen({
             <View style={styles.selectedText}>
               <Text style={styles.selectedLabel}>ASSIGNED STORAGE LOCATION</Text>
               <Text style={styles.selectedTitle}>{selected.name}</Text>
-              <Text style={styles.selectedSub}>
-                {selected.code} · {selected.type} · {formatKg(selected.capacityKg - selected.currentKg)} free
-              </Text>
+              <Text style={styles.selectedSub}>{selected.sub}</Text>
             </View>
             <TouchableOpacity style={styles.changeButton} onPress={() => setPickerOpen(true)} activeOpacity={0.7} accessibilityRole="button">
               <Text style={styles.changeButtonText}>Change</Text>
@@ -155,7 +227,13 @@ export function StorageLocationAssignmentScreen({
               {warehouseLabel} · {productName}
             </Text>
             <ScrollView style={styles.locList}>
-              {locations.length === 0 ? (
+              {live !== undefined && locations.length === 0 && live.isLoading ? (
+                <AdminLoadingState />
+              ) : live !== undefined && locations.length === 0 && live.error !== null && live.error !== undefined ? (
+                <AdminErrorState error={live.error} onRetry={live.onRetry} />
+              ) : live !== undefined && locations.length === 0 ? (
+                <EmptyState title={t('receiving.wizard.storageEmpty')} />
+              ) : locations.length === 0 ? (
                 <EmptyState title="No free storage locations" subtitle="Every active location in this warehouse is full." />
               ) : (
                 locations.map((loc) => {
@@ -176,9 +254,7 @@ export function StorageLocationAssignmentScreen({
                       <View style={styles.locText}>
                         <Text style={styles.locZone}>{loc.type}</Text>
                         <Text style={[styles.locTitle, active && styles.locTitleSelected]}>{loc.name}</Text>
-                        <Text style={styles.locSub}>
-                          {loc.code} · Capacity: {formatKg(loc.capacityKg - loc.currentKg)} free
-                        </Text>
+                        <Text style={styles.locSub}>{loc.rowSub}</Text>
                       </View>
                     </TouchableOpacity>
                   );

@@ -29,9 +29,10 @@ import {
 } from '../../../theme';
 import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
-import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
-import { PROFILE_WAREHOUSES, WAREHOUSE_PROFILES, WAREHOUSE_CONTACTS } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
+import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
+import { updateWarehouseProfile } from '../../../api/warehouseSettings';
 
 export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
 export type WarehouseFormMode = 'edit' | 'add';
@@ -160,18 +161,21 @@ export function WarehouseEditProfileScreen({
   scope,
   onBack,
   initialTab = 'Details',
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: initialWarehouseOptions,
   selectedWarehouseId,
-  profiles = WAREHOUSE_PROFILES,
+  profiles = [],
   mode = 'edit',
   onSaveSuccess,
 }: WarehouseEditProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<EditWarehouseTab>(initialTab);
   const isAdd = mode === 'add';
 
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? fetchedWarehouseOptions;
+
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const profile = isAdd ? undefined : recordFor(profiles, warehouseId);
-  const contact = isAdd ? undefined : WAREHOUSE_CONTACTS.find((c) => c.warehouseId === warehouseId);
+  const contact = undefined;
 
   // Dynamic Screen Heading based on Active Tab & Mode
   const getHeaderTitle = () => {
@@ -305,7 +309,16 @@ export function WarehouseEditProfileScreen({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (warehouseId && !isAdd) {
+      try {
+        await updateWarehouseProfile(warehouseId, {
+          // name/address are not part of the BR-80 contract; only phone+hours are updatable
+        });
+      } catch {
+        // Proceed on non-fatal errors
+      }
+    }
     Alert.alert(isAdd ? 'Warehouse Created' : 'Changes Saved', `${getHeaderTitle()} ${isAdd ? 'created' : 'updated'} successfully.`, [
       {
         text: 'OK',

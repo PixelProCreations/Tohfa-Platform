@@ -40,15 +40,12 @@ import {
   WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import {
-  ATTENDANCE_DAY,
-  ATTENDANCE_MONTH_DAYS,
-  ATTENDANCE_MONTH_FIRST_WEEKDAY,
-  ATTENDANCE_MONTH_LABEL,
-  ATTENDANCE_MONTH_SHORT,
-  ATTENDANCE_RECORDS,
-  STAFF_WAREHOUSES,
-} from './fixtures';
+
+const ATTENDANCE_DAY = 25;
+const ATTENDANCE_MONTH_SHORT = 'SEP';
+const ATTENDANCE_MONTH_LABEL = 'September 2026';
+const ATTENDANCE_MONTH_DAYS = 30;
+const ATTENDANCE_MONTH_FIRST_WEEKDAY = 2;
 import {
   AttendanceStatusText,
   DateNavigator,
@@ -60,6 +57,8 @@ import {
   attendanceTone,
 } from './StaffParts';
 import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useRollCall } from './useStaffData';
 import type { AttendanceFilter, AttendanceRecord, AttendanceStatus, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 const FILTERS: readonly AttendanceFilter[] = ['All', 'Present', 'Absent', 'On Leave'];
@@ -73,7 +72,7 @@ export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
   onNavigateToHistory?: (() => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Rows of the mock day; defaults to the fixture set until an attendance API exists. */
+  /** Rows of the mock day; defaults to live records from roll call. */
   records?: readonly AttendanceRecord[] | undefined;
 }
 
@@ -85,8 +84,8 @@ export function AttendanceScreen({
   initialWarehouseId,
   onSelectRecord,
   onNavigateToHistory,
-  warehouseOptions = STAFF_WAREHOUSES,
-  records = ATTENDANCE_RECORDS,
+  warehouseOptions: customWarehouseOptions,
+  records: customRecords,
 }: AttendanceScreenProps) {
   const isMain = isAllWarehouses(scope);
   const [filter, setFilter] = useState<AttendanceFilter>(initialFilter);
@@ -99,12 +98,20 @@ export function AttendanceScreen({
   const [pickerDay, setPickerDay] = useState(ATTENDANCE_DAY);
   const [day, setDay] = useState(ATTENDANCE_DAY);
 
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
+
   const dateText = `${day} ${ATTENDANCE_MONTH_SHORT}`;
-  // The mock rows describe one day only; any other day shows the empty state.
-  const dayRecords = useMemo(
-    () => (day === ATTENDANCE_DAY ? records.filter((r) => inScope(scope, r.warehouseId, selectedWarehouseId)) : []),
-    [day, records, scope, selectedWarehouseId],
-  );
+  const dateStr = `2026-09-${String(day).padStart(2, '0')}`;
+  const { records: liveRecords, summary: liveSummary, loading } = useRollCall(scope, selectedWarehouseId, dateStr);
+
+  const dayRecords = useMemo(() => {
+    if (customRecords) {
+      return day === ATTENDANCE_DAY ? customRecords.filter((r) => inScope(scope, r.warehouseId, selectedWarehouseId)) : [];
+    }
+    return liveRecords.filter((r) => inScope(scope, r.warehouseId, selectedWarehouseId));
+  }, [day, customRecords, liveRecords, scope, selectedWarehouseId]);
+
   const visible = dayRecords.filter((r) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesQuery = !q || r.name.toLowerCase().includes(q) || r.role.toLowerCase().includes(q);
@@ -116,7 +123,16 @@ export function AttendanceScreen({
         : r.type === 'warehouse' || !r.role.toLowerCase().includes('driver');
     return matchesQuery && matchesRole && (filter === 'All' || r.status === filter);
   });
-  const count = (status: AttendanceStatus) => String(dayRecords.filter((r) => r.status === status).length);
+  const count = (status: AttendanceStatus) => {
+    if (customRecords) {
+      return String(dayRecords.filter((r) => r.status === status).length);
+    }
+    if (status === 'Present') return String(liveSummary?.present ?? 0);
+    if (status === 'Absent') return String(liveSummary?.absent ?? 0);
+    if (status === 'On Leave') return String(liveSummary?.leave ?? 0);
+    return String(dayRecords.filter((r) => r.status === status).length);
+  };
+  const totalCount = customRecords ? String(dayRecords.length) : String(liveSummary?.total ?? 0);
   const shiftDay = (delta: number) => setDay((d) => Math.min(ATTENDANCE_MONTH_DAYS, Math.max(1, d + delta)));
   const scopeLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? scope.warehouseId ?? '';
 
@@ -214,7 +230,7 @@ export function AttendanceScreen({
             { value: count('Present'), label: 'PRESENT', tone: 'success' },
             { value: count('Absent'), label: 'ABSENT', tone: 'danger' },
             { value: count('On Leave'), label: 'ON LEAVE', tone: 'warning' },
-            { value: String(dayRecords.length), label: 'TOTAL' },
+            { value: totalCount, label: 'TOTAL' },
           ]}
         />
         <SearchBar

@@ -2,11 +2,19 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { formatKgNumber } from '../../../money/quantity';
+import type { AllocationChannelKey, AllocationDashboard, InventoryLiveStateProps, InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type StockAllocationDashboardScreenProps = InventoryScreenBaseProps;
+export interface StockAllocationDashboardScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** Live allocation dashboard from /admin/allocations (aggregated). */
+  dashboard?: AllocationDashboard | undefined;
+  /** Total raw rows loaded (for display). */
+  rowCount?: number | undefined;
+  /** False when some allocation page loads were incomplete. */
+  complete?: boolean | undefined;
+}
 
 
 function StockTabBoxIcon({ color = adminColors.ink }: { color?: string }) {
@@ -65,45 +73,20 @@ function VerifyTabIcon({ color = adminColors.ink }: { color?: string }) {
   );
 }
 
-export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: StockAllocationDashboardScreenProps) {
-  const allocations = [
-    {
-      channel: 'ONLINE',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.brand,
-      allocated: '420 KG',
-      consumed: '180 KG',
-      reserved: '120 KG',
-      available: '120 KG',
-    },
-    {
-      channel: 'LIVE MARKET',
-      titleColor: adminColors.success.text,
-      borderColor: adminColors.success.text,
-      allocated: '120 KG',
-      consumed: '40 KG',
-      reserved: '30 KG',
-      available: '50 KG',
-    },
-    {
-      channel: 'RESERVE',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.info.text,
-      allocated: '80 KG',
-      consumed: '20 KG',
-      reserved: '20 KG',
-      available: '40 KG',
-    },
-    {
-      channel: 'BUFFER',
-      titleColor: adminColors.brandDeep,
-      borderColor: adminColors.warning.text,
-      allocated: '60 KG',
-      consumed: '10 KG',
-      reserved: '10 KG',
-      available: '40 KG',
-    },
-  ];
+/** Maps each allocation channel key to a color pair for the accent stripe and title. */
+function channelColors(channel: AllocationChannelKey): { title: string; accent: string } {
+  switch (channel) {
+    case 'online': return { title: adminColors.brandDeep, accent: adminColors.brand };
+    case 'liveMarket': return { title: adminColors.success.text, accent: adminColors.success.text };
+    case 'reserve': return { title: adminColors.brandDeep, accent: adminColors.info.text };
+    case 'buffer': return { title: adminColors.brandDeep, accent: adminColors.warning.text };
+    default: return { title: adminColors.ink, accent: adminColors.muted };
+  }
+}
+
+export function StockAllocationDashboardScreen({ scope, onNavigate, onBack, dashboard, isLoading }: StockAllocationDashboardScreenProps) {
+  // Build rows from live dashboard when available.
+  const liveChannels = dashboard?.channels ?? [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -164,48 +147,54 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
             <Text style={styles.sectionSubtitle}>Values from config</Text>
           </View>
 
-          {/* Multi-color Split Bar matching Reference Design */}
-          <View style={styles.multiSplitBar}>
-            <View style={[styles.splitSegment, { flex: 420, backgroundColor: adminColors.brand }]} />
-            <View style={[styles.splitSegment, { flex: 120, backgroundColor: adminColors.success.text }]} />
-            <View style={[styles.splitSegment, { flex: 80, backgroundColor: adminColors.info.text }]} />
-            <View style={[styles.splitSegment, { flex: 60, backgroundColor: adminColors.warning.text }]} />
-          </View>
+          {/* Multi-color Split Bar — segments sized by shareBasisPoints */}
+          {isLoading && liveChannels.length === 0 ? null : (
+            <View style={styles.multiSplitBar}>
+              {liveChannels.map((ch) => {
+                const { accent } = channelColors(ch.channel);
+                const flex = ch.shareBasisPoints > 0 ? ch.shareBasisPoints : 1;
+                return <View key={ch.channel} style={[styles.splitSegment, { flex, backgroundColor: accent }]} />;
+              })}
+            </View>
+          )}
 
           {/* 4 Allocation Cards with curved left colored accent */}
-          {allocations.map((alloc, index) => (
-            <View key={index} style={styles.allocationCard}>
-              <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
-              <View style={styles.cardContent}>
-                <Text style={[styles.channelName, { color: alloc.titleColor }]}>
-                  {alloc.channel}
-                </Text>
+          {liveChannels.map((alloc) => {
+            const { title: titleColor, accent: borderColor } = channelColors(alloc.channel);
+            return (
+              <View key={alloc.channel} style={styles.allocationCard}>
+                <View style={[styles.leftAccentStripe, { backgroundColor: borderColor }]} />
+                <View style={styles.cardContent}>
+                  <Text style={[styles.channelName, { color: titleColor }]}>
+                    {alloc.label}
+                  </Text>
 
-                {/* 4 Stat Boxes Row */}
-                <View style={styles.statsBoxRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.allocated}</Text>
-                    <Text style={styles.statLabel}>ALLOCATED</Text>
-                  </View>
+                  {/* 4 Stat Boxes Row */}
+                  <View style={styles.statsBoxRow}>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{`${formatKgNumber(alloc.allocatedGrams)} kg`}</Text>
+                      <Text style={styles.statLabel}>ALLOCATED</Text>
+                    </View>
 
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.consumed}</Text>
-                    <Text style={styles.statLabel}>CONSUMED</Text>
-                  </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{`${formatKgNumber(alloc.consumedGrams)} kg`}</Text>
+                      <Text style={styles.statLabel}>CONSUMED</Text>
+                    </View>
 
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.reserved}</Text>
-                    <Text style={styles.statLabel}>RESERVED</Text>
-                  </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{`${formatKgNumber(alloc.reservedGrams)} kg`}</Text>
+                      <Text style={styles.statLabel}>RESERVED</Text>
+                    </View>
 
-                  <View style={styles.statBox}>
-                    <Text style={styles.statValue}>{alloc.available}</Text>
-                    <Text style={styles.statLabel}>AVAILABLE</Text>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{alloc.availableGrams !== null ? `${formatKgNumber(alloc.availableGrams)} kg` : '—'}</Text>
+                      <Text style={styles.statLabel}>AVAILABLE</Text>
+                    </View>
                   </View>
                 </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           <View style={{ height: 24 }} />
         </ScrollView>

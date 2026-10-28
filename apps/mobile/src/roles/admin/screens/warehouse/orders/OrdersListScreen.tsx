@@ -40,6 +40,8 @@ export interface OrdersListScreenProps extends OrderScreenBaseProps {
   routeParams?: OrdersListRouteParams | undefined;
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
   warehouses?: WarehouseOption[] | undefined;
+  /** Live order rows; if undefined the screen renders its built-in sample set. */
+  orders?: readonly OrderRow[] | undefined;
 }
 
 /** Neutral placeholder until the host passes the real warehouse list (same ids as the mock orders). */
@@ -53,12 +55,14 @@ const DEFAULT_WAREHOUSES: WarehouseOption[] = [
 
 type OrderStatus = 'Confirmed' | 'Ready for Pickup' | 'Packing' | 'Quantity Issue' | 'Completed';
 
-interface OrderRow {
+/** One order row on the list screen. Exported so the host can pass live rows. */
+export interface OrderRow {
   id: string;
   warehouseId: string;
   warehouseName: string;
   customer: string;
-  status: OrderStatus;
+  /** Display status label; `string` so the mapper can supply its own labels. */
+  status: string;
   items: string;
   amount: string;
   fulfillment: 'Pickup' | 'Delivery';
@@ -194,13 +198,13 @@ const ORDERS: OrderRow[] = [
   },
 ];
 
-const STATUS_TONE: Record<OrderStatus, { bg: string; text: string }> = {
+const STATUS_TONE: Record<string, { bg: string; text: string }> = {
   Confirmed: adminColors.warning,
   Packing: adminColors.warning,
   'Ready for Pickup': adminColors.success,
   Completed: adminColors.success,
   'Quantity Issue': adminColors.danger,
-};
+} satisfies Record<OrderStatus, { bg: string; text: string }>;
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -275,7 +279,7 @@ function BuildingWarehouseIcon({ color }: { color: string }) {
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
-export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = DEFAULT_WAREHOUSES }: OrdersListScreenProps) {
+export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = DEFAULT_WAREHOUSES, orders: liveOrders }: OrdersListScreenProps) {
   const isAllWarehouses = scope.warehouseId === undefined;
   const [searchQuery, setSearchQuery] = useState('');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | 'Delivery' | 'Pickup'>(
@@ -302,7 +306,7 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
   const warehouseFilter = isAllWarehouses ? selectedWarehouseId : scope.warehouseId;
   const query = searchQuery.toLowerCase();
 
-  const filteredOrders = ORDERS.filter((order) => {
+  const filteredOrders = (liveOrders ?? ORDERS).filter((order) => {
     if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
       return false;
     }
@@ -378,7 +382,9 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
           </View>
 
           {filteredOrders.map((order) => {
-            const tone = STATUS_TONE[order.status];
+            // STATUS_TONE is Record<string, ...>: always defined; unknown statuses fall back to warning tone.
+            const toneEntry = STATUS_TONE[order.status];
+            const tone: { bg: string; text: string } = toneEntry ?? adminColors.warning;
             return (
               <TouchableOpacity
                 key={order.id}

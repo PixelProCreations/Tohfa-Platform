@@ -14,7 +14,10 @@ import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type StockAdjustmentRequestScreenProps = InventoryScreenBaseProps;
+export interface StockAdjustmentRequestScreenProps extends InventoryScreenBaseProps {
+  /** Pre-selected batch id (from the ledger Verify CTA). */
+  presetBatchId?: string | undefined;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 

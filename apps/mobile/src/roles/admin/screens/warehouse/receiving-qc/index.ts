@@ -22,25 +22,14 @@ export { ReceivingHistoryScreen, type ReceivingHistoryScreenProps } from './Rece
 export { ReceivingSearchFiltersScreen, type ReceivingSearchFiltersScreenProps } from './ReceivingSearchFiltersScreen';
 export { ShipmentDetailScreen, type ShipmentDetailScreenProps } from './ShipmentDetailScreen';
 export { RECEIVING_CODES } from './ReceivingParts';
-export {
-  ALERT_RECEIPT_ID,
-  DEMO_SHIPMENT,
-  INCOMING_SHIPMENTS,
-  QUALITY_ISSUES,
-  RECEIVING_RECORDS,
-  findReceivingRecord,
-  findShipment,
-  recordsInScope,
-  shipmentsInScope,
-} from './fixtures';
+// LEGACY sample data still imported by host code outside this area (see ./fixtures.ts).
+export { ALERT_RECEIPT_ID, DEMO_SHIPMENT, findShipment, shipmentsInScope } from './fixtures';
 export type {
   HistoryFilter,
   IncomingShipment,
   QcResult,
-  QualityIssue,
   ReceiptResult,
   ReceiptTimelineEvent,
-  ReceivingFilters,
   ReceivingOutcome,
   ReceivingRecord,
   ReceivingRoute,

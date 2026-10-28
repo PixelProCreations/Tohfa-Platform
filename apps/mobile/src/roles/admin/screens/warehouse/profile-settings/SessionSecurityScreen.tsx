@@ -14,8 +14,8 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { Card, InfoCard, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { CURRENT_SESSION, LOGIN_HISTORY } from './fixtures';
+import { Card, EmptyState, InfoCard, SectionTitle, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { useSessions } from './useProfileSettingsData';
 import { ConfirmDialog, DangerOutlineButton, LogoutIcon, MenuCard, profileLayout, StatusDot, StatusRow } from './ProfileParts';
 import type { CurrentSessionInfo, LoginHistoryItem, WarehouseScreenBaseProps } from './types';
 
@@ -28,12 +28,24 @@ export interface SessionSecurityScreenProps extends WarehouseScreenBaseProps {
 
 export function SessionSecurityScreen({
   onBack,
-  session = CURRENT_SESSION,
-  loginHistory = LOGIN_HISTORY,
+  session: customSession,
+  loginHistory: customHistory,
   onLogout,
 }: SessionSecurityScreenProps) {
+  const { currentSession: liveSession, loginHistory: liveHistory } = useSessions();
+  const session = customSession ?? liveSession;
+  const loginHistory = customHistory ?? liveHistory;
+
   const [remembered, setRemembered] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
+
+  if (!session) {
+    return (
+      <WalletScreen title="Session & Security" onBack={onBack}>
+        <EmptyState title="Loading session…" />
+      </WalletScreen>
+    );
+  }
 
   const logout = () => {
     setConfirmLogout(false);

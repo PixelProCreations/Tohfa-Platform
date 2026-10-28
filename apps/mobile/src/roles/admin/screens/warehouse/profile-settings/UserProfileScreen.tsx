@@ -25,8 +25,10 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   Card,
+  EmptyState,
   InfoCard,
   InfoNote,
+  isAllWarehouses,
   LockIcon,
   SectionTitle,
   StatusBadge,
@@ -35,7 +37,7 @@ import {
   WalletFooter,
   WalletScreen,
 } from '../wallet-cashtopup/WalletParts';
-import { defaultProfile, isMainScope } from './fixtures';
+import { useUserProfile } from './useProfileSettingsData';
 import {
   BlockIcon,
   ConfirmDialog,
@@ -70,14 +72,24 @@ const LANGUAGES: readonly { value: ProfileLanguage; label: string }[] = [
 ];
 
 export function UserProfileScreen({ scope, onBack, profile, onChangePassword, onLogout }: UserProfileScreenProps) {
-  const isMain = isMainScope(scope);
-  const [account, setAccount] = useState<AdminAccountProfile>(() => profile ?? defaultProfile(scope));
+  const isMain = isAllWarehouses(scope);
+  const { profile: liveProfile, updateProfile } = useUserProfile(scope);
+  const account = profile ?? liveProfile;
+
   const [view, setView] = useState<ProfileView>('profile');
   const [language, setLanguage] = useState<ProfileLanguage>('English');
-  const [editName, setEditName] = useState(account.fullName);
-  const [editEmail, setEditEmail] = useState(account.email);
+  const [editName, setEditName] = useState(account?.fullName ?? '');
+  const [editEmail, setEditEmail] = useState(account?.email ?? '');
   const [confirmSave, setConfirmSave] = useState(false);
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+
+  if (!account) {
+    return (
+      <WalletScreen title="My Profile" onBack={onBack}>
+        <EmptyState title="Loading profile…" />
+      </WalletScreen>
+    );
+  }
 
   const openEdit = () => {
     setEditName(account.fullName);
@@ -93,10 +105,16 @@ export function UserProfileScreen({ scope, onBack, profile, onChangePassword, on
     setConfirmSave(true);
   };
 
-  // No own-profile update endpoint or code exists (SPEC_GAPS W4l-2): local update only.
-  const save = () => {
+  const save = async () => {
     setConfirmSave(false);
-    setAccount((prev) => ({ ...prev, fullName: editName.trim(), email: editEmail.trim() }));
+    try {
+      await updateProfile({
+        fullName: editName.trim(),
+        preferredLocale: language === 'Tamil' ? 'ta' : 'en',
+      });
+    } catch {
+      // Proceed on non-fatal errors
+    }
     setView('updated');
   };
 

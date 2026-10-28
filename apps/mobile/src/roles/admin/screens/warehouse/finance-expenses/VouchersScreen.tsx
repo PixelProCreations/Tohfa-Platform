@@ -35,8 +35,9 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { FINANCE_WAREHOUSES, SAMPLE_VOUCHERS } from './fixtures';
 import { canSeeVoucherType, FilterIcon, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
+import { useExpenses, useRevenueList } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { VoucherRecord, VoucherType, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 
@@ -69,7 +70,7 @@ function VoucherFilterView({
   options,
   selected,
   selectedWarehouseId,
-  warehouseOptions = FINANCE_WAREHOUSES,
+  warehouseOptions = [],
   isMain,
   hideWarehouseFilter = false,
   onBack,
@@ -145,16 +146,53 @@ export function VouchersScreen({
   can,
   onBack,
   onTabChange,
-  vouchers = SAMPLE_VOUCHERS,
-  warehouseOptions = FINANCE_WAREHOUSES,
+  vouchers: initialVouchers,
+  warehouseOptions: initialWarehouseOptions,
   onSelectVoucher,
   initialWarehouseId,
   hideWarehouseFilter = false,
 }: VouchersScreenProps) {
   const isMain = isAllWarehouses(scope);
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
+
+  const effectiveWarehouseId = isMain
+    ? (selectedWarehouseId && selectedWarehouseId !== 'All' ? selectedWarehouseId : undefined)
+    : scope.warehouseId;
+  const { expenses } = useExpenses({ warehouseId: effectiveWarehouseId });
+  const { revenueRecords } = useRevenueList({});
+
+  const liveExpenseVouchers: VoucherRecord[] = expenses.map((e) => ({
+    id: `VCH-${e.id.replace('EXP-', '')}`,
+    type: 'Expense',
+    title: `Expense Voucher · ${e.categoryRef.split('·')[0]?.trim() || 'Expense'}`,
+    amount: e.amount,
+    referenceId: e.id,
+    date: e.timestamp,
+    status: e.status === 'Approved' ? 'Completed' : e.status === 'Pending' ? 'Pending' : 'Recorded',
+    warehouseId: e.warehouseId,
+    warehouseName: e.warehouseName,
+  }));
+
+  const liveRevenueVouchers: VoucherRecord[] = revenueRecords.map((r) => ({
+    id: `VCH-${r.id.replace('REV-', '').replace('ORD-', '')}`,
+    type: 'Revenue',
+    title: `Revenue Voucher · ${r.orderRef}`,
+    amount: r.amount,
+    referenceId: r.id,
+    date: r.timestamp,
+    status: r.status === 'Completed' ? 'Completed' : 'Pending',
+    warehouseId: r.warehouseId,
+    warehouseName: r.warehouseName,
+    paymentMethod: r.paymentMethod,
+  }));
+
+  const allLiveVouchers = [...liveExpenseVouchers, ...liveRevenueVouchers];
+  const vouchers = initialVouchers ?? allLiveVouchers;
+
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
   const [showFilter, setShowFilter] = useState(false);
   const [openVoucher, setOpenVoucher] = useState<VoucherRecord | null>(null);
 

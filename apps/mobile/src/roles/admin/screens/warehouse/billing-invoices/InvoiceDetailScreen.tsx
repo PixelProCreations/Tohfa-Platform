@@ -19,7 +19,7 @@
  *     the invoice id.
  */
 // Design id: M9-S03
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -33,13 +33,11 @@ import {
   DownloadIcon,
   HeaderIconButton,
   InfoCard,
-  InfoNote,
   inScope,
   isAllWarehouses,
   PermissionNote,
   SectionTitle,
 } from './BillingParts';
-import { SAMPLE_INVOICE_DETAIL } from './fixtures';
 import type { InvoiceDetailRecord, WarehouseScreenBaseProps } from './types';
 
 export interface InvoiceDetailScreenProps extends WarehouseScreenBaseProps {
@@ -66,17 +64,22 @@ function TimelineCheckIcon() {
 
 
 
+import { useInvoiceDetail } from './useBillingData';
+
 export function InvoiceDetailScreen({
   scope,
   can,
   onBack,
   invoiceId,
-  invoice = SAMPLE_INVOICE_DETAIL,
+  invoice: invoiceProp,
   onDownload,
   onShare,
 }: InvoiceDetailScreenProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [showToast, setShowToast] = useState(false);
+
+  const { invoice: liveInvoice, isLoading, downloadPdf } = useInvoiceDetail(invoiceId, !invoiceProp);
+  const invoice = invoiceProp ?? liveInvoice;
 
   useEffect(() => {
     if (!showPreview) return;
@@ -89,6 +92,27 @@ export function InvoiceDetailScreen({
 
   const canView = can('invoice.view_own');
   const allWarehouses = isAllWarehouses(scope);
+
+  if (isLoading && !invoiceProp) {
+    return (
+      <BillingScreen title="Invoice Detail" onBack={onBack}>
+        <View style={styles.scrollContent}>
+          <PermissionNote>Loading invoice…</PermissionNote>
+        </View>
+      </BillingScreen>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <BillingScreen title="Invoice Detail" onBack={onBack}>
+        <View style={styles.scrollContent}>
+          <PermissionNote>Invoice not found.</PermissionNote>
+        </View>
+      </BillingScreen>
+    );
+  }
+
   const record: InvoiceDetailRecord = { ...invoice, invoiceId };
 
   if (!inScope(scope, record.warehouseId)) {
@@ -107,7 +131,11 @@ export function InvoiceDetailScreen({
 
   const handlePdfDownload = () => {
     setShowToast(true);
-    onDownload?.(invoiceId);
+    if (onDownload) {
+      onDownload(invoiceId);
+    } else {
+      void downloadPdf();
+    }
   };
 
   const handleDownload = () => {
@@ -151,10 +179,12 @@ export function InvoiceDetailScreen({
               <View style={styles.brandDivider} />
             </View>
 
-            <View style={styles.previewRow}>
-              <Text style={styles.previewLabel}>Customer</Text>
-              <Text style={styles.previewValue}>{record.customerName}</Text>
-            </View>
+            {record.customerName ? (
+              <View style={styles.previewRow}>
+                <Text style={styles.previewLabel}>Customer</Text>
+                <Text style={styles.previewValue}>{record.customerName}</Text>
+              </View>
+            ) : null}
 
             {record.items.map((item, index) => (
               <View key={`${item.name}-${index}`} style={styles.previewRow}>
@@ -239,13 +269,17 @@ export function InvoiceDetailScreen({
         <SectionTitle>Invoice Information</SectionTitle>
         <InfoCard rows={infoRows} />
 
-        <SectionTitle>Bill To</SectionTitle>
-        <Card>
-          <Text style={styles.billToName}>{record.customerName}</Text>
-          <Text style={styles.billToDetails}>
-            Customer ID: {record.customerId} · Mobile: {record.customerPhone}
-          </Text>
-        </Card>
+        {record.customerName ? (
+          <>
+            <SectionTitle>Bill To</SectionTitle>
+            <Card>
+              <Text style={styles.billToName}>{record.customerName}</Text>
+              <Text style={styles.billToDetails}>
+                Customer ID: {record.customerId} · Mobile: {record.customerPhone}
+              </Text>
+            </Card>
+          </>
+        ) : null}
 
         <SectionTitle>Product / Line Items</SectionTitle>
         <Card>

@@ -2,18 +2,18 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { formatKgNumber } from '../../../money/quantity';
+import type { InventoryScreenBaseProps, StockMovementRow } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type StockMovementDetailScreenProps = InventoryScreenBaseProps;
+export interface StockMovementDetailScreenProps extends InventoryScreenBaseProps {
+  /** The movement row extracted from route params (BR-37: no per-id ledger read). */
+  movement?: StockMovementRow | undefined;
+  /** Warehouse name for display; resolved by useInventoryWarehouseName. */
+  warehouseName?: string | undefined;
+}
 
-const TIMELINE_EVENTS = [
-  { label: 'Movement Created', time: '10:40 AM' },
-  { label: 'Quantity Recorded', time: '10:41 AM' },
-  { label: 'Ledger Posted', time: '10:42 AM' },
-  { label: 'Completed', time: '10:42 AM' },
-];
 
 function MoreDotsIcon() {
   return (
@@ -26,34 +26,6 @@ function MoreDotsIcon() {
   );
 }
 
-function PhotoThumbnailIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" stroke={adminColors.brand} strokeWidth="1.8" />
-      <Path d="M8.5 6.7a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z" stroke={adminColors.brand} strokeWidth="1.5" />
-      <Path d="M21 15l-5-5-8 8" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 14l2-2 5 5" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function TimelineGreenDot() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke={adminColors.success.text} strokeWidth="2.5" fill={adminColors.card} />
-      <Path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z" fill={adminColors.success.text} />
-    </Svg>
-  );
-}
-
-function InfoCircleIcon() {
-  return (
-    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z" stroke={adminColors.info.text} strokeWidth="1.8" />
-      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
 function QrIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
   return (
@@ -81,22 +53,27 @@ function HistoryLedgerIcon({ color = adminColors.brand, size = 18 }: { color?: s
   );
 }
 
-function LockNoticeIcon({ color = adminColors.brand, size = 18 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z" stroke={color} strokeWidth="2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
 
-export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, routeParams }: StockMovementDetailScreenProps) {
-  // rbac: stock_ledger.view_all MAIN=all, SUB=none. Without it the movement is
-  // forced to the viewer's own warehouse (view_own) whatever the deep link says.
-  const canViewAll = can('inventory.stock_ledger.view_all');
-  const warehouseLabel = canViewAll
-    ? String(routeParams?.warehouseName ?? scope.warehouseName ?? '—')
-    : (scope.warehouseName ?? '—');
+export function StockMovementDetailScreen({ scope, onNavigate, onBack, movement, warehouseName }: StockMovementDetailScreenProps) {
+  // Warehouse label: prefer the resolved prop (useInventoryWarehouseName), then scope fallback.
+  const warehouseLabel = warehouseName ?? scope.warehouseName ?? '—';
+
+  // Product label is "ProductName · GradeLabel" — split for the two-column grid.
+  const productParts = movement?.productLabel?.split(' · ') ?? [];
+  const productName = productParts[0] ?? '—';
+  const gradeLabel = productParts[1] ?? '—';
+
+  // BR-37: no per-id ledger read. All data comes from movement prop (route params).
+  // Compute "before" from balanceAfter - delta. Both are number | null per the type.
+  const beforeGrams =
+    movement != null && movement.balanceAfterGrams != null && movement.deltaGrams != null
+      ? movement.balanceAfterGrams - movement.deltaGrams
+      : null;
+  const beforeText = beforeGrams != null ? `${formatKgNumber(Math.max(0, beforeGrams))} kg` : '—';
+
+  // Colour the quantity card to match direction: 'in' = green, 'out' = red.
+  const qtyColor = movement?.direction === 'out' ? adminColors.danger.text : adminColors.success.text;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -118,9 +95,11 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
           {/* Top Hero Card */}
           <View style={styles.heroCard}>
             <View style={styles.receiptBadge}>
-              <Text style={styles.receiptBadgeText}>RECEIPT · Completed</Text>
+              <Text style={styles.receiptBadgeText}>
+                {movement ? `${movement.typeLabel} · Completed` : '—'}
+              </Text>
             </View>
-            <Text style={styles.movementIdBig}>MOV-000248</Text>
+            <Text style={styles.movementIdBig}>{movement?.id ?? '—'}</Text>
           </View>
 
           {/* Movement Summary - 2-Column Grid */}
@@ -130,9 +109,10 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Movement Type</Text>
-                  <Text style={styles.colValue}>RECEIPT</Text>
+                  <Text style={styles.colValue}>{movement?.typeLabel ?? '—'}</Text>
                 </View>
                 <View style={styles.col}>
+                  {/* Ledger entries are final (append-only). Status is always Completed. */}
                   <Text style={styles.colLabel}>Status</Text>
                   <Text style={styles.colValue}>Completed</Text>
                 </View>
@@ -141,7 +121,7 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
               <View style={[styles.twoColRow, { marginTop: 12 }]}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Movement ID</Text>
-                  <Text style={styles.colValue}>MOV-000248</Text>
+                  <Text style={styles.colValue}>{movement?.id ?? '—'}</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Warehouse</Text>
@@ -152,7 +132,7 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
               <View style={[styles.twoColRow, { marginTop: 12 }]}>
                 <View style={styles.fullCol}>
                   <Text style={styles.colLabel}>Date & Time</Text>
-                  <Text style={styles.colValue}>16 Sep 2026, 10:42 AM</Text>
+                  <Text style={styles.colValue}>{movement?.performedAt ?? '—'}</Text>
                 </View>
               </View>
             </View>
@@ -165,22 +145,23 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Product / Crop</Text>
-                  <Text style={styles.colValue}>Tomato</Text>
+                  <Text style={styles.colValue}>{productName}</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Grade</Text>
-                  <Text style={styles.colValue}>Grade 1</Text>
+                  <Text style={styles.colValue}>{gradeLabel}</Text>
                 </View>
               </View>
 
               <View style={[styles.twoColRow, { marginTop: 12 }]}>
                 <View style={styles.col}>
+                  {/* All produce quantities are in KG. */}
                   <Text style={styles.colLabel}>Unit</Text>
                   <Text style={styles.colValue}>KG</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Batch</Text>
-                  <Text style={styles.colValue}>BAT-COO-00241</Text>
+                  <Text style={styles.colValue}>{movement?.batchCode ?? '—'}</Text>
                 </View>
               </View>
             </View>
@@ -190,22 +171,22 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Quantity Movement</Text>
             <View style={styles.quantityCard}>
-              <Text style={styles.quantityCardLabel}>QUANTITY MOVEMENT</Text>
-              <Text style={styles.quantityBigValue}>+140 KG</Text>
-              
+              <Text style={[styles.quantityCardLabel, { color: qtyColor }]}>QUANTITY MOVEMENT</Text>
+              <Text style={[styles.quantityBigValue, { color: qtyColor }]}>{movement?.deltaText ?? '—'}</Text>
+
               <View style={styles.flowRow}>
                 <View style={styles.flowStep}>
-                  <Text style={styles.flowStepValue}>0 KG</Text>
+                  <Text style={styles.flowStepValue}>{beforeText}</Text>
                   <Text style={styles.flowStepLabel}>BEFORE</Text>
                 </View>
                 <Text style={styles.flowArrow}>→</Text>
                 <View style={styles.flowStep}>
-                  <Text style={styles.flowStepValueGreen}>+140 KG</Text>
-                  <Text style={styles.flowStepLabelGreen}>MOVEMENT</Text>
+                  <Text style={[styles.flowStepValueGreen, { color: qtyColor }]}>{movement?.deltaText ?? '—'}</Text>
+                  <Text style={[styles.flowStepLabelGreen, { color: qtyColor }]}>MOVEMENT</Text>
                 </View>
                 <Text style={styles.flowArrow}>→</Text>
                 <View style={styles.flowStep}>
-                  <Text style={styles.flowStepValue}>140 KG</Text>
+                  <Text style={styles.flowStepValue}>{movement?.balanceText ?? '—'}</Text>
                   <Text style={styles.flowStepLabel}>AFTER</Text>
                 </View>
               </View>
@@ -213,109 +194,82 @@ export function StockMovementDetailScreen({ scope, can, onNavigate, onBack, rout
 
           </View>
 
-          {/* Storage Location - 2-Column Grid */}
+          {/* Storage Location — no storage hierarchy API; all fields show '—'. */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Storage Location</Text>
             <View style={styles.infoCard}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Storage Type</Text>
-                  <Text style={styles.colValue}>Cold Storage</Text>
+                  <Text style={styles.colValue}>{'—'}</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Section</Text>
-                  <Text style={styles.colValue}>Section A</Text>
+                  <Text style={styles.colValue}>{'—'}</Text>
                 </View>
               </View>
 
               <View style={[styles.twoColRow, { marginTop: 12 }]}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Rack</Text>
-                  <Text style={styles.colValue}>Rack 02</Text>
+                  <Text style={styles.colValue}>{'—'}</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Shelf / Bin</Text>
-                  <Text style={styles.colValue}>Shelf 03</Text>
+                  <Text style={styles.colValue}>{'—'}</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Reference - 2-Column Grid */}
+          {/* Reference */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reference</Text>
             <View style={styles.infoCard}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
-                  <Text style={styles.colLabel}>Goods Receipt</Text>
-                  <Text style={styles.colValue}>GRN-00291</Text>
+                  <Text style={styles.colLabel}>{movement?.refType ?? 'Reference'}</Text>
+                  <Text style={styles.colValue}>{movement?.refId ?? '—'}</Text>
                 </View>
                 <View style={styles.col}>
+                  {/* 'Received From' has no API field — not exposed on ledger rows. */}
                   <Text style={styles.colLabel}>Received From</Text>
-                  <Text style={styles.colValue}>Main Warehouse</Text>
+                  <Text style={styles.colValue}>{'—'}</Text>
                 </View>
               </View>
 
               <View style={[styles.twoColRow, { marginTop: 12 }]}>
                 <View style={styles.fullCol}>
                   <Text style={styles.colLabel}>Related Batch</Text>
-                  <Text style={styles.colValue}>BAT-COO-00241</Text>
+                  <Text style={styles.colValue}>{movement?.batchCode ?? '—'}</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Performed By - 2-Column Grid */}
+          {/* Performed By — performer identity is not on the ledger row; date is. */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Performed By</Text>
             <View style={styles.infoCard}>
               <View style={styles.twoColRow}>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Performed By</Text>
-                  <Text style={styles.colValue}>Warehouse Admin · {warehouseLabel} (Suresh)</Text>
+                  <Text style={styles.colValue}>{'—'}</Text>
                 </View>
                 <View style={styles.col}>
                   <Text style={styles.colLabel}>Date & Time</Text>
-                  <Text style={styles.colValue}>16 Sep 2026, 10:42 AM</Text>
+                  <Text style={styles.colValue}>{movement?.performedAt ?? '—'}</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Notes & Evidence */}
+          {/* Notes — remarks from the ledger row; no photo evidence API. */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notes & Evidence</Text>
+            <Text style={styles.sectionTitle}>Notes</Text>
             <View style={styles.infoCard}>
-              <Text style={styles.colLabel}>Notes</Text>
-              <Text style={styles.notesText}>Received and accepted after QC.</Text>
-              
-              <View style={styles.evidenceThumbnailsRow}>
-                <View style={styles.thumbnailBox}>
-                  <PhotoThumbnailIcon />
-                </View>
-                <View style={styles.thumbnailBox}>
-                  <PhotoThumbnailIcon />
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* Movement Timeline */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Movement Timeline</Text>
-            <View style={styles.timelineCard}>
-              {TIMELINE_EVENTS.map((event, index) => (
-                <View key={index} style={styles.timelineStepRow}>
-                  <View style={styles.timelineIndicatorCol}>
-                    <TimelineGreenDot />
-                    {index < TIMELINE_EVENTS.length - 1 && <View style={styles.timelineVerticalLine} />}
-                  </View>
-                  <View style={styles.timelineTextCol}>
-                    <Text style={styles.timelineStepTitle}>{event.label}</Text>
-                    <Text style={styles.timelineStepTime}>{event.time}</Text>
-                  </View>
-                </View>
-              ))}
+              <Text style={styles.colLabel}>Remarks</Text>
+              <Text style={styles.notesText}>{movement?.remarks || '—'}</Text>
             </View>
           </View>
 
@@ -504,76 +458,11 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     marginBottom: 10,
   },
-  blueNoticeBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: adminColors.info.bg,
-    borderWidth: 1,
-    borderColor: adminColors.info.bg,
-    borderRadius: 10,
-    padding: 12,
-    gap: 8,
-  },
-  blueNoticeText: {
-    ...adminType.rowMeta,
-    flex: 1,
-    lineHeight: 16,
-    color: adminColors.info.text,
-  },
   notesText: {
     ...adminType.sectionHead,
     color: adminColors.ink,
     marginTop: 2,
     marginBottom: 12,
-  },
-  evidenceThumbnailsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  thumbnailBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: adminColors.brandTint,
-    borderWidth: 1.2,
-    borderColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timelineCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
-  },
-  timelineStepRow: {
-    flexDirection: 'row',
-    minHeight: 46,
-  },
-  timelineIndicatorCol: {
-    alignItems: 'center',
-    width: 20,
-    marginRight: 10,
-  },
-  timelineVerticalLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: adminColors.success.text,
-    marginVertical: 3,
-  },
-  timelineTextCol: {
-    flex: 1,
-    paddingBottom: 10,
-  },
-  timelineStepTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-  },
-  timelineStepTime: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginTop: 2,
   },
   actionOutlineBtn: {
     backgroundColor: adminColors.brandTint,
@@ -591,23 +480,5 @@ const styles = StyleSheet.create({
   actionBtnText: {
     ...adminType.sectionHead,
     color: adminColors.brand,
-  },
-  disclaimerBox: {
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 14,
-    borderWidth: 1.2,
-    borderColor: adminColors.border,
-    padding: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 6,
-    marginBottom: 24,
-  },
-  disclaimerText: {
-    ...adminType.body,
-    flex: 1,
-    color: adminColors.brandDeep,
-    lineHeight: 18,
   },
 });

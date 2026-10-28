@@ -29,24 +29,14 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { SAMPLE_VOUCHERS } from './fixtures';
 import { canSeeVoucherType, FinanceNotAvailable, PadlockIcon, rupees, scopeLabel, VoucherIcon } from './FinanceParts';
+import { useExpenseVoucher } from './useFinanceData';
 import type { VoucherRecord, WarehouseScreenBaseProps } from './types';
 
 export interface VoucherDetailScreenProps extends WarehouseScreenBaseProps {
   voucher?: VoucherRecord | undefined;
   onViewReference?: ((referenceId: string) => void) | undefined;
 }
-
-const DEFAULT_VOUCHER: VoucherRecord = SAMPLE_VOUCHERS[1] ?? {
-  id: 'VCH-000820',
-  type: 'Revenue',
-  title: 'Revenue Voucher',
-  amount: 0,
-  referenceId: '-',
-  date: '-',
-  status: 'Completed',
-};
 
 function PrintIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
@@ -96,38 +86,46 @@ function TimelineDot({ done }: { done: boolean }) {
   );
 }
 
-export function VoucherDetailScreen({ scope, can, onBack, voucher = DEFAULT_VOUCHER, onViewReference }: VoucherDetailScreenProps) {
-  if (!canSeeVoucherType(can, voucher.type)) {
+export function VoucherDetailScreen({ scope, can, onBack, voucher, onViewReference }: VoucherDetailScreenProps) {
+  const isExpense = voucher?.type === 'Expense';
+  const { voucher: liveVoucher } = useExpenseVoucher(voucher?.referenceId ?? '', isExpense);
+  const effectiveVoucher = liveVoucher && voucher ? { ...voucher, ...liveVoucher } : voucher;
+
+  if (!effectiveVoucher) {
+    return <FinanceNotAvailable title="Voucher Detail" message="Voucher not found." onBack={onBack} />;
+  }
+
+  if (!canSeeVoucherType(can, effectiveVoucher.type)) {
     return (
       <FinanceNotAvailable
         title="Voucher Detail"
-        message={`Your role does not include ${voucher.type === 'Expense' ? 'the expense log' : 'sales income'}.`}
+        message={`Your role does not include ${effectiveVoucher.type === 'Expense' ? 'the expense log' : 'sales income'}.`}
         onBack={onBack}
       />
     );
   }
 
-  const warehouse = voucher.warehouseName ?? scopeLabel(scope);
-  const amount = rupees(voucher.amount);
-  const tone = voucher.status === 'Completed' ? 'success' : voucher.status === 'Pending' ? 'warning' : 'brandSoft';
-  const settled = voucher.status === 'Completed';
+  const warehouse = effectiveVoucher.warehouseName ?? scopeLabel(scope);
+  const amount = rupees(effectiveVoucher.amount);
+  const tone = effectiveVoucher.status === 'Completed' ? 'success' : effectiveVoucher.status === 'Pending' ? 'warning' : 'brandSoft';
+  const settled = effectiveVoucher.status === 'Completed';
 
-  const handlePrint = () => Alert.alert('Print Voucher', `Sending voucher ${voucher.id} to the warehouse printer...`);
-  const handleDownload = () => Alert.alert('Download', `Voucher PDF for ${voucher.id} saved to documents.`);
+  const handlePrint = () => Alert.alert('Print Voucher', `Sending voucher ${effectiveVoucher.id} to the warehouse printer...`);
+  const handleDownload = () => Alert.alert('Download', `Voucher PDF for ${effectiveVoucher.id} saved to documents.`);
   const handleViewTransaction = () => {
-    if (onViewReference) onViewReference(voucher.referenceId);
-    else Alert.alert('Linked Transaction', `${voucher.referenceId} · ${voucher.type} · ${amount}`);
+    if (onViewReference) onViewReference(effectiveVoucher.referenceId);
+    else Alert.alert('Linked Transaction', `${effectiveVoucher.referenceId} · ${effectiveVoucher.type} · ${amount}`);
   };
 
   return (
-    <WalletScreen title="Voucher Detail" subtitle={`${voucher.id} · ${voucher.status}`} onBack={onBack}>
+    <WalletScreen title="Voucher Detail" subtitle={`${effectiveVoucher.id} · ${effectiveVoucher.status}`} onBack={onBack}>
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>Voucher Summary</SectionTitle>
         <Card>
           <View style={styles.row}>
             <View style={styles.col}>
               <Text style={styles.label}>Voucher ID</Text>
-              <Text style={styles.valueId}>{voucher.id}</Text>
+              <Text style={styles.valueId}>{effectiveVoucher.id}</Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.label}>Amount</Text>
@@ -137,11 +135,11 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher = DEFAULT_VOUC
           <View style={[styles.row, styles.rowSpaced]}>
             <View style={styles.col}>
               <Text style={styles.label}>Type</Text>
-              <Text style={styles.value}>{voucher.type} Voucher</Text>
+              <Text style={styles.value}>{effectiveVoucher.type} Voucher</Text>
             </View>
             <View style={styles.col}>
               <Text style={styles.label}>Status</Text>
-              <StatusBadge label={voucher.status} tone={tone} />
+              <StatusBadge label={effectiveVoucher.status} tone={tone} />
             </View>
           </View>
         </Card>
@@ -149,23 +147,24 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher = DEFAULT_VOUC
         <SectionTitle>Transaction Details</SectionTitle>
         <InfoCard
           rows={[
-            [{ label: 'Description / Title', value: voucher.title }],
+            [{ label: 'Description / Title', value: effectiveVoucher.title }],
             [
-              { label: 'Reference ID', value: voucher.referenceId },
-              { label: 'Date', value: voucher.date },
+              { label: 'Reference ID', value: effectiveVoucher.referenceId },
+              { label: 'Date', value: effectiveVoucher.date },
             ],
             [
               { label: 'Warehouse', value: warehouse },
-              { label: 'Created By', value: voucher.createdBy ?? 'Warehouse Admin' },
+              { label: 'Created By', value: effectiveVoucher.createdBy ?? 'Warehouse Admin' },
             ],
-            [{ label: 'Settlement / Payment', value: voucher.paymentMethod ?? '-' }],
-          ]}
+            effectiveVoucher.paymentMethod ? [{ label: 'Payment Method', value: effectiveVoucher.paymentMethod }] : [],
+            effectiveVoucher.notes ? [{ label: 'Notes', value: effectiveVoucher.notes }] : [],
+          ].filter((row) => row.length > 0)}
         />
 
         {/* Printed-voucher presentation (ported from the Main copy). */}
         <View style={styles.receiptCard}>
           <Text style={styles.receiptHeader}>TOHFA · {warehouse}</Text>
-          <Text style={styles.receiptKind}>{voucher.type.toUpperCase()} VOUCHER</Text>
+          <Text style={styles.receiptKind}>{effectiveVoucher.type.toUpperCase()} VOUCHER</Text>
           <Text style={styles.receiptAmount}>{amount}</Text>
         </View>
 
@@ -177,7 +176,7 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher = DEFAULT_VOUC
             </View>
             <View style={styles.col}>
               <Text style={styles.value}>Official Digital Voucher PDF</Text>
-              <Text style={styles.label}>{voucher.id} · Signed & Sealed</Text>
+              <Text style={styles.label}>{effectiveVoucher.id} · Signed & Sealed</Text>
             </View>
           </View>
         </Card>

@@ -1,16 +1,24 @@
 // Design id: M3S01
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
-import type { InventoryScreenBaseProps } from './types';
+import { formatKg, formatKgNumber } from '../../../money/quantity';
+import type { InventoryLiveStateProps, InventoryScreenBaseProps, ProductStock, StockSummary } from './types';
 import { WarehouseSelector } from './WarehouseSelector';
 
-export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps {
+export interface InventoryDashboardScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
   onInitiateTransfer?: (() => void) | undefined;
+  /** Aggregated stock summary from /admin/batches (all pages). */
+  summary?: StockSummary | null | undefined;
+  /** Total allocated grams from /admin/allocations (all pages); null while loading. */
+  allocatedGrams?: number | null | undefined;
+  /** Count of LOW_STOCK alerts; null while loading. */
+  lowStockCount?: number | null | undefined;
+  /** False when any batch page load was incomplete (BR-100 partial). */
+  complete?: boolean | undefined;
 }
 
 // ─── Pixel-Perfect Custom SVGs matching Design Mockup ─────────────────────────
@@ -226,82 +234,7 @@ function CreateTransferQuickIcon({ size = 24, color = adminColors.brand }: { siz
   );
 }
 
-const MAIN_KPIS = [
-  { key: 'total_stock', label: 'Total Stock', value: '12,840 KG', unit: 'KG across warehouses', icon: 'inventory', screen: 'M3S02' },
-  { key: 'available_stock', label: 'Available Stock', value: '9,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
-  { key: 'allocated', label: 'Allocated Stock', value: '2,100 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
-  { key: 'reserved', label: 'Reserved Stock', value: '1,500 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
-  { key: 'low_stock', label: 'Low Stock Items', value: '14', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
-  { key: 'pending_verification', label: 'Verification Pending', value: '6', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
-  { key: 'variance_detected', label: 'Variance Detected', value: '2', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
-  { key: 'pending_adjustments', label: 'Pending Adjustments', value: '3', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
-];
-
-const WAREHOUSE_SPECIFIC_KPIS: Record<string, typeof MAIN_KPIS> = {
-  'WH-OOTY': [
-    { key: 'total_stock', label: 'Total Stock', value: '3,420 KG', unit: 'Ooty warehouse', icon: 'inventory', screen: 'M3S02' },
-    { key: 'available_stock', label: 'Available Stock', value: '2,540 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
-    { key: 'allocated', label: 'Allocated Stock', value: '580 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
-    { key: 'reserved', label: 'Reserved Stock', value: '300 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
-    { key: 'low_stock', label: 'Low Stock Items', value: '4', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
-    { key: 'pending_verification', label: 'Verification Pending', value: '2', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
-    { key: 'variance_detected', label: 'Variance Detected', value: '1', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
-    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
-  ],
-  'WH-COON': [
-    { key: 'total_stock', label: 'Total Stock', value: '3,180 KG', unit: 'Coonoor warehouse', icon: 'inventory', screen: 'M3S02' },
-    { key: 'available_stock', label: 'Available Stock', value: '2,310 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
-    { key: 'allocated', label: 'Allocated Stock', value: '520 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
-    { key: 'reserved', label: 'Reserved Stock', value: '350 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
-    { key: 'low_stock', label: 'Low Stock Items', value: '3', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
-    { key: 'pending_verification', label: 'Verification Pending', value: '1', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
-    { key: 'variance_detected', label: 'Variance Detected', value: '0', unit: 'Needs review', icon: 'alert', tone: 'default', screen: 'M3S12' },
-    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
-  ],
-  'WH-KOTA': [
-    { key: 'total_stock', label: 'Total Stock', value: '2,940 KG', unit: 'Kotagiri warehouse', icon: 'inventory', screen: 'M3S02' },
-    { key: 'available_stock', label: 'Available Stock', value: '2,150 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
-    { key: 'allocated', label: 'Allocated Stock', value: '490 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
-    { key: 'reserved', label: 'Reserved Stock', value: '300 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
-    { key: 'low_stock', label: 'Low Stock Items', value: '4', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
-    { key: 'pending_verification', label: 'Verification Pending', value: '2', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
-    { key: 'variance_detected', label: 'Variance Detected', value: '1', unit: 'Needs review', icon: 'alert', tone: 'danger', screen: 'M3S12' },
-    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '1', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
-  ],
-  'WH-GUDA': [
-    { key: 'total_stock', label: 'Total Stock', value: '3,300 KG', unit: 'Gudalur warehouse', icon: 'inventory', screen: 'M3S02' },
-    { key: 'available_stock', label: 'Available Stock', value: '2,240 KG', unit: 'Ready to allocate', icon: 'box', screen: 'M3S02' },
-    { key: 'allocated', label: 'Allocated Stock', value: '510 KG', unit: 'Customer orders', icon: 'orders', screen: 'M3S07' },
-    { key: 'reserved', label: 'Reserved Stock', value: '550 KG', unit: 'In reservations', icon: 'pickup', screen: 'M3S02' },
-    { key: 'low_stock', label: 'Low Stock Items', value: '3', unit: 'Needs attention', icon: 'alert', tone: 'danger', screen: 'M3S09' },
-    { key: 'pending_verification', label: 'Verification Pending', value: '1', unit: 'Items pending', icon: 'receiving', screen: 'M3S10' },
-    { key: 'variance_detected', label: 'Variance Detected', value: '0', unit: 'Needs review', icon: 'alert', tone: 'default', screen: 'M3S12' },
-    { key: 'pending_adjustments', label: 'Pending Adjustments', value: '0', unit: 'Requests active', icon: 'truck', screen: 'M3S14' },
-  ],
-};
-
-const WAREHOUSE_OVERVIEW_ROWS = [
-  { name: 'Ooty', stock: '3,420 KG', warehouseId: 'WH-OOTY' },
-  { name: 'Coonoor', stock: '3,180 KG', warehouseId: 'WH-COON' },
-  { name: 'Kotagiri', stock: '2,940 KG', warehouseId: 'WH-KOTA' },
-  { name: 'Gudalur Market', stock: '3,300 KG', warehouseId: 'WH-GUDA' },
-];
-
-const PENDING_ACTION_ROWS = [
-  { label: 'Verification', count: 6, screen: 'M3S10' },
-  { label: 'Adjustment', count: 3, screen: 'M3S14' },
-  { label: 'Transfer Receiving', count: 2, screen: 'TransferReceiving' },
-  { label: 'Stock Exception', count: 1, screen: 'M3S12' },
-];
-
-const RECENT_MOVEMENT = {
-  id: 'MV-000928',
-  type: 'RECEIPT',
-  warehouse: 'Ooty',
-  produce: 'Tomato',
-  batch: 'BT-000128',
-  qty: '+100 KG',
-};
+// Fixtures removed — values now come from live API props (summary, allocatedGrams, lowStockCount, warehouseOptions).
 
 export function InventoryDashboardScreen({
   scope,
@@ -310,10 +243,18 @@ export function InventoryDashboardScreen({
   onNavigate,
   onTabChange,
   warehouseOptions,
+  selectedWarehouseId,
+  onSelectWarehouse,
   onInitiateTransfer,
+  summary,
+  allocatedGrams,
+  lowStockCount,
+  isLoading,
+  onRefresh,
+  isRefreshing,
 }: InventoryDashboardScreenProps) {
   // Main (no warehouseId) gets the all-warehouses selector; Sub is locked to its own.
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(scope.warehouseId);
+  // selectedWarehouseId is owned by InventoryFlow and passed as a prop.
   // The ledger tile needs at least the own-warehouse ledger grant (rbac: MAIN all, SUB own).
   const canViewLedger = can('inventory.stock_ledger.view_own') || can('inventory.stock_ledger.view_all');
   const isSub = scope.warehouseId !== undefined;
@@ -392,23 +333,25 @@ export function InventoryDashboardScreen({
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             {/* Total Available Stock - White Card with Brown Text */}
             <View style={styles.totalStockCard}>
-              <Text style={styles.totalStockValue}>1,245 KG</Text>
+              <Text style={styles.totalStockValue}>
+                {summary ? formatKgNumber(summary.totalAvailableGrams) : (isLoading ? '…' : '—')}
+              </Text>
               <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
             </View>
 
             {/* 6 Stats Grid - 2 columns x 3 rows */}
             <View style={styles.statsGrid}>
-              {renderStatCard('available', <StatAvailableIcon size={22} color={adminColors.brandDeep} />, '1,245 KG', 'Available', 'M3S02')}
-              {renderStatCard('reserved', <StatReservedIcon size={22} color={adminColors.brandDeep} />, '320 KG', 'Reserved', 'M3S02')}
-              {renderStatCard('allocated', <StatAllocatedIcon size={22} color={adminColors.brandDeep} />, '580 KG', 'Allocated', 'M3S07')}
-              {renderStatCard('low_stock', <StatLowStockIcon size={22} color={adminColors.brandDeep} />, '05', 'Low Stock', 'M3S09', true)}
-              {renderStatCard('verification_pending', <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />, '02', 'Verification Pending', 'M3S10')}
+              {renderStatCard('available', <StatAvailableIcon size={22} color={adminColors.brandDeep} />, summary ? formatKgNumber(summary.totalAvailableGrams) + ' kg' : (isLoading ? '…' : '—'), 'Available', 'M3S02')}
+              {renderStatCard('reserved', <StatReservedIcon size={22} color={adminColors.brandDeep} />, summary ? formatKgNumber(summary.totalReservedGrams) + ' kg' : (isLoading ? '…' : '—'), 'Reserved', 'M3S02')}
+              {renderStatCard('allocated', <StatAllocatedIcon size={22} color={adminColors.brandDeep} />, allocatedGrams !== null && allocatedGrams !== undefined ? formatKgNumber(allocatedGrams) + ' kg' : (isLoading ? '…' : '—'), 'Allocated', 'M3S07')}
+              {renderStatCard('low_stock', <StatLowStockIcon size={22} color={adminColors.brandDeep} />, lowStockCount !== null && lowStockCount !== undefined ? String(lowStockCount) : (isLoading ? '…' : '—'), 'Low Stock', 'M3S09', !!lowStockCount)}
+              {renderStatCard('verification_pending', <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />, '—', 'Verification Pending', 'M3S10')}
               {canViewLedger || isSub ? (
                 renderStatCard('stock_ledger', <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />, 'View', 'Stock Ledger', 'M3S06')
               ) : null}
             </View>
 
-            {/* Top Stock Products Section */}
+            {/* Top Stock Products Section — live from summary.products */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Top Stock Products</Text>
@@ -417,98 +360,44 @@ export function InventoryDashboardScreen({
                 </TouchableOpacity>
               </View>
 
-              {/* Tomato - Available */}
-              <TouchableOpacity 
-                style={styles.productCard}
-                onPress={() => onNavigate?.('M3S03')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.productHeader}>
-                  <View>
-                    <Text style={styles.productName}>Tomato</Text>
-                    <Text style={styles.productGrade}>Grade 1</Text>
+              {(summary?.products.slice(0, 3) ?? []).map((product: ProductStock) => (
+                <TouchableOpacity
+                  key={product.key}
+                  style={styles.productCard}
+                  onPress={() => onNavigate?.('M3S03', { cropId: product.cropId, grade: product.grade })}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.productHeader}>
+                    <View>
+                      <Text style={styles.productName}>{product.productName}</Text>
+                      <Text style={styles.productGrade}>{product.gradeLabel}</Text>
+                    </View>
+                    {product.level === 'low' ? (
+                      <View style={styles.lowStockBadge}>
+                        <Text style={styles.lowStockBadgeText}>Low Stock</Text>
+                      </View>
+                    ) : (
+                      <View style={styles.availableBadge}>
+                        <Text style={styles.availableBadgeText}>Available</Text>
+                      </View>
+                    )}
                   </View>
-                  <View style={styles.availableBadge}>
-                    <Text style={styles.availableBadgeText}>Available</Text>
+                  <View style={styles.productStats}>
+                    <View style={styles.productStat}>
+                      <Text style={styles.productStatLabel}>Available</Text>
+                      <Text style={styles.productStatValue}>{formatKgNumber(product.availableGrams) + ' kg'}</Text>
+                    </View>
+                    <View style={styles.productStat}>
+                      <Text style={styles.productStatLabel}>Reserved</Text>
+                      <Text style={styles.productStatValue}>{formatKgNumber(product.reservedGrams) + ' kg'}</Text>
+                    </View>
+                    <View style={styles.productStat}>
+                      <Text style={styles.productStatLabel}>Allocated</Text>
+                      <Text style={styles.productStatValue}>{product.allocatedGrams !== null ? formatKgNumber(product.allocatedGrams) + ' kg' : '—'}</Text>
+                    </View>
                   </View>
-                </View>
-                <View style={styles.productStats}>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Available</Text>
-                    <Text style={styles.productStatValue}>245 KG</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Reserved</Text>
-                    <Text style={styles.productStatValue}>50 KG</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Allocated</Text>
-                    <Text style={styles.productStatValue}>120 KG</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {/* Carrot - Available */}
-              <TouchableOpacity 
-                style={styles.productCard}
-                onPress={() => onNavigate?.('M3S03')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.productHeader}>
-                  <View>
-                    <Text style={styles.productName}>Carrot</Text>
-                    <Text style={styles.productGrade}>Grade 1</Text>
-                  </View>
-                  <View style={styles.availableBadge}>
-                    <Text style={styles.availableBadgeText}>Available</Text>
-                  </View>
-                </View>
-                <View style={styles.productStats}>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Available</Text>
-                    <Text style={styles.productStatValue}>180 KG</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Reserved</Text>
-                    <Text style={styles.productStatValue}>20 KG</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Allocated</Text>
-                    <Text style={styles.productStatValue}>80 KG</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {/* Beans - Low Stock */}
-              <TouchableOpacity 
-                style={styles.productCard}
-                onPress={() => onNavigate?.('M3S09')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.productHeader}>
-                  <View>
-                    <Text style={styles.productName}>Beans</Text>
-                    <Text style={styles.productGrade}>Grade 1</Text>
-                  </View>
-                  <View style={styles.lowStockBadge}>
-                    <Text style={styles.lowStockBadgeText}>Low Stock</Text>
-                  </View>
-                </View>
-                <View style={styles.productStats}>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Available</Text>
-                    <Text style={styles.productStatValue}>95 KG</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Reserved</Text>
-                    <Text style={styles.productStatValue}>10 KG</Text>
-                  </View>
-                  <View style={styles.productStat}>
-                    <Text style={styles.productStatLabel}>Allocated</Text>
-                    <Text style={styles.productStatValue}>30 KG</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
             </View>
           </ScrollView>
 
@@ -544,28 +433,43 @@ export function InventoryDashboardScreen({
 
             <WarehouseSelector
               scope={scope}
-              options={warehouseOptions ?? WALLET_WAREHOUSES}
+              options={warehouseOptions ?? []}
               selectedId={selectedWarehouseId}
-              onSelect={setSelectedWarehouseId}
+              onSelect={onSelectWarehouse ?? (() => undefined)}
             />
           </View>
         </View>
 
         <ScrollView style={styles.mainContent} contentContainerStyle={styles.mainScrollPad} showsVerticalScrollIndicator={false}>
-          {/* 8 KPI Cards Grid (2x4) */}
-          <View style={styles.mainKpiGrid}>
-            {(selectedWarehouseId && WAREHOUSE_SPECIFIC_KPIS[selectedWarehouseId] ? WAREHOUSE_SPECIFIC_KPIS[selectedWarehouseId] : MAIN_KPIS).map((kpi) => (
-              <OverviewDashboardCard
-                key={kpi.key}
-                value={kpi.value}
-                title={kpi.label}
-                subtitle={kpi.unit}
-                icon={kpi.icon}
-                tone={(kpi as any).tone ?? 'default'}
-                onPress={() => onNavigate?.(kpi.screen)}
-              />
-            ))}
-          </View>
+          {/* 8 KPI Cards Grid (2x4) — values come from the server (summary, allocations, alerts). */}
+          {(() => {
+            const totalGrams = summary ? summary.totalAvailableGrams + summary.totalReservedGrams : null;
+            const liveKpis = [
+              { key: 'total_stock', label: 'Total Stock', value: totalGrams !== null ? formatKg(totalGrams) : (isLoading ? '…' : '—'), unit: 'KG across warehouses', screen: 'M3S02', tone: 'default' as const },
+              { key: 'available_stock', label: 'Available Stock', value: summary ? formatKg(summary.totalAvailableGrams) : (isLoading ? '…' : '—'), unit: 'Ready to allocate', screen: 'M3S02', tone: 'default' as const },
+              { key: 'allocated', label: 'Allocated Stock', value: allocatedGrams !== null && allocatedGrams !== undefined ? formatKg(allocatedGrams) : (isLoading ? '…' : '—'), unit: 'Customer orders', screen: 'M3S07', tone: 'default' as const },
+              { key: 'reserved', label: 'Reserved Stock', value: summary ? formatKg(summary.totalReservedGrams) : (isLoading ? '…' : '—'), unit: 'In reservations', screen: 'M3S02', tone: 'default' as const },
+              { key: 'low_stock', label: 'Low Stock Items', value: lowStockCount !== null && lowStockCount !== undefined ? String(lowStockCount) : (isLoading ? '…' : '—'), unit: 'Needs attention', screen: 'M3S09', tone: (lowStockCount ? 'danger' : 'default') as 'danger' | 'default' },
+              { key: 'pending_verification', label: 'Verification Pending', value: '—', unit: 'Items pending', screen: 'M3S10', tone: 'default' as const },
+              { key: 'variance_detected', label: 'Variance Detected', value: '—', unit: 'Needs review', screen: 'M3S12', tone: 'default' as const },
+              { key: 'pending_adjustments', label: 'Pending Adjustments', value: '—', unit: 'Requests active', screen: 'M3S14', tone: 'default' as const },
+            ];
+            return (
+              <View style={styles.mainKpiGrid}>
+                {liveKpis.map((kpi) => (
+                  <OverviewDashboardCard
+                    key={kpi.key}
+                    value={kpi.value}
+                    title={kpi.label}
+                    subtitle={kpi.unit}
+                    icon={kpi.key}
+                    tone={kpi.tone}
+                    onPress={() => onNavigate?.(kpi.screen)}
+                  />
+                ))}
+              </View>
+            );
+          })()}
 
           {/* Info Banner */}
           <View style={styles.mainInfoBanner}>
@@ -580,15 +484,15 @@ export function InventoryDashboardScreen({
             <Text style={styles.mainSectionTitle}>Warehouse Overview</Text>
           </View>
           <View style={styles.mainListCard}>
-            {WAREHOUSE_OVERVIEW_ROWS.map((item, idx) => (
+            {(warehouseOptions ?? []).map((wh, idx) => (
               <TouchableOpacity
-                key={item.name}
+                key={wh.warehouseId ?? idx}
                 style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
-                onPress={() => onNavigate?.('M3S02', { view: 'warehouse', warehouseId: item.warehouseId })}
+                onPress={() => onNavigate?.('M3S02', { view: 'warehouse', warehouseId: wh.warehouseId })}
                 activeOpacity={0.7}
               >
-                <Text style={styles.mainListItemLabel}>{item.name}</Text>
-                <Text style={styles.mainListItemValue}>{item.stock}</Text>
+                <Text style={styles.mainListItemLabel}>{wh.warehouseName ?? ''}</Text>
+                <Text style={styles.mainListItemValue}>{'—'}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -597,26 +501,40 @@ export function InventoryDashboardScreen({
           <View style={styles.mainSectionHeaderRow}>
             <Text style={styles.mainSectionTitle}>Inventory Health</Text>
           </View>
-          <View style={styles.healthCard}>
-            <View style={styles.healthGrid}>
-              <View style={styles.healthCell}>
-                <Text style={styles.healthCellLabel}>Normal</Text>
-                <Text style={[styles.healthCellValue, { color: adminColors.success.text }]}>62 products</Text>
+          {(() => {
+            const normalCount = summary ? summary.products.filter((p) => p.level === 'inStock').length : null;
+            const lowCount = summary ? summary.products.filter((p) => p.level === 'low').length : null;
+            const outCount = summary ? summary.products.filter((p) => p.level === 'out').length : null;
+            const dash = isLoading ? '…' : '—';
+            return (
+              <View style={styles.healthCard}>
+                <View style={styles.healthGrid}>
+                  <View style={styles.healthCell}>
+                    <Text style={styles.healthCellLabel}>Normal</Text>
+                    <Text style={[styles.healthCellValue, { color: adminColors.success.text }]}>
+                      {normalCount !== null ? `${normalCount} products` : dash}
+                    </Text>
+                  </View>
+                  <View style={styles.healthCell}>
+                    <Text style={styles.healthCellLabel}>Low</Text>
+                    <Text style={[styles.healthCellValue, { color: adminColors.warning.text }]}>
+                      {lowCount !== null ? `${lowCount} products` : dash}
+                    </Text>
+                  </View>
+                  <View style={styles.healthCell}>
+                    <Text style={styles.healthCellLabel}>Critical</Text>
+                    <Text style={[styles.healthCellValue, { color: adminColors.danger.text }]}>
+                      {outCount !== null ? `${outCount} products` : dash}
+                    </Text>
+                  </View>
+                  <View style={styles.healthCell}>
+                    <Text style={styles.healthCellLabel}>Verification Pending</Text>
+                    <Text style={[styles.healthCellValue, { color: adminColors.ink }]}>{'—'}</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.healthCell}>
-                <Text style={styles.healthCellLabel}>Low</Text>
-                <Text style={[styles.healthCellValue, { color: adminColors.warning.text }]}>14 products</Text>
-              </View>
-              <View style={styles.healthCell}>
-                <Text style={styles.healthCellLabel}>Critical</Text>
-                <Text style={[styles.healthCellValue, { color: adminColors.danger.text }]}>3 products</Text>
-              </View>
-              <View style={styles.healthCell}>
-                <Text style={styles.healthCellLabel}>Verification Pending</Text>
-                <Text style={[styles.healthCellValue, { color: adminColors.ink }]}>6</Text>
-              </View>
-            </View>
-          </View>
+            );
+          })()}
 
           {/* Recent Stock Movements */}
           <View style={styles.mainSectionHeaderRow}>
@@ -625,19 +543,19 @@ export function InventoryDashboardScreen({
               <Text style={styles.mainSectionLink}>View →</Text>
             </TouchableOpacity>
           </View>
+          {/* Recent movement — no single-movement endpoint on the dashboard; navigate to ledger */}
           <TouchableOpacity
             style={styles.recentMovementCard}
-            onPress={() => onNavigate?.('M3S15', { movementId: RECENT_MOVEMENT.id })}
+            onPress={() => onNavigate?.('M3S06')}
             activeOpacity={0.8}
           >
             <View style={styles.recentMovementBadge}>
               <ArrowUpSmallIcon size={18} color={adminColors.warning.text} />
             </View>
             <View style={styles.recentMovementInfo}>
-              <Text style={styles.recentMovementTitle}>{`${RECENT_MOVEMENT.id} · ${RECENT_MOVEMENT.type}`}</Text>
-              <Text style={styles.recentMovementSub}>{`${RECENT_MOVEMENT.warehouse} · ${RECENT_MOVEMENT.produce} · ${RECENT_MOVEMENT.batch}`}</Text>
+              <Text style={styles.recentMovementTitle}>{'Stock Ledger'}</Text>
+              <Text style={styles.recentMovementSub}>{'View all movements →'}</Text>
             </View>
-            <Text style={styles.recentMovementQty}>{RECENT_MOVEMENT.qty}</Text>
           </TouchableOpacity>
 
           {/* Pending Actions */}
@@ -647,22 +565,22 @@ export function InventoryDashboardScreen({
               <Text style={styles.mainSectionLink}>View →</Text>
             </TouchableOpacity>
           </View>
+          {/* Pending action counts — no aggregate endpoint yet; show "—" until wired. */}
           <View style={styles.mainListCard}>
-            {PENDING_ACTION_ROWS.map((item, idx) => (
+            {[
+              { label: 'Verification', screen: 'M3S10' },
+              { label: 'Adjustment', screen: 'M3S14' },
+              { label: 'Transfer Receiving', screen: 'TransferReceiving' },
+              { label: 'Stock Exception', screen: 'M3S12' },
+            ].map((item, idx) => (
               <TouchableOpacity
                 key={item.label}
                 style={[styles.mainListItemRow, idx > 0 && styles.mainListItemDivider]}
-                onPress={() => {
-                  if (item.screen === 'TransferReceiving' || item.screen === 'transfers' || item.screen === 'Transfers') {
-                    onNavigate?.(item.screen);
-                  } else {
-                    onNavigate?.(item.screen);
-                  }
-                }}
+                onPress={() => onNavigate?.(item.screen)}
                 activeOpacity={0.7}
               >
                 <Text style={styles.mainListItemLabel}>{item.label}</Text>
-                <Text style={styles.mainListItemValue}>{item.count}</Text>
+                <Text style={styles.mainListItemValue}>{'—'}</Text>
               </TouchableOpacity>
             ))}
           </View>

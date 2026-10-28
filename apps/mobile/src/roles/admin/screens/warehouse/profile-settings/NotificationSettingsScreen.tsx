@@ -73,16 +73,52 @@ function defaultPreferences(): Record<PreferenceKey, boolean> {
   return Object.fromEntries(all.map((key) => [key, true])) as Record<PreferenceKey, boolean>;
 }
 
+import { useNotificationPreferences } from './useProfileSettingsData';
+import type { AdminNotificationCategory } from '../../../api/profile';
+
+const KEY_TO_CATEGORY: Record<PreferenceKey, AdminNotificationCategory> = {
+  goodsReceiving: 'GOODS_RECEIVING',
+  inventoryAlerts: 'INVENTORY_ALERTS',
+  warehouseOperations: 'WAREHOUSE_OPERATIONS',
+  taskAlerts: 'TASK_ALERTS',
+  exceptionAlerts: 'EXCEPTION_ALERTS',
+  orderConfirmed: 'ORDER_CONFIRMED',
+  orderDispatched: 'ORDER_DISPATCHED',
+  orderDelivered: 'ORDER_DELIVERED',
+  walletCredited: 'WALLET_CREDITED',
+  payoutReleased: 'PAYOUT_RELEASED',
+  systemMessages: 'SYSTEM_MESSAGES',
+  maintenanceMessages: 'MAINTENANCE_MESSAGES',
+  securityAlerts: 'SECURITY_ALERTS',
+};
+
 export type NotificationSettingsScreenProps = WarehouseScreenBaseProps;
 
 export function NotificationSettingsScreen({ onBack }: NotificationSettingsScreenProps) {
   const [inApp, setInApp] = useState(true);
   const [prefs, setPrefs] = useState<Record<PreferenceKey, boolean>>(defaultPreferences);
+  const { items: livePrefs, toggle } = useNotificationPreferences();
 
   const resetDefaults = () => {
     setInApp(true);
     setPrefs(defaultPreferences());
     Alert.alert('Reset', 'Notification preferences restored to default.');
+  };
+
+  const handleToggle = (key: PreferenceKey, next: boolean) => {
+    setPrefs((prev) => ({ ...prev, [key]: next }));
+    const cat = KEY_TO_CATEGORY[key];
+    if (cat) {
+      void toggle(cat, next);
+    }
+  };
+
+  const handleSave = () => {
+    for (const [key, value] of Object.entries(prefs)) {
+      const cat = KEY_TO_CATEGORY[key as PreferenceKey];
+      if (cat) void toggle(cat, value);
+    }
+    Alert.alert('Success', 'Notification preferences saved successfully.');
   };
 
   return (
@@ -110,7 +146,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
                     <PreferenceSwitch
                       value={prefs[item.key]}
                       disabled={!inApp}
-                      onValueChange={(next) => setPrefs((prev) => ({ ...prev, [item.key]: next }))}
+                      onValueChange={(next) => handleToggle(item.key, next)}
                     />
                   }
                 />
@@ -124,7 +160,7 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsScree
           <WalletButton
             label="Save Preferences"
             icon={<SaveIcon />}
-            onPress={() => Alert.alert('Success', 'Notification preferences saved successfully.')}
+            onPress={handleSave}
           />
         </View>
       </ScrollView>

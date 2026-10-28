@@ -33,6 +33,8 @@ import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScope, Wareho
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 import { VouchersScreen } from './VouchersScreen';
 import { WarehouseSelector } from '../inventory';
+import { useExpenses } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 
 const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';
@@ -47,87 +49,6 @@ const FILTER_CATEGORIES = [
   'Maintenance',
 ] as const;
 
-export const DEFAULT_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = [
-  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
-
-const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
-  {
-    id: 'EXP-001245',
-    categoryRef: 'Transport · Collection point → Warehouse',
-    amount: 2400,
-    timestamp: '25 Sep - 09:30 AM',
-    status: 'Recorded',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-  },
-  {
-    id: 'EXP-001244',
-    categoryRef: 'Loading / Unloading · Morning unloading',
-    amount: 1800,
-    timestamp: '25 Sep - 08:15 AM',
-    status: 'Pending',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-  },
-  {
-    id: 'EXP-001241',
-    categoryRef: 'Warehouse Operations · Storage Crates & Pallets',
-    amount: 1200,
-    timestamp: '24 Sep - 05:45 PM',
-    status: 'Approved',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-  },
-  {
-    id: 'EXP-001238',
-    categoryRef: 'Utilities · Generator Diesel & Power',
-    amount: 620,
-    timestamp: '24 Sep - 02:30 PM',
-    status: 'Recorded',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri Warehouse',
-  },
-  {
-    id: 'EXP-001235',
-    categoryRef: 'Maintenance · Digital Weigh Scale Calibration',
-    amount: 400,
-    timestamp: '24 Sep - 11:00 AM',
-    status: 'Recorded',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur Market Warehouse',
-  },
-  {
-    id: 'EXP-001230',
-    categoryRef: 'Transport · Inter-warehouse shuttle transfer',
-    amount: 3200,
-    timestamp: '23 Sep - 04:30 PM',
-    status: 'Recorded',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-  },
-  {
-    id: 'EXP-001228',
-    categoryRef: 'Loading / Unloading · Evening shift crates',
-    amount: 1450,
-    timestamp: '23 Sep - 06:15 PM',
-    status: 'Approved',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri Warehouse',
-  },
-  {
-    id: 'EXP-001225',
-    categoryRef: 'Utilities · Cold Storage Electricity Bill',
-    amount: 5100,
-    timestamp: '22 Sep - 10:00 AM',
-    status: 'Recorded',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur Market Warehouse',
-  },
-];
 
 export interface WarehouseExpensesScreenProps extends WarehouseScreenBaseProps {
   onAddExpense?: (() => void) | undefined;
@@ -218,7 +139,7 @@ interface ExpenseCategoryFilterViewProps {
 function ExpenseCategoryFilterView({
   selectedCategory,
   selectedWarehouseId,
-  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+  warehouseOptions = [],
   isMain,
   hideWarehouseFilter = false,
   canLogExpense,
@@ -339,10 +260,13 @@ export function WarehouseExpensesScreen({
   onTabChange,
   onAddExpense,
   isShortVersion,
-  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+  warehouseOptions: initialWarehouseOptions,
   initialWarehouseId,
   hideWarehouseFilter = false,
 }: WarehouseExpensesScreenProps) {
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>(FILTER_ALL);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
@@ -360,6 +284,11 @@ export function WarehouseExpensesScreen({
     ? ALL_WAREHOUSES_LABEL
     : (scope.warehouseName ?? ALL_WAREHOUSES_LABEL);
 
+  const effectiveWarehouseId = isAllWarehouses
+    ? (selectedWarehouseId && selectedWarehouseId !== 'All' ? selectedWarehouseId : undefined)
+    : scope.warehouseId;
+  const { expenses: liveExpenses, refresh: reloadExpenses } = useExpenses({ warehouseId: effectiveWarehouseId });
+
   const selectedWhOption = warehouseOptions.find(
     (w) => w.warehouseId === selectedWarehouseId || w.warehouseName === selectedWarehouseId
   );
@@ -374,8 +303,9 @@ export function WarehouseExpensesScreen({
     }
   };
 
+  const recordsToFilter = liveExpenses;
   const filteredRecords = canLogExpense
-    ? SAMPLE_EXPENSE_RECORDS.filter((rec) => {
+    ? recordsToFilter.filter((rec) => {
         // Warehouse filter
         if (isAllWarehouses) {
           if (selectedWarehouseId && selectedWarehouseId !== 'All') {
@@ -523,17 +453,22 @@ export function WarehouseExpensesScreen({
         can={can}
         onBack={() => setShowAddExpenseScreen(false)}
         onTabChange={onTabChange}
-        onSaveSuccess={() => {
+        onSaveSuccess={(saved) => {
           setShowAddExpenseScreen(false);
-          setSelectedExpense({
-            id: 'EXP-001245',
-            categoryRef: 'Transport',
-            amount: 2400,
-            timestamp: '25 Sep - 09:30 AM',
-            status: 'Recorded',
-            warehouseId: 'WH-COON',
-            warehouseName: 'Coonoor Warehouse',
-          });
+          reloadExpenses();
+          if (saved) {
+            setSelectedExpense(saved);
+          } else {
+            setSelectedExpense({
+              id: 'EXP-001245',
+              categoryRef: 'Transport',
+              amount: 2400,
+              timestamp: '25 Sep - 09:30 AM',
+              status: 'Recorded',
+              warehouseId: 'WH-COON',
+              warehouseName: 'Coonoor Warehouse',
+            });
+          }
         }}
         initialExpense={initialExpense}
       />

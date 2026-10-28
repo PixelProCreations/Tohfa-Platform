@@ -35,6 +35,7 @@ export function warehouseNameOf(warehouseId: string | undefined): string {
 export const SAMPLE_WALLET_CUSTOMER: ResolvedWalletCustomer = {
   name: 'Ravi Kumar',
   id: 'CUS-001245',
+  customerId: 'CUS-001245',
   mobile: '+91 98765 43210',
   balance: '₹4,500.00',
   totalCredited: '₹25,000',

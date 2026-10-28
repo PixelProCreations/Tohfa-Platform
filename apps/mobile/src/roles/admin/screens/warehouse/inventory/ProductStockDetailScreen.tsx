@@ -2,11 +2,17 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
-import type { InventoryScreenBaseProps } from './types';
+import { formatKgNumber } from '../../../money/quantity';
+import type { AllocationDashboard, InventoryLiveStateProps, InventoryScreenBaseProps, ProductStock } from './types';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type ProductStockDetailScreenProps = InventoryScreenBaseProps;
+export interface ProductStockDetailScreenProps extends InventoryScreenBaseProps, InventoryLiveStateProps {
+  /** The product (crop+grade) whose detail is shown. */
+  product?: ProductStock | undefined;
+  /** Allocation breakdown across channels for this product. */
+  allocation?: AllocationDashboard | undefined;
+}
 
 // ─── Custom Icons for Action Buttons ──────────────────────────────────────────
 
@@ -48,158 +54,111 @@ function ActionVerifyIcon({ color = adminColors.brand }: { color?: string }) {
   );
 }
 
-interface ProductStockFixture {
-  title: string;
-  subtitle: string;
-  available: string;
-  reserved: string;
-  allocated: string;
-  online: string;
-  liveMarket: string;
-  reserve: string;
-  buffer: string;
-}
-
-/**
- * Per-product fixtures, keyed by the lower-case crop name. Only the products
- * StockListScreen lets you open (Tomato, Carrot) have a row; its other rows
- * are not tappable.
- */
-const PRODUCT_STOCK: Record<string, ProductStockFixture> = {
-  tomato: {
-    title: 'Tomato',
-    subtitle: 'Grade 1',
-    available: '245 KG',
-    reserved: '50 KG',
-    allocated: '120 KG',
-    online: '120 KG',
-    liveMarket: '40 KG',
-    reserve: '50 KG',
-    buffer: '30 KG',
-  },
-  carrot: {
-    title: 'Carrot',
-    subtitle: 'Grade 1',
-    available: '12 KG',
-    reserved: '0 KG',
-    allocated: '0 KG',
-    online: '0 KG',
-    liveMarket: '12 KG',
-    reserve: '0 KG',
-    buffer: '0 KG',
-  },
-};
-
-/** Callers that open M3S03 without a product (dashboard, low stock) keep the Tomato view they always had. */
-const DEFAULT_PRODUCT_KEY = 'tomato';
-
-export function ProductStockDetailScreen({ scope, onNavigate, onBack, routeParams }: ProductStockDetailScreenProps) {
-  const rawProduct = typeof routeParams?.['product'] === 'string' ? routeParams['product'] : undefined;
-  const productKey = rawProduct === undefined
-    ? DEFAULT_PRODUCT_KEY
-    : Object.keys(PRODUCT_STOCK).find((key) => rawProduct.toLowerCase().includes(key));
-  const product = productKey !== undefined ? PRODUCT_STOCK[productKey] : undefined;
-  // An unknown product shows its own name with empty figures, never another crop's numbers.
-  const empty = '0 KG';
-  const view = {
-    title: product?.title ?? rawProduct ?? '',
-    subtitle: product?.subtitle ?? '',
-    available: product?.available ?? empty,
-    reserved: product?.reserved ?? empty,
-    allocated: product?.allocated ?? empty,
-    online: product?.online ?? empty,
-    liveMarket: product?.liveMarket ?? empty,
-    reserve: product?.reserve ?? empty,
-    buffer: product?.buffer ?? empty,
+export function ProductStockDetailScreen({ scope, onNavigate, onBack, product, allocation, isLoading }: ProductStockDetailScreenProps) {
+  // Pull per-channel allocation grams; fall back to '—' when allocation not loaded.
+  const channelGrams = (key: string) => {
+    const ch = allocation?.channels.find((c) => c.channel === key);
+    return ch != null ? `${formatKgNumber(ch.allocatedGrams)} kg` : '—';
   };
+
+  // StockLevel → human label.
+  const levelLabel = product?.level === 'inStock' ? 'In Stock' : product?.level === 'low' ? 'Low Stock' : 'Out of Stock';
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <SWAHeader 
-          title={view.title}
-          subtitle={view.subtitle}
+        <SWAHeader
+          title={product?.productName ?? (isLoading ? '…' : '—')}
+          subtitle={product?.gradeLabel ?? ''}
           onBack={onBack}
           warehouseLocked={scope.warehouseId !== undefined}
           warehouseName={scope.warehouseName}
           badge={
-            <View style={styles.availableBadge}>
-              <Text style={styles.availableBadgeText}>Available</Text>
-            </View>
+            product ? (
+              <View style={styles.availableBadge}>
+                <Text style={styles.availableBadgeText}>{levelLabel}</Text>
+              </View>
+            ) : null
           }
         />
-        
+
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Stock Summary - 3 Separate White Cards */}
+          {/* Stock Summary */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Stock Summary</Text>
             <View style={styles.summaryCards}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{view.available}</Text>
+                <Text style={styles.summaryValue}>
+                  {product != null ? `${formatKgNumber(product.availableGrams)} kg` : '—'}
+                </Text>
                 <Text style={styles.summaryLabel}>AVAILABLE</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{view.reserved}</Text>
+                <Text style={styles.summaryValue}>
+                  {product != null ? `${formatKgNumber(product.reservedGrams)} kg` : '—'}
+                </Text>
                 <Text style={styles.summaryLabel}>RESERVED</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>{view.allocated}</Text>
+                {/* allocatedGrams is on ProductStock (null when allocations not given). */}
+                <Text style={styles.summaryValue}>
+                  {product?.allocatedGrams != null ? `${formatKgNumber(product.allocatedGrams)} kg` : '—'}
+                </Text>
                 <Text style={styles.summaryLabel}>ALLOCATED</Text>
               </View>
             </View>
           </View>
 
-          {/* Allocation - Single Card Container (matching design mockup exactly) */}
+          {/* Allocation — per-channel grams from AllocationDashboard. */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Allocation</Text>
             <View style={styles.allocationSingleCard}>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>ONLINE</Text>
-                  <Text style={styles.allocationValue}>{view.online}</Text>
+                  <Text style={styles.allocationValue}>{channelGrams('online')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>LIVE MARKET</Text>
-                  <Text style={styles.allocationValue}>{view.liveMarket}</Text>
+                  <Text style={styles.allocationValue}>{channelGrams('liveMarket')}</Text>
                 </View>
               </View>
               <View style={styles.allocationRow}>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>RESERVE</Text>
-                  <Text style={styles.allocationValue}>{view.reserve}</Text>
+                  <Text style={styles.allocationValue}>{channelGrams('reserve')}</Text>
                 </View>
                 <View style={styles.allocationCol}>
                   <Text style={styles.allocationLabel}>BUFFER</Text>
-                  <Text style={styles.allocationValue}>{view.buffer}</Text>
+                  <Text style={styles.allocationValue}>{channelGrams('buffer')}</Text>
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Batches & Storage - Single Card Container */}
+          {/* Batches & Storage — counts and primary storage come from ProductStock. */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Batches & Storage</Text>
-            <TouchableOpacity
-              style={styles.batchesCard}
-              onPress={() => onNavigate?.('StorageLocationDetail', { locationId: 'CS-A01' })}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-            >
+            <View style={styles.batchesCard}>
               <View style={styles.infoRowTop}>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Active Batches</Text>
-                  <Text style={styles.infoValue}>5</Text>
+                  <Text style={styles.infoValue}>
+                    {product != null ? String(product.activeBatchCount) : '—'}
+                  </Text>
                 </View>
                 <View style={styles.infoCol}>
                   <Text style={styles.infoLabel}>Storage Locations</Text>
-                  <Text style={styles.infoValue}>3</Text>
+                  <Text style={styles.infoValue}>
+                    {product != null ? String(product.storageLocations.length) : '—'}
+                  </Text>
                 </View>
               </View>
               <View style={styles.primaryStorageRow}>
                 <Text style={styles.infoLabel}>Primary Storage</Text>
-                <Text style={styles.primaryStorageValue}>Cold Storage · Section A · Rack 03</Text>
+                <Text style={styles.primaryStorageValue}>{product?.primaryStorage ?? '—'}</Text>
               </View>
-            </TouchableOpacity>
+            </View>
           </View>
 
           {/* Actions - White Cards with Orange Border and Centered Brown Text */}

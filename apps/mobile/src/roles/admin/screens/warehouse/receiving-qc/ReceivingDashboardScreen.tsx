@@ -1,48 +1,44 @@
 /**
- * Goods Receiving dashboard (the Receiving tab hub), shared by the Main and
- * Sub warehouse admins.
+ * Goods Receiving dashboard (the Receiving tab hub, design M2-01), shared by
+ * the Main and Sub warehouse admins.
  *
  * Extracted from the Sub shell's inline Receiving "overview" sub-view (six
  * overview tiles, Start Receiving, Needs Attention, Recent Receiving) and
- * absorbs the Main ReceivingDashboardScreen and IncomingGoodsOperationsScreen
- * (the same summary: expected / arrived / complete / discrepancies, plus one
- * discrepancy card, now a Needs Attention row). The tile values come from the
- * shipments and receipts in view instead of fixed numbers.
+ * absorbs the Main ReceivingDashboardScreen and IncomingGoodsOperationsScreen.
  *
- * Main-only (scope.warehouseId undefined): the warehouse selector, the
- * Discrepancies and Avg Turnaround tiles, the Transfer Receiving card, the
- * Receiving Activity pipeline and the Pending Receiving Queue.
+ * Live data: useReceivingDashboard (every purchase order and goods receipt of
+ * the warehouse in view) -> receivingOverviewOf; each tile / KPI / queue row
+ * shows the figure its label names (./receivingLists.ts). Figures the API has
+ * no source for are not rendered: the Main Discrepancies (no network-wide
+ * discrepancy list) and Avg Turnaround (no metric) KPIs, and the Decision /
+ * Batch / Storage Pending queue rows (one quality-check call decides, batches
+ * and locates a receipt, BR-106). Needs Attention lists the receipts awaiting
+ * their quality check (the only receiving issue the API backs).
+ *
+ * Main-only (scope.warehouseId undefined): the live warehouse selector (BR-30:
+ * a Sub scope always reads its own warehouse), the Transfer Receiving card,
+ * the Receiving Activity pipeline and the Pending Receiving Queue.
  *
  * Gates: viewing needs inventory.batch.view or inventory.goods_receipt.record;
  * Start Receiving needs inventory.goods_receipt.record. The server re-checks
  * every action (CLAUDE.md 2.1).
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t, type TranslationKey } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { WALLET_WAREHOUSES, warehouseNameOf } from '../wallet-cashtopup/fixtures';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   BellRingIcon,
   HeaderIconButton,
   ScopeHeader,
-  SectionTitle,
   StatusBadge,
-  WalletButton,
   WalletScreen,
   WarehouseTabBar,
-  walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import {
-  INCOMING_SHIPMENTS,
-  QUALITY_ISSUES,
-  RECEIVING_PIPELINE,
-  RECEIVING_RECORDS,
-  RECEIVING_TURNAROUND_MIN,
-  inReceivingScope,
-  isMainScope,
-} from './fixtures';
 import {
   AlertCircleOutlineIcon,
   CalendarOutlineIcon,
@@ -51,7 +47,6 @@ import {
   CircleEllipsisIcon,
   ClockSmallIcon,
   CrateInventoryIcon,
-  DamagePhotoIcon,
   FlaskOutlineIcon,
   NotEqualIcon,
   PermissionNote,
@@ -64,47 +59,57 @@ import {
   TruckDeliveryIcon,
   WarningTriangleIcon,
   canViewReceiving,
-  qualityIssueTone,
-  receiptTone,
 } from './ReceivingParts';
-import type {
-  HistoryFilter,
-  IncomingShipment,
-  QualityIssue,
-  ReceivingRecord,
-  ShipmentFilterTab,
-  WarehouseScreenBaseProps,
-} from './types';
+import type { LiveQualityIssue } from './liveTypes';
+import { isMainScope, kgLabel, receivingWarehouseFilter } from './mappers';
+import { liveReceiptTone, mainKpiValues, mainQueueValues, subTileValues, type MainKpiKey, type MainQueueKey } from './receivingLists';
+import { receivingOverviewOf } from './receivingViews';
+import { useReceivingDashboard, useReceivingNaming } from './useReceivingData';
+import type { HistoryFilter, ShipmentFilterTab, WarehouseScreenBaseProps } from './types';
 
 /** Needs Attention / Recent Receiving rows previewed on the hub. */
 const ATTENTION_PREVIEW = 3;
 const RECENT_PREVIEW = 2;
 
+/** Copy, unit, icon and target of each Main KPI card the API backs (the figure comes from mainKpiValues). */
+const MAIN_KPI_COPY: Record<MainKpiKey, { label: TranslationKey; unit: TranslationKey; icon: string; tab?: ShipmentFilterTab }> = {
+  expected: { label: 'receiving.dash.tile.expectedToday', unit: 'receiving.dash.kpi.unitShipments', icon: 'receiving', tab: 'Expected' },
+  arrived: { label: 'receiving.dash.kpi.arrived', unit: 'receiving.dash.kpi.unitShipments', icon: 'truck', tab: 'Arrived' },
+  in_progress: { label: 'receiving.dash.kpi.inProgress', unit: 'receiving.dash.kpi.unitReceiving', icon: 'orders', tab: 'Receiving' },
+  completed: { label: 'receiving.dash.kpi.completed', unit: 'receiving.dash.kpi.unitToday', icon: 'pickup' },
+};
+
+/** Copy and list tab of each Main queue row the API backs. */
+const MAIN_QUEUE_COPY: Record<MainQueueKey, { label: TranslationKey; tab: ShipmentFilterTab }> = {
+  arrived: { label: 'receiving.dash.queue.arrived', tab: 'Arrived' },
+  in_progress: { label: 'receiving.dash.queue.inProgress', tab: 'Receiving' },
+  qc_pending: { label: 'receiving.dash.queue.qcPending', tab: 'QC Pending' },
+};
+
 export interface ReceivingDashboardScreenProps extends WarehouseScreenBaseProps {
-  shipments?: IncomingShipment[] | undefined;
-  records?: ReceivingRecord[] | undefined;
-  issues?: QualityIssue[] | undefined;
   /** Unread notifications for the bell badge. */
   unreadNotifications?: number | undefined;
   onOpenNotifications?: (() => void) | undefined;
   onOpenShipments: (tab: ShipmentFilterTab) => void;
   onOpenHistory: (filter: HistoryFilter) => void;
   onOpenQualityIssues: () => void;
-  onSelectIssue: (issue: QualityIssue) => void;
+  /** A receipt awaiting its quality check (the host resumes it in the wizard). */
+  onSelectIssue: (issue: LiveQualityIssue) => void;
+  /** A receipt (uuid). */
   onSelectRecord: (receiptId: string) => void;
-  /** Select shipment on incoming shipments list / cards */
+  /** A purchase order (uuid) from the recent list. */
   onSelectShipment?: ((shipmentId: string) => void) | undefined;
-  /** Start Receiving (needs inventory.goods_receipt.record). */
+  /** Start Receiving (needs inventory.goods_receipt.record); the host lists the orders to pick from. */
   onStartReceiving: () => void;
-  /** Main: shipment arrived action (navigates to ShipmentDetail) */
+  /** Main: Shipment Arrived (the host lists the expected orders to pick from). */
   onShipmentArrived?: (() => void) | undefined;
   /** Main: inter-warehouse arrivals (the transfers flow). */
   onOpenTransferReceiving?: (() => void) | undefined;
-  /** Main: view incoming shipments (navigates to ShipmentDetail) */
+  /** Main: View Incoming Shipments. */
   onViewIncomingShipments?: (() => void) | undefined;
-  /** Main: damage / mismatch report quick action */
+  /** Main: damage / mismatch report quick action (receipt-scoped: the host opens Receiving History). */
   onOpenDamageReport?: (() => void) | undefined;
-  /** Main: goods receipt summary quick action */
+  /** Main: goods receipt summary quick action (receipt-scoped: the host opens Receiving History). */
   onOpenReceiptSummary?: (() => void) | undefined;
   /** Main: view receiving activity timeline */
   onOpenActivity?: (() => void) | undefined;
@@ -117,9 +122,6 @@ export function ReceivingDashboardScreen({
   can,
   onBack,
   onTabChange,
-  shipments = INCOMING_SHIPMENTS,
-  records = RECEIVING_RECORDS,
-  issues = QUALITY_ISSUES,
   unreadNotifications = 0,
   onOpenNotifications,
   onOpenShipments,
@@ -141,225 +143,86 @@ export function ReceivingDashboardScreen({
   const mainView = isMainScope(scope);
   const canView = canViewReceiving(can);
   const canRecord = can(RECEIVING_CODES.receiptRecord);
-  const visible = (warehouseId: string) => inReceivingScope(scope, warehouseId, selectedWarehouseId);
 
-  const inView = shipments.filter((s) => visible(s.warehouseId));
-  const recordsInView = records.filter((r) => visible(r.warehouseId));
-  const issuesInView = issues.filter((i) => visible(i.warehouseId));
-  const count = (pred: (s: IncomingShipment) => boolean) => inView.filter(pred).length;
-  const turnarounds = Object.entries(RECEIVING_TURNAROUND_MIN)
-    .filter(([warehouseId]) => visible(warehouseId))
-    .map(([, minutes]) => minutes);
-  const avgTurnaround =
-    turnarounds.length > 0 ? Math.round(turnarounds.reduce((sum, m) => sum + m, 0) / turnarounds.length) : 0;
+  const naming = useReceivingNaming(scope, can);
+  const dashboard = useReceivingDashboard(receivingWarehouseFilter(scope, selectedWarehouseId), naming.naming, canView);
+  const overview = useMemo(() => receivingOverviewOf(dashboard.shipments, dashboard.records, new Date()), [dashboard.shipments, dashboard.records]);
+  const view = queryViewState({
+    isLoading: dashboard.isLoading,
+    error: dashboard.error,
+    itemCount: dashboard.shipments.length + dashboard.records.length,
+  });
 
-  const effectiveIssues: QualityIssue[] = !mainView
-    ? [
-        {
-          id: 'QC-1024',
-          kind: 'QC Pending',
-          shipmentCode: 'GR-1024',
-          produce: 'Tomato',
-          detail: 'Received 145 KG, awaiting quality check',
-          warehouseId: scope.warehouseId ?? 'WH-COON',
-          time: '10:30 AM',
-          target: 'wizard',
-          wizardStep: 'quality_check',
-        },
-        {
-          id: 'QC-1021',
-          kind: 'Quantity Mismatch',
-          shipmentCode: 'GR-1021',
-          produce: 'Carrot',
-          detail: 'Expected 100 KG, received 95 KG',
-          warehouseId: scope.warehouseId ?? 'WH-COON',
-          time: '11:15 AM',
-          target: 'wizard',
-          wizardStep: 'damage_mismatch',
-        },
-        {
-          id: 'QC-1020',
-          kind: 'Damage Reported',
-          shipmentCode: 'GR-1020',
-          produce: 'Beans',
-          detail: '2 crates reported damaged',
-          warehouseId: scope.warehouseId ?? 'WH-COON',
-          time: '09:20 AM',
-          target: 'wizard',
-          wizardStep: 'damage_mismatch',
-        },
-      ]
-    : issuesInView.slice(0, ATTENTION_PREVIEW);
-
-  const effectiveRecords: ReceivingRecord[] = !mainView
-    ? [
-        {
-          receiptId: 'GR-1024',
-          shipmentId: 'SHP-000124',
-          warehouseId: scope.warehouseId ?? 'WH-COON',
-          warehouseName: scope.warehouseName ?? 'Coonoor Warehouse',
-          supplier: 'Nilgiri Farmers Co-op',
-          product: 'Tomato',
-          grade: 'Grade 1',
-          receivedKg: 145,
-          expectedKg: 150,
-          acceptedKg: 145,
-          rejectedKg: 5,
-          result: 'Partially Accepted',
-          receivedBy: 'Suresh',
-          date: '25 Sep 2026',
-        },
-        {
-          receiptId: 'GR-1023',
-          shipmentId: 'SHP-000123',
-          warehouseId: scope.warehouseId ?? 'WH-COON',
-          warehouseName: scope.warehouseName ?? 'Coonoor Warehouse',
-          supplier: 'Ooty Organic Farms',
-          product: 'Carrot',
-          grade: 'Grade 1',
-          receivedKg: 80,
-          expectedKg: 80,
-          acceptedKg: 80,
-          rejectedKg: 0,
-          result: 'Accepted',
-          receivedBy: 'Suresh',
-          date: '25 Sep 2026',
-        },
-      ]
-    : recordsInView.slice(0, RECENT_PREVIEW);
+  const effectiveIssues = dashboard.issues.slice(0, ATTENTION_PREVIEW);
+  const effectiveRecords = dashboard.records.slice(0, RECENT_PREVIEW);
+  const sub = subTileValues(overview);
 
   const tiles: { key: string; label: string; value: number | string; icon: React.ReactNode; alert?: boolean; onPress: () => void }[] = [
     {
       key: 'expected',
-      label: 'Expected Today',
-      value: !mainView ? '03' : count((s) => s.status === 'Expected'),
+      label: t('receiving.dash.tile.expectedToday'),
+      value: sub.expected,
       icon: <CalendarOutlineIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenShipments('Expected'),
     },
     {
       key: 'awaiting',
-      label: 'Awaiting Receiving',
-      value: !mainView ? '02' : count((s) => s.status === 'Arrived' || s.status === 'Receiving'),
+      label: t('receiving.dash.tile.awaitingReceiving'),
+      value: sub.awaiting,
       icon: <CircleEllipsisIcon size={22} color={adminColors.brandDeep} />,
-      onPress: () => onOpenShipments('Receiving'),
+      // Awaiting Receiving counts the open orders with nothing received: the Expected list.
+      onPress: () => onOpenShipments('Expected'),
     },
     {
       key: 'qc',
-      label: 'Awaiting QC',
-      value: !mainView ? '01' : count((s) => s.status === 'Awaiting QC'),
+      label: t('receiving.dash.tile.awaitingQc'),
+      value: sub.qc,
       icon: <FlaskOutlineIcon size={22} color={adminColors.brandDeep} />,
       alert: true,
       onPress: () => onOpenShipments('QC Pending'),
     },
     {
       key: 'partial',
-      label: 'Partially Accepted',
-      value: !mainView ? '01' : recordsInView.filter((r) => r.result === 'Partially Accepted').length,
+      label: t('receiving.dash.tile.partiallyAccepted'),
+      value: sub.partial,
       icon: <NotEqualIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenHistory('Partial'),
     },
     {
       key: 'completed',
-      label: 'Completed Today',
-      value: !mainView ? '05' : count((s) => s.status === 'Completed'),
+      label: t('receiving.dash.tile.completedToday'),
+      value: sub.completed,
       icon: <CheckmarkCircleOutlineIcon size={22} color={adminColors.brandDeep} />,
       onPress: () => onOpenHistory('Accepted'),
     },
     {
       key: 'issues',
-      label: 'Issues',
-      value: !mainView ? '02' : issuesInView.length,
+      label: t('receiving.dash.tile.issues'),
+      value: sub.issues,
       icon: <AlertCircleOutlineIcon size={22} color={adminColors.brandDeep} />,
       alert: true,
       onPress: onOpenQualityIssues,
     },
-    ...(mainView
-      ? [
-          {
-            key: 'discrepancies',
-            label: 'Discrepancies',
-            value: count((s) => s.status === 'Mismatch'),
-            icon: <WarningTriangleIcon size={22} color={adminColors.danger.text} />,
-            alert: true,
-            onPress: onOpenQualityIssues,
-          },
-          {
-            key: 'turnaround',
-            label: 'Avg Turnaround (min)',
-            value: avgTurnaround,
-            icon: <ClockSmallIcon size={22} color={adminColors.info.text} />,
-            onPress: () => onOpenHistory('All'),
-          },
-        ]
-      : []),
   ];
 
-  const queue: { label: string; value: number }[] = [
-    { label: 'Arrived', value: count((s) => s.status === 'Arrived') },
-    { label: 'In Progress', value: count((s) => s.status === 'Receiving') },
-    { label: 'QC Pending', value: count((s) => s.status === 'Awaiting QC') },
-    { label: 'Decision Pending', value: count((s) => s.status === 'Mismatch' || s.status === 'Partially Accepted') },
-  ];
+  const mainKpis = mainKpiValues(overview).map(({ key, value }) => {
+    const copy = MAIN_KPI_COPY[key];
+    const tab = copy.tab;
+    return {
+      key,
+      label: t(copy.label),
+      value,
+      unit: t(copy.unit),
+      icon: copy.icon,
+      onPress: tab !== undefined ? () => onOpenShipments(tab) : () => onOpenHistory('Accepted'),
+    };
+  });
 
-  const mainKpis = [
-    {
-      key: 'expected',
-      label: 'Expected Today',
-      value: 24,
-      unit: 'shipments',
-      icon: 'receiving',
-      onPress: () => onOpenShipments('Expected'),
-    },
-    {
-      key: 'arrived',
-      label: 'Arrived',
-      value: 19,
-      unit: 'shipments',
-      icon: 'truck',
-      onPress: () => onOpenShipments('Arrived'),
-    },
-    {
-      key: 'in_progress',
-      label: 'In Progress',
-      value: 5,
-      unit: 'receiving',
-      icon: 'orders',
-      onPress: () => onOpenShipments('Receiving'),
-    },
-    {
-      key: 'completed',
-      label: 'Completed',
-      value: 14,
-      unit: 'today',
-      icon: 'pickup',
-      onPress: () => onOpenHistory('Accepted'),
-    },
-    {
-      key: 'discrepancies',
-      label: 'Discrepancies',
-      value: 2,
-      unit: 'flagged',
-      icon: 'alert',
-      onPress: onOpenQualityIssues,
-    },
-    {
-      key: 'turnaround',
-      label: 'Avg Turnaround',
-      value: 38,
-      unit: 'minutes',
-      icon: 'cash',
-      onPress: () => onOpenHistory('All'),
-    },
-  ];
-
-  const mainQueueRows = [
-    { label: 'Arrived', value: 19, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('Arrived')) },
-    { label: 'In Progress', value: 6, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('Receiving')) },
-    { label: 'QC Pending', value: 5, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('QC Pending')) },
-    { label: 'Decision Pending', value: 3, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('QC Pending')) },
-    { label: 'Batch Pending', value: 2, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments('Receiving')) },
-    { label: 'Storage Pending', value: 1, onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : (onOpenTransferReceiving ? onOpenTransferReceiving() : onOpenShipments('All'))) },
-  ];
+  const mainQueueRows = mainQueueValues(overview).map(({ key, value }) => ({
+    label: t(MAIN_QUEUE_COPY[key].label),
+    value,
+    onPress: () => (onOpenPendingQueue ? onOpenPendingQueue() : onOpenShipments(MAIN_QUEUE_COPY[key].tab)),
+  }));
 
   const header = {
     title: mainView ? (
@@ -373,7 +236,7 @@ export function ReceivingDashboardScreen({
     headerLeft: undefined,
     onBack: onBack ?? (() => {}),
     headerRight: mainView ? (
-      <HeaderIconButton onPress={() => {}} accessibilityLabel="Refresh">
+      <HeaderIconButton onPress={dashboard.refresh} accessibilityLabel={t('receiving.dash.refresh')}>
         <RefreshRetryIcon size={20} color={adminColors.onBrand} />
       </HeaderIconButton>
     ) : (
@@ -398,7 +261,7 @@ export function ReceivingDashboardScreen({
               : `${scope.warehouseName} Warehouse`
             : scope.warehouseId
         }
-        warehouseOptions={WALLET_WAREHOUSES}
+        warehouseOptions={naming.options}
         selectedWarehouseId={selectedWarehouseId}
         onSelectWarehouse={mainView ? setSelectedWarehouseId : undefined}
       />
@@ -416,12 +279,20 @@ export function ReceivingDashboardScreen({
     );
   }
 
+  if (view === 'loading' || view === 'error') {
+    return (
+      <WalletScreen {...header}>
+        {view === 'loading' ? <AdminLoadingState /> : <AdminErrorState error={dashboard.error} onRetry={dashboard.refresh} />}
+      </WalletScreen>
+    );
+  }
+
   return (
     <WalletScreen {...header}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {mainView ? (
           <>
-            {/* 6 KPI Cards (2x3) */}
+            {/* KPI Cards (2 columns): only the ones the API backs */}
             <View style={styles.mainKpiGrid}>
               {mainKpis.map((kpi) => (
                 <OverviewDashboardCard
@@ -430,7 +301,7 @@ export function ReceivingDashboardScreen({
                   title={kpi.label}
                   subtitle={kpi.unit}
                   icon={kpi.icon}
-                  tone={kpi.key === 'discrepancies' ? 'danger' : 'default'}
+                  tone="default"
                   onPress={kpi.onPress}
                 />
               ))}
@@ -440,7 +311,7 @@ export function ReceivingDashboardScreen({
             <View style={styles.shipmentArrivedContainer}>
               <TouchableOpacity
                 style={styles.shipmentArrivedBtn}
-                onPress={onShipmentArrived ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
+                onPress={onShipmentArrived ?? (() => onOpenShipments('Expected'))}
                 activeOpacity={0.85}
               >
                 <ShipmentBoxIcon size={22} color={adminColors.onBrand} />
@@ -489,7 +360,7 @@ export function ReceivingDashboardScreen({
             <View style={styles.mainQuickActionsGrid}>
               <TouchableOpacity
                 style={styles.mainQuickActionCard}
-                onPress={() => (onOpenDamageReport ? onOpenDamageReport() : onOpenQualityIssues())}
+                onPress={() => (onOpenDamageReport ? onOpenDamageReport() : onOpenHistory('All'))}
                 activeOpacity={0.8}
               >
                 <AlertCircleOutlineIcon size={24} color={adminColors.brand} />
@@ -524,7 +395,7 @@ export function ReceivingDashboardScreen({
             {/* View Incoming Shipments Button */}
             <TouchableOpacity
               style={styles.viewIncomingBtn}
-              onPress={onViewIncomingShipments ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
+              onPress={onViewIncomingShipments ?? (() => onOpenShipments('All'))}
               activeOpacity={0.85}
             >
               <TruckDeliveryIcon size={20} color={adminColors.onBrand} />
@@ -564,44 +435,27 @@ export function ReceivingDashboardScreen({
                     <Text style={styles.sectionTitleText}>Needs Attention</Text>
                   </View>
                 </View>
-                {effectiveIssues.map((issue) => {
-                  const isQc = issue.kind === 'QC Pending';
-                  const isMismatch = issue.kind === 'Quantity Mismatch';
-                  const iconBg = isQc ? adminColors.warning.bg : adminColors.danger.bg;
-                  const iconColor = isQc ? adminColors.warning.text : adminColors.danger.text;
-
-                  let issueIcon: React.ReactNode;
-                  if (isQc) {
-                    issueIcon = <FlaskOutlineIcon size={20} color={iconColor} />;
-                  } else if (isMismatch) {
-                    issueIcon = <AlertCircleOutlineIcon size={20} color={iconColor} />;
-                  } else {
-                    issueIcon = <DamagePhotoIcon size={20} color={iconColor} />;
-                  }
-
-                  const displayTitle = issue.kind === 'Damage Reported' ? 'Damage Report' : issue.kind;
-
-                  return (
-                    <TouchableOpacity
-                      key={issue.id}
-                      style={styles.attentionCard}
-                      onPress={() => onSelectIssue(issue)}
-                      activeOpacity={0.75}
-                      accessibilityRole="button"
-                    >
-                      <View style={[styles.attentionIconSquare, { backgroundColor: iconBg }]}>
-                        {issueIcon}
-                      </View>
-                      <View style={styles.flex}>
-                        <Text style={styles.attentionTitle}>{displayTitle}</Text>
-                        <Text style={styles.attentionMeta}>
-                          {issue.produce} — {issue.shipmentCode}
-                        </Text>
-                      </View>
-                      <ChevronRightSmall color={adminColors.muted} size={18} />
-                    </TouchableOpacity>
-                  );
-                })}
+                {effectiveIssues.map((issue) => (
+                  // The only receiving issue the API backs: a receipt awaiting its quality check.
+                  <TouchableOpacity
+                    key={issue.id}
+                    style={styles.attentionCard}
+                    onPress={() => onSelectIssue(issue)}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                  >
+                    <View style={[styles.attentionIconSquare, { backgroundColor: adminColors.warning.bg }]}>
+                      <FlaskOutlineIcon size={20} color={adminColors.warning.text} />
+                    </View>
+                    <View style={styles.flex}>
+                      <Text style={styles.attentionTitle}>{t('receiving.issueKind.qcPending')}</Text>
+                      <Text style={styles.attentionMeta}>
+                        {issue.produce} — {issue.shipmentCode}
+                      </Text>
+                    </View>
+                    <ChevronRightSmall color={adminColors.muted} size={18} />
+                  </TouchableOpacity>
+                ))}
               </>
             ) : null}
 
@@ -616,13 +470,13 @@ export function ReceivingDashboardScreen({
             </View>
             {effectiveRecords.map((rec) => (
               <TouchableOpacity
-                key={rec.receiptId}
+                key={rec.id}
                 style={styles.card}
                 onPress={() => {
                   if (onSelectShipment) {
-                    onSelectShipment(rec.shipmentId ?? rec.receiptId);
+                    onSelectShipment(rec.purchaseOrderId);
                   } else {
-                    onSelectRecord(rec.receiptId);
+                    onSelectRecord(rec.id);
                   }
                 }}
                 activeOpacity={0.8}
@@ -630,12 +484,12 @@ export function ReceivingDashboardScreen({
               >
                 <View style={styles.rowBetween}>
                   <Text style={styles.cardTitle}>{rec.receiptId}</Text>
-                  <StatusBadge label={rec.result} tone={receiptTone(rec.result)} />
+                  <StatusBadge label={rec.resultLabel} tone={liveReceiptTone(rec.result)} />
                 </View>
                 <Text style={styles.cardMeta}>
-                  {rec.product} · {rec.grade}
+                  {rec.grade !== '' ? `${rec.product} · ${rec.grade}` : rec.product}
                 </Text>
-                <Text style={styles.cardValue}>{rec.receivedKg} KG</Text>
+                {rec.receivedGrams !== null ? <Text style={styles.cardValue}>{kgLabel(rec.receivedGrams)}</Text> : null}
               </TouchableOpacity>
             ))}
           </>

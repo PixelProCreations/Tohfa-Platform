@@ -49,6 +49,7 @@ import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScre
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { StorageLocationsScreen } from './StorageLocationsScreen';
 import { STORAGE_CODES } from './StorageParts';
+import { useStorageLocations } from './useStorageOpsData';
 import { WarehouseActivityScreen } from './WarehouseActivityScreen';
 import { WarehouseCapacityScreen } from './WarehouseCapacityScreen';
 import { WarehouseOperationsScreen } from './WarehouseOperationsScreen';
@@ -193,6 +194,11 @@ export function StorageFlow({
     });
   };
 
+  // Live storage locations for WarehouseCapacityScreen.
+  // Only loaded when scope has a warehouseId (Sub = always, Main = when a warehouse
+  // is selected). Offset-paged; we load the first 100 (covers one warehouse in practice).
+  const storageData = useStorageLocations(scope, can);
+
   const common = { scope, can, onBack: back, onTabChange };
   const viewActivity = onViewActivity ?? (() => navigate('Activity'));
   /** Records and tiles of storage-ops' own modules open in the flow; the rest go to the host. */
@@ -252,7 +258,14 @@ export function StorageFlow({
         />
       );
     case 'Capacity':
-      return <WarehouseCapacityScreen {...common} onViewHistory={viewActivity} onManageCapacity={onManageCapacity} />;
+      return (
+        <WarehouseCapacityScreen
+          {...common}
+          locations={storageData.locations}
+          onViewHistory={viewActivity}
+          onManageCapacity={onManageCapacity}
+        />
+      );
     case 'Performance':
       return (
         <WarehousePerformanceScreen
@@ -282,13 +295,20 @@ export function StorageFlow({
         <WarehouseActivityScreen
           {...common}
           initialPreset={params.activityPreset}
-          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
+          onSelectActivity={(activity) => navigate('ActivityDetail', { activity })}
           onOpenModule={openModule}
           onExport={onExportActivity}
         />
       );
     case 'ActivityDetail':
-      return <ActivityDetailScreen {...common} activityId={params.activityId} onOpenModule={openModule} />;
+      return (
+        <ActivityDetailScreen
+          {...common}
+          activity={params.activity}
+          activityId={params.activityId}
+          onOpenModule={openModule}
+        />
+      );
     case 'OperationalIssues':
       return (
         <OperationalIssuesScreen

@@ -2,27 +2,31 @@
  * Quality Issues (receiving QC issues), shared by the Main and Sub warehouse
  * admins. Read-only list.
  *
- * The Sub shell had no separate view: its Receiving dashboard listed these as
- * Needs Attention cards (QC pending, quantity mismatch, damage report) and sent
- * "Issues" to Operational Issues. This screen is the full list behind that
- * section and absorbs the Main QualityIssuesOperationsScreen: the summary
- * (Pending Checks, Damage Reported, Rejected, Partially Accepted), the
- * incident card and the "View Operational Issues & Action Center" link. Main
- * (scope.warehouseId undefined) sees every warehouse with the warehouse named
- * in each row; Sub only its own.
+ * The full list behind the dashboard's Needs Attention section; absorbs the
+ * Main QualityIssuesOperationsScreen (the summary, the issue cards and the
+ * "View Operational Issues & Action Center" link). Main (scope.warehouseId
+ * undefined) sees every warehouse with the warehouse named in each row; Sub
+ * only its own (BR-30).
  *
- * Nothing here mutates: opening an issue hands it to the host, which opens the
- * wizard step (itself gated), the shipment or Operational Issues.
+ * Live data: the same orders and receipts as the dashboard
+ * (useReceivingDashboard). The issues the API backs are the receipts still
+ * awaiting their quality check; the summary counts those, and the rejected
+ * and partially accepted receipts. "Damage Reported" is not shown: damage /
+ * mismatch reports are listed per receipt only (no network-wide list).
+ *
+ * Nothing here mutates: opening an issue hands it to the host, which resumes
+ * that receipt in the wizard (itself gated).
  * Gate: inventory.batch.view, inventory.goods_receipt.record or
  * inventory.quality_check.perform.
  */
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import { EmptyState, ScopeHeader, SectionTitle, WalletButton, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
-import { QUALITY_ISSUES, RECEIVING_RECORDS, inReceivingScope, isMainScope } from './fixtures';
 import {
   AlertCircleOutlineIcon,
   ChevronRightSmall,
@@ -31,12 +35,14 @@ import {
   canViewReceiving,
   qualityIssueTone,
 } from './ReceivingParts';
-import type { QualityIssue, ReceivingRecord, WarehouseScreenBaseProps } from './types';
+import type { LiveQualityIssue } from './liveTypes';
+import { isMainScope, receivingWarehouseFilter, warehouseNameFor } from './mappers';
+import { useReceivingDashboard, useReceivingNaming } from './useReceivingData';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface QualityIssuesScreenProps extends WarehouseScreenBaseProps {
-  issues?: QualityIssue[] | undefined;
-  records?: ReceivingRecord[] | undefined;
-  onSelectIssue: (issue: QualityIssue) => void;
+  /** A receipt awaiting its quality check (the host resumes it in the wizard). */
+  onSelectIssue: (issue: LiveQualityIssue) => void;
   /** Operational Issues & Action Center (storage-ops). */
   onOpenOperationalIssues?: (() => void) | undefined;
 }
@@ -45,13 +51,18 @@ export function QualityIssuesScreen({
   scope,
   can,
   onBack,
-  issues = QUALITY_ISSUES,
-  records = RECEIVING_RECORDS,
   onSelectIssue,
   onOpenOperationalIssues,
 }: QualityIssuesScreenProps) {
   const mainView = isMainScope(scope);
   const canView = canViewReceiving(can) || can(RECEIVING_CODES.qualityCheck);
+  const naming = useReceivingNaming(scope, can);
+  const dashboard = useReceivingDashboard(receivingWarehouseFilter(scope, undefined), naming.naming, canView);
+  const view = queryViewState({
+    isLoading: dashboard.isLoading,
+    error: dashboard.error,
+    itemCount: dashboard.shipments.length + dashboard.records.length,
+  });
   const header = {
     title: 'Quality Issues',
     onBack,
@@ -68,13 +79,20 @@ export function QualityIssuesScreen({
     );
   }
 
-  const rows = issues.filter((i) => inReceivingScope(scope, i.warehouseId));
-  const receipts = records.filter((r) => inReceivingScope(scope, r.warehouseId));
+  if (view === 'loading' || view === 'error') {
+    return (
+      <WalletScreen {...header}>
+        {view === 'loading' ? <AdminLoadingState /> : <AdminErrorState error={dashboard.error} onRetry={dashboard.refresh} />}
+      </WalletScreen>
+    );
+  }
+
+  const rows = dashboard.issues;
+  const receipts = dashboard.records;
   const summary: [string, number][] = [
-    ['Pending Checks', rows.filter((i) => i.kind === 'QC Pending').length],
-    ['Damage Reported', rows.filter((i) => i.kind === 'Damage Reported').length],
-    ['Rejected', receipts.filter((r) => r.result === 'Rejected').length],
-    ['Partially Accepted', receipts.filter((r) => r.result === 'Partially Accepted').length],
+    [t('receiving.issues.pendingChecks'), rows.length],
+    [t('receiving.issues.rejected'), receipts.filter((r) => r.result === 'Rejected').length],
+    [t('receiving.issues.partiallyAccepted'), receipts.filter((r) => r.result === 'Partially Accepted').length],
   ];
 
   return (
@@ -94,6 +112,7 @@ export function QualityIssuesScreen({
         {rows.length === 0 ? <EmptyState title="No open quality issues" /> : null}
         {rows.map((issue) => {
           const tone = adminColors[qualityIssueTone(issue.kind)];
+          const warehouseName = mainView ? warehouseNameFor(issue.warehouseId, naming.naming) : undefined;
           return (
             <TouchableOpacity
               key={issue.id}
@@ -108,10 +127,10 @@ export function QualityIssuesScreen({
               </View>
               <View style={styles.flex}>
                 <Text style={styles.title}>
-                  {issue.id} · {issue.kind}
+                  {issue.receiptCode} · {t('receiving.issueKind.qcPending')}
                 </Text>
                 <Text style={styles.meta}>
-                  {mainView ? `${warehouseNameOf(issue.warehouseId)} · ` : ''}
+                  {warehouseName !== undefined && warehouseName !== '' ? `${warehouseName} · ` : ''}
                   {issue.produce} — {issue.shipmentCode} · {issue.detail}
                 </Text>
               </View>

@@ -31,7 +31,7 @@
  * all four). The destination shown is the scope's warehouse, or the shipment's
  * own `to` for Main; nothing names a warehouse in this file.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -42,62 +42,79 @@ import {
   Alert,
   Modal,
   Platform,
-  ToastAndroid,
   ActivityIndicator,
   StatusBar,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { adminErrorKey } from '../../../api/errors';
+import type { Grade } from '../../../api/inventory';
+import type {
+  GoodsReceiptDiscrepancyCreate,
+  GoodsReceiptDiscrepancyType,
+  GoodsReceiptPackageUnit,
+  QcRejectionReasonCode,
+} from '../../../api/receiving';
+import { t } from '../../../i18n';
+import { formatKgNumber, parseKgToGrams } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
-
-function ArrowBackBrownIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChainLinkIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function EyeOffIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24M1 1l22 22"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+import { formatAdminDate, formatAdminDay, formatAdminTime } from '../../../utils/datetime';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
+import { StorageLocationAssignmentScreen } from '../storage-ops/StorageLocationAssignmentScreen';
+import type { LiveDiscrepancy, LiveQcResult, QcCriterionId } from './liveTypes';
+import {
+  buildCounterOfferBody,
+  buildGoodsReceiptBody,
+  buildQualityCheckBody,
+  createReceivingKeyRing,
+  discrepancyTypeLabel,
+  GRADES,
+  gradeLabel,
+  grams,
+  kgLabel,
+  QC_DRAFT_PROBLEM_MESSAGE,
+  QC_ORDER,
+  QC_REJECTION_REASON_CODES,
+  qcDraftProblem,
+  receivingWarehouseFilter,
+  rejectionReasonLabel,
+  toDiscrepancy,
+  type ReceivingKeyRing,
+} from './mappers';
+import { gradeVerificationOf, quantityDetailOf, receiptDocumentRows, type DiscrepancyInput } from './receivingViews';
+import { ensureReceipt, initialSubmissionState, recordReceiptQc, type SubmissionDeps, type SubmissionState } from './submission';
+import {
+  usePurchaseOrder,
+  useReceipt,
+  useReceiptDiscrepancies,
+  useReceiptDocument,
+  useReceivingNaming,
+  useReceivingWrites,
+  useStorageLocations,
+} from './useReceivingData';
+import {
+  ALL_PASS,
+  counterQuantityGrams,
+  DISCREPANCY_TYPES,
+  discrepancyRows,
+  gradeSummaryOf,
+  isValidPartial,
+  manualDiscrepancyBody,
+  outcomeOf,
+  pendingBodies,
+  phase2Placement,
+  qcIssueCountOf,
+  receiptActivity,
+  reviewQcResults,
+  seedSubmission,
+  sessionDiscrepancyBodies,
+  shortId,
+  wizardQcCriteria,
+  wizardQcDraft,
+  wizardResultOf,
+  type DiscrepancyRow,
+} from './wizardDraft';
 
 function QuestionCircleIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
@@ -145,13 +162,11 @@ function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: num
 import {
   AlertCircleOutlineIcon,
   BackArrowIcon,
-  CameraPlusIcon,
   CheckboxSquareIcon,
   CheckmarkCircleOutlineIcon,
   CheckmarkIcon,
   ChevronDownIcon,
   ChevronRightSmall,
-  ClipboardChecklistIcon,
   ClockSmallIcon,
   CrateInventoryIcon,
   CrossCircleIcon,
@@ -160,11 +175,9 @@ import {
   FileTextIcon,
   HistoryIcon,
   NotEqualIcon,
-  NoticeBox,
   PartialAcceptIcon,
   PencilDraftIcon,
   PermissionNote,
-  PictureIcon,
   QcCriterionIcon,
   QrCodeIcon,
   RECEIVING_CODES,
@@ -173,56 +186,40 @@ import {
   RejectCircleIcon,
   RightArrowIcon,
   ScaleIcon,
-  SearchIcon,
   SendPaperAirplaneIcon,
   StarIcon,
   StepperHeader,
-  TrashOutlineRedIcon,
   TruckDeliveryIcon,
   WarningTriangleIcon,
 } from './ReceivingParts';
-import {
-  DEMO_BATCH_IDS,
-  DEMO_GRN,
-  DEMO_PARTIAL_REJECT_KG,
-  DEMO_QC_PROGRESS,
-  DEMO_QC_RESULTS,
-  DEMO_SHIPMENT,
-  GRADE_OPTIONS,
-  HANDLING_METHODS,
-  INSPECTION_PARAMETERS,
-  ISSUE_TYPES,
-  PARTIAL_REJECTION_REASONS,
-  PRODUCT_OPTIONS,
-  QC_CRITERIA,
-  REJECTED_GOODS_REASONS,
-  STORAGE_BAYS,
-  WIZARD_HISTORY_IDS,
-  findReceivingRecord,
-  recordsInScope,
-} from './fixtures';
 import { ReceivingHistoryDetailScreen } from './ReceivingHistoryDetailScreen';
-import type {
-  QcResult,
-  ReceiptResult,
-  ReceivingOutcome,
-  ReceivingRecord,
-  ReceivingWizardStep,
-  ShipmentLineItem,
-  WarehouseScreenBaseProps,
-  WizardShipmentData,
-} from './types';
+import type { ReceivingWizardStep, WarehouseScreenBaseProps, WizardShipmentData } from './types';
 
 export interface GoodsReceivingWizardScreenProps extends WarehouseScreenBaseProps {
   /** Step to open on. A step the admin may not perform falls through to the next allowed one. */
   initialStep: ReceivingWizardStep;
+  /**
+   * No longer read: the wizard reads the purchase order itself
+   * (`purchaseOrderId`). Kept optional so the hosts that still pass a sample
+   * shipment compile until they move to `purchaseOrderId`.
+   */
   shipment?: WizardShipmentData | undefined;
+  /** The purchase order (uuid) being received; the wizard reads it (GET /admin/purchase-orders/{id}). */
+  purchaseOrderId?: string | undefined;
+  /** A receipt (uuid) of that order to continue (e.g. one awaiting its quality check). */
+  resumeReceiptId?: string | undefined;
+  /** The host's receipt detail for a recorded receipt (uuid). */
+  onViewReceipt?: ((receiptId: string) => void) | undefined;
   /** Name of the admin doing the receiving (Start Receiving "Receiver"). */
   receiverName?: string | undefined;
   onFinish?: (() => void) | undefined;
   onBackToShipments?: (() => void) | undefined;
   onViewBatch?: ((batchId: string) => void) | undefined;
-  /** Host's storage location assignment screen (Main shell), offered on the Batch & Storage step. */
+  /**
+   * No longer called: the storage step stays inside the wizard, so the draft
+   * survives and the quality check (which stocks the batch with its location,
+   * BR-106) is sent from there. Kept optional for the hosts that still pass it.
+   */
   onOpenStorageLocations?: (() => void) | undefined;
   /** Navigate to Inventory */
   onOpenInventory?: (() => void) | undefined;
@@ -246,21 +243,48 @@ const STEP_FALLBACK: Partial<Record<ReceivingWizardStep, ReceivingWizardStep>> =
   record_handling: 'receipt_confirmation',
 };
 
-/** Received - Expected, as the absorbed Quantity Verification rule states (never typed by the user). */
-function lineStatus(line: ShipmentLineItem): 'Shortage' | 'Excess' | 'Match' {
-  const diff = line.receivedKg - line.expectedKg;
-  return diff < 0 ? 'Shortage' : diff > 0 ? 'Excess' : 'Match';
+/** Steps with no API behind them (disposal / handling of rejected goods, the embedded history list): never opened. */
+const UNOFFERED_STEPS: Partial<Record<ReceivingWizardStep, ReceivingWizardStep>> = {
+  rejected_goods: 'receipt_confirmation',
+  record_handling: 'receipt_confirmation',
+};
+
+/** "480 KG", or the dash the design uses for a figure not known or not decided yet. */
+function kgOrDash(value: number | null | undefined): string {
+  return value === null || value === undefined ? t('receiving.wizard.dash') : kgLabel(value);
 }
 
-function signedKg(n: number): string {
-  return `${n > 0 ? '+' : ''}${n} KG`;
+/** Received - Expected, signed (never typed by the user); the dash until both are known. */
+function signedKg(value: number | null): string {
+  if (value === null) return t('receiving.wizard.dash');
+  return `${value > 0 ? '+' : ''}${kgLabel(value)}`;
 }
 
-/** Pill tone of a receipt result. */
-function resultTone(result: ReceiptResult) {
-  if (result === 'Accepted') return adminColors.success;
-  if (result === 'Rejected') return adminColors.danger;
-  return adminColors.warning;
+/** Grams from typed kg; null when nothing valid, or nothing above zero, was typed. */
+function positiveGrams(input: string): number | null {
+  const value = parseKgToGrams(input);
+  return value !== null && value > 0 ? value : null;
+}
+
+/** A typed whole count above zero (crates), else undefined. */
+function positiveCount(input: string): number | undefined {
+  if (!/^\d{1,6}$/.test(input.trim())) return undefined;
+  const n = Number(input.trim());
+  return n >= 1 ? n : undefined;
+}
+
+/** A write that failed, and how its Retry replays it (the held body makes the replay safe, BR-118). */
+type RetryAction =
+  | { kind: 'create'; next: ReceivingWizardStep; packages?: { count: number; unit: GoodsReceiptPackageUnit } | undefined }
+  | { kind: 'qc'; place: 'storage' | 'summary' | 'review'; locationCode?: string | undefined }
+  | { kind: 'record'; next: ReceivingWizardStep; packages?: { count: number; unit: GoodsReceiptPackageUnit } | undefined }
+  | { kind: 'reports'; next: ReceivingWizardStep; bodies: readonly GoodsReceiptDiscrepancyCreate[] };
+
+interface WriteFailure {
+  error: unknown;
+  /** The write may have landed (no answer / 5xx): Retry replays the held body. */
+  unknown: boolean;
+  retry: RetryAction;
 }
 
 /* ─── Main Wizard Component ─── */
@@ -269,12 +293,12 @@ export function GoodsReceivingWizardScreen({
   can,
   onBack,
   initialStep,
-  shipment,
+  purchaseOrderId,
+  resumeReceiptId,
   receiverName,
   onFinish,
   onBackToShipments,
   onViewBatch,
-  onOpenStorageLocations,
   onOpenInventory,
   onViewHistory,
 }: GoodsReceivingWizardScreenProps) {
@@ -419,12 +443,8 @@ export function GoodsReceivingWizardScreen({
           goToStep('receiving_decision');
           break;
         case 5:
-          // 6th step: Storage Assignment! Redirect directly to Storage Assignment screen
-          if (onOpenStorageLocations) {
-            onOpenStorageLocations();
-          } else {
-            goToStep('batch_assignment');
-          }
+          // 6th step: Storage Assignment, inside the wizard so the draft survives (the check is sent from there, BR-106)
+          goToStep('batch_assignment');
           break;
         case 6:
           // 7th step: Receipt Completion
@@ -452,13 +472,9 @@ export function GoodsReceivingWizardScreen({
           goToStep('batch_assignment');
           break;
         case 6:
-          // 7th step: Storage Assignment
-          if (onOpenStorageLocations) {
-            onOpenStorageLocations();
-          } else {
-            setBatchSubView('storage_assignment');
-            goToStep('batch_assignment');
-          }
+          // 7th step: Storage Assignment, inside the wizard (see the Sub case above)
+          setBatchSubView('storage_assignment');
+          goToStep('batch_assignment');
           break;
         case 7:
           // 8th step: Receipt Completion
@@ -489,8 +505,11 @@ export function GoodsReceivingWizardScreen({
     );
   };
 
-  const [currentStep, setCurrentStep] = useState<ReceivingWizardStep>(() => resolveStep(initialStep));
-  const [history, setHistory] = useState<ReceivingWizardStep[]>(() => [resolveStep(initialStep)]);
+  /** The step to open on; a step with no API behind it is never opened. */
+  const resolveInitial = (step: ReceivingWizardStep): ReceivingWizardStep => resolveStep(UNOFFERED_STEPS[step] ?? step);
+
+  const [currentStep, setCurrentStep] = useState<ReceivingWizardStep>(() => resolveInitial(initialStep));
+  const [history, setHistory] = useState<ReceivingWizardStep[]>(() => [resolveInitial(initialStep)]);
 
   const [batchSubView, setBatchSubView] = useState<
     | 'assignment'
@@ -505,10 +524,11 @@ export function GoodsReceivingWizardScreen({
     | 'assignment_complete'
   >('assignment');
 
-  const [gradeSubView, setGradeSubView] = useState<'main' | 'product_mismatch' | 'grade_mismatch' | 'product_summary' | 'grade_summary'>('main');
+  // No 'product_mismatch': the actual product cannot be picked (warehouse admins cannot list crops).
+  const [gradeSubView, setGradeSubView] = useState<'main' | 'grade_mismatch' | 'product_summary' | 'grade_summary'>('main');
 
   useEffect(() => {
-    const first = resolveStep(initialStep);
+    const first = resolveInitial(initialStep);
     setCurrentStep(first);
     setHistory([first]);
     if (first === 'damage_mismatch') {
@@ -526,15 +546,20 @@ export function GoodsReceivingWizardScreen({
     // Reset only when the host opens a different step (as before); `can` is stable per session.
   }, [initialStep]);
 
-  useEffect(() => {
-    if (isSub && currentStep === 'batch_assignment' && onOpenStorageLocations) {
-      onOpenStorageLocations();
-    }
-  }, [isSub, currentStep, onOpenStorageLocations]);
-
   const goToStep = (target: ReceivingWizardStep) => {
     const step = resolveStep(target);
     setHistory(prev => [...prev, step]);
+    setCurrentStep(step);
+  };
+
+  /** After a write: from the error screen the next step replaces it, so Back does not return to the error. */
+  const advance = (target: ReceivingWizardStep) => {
+    if (currentStep !== 'submission_error') {
+      goToStep(target);
+      return;
+    }
+    const step = resolveStep(target);
+    setHistory(prev => [...prev.slice(0, -1), step]);
     setCurrentStep(step);
   };
 
@@ -611,132 +636,195 @@ export function GoodsReceivingWizardScreen({
     }
   };
 
-  const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
+  // ─── Live data ───────────────────────────────────────────────────────────
+  const { naming } = useReceivingNaming(scope, can);
+  /**
+   * The warehouse the reads are keyed by: a Sub scope its own uuid (BR-30),
+   * the Main view none (the order and receipt are read by id; the key only
+   * has to be stable so one wizard's reads are shared, never another's).
+   */
+  const queryWh = receivingWarehouseFilter(scope, undefined);
+  const resumeRead = useReceipt(queryWh, resumeReceiptId, naming);
+  const orderId = purchaseOrderId ?? resumeRead.dto?.purchaseOrderId;
+  const order = usePurchaseOrder(queryWh, orderId, naming);
+  const ship = order.shipment;
+  const writes = useReceivingWrites();
 
-  const handleConfirmGoodsReceipt = () => {
-    setIsSubmittingReceipt(true);
-    setTimeout(() => {
-      setIsSubmittingReceipt(false);
-      goToStep('receipt_confirmation');
-    }, 600);
+  // One key ring for the wizard's life: the same body always replays with its key (BR-118).
+  const ringRef = useRef<ReceivingKeyRing | null>(null);
+  if (ringRef.current === null) ringRef.current = createReceivingKeyRing();
+  const ring = ringRef.current;
+  const deps: SubmissionDeps = {
+    createReceipt: (b) => writes.createReceipt(b, ring.createKey(b)),
+    recordQualityCheck: (id, b) => writes.recordQualityCheck(id, b, ring.qcKey(id, b)),
+    getReceipt: writes.getReceipt,
   };
 
-  const handleRetrySubmission = () => {
-    setIsSubmittingReceipt(true);
-    setTimeout(() => {
-      setIsSubmittingReceipt(false);
-      goToStep('receipt_confirmation');
-    }, 600);
+  // The two-phase submission (./submission.ts). A ref mirrors the state so an
+  // async step reads the latest, and a second tap in the same frame is refused.
+  const [submission, setSubmissionState] = useState<SubmissionState>(() => initialSubmissionState());
+  const submissionRef = useRef(submission);
+  const setSubmission = (next: SubmissionState) => {
+    submissionRef.current = next;
+    setSubmissionState(next);
   };
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const [failure, setFailure] = useState<WriteFailure | null>(null);
 
-  // Shipment facts (props first, demo shipment otherwise; no warehouse is named here)
-  const ship = shipment ?? DEMO_SHIPMENT;
-  const receiptCode = ship.code;
-  const expectedProduct = ship.produce;
-  const expectedGrade = ship.grade ?? DEMO_SHIPMENT.grade ?? '';
-  const sourceName = ship.from ?? DEMO_SHIPMENT.from ?? '';
-  /** Destination: the Sub scope's own warehouse, or the shipment's for Main (all warehouses). */
-  const destinationName = scope.warehouseName ?? ship.to ?? '';
+  // A receipt that already exists is resumed, never recorded again (BR-118).
+  const resumeDto = resumeRead.dto;
+  const pendingDto = resumeReceiptId === undefined ? order.pendingReceipt : undefined;
+  useEffect(() => {
+    const seeded = seedSubmission(submissionRef.current, resumeDto, pendingDto);
+    if (seeded !== null) {
+      submissionRef.current = seeded;
+      setSubmissionState(seeded);
+    }
+  }, [resumeDto, pendingDto]);
 
-  // Screen 1: Start Receiving States
-  const [receivedDate, setReceivedDate] = useState(ship.receivedDate ?? DEMO_SHIPMENT.receivedDate ?? '');
-  const [receivedTime, setReceivedTime] = useState(ship.receivedTime ?? DEMO_SHIPMENT.receivedTime ?? '');
-  const [, setStartReceivingPhotos] = useState<string[]>([]);
+  const receiptDto = submission.receipt;
+  const receiptUuid = receiptDto?.id ?? resumeReceiptId;
+  const receiptRead = useReceipt(queryWh, receiptUuid, naming);
+  const liveReceipt = receiptRead.receipt;
+  const discrepancyRead = useReceiptDiscrepancies(queryWh, receiptDto?.id);
+  const documentRead = useReceiptDocument(queryWh, summarySubView === 'preview' ? receiptDto?.id : undefined);
+
+  /** BR-30: a Sub scope always records into (and puts away in) its own warehouse; Main into the order's. */
+  const recordWarehouseId = receivingWarehouseFilter(scope, ship?.warehouseId);
+  const storage = useStorageLocations(canBatch ? recordWarehouseId : undefined);
+
+  // Order facts (the purchase order; no warehouse is named in this file)
+  const receiptCode = ship?.code ?? '';
+  const expectedProduct = ship?.produce ?? '';
+  const listedGrade = ship?.apiGrade;
+  const expectedGrade = ship?.grade ?? '';
+  const sourceName = ship?.from ?? '';
+  /** Destination: the Sub scope's own warehouse, or the order's (named from GET /warehouses) for Main. */
+  const destinationName = scope.warehouseName ?? ship?.to ?? '';
+  const expectedGrams = ship?.expectedGrams ?? null;
+  /** The real GRN once the receipt is recorded (phase 1); undefined before. */
+  const grn = receiptDto?.grnNumber;
+
+  // Start Receiving
   const [arrivalConfirmed, setArrivalConfirmed] = useState(false);
 
-  // Screen 3: Quality Check States
-  const [qcStatusMap, setQcStatusMap] = useState<Record<string, QcResult>>(DEMO_QC_RESULTS);
-  const qcIssueCount = QC_CRITERIA.filter(c => (qcStatusMap[c.id] ?? 'pass') !== 'pass').length;
+  // Quantity: typed once; a recorded (or possibly recorded) receipt keeps its gross.
+  const [grossInput, setGrossInput] = useState('');
+  const grossGrams =
+    receiptDto !== null
+      ? grams(receiptDto.grossQtyKg)
+      : submission.heldCreate !== null
+        ? grams(submission.heldCreate.grossQtyKg)
+        : positiveGrams(grossInput);
+  const grossLocked = receiptDto !== null || submission.heldCreate !== null;
+  const quantity = quantityDetailOf(expectedGrams, grossGrams);
 
-  // Grade & Product verification (absorbed GradeProductVerificationScreen)
-  const [actualProduct, setActualProduct] = useState(expectedProduct);
-  const [actualGrade, setActualGrade] = useState(expectedGrade);
-  const productMatches = actualProduct === expectedProduct;
-  const gradeMatches = actualGrade === expectedGrade;
+  // Quality check: the five API points (QC_ORDER).
+  const qcCriteria = wizardQcCriteria();
+  const [qcStatusMap, setQcStatusMap] = useState<Record<QcCriterionId, LiveQcResult>>(() => ({ ...ALL_PASS }));
+  const qcIssueCount = qcIssueCountOf(qcStatusMap);
 
-  // Screen 4 & 5: Quantities & Decisions
-  const initExpected = ship.expectedQty;
-  const initReceived = ship.receivedQty ?? initExpected;
-  const initRejected = ship.rejectedQty ?? 0;
-  const initAccepted = ship.acceptedQty ?? Math.max(0, initReceived - initRejected);
+  // Grade verification: the actual grade starts at the order's grade (the product cannot change on a receipt).
+  const [pickedGrade, setPickedGrade] = useState<Grade | undefined>(undefined);
+  const assignedGrade = pickedGrade ?? listedGrade;
+  const actualGrade = gradeLabel(assignedGrade);
+  const gradeCheck = assignedGrade === undefined ? null : gradeVerificationOf(listedGrade, assignedGrade, grossGrams);
+  const gradeMatches = gradeCheck?.status !== 'mismatch';
+  const [gradeNote, setGradeNote] = useState('');
 
-  const [expectedQty] = useState(initExpected);
-  const [receivedQty] = useState(initReceived);
-  const [rejectedQty, setRejectedQty] = useState(initRejected);
-  const [acceptedQty, setAcceptedQty] = useState(initAccepted);
-  const [acceptedInput, setAcceptedInput] = useState(String(initAccepted));
-  const [rejectionReason, setRejectionReason] = useState('Quality Below Grade');
+  // Decision: the accepted weight is chosen; rejected is always received - accepted.
+  const [acceptedGrams, setAcceptedGrams] = useState<number | null>(null);
+  const [acceptedInput, setAcceptedInput] = useState('');
+  // The design pre-selects "Quality Below Grade" (BELOW_GRADE); the reasons are the API's codes.
+  const [rejectionReasonCode, setRejectionReasonCode] = useState<QcRejectionReasonCode>('BELOW_GRADE');
   const [partialNotes, setPartialNotes] = useState('');
-  const [chosenOutcome, setChosenOutcome] = useState<ReceivingOutcome | null>(null);
-  const outcome: ReceivingOutcome = chosenOutcome ?? (acceptedQty === 0 ? 'Reject' : rejectedQty === 0 ? 'Accept' : 'Partial Accept');
 
-  /** Partial Acceptance: Accepted + Rejected = Received, and neither may exceed Received. */
-  const setAcceptedFromInput = (text: string) => {
-    const digits = text.replace(/[^0-9]/g, '');
-    const value = Math.min(receivedQty, Math.max(0, parseInt(digits, 10) || 0));
-    setAcceptedInput(digits === '' ? '' : String(value));
-    setAcceptedQty(value);
-    setRejectedQty(receivedQty - value);
+  /** What the views show after the check: this session's answer, else the receipt as read back. */
+  const result = wizardResultOf(submission.qc, liveReceipt);
+  const decided = result !== null && result.variant !== 'awaiting';
+  const shownAccepted = decided ? result.acceptedGrams : acceptedGrams;
+  const shownRejected = decided
+    ? result.rejectedGrams
+    : grossGrams !== null && acceptedGrams !== null && acceptedGrams >= 0 && acceptedGrams <= grossGrams
+      ? grossGrams - acceptedGrams
+      : null;
+  const outcome = outcomeOf(grossGrams, shownAccepted);
+  const outcomeUpper =
+    outcome === 'Accept'
+      ? t('receiving.wizard.outcomeUpper.accept')
+      : outcome === 'Reject'
+        ? t('receiving.wizard.outcomeUpper.reject')
+        : outcome === 'Partial Accept'
+          ? t('receiving.wizard.outcomeUpper.partial')
+          : undefined;
+  const reasonLabel = decided ? result.reasonLabel : rejectionReasonLabel(rejectionReasonCode);
+
+  const setAcceptedFromInput = (value: string) => {
+    const typed = value.replace(/[^0-9.]/g, '');
+    setAcceptedInput(typed);
+    setAcceptedGrams(parseKgToGrams(typed));
   };
 
-  const shipmentLines: ShipmentLineItem[] = [
-    { product: expectedProduct, expectedKg: expectedQty, receivedKg: receivedQty },
-    ...(ship.lines ?? []),
-  ];
+  /** Where the check (phase 2) is sent from: the storage confirm when a batch is stocked, else the summary (BR-106). */
+  const place = phase2Placement({
+    canQc,
+    canBatch,
+    acceptedGrams: shownAccepted,
+    // No grade yet: nothing can be stocked.
+    assignedGrade: assignedGrade ?? 'REJECT',
+  });
 
-  // Screen 5: Damage / Mismatch States
-  const [selectedIssueType, setSelectedIssueType] = useState(ISSUE_TYPES[0] ?? '');
+  // Damage / Mismatch (BR-121): the session's reports, the persisted ones, and the Sub form.
+  const [selectedIssueType, setSelectedIssueType] = useState<GoodsReceiptDiscrepancyType>(DISCREPANCY_TYPES[0] ?? 'QUANTITY');
   const [issueDescription, setIssueDescription] = useState('');
+  const [createdReports, setCreatedReports] = useState<LiveDiscrepancy[]>([]);
+  const [selectedReportKey, setSelectedReportKey] = useState<string | undefined>(undefined);
+  const discrepancyInput: DiscrepancyInput = {
+    product: expectedProduct,
+    expectedGrams,
+    receivedGrams: grossGrams,
+    listedGrade,
+    // Without an assigned grade there is no listed grade either, so no grade report is derived.
+    assignedGrade: assignedGrade ?? 'GRADE_1',
+    failedPoints: canQc ? QC_ORDER.filter(id => qcStatusMap[id] !== 'pass') : [],
+    damagedGrams: null,
+    spoiledGrams: null,
+    note: '',
+  };
+  const persistedReports = [...discrepancyRead.items, ...createdReports];
+  const shownBodies = pendingBodies(sessionDiscrepancyBodies(discrepancyInput, gradeNote, null), persistedReports);
+  const reportRows = discrepancyRows(discrepancyRead.items, createdReports, shownBodies);
+  const selectedReport = reportRows.find(r => r.key === selectedReportKey) ?? reportRows[0];
+  const reportsView = queryViewState({ isLoading: discrepancyRead.isLoading, error: discrepancyRead.error, itemCount: reportRows.length });
 
-  /** Combined discrepancies (absorbed Damage / Mismatch Report), derived from what was recorded. */
-  const discrepancies = [
-    ...(receivedQty !== expectedQty
-      ? [{ id: 'qty', kind: 'Quantity', detail: `Expected ${expectedQty} KG · Actual ${receivedQty} KG` }]
-      : []),
-    ...(!productMatches
-      ? [{ id: 'product', kind: 'Product', detail: `Expected ${expectedProduct} · Actual ${actualProduct}` }]
-      : []),
-    ...(!gradeMatches ? [{ id: 'grade', kind: 'Grade', detail: `Expected ${expectedGrade} · Actual ${actualGrade}` }] : []),
-    ...(canQc && qcIssueCount > 0
-      ? [{ id: 'quality', kind: 'Quality', detail: `${qcIssueCount} of ${QC_CRITERIA.length} checks need attention or failed` }]
-      : []),
-  ];
+  // Storage location (free text on the batch; the check sends its code, BR-106)
+  const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>(undefined);
+  const selectedLocation = storage.options.find(o => o.id === selectedLocationId);
+  const locationLabel = (code: string | undefined): string | undefined =>
+    code === undefined ? undefined : storage.options.find(o => o.code === code)?.label ?? code;
 
-  // History Tab Filter
-  const [historyFilter, setHistoryFilter] = useState<'All' | 'Accepted' | 'Partial' | 'Rejected'>('All');
-  const [historySearch, setHistorySearch] = useState('');
-  const [selectedHistoryId, setSelectedHistoryId] = useState<string | undefined>(undefined);
-
-  // Rejected Goods & Record Handling States
-  const [selectedRejectedReason, setSelectedRejectedReason] = useState(REJECTED_GOODS_REASONS[0] ?? '');
-  const [handlingStatus, setHandlingStatus] = useState<'Pending' | 'Recorded'>('Pending');
-  const [handlingMethod, setHandlingMethod] = useState('Select method');
-  const [handlingDate, setHandlingDate] = useState(ship.receivedDate ?? DEMO_SHIPMENT.receivedDate ?? '');
-  const [handlingTime, setHandlingTime] = useState(ship.receivedTime ?? DEMO_SHIPMENT.receivedTime ?? '');
-  const [handlingRemarks, setHandlingRemarks] = useState('');
-
-  // Batch & storage (absorbed BatchAssignment + the Review Receiving putaway bay)
-  const [selectedBayId, setSelectedBayId] = useState(STORAGE_BAYS[0]?.id ?? '');
-  const selectedBay = STORAGE_BAYS.find(b => b.id === selectedBayId);
-  const batchId = outcome === 'Accept' ? DEMO_BATCH_IDS.full : DEMO_BATCH_IDS.partial;
-
-  // Counter-offer (inventory.quality.counter_offer)
+  // Counter-offer (inventory.quality.counter_offer): needs the recorded receipt.
   const [counterPrice, setCounterPrice] = useState('');
   const [counterReason, setCounterReason] = useState('');
-  /** Rupees with at most two decimals, kept as a string (CLAUDE.md 2.2: money is never a float). */
-  const counterPriceValid = /^\d{1,6}(\.\d{1,2})?$/.test(counterPrice) && !/^0+(\.0+)?$/.test(counterPrice);
+  const counterQty = counterQuantityGrams(result, shownAccepted, grossGrams);
+  const counterBody =
+    counterQty === null ? null : buildCounterOfferBody({ priceInput: counterPrice, quantityGrams: counterQty, message: counterReason });
+  const counterPriceValid = counterBody !== null;
+  const canOfferCounter = canCounter && receiptDto !== null;
 
   // Review Receiving (absorbed SubWarehouseReviewReceivingScreen)
-  const [grossWeight, setGrossWeight] = useState(String(receivedQty));
-  const [crateCount, setCrateCount] = useState('0');
-  const [inspection, setInspection] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(INSPECTION_PARAMETERS.map(p => [p.id, true])),
-  );
+  const [crateCount, setCrateCount] = useState('');
+  const [inspection, setInspection] = useState<Record<QcCriterionId, boolean>>(() => ({
+    appearance: true,
+    size: true,
+    moisture: true,
+    damage: true,
+    freshness: true,
+  }));
   const [isReviewSuccessVisible, setIsReviewSuccessVisible] = useState(false);
-  const parsedGross = parseFloat(grossWeight) || 0;
-  const parsedCrates = parseInt(crateCount, 10) || 0;
-  const tareWeight = parsedCrates * (ship.crateTareKg ?? 0);
-  const netWeight = Math.max(0, parsedGross - tareWeight);
+  const reviewCrates = positiveCount(crateCount);
+  const reviewPackages = reviewCrates === undefined ? undefined : { count: reviewCrates, unit: 'CRATE' as const };
 
   /** Damage / Mismatch continues to the step after the one that opened it (Quality is skipped without its gate). */
   const mismatchFrom = history[history.length - 2];
@@ -747,31 +835,210 @@ export function GoodsReceivingWizardScreen({
         ? 'grade_verification'
         : 'quality_check';
 
-  /** Summary -> Batch & Storage when allowed and something was accepted, else submit straight away. */
-  const handleSummaryConfirm = () => {
-    if (isSub && onOpenStorageLocations) {
-      onOpenStorageLocations();
-      return;
+  // ─── Writes ──────────────────────────────────────────────────────────────
+
+  /** Runs one write at a time; the confirm buttons are disabled meanwhile (no double submit). */
+  const withBusy = async (work: () => Promise<void>) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await work();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
     }
-    if (canBatch && acceptedQty > 0) goToStep('batch_assignment');
-    else handleConfirmGoodsReceipt();
   };
 
-  const pickFrom = (title: string, options: string[], onPick: (v: string) => void) => {
+  const fail = (error: unknown, unknown: boolean, retry: RetryAction) => {
+    setFailure({ error, unknown, retry });
+    if (currentStep !== 'submission_error') goToStep('submission_error');
+  };
+
+  /** Phase 1: the goods receipt (its GRN is real from here on). True when the receipt exists. */
+  const runCreate = async (retry: RetryAction, packages?: { count: number; unit: GoodsReceiptPackageUnit }): Promise<boolean> => {
+    const state = submissionRef.current;
+    if (state.receipt !== null) return true;
+    if (orderId === undefined || recordWarehouseId === undefined || grossGrams === null) {
+      Alert.alert(t('receiving.wizard.grossRequired'));
+      return false;
+    }
+    const body = buildGoodsReceiptBody({
+      purchaseOrderId: orderId,
+      warehouseId: recordWarehouseId,
+      grossGrams,
+      packageCount: packages?.count,
+      packageUnit: packages?.unit,
+    });
+    const out = await ensureReceipt(state, body, deps);
+    setSubmission(out.state);
+    if (out.kind === 'failed') {
+      fail(out.error, out.unknown, retry);
+      return false;
+    }
+    return true;
+  };
+
+  /** M2-06 Continue (and Record Damage / Mismatch): record the receipt, then move on. */
+  const leaveQuantity = (next: ReceivingWizardStep) => {
+    void withBusy(async () => {
+      if (await runCreate({ kind: 'create', next })) advance(next);
+    });
+  };
+
+  /** Without inventory.quality_check.perform only the receipt is recorded; its check stays pending. */
+  const recordOnly = async (next: ReceivingWizardStep, packages?: { count: number; unit: GoodsReceiptPackageUnit }) => {
+    if (await runCreate({ kind: 'record', next, packages }, packages)) advance(next);
+  };
+
+  /**
+   * Phase 2: the quality check. BR-106: this one call stocks the accepted
+   * goods as a batch AND copies the storage location onto it; there is no
+   * batch or location write after it.
+   */
+  const runQc = async (where: 'storage' | 'summary' | 'review', locationCode?: string) => {
+    const retry: RetryAction = { kind: 'qc', place: where, locationCode };
+    if (assignedGrade === undefined) {
+      Alert.alert(t('receiving.wizard.gradeRequired'));
+      return;
+    }
+    const draft = wizardQcDraft({
+      assignedGrade,
+      grossGrams,
+      // The one-page review accepts the full received weight.
+      acceptedGrams: where === 'review' ? grossGrams : acceptedGrams,
+      results: where === 'review' ? reviewQcResults(inspection) : qcStatusMap,
+      rejectionReasonCode,
+      rejectionNote: partialNotes,
+      storageLocationCode: locationCode,
+    });
+    const problem = qcDraftProblem(draft);
+    if (problem !== null && submissionRef.current.heldQc === null && !submissionRef.current.qcDone) {
+      Alert.alert(t(QC_DRAFT_PROBLEM_MESSAGE[problem]));
+      return;
+    }
+    if (!(await runCreate(retry, where === 'review' ? reviewPackages : undefined))) return;
+    const state = submissionRef.current;
+    if (!state.qcDone) {
+      // A held body (outcome unknown) is replayed as is; the draft is not rebuilt over it.
+      const body = state.heldQc ?? buildQualityCheckBody(draft);
+      const out = await recordReceiptQc(state, body, deps);
+      setSubmission(out.state);
+      if (out.kind === 'failed') {
+        fail(out.error, out.unknown, retry);
+        return;
+      }
+    }
+    if (where === 'review') {
+      if (currentStep !== 'review_receiving') advance('review_receiving');
+      setIsReviewSuccessVisible(true);
+    } else if (where === 'storage' && !isSub) {
+      setBatchSubView('assignment_complete');
+      if (currentStep !== 'batch_assignment') advance('batch_assignment');
+    } else {
+      advance('receipt_confirmation');
+    }
+  };
+
+  /** M2-09: send each of the session's reports that the receipt does not have yet, once (per-body key, BR-118). */
+  const persistReports = async (bodies: readonly GoodsReceiptDiscrepancyCreate[], next: ReceivingWizardStep): Promise<boolean> => {
+    const receiptId = submissionRef.current.receipt?.id;
+    if (receiptId === undefined) return true;
+    for (const [idx, body] of bodies.entries()) {
+      try {
+        const dto = await writes.createDiscrepancy(receiptId, body, ring.discrepancyKey(receiptId, body));
+        const created = toDiscrepancy(dto, new Date());
+        setCreatedReports(prev => (prev.some(p => p.id === created.id) ? prev : [...prev, created]));
+      } catch (error) {
+        fail(error, false, { kind: 'reports', next, bodies: bodies.slice(idx) });
+        return false;
+      }
+    }
+    return true;
+  };
+
+  /**
+   * "Continue" out of Damage / Mismatch. JUDGMENT CALL (reported): the reports
+   * derived from what was recorded are persisted when the admin continues to
+   * the decision; the Sub form's own report (type + description) whenever it
+   * continues. Nothing is sent before the receipt exists.
+   */
+  const leaveMismatch = (next: ReceivingWizardStep) => {
+    void withBusy(async () => {
+      const manual = isSub ? manualDiscrepancyBody({ type: selectedIssueType, description: issueDescription }, discrepancyInput) : null;
+      const derived = next === 'receiving_decision' ? sessionDiscrepancyBodies(discrepancyInput, gradeNote, manual) : manual === null ? [] : [manual];
+      const todo = pendingBodies(derived, persistedReports);
+      if (await persistReports(todo, next)) {
+        if (manual !== null) setIssueDescription('');
+        advance(next);
+      }
+    });
+  };
+
+  const handleRetrySubmission = () => {
+    const retry = failure?.retry;
+    if (retry === undefined) return;
+    void withBusy(async () => {
+      if (retry.kind === 'create') {
+        if (await runCreate(retry, retry.packages)) advance(retry.next);
+      } else if (retry.kind === 'record') {
+        await recordOnly(retry.next, retry.packages);
+      } else if (retry.kind === 'qc') {
+        await runQc(retry.place, retry.locationCode);
+      } else if (await persistReports(pendingBodies(retry.bodies, persistedReports), retry.next)) {
+        advance(retry.next);
+      }
+    });
+  };
+
+  /** Summary -> Batch & Storage when a batch will be stocked and the admin may place it, else the check is sent here. */
+  const handleSummaryConfirm = () => {
+    if (canQc && outcome === null) {
+      Alert.alert(t('receiving.wizard.decisionRequired'));
+      return;
+    }
+    if (place === 'storage') {
+      if (!isSub) setBatchSubView('assignment');
+      goToStep('batch_assignment');
+      return;
+    }
+    void withBusy(() => (place === 'none' ? recordOnly('receipt_confirmation') : runQc('summary')));
+  };
+
+  /** Main summary's bottom button: "Assign Batch" when a batch will be stocked, else the confirm that sends the check. */
+  const summaryStocks = place === 'storage';
+
+  const sendCounterOffer = () => {
+    if (receiptDto === null || counterBody === null) return;
+    void withBusy(async () => {
+      try {
+        const offer = await writes.createCounterOffer(receiptDto.id, counterBody, ring.counterKey(receiptDto.id, counterBody));
+        Alert.alert(
+          t('receiving.wizard.counterRecordedTitle'),
+          t('receiving.wizard.counterSent', { round: offer.round, expires: formatAdminDate(offer.expiresAt, new Date()) }),
+        );
+        handleBack();
+      } catch (error) {
+        Alert.alert(t('async.error.title'), t(adminErrorKey(error)));
+      }
+    });
+  };
+
+  const pickFrom = (title: string, options: readonly { label: string; onPick: () => void }[]) => {
     Alert.alert(title, undefined, [
-      ...options.map(o => ({ text: o, onPress: () => onPick(o) })),
-      { text: 'Cancel', style: 'cancel' as const },
+      ...options.map(o => ({ text: o.label, onPress: o.onPick })),
+      { text: t('receiving.wizard.cancel'), style: 'cancel' as const },
     ]);
   };
 
   /** QC summary rows from the recorded results (was a hard-coded icon list). */
-  const qcSummaryRows = (results: Partial<Record<string, QcResult>>) =>
-    QC_CRITERIA.map((crit, idx) => {
-      const r = results[crit.id] ?? 'pass';
+  const qcSummaryRows = (results: Readonly<Record<QcCriterionId, LiveQcResult>>) =>
+    qcCriteria.map((crit, idx) => {
+      const r = results[crit.id];
       return (
         <View
           key={crit.id}
-          style={[styles.qcSummaryRow, idx === QC_CRITERIA.length - 1 && { borderBottomWidth: 0 }]}
+          style={[styles.qcSummaryRow, idx === qcCriteria.length - 1 && { borderBottomWidth: 0 }]}
         >
           <Text style={styles.qcSummaryLabel}>{crit.title}</Text>
           {r === 'pass' ? (
@@ -784,6 +1051,20 @@ export function GoodsReceivingWizardScreen({
         </View>
       );
     });
+
+  /** The plain wizard frame for a state with no step to show (no order, loading, error). */
+  const stateFrame = (body: React.ReactNode) => (
+    <View style={styles.container}>
+      <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
+          <BackArrowIcon />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('receiving.wizard.title')}</Text>
+      </View>
+      {body}
+    </View>
+  );
 
   /* ──────────────────────────────────────────────────────────
      No permission for this step (every gate failed its fallback)
@@ -803,6 +1084,24 @@ export function GoodsReceivingWizardScreen({
         </View>
       </View>
     );
+  }
+
+  /* ──────────────────────────────────────────────────────────
+     The purchase order being received: no order (never a sample shipment),
+     loading, or an error with Retry, before any step is drawn.
+     ────────────────────────────────────────────────────────── */
+  if (orderId === undefined) {
+    if (resumeReceiptId !== undefined && resumeRead.isLoading) return stateFrame(<AdminLoadingState />);
+    if (resumeReceiptId !== undefined && resumeRead.error !== null && resumeRead.error !== undefined) {
+      return stateFrame(<AdminErrorState error={resumeRead.error} onRetry={resumeRead.refresh} />);
+    }
+    return stateFrame(<AdminEmptyState title={t('receiving.wizard.noShipment')} />);
+  }
+  if (ship === undefined) {
+    if (!order.isLoading && order.error !== null && order.error !== undefined) {
+      return stateFrame(<AdminErrorState error={order.error} onRetry={order.refresh} />);
+    }
+    return stateFrame(<AdminLoadingState />);
   }
 
   /* ──────────────────────────────────────────────────────────
@@ -831,7 +1130,9 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.produceTitle}>{expectedProduct}</Text>
                 <Text style={styles.produceSub}>{expectedGrade}</Text>
               </View>
-              <Text style={styles.produceExpQty}>Exp. {expectedQty} KG</Text>
+              {expectedGrams !== null ? (
+                <Text style={styles.produceExpQty}>{t('receiving.wizard.expectedQty', { qty: kgLabel(expectedGrams) })}</Text>
+              ) : null}
             </View>
           </View>
 
@@ -839,10 +1140,12 @@ export function GoodsReceivingWizardScreen({
           <Text style={styles.sectionHeader}>Shipment Confirmation</Text>
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Source</Text>
-                <Text style={styles.summaryMetaVal}>{sourceName}</Text>
-              </View>
+              {sourceName !== '' ? (
+                <View style={styles.summaryMetaCol}>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.source')}</Text>
+                  <Text style={styles.summaryMetaVal}>{sourceName}</Text>
+                </View>
+              ) : null}
               <View style={styles.summaryMetaCol}>
                 <Text style={styles.summaryMetaLabel}>Destination</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
@@ -853,10 +1156,12 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.summaryMetaLabel}>Expected Product</Text>
                 <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Qty</Text>
-                <Text style={styles.summaryMetaVal}>{expectedQty} KG</Text>
-              </View>
+              {expectedGrams !== null ? (
+                <View style={styles.summaryMetaCol}>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.expectedQtyLabel')}</Text>
+                  <Text style={styles.summaryMetaVal}>{kgLabel(expectedGrams)}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
 
@@ -874,6 +1179,7 @@ export function GoodsReceivingWizardScreen({
             </View>
           </View>
 
+          {/* No arrival status exists (owner decision): the box stays, it never blocks Continue. */}
           <TouchableOpacity
             style={styles.checkboxRow}
             onPress={() => setArrivalConfirmed(prev => !prev)}
@@ -885,34 +1191,8 @@ export function GoodsReceivingWizardScreen({
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.sectionHeader}>Physical Information</Text>
-          <View style={styles.rowTwoCols}>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Received Date</Text>
-              <TextInput style={styles.textInput} value={receivedDate} onChangeText={setReceivedDate} />
-            </View>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Received Time</Text>
-              <TextInput style={styles.textInput} value={receivedTime} onChangeText={setReceivedTime} />
-            </View>
-          </View>
-
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionHeader}>Receiving Photos</Text>
-            <Text style={styles.optionalTag}>Optional</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.dashedAddBox}
-            activeOpacity={0.7}
-            onPress={() => {
-              Alert.alert('Camera', 'Photo captured.');
-              setStartReceivingPhotos(prev => [...prev, 'photo']);
-            }}
-          >
-            <CameraPlusIcon />
-            <Text style={styles.dashedAddBoxText}>Add Photo</Text>
-          </TouchableOpacity>
+          {/* Received Date / Time and Receiving Photos are hidden: the server stamps receivedAt itself and the
+              wizard has no photo upload (Gaps). */}
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -947,61 +1227,84 @@ export function GoodsReceivingWizardScreen({
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {stepper('Quantity')}
 
+          {/* The received weight, typed once (design M2-06 "Received Quantity"); a recorded receipt keeps its own. */}
+          <Text style={styles.inputLabel}>{t('receiving.wizard.grossLabel')}</Text>
+          {grossLocked ? (
+            <View style={[styles.textInput, styles.readOnlyInput, { marginBottom: adminSpacing.lg }]}>
+              <Text style={styles.readOnlyValue}>
+                {grossGrams !== null && grn !== undefined
+                  ? t('receiving.wizard.grossLocked', { qty: kgLabel(grossGrams), grn })
+                  : kgOrDash(grossGrams)}
+              </Text>
+            </View>
+          ) : (
+            <TextInput
+              style={[styles.textInput, { marginBottom: adminSpacing.lg }]}
+              value={grossInput}
+              onChangeText={value => setGrossInput(value.replace(/[^0-9.]/g, ''))}
+              keyboardType="decimal-pad"
+              placeholder="0.000"
+              placeholderTextColor={adminColors.placeholder}
+            />
+          )}
 
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(expectedGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.expected')}</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(grossGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.received')}</Text>
             </View>
 
             <View style={styles.statTile}>
               <Text
                 style={[
                   styles.statTileNumber,
-                  receivedQty !== expectedQty && { color: adminColors.danger.text },
+                  quantity.differenceGrams !== null && quantity.differenceGrams !== 0 && { color: adminColors.danger.text },
                 ]}
               >
-                {signedKg(receivedQty - expectedQty)}
+                {signedKg(quantity.differenceGrams)}
               </Text>
-              <Text style={styles.statTileLabel}>DIFFERENCE</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.difference')}</Text>
             </View>
           </View>
 
-          {/* Absorbed QuantityVerificationScreen: one row per product line with its status */}
-          <Text style={styles.sectionHeader}>
-            {shipmentLines.length > 1 ? 'Multiple Items on this Shipment' : 'Items on this Shipment'}
-          </Text>
-          {shipmentLines.map(line => {
-            const status = lineStatus(line);
+          {/* Absorbed QuantityVerificationScreen: the order's one product line (an order has one crop) with its status */}
+          <Text style={styles.sectionHeader}>{t('receiving.wizard.itemsOnShipment')}</Text>
+          {(() => {
+            const status = quantity.status;
             const tone =
               status === 'Shortage' ? adminColors.warning : status === 'Excess' ? adminColors.info : adminColors.success;
             return (
-              <View key={line.product} style={styles.shipmentItemCard}>
+              <View style={styles.shipmentItemCard}>
                 <View style={styles.shipmentItemTopRow}>
-                  <Text style={styles.shipmentItemTitle}>{line.product}</Text>
-                  <View style={[styles.redBadgePill, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.redBadgeText, { color: tone.text }]}>
-                      {status === 'Match' ? status : `${status} ${signedKg(line.receivedKg - line.expectedKg)}`}
-                    </Text>
-                  </View>
+                  <Text style={styles.shipmentItemTitle}>{expectedProduct}</Text>
+                  {status !== null ? (
+                    <View style={[styles.redBadgePill, { backgroundColor: tone.bg }]}>
+                      <Text style={[styles.redBadgeText, { color: tone.text }]}>
+                        {status === 'Match'
+                          ? t('receiving.wizard.qtyStatus.Match')
+                          : `${t(status === 'Shortage' ? 'receiving.wizard.qtyStatus.Shortage' : 'receiving.wizard.qtyStatus.Excess')} ${signedKg(quantity.differenceGrams)}`}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={styles.shipmentItemDesc}>
-                  Expected <Text style={{ fontWeight: '700', color: adminColors.ink }}>{line.expectedKg} KG</Text> · Received <Text style={{ fontWeight: '700', color: adminColors.ink }}>{line.receivedKg} KG</Text>
+                  {t('receiving.wizard.expectedWord')} <Text style={{ fontWeight: '700', color: adminColors.ink }}>{kgOrDash(expectedGrams)}</Text> · {t('receiving.wizard.receivedWord')} <Text style={{ fontWeight: '700', color: adminColors.ink }}>{kgOrDash(grossGrams)}</Text>
                 </Text>
               </View>
             );
-          })}
+          })()}
 
           <Text style={styles.sectionHeader}>Report an Issue</Text>
           <TouchableOpacity
             style={styles.reportIssueBtn}
             activeOpacity={0.8}
-            onPress={() => goToStep('damage_mismatch')}
+            disabled={busy || grossGrams === null}
+            onPress={() => leaveQuantity('damage_mismatch')}
           >
             <AlertCircleOutlineIcon color={adminColors.brand} size={18} />
             <Text style={styles.reportIssueBtnText}>Record Damage / Mismatch</Text>
@@ -1012,9 +1315,10 @@ export function GoodsReceivingWizardScreen({
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, (busy || grossGrams === null) && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            onPress={() => goToStep('quality_check')}
+            disabled={busy || grossGrams === null}
+            onPress={() => leaveQuantity('quality_check')}
           >
             <Text style={styles.primaryCtaText}>
               {canQc ? 'Continue to Quality Check  →' : 'Continue to Grade & Product Check  →'}
@@ -1038,7 +1342,11 @@ export function GoodsReceivingWizardScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Quality Check</Text>
-            <Text style={styles.headerSub}>{expectedProduct} · {expectedGrade} · Received {receivedQty} KG</Text>
+            <Text style={styles.headerSub}>
+              {[expectedProduct, expectedGrade, grossGrams === null ? '' : t('receiving.wizard.receivedQty', { qty: kgLabel(grossGrams) })]
+                .filter(part => part !== '')
+                .join(' · ')}
+            </Text>
           </View>
         </View>
 
@@ -1049,7 +1357,9 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.qcProductCard}>
             <View style={styles.qcProductText}>
               <Text style={styles.shipmentItemTitle}>{expectedProduct}</Text>
-              <Text style={styles.shipmentItemDesc}>{receivedQty} KG received</Text>
+              {grossGrams !== null ? (
+                <Text style={styles.shipmentItemDesc}>{t('receiving.wizard.kgReceived', { qty: kgLabel(grossGrams) })}</Text>
+              ) : null}
             </View>
             <View
               style={[
@@ -1063,13 +1373,13 @@ export function GoodsReceivingWizardScreen({
                   { color: qcIssueCount > 0 ? adminColors.warning.text : adminColors.success.text },
                 ]}
               >
-                {qcIssueCount > 0 ? 'Issue' : 'OK'}
+                {qcIssueCount > 0 ? t('receiving.wizard.qcIssue') : t('receiving.wizard.qcOk')}
               </Text>
             </View>
           </View>
 
-          {QC_CRITERIA.map(crit => {
-            const currentVal = qcStatusMap[crit.id] || 'pass';
+          {qcCriteria.map(crit => {
+            const currentVal = qcStatusMap[crit.id];
 
             return (
               <View key={crit.id} style={styles.criteriaCard}>
@@ -1144,54 +1454,7 @@ export function GoodsReceivingWizardScreen({
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'grade_verification') {
     if (!isSub) {
-      if (gradeSubView === 'product_mismatch') {
-        return (
-          <View style={customMismatchStyles.root}>
-            <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-            <View style={customMismatchStyles.header}>
-              <View style={customMismatchStyles.headerRow}>
-                <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
-                  <BackArrowIcon color={adminColors.onBrand} />
-                </TouchableOpacity>
-                <Text style={customMismatchStyles.headerTitle}>Product Mismatch</Text>
-              </View>
-              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
-            </View>
-
-            <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
-              <Text style={customMismatchStyles.sectionHeading}>Product Mismatch Detail</Text>
-
-              <View style={customMismatchStyles.whiteCard}>
-                <View style={customMismatchStyles.gridRow}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Expected Product</Text>
-                    <Text style={customMismatchStyles.gridVal}>{expectedProduct || 'Tomato'}</Text>
-                  </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Actual Product</Text>
-                    <Text style={customMismatchStyles.gridVal}>—</Text>
-                  </View>
-                </View>
-
-                <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Quantity Affected</Text>
-                    <Text style={customMismatchStyles.gridVal}>—</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={customMismatchStyles.subtleNoticeBox}>
-                <CheckmarkCircleOutlineIcon size={18} color={adminColors.success.text} />
-                <Text style={customMismatchStyles.subtleNoticeText}>
-                  No product mismatch on this shipment — actual product matches expected. This panel populates only when a mismatch is actually recorded.
-                </Text>
-              </View>
-            </ScrollView>
-          </View>
-        );
-      }
-
+      // No Product Mismatch detail: warehouse admins cannot list crops, so no actual product can be recorded (Gaps).
       if (gradeSubView === 'grade_mismatch') {
         return (
           <View style={customMismatchStyles.root}>
@@ -1203,7 +1466,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Grade Mismatch</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode}</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -1212,29 +1475,34 @@ export function GoodsReceivingWizardScreen({
               <View style={customMismatchStyles.whiteCard}>
                 <View style={customMismatchStyles.gridRow}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Expected Grade</Text>
-                    <Text style={customMismatchStyles.gridVal}>{expectedGrade || 'Grade 1'}</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.expectedGrade')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{expectedGrade}</Text>
                   </View>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Actual Grade</Text>
-                    <Text style={customMismatchStyles.gridVal}>{actualGrade || 'Grade 2'}</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.actualGrade')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{actualGrade}</Text>
                   </View>
                 </View>
 
-                <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Quantity Affected</Text>
-                    <Text style={customMismatchStyles.gridVal}>{receivedQty || 480} KG</Text>
+                {gradeCheck?.quantityAffectedGrams !== null && gradeCheck?.quantityAffectedGrams !== undefined ? (
+                  <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.quantityAffected')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{kgLabel(gradeCheck.quantityAffectedGrams)}</Text>
+                    </View>
                   </View>
-                </View>
+                ) : null}
               </View>
 
+              {/* The note travels on the grade-mismatch report (BR-121). */}
               <View style={customMismatchStyles.notesCard}>
                 <TextInput
                   style={[customMismatchStyles.notesPlaceholder, { color: adminColors.ink }]}
-                  placeholder="Notes on grade mismatch"
+                  placeholder={t('receiving.wizard.gradeNotePlaceholder')}
                   placeholderTextColor={adminColors.muted}
                   multiline
+                  value={gradeNote}
+                  onChangeText={setGradeNote}
                 />
               </View>
             </ScrollView>
@@ -1253,7 +1521,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Product Summary</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode}</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -1281,7 +1549,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Grade Summary</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode}</Text>
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -1289,9 +1557,24 @@ export function GoodsReceivingWizardScreen({
 
               <View style={customMismatchStyles.whiteCard}>
                 <Text style={customMismatchStyles.gridLabel}>Overall Status</Text>
-                <Text style={[customMismatchStyles.gridVal, { color: adminColors.warning.text, marginTop: adminSpacing.xs }]}>
-                  Grade Mismatch — 1 product affected
-                </Text>
+                {gradeCheck !== null ? (
+                  <Text
+                    style={[
+                      customMismatchStyles.gridVal,
+                      {
+                        color:
+                          gradeSummaryOf(gradeCheck).tone === 'success'
+                            ? adminColors.success.text
+                            : gradeSummaryOf(gradeCheck).tone === 'warning'
+                              ? adminColors.warning.text
+                              : adminColors.muted,
+                        marginTop: adminSpacing.xs,
+                      },
+                    ]}
+                  >
+                    {gradeSummaryOf(gradeCheck).text}
+                  </Text>
+                ) : null}
               </View>
             </ScrollView>
           </View>
@@ -1309,64 +1592,37 @@ export function GoodsReceivingWizardScreen({
               </TouchableOpacity>
               <Text style={customMismatchStyles.headerTitle}>Grade & Product Verification</Text>
             </View>
-            <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
+            <Text style={customMismatchStyles.headerSubtitle}>{receiptCode}</Text>
           </View>
 
           <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
             <View style={customMismatchStyles.whiteCard}>
               <View style={customMismatchStyles.gridRow}>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Expected Product</Text>
-                  <Text style={customMismatchStyles.gridVal}>{expectedProduct || 'Tomato'}</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.expectedProduct')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{expectedProduct}</Text>
                 </View>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Expected Grade</Text>
-                  <Text style={customMismatchStyles.gridVal}>{expectedGrade || 'Grade 1'}</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.expectedGrade')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{expectedGrade}</Text>
                 </View>
               </View>
             </View>
 
-            <Text style={[styles.inputLabel, { ...adminType.caption, color: adminColors.muted, fontWeight: '600', marginBottom: 6 }]}>Actual Product</Text>
-            <TouchableOpacity
-              style={[styles.dropdownSelectBox, { backgroundColor: adminColors.card, borderColor: adminColors.border, borderRadius: adminRadius.md, height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }]}
-              activeOpacity={0.7}
-              onPress={() => pickFrom('Actual Product', PRODUCT_OPTIONS, setActualProduct)}
-            >
-              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{actualProduct || 'Tomato'}</Text>
-              <ChevronDownIcon />
-            </TouchableOpacity>
+            {/* Actual Product is hidden: warehouse admins cannot list crops, so it cannot be picked (Gaps). */}
 
-            <Text style={[styles.inputLabel, { ...adminType.caption, color: adminColors.muted, fontWeight: '600', marginBottom: 6 }]}>Actual Grade</Text>
+            <Text style={[styles.inputLabel, { ...adminType.caption, color: adminColors.muted, fontWeight: '600', marginBottom: 6 }]}>{t('receiving.wizard.actualGrade')}</Text>
             <TouchableOpacity
               style={[styles.dropdownSelectBox, { backgroundColor: adminColors.card, borderColor: adminColors.border, borderRadius: adminRadius.md, height: 48, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }]}
               activeOpacity={0.7}
-              onPress={() => pickFrom('Actual Grade', GRADE_OPTIONS, setActualGrade)}
+              onPress={() => pickFrom(t('receiving.wizard.actualGrade'), GRADES.map(g => ({ label: gradeLabel(g), onPick: () => setPickedGrade(g) })))}
             >
-              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{actualGrade || 'Grade 1'}</Text>
+              <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{actualGrade}</Text>
               <ChevronDownIcon />
             </TouchableOpacity>
 
             <View style={{ gap: 10, marginBottom: 16 }}>
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <TouchableOpacity
-                  style={{
-                    flex: 1,
-                    backgroundColor: adminColors.card,
-                    borderRadius: adminRadius.md,
-                    borderWidth: 1,
-                    borderColor: adminColors.border,
-                    paddingVertical: 18,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                  }}
-                  onPress={() => setGradeSubView('product_mismatch')}
-                  activeOpacity={0.8}
-                >
-                  <ClipboardChecklistIcon color={adminColors.brand} size={20} />
-                  <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.ink }}>Product Mismatch</Text>
-                </TouchableOpacity>
-
                 <TouchableOpacity
                   style={{
                     flex: 1,
@@ -1442,15 +1698,16 @@ export function GoodsReceivingWizardScreen({
         </View>
       );
     }
-    const hasMismatch = !productMatches || !gradeMatches;
-    const openMismatch = (issue: string) => {
+    // The product cannot change on a receipt, so only a grade mismatch is possible (derived, never typed).
+    const hasMismatch = !gradeMatches;
+    const openMismatch = (issue: GoodsReceiptDiscrepancyType) => {
       setSelectedIssueType(issue);
       goToStep('damage_mismatch');
     };
     const matchChip = (ok: boolean, label: string) => (
       <View style={[styles.matchChip, { backgroundColor: ok ? adminColors.success.bg : adminColors.danger.bg }]}>
         <Text style={[styles.matchChipText, { color: ok ? adminColors.success.text : adminColors.danger.text }]}>
-          {label} {ok ? 'Match' : 'Mismatch'}
+          {label} {ok ? t('receiving.wizard.match') : t('receiving.wizard.mismatch')}
         </Text>
       </View>
     );
@@ -1473,48 +1730,36 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Product</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.expectedProduct')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Grade</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.expectedGrade')}</Text>
                 <Text style={styles.summaryMetaVal}>{expectedGrade}</Text>
               </View>
             </View>
           </View>
 
-          <Text style={styles.inputLabel}>Actual Product</Text>
-          <TouchableOpacity
-            style={styles.dropdownSelectBox}
-            activeOpacity={0.7}
-            onPress={() => pickFrom('Actual Product', PRODUCT_OPTIONS, setActualProduct)}
-          >
-            <Text style={styles.dropdownValue}>{actualProduct}</Text>
-            <ChevronDownIcon />
-          </TouchableOpacity>
+          {/* Actual Product, its match chip and the Product Mismatch card are hidden: warehouse admins cannot
+              list crops, so no actual product can be picked (Gaps). */}
 
-          <Text style={styles.inputLabel}>Actual Grade</Text>
+          <Text style={styles.inputLabel}>{t('receiving.wizard.actualGrade')}</Text>
           <TouchableOpacity
             style={styles.dropdownSelectBox}
             activeOpacity={0.7}
-            onPress={() => pickFrom('Actual Grade', GRADE_OPTIONS, setActualGrade)}
+            onPress={() => pickFrom(t('receiving.wizard.actualGrade'), GRADES.map(g => ({ label: gradeLabel(g), onPick: () => setPickedGrade(g) })))}
           >
             <Text style={styles.dropdownValue}>{actualGrade}</Text>
             <ChevronDownIcon />
           </TouchableOpacity>
 
-          <View style={styles.matchChipRow}>
-            {matchChip(productMatches, 'Product')}
-            {matchChip(gradeMatches, 'Grade')}
-          </View>
+          {gradeCheck !== null && gradeCheck.status !== 'noListedGrade' ? (
+            <View style={styles.matchChipRow}>{matchChip(gradeMatches, t('receiving.wizard.gradeWord'))}</View>
+          ) : null}
 
           <View style={styles.actionGrid}>
             <View style={styles.actionGridRow}>
-              <TouchableOpacity style={styles.actionCard} onPress={() => openMismatch('Product Mismatch')} activeOpacity={0.8}>
-                <ClipboardChecklistIcon color={adminColors.brand} size={18} />
-                <Text style={styles.actionCardText}>Product Mismatch</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionCard} onPress={() => openMismatch('Grade Mismatch')} activeOpacity={0.8}>
+              <TouchableOpacity style={styles.actionCard} onPress={() => openMismatch('QUALITY')} activeOpacity={0.8}>
                 <WarningTriangleIcon color={adminColors.brand} size={18} />
                 <Text style={styles.actionCardText}>Grade Mismatch</Text>
               </TouchableOpacity>
@@ -1538,11 +1783,7 @@ export function GoodsReceivingWizardScreen({
           <TouchableOpacity
             style={styles.primaryCtaBtn}
             activeOpacity={0.85}
-            onPress={() =>
-              hasMismatch
-                ? openMismatch(!productMatches ? 'Product Mismatch' : 'Grade Mismatch')
-                : goToStep('receiving_decision')
-            }
+            onPress={() => (hasMismatch ? openMismatch('QUALITY') : goToStep('receiving_decision'))}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <RightArrowIcon color={adminColors.onBrand} size={18} />
@@ -1573,7 +1814,7 @@ export function GoodsReceivingWizardScreen({
               </TouchableOpacity>
               <Text style={customMismatchStyles.headerTitle}>Acceptance Decision</Text>
             </View>
-            <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'}</Text>
+            <Text style={customMismatchStyles.headerSubtitle}>{receiptCode}</Text>
           </View>
 
           <ScrollView
@@ -1585,23 +1826,24 @@ export function GoodsReceivingWizardScreen({
             <View style={customMismatchStyles.infoCard}>
               <View style={customMismatchStyles.gridRow}>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Expected Quantity</Text>
-                  <Text style={customMismatchStyles.gridVal}>{expectedQty || 500} KG</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.expectedQuantity')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{kgOrDash(expectedGrams)}</Text>
                 </View>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Received Quantity</Text>
-                  <Text style={customMismatchStyles.gridVal}>{receivedQty || 480} KG</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.receivedQuantity')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{kgOrDash(grossGrams)}</Text>
                 </View>
               </View>
 
+              {/* Accepted / rejected are the dash until a decision is made (there is no damage input to flag). */}
               <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Accepted Quantity</Text>
-                  <Text style={customMismatchStyles.gridVal}>—</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.acceptedQuantity')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{kgOrDash(shownAccepted)}</Text>
                 </View>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Rejected/Damaged</Text>
-                  <Text style={customMismatchStyles.gridVal}>35 KG (flagged)</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.rejectedDamaged')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{kgOrDash(shownRejected)}</Text>
                 </View>
               </View>
             </View>
@@ -1618,9 +1860,7 @@ export function GoodsReceivingWizardScreen({
             <TouchableOpacity
               style={customMismatchStyles.optionCard}
               onPress={() => {
-                setChosenOutcome('Accept');
-                setAcceptedQty(receivedQty || 480);
-                setRejectedQty(0);
+                setAcceptedGrams(grossGrams);
                 goToStep('receipt_summary');
               }}
               activeOpacity={0.8}
@@ -1636,10 +1876,12 @@ export function GoodsReceivingWizardScreen({
             <TouchableOpacity
               style={customMismatchStyles.optionCard}
               onPress={() => {
-                setChosenOutcome('Partial Accept');
-                setAcceptedQty(445);
-                setRejectedQty(55);
-                goToStep('receipt_summary');
+                // Navigation fix: the split is typed on Partial Acceptance (M2-11), never a sample 445 / 55.
+                if (!isValidPartial(grossGrams, acceptedGrams)) {
+                  setAcceptedGrams(null);
+                  setAcceptedInput('');
+                }
+                goToStep('partial_acceptance');
               }}
               activeOpacity={0.8}
             >
@@ -1654,9 +1896,7 @@ export function GoodsReceivingWizardScreen({
             <TouchableOpacity
               style={customMismatchStyles.optionCard}
               onPress={() => {
-                setChosenOutcome('Reject');
-                setAcceptedQty(0);
-                setRejectedQty(receivedQty || 480);
+                setAcceptedGrams(0);
                 goToStep('receipt_summary');
               }}
               activeOpacity={0.8}
@@ -1690,20 +1930,20 @@ export function GoodsReceivingWizardScreen({
           {/* Metric Summary Table */}
           <View style={styles.decisionTableCard}>
             <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Expected</Text>
-              <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.expectedWord')}</Text>
+              <Text style={styles.decisionTableValue}>{kgOrDash(expectedGrams)}</Text>
             </View>
             <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Received</Text>
-              <Text style={styles.decisionTableValue}>{receivedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.receivedWord')}</Text>
+              <Text style={styles.decisionTableValue}>{kgOrDash(grossGrams)}</Text>
             </View>
             <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Accepted</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>{acceptedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.acceptedWord')}</Text>
+              <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>{kgOrDash(shownAccepted)}</Text>
             </View>
             <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.decisionTableLabel}>Rejected</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>{rejectedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.rejectedWord')}</Text>
+              <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>{kgOrDash(shownRejected)}</Text>
             </View>
           </View>
 
@@ -1715,8 +1955,7 @@ export function GoodsReceivingWizardScreen({
             style={styles.outcomeAcceptCard}
             activeOpacity={0.8}
             onPress={() => {
-              setAcceptedQty(receivedQty);
-              setRejectedQty(0);
+              setAcceptedGrams(grossGrams);
               goToStep('receipt_summary');
             }}
           >
@@ -1725,7 +1964,9 @@ export function GoodsReceivingWizardScreen({
             </View>
             <View style={styles.outcomeTextBox}>
               <Text style={styles.outcomeAcceptTitle}>Accept</Text>
-              <Text style={styles.outcomeAcceptSub}>Full {receivedQty} KG accepted, no rejection</Text>
+              {grossGrams !== null ? (
+                <Text style={styles.outcomeAcceptSub}>{t('receiving.wizard.acceptAll', { qty: kgLabel(grossGrams) })}</Text>
+              ) : null}
             </View>
           </TouchableOpacity>
 
@@ -1735,11 +1976,11 @@ export function GoodsReceivingWizardScreen({
             style={styles.outcomePartialCard}
             activeOpacity={0.8}
             onPress={() => {
-              const defaultRej = rejectedQty > 0 ? rejectedQty : DEMO_PARTIAL_REJECT_KG;
-              const calcAccepted = Math.max(0, receivedQty - defaultRej);
-              setAcceptedQty(calcAccepted);
-              setAcceptedInput(String(calcAccepted));
-              setRejectedQty(receivedQty - calcAccepted);
+              // The split is typed on Partial Acceptance; no sample rejection is pre-filled.
+              if (!isValidPartial(grossGrams, acceptedGrams)) {
+                setAcceptedGrams(null);
+                setAcceptedInput('');
+              }
               goToStep('partial_acceptance');
             }}
           >
@@ -1749,7 +1990,9 @@ export function GoodsReceivingWizardScreen({
             <View style={styles.outcomeTextBox}>
               <Text style={styles.outcomePartialTitle}>Partial Accept</Text>
               <Text style={styles.outcomePartialSub}>
-                {Math.max(0, receivedQty - (rejectedQty > 0 ? rejectedQty : DEMO_PARTIAL_REJECT_KG))} KG accepted, {rejectedQty > 0 ? rejectedQty : DEMO_PARTIAL_REJECT_KG} KG rejected
+                {isValidPartial(grossGrams, acceptedGrams) && acceptedGrams !== null && shownRejected !== null
+                  ? t('receiving.wizard.partialSplit', { accepted: kgLabel(acceptedGrams), rejected: kgLabel(shownRejected) })
+                  : t('receiving.wizard.partialHint')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -1761,8 +2004,7 @@ export function GoodsReceivingWizardScreen({
             style={styles.outcomeRejectCard}
             activeOpacity={0.8}
             onPress={() => {
-              setAcceptedQty(0);
-              setRejectedQty(receivedQty);
+              setAcceptedGrams(0);
               goToStep('receipt_summary');
             }}
           >
@@ -1771,13 +2013,15 @@ export function GoodsReceivingWizardScreen({
             </View>
             <View style={styles.outcomeTextBox}>
               <Text style={styles.outcomeRejectTitle}>Reject</Text>
-              <Text style={styles.outcomeRejectSub}>Reject the full received quantity ({receivedQty} KG)</Text>
+              {grossGrams !== null ? (
+                <Text style={styles.outcomeRejectSub}>{t('receiving.wizard.rejectAll', { qty: kgLabel(grossGrams) })}</Text>
+              ) : null}
             </View>
           </TouchableOpacity>
           )}
 
-          {/* Quality counter-offer: an action, not a fourth outcome (inventory.quality.counter_offer) */}
-          {canCounter && (
+          {/* Quality counter-offer: an action, not a fourth outcome (inventory.quality.counter_offer); it needs the recorded receipt */}
+          {canOfferCounter && (
             <>
               <Text style={styles.sectionHeader}>Quality Counter-Offer</Text>
               <TouchableOpacity
@@ -1805,7 +2049,7 @@ export function GoodsReceivingWizardScreen({
 
   /* ──────────────────────────────────────────────────────────
      SCREEN 4C: Quality Counter-Offer (inventory.quality.counter_offer)
-     No endpoint exists yet (SPEC_GAPS W4n-2): the offer is recorded locally.
+     POST /admin/goods-receipts/{id}/counter-offers on the recorded receipt (Idempotency-Key from the ring).
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'counter_offer') {
     return (
@@ -1825,22 +2069,24 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.whiteCard}>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.product')}</Text>
+                <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Grade (actual)</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.gradeActual')}</Text>
                 <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
               </View>
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Accepted Quantity</Text>
-                <Text style={styles.summaryMetaVal}>{acceptedQty} KG</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.acceptedQuantity')}</Text>
+                <Text style={styles.summaryMetaVal}>{kgOrDash(shownAccepted)}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>QC Issues</Text>
-                <Text style={styles.summaryMetaVal}>{canQc ? `${qcIssueCount} of ${QC_CRITERIA.length}` : '—'}</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.qcIssues')}</Text>
+                <Text style={styles.summaryMetaVal}>
+                  {canQc ? t('receiving.wizard.issuesOf', { count: qcIssueCount, total: qcCriteria.length }) : t('receiving.wizard.dash')}
+                </Text>
               </View>
             </View>
           </View>
@@ -1871,13 +2117,10 @@ export function GoodsReceivingWizardScreen({
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={[styles.primaryCtaBtn, !counterPriceValid && styles.primaryCtaBtnDisabled]}
+            style={[styles.primaryCtaBtn, (!counterPriceValid || busy || !canOfferCounter) && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            disabled={!counterPriceValid}
-            onPress={() => {
-              Alert.alert('Counter-Offer Recorded', `₹${counterPrice} per KG proposed for ${receiptCode}.`);
-              handleBack();
-            }}
+            disabled={!counterPriceValid || busy || !canOfferCounter}
+            onPress={sendCounterOffer}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <SendPaperAirplaneIcon />
@@ -1893,7 +2136,9 @@ export function GoodsReceivingWizardScreen({
      SCREEN 4B: Partial Acceptance (Sub-screen of Decision)
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'partial_acceptance') {
-    const rejectionReasons = PARTIAL_REJECTION_REASONS;
+    // The API's rejection reason codes (QcRejectionReasonCode) replace the sample reason list.
+    const rejectionReasons = QC_REJECTION_REASON_CODES;
+    const partialValid = isValidPartial(grossGrams, acceptedGrams);
 
     return (
       <View style={styles.container}>
@@ -1904,7 +2149,7 @@ export function GoodsReceivingWizardScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Partial Acceptance / Rejection</Text>
-            <Text style={styles.headerSub}>{receiptCode} · Product-level decision</Text>
+            <Text style={styles.headerSub}>{t('receiving.wizard.productLevelDecision', { ref: receiptCode })}</Text>
           </View>
         </View>
 
@@ -1912,22 +2157,22 @@ export function GoodsReceivingWizardScreen({
           {/* 3 Metric Stat Tiles */}
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(grossGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.received')}</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{acceptedQty} KG</Text>
-              <Text style={styles.statTileLabel}>ACCEPTED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(shownAccepted)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.accepted')}</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={[styles.statTileNumber, { color: adminColors.danger.text }]}>{rejectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>REJECTED</Text>
+              <Text style={[styles.statTileNumber, { color: adminColors.danger.text }]}>{kgOrDash(shownRejected)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.rejected')}</Text>
             </View>
           </View>
 
-          <Text style={styles.sectionHeader}>Partial Acceptance Detail — {actualProduct}</Text>
+          <Text style={styles.sectionHeader}>{t('receiving.wizard.partialDetail', { product: expectedProduct })}</Text>
           <View style={styles.rowTwoCols}>
             <View style={styles.colHalf}>
               <Text style={styles.inputLabel}>Accepted Quantity (KG)</Text>
@@ -1935,13 +2180,13 @@ export function GoodsReceivingWizardScreen({
                 style={styles.textInput}
                 value={acceptedInput}
                 onChangeText={setAcceptedFromInput}
-                keyboardType="number-pad"
+                keyboardType="decimal-pad"
               />
             </View>
             <View style={styles.colHalf}>
               <Text style={styles.inputLabel}>Rejected (calculated)</Text>
               <View style={[styles.textInput, styles.readOnlyInput]}>
-                <Text style={styles.readOnlyValue}>{rejectedQty} KG</Text>
+                <Text style={styles.readOnlyValue}>{kgOrDash(shownRejected)}</Text>
               </View>
             </View>
           </View>
@@ -1954,21 +2199,21 @@ export function GoodsReceivingWizardScreen({
 
           <View style={styles.issueTypeListCard}>
             {rejectionReasons.map((reason, idx) => {
-              const isSelected = rejectionReason === reason;
+              const isSelected = rejectionReasonCode === reason;
               const isLast = idx === rejectionReasons.length - 1;
 
               return (
                 <TouchableOpacity
                   key={reason}
                   style={[styles.issueTypeRow, isLast && { borderBottomWidth: 0 }]}
-                  onPress={() => setRejectionReason(reason)}
+                  onPress={() => setRejectionReasonCode(reason)}
                   activeOpacity={0.75}
                 >
                   <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
                     {isSelected && <View style={styles.radioInnerCircle} />}
                   </View>
                   <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                    {reason}
+                    {rejectionReasonLabel(reason)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -1987,33 +2232,16 @@ export function GoodsReceivingWizardScreen({
             onChangeText={setPartialNotes}
           />
 
-          {/* Evidence */}
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <View style={styles.qcPhotosRow}>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-              <TouchableOpacity style={styles.qcPhotoDeleteBadge} activeOpacity={0.7}>
-                <Text style={styles.qcPhotoDeleteX}>×</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.qcPhotoAddBox}
-              onPress={() => Alert.alert('Camera', 'Evidence photo added.')}
-              activeOpacity={0.7}
-            >
-              <CameraPlusIcon size={24} />
-              <Text style={styles.qcPhotoAddText}>Add Photo</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Evidence is hidden: the wizard has no photo upload, and the thumbnail was a sample "attached" photo (Gaps). */}
 
           <View style={{ height: 100 }} />
         </ScrollView>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, !partialValid && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
+            disabled={!partialValid}
             onPress={() => goToStep('receipt_summary')}
           >
             <Text style={styles.primaryCtaText}>Continue to Summary  →</Text>
@@ -2028,9 +2256,51 @@ export function GoodsReceivingWizardScreen({
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'receipt_summary') {
     if (!isSub) {
-      const grnCode = DEMO_GRN || receiptCode || 'GRN-000842';
+      /** The real GRN (phase 1 recorded the receipt); hidden before there is one. */
+      const grnCode = grn ?? '';
+      const receiptReference =
+        grn !== undefined ? (
+          <>
+            <Text style={[customMismatchStyles.sectionHeading, { marginTop: 8 }]}>Receipt Reference</Text>
+            <View style={customMismatchStyles.referenceCard}>
+              <Text style={customMismatchStyles.referenceText}>{grnCode}</Text>
+            </View>
+          </>
+        ) : null;
+      /** "Assign Batch" when a batch will be stocked (BR-106), else the confirm that sends the check from here. */
+      const summaryBottomBar = (
+        <View style={customMismatchStyles.bottomBar}>
+          <TouchableOpacity
+            style={customMismatchStyles.orangeBottomBtn}
+            onPress={handleSummaryConfirm}
+            activeOpacity={0.8}
+            disabled={busy}
+          >
+            {busy ? (
+              <ActivityIndicator color={adminColors.onBrand} size="small" />
+            ) : summaryStocks ? (
+              <>
+                <QrCodeIcon size={18} color={adminColors.onBrand} />
+                <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
+              </>
+            ) : (
+              <>
+                <CheckmarkCircleOutlineIcon size={18} color={adminColors.onBrand} />
+                <Text style={customMismatchStyles.orangeBottomBtnText}>{t('receiving.wizard.confirmGoodsReceipt')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      );
 
       if (summarySubView === 'preview') {
+        // M2-12A: the printable goods receipt note (BR-124) in the preview card's own slots.
+        const documentGrn = documentRead.document === undefined ? undefined : receiptDocumentRows(documentRead.document).find(r => r.key === 'grn')?.value;
+        const documentView = queryViewState({
+          isLoading: documentRead.isLoading,
+          error: documentRead.error,
+          itemCount: documentGrn === undefined ? 0 : 1,
+        });
         return (
           <View style={customMismatchStyles.root}>
             <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -2053,30 +2323,26 @@ export function GoodsReceivingWizardScreen({
             >
               <Text style={customMismatchStyles.sectionHeading}>Receipt Preview</Text>
               <View style={customMismatchStyles.whiteCard}>
-                <View style={customMismatchStyles.previewBox}>
-                  <Text style={customMismatchStyles.previewBoxLabel}>Goods Receipt Note</Text>
-                  <Text style={customMismatchStyles.previewBoxCode}>{grnCode}</Text>
-                </View>
+                {documentView === 'loading' ? (
+                  <AdminLoadingState />
+                ) : documentView === 'error' ? (
+                  <AdminErrorState error={documentRead.error} onRetry={documentRead.refresh} />
+                ) : documentView === 'empty' ? (
+                  <AdminEmptyState title={t('receiving.wizard.noReceipt')} />
+                ) : (
+                  <View style={customMismatchStyles.previewBox}>
+                    <Text style={customMismatchStyles.previewBoxLabel}>Goods Receipt Note</Text>
+                    <Text style={customMismatchStyles.previewBoxCode}>{documentGrn}</Text>
+                  </View>
+                )}
               </View>
 
-              <Text style={[customMismatchStyles.sectionHeading, { marginTop: 8 }]}>Receipt Reference</Text>
-              <View style={customMismatchStyles.referenceCard}>
-                <Text style={customMismatchStyles.referenceText}>{grnCode}</Text>
-              </View>
+              {receiptReference}
 
               <View style={{ height: 24 }} />
             </ScrollView>
 
-            <View style={customMismatchStyles.bottomBar}>
-              <TouchableOpacity
-                style={customMismatchStyles.orangeBottomBtn}
-                onPress={() => goToStep('batch_assignment')}
-                activeOpacity={0.8}
-              >
-                <QrCodeIcon size={18} color={adminColors.onBrand} />
-                <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
-              </TouchableOpacity>
-            </View>
+            {summaryBottomBar}
           </View>
         );
       }
@@ -2103,35 +2369,27 @@ export function GoodsReceivingWizardScreen({
               showsVerticalScrollIndicator={false}
             >
               <Text style={customMismatchStyles.sectionHeading}>Receipt Detail</Text>
-              <View style={customMismatchStyles.whiteCard}>
-                <Text style={customMismatchStyles.detailBoxText}>
-                  Complete finalized receipt — every field above (Shipment, Quantity, Quality, Grade & Product, Decision) merged into one read-only record referenced as {grnCode}.
-                </Text>
-              </View>
+              {grn !== undefined ? (
+                <View style={customMismatchStyles.whiteCard}>
+                  <Text style={customMismatchStyles.detailBoxText}>{t('receiving.wizard.detailText', { grn: grnCode })}</Text>
+                </View>
+              ) : (
+                <AdminEmptyState title={t('receiving.wizard.noReceipt')} />
+              )}
 
-              <Text style={[customMismatchStyles.sectionHeading, { marginTop: 8 }]}>Receipt Reference</Text>
-              <View style={customMismatchStyles.referenceCard}>
-                <Text style={customMismatchStyles.referenceText}>{grnCode}</Text>
-              </View>
+              {receiptReference}
 
               <View style={{ height: 24 }} />
             </ScrollView>
 
-            <View style={customMismatchStyles.bottomBar}>
-              <TouchableOpacity
-                style={customMismatchStyles.orangeBottomBtn}
-                onPress={() => goToStep('batch_assignment')}
-                activeOpacity={0.8}
-              >
-                <QrCodeIcon size={18} color={adminColors.onBrand} />
-                <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
-              </TouchableOpacity>
-            </View>
+            {summaryBottomBar}
           </View>
         );
       }
 
       if (summarySubView === 'activity') {
+        // M2-12C: only what the API recorded, at its recorded times (never sample times).
+        const activity = receiptActivity(liveReceipt, result, new Date(), submission.qc?.qualityCheck.checkedAt);
         return (
           <View style={customMismatchStyles.root}>
             <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -2153,43 +2411,32 @@ export function GoodsReceivingWizardScreen({
               showsVerticalScrollIndicator={false}
             >
               <Text style={customMismatchStyles.sectionHeading}>Receipt Activity</Text>
-              <View style={customMismatchStyles.whiteCard}>
-                <View style={customMismatchStyles.activityRow}>
-                  <Text style={customMismatchStyles.activityTitle}>Quantity Verified</Text>
-                  <Text style={customMismatchStyles.activityTime}>10:15 AM</Text>
+              {activity.length > 0 ? (
+                <View style={customMismatchStyles.whiteCard}>
+                  {activity.map((event, idx) => (
+                    <React.Fragment key={event.key}>
+                      {idx > 0 ? <View style={customMismatchStyles.activityDashedDivider} /> : null}
+                      <View style={customMismatchStyles.activityRow}>
+                        <Text style={customMismatchStyles.activityTitle}>{event.title}</Text>
+                        <Text style={customMismatchStyles.activityTime}>{event.time}</Text>
+                      </View>
+                    </React.Fragment>
+                  ))}
                 </View>
-                <View style={customMismatchStyles.activityDashedDivider} />
-                <View style={customMismatchStyles.activityRow}>
-                  <Text style={customMismatchStyles.activityTitle}>Quality Checked</Text>
-                  <Text style={customMismatchStyles.activityTime}>10:22 AM</Text>
-                </View>
-                <View style={customMismatchStyles.activityDashedDivider} />
-                <View style={customMismatchStyles.activityRow}>
-                  <Text style={customMismatchStyles.activityTitle}>
-                    Decision: {outcome === 'Accept' ? 'Accept' : outcome === 'Reject' ? 'Reject' : 'Partial Accept'}
-                  </Text>
-                  <Text style={customMismatchStyles.activityTime}>10:30 AM</Text>
-                </View>
-              </View>
+              ) : receiptRead.isLoading ? (
+                <AdminLoadingState />
+              ) : receiptRead.error !== null && receiptRead.error !== undefined ? (
+                <AdminErrorState error={receiptRead.error} onRetry={receiptRead.refresh} />
+              ) : (
+                <AdminEmptyState title={t('receiving.wizard.noReceipt')} />
+              )}
 
-              <Text style={[customMismatchStyles.sectionHeading, { marginTop: 8 }]}>Receipt Reference</Text>
-              <View style={customMismatchStyles.referenceCard}>
-                <Text style={customMismatchStyles.referenceText}>{grnCode}</Text>
-              </View>
+              {receiptReference}
 
               <View style={{ height: 24 }} />
             </ScrollView>
 
-            <View style={customMismatchStyles.bottomBar}>
-              <TouchableOpacity
-                style={customMismatchStyles.orangeBottomBtn}
-                onPress={() => goToStep('batch_assignment')}
-                activeOpacity={0.8}
-              >
-                <QrCodeIcon size={18} color={adminColors.onBrand} />
-                <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
-              </TouchableOpacity>
-            </View>
+            {summaryBottomBar}
           </View>
         );
       }
@@ -2220,23 +2467,29 @@ export function GoodsReceivingWizardScreen({
             <View style={customMismatchStyles.infoCard}>
               <View style={customMismatchStyles.gridRow}>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Shipment ID</Text>
-                  <Text style={customMismatchStyles.gridVal}>{ship.reference ?? 'SHP-000124'}</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.shipmentId')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{receiptCode}</Text>
                 </View>
-                <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Source</Text>
-                  <Text style={customMismatchStyles.gridVal}>{sourceName || 'Farmer Admin'}</Text>
-                </View>
+                {sourceName !== '' ? (
+                  <View style={customMismatchStyles.gridCol}>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.source')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{sourceName}</Text>
+                  </View>
+                ) : null}
               </View>
               <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
-                <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Destination</Text>
-                  <Text style={customMismatchStyles.gridVal}>{destinationName || 'Coonoor'}</Text>
-                </View>
-                <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Date</Text>
-                  <Text style={customMismatchStyles.gridVal}>{receivedDate || '25 Sep 2026'}</Text>
-                </View>
+                {destinationName !== '' ? (
+                  <View style={customMismatchStyles.gridCol}>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.destination')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{destinationName}</Text>
+                  </View>
+                ) : null}
+                {receiptDto !== null ? (
+                  <View style={customMismatchStyles.gridCol}>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.date')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{formatAdminDay(receiptDto.receivedAt)}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -2244,20 +2497,20 @@ export function GoodsReceivingWizardScreen({
             <Text style={customMismatchStyles.sectionHeading}>Quantity</Text>
             <View style={customMismatchStyles.infoCard}>
               <View style={customMismatchStyles.tableRow}>
-                <Text style={customMismatchStyles.tableLabel}>Expected</Text>
-                <Text style={customMismatchStyles.tableVal}>{expectedQty || 500} KG</Text>
+                <Text style={customMismatchStyles.tableLabel}>{t('receiving.wizard.expectedWord')}</Text>
+                <Text style={customMismatchStyles.tableVal}>{kgOrDash(expectedGrams)}</Text>
               </View>
               <View style={customMismatchStyles.tableRow}>
-                <Text style={customMismatchStyles.tableLabel}>Received</Text>
-                <Text style={customMismatchStyles.tableVal}>{receivedQty || 480} KG</Text>
+                <Text style={customMismatchStyles.tableLabel}>{t('receiving.wizard.receivedWord')}</Text>
+                <Text style={customMismatchStyles.tableVal}>{kgOrDash(grossGrams)}</Text>
               </View>
               <View style={customMismatchStyles.tableRow}>
-                <Text style={customMismatchStyles.tableLabel}>Accepted</Text>
-                <Text style={customMismatchStyles.tableVal}>{acceptedQty || 445} KG</Text>
+                <Text style={customMismatchStyles.tableLabel}>{t('receiving.wizard.acceptedWord')}</Text>
+                <Text style={customMismatchStyles.tableVal}>{kgOrDash(shownAccepted)}</Text>
               </View>
               <View style={[customMismatchStyles.tableRow, { borderBottomWidth: 0 }]}>
-                <Text style={customMismatchStyles.tableLabel}>Rejected</Text>
-                <Text style={customMismatchStyles.tableVal}>{rejectedQty || 55} KG</Text>
+                <Text style={customMismatchStyles.tableLabel}>{t('receiving.wizard.rejectedWord')}</Text>
+                <Text style={customMismatchStyles.tableVal}>{kgOrDash(shownRejected)}</Text>
               </View>
             </View>
 
@@ -2265,22 +2518,23 @@ export function GoodsReceivingWizardScreen({
             <Text style={customMismatchStyles.sectionHeading}>Decision</Text>
             <View style={customMismatchStyles.infoCard}>
               <View style={customMismatchStyles.decisionPill}>
-                <Text style={customMismatchStyles.decisionPillText}>
-                  {outcome === 'Accept' ? 'ACCEPT' : outcome === 'Reject' ? 'REJECT' : 'PARTIAL ACCEPT'}
-                </Text>
+                <Text style={customMismatchStyles.decisionPillText}>{outcomeUpper ?? t('receiving.wizard.dash')}</Text>
               </View>
             </View>
 
             {/* 4. Next Steps Section */}
             <Text style={customMismatchStyles.sectionHeading}>Next Steps</Text>
             <View style={customMismatchStyles.infoCard}>
-              <TouchableOpacity
-                style={customMismatchStyles.assignBatchLinkRow}
-                activeOpacity={0.7}
-                onPress={() => goToStep('batch_assignment')}
-              >
-                <Text style={customMismatchStyles.assignBatchLinkText}>Assign Batch →</Text>
-              </TouchableOpacity>
+              {summaryStocks ? (
+                <TouchableOpacity
+                  style={customMismatchStyles.assignBatchLinkRow}
+                  activeOpacity={0.7}
+                  disabled={busy}
+                  onPress={handleSummaryConfirm}
+                >
+                  <Text style={customMismatchStyles.assignBatchLinkText}>Assign Batch →</Text>
+                </TouchableOpacity>
+              ) : null}
               <View style={customMismatchStyles.nextStepsRow}>
                 <TouchableOpacity
                   style={customMismatchStyles.nextStepActionCard}
@@ -2310,25 +2564,20 @@ export function GoodsReceivingWizardScreen({
             </View>
 
             {/* 5. Receipt Reference Section */}
-            <Text style={customMismatchStyles.sectionHeading}>Receipt Reference</Text>
-            <View style={customMismatchStyles.referenceCard}>
-              <Text style={customMismatchStyles.referenceText}>{grnCode}</Text>
-            </View>
+            {grn !== undefined ? (
+              <>
+                <Text style={customMismatchStyles.sectionHeading}>Receipt Reference</Text>
+                <View style={customMismatchStyles.referenceCard}>
+                  <Text style={customMismatchStyles.referenceText}>{grnCode}</Text>
+                </View>
+              </>
+            ) : null}
 
             <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Bottom Bar: Assign Batch */}
-          <View style={customMismatchStyles.bottomBar}>
-            <TouchableOpacity
-              style={customMismatchStyles.orangeBottomBtn}
-              onPress={() => goToStep('batch_assignment')}
-              activeOpacity={0.8}
-            >
-              <QrCodeIcon size={18} color={adminColors.onBrand} />
-              <Text style={customMismatchStyles.orangeBottomBtnText}>Assign Batch</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Bottom Bar: Assign Batch (or Confirm Goods Receipt when nothing is stocked) */}
+          {summaryBottomBar}
         </View>
       );
     }
@@ -2348,34 +2597,38 @@ export function GoodsReceivingWizardScreen({
 
           {/* Receipt Metadata Card (+ absorbed GoodsReceiptSummaryScreen shipment id / date) */}
           <View style={styles.whiteCard}>
-            <Text style={styles.summaryCardReceiptCode}>{receiptCode}</Text>
+            <Text style={styles.summaryCardReceiptCode}>{grn ?? receiptCode}</Text>
             <View style={styles.summaryMetaGrid}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Shipment ID</Text>
-                <Text style={styles.summaryMetaVal}>{ship.reference ?? receiptCode}</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.shipmentId')}</Text>
+                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
               </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Date</Text>
-                <Text style={styles.summaryMetaVal}>{receivedDate}</Text>
-              </View>
+              {receiptDto !== null ? (
+                <View style={styles.summaryMetaCol}>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.date')}</Text>
+                  <Text style={styles.summaryMetaVal}>{formatAdminDay(receiptDto.receivedAt)}</Text>
+                </View>
+              ) : null}
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
+              {sourceName !== '' ? (
+                <View style={styles.summaryMetaCol}>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.source')}</Text>
+                  <Text style={styles.summaryMetaVal}>{sourceName}</Text>
+                </View>
+              ) : null}
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Source</Text>
-                <Text style={styles.summaryMetaVal}>{sourceName}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Destination</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.destination')}</Text>
                 <Text style={styles.summaryMetaVal}>{destinationName}</Text>
               </View>
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.product')}</Text>
+                <Text style={styles.summaryMetaVal}>{expectedProduct}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Grade</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.gradeWord')}</Text>
                 <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
               </View>
             </View>
@@ -2383,26 +2636,26 @@ export function GoodsReceivingWizardScreen({
 
           <Text style={styles.sectionHeader}>Decision</Text>
           <View style={styles.decisionOutcomeCard}>
-            <Text style={styles.decisionOutcomeText}>{outcome.toUpperCase()}</Text>
+            <Text style={styles.decisionOutcomeText}>{outcomeUpper ?? t('receiving.wizard.dash')}</Text>
           </View>
 
           {/* Metric Table Card */}
           <View style={styles.decisionTableCard}>
             <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Expected</Text>
-              <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.expectedWord')}</Text>
+              <Text style={styles.decisionTableValue}>{kgOrDash(expectedGrams)}</Text>
             </View>
             <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Received</Text>
-              <Text style={styles.decisionTableValue}>{receivedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.receivedWord')}</Text>
+              <Text style={styles.decisionTableValue}>{kgOrDash(grossGrams)}</Text>
             </View>
             <View style={styles.decisionTableRow}>
-              <Text style={styles.decisionTableLabel}>Accepted</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>{acceptedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.acceptedWord')}</Text>
+              <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>{kgOrDash(shownAccepted)}</Text>
             </View>
             <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.decisionTableLabel}>Rejected</Text>
-              <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>{rejectedQty} KG</Text>
+              <Text style={styles.decisionTableLabel}>{t('receiving.wizard.rejectedWord')}</Text>
+              <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>{kgOrDash(shownRejected)}</Text>
             </View>
           </View>
 
@@ -2421,48 +2674,44 @@ export function GoodsReceivingWizardScreen({
               <AlertCircleOutlineIcon color={adminColors.danger.text} size={18} />
             </View>
             <View style={styles.issuesTextBox}>
-              <Text style={styles.issuesTitle}>{rejectedQty > 0 ? `${rejectedQty} KG rejected` : 'No items rejected'}</Text>
-              <Text style={styles.issuesSub}>Reason: {rejectionReason || 'Quality Below Grade'}</Text>
+              <Text style={styles.issuesTitle}>
+                {shownRejected !== null && shownRejected > 0
+                  ? t('receiving.wizard.rejectedQty', { qty: kgLabel(shownRejected) })
+                  : t('receiving.wizard.noItemsRejected')}
+              </Text>
+              {shownRejected !== null && shownRejected > 0 && reasonLabel !== undefined ? (
+                <Text style={styles.issuesSub}>{t('receiving.wizard.reasonLine', { reason: reasonLabel })}</Text>
+              ) : null}
             </View>
           </View>
 
-          {/* Evidence */}
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <View style={styles.qcPhotosRow}>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-          </View>
+          {/* Evidence is hidden: the wizard has no photo upload, the thumbnails were samples (Gaps). */}
 
           {/* Absorbed GoodsReceiptSummaryScreen: next steps + receipt reference */}
           <Text style={styles.sectionHeader}>Next Steps</Text>
           <View style={styles.actionGridRow}>
-            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => goToStep('receipt_detail')}>
-              <ReceiptPaperIcon color={adminColors.brand} size={18} />
-              <Text style={styles.actionCardText}>Full Detail</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => (onViewHistory ? onViewHistory() : goToStep('receiving_history'))}>
-              <ClockSmallIcon color={adminColors.brand} size={18} />
-              <Text style={styles.actionCardText}>Activity</Text>
-            </TouchableOpacity>
+            {receiptDto !== null ? (
+              <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => goToStep('receipt_detail')}>
+                <ReceiptPaperIcon color={adminColors.brand} size={18} />
+                <Text style={styles.actionCardText}>Full Detail</Text>
+              </TouchableOpacity>
+            ) : null}
+            {onViewHistory ? (
+              <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={onViewHistory}>
+                <ClockSmallIcon color={adminColors.brand} size={18} />
+                <Text style={styles.actionCardText}>Activity</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
 
-          <Text style={styles.sectionHeader}>Receipt Reference</Text>
-          <TouchableOpacity
-            style={styles.referenceCard}
-            activeOpacity={0.8}
-            onPress={() =>
-              Alert.alert(
-                'Receipt Reference',
-                `${receiptCode} for Shipment ${ship.reference ?? receiptCode} is recorded in the warehouse ledger.`,
-              )
-            }
-          >
-            <Text style={styles.referenceText}>{receiptCode}</Text>
-          </TouchableOpacity>
+          {grn !== undefined ? (
+            <>
+              <Text style={styles.sectionHeader}>Receipt Reference</Text>
+              <TouchableOpacity style={styles.referenceCard} activeOpacity={0.8} onPress={() => goToStep('receipt_detail')}>
+                <Text style={styles.referenceText}>{grn}</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -2471,13 +2720,13 @@ export function GoodsReceivingWizardScreen({
           <TouchableOpacity
             style={styles.primaryCtaBtn}
             activeOpacity={0.85}
-            disabled={isSubmittingReceipt}
+            disabled={busy}
             onPress={handleSummaryConfirm}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {isSubmittingReceipt ? (
+              {busy ? (
                 <ActivityIndicator color={adminColors.onBrand} size="small" />
-              ) : canBatch && acceptedQty > 0 ? (
+              ) : summaryStocks ? (
                 <>
                   <QrCodeIcon color={adminColors.onBrand} size={20} />
                   <Text style={styles.primaryCtaText}>Assign Batch & Storage</Text>
@@ -2501,11 +2750,20 @@ export function GoodsReceivingWizardScreen({
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'batch_assignment') {
     if (!isSub) {
-      const displayGrn = DEMO_GRN || 'GRN-000842';
-      const displayWh = destinationName || 'Coonoor';
-      const displayProd = actualProduct || 'Tomato';
-      const displayGrade = actualGrade || 'Grade 2';
-      const displayAcceptedKg = acceptedQty || 445;
+      /** The real GRN (phase 1); the batch exists only once the check answered (BR-106), so no batch code before. */
+      const displayGrn = grn ?? '';
+      const displayWh = destinationName;
+      const displayProd = expectedProduct;
+      const displayGrade = actualGrade;
+      const displayAcceptedKg = kgOrDash(shownAccepted);
+      const batchCode = decided ? result.batchCode : undefined;
+      const batchSubtitle = batchCode === undefined ? null : (
+        <Text style={customMismatchStyles.headerSubtitle}>{t('receiving.wizard.batchSubtitle', { code: batchCode })}</Text>
+      );
+      const storageView = queryViewState({ isLoading: storage.isLoading, error: storage.error, itemCount: storage.options.length });
+      const confirmLocation = () => {
+        void withBusy(() => runQc('storage', selectedLocation?.code));
+      };
 
       if (batchSubView === 'confirm') {
         return (
@@ -2530,7 +2788,7 @@ export function GoodsReceivingWizardScreen({
 
                 <View style={customMismatchStyles.confirmInnerBox}>
                   <Text style={customMismatchStyles.confirmInnerText}>
-                    {`This creates the inventory batch and RECEIPT ledger movement for ${displayAcceptedKg} KG of ${displayProd} at ${displayWh}.`}
+                    {t('receiving.wizard.confirmBatchText', { qty: displayAcceptedKg, product: displayProd, warehouse: displayWh })}
                   </Text>
                 </View>
 
@@ -2592,21 +2850,20 @@ export function GoodsReceivingWizardScreen({
               </View>
 
               <View style={customMismatchStyles.whiteCard}>
-                <View style={customMismatchStyles.gridRow}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Batch ID</Text>
-                    <Text style={customMismatchStyles.gridVal}>BAT-00512</Text>
+                {/* The batch is created by the quality check (BR-106) at the storage confirm: no id or code before. */}
+                {batchCode !== undefined ? (
+                  <View style={customMismatchStyles.gridRow}>
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.batchCode')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{batchCode}</Text>
+                    </View>
                   </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Batch Code</Text>
-                    <Text style={customMismatchStyles.gridVal}>COO-TOM-G2-0925</Text>
-                  </View>
-                </View>
+                ) : null}
 
                 <View style={customMismatchStyles.gridRow}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Quantity</Text>
-                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg} KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.quantity')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg}</Text>
                   </View>
                   <View style={customMismatchStyles.gridCol}>
                     <Text style={customMismatchStyles.gridLabel}>Product</Text>
@@ -2619,10 +2876,12 @@ export function GoodsReceivingWizardScreen({
                     <Text style={customMismatchStyles.gridLabel}>Warehouse</Text>
                     <Text style={customMismatchStyles.gridVal}>{displayWh}</Text>
                   </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Goods Receipt</Text>
-                    <Text style={customMismatchStyles.gridVal}>{displayGrn}</Text>
-                  </View>
+                  {grn !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.goodsReceipt')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{displayGrn}</Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </ScrollView>
@@ -2652,30 +2911,32 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Storage Location Assignment</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
+              {batchSubtitle}
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
               <View style={customMismatchStyles.whiteCard}>
                 <View style={customMismatchStyles.gridRow}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Warehouse</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.warehouse')}</Text>
                     <Text style={customMismatchStyles.gridVal}>{displayWh}</Text>
                   </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Batch</Text>
-                    <Text style={customMismatchStyles.gridVal}>BAT-00512</Text>
-                  </View>
+                  {batchCode !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.batch')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{batchCode}</Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Product</Text>
-                    <Text style={customMismatchStyles.gridVal}>{displayProd} · {displayGrade}</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.product')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{[displayProd, displayGrade].filter(v => v !== '').join(' · ')}</Text>
                   </View>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Quantity</Text>
-                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg} KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.quantity')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg}</Text>
                   </View>
                 </View>
               </View>
@@ -2683,7 +2944,10 @@ export function GoodsReceivingWizardScreen({
               <TouchableOpacity
                 style={customMismatchStyles.secondaryBtn}
                 activeOpacity={0.8}
-                onPress={() => setBatchSubView('storage_list')}
+                onPress={() =>
+                  // No location set up at this warehouse: the check is sent without one (storageLocation is optional).
+                  setBatchSubView(storageView === 'empty' ? 'location_review' : 'storage_list')
+                }
               >
                 <Text style={customMismatchStyles.secondaryBtnText}>Select Storage Location</Text>
               </TouchableOpacity>
@@ -2703,39 +2967,46 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Storage Location List</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
+              {batchSubtitle}
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
               <Text style={customMismatchStyles.sectionHeading}>Storage Location List</Text>
 
-              <View style={customMismatchStyles.whiteCard}>
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
-                  activeOpacity={0.7}
-                  onPress={() => setBatchSubView('storage_detail')}
-                >
-                  <View>
-                    <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Cold Storage A · Rack 02 · Shelf 03</Text>
-                    <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 3 }}>1,650 / 2,000 KG used</Text>
-                  </View>
-                  <ChevronRightIcon size={18} color={adminColors.muted} />
-                </TouchableOpacity>
-
-                <View style={{ borderBottomWidth: 1, borderBottomColor: adminColors.border, marginVertical: 4 }} />
-
-                <TouchableOpacity
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
-                  activeOpacity={0.7}
-                  onPress={() => setBatchSubView('storage_detail')}
-                >
-                  <View>
-                    <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Dry Storage B · Rack 01 · Shelf 01</Text>
-                    <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 3 }}>920 / 1,500 KG used</Text>
-                  </View>
-                  <ChevronRightIcon size={18} color={adminColors.muted} />
-                </TouchableOpacity>
-              </View>
+              {storageView === 'loading' ? (
+                <AdminLoadingState />
+              ) : storageView === 'error' ? (
+                <AdminErrorState error={storage.error} onRetry={storage.refresh} />
+              ) : storageView === 'empty' ? (
+                <AdminEmptyState title={t('receiving.wizard.storageEmpty')} />
+              ) : (
+                <View style={customMismatchStyles.whiteCard}>
+                  {/* The warehouse's active locations (code, name, type, capacity); hierarchy and used KG are not served. */}
+                  {storage.options.map((loc, idx) => (
+                    <React.Fragment key={loc.id}>
+                      {idx > 0 ? <View style={{ borderBottomWidth: 1, borderBottomColor: adminColors.border, marginVertical: 4 }} /> : null}
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10 }}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setSelectedLocationId(loc.id);
+                          setBatchSubView('storage_detail');
+                        }}
+                      >
+                        <View>
+                          <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{loc.label}</Text>
+                          {loc.capacityGrams !== null ? (
+                            <Text style={{ ...adminType.caption, color: adminColors.muted, marginTop: 3 }}>
+                              {t('receiving.wizard.capacity', { qty: kgLabel(loc.capacityGrams) })}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <ChevronRightIcon size={18} color={adminColors.muted} />
+                      </TouchableOpacity>
+                    </React.Fragment>
+                  ))}
+                </View>
+              )}
             </ScrollView>
           </View>
         );
@@ -2750,33 +3021,25 @@ export function GoodsReceivingWizardScreen({
                 <TouchableOpacity onPress={handleBack} activeOpacity={0.7} style={customMismatchStyles.backBtn}>
                   <BackArrowIcon color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={customMismatchStyles.headerTitle}>Cold Storage A</Text>
+                <Text style={customMismatchStyles.headerTitle}>{selectedLocation?.label ?? ''}</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
+              {batchSubtitle}
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
-              <Text style={customMismatchStyles.sectionHeading}>Cold Storage A</Text>
+              <Text style={customMismatchStyles.sectionHeading}>{selectedLocation?.label ?? ''}</Text>
 
-              <View style={customMismatchStyles.whiteCard}>
-                <View style={customMismatchStyles.gridRow}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Current Stock</Text>
-                    <Text style={customMismatchStyles.gridVal}>1,650 KG</Text>
-                  </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Capacity</Text>
-                    <Text style={customMismatchStyles.gridVal}>2,000 KG</Text>
+              {/* Current Stock and Assigned Batches are hidden: used KG and batch counts per location are not served (Gaps). */}
+              {selectedLocation?.capacityGrams !== null && selectedLocation?.capacityGrams !== undefined ? (
+                <View style={customMismatchStyles.whiteCard}>
+                  <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.capacityLabel')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{kgLabel(selectedLocation.capacityGrams)}</Text>
+                    </View>
                   </View>
                 </View>
-
-                <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Assigned Batches</Text>
-                    <Text style={customMismatchStyles.gridVal}>18</Text>
-                  </View>
-                </View>
-              </View>
+              ) : null}
 
               <TouchableOpacity
                 style={customMismatchStyles.orangeBottomBtn}
@@ -2802,7 +3065,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Assignment Review</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
+              {batchSubtitle}
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2810,25 +3073,29 @@ export function GoodsReceivingWizardScreen({
 
               <View style={customMismatchStyles.whiteCard}>
                 <View style={customMismatchStyles.gridRow}>
+                  {batchCode !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.batch')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{batchCode}</Text>
+                    </View>
+                  ) : null}
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Batch</Text>
-                    <Text style={customMismatchStyles.gridVal}>BAT-00512</Text>
-                  </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Product</Text>
-                    <Text style={customMismatchStyles.gridVal}>Tomato</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.product')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{displayProd}</Text>
                   </View>
                 </View>
 
                 <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Quantity</Text>
-                    <Text style={customMismatchStyles.gridVal}>445 KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.quantity')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg}</Text>
                   </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Selected Location</Text>
-                    <Text style={customMismatchStyles.gridVal}>Cold Storage A</Text>
-                  </View>
+                  {selectedLocation !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.selectedLocation')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{selectedLocation.label}</Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
             </ScrollView>
@@ -2858,7 +3125,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Assignment Review</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
+              {batchSubtitle}
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2870,17 +3137,21 @@ export function GoodsReceivingWizardScreen({
 
                 <View style={customMismatchStyles.confirmInnerBox}>
                   <Text style={customMismatchStyles.confirmInnerText}>
-                    445 KG of Tomato (BAT-00512) will be assigned to Cold Storage A.
+                    {selectedLocation !== undefined
+                      ? t('receiving.wizard.confirmLocationText', { qty: displayAcceptedKg, product: displayProd, location: selectedLocation.label })
+                      : t('receiving.wizard.confirmNoLocationText', { qty: displayAcceptedKg, product: displayProd })}
                   </Text>
                 </View>
 
+                {/* Phase 2: the quality check stocks the batch AND sets this location in one call (BR-106). */}
                 <View style={customMismatchStyles.confirmButtonsRow}>
                   <TouchableOpacity
                     style={customMismatchStyles.confirmActionBtn}
                     activeOpacity={0.75}
-                    onPress={() => setBatchSubView('assignment_complete')}
+                    disabled={busy}
+                    onPress={confirmLocation}
                   >
-                    <CheckmarkIcon size={14} color={adminColors.brand} />
+                    {busy ? <ActivityIndicator color={adminColors.brand} size="small" /> : <CheckmarkIcon size={14} color={adminColors.brand} />}
                     <Text style={customMismatchStyles.confirmActionText}>Confirm</Text>
                   </TouchableOpacity>
 
@@ -2912,7 +3183,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Assignment Complete</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>Batch BAT-00512</Text>
+              {batchSubtitle}
             </View>
 
             <ScrollView style={customMismatchStyles.scroll} contentContainerStyle={customMismatchStyles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -2936,20 +3207,24 @@ export function GoodsReceivingWizardScreen({
 
               <View style={customMismatchStyles.whiteCard}>
                 <View style={customMismatchStyles.gridRow}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Batch</Text>
-                    <Text style={customMismatchStyles.gridVal}>BAT-00512</Text>
-                  </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Location</Text>
-                    <Text style={customMismatchStyles.gridVal}>Cold Storage A</Text>
-                  </View>
+                  {batchCode !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.batch')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{batchCode}</Text>
+                    </View>
+                  ) : null}
+                  {decided && result.storageLocation !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.location')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{locationLabel(result.storageLocation)}</Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Quantity</Text>
-                    <Text style={customMismatchStyles.gridVal}>445 KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.quantity')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg}</Text>
                   </View>
                 </View>
               </View>
@@ -3009,8 +3284,8 @@ export function GoodsReceivingWizardScreen({
 
                 <View style={customMismatchStyles.gridRow}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Accepted Qty</Text>
-                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg} KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.acceptedQty')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg}</Text>
                   </View>
                   <View style={customMismatchStyles.gridCol}>
                     <Text style={customMismatchStyles.gridLabel}>Warehouse</Text>
@@ -3024,8 +3299,8 @@ export function GoodsReceivingWizardScreen({
                     <Text style={customMismatchStyles.gridVal}>{displayGrn}</Text>
                   </View>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Source Ref</Text>
-                    <Text style={customMismatchStyles.gridVal}>{ship.reference || 'REF-8842'}</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.sourceRef')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{receiptCode}</Text>
                   </View>
                 </View>
               </View>
@@ -3086,8 +3361,8 @@ export function GoodsReceivingWizardScreen({
 
               <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
                 <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Accepted Quantity</Text>
-                  <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg} KG</Text>
+                  <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.acceptedQuantity')}</Text>
+                  <Text style={customMismatchStyles.gridVal}>{displayAcceptedKg}</Text>
                 </View>
                 <View style={customMismatchStyles.gridCol}>
                   <Text style={customMismatchStyles.gridLabel}>Unit</Text>
@@ -3103,10 +3378,12 @@ export function GoodsReceivingWizardScreen({
                   <Text style={customMismatchStyles.gridLabel}>Source Farmer</Text>
                   <Text style={customMismatchStyles.gridVal}>Internal reference only</Text>
                 </View>
-                <View style={customMismatchStyles.gridCol}>
-                  <Text style={customMismatchStyles.gridLabel}>Received Date</Text>
-                  <Text style={customMismatchStyles.gridVal}>25 Sep 2026</Text>
-                </View>
+                {receiptDto !== null ? (
+                  <View style={customMismatchStyles.gridCol}>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.receivedDate')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{formatAdminDay(receiptDto.receivedAt)}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
 
@@ -3125,234 +3402,53 @@ export function GoodsReceivingWizardScreen({
         </View>
       );
     }
+    // Sub: the storage-ops Storage Location Assignment screen, rendered INSIDE the wizard (same component, so
+    // nothing looks different) so the draft survives; its confirm sends the check (BR-106), then the confirmation.
     return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Batch Assignment</Text>
-            <Text style={styles.headerSub}>{receiptCode}</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {stepper('Batch')}
-
-          <Text style={styles.sectionHeader}>Batch Information</Text>
-          <View style={styles.whiteCard}>
-            <View style={styles.summaryMetaGrid}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Goods Receipt</Text>
-                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Warehouse</Text>
-                <Text style={styles.summaryMetaVal}>{destinationName}</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Grade</Text>
-                <Text style={styles.summaryMetaVal}>{actualGrade} (actual)</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Accepted Quantity</Text>
-                <Text style={styles.summaryMetaVal}>{acceptedQty} KG</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Unit</Text>
-                <Text style={styles.summaryMetaVal}>KG</Text>
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.sectionHeader}>Storage Bay</Text>
-          <View style={styles.issueTypeListCard}>
-            {STORAGE_BAYS.map((bay, idx) => {
-              const isSelected = bay.id === selectedBayId;
-              return (
-                <TouchableOpacity
-                  key={bay.id}
-                  style={[styles.issueTypeRow, idx === STORAGE_BAYS.length - 1 && { borderBottomWidth: 0 }]}
-                  onPress={() => setSelectedBayId(bay.id)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
-                    {isSelected && <View style={styles.radioInnerCircle} />}
-                  </View>
-                  <View style={styles.bayTextBox}>
-                    <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                      {bay.label} · {bay.zone}
-                    </Text>
-                    <Text style={styles.baySub}>Available Capacity: {bay.availableKg} KG</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {onOpenStorageLocations && (
-            <TouchableOpacity style={styles.secondaryCtaBtn} activeOpacity={0.8} onPress={onOpenStorageLocations}>
-              <Text style={styles.secondaryCtaText}>Review Before Creating Batch</Text>
-            </TouchableOpacity>
-          )}
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            disabled={isSubmittingReceipt}
-            onPress={handleConfirmGoodsReceipt}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {isSubmittingReceipt ? (
-                <ActivityIndicator color={adminColors.onBrand} size="small" />
-              ) : (
-                <>
-                  <CheckmarkCircleOutlineIcon color={adminColors.onBrand} size={20} />
-                  <Text style={styles.primaryCtaText}>Confirm Goods Receipt</Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <StorageLocationAssignmentScreen
+        scope={scope}
+        can={can}
+        onBack={handleBack}
+        productName={[expectedProduct, actualGrade].filter(v => v !== '').join(' · ')}
+        quantity={kgOrDash(shownAccepted)}
+        warehouseId={recordWarehouseId}
+        live={{
+          options: storage.options,
+          isLoading: storage.isLoading,
+          error: storage.error,
+          onRetry: storage.refresh,
+          warehouseName: destinationName,
+          confirming: busy,
+          onConfirm: (locationId) => {
+            const code = storage.options.find(o => o.id === locationId)?.code;
+            void withBusy(() => runQc('storage', code));
+          },
+        }}
+      />
     );
   }
 
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 6: Receiving History
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'receiving_history') {
-    // Rows come from the shared receiving records, limited to what the scope may see
-    // (Sub: own warehouse; Main: all). The shell's Receiving History is the full list.
-    const historyList = recordsInScope(scope).filter(r => WIZARD_HISTORY_IDS.includes(r.receiptId));
-
-    const filtered = historyList.filter(item => {
-      if (historyFilter === 'Accepted' && item.result !== 'Accepted') return false;
-      if (historyFilter === 'Partial' && item.result !== 'Partially Accepted') return false;
-      if (historyFilter === 'Rejected' && item.result !== 'Rejected') return false;
-      const q = historySearch.toLowerCase();
-      if (q && !item.receiptId.toLowerCase().includes(q) && !item.product.toLowerCase().includes(q)) {
-        return false;
-      }
-      return true;
-    });
-
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Receiving History</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Search Bar */}
-          <View style={styles.searchBarWrap}>
-            <SearchIcon />
-            <TextInput
-              style={styles.searchBarInput}
-              placeholder="Search GR number / product"
-              placeholderTextColor={adminColors.placeholder}
-              value={historySearch}
-              onChangeText={setHistorySearch}
-            />
-          </View>
-
-          {/* Filter Pills */}
-          <View style={styles.filterPillsRow}>
-            {(['All', 'Accepted', 'Partial', 'Rejected'] as const).map(tab => (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.filterPill, historyFilter === tab && styles.filterPillActive]}
-                onPress={() => setHistoryFilter(tab)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.filterPillText, historyFilter === tab && styles.filterPillTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* List Cards */}
-          {filtered.map(item => {
-            const tone = resultTone(item.result);
-            return (
-              <TouchableOpacity
-                key={item.receiptId}
-                style={styles.historyCard}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setSelectedHistoryId(item.receiptId);
-                  goToStep('receipt_detail');
-                }}
-              >
-                <View style={styles.historyCardTopRow}>
-                  <Text style={styles.historyCardCode}>{item.receiptId}</Text>
-                  <View style={[styles.historyStatusPill, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.historyStatusText, { color: tone.text }]}>{item.result}</Text>
-                  </View>
-                </View>
-                <Text style={styles.historyCardProduce}>
-                  {item.product} · {item.grade}
-                </Text>
-                <View style={styles.historyCardStatsRow}>
-                  <Text style={styles.historyStatLabel}>Received <Text style={styles.historyStatVal}>{item.receivedKg} KG</Text></Text>
-                  {item.acceptedKg > 0 && <Text style={styles.historyStatLabel}>Accepted <Text style={styles.historyStatVal}>{item.acceptedKg} KG</Text></Text>}
-                  {item.rejectedKg > 0 && <Text style={styles.historyStatLabel}>Rejected <Text style={[styles.historyStatVal, { color: adminColors.danger.text }]}>{item.rejectedKg} KG</Text></Text>}
-                </View>
-                <Text style={styles.historyCardDate}>{item.date}</Text>
-              </TouchableOpacity>
-            );
-          })}
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </View>
-    );
-  }
+  // SCREEN 6 (embedded Receiving History) is gone: "Activity" opens the host's live Receiving History
+  // (onViewHistory); the embedded list only ever showed sample receipts.
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 7: Receipt Detail — the shared ReceivingHistoryDetailScreen
-     (was a third inline copy of the receipt-detail design). A history row shows
-     its record; otherwise the receipt being recorded is shown from wizard state.
+     SCREEN 7: Receipt Detail: the receipt as recorded (GET /admin/goods-receipts/{id},
+     with its quality check). Main: the shared ReceivingHistoryDetailScreen by receipt uuid.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'receipt_detail') {
-    const selected = selectedHistoryId !== undefined ? findReceivingRecord(selectedHistoryId) : undefined;
-    const current: ReceivingRecord = selected ?? {
-      receiptId: receiptCode,
-      shipmentId: ship.reference ?? receiptCode,
-      warehouseId: scope.warehouseId ?? '',
-      warehouseName: destinationName,
-      result: outcome === 'Accept' ? 'Accepted' : outcome === 'Reject' ? 'Rejected' : 'Partially Accepted',
-      receivedBy: receiverName ?? '—',
-      date: receivedDate,
-      product: actualProduct,
-      grade: actualGrade,
-      expectedKg: expectedQty,
-      receivedKg: receivedQty,
-      acceptedKg: acceptedQty,
-      rejectedKg: rejectedQty,
-      rejectionReason: rejectedQty > 0 ? rejectionReason : undefined,
-      batchId: acceptedQty > 0 ? batchId : undefined,
-      qcResults: canQc ? qcStatusMap : undefined,
-    };
-
     if (isSub) {
+      const current = liveReceipt;
+      if (current === undefined) {
+        if (receiptRead.isLoading) return stateFrame(<AdminLoadingState />);
+        if (receiptRead.error !== null && receiptRead.error !== undefined) {
+          return stateFrame(<AdminErrorState error={receiptRead.error} onRetry={receiptRead.refresh} />);
+        }
+        return stateFrame(<AdminEmptyState title={t('receiving.wizard.noReceipt')} />);
+      }
+      const check = current.qualityCheck;
+      const accepted = current.result === 'Accepted';
+      const shownGrade = check?.assignedGrade ?? current.grade;
+      const shownReason = check?.rejectionReasonLabel ?? current.rejectionReason;
       return (
         <View style={styles.container}>
           <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
@@ -3367,7 +3463,7 @@ export function GoodsReceivingWizardScreen({
             </TouchableOpacity>
             <View style={styles.headerTitleWrap}>
               <Text style={styles.headerTitle}>Goods Receipt</Text>
-              <Text style={styles.headerSub}>{current.receiptId} · Official Receipt</Text>
+              <Text style={styles.headerSub}>{t('receiving.wizard.officialReceipt', { grn: current.receiptId })}</Text>
             </View>
           </View>
 
@@ -3378,20 +3474,20 @@ export function GoodsReceivingWizardScreen({
                   <View
                     style={[
                       styles.voucherStatusPill,
-                      { backgroundColor: current.result === 'Accepted' ? adminColors.success.bg : adminColors.warning.bg },
+                      { backgroundColor: accepted ? adminColors.success.bg : adminColors.warning.bg },
                     ]}
                   >
                     <Text
                       style={[
                         styles.voucherStatusText,
-                        { color: current.result === 'Accepted' ? adminColors.success.text : adminColors.warning.text },
+                        { color: accepted ? adminColors.success.text : adminColors.warning.text },
                       ]}
                     >
-                      RECEIPT · {current.result.toUpperCase()}
+                      {t('receiving.wizard.receiptStatus', { status: current.resultLabel.toUpperCase() })}
                     </Text>
                   </View>
                   <Text style={styles.voucherIdText}>{current.receiptId}</Text>
-                  <Text style={styles.voucherDateText}>{current.date || '25 Sep 2026'}</Text>
+                  <Text style={styles.voucherDateText}>{current.day}</Text>
                 </View>
                 <View style={styles.voucherQrBox}>
                   <QrCodeIcon size={28} color={adminColors.brand} />
@@ -3402,81 +3498,93 @@ export function GoodsReceivingWizardScreen({
 
               <View style={styles.summaryMetaGrid}>
                 <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Product</Text>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.product')}</Text>
                   <Text style={styles.summaryMetaVal}>{current.product}</Text>
                 </View>
                 <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Grade</Text>
-                  <Text style={styles.summaryMetaVal}>{current.grade}</Text>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.gradeWord')}</Text>
+                  <Text style={styles.summaryMetaVal}>{shownGrade}</Text>
                 </View>
               </View>
 
               <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
                 <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Expected Qty</Text>
-                  <Text style={styles.summaryMetaVal}>{current.expectedKg} KG</Text>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.expectedQtyLabel')}</Text>
+                  <Text style={styles.summaryMetaVal}>{kgOrDash(current.expectedGrams ?? expectedGrams)}</Text>
                 </View>
-                <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Accepted Qty</Text>
-                  <Text style={[styles.summaryMetaVal, { color: adminColors.success.text, fontWeight: '800' }]}>{current.acceptedKg} KG</Text>
-                </View>
+                {current.acceptedGrams !== null ? (
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.acceptedQty')}</Text>
+                    <Text style={[styles.summaryMetaVal, { color: adminColors.success.text, fontWeight: '800' }]}>{kgLabel(current.acceptedGrams)}</Text>
+                  </View>
+                ) : null}
               </View>
 
-              {current.rejectedKg > 0 && (
+              {current.rejectedGrams !== null && current.rejectedGrams > 0 && (
                 <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
                   <View style={styles.summaryMetaCol}>
-                    <Text style={styles.summaryMetaLabel}>Rejected Qty</Text>
-                    <Text style={[styles.summaryMetaVal, { color: adminColors.danger.text, fontWeight: '800' }]}>{current.rejectedKg} KG</Text>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.rejectedQtyLabel')}</Text>
+                    <Text style={[styles.summaryMetaVal, { color: adminColors.danger.text, fontWeight: '800' }]}>{kgLabel(current.rejectedGrams)}</Text>
                   </View>
-                  <View style={styles.summaryMetaCol}>
-                    <Text style={styles.summaryMetaLabel}>Rejection Reason</Text>
-                    <Text style={styles.summaryMetaVal}>{current.rejectionReason ?? 'Quality Below Grade'}</Text>
-                  </View>
+                  {shownReason !== undefined ? (
+                    <View style={styles.summaryMetaCol}>
+                      <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.rejectionReason')}</Text>
+                      <Text style={styles.summaryMetaVal}>{shownReason}</Text>
+                    </View>
+                  ) : null}
                 </View>
               )}
 
               <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
+                {sourceName !== '' ? (
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.source')}</Text>
+                    <Text style={styles.summaryMetaVal}>{sourceName}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Source</Text>
-                  <Text style={styles.summaryMetaVal}>{sourceName}</Text>
-                </View>
-                <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Destination</Text>
-                  <Text style={styles.summaryMetaVal}>{current.warehouseName}</Text>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.destination')}</Text>
+                  <Text style={styles.summaryMetaVal}>{current.warehouseName !== '' ? current.warehouseName : destinationName}</Text>
                 </View>
               </View>
 
               <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-                <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Batch Reference</Text>
-                  <Text style={styles.summaryMetaVal}>{current.batchId ?? batchId}</Text>
-                </View>
-                <View style={styles.summaryMetaCol}>
-                  <Text style={styles.summaryMetaLabel}>Receiver</Text>
-                  <Text style={styles.summaryMetaVal}>{current.receivedBy}</Text>
-                </View>
+                {current.batchCode !== undefined ? (
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.batchReference')}</Text>
+                    <Text style={styles.summaryMetaVal}>{current.batchCode}</Text>
+                  </View>
+                ) : null}
+                {current.receivedBy !== undefined ? (
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.receiver')}</Text>
+                    <Text style={styles.summaryMetaVal}>{current.receivedBy}</Text>
+                  </View>
+                ) : null}
               </View>
 
-              <View style={styles.voucherDivider} />
+              {/* Only a checked receipt is posted: an awaiting-QC receipt has no stock yet. */}
+              {check !== null ? (
+                <>
+                  <View style={styles.voucherDivider} />
 
-              <View style={styles.voucherQcBadge}>
-                <CheckmarkCircleOutlineIcon size={22} color={adminColors.success.text} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.voucherQcTitle}>Verified & Posted to Ledger</Text>
-                  <Text style={styles.voucherQcSub}>Inspected by {current.receivedBy} · Stock updated in inventory</Text>
-                </View>
-              </View>
+                  <View style={styles.voucherQcBadge}>
+                    <CheckmarkCircleOutlineIcon size={22} color={adminColors.success.text} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.voucherQcTitle}>Verified & Posted to Ledger</Text>
+                      <Text style={styles.voucherQcSub}>
+                        {check.checkedBy !== undefined
+                          ? t('receiving.wizard.inspectedBy', { name: check.checkedBy })
+                          : t('receiving.wizard.stockUpdated')}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              ) : null}
             </View>
 
+            {/* Share / Print is hidden: there is no print or share of the receipt note yet (Gaps). */}
             <View style={{ gap: 12, marginTop: 12 }}>
-              <TouchableOpacity
-                style={styles.primaryCtaBtn}
-                activeOpacity={0.85}
-                onPress={() => Alert.alert('Goods Receipt', `Receipt ${current.receiptId} printed / shared successfully.`)}
-              >
-                <Text style={styles.primaryCtaText}>Share / Print Receipt</Text>
-              </TouchableOpacity>
-
               <TouchableOpacity
                 style={styles.actionSecondaryBtn}
                 activeOpacity={0.8}
@@ -3492,266 +3600,23 @@ export function GoodsReceivingWizardScreen({
       );
     }
 
+    if (receiptUuid === undefined) return stateFrame(<AdminEmptyState title={t('receiving.wizard.noReceipt')} />);
     return (
       <ReceivingHistoryDetailScreen
         scope={scope}
         can={can}
         onBack={handleBack}
-        record={current}
-        backLabel={selected !== undefined ? undefined : '← Back'}
+        receiptId={receiptUuid}
+        backLabel={t('receiving.wizard.backLabel')}
         onNavigateDiscrepancy={canRecord ? () => goToStep('damage_mismatch') : undefined}
-        onNavigateBatch={
-          onViewBatch && current.batchId !== undefined ? () => onViewBatch(current.batchId ?? '') : undefined
-        }
+        onViewBatch={onViewBatch}
+        onTakeAction={() => goToStep('quality_check')}
       />
     );
   }
 
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 8: Rejected Goods
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'rejected_goods') {
-    const reasons = REJECTED_GOODS_REASONS;
-
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <View style={styles.headerTitleWrap}>
-            <Text style={styles.headerTitle}>Rejected Goods</Text>
-            <Text style={styles.headerSub}>{receiptCode}</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Rejected Product */}
-          <Text style={styles.sectionHeader}>Rejected Product</Text>
-          <View style={styles.whiteCard}>
-            <View style={styles.summaryMetaGrid}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Product</Text>
-                <Text style={styles.summaryMetaVal}>{actualProduct}</Text>
-              </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Grade</Text>
-                <Text style={styles.summaryMetaVal}>{actualGrade}</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Batch / Receipt</Text>
-                <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Quantity */}
-          <Text style={styles.sectionHeader}>Quantity</Text>
-          <View style={styles.statsRow}>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
-            </View>
-            <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{acceptedQty} KG</Text>
-              <Text style={styles.statTileLabel}>ACCEPTED</Text>
-            </View>
-          </View>
-
-          {/* Rejected Quantity Banner */}
-          <View style={styles.rejectedQtyBanner}>
-            <Text style={styles.rejectedQtyNum}>{rejectedQty} KG</Text>
-            <Text style={styles.rejectedQtyLabel}>REJECTED QUANTITY</Text>
-          </View>
-
-          {/* Rejection Reason */}
-          <Text style={styles.sectionHeader}>Rejection Reason</Text>
-          <View style={styles.issueTypeListCard}>
-            {reasons.map((reason, idx) => {
-              const isSelected = selectedRejectedReason === reason;
-              const isLast = idx === reasons.length - 1;
-              return (
-                <TouchableOpacity
-                  key={reason}
-                  style={[styles.issueTypeRow, isLast && { borderBottomWidth: 0 }]}
-                  onPress={() => setSelectedRejectedReason(reason)}
-                  activeOpacity={0.75}
-                >
-                  <CheckboxSquareIcon checked={isSelected} />
-                  <Text style={[styles.issueTypeText, isSelected && { fontWeight: '700', color: adminColors.ink }]}>
-                    {reason}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Evidence */}
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <View style={styles.qcPhotosRow}>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-            <View style={styles.qcPhotoThumbnail}>
-              <PictureIcon />
-            </View>
-            <TouchableOpacity
-              style={styles.qcPhotoAddBox}
-              onPress={() => Alert.alert('Camera', 'Photo added.')}
-              activeOpacity={0.7}
-            >
-              <CameraPlusIcon size={24} />
-              <Text style={styles.qcPhotoAddText}>Add Photo</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Notes */}
-          <Text style={styles.sectionHeader}>Notes</Text>
-          <View style={styles.whiteCard}>
-            <Text style={styles.rejectedNotesText}>
-              {rejectedQty} KG rejected on inspection ({rejectionReason}) — isolated and rejected.
-              {partialNotes ? ` ${partialNotes}` : ''}
-            </Text>
-          </View>
-
-          {/* Disposal / Handling Record */}
-          <Text style={styles.sectionHeader}>Disposal / Handling Record</Text>
-          <View style={styles.handlingStatusPill}>
-            <ClockSmallIcon color={adminColors.warning.text} size={16} />
-            <Text style={styles.handlingStatusText}>
-              Handling Status: {handlingStatus}
-            </Text>
-          </View>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => goToStep('record_handling')}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ClipboardChecklistIcon />
-              <Text style={styles.primaryCtaText}>Record Handling</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
-
-  /* ──────────────────────────────────────────────────────────
-     SCREEN 9: Record Handling
-     ────────────────────────────────────────────────────────── */
-  if (currentStep === 'record_handling') {
-    return (
-      <View style={styles.container}>
-        <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <BackArrowIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Record Handling</Text>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Rejected Quantity Banner */}
-          <View style={styles.rejectedQtyBanner}>
-            <Text style={styles.rejectedQtyNum}>{rejectedQty} KG</Text>
-            <Text style={styles.rejectedQtyLabel}>REJECTED QUANTITY</Text>
-          </View>
-
-          {/* Handling Information */}
-          <Text style={styles.sectionHeader}>Handling Information</Text>
-          <TouchableOpacity
-            style={styles.dropdownSelectBox}
-            activeOpacity={0.8}
-            onPress={() => {
-              Alert.alert(
-                'Select Method',
-                'Choose handling method',
-                HANDLING_METHODS.map(m => ({ text: m, onPress: () => setHandlingMethod(m) })),
-              );
-            }}
-          >
-            <View>
-              <Text style={styles.dropdownLabel}>HANDLING / DISPOSAL METHOD</Text>
-              <Text style={[styles.dropdownValue, handlingMethod === 'Select method' && { color: adminColors.muted }]}>
-                {handlingMethod}
-              </Text>
-            </View>
-            <ChevronDownIcon />
-          </TouchableOpacity>
-
-          {/* Date & Time */}
-          <Text style={styles.sectionHeader}>Date & Time</Text>
-          <View style={styles.rowTwoCols}>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Date</Text>
-              <TextInput style={styles.textInput} value={handlingDate} onChangeText={setHandlingDate} />
-            </View>
-            <View style={styles.colHalf}>
-              <Text style={styles.inputLabel}>Time</Text>
-              <TextInput style={styles.textInput} value={handlingTime} onChangeText={setHandlingTime} />
-            </View>
-          </View>
-
-          {/* Notes */}
-          <Text style={styles.sectionHeader}>Notes</Text>
-          <TextInput
-            style={styles.describeIssueInput}
-            placeholder="Add remarks"
-            placeholderTextColor={adminColors.placeholder}
-            multiline
-            numberOfLines={3}
-            value={handlingRemarks}
-            onChangeText={setHandlingRemarks}
-          />
-
-          {/* Photo */}
-          <Text style={styles.sectionHeader}>Photo</Text>
-          <TouchableOpacity
-            style={styles.dashedAddBoxSmall}
-            activeOpacity={0.7}
-            onPress={() => Alert.alert('Camera', 'Handling evidence photo captured.')}
-          >
-            <CameraPlusIcon size={24} />
-            <Text style={styles.dashedAddBoxText}>Add Evidence</Text>
-          </TouchableOpacity>
-
-          <View style={{ height: 100 }} />
-        </ScrollView>
-
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCtaBtn}
-            activeOpacity={0.85}
-            onPress={() => {
-              setHandlingStatus('Recorded');
-              if (Platform.OS === 'android') {
-                ToastAndroid.show('Record submitted', ToastAndroid.SHORT);
-              }
-              handleBack();
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <SendPaperAirplaneIcon />
-              <Text style={styles.primaryCtaText}>Submit Record</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
+  // SCREENS 8-9 (Rejected Goods disposal, Record Handling) are not offered: no API records a disposal or
+  // handling method (Gaps). The rejected weight and reason are recorded by the quality check itself (BR-120).
 
   /* ──────────────────────────────────────────────────────────
      SCREEN 10: Receiving in Progress
@@ -3771,10 +3636,16 @@ export function GoodsReceivingWizardScreen({
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Draft Banner */}
+          {/* Draft Banner: a recorded receipt is no draft; it says what the API knows about it. */}
           <View style={styles.draftStatusBanner}>
             <PencilDraftIcon color={adminColors.warning.text} size={16} />
-            <Text style={styles.draftStatusBannerText}>Draft — Not Submitted</Text>
+            <Text style={styles.draftStatusBannerText}>
+              {receiptDto === null
+                ? t('receiving.wizard.draftNotSubmitted')
+                : result?.variant === 'awaiting' || result === null
+                  ? t('receiving.wizard.recordedAwaitingQc')
+                  : liveReceipt?.resultLabel ?? t('receiving.wizard.recordedAwaitingQc')}
+            </Text>
           </View>
 
           {/* Receiving Progress */}
@@ -3814,35 +3685,16 @@ export function GoodsReceivingWizardScreen({
           <Text style={styles.sectionHeader}>Quantity</Text>
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(expectedGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.expected')}</Text>
             </View>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(grossGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.received')}</Text>
             </View>
           </View>
 
-          {/* QC Progress (inventory.quality_check.perform) */}
-          {canQc && (
-            <>
-              <Text style={styles.sectionHeader}>QC Progress</Text>
-              <TouchableOpacity style={styles.whiteCard} onPress={() => goToStep('continue_receiving')} activeOpacity={0.8}>
-                <Text style={styles.qcProgressNumbers}>
-                  {DEMO_QC_PROGRESS.done} / {DEMO_QC_PROGRESS.total} Completed
-                </Text>
-                <Text style={styles.qcProgressSub}>QUALITY CHECKS</Text>
-                <View style={styles.progressBarTrack}>
-                  <View
-                    style={[
-                      styles.progressBarFill,
-                      { width: `${Math.round((DEMO_QC_PROGRESS.done / DEMO_QC_PROGRESS.total) * 100)}%` },
-                    ]}
-                  />
-                </View>
-              </TouchableOpacity>
-            </>
-          )}
+          {/* QC Progress is hidden: a check is recorded in one call, the API keeps no per-point progress (Gaps). */}
 
           {/* Sections */}
           <Text style={styles.sectionHeader}>Sections</Text>
@@ -3865,14 +3717,7 @@ export function GoodsReceivingWizardScreen({
               </View>
               <Text style={styles.checklistRowText}>Damage Check</Text>
             </TouchableOpacity>
-            {canQc && (
-              <TouchableOpacity style={styles.checklistRow} onPress={() => goToStep('quality_check')} activeOpacity={0.7}>
-                <View style={styles.checkCircleDone}>
-                  <CheckmarkIcon size={10} />
-                </View>
-                <Text style={styles.checklistRowText}>Photos</Text>
-              </TouchableOpacity>
-            )}
+            {/* "Photos" is hidden: the wizard has no photo upload (Gaps). */}
             <TouchableOpacity style={[styles.checklistRow, { borderBottomWidth: 0 }]} onPress={() => goToStep('receiving_decision')} activeOpacity={0.7}>
               <View style={styles.checkCirclePending} />
               <Text style={[styles.checklistRowText, { color: adminColors.muted }]}>Final Decision</Text>
@@ -3924,10 +3769,10 @@ export function GoodsReceivingWizardScreen({
             </Text>
             <View style={{ alignItems: 'center', paddingBottom: 6 }}>
               <Text style={{ ...adminType.title, fontWeight: '800', color: adminColors.ink, textAlign: 'center' }}>
-                Check {QC_CRITERIA.length} of {QC_CRITERIA.length}
+                {t('receiving.wizard.checkOf', { n: qcCriteria.length, total: qcCriteria.length })}
               </Text>
               <Text style={{ ...adminType.caption, fontWeight: '700', color: adminColors.muted, letterSpacing: 0.8, marginTop: 4, textAlign: 'center', textTransform: 'uppercase' }}>
-                {QC_CRITERIA[QC_CRITERIA.length - 1]?.title ?? ''}
+                {qcCriteria[qcCriteria.length - 1]?.title ?? ''}
               </Text>
             </View>
           </View>
@@ -3955,9 +3800,20 @@ export function GoodsReceivingWizardScreen({
      SCREEN 12: Receipt Confirmation (Dynamic for Full Accept, Partial, and Full Reject)
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'receipt_confirmation') {
-    const isFullReject = acceptedQty === 0;
-    const isFullAccept = rejectedQty === 0;
-    const isPartialAccept = acceptedQty > 0 && rejectedQty > 0;
+    // What was recorded: this session's check answer, else the receipt as read back (BR-106: batch only once stocked).
+    if (result === null) {
+      if (receiptRead.isLoading) return stateFrame(<AdminLoadingState />);
+      if (receiptRead.error !== null && receiptRead.error !== undefined) {
+        return stateFrame(<AdminErrorState error={receiptRead.error} onRetry={receiptRead.refresh} />);
+      }
+      return stateFrame(<AdminEmptyState title={t('receiving.wizard.noReceipt')} />);
+    }
+    const isAwaitingQc = result.variant === 'awaiting';
+    const isFullReject = result.variant === 'reject';
+    const isFullAccept = result.variant === 'accept';
+    const isPartialAccept = result.variant === 'partial';
+    const resultBatchCode = result.batchCode;
+    const resultLocation = locationLabel(result.storageLocation);
 
     return (
       <View style={styles.container}>
@@ -3980,6 +3836,30 @@ export function GoodsReceivingWizardScreen({
           showsVerticalScrollIndicator={false}
         >
 
+          {/* ─────────────── RECORDED, QC PENDING (no quality check permission, or not checked yet) ─────────────── */}
+          {isAwaitingQc && (
+            <>
+              <View style={[styles.confirmationCheckCircle, { backgroundColor: adminColors.warning.bg, width: 56, height: 56, borderRadius: 28, marginTop: 10, marginBottom: 12 }]}>
+                <ClockSmallIcon color={adminColors.warning.text} size={26} />
+              </View>
+              <Text style={[styles.confirmationMainTitle, { marginBottom: 4 }]}>{t('receiving.wizard.recordedAwaitingQc')}</Text>
+              {!canQc ? (
+                <Text style={{ ...adminType.body, color: adminColors.muted, textAlign: 'center', marginBottom: 20 }}>
+                  {t('receiving.wizard.noQcPermission')}
+                </Text>
+              ) : null}
+
+              <TouchableOpacity
+                style={[styles.actionPrimaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginTop: 8 }]}
+                activeOpacity={0.85}
+                onPress={() => goToStep('receipt_detail')}
+              >
+                <ReceiptPaperIcon color={adminColors.onBrand} size={20} />
+                <Text style={styles.actionPrimaryBtnText}>View Receipt</Text>
+              </TouchableOpacity>
+            </>
+          )}
+
           {/* ─────────────── VARIANT 1: FULL REJECTION (Image 1) ─────────────── */}
           {isFullReject && (
             <>
@@ -3994,17 +3874,17 @@ export function GoodsReceivingWizardScreen({
               {/* Table */}
               <View style={styles.decisionTableCard}>
                 <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Expected</Text>
-                  <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.expectedWord')}</Text>
+                  <Text style={styles.decisionTableValue}>{kgOrDash(expectedGrams)}</Text>
                 </View>
                 <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Accepted</Text>
-                  <Text style={styles.decisionTableValue}>0 KG</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.acceptedWord')}</Text>
+                  <Text style={styles.decisionTableValue}>{kgOrDash(result.acceptedGrams)}</Text>
                 </View>
                 <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.decisionTableLabel}>Rejected</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.rejectedWord')}</Text>
                   <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>
-                    {rejectedQty || expectedQty} KG
+                    {kgOrDash(result.rejectedGrams)}
                   </Text>
                 </View>
               </View>
@@ -4015,23 +3895,7 @@ export function GoodsReceivingWizardScreen({
                 <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink }}>Rejected</Text>
               </View>
 
-              {/* Rejected Goods Card (inventory.produce.reject_incoming) */}
-              {canReject && (
-              <TouchableOpacity
-                style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}
-                onPress={() => goToStep('rejected_goods')}
-                activeOpacity={0.75}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <TrashOutlineRedIcon color={adminColors.danger.text} size={22} />
-                  <View>
-                    <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Rejected Goods</Text>
-                    <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>Created</Text>
-                  </View>
-                </View>
-                <ChevronRightSmall />
-              </TouchableOpacity>
-              )}
+              {/* The Rejected Goods (disposal) card is hidden: no API records a disposal (Gaps). */}
 
               {/* Single Action: View Receipt */}
               <TouchableOpacity
@@ -4056,18 +3920,18 @@ export function GoodsReceivingWizardScreen({
               {/* Table */}
               <View style={styles.decisionTableCard}>
                 <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Expected</Text>
-                  <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.expectedWord')}</Text>
+                  <Text style={styles.decisionTableValue}>{kgOrDash(expectedGrams)}</Text>
                 </View>
                 <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Accepted</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.acceptedWord')}</Text>
                   <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>
-                    {acceptedQty || expectedQty} KG
+                    {kgOrDash(result.acceptedGrams)}
                   </Text>
                 </View>
                 <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.decisionTableLabel}>Rejected</Text>
-                  <Text style={styles.decisionTableValue}>0 KG</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.rejectedWord')}</Text>
+                  <Text style={styles.decisionTableValue}>{kgOrDash(result.rejectedGrams)}</Text>
                 </View>
               </View>
 
@@ -4075,45 +3939,55 @@ export function GoodsReceivingWizardScreen({
               <View style={styles.whiteCard}>
                 <View style={styles.summaryMetaGrid}>
                   {/* QC result from the recorded checks (was always "Passed"); QC gate only */}
-                  {canQc && (
+                  {canQc && result.failedPoints !== null && (
                     <View style={styles.summaryMetaCol}>
-                      <Text style={styles.summaryMetaLabel}>QC</Text>
+                      <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.qcLabel')}</Text>
                       <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>
-                        {qcIssueCount > 0 ? `Passed · ${qcIssueCount} flagged` : 'Passed'}
+                        {result.failedPoints > 0
+                          ? t('receiving.wizard.passedFlagged', { count: result.failedPoints })
+                          : t('receiving.wizard.passed')}
                       </Text>
                     </View>
                   )}
-                  <View style={styles.summaryMetaCol}>
-                    <Text style={styles.summaryMetaLabel}>Batch</Text>
-                    <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>{batchId}</Text>
-                  </View>
+                  {resultBatchCode !== undefined ? (
+                    <View style={styles.summaryMetaCol}>
+                      <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.batch')}</Text>
+                      <Text style={[styles.summaryMetaVal, { marginTop: 3 }]}>{resultBatchCode}</Text>
+                    </View>
+                  ) : null}
                 </View>
               </View>
 
               {/* Inventory Result Card */}
-              <View style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
-                <CrateInventoryIcon color={adminColors.warning.text} size={24} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Full quantity accepted</Text>
-                  <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>
-                    Batch Created · {batchId}
-                  </Text>
+              {resultBatchCode !== undefined ? (
+                <View style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
+                  <CrateInventoryIcon color={adminColors.warning.text} size={24} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Full quantity accepted</Text>
+                    <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>
+                      {t('receiving.wizard.batchCreated', { code: resultBatchCode })}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              ) : null}
 
               {/* Actions */}
               <View style={{ gap: 12, marginTop: 8 }}>
-                {/* View Batch (inventory.batch.view) */}
-                {canViewBatch && (
+                {/* View Batch (inventory.batch.view), once there is a batch */}
+                {canViewBatch && resultBatchCode !== undefined && (
                 <TouchableOpacity
                   style={[styles.actionPrimaryBtn, { justifyContent: 'flex-start', paddingHorizontal: 20, gap: 14, marginBottom: 0 }]}
                   activeOpacity={0.85}
                   onPress={() => {
-                    if (onViewBatch) {
-                      onViewBatch(batchId);
-                    } else {
-                      const bayLine = canBatch && selectedBay ? ` allocated to ${selectedBay.label}` : '';
-                      Alert.alert('View Batch', `${batchId}\nFull ${acceptedQty || expectedQty} KG ${actualProduct}${bayLine}.`);
+                    if (onViewBatch && result.batchId !== undefined) {
+                      onViewBatch(result.batchId);
+                    } else if (resultBatchCode !== undefined) {
+                      Alert.alert(
+                        t('receiving.wizard.viewBatch'),
+                        resultLocation !== undefined
+                          ? t('receiving.wizard.viewBatchAtLocation', { code: resultBatchCode, qty: kgOrDash(result.acceptedGrams), product: expectedProduct, location: resultLocation })
+                          : t('receiving.wizard.viewBatchText', { code: resultBatchCode, qty: kgOrDash(result.acceptedGrams), product: expectedProduct }),
+                      );
                     }
                   }}
                 >
@@ -4148,59 +4022,47 @@ export function GoodsReceivingWizardScreen({
               {/* Table */}
               <View style={styles.decisionTableCard}>
                 <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Expected</Text>
-                  <Text style={styles.decisionTableValue}>{expectedQty} KG</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.expectedWord')}</Text>
+                  <Text style={styles.decisionTableValue}>{kgOrDash(expectedGrams)}</Text>
                 </View>
                 <View style={styles.decisionTableRow}>
-                  <Text style={styles.decisionTableLabel}>Accepted</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.acceptedWord')}</Text>
                   <Text style={[styles.decisionTableValue, { color: adminColors.success.text, fontWeight: '800' }]}>
-                    {acceptedQty} KG
+                    {kgOrDash(result.acceptedGrams)}
                   </Text>
                 </View>
                 <View style={[styles.decisionTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.decisionTableLabel}>Rejected</Text>
+                  <Text style={styles.decisionTableLabel}>{t('receiving.wizard.rejectedWord')}</Text>
                   <Text style={[styles.decisionTableValue, { color: adminColors.danger.text, fontWeight: '800' }]}>
-                    {rejectedQty} KG
+                    {kgOrDash(result.rejectedGrams)}
                   </Text>
                 </View>
               </View>
 
               {/* Reason Card */}
-              <View style={styles.whiteCard}>
-                <Text style={{ ...adminType.body, color: adminColors.muted, marginBottom: 4, fontWeight: '500' }}>Reason</Text>
-                <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink }}>
-                  {rejectionReason || 'Damage / Pest (recorded QC reason)'}
-                </Text>
-              </View>
+              {result.reasonLabel !== undefined ? (
+                <View style={styles.whiteCard}>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, marginBottom: 4, fontWeight: '500' }}>{t('receiving.wizard.reason')}</Text>
+                  <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink }}>{result.reasonLabel}</Text>
+                </View>
+              ) : null}
 
               {/* Inventory Result Card */}
-              <View style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
-                <CrateInventoryIcon color={adminColors.warning.text} size={24} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{acceptedQty} KG accepted</Text>
-                  <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>
-                    Batch Created · {batchId}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Rejected Goods Card (inventory.produce.reject_incoming) */}
-              {canReject && (
-              <TouchableOpacity
-                style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14 }]}
-                onPress={() => goToStep('rejected_goods')}
-                activeOpacity={0.75}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <TrashOutlineRedIcon color={adminColors.danger.text} size={22} />
-                  <View>
-                    <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Rejected Goods</Text>
-                    <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>Pending Handling</Text>
+              {resultBatchCode !== undefined ? (
+                <View style={[styles.whiteCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
+                  <CrateInventoryIcon color={adminColors.warning.text} size={24} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>
+                      {t('receiving.wizard.kgAccepted', { qty: kgOrDash(result.acceptedGrams) })}
+                    </Text>
+                    <Text style={{ ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink, marginTop: 2 }}>
+                      {t('receiving.wizard.batchCreated', { code: resultBatchCode })}
+                    </Text>
                   </View>
                 </View>
-                <ChevronRightSmall />
-              </TouchableOpacity>
-              )}
+              ) : null}
+
+              {/* The Rejected Goods (handling) card is hidden: no API records a disposal or handling (Gaps). */}
 
               {/* Actions */}
               <View style={{ gap: 12, marginTop: 8 }}>
@@ -4253,20 +4115,27 @@ export function GoodsReceivingWizardScreen({
             <ErrorExclamationCircleIcon size={34} />
           </View>
           <Text style={styles.allChecksCompletedTitle}>Unable to Complete Receiving</Text>
+          {/* Never the server's own message: the error maps to an i18n key (adminErrorKey). */}
           <Text style={styles.allChecksCompletedSub}>
-            Your receiving record was not successfully submitted. Please try again.
+            {failure === null
+              ? t('receiving.wizard.submitFailed')
+              : failure.unknown
+                ? t('receiving.wizard.unknownOutcome')
+                : failure.retry.kind === 'qc' && grn !== undefined
+                  ? `${t(adminErrorKey(failure.error))} ${t('receiving.wizard.receiptKept', { grn })}`
+                  : t(adminErrorKey(failure.error))}
           </Text>
         </View>
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={styles.primaryCtaBtn}
+            style={[styles.primaryCtaBtn, failure === null && styles.primaryCtaBtnDisabled]}
             activeOpacity={0.85}
-            disabled={isSubmittingReceipt}
+            disabled={busy || failure === null}
             onPress={handleRetrySubmission}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {isSubmittingReceipt ? (
+              {busy ? (
                 <ActivityIndicator color={adminColors.onBrand} size="small" />
               ) : (
                 <>
@@ -4282,11 +4151,18 @@ export function GoodsReceivingWizardScreen({
   }
 
   /* ──────────────────────────────────────────────────────────
-     SCREEN 13: Damage / Mismatch
+     SCREEN 13: Damage / Mismatch (BR-121): the receipt's persisted reports
+     (GET .../discrepancies) plus this session's reports still to send.
      ────────────────────────────────────────────────────────── */
   if (currentStep === 'damage_mismatch') {
+    const reportIcon = (row: DiscrepancyRow) =>
+      row.type === 'QUANTITY' ? ScaleIcon : row.type === 'QUALITY' ? StarIcon : AlertCircleOutlineIcon;
+    const reportTitle = (row: DiscrepancyRow) => t('receiving.wizard.reportTitle', { type: row.typeLabel, product: expectedProduct });
+    const reportSubtitle = (row: DiscrepancyRow) => t('receiving.wizard.reportSides', { expected: row.expected, actual: row.actual });
+
     if (!isSub) {
-      if (mismatchSubView === 'detail') {
+      if (mismatchSubView === 'detail' && selectedReport !== undefined) {
+        const report = selectedReport;
         return (
           <View style={customMismatchStyles.root}>
             <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -4299,7 +4175,7 @@ export function GoodsReceivingWizardScreen({
                 </TouchableOpacity>
                 <Text style={customMismatchStyles.headerTitle}>Discrepancy Detail</Text>
               </View>
-              <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'} · Combined discrepancies</Text>
+              <Text style={customMismatchStyles.headerSubtitle}>{t('receiving.wizard.combinedDiscrepancies', { ref: receiptCode })}</Text>
             </View>
 
             <ScrollView
@@ -4307,55 +4183,63 @@ export function GoodsReceivingWizardScreen({
               contentContainerStyle={customMismatchStyles.scrollPad}
               showsVerticalScrollIndicator={false}
             >
-              <Text style={customMismatchStyles.sectionHeading}>Quantity — Discrepancy Detail</Text>
+              <Text style={customMismatchStyles.sectionHeading}>{t('receiving.wizard.discrepancyDetailHeading', { type: report.typeLabel })}</Text>
 
-              {/* Info Card */}
+              {/* Info Card: id / creator / created only once the report is persisted. */}
               <View style={customMismatchStyles.infoCard}>
                 <View style={customMismatchStyles.gridRow}>
+                  {report.id !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.discrepancyId')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{shortId(report.id)}</Text>
+                    </View>
+                  ) : null}
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Discrepancy ID</Text>
-                    <Text style={customMismatchStyles.gridVal}>DSC-00412</Text>
-                  </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Type</Text>
-                    <Text style={customMismatchStyles.gridVal}>Quantity</Text>
-                  </View>
-                </View>
-
-                <View style={customMismatchStyles.gridRow}>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Product</Text>
-                    <Text style={customMismatchStyles.gridVal}>{actualProduct || 'Tomato'}</Text>
-                  </View>
-                  <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Expected</Text>
-                    <Text style={customMismatchStyles.gridVal}>{expectedQty || 500} KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.type')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{report.typeLabel}</Text>
                   </View>
                 </View>
 
                 <View style={customMismatchStyles.gridRow}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Actual</Text>
-                    <Text style={customMismatchStyles.gridVal}>{receivedQty || 480} KG</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.product')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{expectedProduct}</Text>
                   </View>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Created By</Text>
-                    <Text style={customMismatchStyles.gridVal}>Suresh</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.expectedWord')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{report.expected}</Text>
                   </View>
                 </View>
 
-                <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
+                <View style={customMismatchStyles.gridRow}>
                   <View style={customMismatchStyles.gridCol}>
-                    <Text style={customMismatchStyles.gridLabel}>Created</Text>
-                    <Text style={customMismatchStyles.gridVal}>25 Sep, 10:25 AM</Text>
+                    <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.actual')}</Text>
+                    <Text style={customMismatchStyles.gridVal}>{report.actual}</Text>
                   </View>
+                  {report.createdBy !== undefined ? (
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.createdBy')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{report.createdBy}</Text>
+                    </View>
+                  ) : null}
                 </View>
+
+                {report.createdOn !== undefined ? (
+                  <View style={[customMismatchStyles.gridRow, { marginBottom: 0 }]}>
+                    <View style={customMismatchStyles.gridCol}>
+                      <Text style={customMismatchStyles.gridLabel}>{t('receiving.wizard.created')}</Text>
+                      <Text style={customMismatchStyles.gridVal}>{report.createdOn}</Text>
+                    </View>
+                  </View>
+                ) : null}
               </View>
 
               {/* Notes Card */}
-              <View style={customMismatchStyles.notesCard}>
-                <Text style={customMismatchStyles.notesPlaceholder}>Notes</Text>
-              </View>
+              {report.note !== undefined ? (
+                <View style={customMismatchStyles.notesCard}>
+                  <Text style={customMismatchStyles.notesPlaceholder}>{report.note}</Text>
+                </View>
+              ) : null}
 
               <View style={{ height: 24 }} />
             </ScrollView>
@@ -4364,8 +4248,9 @@ export function GoodsReceivingWizardScreen({
             <View style={customMismatchStyles.bottomBar}>
               <TouchableOpacity
                 style={customMismatchStyles.actionBtn}
-                onPress={() => goToStep('receiving_decision')}
+                onPress={() => leaveMismatch('receiving_decision')}
                 activeOpacity={0.8}
+                disabled={busy}
               >
                 <RightArrowIcon size={18} color={adminColors.onBrand} />
                 <Text style={customMismatchStyles.actionBtnText}>Continue to Acceptance Decision</Text>
@@ -4374,30 +4259,6 @@ export function GoodsReceivingWizardScreen({
           </View>
         );
       }
-
-      const mainDiscrepancies = [
-        {
-          id: '1',
-          title: `Quantity — ${actualProduct || 'Tomato'}`,
-          subtitle: `Expected ${expectedQty || 500} KG · Actual ${receivedQty || 480} KG`,
-          icon: ScaleIcon,
-          status: 'Open',
-        },
-        {
-          id: '2',
-          title: `Grade — ${actualProduct || 'Tomato'}`,
-          subtitle: `Expected ${expectedGrade || 'Grade 1'} · Actual ${actualGrade || 'Grade 2'}`,
-          icon: StarIcon,
-          status: 'Open',
-        },
-        {
-          id: '3',
-          title: `Quality — ${actualProduct || 'Tomato'}`,
-          subtitle: 'Good expected · Damaged actual',
-          icon: AlertCircleOutlineIcon,
-          status: 'Open',
-        },
-      ];
 
       return (
         <View style={customMismatchStyles.root}>
@@ -4411,7 +4272,7 @@ export function GoodsReceivingWizardScreen({
               </TouchableOpacity>
               <Text style={customMismatchStyles.headerTitle}>Damage / Mismatch Report</Text>
             </View>
-            <Text style={customMismatchStyles.headerSubtitle}>{receiptCode || 'SHP-000124'} · Combined discrepancies</Text>
+            <Text style={customMismatchStyles.headerSubtitle}>{t('receiving.wizard.combinedDiscrepancies', { ref: receiptCode })}</Text>
           </View>
 
           <ScrollView
@@ -4420,31 +4281,42 @@ export function GoodsReceivingWizardScreen({
             showsVerticalScrollIndicator={false}
           >
             {/* Discrepancy Card List */}
-            <View style={customMismatchStyles.listCard}>
-              {mainDiscrepancies.map((item, index) => {
-                const isLast = index === mainDiscrepancies.length - 1;
-                const IconComp = item.icon;
-                return (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[customMismatchStyles.itemRow, !isLast && customMismatchStyles.itemRowBorder]}
-                    onPress={() => setMismatchSubView('detail')}
-                    activeOpacity={0.75}
-                  >
-                    <View style={customMismatchStyles.iconCircle}>
-                      <IconComp size={18} color={adminColors.brand} />
-                    </View>
-                    <View style={customMismatchStyles.itemContent}>
-                      <Text style={customMismatchStyles.itemTitle}>{item.title}</Text>
-                      <Text style={customMismatchStyles.itemSub}>{item.subtitle}</Text>
-                    </View>
-                    <View style={customMismatchStyles.badge}>
-                      <Text style={customMismatchStyles.badgeText}>{item.status}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            {reportsView === 'loading' ? (
+              <AdminLoadingState />
+            ) : reportsView === 'error' ? (
+              <AdminErrorState error={discrepancyRead.error} onRetry={discrepancyRead.refresh} />
+            ) : reportsView === 'empty' ? (
+              <AdminEmptyState title={t('receiving.wizard.noDiscrepancies')} />
+            ) : (
+              <View style={customMismatchStyles.listCard}>
+                {reportRows.map((item, index) => {
+                  const isLast = index === reportRows.length - 1;
+                  const IconComp = reportIcon(item);
+                  return (
+                    <TouchableOpacity
+                      key={item.key}
+                      style={[customMismatchStyles.itemRow, !isLast && customMismatchStyles.itemRowBorder]}
+                      onPress={() => {
+                        setSelectedReportKey(item.key);
+                        setMismatchSubView('detail');
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={customMismatchStyles.iconCircle}>
+                        <IconComp size={18} color={adminColors.brand} />
+                      </View>
+                      <View style={customMismatchStyles.itemContent}>
+                        <Text style={customMismatchStyles.itemTitle}>{reportTitle(item)}</Text>
+                        <Text style={customMismatchStyles.itemSub}>{reportSubtitle(item)}</Text>
+                      </View>
+                      <View style={customMismatchStyles.badge}>
+                        <Text style={customMismatchStyles.badgeText}>{item.statusLabel}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
 
             {/* Secondary Action Button: View Mismatch Summary */}
             <TouchableOpacity
@@ -4458,14 +4330,15 @@ export function GoodsReceivingWizardScreen({
             <View style={{ height: 24 }} />
           </ScrollView>
 
-          {/* Pinned Bottom Action Button */}
+          {/* Pinned Bottom Action Button: persists the session's reports once, then the decision. */}
           <View style={customMismatchStyles.bottomBar}>
             <TouchableOpacity
               style={customMismatchStyles.actionBtn}
-              onPress={() => goToStep('receiving_decision')}
+              onPress={() => leaveMismatch('receiving_decision')}
               activeOpacity={0.8}
+              disabled={busy}
             >
-              <RightArrowIcon size={18} color={adminColors.onBrand} />
+              {busy ? <ActivityIndicator color={adminColors.onBrand} size="small" /> : <RightArrowIcon size={18} color={adminColors.onBrand} />}
               <Text style={customMismatchStyles.actionBtnText}>Continue to Acceptance Decision</Text>
             </TouchableOpacity>
           </View>
@@ -4482,32 +4355,30 @@ export function GoodsReceivingWizardScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Damage / Mismatch</Text>
-            <Text style={styles.headerSub}>{receiptCode} · Combined discrepancies</Text>
+            <Text style={styles.headerSub}>{t('receiving.wizard.combinedDiscrepancies', { ref: receiptCode })}</Text>
           </View>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Absorbed DamageMismatchReportScreen: every discrepancy found so far, derived from the steps */}
-          {discrepancies.length > 0 && (
+          {/* Absorbed DamageMismatchReportScreen: the receipt's reports and the ones found so far in this session */}
+          {reportRows.length > 0 && (
             <>
               <Text style={styles.sectionHeader}>Discrepancies</Text>
               <View style={styles.issueTypeListCard}>
-                {discrepancies.map((d, idx) => (
+                {reportRows.map((d, idx) => (
                   <View
-                    key={d.id}
-                    style={[styles.issueTypeRow, idx === discrepancies.length - 1 && { borderBottomWidth: 0 }]}
+                    key={d.key}
+                    style={[styles.issueTypeRow, idx === reportRows.length - 1 && { borderBottomWidth: 0 }]}
                   >
                     <View style={styles.discrepancyIconCircle}>
                       <AlertCircleOutlineIcon color={adminColors.brand} size={18} />
                     </View>
                     <View style={styles.bayTextBox}>
-                      <Text style={styles.issueTypeTextSelected}>
-                        {d.kind} — {actualProduct}
-                      </Text>
-                      <Text style={styles.baySub}>{d.detail}</Text>
+                      <Text style={styles.issueTypeTextSelected}>{reportTitle(d)}</Text>
+                      <Text style={styles.baySub}>{reportSubtitle(d)}</Text>
                     </View>
                     <View style={[styles.historyStatusPill, { backgroundColor: adminColors.brandTint }]}>
-                      <Text style={[styles.historyStatusText, { color: adminColors.brandDeep }]}>Open</Text>
+                      <Text style={[styles.historyStatusText, { color: adminColors.brandDeep }]}>{d.statusLabel}</Text>
                     </View>
                   </View>
                 ))}
@@ -4515,11 +4386,12 @@ export function GoodsReceivingWizardScreen({
             </>
           )}
 
+          {/* The API's report types (GoodsReceiptDiscrepancyType) replace the sample issue list. */}
           <Text style={styles.sectionHeader}>Issue Type</Text>
           <View style={styles.issueTypeListCard}>
-            {ISSUE_TYPES.map((type, idx) => {
+            {DISCREPANCY_TYPES.map((type, idx) => {
               const isSelected = selectedIssueType === type;
-              const isLast = idx === ISSUE_TYPES.length - 1;
+              const isLast = idx === DISCREPANCY_TYPES.length - 1;
 
               return (
                 <TouchableOpacity
@@ -4532,7 +4404,7 @@ export function GoodsReceivingWizardScreen({
                     {isSelected && <View style={styles.radioInnerCircle} />}
                   </View>
                   <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                    {type}
+                    {discrepancyTypeLabel(type)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -4542,32 +4414,34 @@ export function GoodsReceivingWizardScreen({
           <Text style={styles.sectionHeader}>Quantity</Text>
           <View style={styles.statsRow}>
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{expectedQty} KG</Text>
-              <Text style={styles.statTileLabel}>EXPECTED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(expectedGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.expected')}</Text>
             </View>
 
             <View style={styles.statTile}>
-              <Text style={styles.statTileNumber}>{receivedQty} KG</Text>
-              <Text style={styles.statTileLabel}>RECEIVED</Text>
+              <Text style={styles.statTileNumber}>{kgOrDash(grossGrams)}</Text>
+              <Text style={styles.statTileLabel}>{t('receiving.wizard.tile.received')}</Text>
             </View>
 
             <View style={styles.statTile}>
               <Text
                 style={[
                   styles.statTileNumber,
-                  receivedQty !== expectedQty && { color: adminColors.danger.text },
+                  quantity.differenceGrams !== null && quantity.differenceGrams !== 0 && { color: adminColors.danger.text },
                 ]}
               >
-                {signedKg(receivedQty - expectedQty)}
+                {signedKg(quantity.differenceGrams)}
               </Text>
-              <Text style={styles.statTileLabel}>{receivedQty > expectedQty ? 'EXCESS' : 'SHORTAGE'}</Text>
+              <Text style={styles.statTileLabel}>
+                {quantity.status === 'Excess' ? t('receiving.wizard.tile.excess') : t('receiving.wizard.tile.shortage')}
+              </Text>
             </View>
           </View>
 
           <Text style={styles.sectionHeader}>Describe the Issue</Text>
           <TextInput
             style={styles.describeIssueInput}
-            placeholder="Describe what happened..."
+            placeholder={t('receiving.wizard.describePlaceholder')}
             placeholderTextColor={adminColors.placeholder}
             multiline
             numberOfLines={3}
@@ -4575,15 +4449,7 @@ export function GoodsReceivingWizardScreen({
             onChangeText={setIssueDescription}
           />
 
-          <Text style={styles.sectionHeader}>Evidence</Text>
-          <TouchableOpacity
-            style={styles.dashedAddBox}
-            activeOpacity={0.7}
-            onPress={() => Alert.alert('Evidence', 'Evidence photo attached.')}
-          >
-            <CameraPlusIcon />
-            <Text style={styles.dashedAddBoxText}>Add Evidence</Text>
-          </TouchableOpacity>
+          {/* Evidence is hidden: the wizard has no photo upload, and "Add Evidence" faked an attachment (Gaps). */}
 
           <View style={{ height: 100 }} />
         </ScrollView>
@@ -4592,11 +4458,16 @@ export function GoodsReceivingWizardScreen({
           <TouchableOpacity
             style={styles.primaryCtaBtn}
             activeOpacity={0.85}
-            onPress={() => goToStep(afterMismatchStep)}
+            disabled={busy}
+            onPress={() => leaveMismatch(afterMismatchStep)}
           >
-            <Text style={styles.primaryCtaText}>
-              {afterMismatchStep === 'receiving_decision' ? 'Continue to Acceptance Decision  →' : 'Continue  →'}
-            </Text>
+            {busy ? (
+              <ActivityIndicator color={adminColors.onBrand} size="small" />
+            ) : (
+              <Text style={styles.primaryCtaText}>
+                {afterMismatchStep === 'receiving_decision' ? 'Continue to Acceptance Decision  →' : 'Continue  →'}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -4614,6 +4485,12 @@ export function GoodsReceivingWizardScreen({
       if (onFinish) onFinish();
       else onBack();
     };
+    const reviewLocation = storage.options.find(o => o.id === selectedLocationId);
+    /** Records the receipt (gross + crates, BR-123) and, with the QC permission, its check accepting the full weight. */
+    const acceptReview = () => {
+      void withBusy(() => (canQc ? runQc('review', reviewLocation?.code) : recordOnly('receipt_confirmation', reviewPackages)));
+    };
+    const reviewResult = result !== null && result.variant !== 'awaiting' ? result : null;
     return (
       <View style={styles.container}>
         <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
@@ -4624,7 +4501,7 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle}>Review Receiving</Text>
             <Text style={styles.headerSub}>
-              Shipment {receiptCode}
+              {t('receiving.wizard.shipmentRef', { ref: receiptCode })}
               {destinationName ? ` · ${destinationName}` : ''}
             </Text>
           </View>
@@ -4639,29 +4516,36 @@ export function GoodsReceivingWizardScreen({
                 <Text style={styles.reviewSourceText}>{sourceName}</Text>
               </View>
               <View style={[styles.historyStatusPill, { backgroundColor: adminColors.warning.bg }]}>
-                <Text style={[styles.historyStatusText, { color: adminColors.warning.text }]}>QC Pending</Text>
+                <Text style={[styles.historyStatusText, { color: adminColors.warning.text }]}>
+                  {liveReceipt?.resultLabel ?? ship.statusLabel}
+                </Text>
               </View>
             </View>
             <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Reference</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.reference')}</Text>
                 <Text style={styles.summaryMetaVal}>{receiptCode}</Text>
               </View>
               <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Expected Quantity</Text>
-                <Text style={styles.summaryMetaVal}>{expectedQty} KG</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.expectedQuantity')}</Text>
+                <Text style={styles.summaryMetaVal}>{kgOrDash(expectedGrams)}</Text>
               </View>
             </View>
-            <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Vehicle & Driver</Text>
-                <Text style={styles.summaryMetaVal}>{ship.vehicle ?? '—'}</Text>
+            {/* Vehicle and arrival time exist only once the receipt is recorded (no driver is recorded). */}
+            {receiptDto !== null ? (
+              <View style={[styles.summaryMetaGrid, { marginTop: adminSpacing.md }]}>
+                {liveReceipt?.vehicleNumber !== undefined ? (
+                  <View style={styles.summaryMetaCol}>
+                    <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.vehicleDriver')}</Text>
+                    <Text style={styles.summaryMetaVal}>{liveReceipt.vehicleNumber}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.summaryMetaCol}>
+                  <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.arrivalTime')}</Text>
+                  <Text style={styles.summaryMetaVal}>{formatAdminTime(receiptDto.receivedAt)}</Text>
+                </View>
               </View>
-              <View style={styles.summaryMetaCol}>
-                <Text style={styles.summaryMetaLabel}>Arrival Time</Text>
-                <Text style={styles.summaryMetaVal}>{ship.arrival ?? receivedTime}</Text>
-              </View>
-            </View>
+            ) : null}
           </View>
 
           {/* 2. Weight & tally verification */}
@@ -4669,41 +4553,36 @@ export function GoodsReceivingWizardScreen({
           <View style={styles.whiteCard}>
             <View style={styles.produceInnerCard}>
               <Text style={styles.produceTitle}>
-                {expectedProduct} ({expectedGrade})
+                {expectedGrade !== '' ? t('receiving.wizard.productWithGrade', { product: expectedProduct, grade: expectedGrade }) : expectedProduct}
               </Text>
             </View>
             <View style={[styles.rowTwoCols, { marginTop: adminSpacing.md }]}>
               <View style={styles.colHalf}>
                 <Text style={styles.inputLabel}>Gross Scale Weight (KG)</Text>
                 <TextInput
-                  style={styles.textInput}
-                  value={grossWeight}
-                  onChangeText={setGrossWeight}
+                  style={[styles.textInput, grossLocked && styles.readOnlyInput]}
+                  value={grossLocked ? (grossGrams === null ? '' : formatKgNumber(grossGrams)) : grossInput}
+                  onChangeText={value => setGrossInput(value.replace(/[^0-9.]/g, ''))}
+                  editable={!grossLocked}
                   keyboardType="decimal-pad"
                 />
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.inputLabel}>No. of Crates</Text>
                 <TextInput
-                  style={styles.textInput}
-                  value={crateCount}
-                  onChangeText={setCrateCount}
+                  style={[styles.textInput, grossLocked && styles.readOnlyInput]}
+                  value={grossLocked ? String(receiptDto?.packageCount ?? '') : crateCount}
+                  onChangeText={value => setCrateCount(value.replace(/[^0-9]/g, ''))}
+                  editable={!grossLocked}
                   keyboardType="number-pad"
                 />
               </View>
             </View>
+            {/* Tare and Net Verified are hidden: no crate tare weight is served; the receipt records the gross (Gaps). */}
             <View style={styles.weightSummaryBox}>
               <View style={styles.weightSummaryItem}>
-                <Text style={styles.summaryMetaLabel}>Gross</Text>
-                <Text style={styles.summaryMetaVal}>{parsedGross.toFixed(1)} KG</Text>
-              </View>
-              <View style={styles.weightSummaryItem}>
-                <Text style={styles.summaryMetaLabel}>Tare ({parsedCrates} crates)</Text>
-                <Text style={styles.summaryMetaVal}>-{tareWeight.toFixed(1)} KG</Text>
-              </View>
-              <View style={styles.weightSummaryItem}>
-                <Text style={styles.summaryMetaLabel}>Net Verified</Text>
-                <Text style={[styles.summaryMetaVal, { color: adminColors.brand }]}>{netWeight.toFixed(1)} KG</Text>
+                <Text style={styles.summaryMetaLabel}>{t('receiving.wizard.gross')}</Text>
+                <Text style={styles.summaryMetaVal}>{kgOrDash(grossGrams)}</Text>
               </View>
             </View>
           </View>
@@ -4713,19 +4592,19 @@ export function GoodsReceivingWizardScreen({
             <>
               <Text style={styles.sectionHeader}>Quality Inspection Parameters</Text>
               <View style={styles.issueTypeListCard}>
-                {INSPECTION_PARAMETERS.map((p, idx) => {
-                  const checked = inspection[p.id] ?? false;
+                {/* The API's five check points (ticked = passed) replace the three sample parameters. */}
+                {qcCriteria.map((p, idx) => {
+                  const checked = inspection[p.id];
                   return (
                     <TouchableOpacity
                       key={p.id}
-                      style={[styles.issueTypeRow, idx === INSPECTION_PARAMETERS.length - 1 && { borderBottomWidth: 0 }]}
+                      style={[styles.issueTypeRow, idx === qcCriteria.length - 1 && { borderBottomWidth: 0 }]}
                       onPress={() => setInspection(prev => ({ ...prev, [p.id]: !checked }))}
                       activeOpacity={0.8}
                     >
                       <CheckboxSquareIcon checked={checked} />
                       <View style={styles.bayTextBox}>
                         <Text style={styles.issueTypeTextSelected}>{p.title}</Text>
-                        <Text style={styles.baySub}>{p.description}</Text>
                       </View>
                     </TouchableOpacity>
                   );
@@ -4738,59 +4617,57 @@ export function GoodsReceivingWizardScreen({
           {canBatch && (
             <>
               <Text style={styles.sectionHeader}>Putaway Storage Destination</Text>
-              <View style={styles.issueTypeListCard}>
-                {STORAGE_BAYS.map((bay, idx) => {
-                  const isSelected = bay.id === selectedBayId;
-                  return (
-                    <TouchableOpacity
-                      key={bay.id}
-                      style={[styles.issueTypeRow, idx === STORAGE_BAYS.length - 1 && { borderBottomWidth: 0 }]}
-                      onPress={() => setSelectedBayId(bay.id)}
-                      activeOpacity={0.75}
-                    >
-                      <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
-                        {isSelected && <View style={styles.radioInnerCircle} />}
-                      </View>
-                      <View style={styles.bayTextBox}>
-                        <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
-                          {bay.label} · {bay.zone}
-                        </Text>
-                        <Text style={styles.baySub}>Available Capacity: {bay.availableKg} KG · Temperature Monitored</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {storage.options.length === 0 ? (
+                storage.isLoading ? (
+                  <AdminLoadingState />
+                ) : storage.error !== null && storage.error !== undefined ? (
+                  <AdminErrorState error={storage.error} onRetry={storage.refresh} />
+                ) : (
+                  <AdminEmptyState title={t('receiving.wizard.storageEmpty')} />
+                )
+              ) : (
+                <View style={styles.issueTypeListCard}>
+                  {storage.options.map((bay, idx) => {
+                    const isSelected = bay.id === selectedLocationId;
+                    return (
+                      <TouchableOpacity
+                        key={bay.id}
+                        style={[styles.issueTypeRow, idx === storage.options.length - 1 && { borderBottomWidth: 0 }]}
+                        onPress={() => setSelectedLocationId(bay.id)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.radioOuterCircle, isSelected && styles.radioOuterCircleSelected]}>
+                          {isSelected && <View style={styles.radioInnerCircle} />}
+                        </View>
+                        <View style={styles.bayTextBox}>
+                          <Text style={[styles.issueTypeText, isSelected && styles.issueTypeTextSelected]}>
+                            {bay.zone !== '' ? `${bay.label} · ${bay.zone}` : bay.label}
+                          </Text>
+                          {bay.capacityGrams !== null ? (
+                            <Text style={styles.baySub}>{t('receiving.wizard.capacity', { qty: kgLabel(bay.capacityGrams) })}</Text>
+                          ) : null}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </>
           )}
 
           {/* Actions */}
           <View style={styles.reviewActions}>
             <TouchableOpacity
-              style={styles.actionPrimaryBtn}
-              onPress={() => setIsReviewSuccessVisible(true)}
+              style={[styles.actionPrimaryBtn, (busy || grossGrams === null) && styles.primaryCtaBtnDisabled]}
+              onPress={acceptReview}
+              disabled={busy || grossGrams === null}
               activeOpacity={0.85}
             >
-              <CheckmarkIcon color={adminColors.onBrand} size={18} />
-              <Text style={styles.actionPrimaryBtnText}>Accept & Add to Inventory ({netWeight.toFixed(1)} KG)</Text>
+              {busy ? <ActivityIndicator color={adminColors.onBrand} size="small" /> : <CheckmarkIcon color={adminColors.onBrand} size={18} />}
+              <Text style={styles.actionPrimaryBtnText}>{t('receiving.wizard.acceptAddInventory', { qty: kgOrDash(grossGrams) })}</Text>
             </TouchableOpacity>
 
-            {canReject && (
-              <TouchableOpacity
-                style={styles.actionSecondaryBtn}
-                onPress={() =>
-                  Alert.alert('Report Variance', 'Flag shipment for supervisor review and log partial rejection notice.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm Flag', onPress: handleBack, style: 'destructive' },
-                  ])
-                }
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.actionSecondaryBtnText, { color: adminColors.muted }]}>
-                  Report Variance / Partial Discrepancy
-                </Text>
-              </TouchableOpacity>
-            )}
+            {/* "Report Variance" is hidden: it only flagged locally and went back; no API records such a flag (Gaps). */}
           </View>
 
           <View style={{ height: 40 }} />
@@ -4806,29 +4683,37 @@ export function GoodsReceivingWizardScreen({
               </View>
               <Text style={styles.confirmationMainTitle}>Receiving Confirmed!</Text>
               <Text style={styles.modalDesc}>
-                Shipment <Text style={{ fontWeight: '700', color: adminColors.ink }}>{receiptCode}</Text> has been verified and{' '}
+                {t('receiving.wizard.shipmentWord')} <Text style={{ fontWeight: '700', color: adminColors.ink }}>{receiptCode}</Text> {t('receiving.wizard.verifiedAnd')}{' '}
                 <Text style={{ fontWeight: '700', color: adminColors.brand }}>
-                  {netWeight.toFixed(1)} KG of {expectedProduct}
+                  {t('receiving.wizard.qtyOfProduct', { qty: kgOrDash(reviewResult?.acceptedGrams), product: expectedProduct })}
                 </Text>{' '}
-                has been added to {destinationName || 'warehouse'} inventory.
+                {t('receiving.wizard.addedToInventory', { warehouse: destinationName })}
               </Text>
               <View style={styles.modalReceiptCard}>
-                <Text style={styles.modalReceiptRow}>
-                  <Text style={{ color: adminColors.muted }}>GRN Number: </Text>
-                  <Text style={{ fontWeight: '700', color: adminColors.ink }}>{DEMO_GRN}</Text>
-                </Text>
-                {canBatch && selectedBay && (
+                {grn !== undefined ? (
                   <Text style={styles.modalReceiptRow}>
-                    <Text style={{ color: adminColors.muted }}>Storage Bay: </Text>
-                    <Text style={{ fontWeight: '700', color: adminColors.ink }}>
-                      {selectedBay.label} ({selectedBay.zone})
-                    </Text>
+                    <Text style={{ color: adminColors.muted }}>{t('receiving.wizard.grnNumberLabel')}</Text>
+                    <Text style={{ fontWeight: '700', color: adminColors.ink }}>{grn}</Text>
                   </Text>
-                )}
-                <Text style={styles.modalReceiptRow}>
-                  <Text style={{ color: adminColors.muted }}>Verified By: </Text>
-                  <Text style={{ fontWeight: '700', color: adminColors.ink }}>{receiverName ?? '—'}</Text>
-                </Text>
+                ) : null}
+                {reviewResult?.batchCode !== undefined ? (
+                  <Text style={styles.modalReceiptRow}>
+                    <Text style={{ color: adminColors.muted }}>{t('receiving.wizard.batchLabel')}</Text>
+                    <Text style={{ fontWeight: '700', color: adminColors.ink }}>{reviewResult.batchCode}</Text>
+                  </Text>
+                ) : null}
+                {reviewResult?.storageLocation !== undefined ? (
+                  <Text style={styles.modalReceiptRow}>
+                    <Text style={{ color: adminColors.muted }}>{t('receiving.wizard.storageBayLabel')}</Text>
+                    <Text style={{ fontWeight: '700', color: adminColors.ink }}>{locationLabel(reviewResult.storageLocation)}</Text>
+                  </Text>
+                ) : null}
+                {receiverName !== undefined ? (
+                  <Text style={styles.modalReceiptRow}>
+                    <Text style={{ color: adminColors.muted }}>{t('receiving.wizard.verifiedByLabel')}</Text>
+                    <Text style={{ fontWeight: '700', color: adminColors.ink }}>{receiverName}</Text>
+                  </Text>
+                ) : null}
               </View>
               <TouchableOpacity style={[styles.actionPrimaryBtn, styles.modalDoneBtn]} onPress={completeReview} activeOpacity={0.85}>
                 <Text style={styles.actionPrimaryBtnText}>Done & Return to Dashboard</Text>
@@ -4840,8 +4725,8 @@ export function GoodsReceivingWizardScreen({
     );
   }
 
-  // Fallback return if step is not matched
-  return null;
+  // A step this wizard does not draw (the embedded history list is gone): the plain frame, never a blank screen.
+  return stateFrame(<AdminEmptyState title={t('receiving.wizard.noShipment')} />);
 }
 
 /* ─── Stylesheet matching uploaded mockups ─── */

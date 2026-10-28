@@ -1,7 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { queryViewState } from '../shared/queryViewState';
 import {
   ChipGroup,
   EmptyState,
@@ -11,23 +14,15 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { STORAGE_WAREHOUSES } from './fixtures';
-import type {
-  ActivityCategory,
-  ActivityModule,
-  ActivityPreset,
-  ActivityStatus,
-  WarehouseScreenBaseProps,
-} from './types';
-
-const CATEGORY_CHIPS = [
-  'All',
-  'Receiving',
-  'Storage',
-  'Material Handling',
-  'Stock Verification',
-  'Staff',
-] as const;
+import {
+  ACTIVITY_CHIPS,
+  activityChipLabel,
+  filterActivityRows,
+  type ActivityChip,
+  type ActivityRow,
+} from './mappers_activity';
+import type { ActivityCategory, ActivityModule, ActivityPreset, WarehouseScreenBaseProps } from './types';
+import { useActivityFeed } from './useActivityFeed';
 
 export const ACTIVITY_STATUS_TONE: Record<string, 'success' | 'warning' | 'danger'> = {
   Completed: 'success',
@@ -39,115 +34,92 @@ export function ActivityCategoryIcon(_props?: { category?: ActivityCategory; siz
   return null;
 }
 
-interface ActivityRecord {
-  id: string;
-  title: string;
-  category: ActivityCategory;
-  status: ActivityStatus;
-  subtitle: string;
-  when: string;
-}
-
-const DEFAULT_ACTIVITIES: ActivityRecord[] = [
-  {
-    id: 'ACT-004822',
-    title: 'Storage Activity',
-    category: 'Storage',
-    status: 'Completed',
-    subtitle: 'Tomato moved to Cold Storage · Rack 02',
-    when: 'Today · 10:42 AM',
-  },
-  {
-    id: 'ACT-004821',
-    title: 'Material Handling',
-    category: 'Material Handling',
-    status: 'Completed',
-    subtitle: 'Packaging Box issued · 20 units',
-    when: 'Today · 09:50 AM',
-  },
-  {
-    id: 'ACT-004820',
-    title: 'Receiving',
-    category: 'Receiving',
-    status: 'Completed',
-    subtitle: 'GRN-00291 · Tomato · 140 KG',
-    when: 'Today · 10:42 AM',
-  },
-];
-
 export interface WarehouseActivityScreenProps extends WarehouseScreenBaseProps {
+  /** Today = the IST day (Today's Operations); All / undefined = the whole feed. */
   initialPreset?: ActivityPreset | undefined;
-  onSelectActivity: (activityId: string) => void;
+  /** The tapped row itself: the API has no detail route, so the detail shows the row it was given. */
+  onSelectActivity: (activity: ActivityRow) => void;
   onOpenModule?: ((module: ActivityModule) => void) | undefined;
   onExport?: (() => void) | undefined;
 }
 
+/**
+ * Warehouse Activity (D03) on GET /warehouses/{id}/activity (BR-104, gated by
+ * warehouse.activity.view). Main (all warehouses) merges every live
+ * warehouse's newest page, or reads the one picked in the selector; a Sub
+ * scope reads its own warehouse only (BR-30). The chips are the API's event
+ * types; the search filters the loaded rows. Decisions: ./mappers_activity.ts.
+ */
 export function WarehouseActivityScreen({
   scope,
+  can,
   onBack,
-  initialPreset: _initialPreset,
+  initialPreset,
   onSelectActivity,
   onOpenModule: _onOpenModule,
   onExport: _onExport,
 }: WarehouseActivityScreenProps) {
   const [query, setQuery] = useState('');
-  const [category, setCategory] = useState<(typeof CATEGORY_CHIPS)[number]>('All');
+  const [chip, setChip] = useState<ActivityChip>('all');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
+  // One clock per visit: the Today range and the "Today · 10:42 AM" labels agree.
+  const now = useMemo(() => new Date(), []);
 
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return DEFAULT_ACTIVITIES.filter((act) => {
-      const matchesCategory =
-        category === 'All' ||
-        act.category === category ||
-        (category === 'Stock Verification' && act.category === 'Verification');
-      const matchesQuery =
-        !q ||
-        act.title.toLowerCase().includes(q) ||
-        act.subtitle.toLowerCase().includes(q) ||
-        act.category.toLowerCase().includes(q);
-      return matchesCategory && matchesQuery;
-    });
-  }, [category, query]);
+  const feed = useActivityFeed(scope, can, initialPreset, chip, selectedWarehouseId, now);
+  const view = queryViewState({ isLoading: feed.isLoading, error: feed.error, itemCount: feed.rows.length });
+  const visible = useMemo(() => filterActivityRows(feed.rows, query), [feed.rows, query]);
+  const warehouseOptions = useMemo(
+    () => feed.warehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name })),
+    [feed.warehouses],
+  );
 
   return (
     <WalletScreen
-      title="Warehouse Activity"
+      title={t('storageOps.activity.title')}
       onBack={onBack}
       headerExtra={
         <ScopeHeader
           scope={scope}
-          label={scope.warehouseName ?? 'Coonoor Warehouse'}
-          warehouseOptions={STORAGE_WAREHOUSES}
+          label={scope.warehouseName}
+          warehouseOptions={warehouseOptions}
+          selectedWarehouseId={selectedWarehouseId}
+          onSelectWarehouse={setSelectedWarehouseId}
         />
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.searchWrap}>
-          <SearchBar value={query} onChangeText={setQuery} placeholder="Search activity" />
+          <SearchBar value={query} onChangeText={setQuery} placeholder={t('storageOps.activity.search')} />
         </View>
 
         <View style={styles.chipsContainer}>
-          <ChipGroup options={CATEGORY_CHIPS} value={category} onChange={setCategory} />
+          <ChipGroup options={ACTIVITY_CHIPS} value={chip} onChange={setChip} labelOf={activityChipLabel} />
         </View>
 
-        {visible.length === 0 ? (
-          <EmptyState title="No activities found" subtitle="No logged warehouse activities match your search or filter." />
+        {!feed.canView ? (
+          <EmptyState title={t('storageOps.activity.notAvailable.title')} subtitle={t('storageOps.activity.notAvailable.subtitle')} />
+        ) : view === 'loading' ? (
+          <AdminLoadingState />
+        ) : view === 'error' ? (
+          <AdminErrorState error={feed.error} onRetry={feed.retry} />
+        ) : visible.length === 0 ? (
+          <EmptyState title={t('storageOps.activity.empty')} subtitle={t('storageOps.activity.emptyHint')} />
         ) : (
           visible.map((act) => (
             <TouchableOpacity
-              key={act.id}
+              key={act.key}
               style={styles.card}
-              onPress={() => onSelectActivity(act.id)}
+              onPress={() => onSelectActivity(act)}
               activeOpacity={0.75}
               accessibilityRole="button"
               accessibilityLabel={`${act.title} ${act.subtitle}`}
             >
               <View style={styles.cardTop}>
                 <Text style={styles.cardTitle}>{act.title}</Text>
-                <StatusBadge label={act.status} tone="success" />
+                {act.status ? <StatusBadge label={act.status.label} tone={act.status.tone} /> : null}
               </View>
               <Text style={styles.cardSubtitle}>{act.subtitle}</Text>
-              <Text style={styles.cardTime}>{act.when}</Text>
+              <Text style={styles.cardTime}>{act.time}</Text>
             </TouchableOpacity>
           ))
         )}

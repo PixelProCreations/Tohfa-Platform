@@ -18,8 +18,6 @@ import { adminColors, adminRadius, adminSpacing, adminType } from '../../../them
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
 import type { WarehouseScope } from './types';
-import { PROFILE_WAREHOUSES } from './warehouseFixtures';
-
 /** docs/rbac.json codes the warehouse-facing screens check (each one exists there). */
 export const WAREHOUSE_PROFILE_CODES = {
   /** Set warehouse capacity limits. MAIN_WH_ADMIN all, SUB_WH_ADMIN none (reqs Ch.6 precedence). */
@@ -35,7 +33,7 @@ export const WAREHOUSE_PROFILE_CODES = {
 export function singleWarehouseId(
   scope: WarehouseScope,
   selectedWarehouseId: string | undefined,
-  options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
+  options: readonly WarehouseScope[] = [],
 ): string | undefined {
   if (!isAllWarehouses(scope)) return scope.warehouseId;
   return selectedWarehouseId ?? options[0]?.warehouseId;
@@ -50,7 +48,7 @@ export function recordFor<T extends { warehouseId: string }>(rows: readonly T[],
 export function warehouseNameOf(
   scope: WarehouseScope,
   warehouseId: string | undefined,
-  options: readonly WarehouseScope[] = PROFILE_WAREHOUSES,
+  options: readonly WarehouseScope[] = [],
 ): string {
   if (warehouseId !== undefined && warehouseId === scope.warehouseId && scope.warehouseName) return scope.warehouseName;
   const option = options.find((o) => o.warehouseId === warehouseId);
@@ -72,7 +70,7 @@ export function formatKg(kg: number): string {
 export function SingleWarehouseHeader({
   scope,
   warehouseId,
-  options = PROFILE_WAREHOUSES,
+  options = [],
   onSelect,
 }: {
   scope: WarehouseScope;

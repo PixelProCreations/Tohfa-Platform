@@ -17,7 +17,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { isAllWarehouses } from './BillingParts';
-import { BILLING_WAREHOUSES, DEFAULT_INVOICE_FILTERS } from './fixtures';
+import { DEFAULT_INVOICE_FILTERS } from './fixtures';
 import type { InvoiceFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 
@@ -152,7 +152,7 @@ export function InvoiceFiltersScreen({
   onBack,
   initialFilters = DEFAULT_INVOICE_FILTERS,
   onApplyFilters,
-  warehouseOptions = BILLING_WAREHOUSES,
+  warehouseOptions = [],
 }: InvoiceFiltersScreenProps) {
   const [filters, setFilters] = useState<InvoiceFilterState>({ ...initialFilters });
   const allWarehouses = isAllWarehouses(scope);

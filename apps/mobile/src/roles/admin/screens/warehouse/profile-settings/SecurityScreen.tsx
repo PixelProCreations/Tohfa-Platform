@@ -16,8 +16,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { Card, CheckIcon, isAllWarehouses, SectionTitle, StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { defaultProfile, roleLabelOf } from './fixtures';
+import { Card, CheckIcon, EmptyState, isAllWarehouses, SectionTitle, StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { useUserProfile } from './useProfileSettingsData';
 import { BlockIcon, KeyIcon, MenuCard, MenuRow, profileLayout, StatusDot, StatusRow } from './ProfileParts';
 import type { AdminAccountProfile, WarehouseScreenBaseProps } from './types';
 
@@ -28,7 +28,16 @@ export interface SecurityScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function SecurityScreen({ scope, onBack, profile, onChangePassword, onViewSessionSecurity }: SecurityScreenProps) {
-  const account = profile ?? defaultProfile(scope);
+  const { profile: liveProfile } = useUserProfile(scope);
+  const account = profile ?? liveProfile;
+
+  if (!account) {
+    return (
+      <WalletScreen title="Security" onBack={onBack}>
+        <EmptyState title="Loading profile…" />
+      </WalletScreen>
+    );
+  }
 
   return (
     <WalletScreen title="Security" onBack={onBack}>
@@ -68,7 +77,7 @@ export function SecurityScreen({ scope, onBack, profile, onChangePassword, onVie
                 <Text style={styles.twoFaTitle}>Two-Factor Authentication — Role Protected</Text>
               </View>
               <Text style={styles.twoFaText}>
-                2FA management is provisioned at the organizational policy level by system administrators for {roleLabelOf(scope)} accounts.
+                2FA management is provisioned at the organizational policy level by system administrators for {isAllWarehouses(scope) ? 'Main Warehouse Admin' : 'Sub Warehouse Admin'} accounts.
               </Text>
             </Card>
           </>

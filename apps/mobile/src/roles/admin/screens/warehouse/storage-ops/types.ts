@@ -23,6 +23,7 @@
  *     `warehouse.staff.list_view` (the warehouse roster).
  */
 import type { AdminTone } from '../../../theme';
+import type { ActivityRow } from './mappers_activity';
 
 export type {
   PermissionCheck,
@@ -279,8 +280,10 @@ export type StorageRoute =
 export interface StorageRouteParams {
   /** Warehouse Activity date preset (default 'All'; 'Today' = the old Today's Operations). */
   activityPreset?: ActivityPreset | undefined;
-  /** Activity detail. */
+  /** Activity detail (the Operations hub's sample rows, by id). */
   activityId?: string | undefined;
+  /** Activity detail of a live row: the tapped row itself (the activity API has no detail route). */
+  activity?: ActivityRow | undefined;
   /** Operational issue detail. */
   issueId?: string | undefined;
   /** Report an Issue / Request Submitted path (default 'support'). */

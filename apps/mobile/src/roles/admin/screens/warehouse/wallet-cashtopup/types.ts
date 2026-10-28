@@ -37,6 +37,7 @@ export interface WalletCustomer {
   name?: string | undefined;
   /** Customer code, e.g. CUS-001245. */
   id?: string | undefined;
+  customerId?: string | undefined;
   mobile?: string | undefined;
   /** Display balance, e.g. '₹4,500.00'. */
   balance?: string | undefined;
@@ -54,6 +55,7 @@ export type ResolvedWalletCustomer = { [K in keyof WalletCustomer]-?: string };
 export interface CashTopUpDraft {
   customerName: string;
   customerCode: string;
+  customerId?: string | undefined;
   /** Whole rupees. */
   currentBalance: number;
   /** Whole rupees, at most the BR-19 cap (config/businessThresholds). */

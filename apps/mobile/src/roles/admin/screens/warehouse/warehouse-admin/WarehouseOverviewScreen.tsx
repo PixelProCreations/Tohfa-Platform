@@ -16,7 +16,7 @@
  * cards). Dropped: 'Add Warehouse' and 'Provision New Warehouse Hub' (BR-23:
  * four fixed warehouses, no create endpoint or code; SPEC_GAPS W4x-1).
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import {
@@ -30,19 +30,41 @@ import {
   EmptyState,
   WalletScreen,
 } from '../wallet-cashtopup/WalletParts';
-import { adminWarehouseLabel, WAREHOUSE_ADMIN_ROWS } from './fixtures';
+import { t } from '../../../i18n';
+import { istDay } from '../../../utils/datetime';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import {
+  combineStatus,
+  deriveCapacityRows,
+  deriveOpenIssues,
+  deriveReceiptFigures,
+  sectionStatus,
+  toOverviewCards,
+  type SectionStatus,
+} from '../../dashboard/mappers_mainDashboard';
+import { nearFullSignalOf, type CapacityTone } from './overviewFigures';
+import { useWarehouseNetwork } from './useWarehouseNetwork';
 import {
   GearIcon,
   RefreshIcon,
   ScaleIcon,
   TrendIcon,
-  utilizationPercent,
   WAREHOUSE_ADMIN_CODES,
 } from './WarehouseAdminParts';
-import type { WarehouseAdminRow, WarehouseScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
+
+/**
+ * Card colours per capacity tone. Near full is the server's CAPACITY_NEAR_FULL
+ * alert (overviewFigures.ts), never a client percentage; "neutral" keeps the
+ * design's green, "over" (available below zero, BR-66b) the danger tone.
+ */
+const TONE_COLORS: Record<CapacityTone, { bar: string; pillBg: string; pillText: string }> = {
+  neutral: { bar: adminColors.success.text, pillBg: adminColors.success.bg, pillText: adminColors.success.text },
+  nearFull: { bar: adminColors.warning.text, pillBg: adminColors.warning.bg, pillText: adminColors.warning.text },
+  over: { bar: adminColors.danger.text, pillBg: adminColors.danger.bg, pillText: adminColors.danger.text },
+};
 
 export interface WarehouseOverviewScreenProps extends WarehouseScreenBaseProps {
-  warehouses?: readonly WarehouseAdminRow[] | undefined;
   onSelectWarehouse?: ((warehouseId: string) => void) | undefined;
   onOpenSettings?: ((warehouseId: string) => void) | undefined;
   onNavigateComparison?: (() => void) | undefined;
@@ -55,14 +77,63 @@ export interface WarehouseOverviewScreenProps extends WarehouseScreenBaseProps {
 export function WarehouseOverviewScreen({
   can,
   onBack,
-  warehouses = WAREHOUSE_ADMIN_ROWS,
   onSelectWarehouse,
   onNavigateComparison,
   onNavigatePerformance,
   onNavigateCapacitySummary,
   onManageWarehouses,
 }: WarehouseOverviewScreenProps) {
-  if (!can(WAREHOUSE_ADMIN_CODES.allView)) {
+  const canAllView = can(WAREHOUSE_ADMIN_CODES.allView);
+  // Live network figures (D02): GET /warehouses, /warehouses/{id}/capacity, /admin/alerts,
+  // /warehouses/{id}/issues and today's /admin/goods-receipts, shared with the Home dashboard's cache.
+  const today = istDay(new Date());
+  const net = useWarehouseNetwork({ can, enabled: canAllView, warehouseId: undefined, today });
+  const capacityD = useMemo(
+    () => (net.capacitiesQuery.data === undefined ? null : deriveCapacityRows(net.warehouses, net.capacitiesQuery.data)),
+    [net.warehouses, net.capacitiesQuery.data],
+  );
+  const receiptsD = useMemo(
+    () => (net.receiptsTodayQuery.data === undefined ? null : deriveReceiptFigures(net.receiptsTodayQuery.data.items)),
+    [net.receiptsTodayQuery.data],
+  );
+  const issuesD = useMemo(
+    () => (net.issuesQuery.data === undefined ? null : deriveOpenIssues(net.issuesQuery.data, net.coveredIds)),
+    [net.issuesQuery.data, net.coveredIds],
+  );
+  const derivedStatus = (d: { ok: boolean } | null): SectionStatus => (d !== null && !d.ok ? 'error' : 'ready');
+  const cardsStatus = combineStatus([
+    sectionStatus(net.warehousesQuery),
+    sectionStatus(net.capacitiesQuery),
+    derivedStatus(capacityD),
+  ]);
+  const cardsError = net.warehousesQuery.error ?? net.capacitiesQuery.error;
+  const retryCards = () => {
+    void net.warehousesQuery.refetch();
+    void net.capacitiesQuery.refetch();
+  };
+  // Cheap to rebuild, and it reads each query's live state, so it is not memoised.
+  const cards =
+      capacityD === null || !capacityD.ok
+        ? []
+        : toOverviewCards(
+            capacityD.value.rows,
+            nearFullSignalOf(net.alertsQuery.data),
+            net.access.receipts
+              ? {
+                  status: combineStatus([sectionStatus(net.receiptsTodayQuery), derivedStatus(receiptsD)]),
+                  grams: receiptsD !== null && receiptsD.ok ? receiptsD.value.grossGramsByWarehouse : {},
+                  exact: net.receiptsTodayQuery.data?.complete ?? true,
+                }
+              : null,
+            net.access.issues
+              ? {
+                  status: combineStatus([sectionStatus(net.issuesQuery), derivedStatus(issuesD)]),
+                  byWarehouse: issuesD !== null && issuesD.ok ? issuesD.value.byWarehouse : {},
+                }
+              : null,
+          );
+
+  if (!canAllView) {
     return (
       <WalletScreen title="Warehouse Overview" onBack={onBack}>
         <EmptyState title="Not available" subtitle="The all-warehouses overview needs warehouse.all.view." />
@@ -73,17 +144,15 @@ export function WarehouseOverviewScreen({
   return (
     <WalletScreen
       title="Warehouse Overview"
-      subtitle={`All ${warehouses.length} warehouses at a glance`}
+      subtitle={net.warehousesQuery.data === undefined ? undefined : t('mainDashboard.overview.subtitle', { count: net.warehouses.length })}
       onBack={onBack}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {warehouses.map((w) => {
-          const pct = utilizationPercent(w.stockKg, w.capacityKg);
-          // Ooty (82%) and Kotagiri (74%) are amber/warning tones; Coonoor (68%) and Gudalur (61%) are green/teal tones
-          const isAmber = pct >= 70;
-          const barColor = isAmber ? adminColors.warning.text : adminColors.success.text;
-          const pillBg = isAmber ? adminColors.warning.bg : adminColors.success.bg;
-          const pillText = isAmber ? adminColors.warning.text : adminColors.success.text;
+        {cardsStatus === 'loading' ? <AdminLoadingState /> : null}
+        {cardsStatus === 'error' ? <AdminErrorState error={cardsError} onRetry={retryCards} /> : null}
+        {cardsStatus === 'ready' && cards.length === 0 ? <EmptyState title={t('mainDashboard.overview.none')} /> : null}
+        {cardsStatus === 'ready' && cards.map((w) => {
+          const tone = TONE_COLORS[w.tone];
 
           return (
             <TouchableOpacity
@@ -92,35 +161,41 @@ export function WarehouseOverviewScreen({
               onPress={() => onSelectWarehouse?.(w.warehouseId)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel={`${adminWarehouseLabel(w.warehouseId)} warehouse`}
+              accessibilityLabel={w.name}
             >
               {/* Header row: Warehouse Name on left, capacity badge on right */}
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.whName}>{adminWarehouseLabel(w.warehouseId)}</Text>
-                <View style={[styles.badge, { backgroundColor: pillBg }]}>
-                  <Text style={[styles.badgeText, { color: pillText }]}>{`${pct}% capacity`}</Text>
-                </View>
+                <Text style={styles.whName}>{w.name}</Text>
+                {w.capacityLabel !== null ? (
+                  <View style={[styles.badge, { backgroundColor: tone.pillBg }]}>
+                    <Text style={[styles.badgeText, { color: tone.pillText }]}>{w.capacityLabel}</Text>
+                  </View>
+                ) : null}
               </View>
 
               {/* Progress bar directly beneath header */}
               <View style={styles.track}>
-                <View style={[styles.fill, { width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: barColor }]} />
+                <View style={[styles.fill, { width: `${w.barWidth}%`, backgroundColor: tone.bar }]} />
               </View>
 
               {/* 3 stats columns: Stock, Receipts, Issues */}
               <View style={styles.statsRow}>
                 <View style={styles.statCol}>
                   <Text style={styles.statLabel}>Stock</Text>
-                  <Text style={styles.statValue}>{formatKgUpper(w.stockKg)}</Text>
+                  <Text style={styles.statValue}>{w.stock}</Text>
                 </View>
-                <View style={styles.statCol}>
-                  <Text style={styles.statLabel}>Receipts</Text>
-                  <Text style={styles.statValue}>{formatKgUpper(w.receiptsTodayKg)}</Text>
-                </View>
-                <View style={styles.statCol}>
-                  <Text style={styles.statLabel}>Issues</Text>
-                  <Text style={styles.statValue}>{String(w.openIssues)}</Text>
-                </View>
+                {w.receipts !== null ? (
+                  <View style={styles.statCol}>
+                    <Text style={styles.statLabel}>Receipts</Text>
+                    <Text style={styles.statValue}>{w.receipts}</Text>
+                  </View>
+                ) : null}
+                {w.issues !== null ? (
+                  <View style={styles.statCol}>
+                    <Text style={styles.statLabel}>Issues</Text>
+                    <Text style={styles.statValue}>{w.issues}</Text>
+                  </View>
+                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -179,10 +254,6 @@ export function WarehouseOverviewScreen({
       </ScrollView>
     </WalletScreen>
   );
-}
-
-function formatKgUpper(kg: number): string {
-  return `${kg.toLocaleString('en-IN')} KG`;
 }
 
 const styles = StyleSheet.create({

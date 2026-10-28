@@ -13,7 +13,10 @@ import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
 
-export type VarianceReviewScreenProps = InventoryScreenBaseProps;
+export interface VarianceReviewScreenProps extends InventoryScreenBaseProps {
+  /** The verification to review; undefined shows the most recent pending variance. */
+  verificationId?: string | undefined;
+}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 

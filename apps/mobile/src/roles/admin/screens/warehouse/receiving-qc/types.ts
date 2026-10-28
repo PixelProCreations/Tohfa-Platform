@@ -205,40 +205,6 @@ export type ShipmentFilterTab = 'All' | 'Expected' | 'Arrived' | 'Receiving' | '
 /** Result pills of Receiving History. */
 export type HistoryFilter = 'All' | 'Accepted' | 'Partial' | 'Rejected';
 
-/**
- * Facets of Receiving Search & Filters (SPEC_GAPS W4n-1). 'All' / '' = not
- * filtered. Warehouse, shipment type and result are the Main facets; status,
- * date, grade, source and product the Sub ones.
- */
-export interface ReceivingFilters {
-  search: string;
-  status: string;
-  date: string;
-  grade: string;
-  source: string;
-  product: string;
-  warehouseId?: string | undefined;
-  shipmentType: string;
-  result: string;
-}
-
-/** What opening a QC issue leads to. */
-export type QualityIssueTarget = 'wizard' | 'shipment' | 'operational_issue';
-
-/** One quality / receiving issue (read-only list; Needs Attention on the dashboard). */
-export interface QualityIssue {
-  id: string;
-  kind: 'QC Pending' | 'Quantity Mismatch' | 'Damage Reported';
-  shipmentCode: string;
-  produce: string;
-  detail: string;
-  warehouseId: string;
-  time: string;
-  target: QualityIssueTarget;
-  /** Wizard step a 'wizard' issue opens. */
-  wizardStep?: ReceivingWizardStep | undefined;
-}
-
 /** Routes of the receiving flow (ReceivingFlow). */
 export type ReceivingRoute =
   | 'Dashboard'
@@ -254,11 +220,16 @@ export type ReceivingRoute =
   | 'ActivityTimeline'
   | 'PendingQueue'
   | 'TransferReceiving'
-  | 'TransferDetail';
+  | 'TransferDetail'
+  | 'TransferInspection';
 
+/** Every id is a uuid (the people-readable PO / GRN / transfer numbers are display only). */
 export interface ReceivingRouteParams {
+  /** The purchase order's uuid. */
   shipmentId?: string | undefined;
+  /** The goods receipt's uuid. */
   receiptId?: string | undefined;
+  /** The inter-warehouse transfer's uuid. */
   transferId?: string | undefined;
   batchId?: string | undefined;
   statusTab?: ShipmentFilterTab | undefined;

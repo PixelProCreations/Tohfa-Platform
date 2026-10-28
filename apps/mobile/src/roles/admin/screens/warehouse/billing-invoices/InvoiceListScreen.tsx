@@ -36,7 +36,6 @@ import {
   SearchBar,
   StatusBadge,
 } from './BillingParts';
-import { BILLING_WAREHOUSES, INITIAL_INVOICES } from './fixtures';
 import type {
   InvoiceFilterState,
   InvoiceListLayout,
@@ -60,10 +59,6 @@ export interface InvoiceListScreenProps extends WarehouseScreenBaseProps {
 
 type HistoryChip = 'All' | 'Retail Sale' | 'B2B Sale';
 const HISTORY_CHIPS: readonly HistoryChip[] = ['All', 'Retail Sale', 'B2B Sale'];
-const LAYOUTS: readonly { key: InvoiceListLayout; label: string }[] = [
-  { key: 'list', label: 'List' },
-  { key: 'history', label: 'History' },
-];
 
 function hasActiveFilters(f: InvoiceFilterState | undefined): boolean {
   if (!f) return false;
@@ -102,18 +97,22 @@ function compareBy(sort: InvoiceFilterState['sortBy']) {
   };
 }
 
+import { useInvoices } from './useBillingData';
+
 export function InvoiceListScreen({
   scope,
   can,
   onBack,
   initialLayout = 'list',
-  onLayoutChange,
+  onLayoutChange: _onLayoutChange,
   onNavigateToInvoiceDetail,
   onOpenFilters,
   appliedFilters,
-  warehouseOptions = BILLING_WAREHOUSES,
-  invoices = INITIAL_INVOICES,
+  warehouseOptions = [],
+  invoices: invoicesProp,
 }: InvoiceListScreenProps) {
+  const { invoices: liveInvoices } = useInvoices({}, invoicesProp === undefined);
+  const invoices = invoicesProp ?? liveInvoices;
   const [layout, setLayout] = useState<InvoiceListLayout>(initialLayout);
   useEffect(() => {
     setLayout(initialLayout);
@@ -170,7 +169,7 @@ export function InvoiceListScreen({
           <StatusBadge status={inv.status} />
         </View>
         <Text style={styles.metaText}>
-          {inv.customerName} · Order #{inv.orderNumber}
+          {inv.customerName ? `${inv.customerName} · ` : ''}Order #{inv.orderNumber}
         </Text>
         <View style={[styles.rowBetween, styles.cardMidRow]}>
           <Text style={styles.metaText}>{inv.saleType}</Text>
@@ -207,7 +206,7 @@ export function InvoiceListScreen({
         <Text style={styles.invoiceId}>{inv.id}</Text>
         <StatusBadge status={inv.status} />
       </View>
-      <Text style={styles.metaText}>{inv.customerName}</Text>
+      {inv.customerName ? <Text style={styles.metaText}>{inv.customerName}</Text> : null}
       <View style={[styles.rowBetween, styles.cardMidRow]}>
         <Text style={styles.metaText}>{inv.time}</Text>
         <Text style={styles.amountText}>{inv.amount}</Text>

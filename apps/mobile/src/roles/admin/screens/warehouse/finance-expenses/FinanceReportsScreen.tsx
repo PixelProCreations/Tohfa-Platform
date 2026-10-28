@@ -29,6 +29,7 @@ import { FinanceHistoryScreen } from './FinanceHistoryScreen';
 import { RevenueScreen } from './RevenueScreen';
 import { VouchersScreen } from './VouchersScreen';
 import { WarehouseExpensesScreen } from './WarehouseExpensesScreen';
+import { getFinanceExpenseReport, getFinanceRevenueReport } from '../../../api/finance';
 import type { FinanceReportItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
 /** Which rbac code(s) unlock a report: any one of `codes` is enough. */

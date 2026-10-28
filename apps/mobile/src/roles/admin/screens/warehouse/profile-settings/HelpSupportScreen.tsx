@@ -22,7 +22,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { EmptyState, SearchBar, SectionTitle, StatusBadge, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { FAQ_ITEMS, SUPPORT_CONTACT, SUPPORT_TICKETS } from './fixtures';
+import { FAQ_ITEMS, SUPPORT_CONTACT } from './fixtures';
 import { ChevronRightIcon, HelpCircleIcon, PROFILE_CODES, profileLayout } from './ProfileParts';
 import type { FaqCategory, FaqItem, SupportTicketItem, WarehouseScreenBaseProps } from './types';
 
@@ -175,17 +175,23 @@ const CATEGORIES: readonly { id: FaqCategory; shortLabel: string; Icon: (props: 
   { id: 'Account & Security', shortLabel: 'Security', Icon: ShieldIcon },
 ];
 
+import { useHelpSupport } from './useProfileSettingsData';
+
 const TICKET_TONE = { Open: 'warning', 'Under Review': 'warning', Resolved: 'success' } as const;
 
 export function HelpSupportScreen({
   can,
   onBack,
-  faqs = FAQ_ITEMS,
-  tickets = SUPPORT_TICKETS,
+  faqs: customFaqs,
+  tickets = [],
   onReportIssue,
 }: HelpSupportScreenProps) {
   const [category, setCategory] = useState<FaqCategory | null>(null);
   const [query, setQuery] = useState('');
+
+  const { faqs: liveFaqs } = useHelpSupport(category ?? undefined);
+  const faqs = customFaqs ?? (liveFaqs.length > 0 ? liveFaqs : FAQ_ITEMS);
+
   const [expandedId, setExpandedId] = useState<string | null>(faqs[0]?.id ?? null);
 
   const handleReportIssue = (cat: FaqCategory) => {

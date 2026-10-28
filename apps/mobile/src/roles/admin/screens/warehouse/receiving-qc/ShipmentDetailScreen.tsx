@@ -1,58 +1,63 @@
 /**
- * Shipment Detail, shared by the Main and Sub warehouse admins.
+ * Shipment Detail (design M2-04), shared by the Main and Sub warehouse admins.
  *
  * Extracted from the Sub shell's inline Receiving "shipment_detail" sub-view
- * (route card, shipment fields, items, Start Receiving / Receiving in
- * Progress) and absorbs the Main ShipmentDetailScreen: the shipment type, the
- * crate count, the Receiving Progress pipeline with its Product "Detail" and
- * "Timeline" links, and the shipment-documents note (Main-only,
- * scope.warehouseId undefined).
+ * and absorbs the Main ShipmentDetailScreen (the Receiving Progress pipeline
+ * and its "Timeline" link, Main-only: scope.warehouseId undefined).
  *
- * Scope: a shipment of another warehouse resolves to "not found", never to a
- * forbidden state (CLAUDE.md 2.1). Gates: viewing needs inventory.batch.view
- * or inventory.goods_receipt.record; Start Receiving and the wizard links need
- * inventory.goods_receipt.record.
+ * Live data: the purchase order with its receipts (usePurchaseOrder) and the
+ * newest receipt's full read (useReceipt: its packages and batch). Shipment
+ * Information, Product Summary and the progress marks show only what those
+ * reads carry; the Actual Arrival is the first receipt (no arrival status,
+ * owner decision) and is hidden before one. A progress stage is marked done
+ * only when the API proves it (progressStagesDone); Storage Assignment never
+ * is (the location is not on any read).
+ *
+ * Scope: an order of another warehouse answers 404 and resolves to "not
+ * found", never to a forbidden state (CLAUDE.md 2.1). Gates: viewing needs
+ * inventory.batch.view or inventory.goods_receipt.record; Start Receiving
+ * needs inventory.goods_receipt.record, and shows only for an order that can
+ * still be received or has a receipt awaiting its quality check (resumed).
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
+import { formatAdminDate } from '../../../utils/datetime';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   InfoCard,
-  InfoNote,
   ScopeHeader,
   SectionTitle,
-  WalletButton,
   WalletFooter,
   WalletScreen,
   walletLayout,
+  type InfoField,
 } from '../wallet-cashtopup/WalletParts';
-import { RECEIVING_PIPELINE, findShipment, isMainScope, pipelineStagesDone } from './fixtures';
 import { PermissionNote, RECEIVING_CODES, RightArrowIcon, StepperCheckIcon, canViewReceiving } from './ReceivingParts';
-import type { IncomingShipment, WarehouseScreenBaseProps } from './types';
-
-const SUB_PROGRESS_STAGES = [
-  'Shipment Arrived',
-  'Receiving Started',
-  'Quantity Verification',
-  'Quality Check',
-  'Decision',
-  'Storage Assignment',
-  'Receipt Completion',
-] as const;
+import type { LiveShipment } from './liveTypes';
+import { isMainScope, isReceivable, kgLabel, receivingWarehouseFilter } from './mappers';
+import { MAIN_PROGRESS_STAGES, SUB_PROGRESS_STAGES, isNotFoundError, progressStagesDone } from './receivingLists';
+import type { StageContext } from './receivingNav';
+import { shipmentTimelineOf } from './receivingViews';
+import { usePurchaseOrder, useReceipt, useReceivingNaming } from './useReceivingData';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface ShipmentDetailScreenProps extends WarehouseScreenBaseProps {
+  /** The purchase order (uuid). */
   shipmentId: string | undefined;
-  shipments?: IncomingShipment[] | undefined;
-  /** Start Receiving (or resume one in progress); the host opens the wizard. */
-  onStartReceiving: (shipment: IncomingShipment, resume: boolean) => void;
-  /** Main: Product Summary "Detail" (wizard quantity verification). */
-  onViewProductDetail?: ((shipment: IncomingShipment) => void) | undefined;
-  /** Main: Receiving Progress "Timeline" (wizard receipt summary). */
-  onViewTimeline?: ((shipment: IncomingShipment) => void) | undefined;
+  /** Start Receiving, or resume the receipt awaiting QC (its uuid); the host opens the wizard. */
+  onStartReceiving: (shipment: LiveShipment, resumeReceiptId: string | undefined) => void;
+  /** Main: Receiving Progress "Timeline" (the newest receipt's detail, by uuid). */
+  onViewTimeline?: ((receiptId: string) => void) | undefined;
   /** When a receiving progress stage is pressed. */
-  onSelectStage?: ((stage: string, shipment: IncomingShipment) => void) | undefined;
+  onSelectStage?: ((stage: string, context: StageContext) => void) | undefined;
+}
+
+/** Drops a field the API did not carry (WIRE rule: hide, never a placeholder). */
+function known(fields: InfoField[]): InfoField[] {
+  return fields.filter((f) => f.value !== '');
 }
 
 export function ShipmentDetailScreen({
@@ -60,17 +65,33 @@ export function ShipmentDetailScreen({
   can,
   onBack,
   shipmentId,
-  shipments,
   onStartReceiving,
-  onViewProductDetail,
   onViewTimeline,
   onSelectStage,
 }: ShipmentDetailScreenProps) {
   const mainView = isMainScope(scope);
   const canView = canViewReceiving(can);
   const canRecord = can(RECEIVING_CODES.receiptRecord);
-  const s = findShipment(scope, shipmentId, shipments);
-  const warehouseLabel = s ? warehouseNameOf(s.warehouseId) : scope.warehouseName;
+
+  const naming = useReceivingNaming(scope, can);
+  const warehouseId = receivingWarehouseFilter(scope, undefined);
+  const order = usePurchaseOrder(warehouseId, canView ? shipmentId : undefined, naming.naming);
+  // Newest first: its full read carries the packages and the batch the nested rows lack.
+  const newest = order.records[0];
+  const newestRead = useReceipt(warehouseId, newest?.id, naming.naming);
+  const s = order.shipment;
+  const now = useMemo(() => new Date(), [order.detail]);
+  const arrivedAt = useMemo(() => shipmentTimelineOf(s?.issuedAt, order.records).find((e) => e.kind === 'received')?.at, [s, order.records]);
+  const warehouseLabel = s !== undefined && s.to !== '' ? s.to : scope.warehouseName;
+
+  const notFound = s === undefined && (shipmentId === undefined || isNotFoundError(order.error));
+  if (canView && !notFound && s === undefined) {
+    return (
+      <WalletScreen title="Shipment Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} label={warehouseLabel} />}>
+        {order.isLoading ? <AdminLoadingState /> : <AdminErrorState error={order.error} onRetry={order.refresh} />}
+      </WalletScreen>
+    );
+  }
 
   if (!canView || s === undefined) {
     return (
@@ -82,15 +103,39 @@ export function ShipmentDetailScreen({
     );
   }
 
-  const resume = s.status === 'Awaiting QC' || s.status === 'Receiving';
-  const closed = s.status === 'Completed' || s.status === 'Rejected';
-  const done = pipelineStagesDone(s.status);
+  // A pending receipt is resumed (never received twice); a closed order offers nothing.
+  const startable = isReceivable(s.status) || s.pendingReceiptId !== undefined;
+  const newestReceipt = newestRead.receipt ?? newest;
+  const stageContext: StageContext = {
+    purchaseOrderId: s.id,
+    receivable: isReceivable(s.status),
+    pendingReceiptId: s.pendingReceiptId,
+    newestReceiptId: newest?.id,
+  };
 
   const headerTitle = 'Shipment Detail';
-  const headerSubtitle = `${s.code} · ${s.status} · ${s.from} → ${s.to}`;
+  const route = [s.from, s.to].filter((p) => p !== '').join(' → ');
+  const headerSubtitle = [s.code, s.statusLabel, route].filter((p) => p !== '').join(' · ');
 
   const isMain = mainView || can(RECEIVING_CODES.batchAssign) || can('inventory.batch.create');
-  const stagesList = isMain ? RECEIVING_PIPELINE : SUB_PROGRESS_STAGES;
+  const stagesList = isMain ? MAIN_PROGRESS_STAGES : SUB_PROGRESS_STAGES;
+  const done = progressStagesDone(stagesList, newestReceipt);
+  const packages = newestRead.receipt?.packages;
+  const productDetails = [s.expectedGrams === null ? '' : kgLabel(s.expectedGrams), s.grade, packages?.label ?? ''].filter((p) => p !== '');
+  const infoRows = [
+    known([
+      { label: t('receiving.shipment.shipmentId'), value: s.code },
+      { label: t('receiving.shipment.type'), value: s.type === 'Farmer/Admin' ? t('receiving.shipment.typeFarmerAdmin') : t('receiving.shipment.typeTransfer') },
+    ]),
+    known([
+      { label: t('receiving.shipment.source'), value: s.from },
+      { label: t('receiving.shipment.destination'), value: s.to },
+    ]),
+    known([
+      { label: t('receiving.shipment.createdDate'), value: s.issuedOn },
+      { label: t('receiving.shipment.actualArrival'), value: arrivedAt === undefined ? '' : formatAdminDate(arrivedAt, now) },
+    ]),
+  ].filter((row) => row.length > 0);
 
   return (
     <WalletScreen
@@ -98,13 +143,13 @@ export function ShipmentDetailScreen({
       subtitle={headerSubtitle}
       onBack={onBack}
       footer={
-        closed ? undefined : (
+        !startable ? undefined : (
           <WalletFooter>
             {canRecord ? (
               <TouchableOpacity
                 style={styles.startReceivingBtn}
                 activeOpacity={0.85}
-                onPress={() => onStartReceiving(s, false)}
+                onPress={() => onStartReceiving(s, s.pendingReceiptId)}
               >
                 <View style={styles.playCircleIcon}>
                   <RightArrowIcon size={14} color={adminColors.brand} />
@@ -120,36 +165,19 @@ export function ShipmentDetailScreen({
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>Shipment Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Shipment ID', value: s.code },
-              { label: 'Type', value: s.type === 'Farmer/Admin' ? 'Farmer/Admin Consolidated' : s.type },
-            ],
-            [
-              { label: 'Source', value: s.from },
-              { label: 'Destination', value: s.to },
-            ],
-            [
-              { label: 'Created Date', value: s.dispatchDate },
-              { label: 'Actual Arrival', value: s.actualArrival ?? '25 Sep · 09:15 AM' },
-            ],
-          ]}
-        />
+        <InfoCard rows={infoRows} />
 
         <SectionTitle>Product Summary</SectionTitle>
         <View style={styles.productSummaryCard}>
           <Text style={styles.productNameText}>{s.produce}</Text>
-          <Text style={styles.productDetailsText}>
-            {s.expectedQty} KG · {s.grade}{s.crates !== undefined ? ` · ${s.crates} crates` : ''}
-          </Text>
+          {productDetails.length > 0 ? <Text style={styles.productDetailsText}>{productDetails.join(' · ')}</Text> : null}
         </View>
 
         <SectionTitle
           right={
-            mainView && canRecord && onViewTimeline ? (
-              <TouchableOpacity onPress={() => onViewTimeline(s)} accessibilityRole="button">
-                <Text style={styles.link}>Timeline →</Text>
+            mainView && onViewTimeline && newest !== undefined ? (
+              <TouchableOpacity onPress={() => onViewTimeline(newest.id)} accessibilityRole="button">
+                <Text style={styles.link}>{t('receiving.shipment.timelineLink')}</Text>
               </TouchableOpacity>
             ) : undefined
           }
@@ -158,12 +186,12 @@ export function ShipmentDetailScreen({
         </SectionTitle>
         <View style={styles.progressCard}>
           {stagesList.map((stage, index) => {
-            const complete = !isMain ? index === 0 : index < done;
+            const complete = done[index] === true;
             return (
               <TouchableOpacity
                 key={stage}
                 style={styles.progressRow}
-                onPress={() => onSelectStage?.(stage, s)}
+                onPress={() => onSelectStage?.(stage, stageContext)}
                 activeOpacity={0.7}
               >
                 <View style={[styles.stepCircle, complete && styles.stepCircleDone]}>

@@ -22,10 +22,11 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { ApprovalAlertsScreen } from './ApprovalAlertsScreen';
-import { defaultNotifications, NOTIFICATION_WAREHOUSES } from './fixtures';
 import { NotificationDetailScreen } from './NotificationDetailScreen';
 import { NotificationsScreen } from './NotificationsScreen';
 import { NotificationSettingsScreen } from '../profile-settings/NotificationSettingsScreen';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useNotificationsList } from './useNotificationsData';
 import type {
   ApprovalAlertItem,
   NotificationItem,
@@ -76,14 +77,19 @@ export function NotificationsFlow({
   onMarkAllAsRead,
   onClearAll,
   alerts,
-  warehouseOptions = NOTIFICATION_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   onBack,
   onTabChange,
   onOpenTarget,
   onOpenAlertRecord,
 }: NotificationsFlowProps) {
   const [stack, setStack] = useState<NotificationsStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  const [localItems, setLocalItems] = useState<readonly NotificationItem[]>(() => defaultNotifications(scope));
+  const [localItems, setLocalItems] = useState<readonly NotificationItem[]>([]);
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
+
+  const { items: liveItems, markOneRead: apiMarkRead, markAllRead: apiMarkAllRead } = useNotificationsList();
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Params are compared by value (hosts build them inline).
@@ -94,14 +100,22 @@ export function NotificationsFlow({
   }, [initialScreen, paramsKey]);
 
   const controlled = notifications !== undefined;
-  const items = notifications ?? localItems;
+  const items = notifications ?? (liveItems.length > 0 ? liveItems : localItems);
   const markAsRead = (id: string) => {
-    if (controlled) onMarkAsRead?.(id);
-    else setLocalItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    if (controlled) {
+      onMarkAsRead?.(id);
+    } else {
+      void apiMarkRead(id);
+      setLocalItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    }
   };
   const markAllAsRead = () => {
-    if (controlled) onMarkAllAsRead?.();
-    else setLocalItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    if (controlled) {
+      onMarkAllAsRead?.();
+    } else {
+      void apiMarkAllRead();
+      setLocalItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    }
   };
   const clearAll = controlled ? onClearAll : () => setLocalItems([]);
 
