@@ -29,7 +29,7 @@ import {
 } from '../../../theme';
 import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
-import { PROFILE_WAREHOUSES, WAREHOUSE_PROFILES, WAREHOUSE_CONTACTS } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
 import { updateWarehouseProfile } from '../../../api/warehouseSettings';
 
@@ -160,18 +160,21 @@ export function WarehouseEditProfileScreen({
   scope,
   onBack,
   initialTab = 'Details',
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: initialWarehouseOptions,
   selectedWarehouseId,
-  profiles = WAREHOUSE_PROFILES,
+  profiles = [],
   mode = 'edit',
   onSaveSuccess,
 }: WarehouseEditProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<EditWarehouseTab>(initialTab);
   const isAdd = mode === 'add';
 
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? fetchedWarehouseOptions;
+
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const profile = isAdd ? undefined : recordFor(profiles, warehouseId);
-  const contact = isAdd ? undefined : WAREHOUSE_CONTACTS.find((c) => c.warehouseId === warehouseId);
+  const contact = undefined;
 
   // Dynamic Screen Heading based on Active Tab & Mode
   const getHeaderTitle = () => {
