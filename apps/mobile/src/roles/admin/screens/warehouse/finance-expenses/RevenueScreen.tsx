@@ -39,11 +39,11 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { FINANCE_WAREHOUSES, SAMPLE_REVENUE_RECORDS } from './fixtures';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import { WarehouseSelector } from '../inventory';
 import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
+import { useRevenueList } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { RevenueRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 const CATEGORY_FILTERS = ['All', 'Orders', 'Direct Sales', 'Other'] as const;
@@ -93,8 +93,8 @@ export function RevenueScreen({
   can,
   onBack,
   onTabChange,
-  records = SAMPLE_REVENUE_RECORDS,
-  warehouseOptions = FINANCE_WAREHOUSES,
+  records: initialRecords,
+  warehouseOptions: initialWarehouseOptions,
   onSelectRevenue,
   onViewOrder,
   onViewInvoice,
@@ -102,6 +102,10 @@ export function RevenueScreen({
   hideWarehouseFilter = false,
 }: RevenueScreenProps) {
   const isMain = isAllWarehouses(scope);
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
+  const { revenueRecords: liveRevenues } = useRevenueList({});
+  const records = initialRecords ?? liveRevenues;
 
   const [selectedFilter, setSelectedFilter] = useState<CategoryFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -284,7 +288,7 @@ export function RevenueScreen({
                 </View>
                 <Text style={styles.meta}>
                   {item.timestamp}
-                  {isMain ? ` · ${item.warehouseName ?? warehouseNameOf(item.warehouseId)}` : ''}
+                  {isMain && item.warehouseName ? ` · ${item.warehouseName}` : ''}
                 </Text>
               </TouchableOpacity>
             ))}

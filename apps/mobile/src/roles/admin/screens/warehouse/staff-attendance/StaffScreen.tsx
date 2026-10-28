@@ -38,9 +38,10 @@ import {
   WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { STAFF_MEMBERS, STAFF_WAREHOUSES, staffWarehouseName } from './fixtures';
 import { attendanceTone, ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
 import { StaffFiltersScreen } from './StaffFiltersScreen';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useRollCall, useStaffList } from './useStaffData';
 import type { PermissionCheck, StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 /** rbac code for the warehouse roster: admin.staff.list_view (MAIN_WH_ADMIN). */
@@ -79,7 +80,7 @@ export interface StaffScreenProps extends WarehouseScreenBaseProps {
   onNavigateToHistory?: ((warehouseId?: string) => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Roster rows; defaults to the mock set until a roster API exists. */
+  /** Roster rows; defaults to live roster. */
   members?: readonly StaffMember[] | undefined;
 }
 
@@ -91,8 +92,8 @@ export function StaffScreen({
   onSelectStaff,
   onNavigateToAttendance,
   onNavigateToHistory,
-  warehouseOptions = STAFF_WAREHOUSES,
-  members = STAFF_MEMBERS,
+  warehouseOptions: customWarehouseOptions,
+  members: customMembers,
 }: StaffScreenProps) {
   const isMain = isAllWarehouses(scope);
   const [filter, setFilter] = useState<RosterFilter>('All');
@@ -102,6 +103,14 @@ export function StaffScreen({
   const [roleFilter, setRoleFilter] = useState<'All' | 'Warehouse Staff' | 'Driver'>('All');
   const [attendanceFilter, setAttendanceFilter] = useState<'All' | 'Present' | 'Absent' | 'On Leave'>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
+
+  const { staff: liveMembers, loading: membersLoading } = useStaffList(scope, selectedWarehouseId);
+  const members = customMembers ?? liveMembers;
+
+  const { summary: rollCallSummary, loading: rollCallLoading } = useRollCall(scope, selectedWarehouseId);
 
   const scoped = useMemo(
     () => members.filter((m) => inScope(scope, m.warehouseId, selectedWarehouseId)),
@@ -210,7 +219,9 @@ export function StaffScreen({
           <Text style={styles.meta}>
             {staff.type === 'driver' ? 'Driver ID: ' : 'Staff ID: '}
             {staff.staffId}
-            {isMain && staff.warehouseId ? ` · ${staffWarehouseName(staff.warehouseId)}` : ''}
+            {isMain && staff.warehouseId
+              ? ` · ${warehouseOptions.find((w) => w.warehouseId === staff.warehouseId)?.warehouseName ?? staff.warehouseId}`
+              : ''}
           </Text>
           {isMain ? (
             <View style={styles.badgeRow}>
@@ -254,30 +265,29 @@ export function StaffScreen({
   return frame(
     <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
 
-
       <View style={styles.kpiGrid}>
         <OverviewDashboardCard
-          value="12"
+          value={String(rollCallSummary?.total ?? scoped.length)}
           title="Total Staff"
           subtitle="All rostered"
           icon="orders"
         />
         <OverviewDashboardCard
-          value="9"
+          value={String(rollCallSummary?.present ?? count((m) => m.attendance === 'Present'))}
           title="Present Today"
           subtitle="On duty"
           icon="pickup"
           tone="success"
         />
         <OverviewDashboardCard
-          value="2"
+          value={String(rollCallSummary?.absent ?? count((m) => m.attendance === 'Absent'))}
           title="Absent"
           subtitle="Needs attention"
           icon="alert"
           tone="danger"
         />
         <OverviewDashboardCard
-          value="1"
+          value={String(rollCallSummary?.leave ?? count((m) => m.attendance === 'On Leave'))}
           title="On Leave"
           subtitle="Approved leave"
           icon="receiving"

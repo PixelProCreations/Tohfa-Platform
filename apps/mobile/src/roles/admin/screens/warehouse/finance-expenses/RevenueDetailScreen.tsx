@@ -23,8 +23,8 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, ScopeHeader, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
-import { SAMPLE_REVENUE_DETAIL } from './fixtures';
 import { FINANCE_CODES, FinanceNotAvailable, PadlockIcon, scopeLabel } from './FinanceParts';
+import { useRevenueDetail } from './useFinanceData';
 import type { RevenueDetail, WarehouseScreenBaseProps } from './types';
 
 export interface RevenueDetailScreenProps extends WarehouseScreenBaseProps, RevenueDetail {
@@ -71,61 +71,78 @@ export function RevenueDetailScreen({
   onViewOrder,
   onViewInvoice,
   onViewTransactionHistory,
-  revenueId = SAMPLE_REVENUE_DETAIL.revenueId,
-  orderId = SAMPLE_REVENUE_DETAIL.orderId,
-  invoiceId = SAMPLE_REVENUE_DETAIL.invoiceId,
-  customer = SAMPLE_REVENUE_DETAIL.customer,
-  salesChannel = SAMPLE_REVENUE_DETAIL.salesChannel,
-  quantity = SAMPLE_REVENUE_DETAIL.quantity,
-  product = SAMPLE_REVENUE_DETAIL.product,
-  finalAmount = SAMPLE_REVENUE_DETAIL.finalAmount,
-  paymentMethod = SAMPLE_REVENUE_DETAIL.paymentMethod,
-  paymentStatus = SAMPLE_REVENUE_DETAIL.paymentStatus,
-  transactionDate = SAMPLE_REVENUE_DETAIL.transactionDate,
+  revenueId,
+  orderId,
+  invoiceId,
+  customer,
+  salesChannel,
+  quantity,
+  product,
+  finalAmount,
+  paymentMethod,
+  paymentStatus,
+  transactionDate,
   warehouseName,
 }: RevenueDetailScreenProps) {
+  const lookupId = (orderId && orderId !== '-' ? orderId : undefined) ?? (revenueId && revenueId !== '-' ? revenueId : '');
+  const { detail: liveDetail } = useRevenueDetail(lookupId);
+
+  const displayRevenueId = liveDetail?.revenueId ?? revenueId;
+  const displayOrderId = liveDetail?.orderId ?? orderId;
+  const displayInvoiceId = liveDetail?.invoiceId ?? invoiceId;
+  // BR-16: Customer details hidden
+  const displayCustomer = liveDetail ? liveDetail.customer : customer;
+  const displaySalesChannel = liveDetail?.salesChannel ?? salesChannel;
+  const displayQuantity = liveDetail?.quantity ?? quantity;
+  const displayProduct = liveDetail?.product ?? product;
+  const displayFinalAmount = liveDetail?.finalAmount ?? finalAmount;
+  const displayPaymentMethod = liveDetail?.paymentMethod ?? paymentMethod;
+  const displayPaymentStatus = liveDetail?.paymentStatus ?? paymentStatus;
+  const displayTransactionDate = liveDetail?.transactionDate ?? transactionDate;
+  const displayWarehouseName = liveDetail?.warehouseName ?? warehouseName;
+
   if (!can(FINANCE_CODES.salesIncome)) {
     return (
       <FinanceNotAvailable title="Revenue Detail" message="Your role does not include sales income." onBack={onBack} />
     );
   }
 
-  const warehouse = warehouseName ?? scopeLabel(scope);
-  const amount = `₹${finalAmount}`;
+  const warehouse = displayWarehouseName ?? scopeLabel(scope);
+  const amount = `₹${displayFinalAmount}`;
   const rows = isShortVersion
     ? [
         [
-          { label: 'Revenue ID', value: revenueId },
-          { label: 'Customer', value: customer },
+          { label: 'Revenue ID', value: displayRevenueId },
+          ...(displayCustomer ? [{ label: 'Customer', value: displayCustomer }] : []),
         ],
         [
           { label: 'Final Amount', value: amount },
-          { label: 'Payment Method', value: paymentMethod },
+          { label: 'Payment Method', value: displayPaymentMethod },
         ],
       ]
     : [
         [
-          { label: 'Revenue ID', value: revenueId },
-          { label: 'Order ID', value: orderId },
+          { label: 'Revenue ID', value: displayRevenueId },
+          { label: 'Order ID', value: displayOrderId },
         ],
         [
-          { label: 'Invoice ID', value: invoiceId },
-          { label: 'Customer', value: customer },
+          { label: 'Invoice ID', value: displayInvoiceId },
+          ...(displayCustomer ? [{ label: 'Customer', value: displayCustomer }] : []),
         ],
         [
-          { label: 'Sales Channel', value: salesChannel },
-          { label: 'Quantity', value: quantity },
+          { label: 'Sales Channel', value: displaySalesChannel },
+          { label: 'Quantity', value: displayQuantity },
         ],
         [
-          { label: 'Product', value: product },
+          { label: 'Product', value: displayProduct },
           { label: 'Final Amount', value: amount },
         ],
         [
-          { label: 'Payment Method', value: paymentMethod },
-          { label: 'Payment Status', value: paymentStatus },
+          { label: 'Payment Method', value: displayPaymentMethod },
+          { label: 'Payment Status', value: displayPaymentStatus },
         ],
         [
-          { label: 'Transaction Date', value: transactionDate },
+          { label: 'Transaction Date', value: displayTransactionDate },
           { label: 'Warehouse', value: warehouse },
         ],
       ];

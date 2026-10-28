@@ -43,7 +43,7 @@ import { WarehouseEditProfileScreen } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
-import { PROFILE_WAREHOUSES } from './warehouseFixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { FaqCategory, PermissionCheck, ProfileRoute, WarehouseScope, WarehouseTab } from './types';
 
 export interface ProfileFlowProps {
@@ -73,11 +73,15 @@ export function ProfileFlow({
   onLogout,
   onReportIssue,
   onTabChange,
-  warehouseOptions = PROFILE_WAREHOUSES,
+  warehouseOptions: customWarehouseOptions,
   initialWarehouseId,
   onSelectStorageLocation,
 }: ProfileFlowProps) {
   const [stack, setStack] = useState<ProfileRoute[]>(() => [initialScreen]);
+
+  const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
+
   // Main's selector pick, shared by the warehouse-facing screens of the flow.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
   const [reportCategory, setReportCategory] = useState<FaqCategory>('Warehouse Operations');

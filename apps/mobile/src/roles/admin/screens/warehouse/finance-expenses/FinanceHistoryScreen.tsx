@@ -24,17 +24,9 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
+import { useExpenses, useRevenueList } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { FinanceHistoryItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
-
-const SAMPLE_HISTORY: FinanceHistoryItem[] = [
-  { id: 'REV-000845', type: 'Revenue', title: 'Market Sale', amount: 3450, time: '11:20 AM', warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { id: 'EXP-001245', type: 'Expense', title: 'Transport', amount: 2400, time: '09:32 AM', warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { id: 'REV-000844', type: 'Revenue', title: 'B2B Sale · Taj Hotel', amount: 14500, time: '08:45 AM', warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { id: 'EXP-001244', type: 'Expense', title: 'Loading / Unloading', amount: 1800, time: '08:15 AM', warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { id: 'REV-000843', type: 'Revenue', title: 'Horeca Order · Café Customer', amount: 6900, time: '24 Sep · 06:10 PM', warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { id: 'EXP-001238', type: 'Expense', title: 'Generator Diesel & Power', amount: 620, time: '24 Sep · 02:30 PM', warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
 
 export interface FinanceHistoryScreenProps extends WarehouseScreenBaseProps {
   onSelectItem?: ((item: FinanceHistoryItem) => void) | undefined;
@@ -193,6 +185,36 @@ export function FinanceHistoryScreen({
   const [tempStatus, setTempStatus] = useState<string>('All');
   const [tempPaymentMethod, setTempPaymentMethod] = useState<string>('All');
 
+  const effectiveWarehouseId = isMain
+    ? (selectedWarehouseId && selectedWarehouseId !== 'All' ? selectedWarehouseId : undefined)
+    : scope.warehouseId;
+  const { expenses } = useExpenses({ warehouseId: effectiveWarehouseId });
+  const { revenueRecords } = useRevenueList({});
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+
+  const liveExpenseHistory: FinanceHistoryItem[] = expenses.map((e) => ({
+    id: e.id,
+    type: 'Expense',
+    title: e.categoryRef.split('·')[0]?.trim() || 'Expense',
+    amount: e.amount,
+    time: e.timestamp,
+    warehouseId: e.warehouseId,
+    warehouseName: e.warehouseName,
+  }));
+
+  const liveRevenueHistory: FinanceHistoryItem[] = revenueRecords.map((r) => ({
+    id: r.id,
+    type: 'Revenue',
+    title: r.orderRef,
+    amount: r.amount,
+    time: r.timestamp,
+    warehouseId: r.warehouseId,
+    warehouseName: r.warehouseName,
+  }));
+
+  const liveHistory = [...liveExpenseHistory, ...liveRevenueHistory];
+  const historySource = liveHistory;
+
   const canSeeRevenue = can('finance.sales_income.view');
   const canSeeExpense = can('finance.expense.log');
   const canSeeAny = canSeeRevenue || canSeeExpense;
@@ -212,7 +234,7 @@ export function FinanceHistoryScreen({
     }
   };
 
-  const filteredHistory = SAMPLE_HISTORY.filter((item) => {
+  const filteredHistory = historySource.filter((item) => {
     if (item.type === 'Revenue' && !canSeeRevenue) return false;
     if (item.type === 'Expense' && !canSeeExpense) return false;
     const filterToUse = isMain ? selectedType : effectiveFilter;
@@ -482,7 +504,7 @@ export function FinanceHistoryScreen({
                       All Warehouses
                     </Text>
                   </TouchableOpacity>
-                  {WALLET_WAREHOUSES.map((wh) => {
+                  {liveWarehouseOptions.map((wh) => {
                     const active = tempWarehouseId === wh.warehouseId;
                     return (
                       <TouchableOpacity

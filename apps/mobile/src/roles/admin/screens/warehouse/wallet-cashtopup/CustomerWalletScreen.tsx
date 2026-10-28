@@ -19,7 +19,8 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER } from './fixtures';
+import { useCustomerWallet } from './useWalletData';
+import { rupeesFromMoney } from './mappers';
 import type { ResolvedWalletCustomer, WalletCustomer, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -43,6 +44,8 @@ export interface CustomerWalletScreenProps extends WarehouseScreenBaseProps {
   onOpenTransaction?: ((transaction: WalletTransactionRecord) => void) | undefined;
 }
 
+const EMPTY_TRANSACTIONS: readonly WalletTransactionRecord[] = [];
+
 function isDebit(tx: WalletTransactionRecord): boolean {
   return (tx.amount ?? '').trim().startsWith('-');
 }
@@ -52,19 +55,30 @@ export function CustomerWalletScreen({
   can,
   onBack,
   customer,
-  transactions = CUSTOMER_WALLET_TRANSACTIONS,
+  transactions = EMPTY_TRANSACTIONS,
   onCashTopUp,
   onOpenTransaction,
 }: CustomerWalletScreenProps) {
+  const customerIdToFetch =
+    customer?.customerId ??
+    (customer?.id?.startsWith('cus-') || (customer?.id && customer.id.length === 36) ? customer.id : undefined);
+  const { summary, transactions: liveTxns } = useCustomerWallet(customerIdToFetch);
+
+  const displayBalance = summary
+    ? rupeesFromMoney(summary.balance)
+    : (customer?.balance ?? '₹0');
+
   const active: ResolvedWalletCustomer = {
-    name: customer?.name ?? SAMPLE_WALLET_CUSTOMER.name,
-    id: customer?.id ?? SAMPLE_WALLET_CUSTOMER.id,
-    mobile: customer?.mobile ?? SAMPLE_WALLET_CUSTOMER.mobile,
-    balance: customer?.balance ?? SAMPLE_WALLET_CUSTOMER.balance,
-    totalCredited: customer?.totalCredited ?? SAMPLE_WALLET_CUSTOMER.totalCredited,
-    totalUsed: customer?.totalUsed ?? SAMPLE_WALLET_CUSTOMER.totalUsed,
+    name: customer?.name ?? '—',
+    id: customer?.id ?? '—',
+    customerId: customer?.customerId ?? '',
+    mobile: customer?.mobile ?? '—',
+    balance: displayBalance,
+    totalCredited: '—',
+    totalUsed: '—',
   };
-  const visible = transactions.filter((tx) => inScope(scope, tx.warehouseId));
+  const txList = liveTxns.length > 0 ? liveTxns : transactions;
+  const visible = txList.filter((tx) => inScope(scope, tx.warehouseId));
   const showTopUp = can('wallet.cash_topup.process') && onCashTopUp !== undefined;
 
   return (

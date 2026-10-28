@@ -8,7 +8,7 @@ export { InvoiceFiltersScreen, type InvoiceFiltersScreenProps } from './InvoiceF
 export { InvoiceGeneratedScreen, type InvoiceGeneratedScreenProps } from './InvoiceGeneratedScreen';
 export { InvoiceListScreen, type InvoiceListScreenProps } from './InvoiceListScreen';
 export { InvoiceWizardScreen, type InvoiceWizardScreenProps } from './InvoiceWizardScreen';
-export { BILLING_WAREHOUSES, DEFAULT_INVOICE_FILTERS, INITIAL_INVOICES } from './fixtures';
+export { DEFAULT_INVOICE_FILTERS } from './fixtures';
 export type {
   BillingRoute,
   BillingRouteParams,

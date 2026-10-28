@@ -31,3 +31,5 @@ export type {
   WalletRouteParams,
   WalletTransactionRecord,
 } from './types';
+export * from './useWalletData';
+export * from './mappers';

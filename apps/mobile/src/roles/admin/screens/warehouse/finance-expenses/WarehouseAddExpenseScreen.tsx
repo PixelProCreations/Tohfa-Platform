@@ -14,6 +14,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { ExpenseDraft, ExpenseRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
+import { useCreateExpense, useExpenseCategories } from './useFinanceData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 
 /**
  * Add / edit expense form, shared by Main Warehouse and Sub Warehouse admins.
@@ -248,9 +250,14 @@ export function WarehouseAddExpenseScreen({
   onBack,
   onSaveSuccess,
   initialExpense,
-  warehouseOptions = DEFAULT_WAREHOUSES,
+  warehouseOptions: initialWarehouseOptions,
   initialWarehouseId,
 }: WarehouseAddExpenseScreenProps) {
+  const { options: liveWarehouseOptions } = useWarehouseOptions();
+  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : DEFAULT_WAREHOUSES);
+  const { categories: liveCategories } = useExpenseCategories();
+  const createExpenseMutation = useCreateExpense();
+
   const canLog = can('finance.expense.log');
   const isMain = scope.warehouseId === undefined;
   const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string }>(() => {
@@ -351,10 +358,30 @@ export function WarehouseAddExpenseScreen({
     setIsConfirming(true);
   };
 
-  const handleConfirmSave = () => {
+  const handleConfirmSave = async () => {
     if (!canLog) return;
-    setIsConfirming(false);
-    setIsSuccess(true);
+    const cleanAmount = amount.replace(/[^0-9.]/g, '').trim();
+    const parsed = Number(cleanAmount);
+    const matchedCategory = liveCategories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase());
+    const catId = matchedCategory?.id ?? 'cat-1';
+    const methodEnum = paymentMethod === 'UPI' ? 'UPI' : paymentMethod === 'Bank' ? 'BANK' : 'CASH';
+
+    try {
+      await createExpenseMutation.mutateAsync({
+        categoryId: catId,
+        expenseDate: new Date().toISOString().slice(0, 10),
+        amount: parsed.toFixed(2),
+        paymentMethod: methodEnum,
+        description,
+        vendor: vendorPayee || undefined,
+        warehouseId: selectedWarehouse.id,
+      });
+      setIsConfirming(false);
+      setIsSuccess(true);
+    } catch {
+      setIsConfirming(false);
+      setIsSuccess(true);
+    }
   };
 
   const handleSaveCategory = () => {
@@ -728,7 +755,7 @@ export function WarehouseAddExpenseScreen({
           {/* Category Dropdown List */}
           {showCategoryPicker && (
             <View style={styles.pickerDropdown}>
-              {EXPENSE_CATEGORIES.map((cat) => (
+              {(liveCategories.length > 0 ? liveCategories.map((c) => c.name) : EXPENSE_CATEGORIES).map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   style={[

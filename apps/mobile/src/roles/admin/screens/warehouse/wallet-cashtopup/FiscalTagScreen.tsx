@@ -17,7 +17,6 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER, sampleProcessedBy } from './fixtures';
 import type { CashTopUpDraft, WarehouseScreenBaseProps } from './types';
 import {
   ArrowForwardIcon,
@@ -40,13 +39,13 @@ export interface FiscalTagScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp }: FiscalTagScreenProps) {
-  const customerName = draft.customerName ?? SAMPLE_WALLET_CUSTOMER.name;
-  const customerCode = draft.customerCode ?? SAMPLE_WALLET_CUSTOMER.id;
-  const currentBalance = draft.currentBalance ?? 4500;
-  const topUpAmount = draft.topUpAmount ?? 2000;
+  const customerName = draft.customerName ?? '';
+  const customerCode = draft.customerCode ?? '';
+  const currentBalance = draft.currentBalance ?? 0;
+  const topUpAmount = draft.topUpAmount ?? 0;
   const expectedNewBalance = currentBalance + topUpAmount;
 
-  const [tag, setTag] = useState<string>(draft.fiscalCashTag ?? SAMPLE_FISCAL_TAG);
+  const [tag, setTag] = useState<string>(draft.fiscalCashTag ?? '');
   const [error, setError] = useState(false);
   const canTag = can('wallet.cash_topup.fiscal_tag');
 
@@ -64,7 +63,7 @@ export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp 
       topUpAmount,
       warehouseId: draft.warehouseId ?? scope.warehouseId,
       warehouseName: draft.warehouseName ?? scope.warehouseName ?? '',
-      processedBy: draft.processedBy ?? sampleProcessedBy(scope),
+      processedBy: draft.processedBy ?? (scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin')),
       channel: 'Cash',
       fiscalCashTag: tag.trim(),
     });
@@ -106,7 +105,7 @@ export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp 
             if (error) setError(false);
           }}
           editable={canTag}
-          placeholder={`e.g. ${SAMPLE_FISCAL_TAG}`}
+          placeholder="e.g. FTAG-2026-0042"
           placeholderTextColor={adminColors.placeholder}
           autoCapitalize="characters"
         />

@@ -5,10 +5,12 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { SAMPLE_FISCAL_TAG, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type { AttentionCategory, WalletCustomer, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { WarehouseTabBar } from './WalletParts';
 import { WarehouseSelector } from '../inventory';
+import { useCashTopupsReport } from './useWalletData';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { rupeesFromMoney } from './mappers';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -200,11 +202,6 @@ function WarningTriangleAccentIcon({ color = adminColors.warning.text }: { color
   );
 }
 
-const WAREHOUSE_WALLET_SUMMARIES = [
-  { id: 'WH-OOTY', name: 'Ooty', amount: '₹5,000' },
-  { id: 'WH-COON', name: 'Coonoor', amount: '₹7,500' },
-];
-
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 /**
  * Wallet Operations hub, shared by Main and Sub Warehouse.
@@ -227,9 +224,13 @@ export interface WalletOperationsScreenProps extends WarehouseScreenBaseProps {
   onNavigateToAttention: (category: AttentionCategory) => void;
   /** Open the wallet of a recent top-up's customer. */
   onOpenCustomerWallet: (customer: WalletCustomer) => void;
-  /** Today's counters (mock until the wallet-operations API exists). */
+  /** Today's counters. */
   todayTopUpsCount?: number | undefined;
   cashCollectedTotal?: number | undefined;
+  recentCustomer?: WalletCustomer | null | undefined;
+  recentFiscalTag?: string | null | undefined;
+  recentAmount?: string | null | undefined;
+  recentDateText?: string | null | undefined;
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
@@ -245,28 +246,37 @@ export function WalletOperationsScreen({
   onNavigateToDailySummary,
   onNavigateToAttention,
   onOpenCustomerWallet,
-  todayTopUpsCount = 24,
-  cashCollectedTotal = 18500,
-  warehouseOptions = [
-    { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-    { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-    { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-    { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-  ],
+  todayTopUpsCount,
+  cashCollectedTotal,
+  recentCustomer,
+  recentFiscalTag,
+  recentAmount,
+  recentDateText,
+  warehouseOptions,
 }: WalletOperationsScreenProps) {
   const isLockedToWarehouse = scope.warehouseId !== undefined;
   const warehouseLabel = isLockedToWarehouse ? scope.warehouseName ?? '' : 'All Warehouses';
   const [selectedWarehouseId, setSelectedWarehouseId] = React.useState<string | undefined>(undefined);
+  const { options: fetchedWarehouses } = useWarehouseOptions();
+  const effectiveWarehouseOptions = warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
+  const { report } = useCashTopupsReport(scope, selectedWarehouseId);
+
+  const liveTopUpsCount = report ? report.count : (todayTopUpsCount ?? 0);
+  const liveCashCollected = report
+    ? rupeesFromMoney(report.total)
+    : cashCollectedTotal !== undefined
+      ? `₹${cashCollectedTotal.toLocaleString('en-IN')}`
+      : '₹0';
+  const liveSubtitle = `${liveTopUpsCount} transactions`;
 
   // BR-18: a cash top-up cannot complete without the fiscal cash tag, so the
   // flow is only offered to admins who hold both permissions. Server re-checks.
   const canFiscalTag = can('wallet.cash_topup.fiscal_tag');
   const canCashTopUp = can('wallet.cash_topup.process') && canFiscalTag;
 
-
   const visibleWarehouseSummaries = selectedWarehouseId
-    ? WAREHOUSE_WALLET_SUMMARIES.filter((w) => w.id === selectedWarehouseId)
-    : WAREHOUSE_WALLET_SUMMARIES;
+    ? effectiveWarehouseOptions.filter((w) => w.warehouseId === selectedWarehouseId)
+    : effectiveWarehouseOptions;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -323,7 +333,7 @@ export function WalletOperationsScreen({
           ) : (
             <WarehouseSelector
               scope={scope}
-              options={warehouseOptions}
+              options={effectiveWarehouseOptions}
               selectedId={selectedWarehouseId}
               onSelect={setSelectedWarehouseId}
             />
@@ -337,25 +347,25 @@ export function WalletOperationsScreen({
             {/* 1. 4 KPI Cards (2x2 Grid) - Static */}
             <View style={styles.mainKpiGrid}>
               <OverviewDashboardCard
-                value="₹18,500"
+                value={liveCashCollected}
                 title="Today's Cash Top-Ups"
-                subtitle="12 transactions"
+                subtitle={liveSubtitle}
                 icon="cash"
               />
               <OverviewDashboardCard
-                value="12"
+                value={String(liveTopUpsCount)}
                 title="Transactions"
                 subtitle="Completed top-ups"
                 icon="orders"
               />
               <OverviewDashboardCard
-                value="10"
+                value="—"
                 title="Customers Served"
                 subtitle="Distinct customers"
                 icon="pickup"
               />
               <OverviewDashboardCard
-                value="2"
+                value="—"
                 title="Pending / Attention"
                 subtitle="Needs attention"
                 icon="alert"
@@ -416,25 +426,25 @@ export function WalletOperationsScreen({
             <View style={styles.cashActivityCard}>
               <View style={styles.cashActivityRow}>
                 <Text style={styles.cashActivityLabel}>Cash Received</Text>
-                <Text style={styles.cashActivityValue}>₹18,500</Text>
+                <Text style={styles.cashActivityValue}>{liveCashCollected}</Text>
               </View>
               <View style={styles.cashActivityDivider} />
 
               <View style={styles.cashActivityRow}>
                 <Text style={styles.cashActivityLabel}>Successful Top-Ups</Text>
-                <Text style={styles.cashActivityValue}>12</Text>
+                <Text style={styles.cashActivityValue}>{liveTopUpsCount}</Text>
               </View>
               <View style={styles.cashActivityDivider} />
 
               <View style={styles.cashActivityRow}>
                 <Text style={styles.cashActivityLabel}>Failed</Text>
-                <Text style={styles.cashActivityValue}>1</Text>
+                <Text style={styles.cashActivityValue}>—</Text>
               </View>
               <View style={styles.cashActivityDivider} />
 
               <View style={styles.cashActivityRow}>
                 <Text style={styles.cashActivityLabel}>Reconciliation</Text>
-                <Text style={[styles.cashActivityValue, { color: adminColors.warning.text }]}>Pending</Text>
+                <Text style={[styles.cashActivityValue, { color: adminColors.warning.text }]}>—</Text>
               </View>
             </View>
 
@@ -446,19 +456,25 @@ export function WalletOperationsScreen({
               </TouchableOpacity>
             </View>
             <View style={styles.whSummaryList}>
-              {visibleWarehouseSummaries.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.whSummaryCard}
-                  activeOpacity={0.75}
-                  onPress={onNavigateToDailySummary}
-                >
-                  <Text style={styles.whSummaryName}>{item.name}</Text>
-                  <View style={styles.greenAmountBadge}>
-                    <Text style={styles.greenAmountBadgeText}>{item.amount}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {visibleWarehouseSummaries.length > 0 ? (
+                visibleWarehouseSummaries.map((item) => (
+                  <TouchableOpacity
+                    key={item.warehouseId}
+                    style={styles.whSummaryCard}
+                    activeOpacity={0.75}
+                    onPress={onNavigateToDailySummary}
+                  >
+                    <Text style={styles.whSummaryName}>{item.warehouseName}</Text>
+                    <View style={styles.greenAmountBadge}>
+                      <Text style={styles.greenAmountBadgeText}>—</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={[styles.whSummaryCard, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: adminColors.muted, fontSize: 13 }}>No warehouses available</Text>
+                </View>
+              )}
             </View>
 
             {/* 5. Needs Attention */}
@@ -506,15 +522,15 @@ export function WalletOperationsScreen({
           <View style={styles.kpiGrid}>
             {/* Today's Cash Top-Ups */}
             <OverviewDashboardCard
-              value="₹18,500"
+              value={liveCashCollected}
               title="Today's Cash Top-Ups"
-              subtitle="12 transactions"
+              subtitle={liveSubtitle}
               icon="cash"
             />
 
             {/* Transactions */}
             <OverviewDashboardCard
-              value="12"
+              value={String(liveTopUpsCount)}
               title="Transactions"
               subtitle="Completed top-ups"
               icon="orders"
@@ -522,7 +538,7 @@ export function WalletOperationsScreen({
 
             {/* Customers Served */}
             <OverviewDashboardCard
-              value="10"
+              value="—"
               title="Customers Served"
               subtitle="Distinct customers"
               icon="pickup"
@@ -530,7 +546,7 @@ export function WalletOperationsScreen({
 
             {/* Pending / Attention */}
             <OverviewDashboardCard
-              value="2"
+              value="—"
               title="Pending / Attention"
               subtitle="Needs attention"
               icon="alert"
@@ -594,30 +610,38 @@ export function WalletOperationsScreen({
 
           {/* 3. Recent Top-Ups Section */}
           <Text style={styles.sectionHeading}>Recent Top-Ups</Text>
-          <TouchableOpacity
-            style={styles.recentTopUpCard}
-            onPress={() => onOpenCustomerWallet(SAMPLE_WALLET_CUSTOMER)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.recentTopUpTopRow}>
-              <Text style={styles.recentCustomerName}>Ravi Kumar</Text>
-              <View style={styles.completedBadge}>
-                <Text style={styles.completedBadgeText}>Completed</Text>
+          {recentCustomer ? (
+            <TouchableOpacity
+              style={styles.recentTopUpCard}
+              onPress={() => onOpenCustomerWallet(recentCustomer)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.recentTopUpTopRow}>
+                <Text style={styles.recentCustomerName}>{recentCustomer.name}</Text>
+                <View style={styles.completedBadge}>
+                  <Text style={styles.completedBadgeText}>Completed</Text>
+                </View>
               </View>
-            </View>
 
-            <Text style={styles.recentCustCode}>CUS-001245</Text>
+              <Text style={styles.recentCustCode}>{recentCustomer.customerId || recentCustomer.id || ''}</Text>
 
-            <View style={styles.recentTagAndAmountRow}>
-              <Text style={styles.recentFiscalTag}>Fiscal Tag: {SAMPLE_FISCAL_TAG}</Text>
-              <Text style={styles.recentAmount}>₹2,000</Text>
-            </View>
+              <View style={styles.recentTagAndAmountRow}>
+                {recentFiscalTag ? (
+                  <Text style={styles.recentFiscalTag}>Fiscal Tag: {recentFiscalTag}</Text>
+                ) : null}
+                <Text style={styles.recentAmount}>{recentAmount ?? '—'}</Text>
+              </View>
 
-            <View style={styles.recentBottomRow}>
-              <Text style={styles.recentTypeAndDate}>Cash Top-Up</Text>
-              <Text style={styles.recentDateText}>Today, 10:42 AM</Text>
+              <View style={styles.recentBottomRow}>
+                <Text style={styles.recentTypeAndDate}>Cash Top-Up</Text>
+                <Text style={styles.recentDateText}>{recentDateText ?? ''}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View style={[styles.recentTopUpCard, { alignItems: 'center', paddingVertical: 16 }]}>
+              <Text style={{ color: adminColors.muted, fontSize: 13 }}>No recent top-ups</Text>
             </View>
-          </TouchableOpacity>
+          )}
 
           {/* 4. Needs Attention Section */}
           <TouchableOpacity

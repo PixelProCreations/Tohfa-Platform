@@ -23,6 +23,7 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-nati
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { Card, SectionTitle, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { changeOwnPassword } from '../../../api/profile';
 import { roleLabelOf, scopeLabelOf } from './fixtures';
 import {
   AboutIcon,
@@ -82,7 +83,7 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
     else setView('hub');
   };
 
-  const handleUpdatePassword = () => {
+  const handleUpdatePassword = async () => {
     if (!currentPass || !newPass || !confirmPass) {
       Alert.alert('Validation Error', 'Please fill in all password fields.');
       return;
@@ -99,8 +100,14 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
       Alert.alert('Validation Error', 'New password must be different from the current password.');
       return;
     }
-    // No change-password endpoint exists yet (SPEC_GAPS W4l-1): mock success.
-    Alert.alert('Success', 'Your password has been changed successfully.', [{ text: 'OK', onPress: closePasswordForm }]);
+    try {
+      await changeOwnPassword({ currentPassword: currentPass, newPassword: newPass });
+      Alert.alert('Success', 'Your password has been changed successfully. Please log in again with your new password.', [
+        { text: 'OK', onPress: handleLogout },
+      ]);
+    } catch (err: unknown) {
+      Alert.alert('Password Change Failed', err instanceof Error ? err.message : 'Failed to change password. Please check your current password.');
+    }
   };
 
   const handleLogout = () => {

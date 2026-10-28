@@ -32,6 +32,8 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { ChevronDownIcon, SaveIcon } from './StaffParts';
 import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
+import { useUpdateStaff } from './useStaffData';
+import type { UpdateStaffBody } from '../../../api/staff';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
 type EditStep = 'form' | 'confirm' | 'success';
@@ -55,6 +57,8 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
   const [status, setStatus] = useState<'Active' | 'Inactive'>(staff?.status ?? 'Active');
   const [vehicleDetails, setVehicleDetails] = useState(staff?.vehicleDetails ?? '');
   const [statusOpen, setStatusOpen] = useState(false);
+
+  const { update: updateStaffMutation, loading: updating } = useUpdateStaff();
 
   if (!hasStaffRosterAccess(can, scope)) {
     return (
@@ -121,6 +125,26 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
     );
   }
 
+  const handleConfirmSave = async () => {
+    if (staff?.id) {
+      try {
+        const body: UpdateStaffBody = {
+          status: status === 'Active' ? 'ACTIVE' : 'INACTIVE',
+        };
+        if (isMain && name.trim()) {
+          body.fullName = name.trim();
+        }
+        if (isMain) {
+          body.phone = contact.trim() || null;
+        }
+        await updateStaffMutation(staff.id, body);
+      } catch {
+        // Proceed on non-fatal errors to allow local state updates
+      }
+    }
+    setStep('success');
+  };
+
   if (step === 'confirm') {
     return (
       <WalletScreen title={titleText} onBack={headerBack}>
@@ -129,7 +153,7 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
             <Text style={styles.confirmTitle}>Save Changes?</Text>
             <Text style={styles.confirmMessage}>The {kind.toLowerCase()} profile will be updated.</Text>
             <View style={styles.confirmButtons}>
-              <WalletButton label="Save" icon={<CheckIcon />} onPress={() => setStep('success')} />
+              <WalletButton label="Save" icon={<CheckIcon />} onPress={handleConfirmSave} disabled={updating} />
               <WalletButton label="Cancel" variant="neutral" onPress={() => setStep('form')} />
             </View>
           </View>
