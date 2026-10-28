@@ -53,6 +53,9 @@ import {
 } from '../sales';
 import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
+import { TohfaAdminProfileScreen } from './TohfaAdminProfileScreen';
+import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
 import {
@@ -141,6 +144,8 @@ export type TohfaAdminTab =
   | 'Sales'
   | 'Reports'
   | 'Profile'
+  | 'Settings'
+  | 'Notifications'
   | 'Workforce';
 
 export interface WorkforceStaffItem {
@@ -7155,6 +7160,8 @@ export function TohfaAdminDashboardScreen({
     'scheduleAudit' | 'auditReportsTierConfig'
   >('scheduleAudit');
   const [auditReturnTab, setAuditReturnTab] = useState<'Home' | 'More' | 'WorkQueue'>('Home');
+  const [profileReturnTab, setProfileReturnTab] = useState<'Home' | 'More' | 'Settings'>('Home');
+  const [notificationsReturnTab, setNotificationsReturnTab] = useState<'Home' | 'More'>('Home');
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [selectedAdminApplication, setSelectedAdminApplication] = useState<ApplicationListItem | null>(null);
   const [farmersMainTab, setFarmersMainTab] = useState<'farmers' | 'applications'>('farmers');
@@ -11029,10 +11036,11 @@ export function TohfaAdminDashboardScreen({
                         <TouchableOpacity
                           style={styles.headerIconButton}
                           onPress={() => {
-                            if (onNavigate) onNavigate('SystemAlerts');
-                            else setActiveTab('Reports');
+                            setNotificationsReturnTab('Home');
+                            setActiveTab('Notifications');
                           }}
                           activeOpacity={0.8}
+                          accessibilityLabel="Notifications"
                         >
                           <BellHeaderIcon size={20} />
                           <View style={styles.notificationDot} />
@@ -11040,8 +11048,12 @@ export function TohfaAdminDashboardScreen({
 
                         <TouchableOpacity
                           style={styles.headerIconButton}
-                          onPress={() => setActiveTab('Profile')}
+                          onPress={() => {
+                            setProfileReturnTab('Home');
+                            setActiveTab('Profile');
+                          }}
                           activeOpacity={0.8}
+                          accessibilityLabel="Admin Profile"
                         >
                           <ProfileHeaderIcon size={20} />
                         </TouchableOpacity>
@@ -12456,11 +12468,12 @@ export function TohfaAdminDashboardScreen({
                   setWorkforceActive(true);
                   setWorkforceSubScreen('dashboard');
                 } else if (optionId === 'notifications') {
-                  setActiveTab('Reports');
+                  setNotificationsReturnTab('More');
+                  setActiveTab('Notifications');
                 } else if (optionId === 'community') {
                   setCommunitySubScreen('home');
                 } else if (optionId === 'settings') {
-                  setActiveTab('Profile');
+                  setActiveTab('Settings');
                 }
               }}
             />
@@ -12516,13 +12529,64 @@ export function TohfaAdminDashboardScreen({
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
-            PROFILE TAB
+            SETTINGS TAB (Exact layout matching Farmer Admin Settings & Profile)
+           ══════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'Settings' && (
+              <TohfaAdminSettingsScreen
+                onBack={() => setActiveTab('More')}
+                onNavigateProfile={() => {
+                  setProfileReturnTab('Settings');
+                  setActiveTab('Profile');
+                }}
+                onNavigateHome={() => setActiveTab('Home')}
+                onNavigateWorkQueue={() => setActiveTab('WorkQueue')}
+                onNavigateInventory={() => setActiveTab('Inventory')}
+                onNavigateFinance={() => setActiveTab('Finance')}
+                onNavigateMore={() => setActiveTab('More')}
+                onLogout={onSignOut ?? (() => onNavigate?.('Welcome'))}
+              />
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
+            PROFILE TAB (Exact layout matching Farmer Admin Profile, with TOHFA Admin data)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Profile' && (
-              <AdminProfileScreen
-                role="TOHFA_ADMIN"
+              <TohfaAdminProfileScreen
                 onSignOut={onSignOut ?? (() => onNavigate?.('Welcome'))}
-                onBack={() => setActiveTab('Home')}
+                onBack={() => setActiveTab(profileReturnTab)}
+              />
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
+            NOTIFICATIONS TAB (Redirected to Farmer Admin Notifications Screen)
+           ══════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'Notifications' && (
+              <FarmerAdminNotificationsScreen
+                onBack={() => setActiveTab(notificationsReturnTab)}
+                onViewListing={() => {
+                  setProduceControlScreen('calendar');
+                  setActiveTab('More');
+                }}
+                onViewAudit={() => {
+                  handleOpenScheduleAudit('More');
+                }}
+                onViewDispute={() => {
+                  setActiveTab('More');
+                }}
+                onTabChange={(tab) => {
+                  if (tab === 'Farmers') {
+                    setActiveTab('Farmers');
+                  } else if (tab === 'Produce') {
+                    setProduceControlScreen('calendar');
+                    setActiveTab('More');
+                  } else if (tab === 'Audits') {
+                    handleOpenScheduleAudit('More');
+                  } else if (tab === 'More') {
+                    setActiveTab('More');
+                  } else {
+                    setActiveTab('Home');
+                  }
+                }}
               />
             )}
           </>
@@ -12577,6 +12641,9 @@ export function TohfaAdminDashboardScreen({
         communitySubScreen !== 'content_item_detail' &&
         communitySubScreen !== 'qa_chat' &&
         communitySubScreen !== 'knowledge_library' &&
+        activeTab !== 'Settings' &&
+        activeTab !== 'Profile' &&
+        activeTab !== 'Notifications' &&
         (!workforceActive || workforceSubScreen === 'dashboard') &&
         (activeTab !== 'Workforce' || workforceSubScreen === 'dashboard') && (
           <View style={styles.bottomNav}>

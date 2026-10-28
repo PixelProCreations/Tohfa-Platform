@@ -410,29 +410,19 @@ export function FarmerAdminProfileScreen({
           contentContainerStyle={styles.scrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* Account Security Card */}
-          <View style={styles.secCard}>
-            <View style={styles.secCardHeaderRow}>
-              <View style={styles.secIconWrap}>
-                <ShieldIcon size={20} color={adminColors.brand} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.secCardTitle}>Account Security</Text>
-                <Text style={styles.secCardSubtitle}>Password & credential management</Text>
-              </View>
-            </View>
-
-            {!isChangingPassword ? (
-              <TouchableOpacity
-                style={styles.changePasswordModernBtn}
-                onPress={() => setIsChangingPassword(true)}
-                activeOpacity={0.8}
-              >
-                <LockIcon size={18} color={adminColors.brand} />
-                <Text style={styles.changePasswordModernBtnText}>Change Password</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={{ marginTop: 12 }}>
+          {/* Account Security Section */}
+          <Text style={styles.sectionHeader}>Account security</Text>
+          {!isChangingPassword ? (
+            <TouchableOpacity
+              style={styles.changePasswordOutlineBtn}
+              onPress={() => setIsChangingPassword(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.changePasswordOutlineBtnText}>Change Password</Text>
+            </TouchableOpacity>
+          ) : (
+            <View>
+              <View style={styles.card}>
                 {/* Current Password */}
                 <Text style={styles.fieldLabel}>Current Password</Text>
                 <View style={styles.textInputBox}>
@@ -523,153 +513,106 @@ export function FarmerAdminProfileScreen({
                 {passwordError && (
                   <Text style={styles.passwordErrorText}>{passwordError}</Text>
                 )}
-
-                {/* Action Buttons: Update Password and Cancel */}
-                <View style={[styles.editActionButtonsContainer, { marginTop: 16, marginBottom: 8 }]}>
-                  <TouchableOpacity
-                    style={styles.primarySaveBtn}
-                    onPress={handleUpdatePassword}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.primarySaveBtnText}>Update Password</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.cancelNeutralBtn}
-                    onPress={() => {
-                      setIsChangingPassword(false);
-                      setPasswordError(null);
-                      setCurrentPassword('');
-                      setNewPassword('');
-                      setConfirmPassword('');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
               </View>
-            )}
+
+              {/* Action Buttons: Update Password and Cancel */}
+              <View style={[styles.editActionButtonsContainer, { marginBottom: 16 }]}>
+                <TouchableOpacity
+                  style={styles.primarySaveBtn}
+                  onPress={handleUpdatePassword}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.primarySaveBtnText}>Update Password</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelNeutralBtn}
+                  onPress={() => {
+                    setIsChangingPassword(false);
+                    setPasswordError(null);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {/* Application Preferences Section (Screenshot 1) */}
+          <Text style={[styles.sectionHeader, { marginTop: 14 }]}>Application preferences</Text>
+          <View style={styles.card}>
+            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+              <Text style={styles.tableLabel}>Application language</Text>
+              <Text style={styles.tableValueBold}>{language}</Text>
+            </View>
           </View>
 
-          {/* Application Preferences Card */}
-          <View style={styles.secCard}>
-            <View style={styles.secCardHeaderRow}>
-              <View style={styles.secIconWrap}>
-                <GlobeIcon size={20} color={adminColors.brand} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.secCardTitle}>Application Preferences</Text>
-                <Text style={styles.secCardSubtitle}>Language and alert configurations</Text>
-              </View>
-            </View>
+          <Text style={styles.languageNoticeText}>
+            English and Tamil are available. Change your language from your profile.
+          </Text>
 
-            <Text style={styles.secFieldLabel}>Application language</Text>
-            <View style={styles.languagePillRow}>
-              <TouchableOpacity
-                style={[styles.languagePill, language === 'English' && styles.languagePillActive]}
-                onPress={() => setLanguage('English')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.languagePillText, language === 'English' && styles.languagePillTextActive]}>
-                  English
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.languagePill, language === 'Tamil' && styles.languagePillActive]}
-                onPress={() => setLanguage('Tamil')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.languagePillText, language === 'Tamil' && styles.languagePillTextActive]}>
-                  Tamil (தமிழ்)
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.languageNoticeText}>
-              English and Tamil are available. Change your language from your profile.
+          {/* Notification Preferences Sub-Card (Screenshot 1) */}
+          <View style={styles.card}>
+            <Text style={styles.notificationCardHeader}>Notification preferences</Text>
+            <Text style={styles.notificationPendingNotice}>
+              Notification categories for the Farmer Admin role have not been confirmed yet. They will appear here once the owner finalizes them.
             </Text>
-
-            {/* Notification Preferences Sub-Card */}
-            <View style={styles.notificationInfoBox}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                <BellOutlineIcon size={16} color={adminColors.brand} />
-                <Text style={styles.notificationCardHeader}>Notification preferences</Text>
-              </View>
-              <Text style={styles.notificationPendingNotice}>
-                Notification categories for the Farmer Admin role have not been confirmed yet. They will appear here once the owner finalizes them.
-              </Text>
-            </View>
-
-            {/* Action Buttons: Save Preferences and Reset to Defaults */}
-            <View style={styles.prefActionButtonsRow}>
-              <TouchableOpacity
-                style={styles.savePreferencesBtn}
-                onPress={handleSavePreferences}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.savePreferencesBtnText}>Save Preferences</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.resetPreferencesBtn}
-                onPress={handleResetPreferences}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.resetPreferencesBtnText}>Reset to Defaults</Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
-          {/* Sign Out Card */}
-          <View style={[styles.secCard, styles.signOutCardBorder]}>
-            <View style={styles.secCardHeaderRow}>
-              <View style={[styles.secIconWrap, styles.signOutIconWrap]}>
-                <LogOutIcon size={20} color={adminColors.danger.text} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.secCardTitle, { color: adminColors.danger.text }]}>Sign out</Text>
-                <Text style={styles.secCardSubtitle}>End your session on this device</Text>
-              </View>
-            </View>
+          {/* Action Buttons: Save Preferences and Reset to Defaults (Screenshot 1) */}
+          <View style={styles.prefActionButtonsRow}>
+            <TouchableOpacity
+              style={styles.savePreferencesBtn}
+              onPress={handleSavePreferences}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.savePreferencesBtnText}>Save Preferences</Text>
+            </TouchableOpacity>
 
-            {!showSignOutConfirm ? (
+            <TouchableOpacity
+              style={styles.resetPreferencesBtn}
+              onPress={handleResetPreferences}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.resetPreferencesBtnText}>Reset to Defaults</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign Out Section (Screenshot 1) */}
+          <Text style={styles.sectionHeader}>Sign out</Text>
+          <TouchableOpacity
+            style={styles.solidSignOutBtn}
+            onPress={handleSignOutConfirm}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.solidSignOutBtnText}>Sign Out of This Device</Text>
+          </TouchableOpacity>
+
+          {showSignOutConfirm && (
+            <View style={styles.signOutConfirmCard}>
+              <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
+
               <TouchableOpacity
-                style={styles.modernSignOutBtn}
-                onPress={handleSignOutConfirm}
+                style={styles.signOutConfirmActionBtn}
+                onPress={() => onSignOut?.()}
                 activeOpacity={0.85}
               >
-                <LogOutIcon size={18} color={adminColors.card} />
-                <Text style={styles.modernSignOutBtnText}>Sign Out of This Device</Text>
+                <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
               </TouchableOpacity>
-            ) : (
-              <View style={styles.modernSignOutConfirmBox}>
-                <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
-                <Text style={styles.signOutConfirmSub}>
-                  Are you sure you want to sign out? You will need your credentials to sign back in.
-                </Text>
 
-                <View style={styles.signOutButtonsRow}>
-                  <TouchableOpacity
-                    style={styles.signOutConfirmActionBtn}
-                    onPress={() => onSignOut?.()}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.signOutConfirmCancelBtn}
-                    onPress={() => setShowSignOutConfirm(false)}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
+              <TouchableOpacity
+                style={styles.signOutConfirmCancelBtn}
+                onPress={() => setShowSignOutConfirm(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -1645,8 +1588,8 @@ const styles = StyleSheet.create({
 
   // Security & Preferences Screen (Screenshots 1 & 3)
   changePasswordOutlineBtn: {
-    height: 44,
-    borderRadius: adminRadius.full,
+    height: 48,
+    borderRadius: adminRadius.xl,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
     alignItems: 'center',
@@ -1737,8 +1680,8 @@ const styles = StyleSheet.create({
   },
   savePreferencesBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: adminRadius.md,
+    height: 48,
+    borderRadius: adminRadius.xl,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
     alignItems: 'center',
@@ -1752,8 +1695,8 @@ const styles = StyleSheet.create({
   },
   resetPreferencesBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: adminRadius.md,
+    height: 48,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
     alignItems: 'center',
@@ -1790,9 +1733,9 @@ const styles = StyleSheet.create({
   },
 
   solidSignOutBtn: {
-    backgroundColor: adminColors.danger.text,
+    backgroundColor: adminColors.brand,
     height: 48,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -1800,12 +1743,12 @@ const styles = StyleSheet.create({
   solidSignOutBtnText: {
     ...adminType.body,
     fontWeight: '800',
-    color: adminColors.card,
+    color: adminColors.onBrand,
   },
   signOutConfirmCard: {
     marginTop: 12,
     borderWidth: 1.5,
-    borderColor: adminColors.danger.text,
+    borderColor: adminColors.brand,
     borderRadius: adminRadius.xl,
     padding: adminSpacing.lg,
     backgroundColor: adminColors.card,
@@ -1814,13 +1757,13 @@ const styles = StyleSheet.create({
   signOutConfirmTitle: {
     ...adminType.body,
     fontWeight: '800',
-    color: adminColors.danger.text,
+    color: adminColors.brand,
     marginBottom: adminSpacing.md,
   },
   signOutConfirmActionBtn: {
-    backgroundColor: adminColors.danger.text,
+    backgroundColor: adminColors.brand,
     height: 48,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.xl,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: adminSpacing.sm,
@@ -1833,7 +1776,7 @@ const styles = StyleSheet.create({
   signOutConfirmCancelBtn: {
     backgroundColor: adminColors.card,
     height: 48,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
     alignItems: 'center',
@@ -1841,7 +1784,7 @@ const styles = StyleSheet.create({
   },
   signOutConfirmCancelBtnText: {
     ...adminType.body,
-    fontWeight: '800',
+    fontWeight: '700',
     color: adminColors.ink,
   },
 

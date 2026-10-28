@@ -17,6 +17,7 @@ import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOverlay } from '../../theme';
 import { t } from '../../i18n';
 import { FarmerAdminProfileScreen } from './FarmerAdminProfileScreen';
+import { FarmerAdminSettingsScreen } from './FarmerAdminSettingsScreen';
 import { FarmerProductListingsScreen } from './FarmerProductListingsScreen';
 import { FarmerProduceDetailScreen } from './FarmerProduceDetailScreen';
 import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
@@ -51,12 +52,13 @@ import { PestLibraryScreen, type PestItem } from './PestLibraryScreen';
 import { ApplicationGuideScreen } from './ApplicationGuideScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
-import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
-import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
-import { CategoriesGradesScreen } from './CategoriesGradesScreen';
-import { PriceHistoryScreen } from './PriceHistoryScreen';
-import { RetailPricingScreen, type RetailPriceItem } from './RetailPricingScreen';
-import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
+import { FarmerMarketPricingHomeScreen } from './FarmerMarketPricingHomeScreen';
+import { FarmerFairPriceScreen } from './FarmerFairPriceScreen';
+import { FarmerCategoriesGradesScreen } from './FarmerCategoriesGradesScreen';
+import { FarmerPriceHistoryScreen } from './FarmerPriceHistoryScreen';
+import { FarmerRetailPricingScreen } from './FarmerRetailPricingScreen';
+import { FarmerMarkupPricingBreakdownScreen } from './FarmerMarkupPricingBreakdownScreen';
+import type { RetailPriceItem } from './RetailPricingScreen';
 import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
@@ -2178,6 +2180,7 @@ export function FarmerAdminDashboardScreen({
     | 'admin_activity'
     | 'notifications'
     | 'farmer_support'
+    | 'settings'
     | 'profile'
     | 'purchases'
     | 'purchase_orders'
@@ -2211,7 +2214,6 @@ export function FarmerAdminDashboardScreen({
   const [farmerAdminSelectedApp, setFarmerAdminSelectedApp] = useState<any>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<
     | 'menu'
-    | 'market_pricing'
     | 'disputes'
     | 'dispute_detail'
     | 'dispute_timeline'
@@ -2269,6 +2271,7 @@ export function FarmerAdminDashboardScreen({
       | 'admin_activity'
       | 'notifications'
       | 'farmer_support'
+      | 'settings'
       | 'profile'
       | 'purchases'
       | 'purchase_orders'
@@ -2299,7 +2302,6 @@ export function FarmerAdminDashboardScreen({
       | 'farmers_management';
     moreSubScreen?:
       | 'menu'
-      | 'market_pricing'
       | 'disputes'
       | 'dispute_detail'
       | 'dispute_timeline'
@@ -2364,19 +2366,9 @@ export function FarmerAdminDashboardScreen({
 
     setNavStack((prev) => [...prev, currentSnapshot]);
 
-    let targetSubView = next.subView;
-    let targetMoreSubScreen = next.moreSubScreen;
-    let targetTab = next.tab;
-
-    if (targetSubView === 'market_pricing') {
-      targetTab = 'More';
-      targetMoreSubScreen = 'market_pricing';
-      targetSubView = 'none';
-    }
-
-    if (targetTab !== undefined) setActiveTab(targetTab);
-    if (targetSubView !== undefined) setSubView(targetSubView);
-    if (targetMoreSubScreen !== undefined) setMoreSubScreen(targetMoreSubScreen);
+    if (next.tab !== undefined) setActiveTab(next.tab);
+    if (next.subView !== undefined) setSubView(next.subView);
+    if (next.moreSubScreen !== undefined) setMoreSubScreen(next.moreSubScreen);
     if (next.selectedDispute !== undefined) setSelectedDispute(next.selectedDispute);
     if (next.activeIncidentItem !== undefined) setActiveIncidentItem(next.activeIncidentItem);
     if (next.activeOrderId !== undefined) setActiveOrderId(next.activeOrderId);
@@ -2801,7 +2793,24 @@ export function FarmerAdminDashboardScreen({
 
 
 
-  // Module 1: Admin Profile subview
+  // Module: Farmer Admin Settings & Profile subview (Screenshot 2)
+  if (subView === 'settings') {
+    return (
+      <FarmerAdminSettingsScreen
+        onBack={() => goBack()}
+        onNavigateProfile={() => pushNavigation({ subView: 'profile' })}
+        onNavigateHome={() => {
+          setNavStack([]);
+          setSubView('none');
+          setActiveTab('Home');
+        }}
+        onNavigateMore={() => goBack()}
+        onLogout={onSignOut}
+      />
+    );
+  }
+
+  // Module 1: Admin Profile subview (Screenshot 3)
   if (subView === 'profile') {
     return (
       <FarmerAdminProfileScreen
@@ -3061,84 +3070,137 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
+  // Module 7: Market & Pricing Home (Screenshot 1)
+  if (subView === 'market_pricing') {
+    return (
+      <View style={{ flex: 1, backgroundColor: adminColors.canvas }}>
+        <FarmerMarketPricingHomeScreen
+          onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
+          onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
+          onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}
+          onNavigateToRetailPricing={() => pushNavigation({ subView: 'retail_pricing' })}
+          onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
+        />
+        {/* Bottom Tab Bar matching Image 1 */}
+        <View style={styles.tabBar}>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              setNavStack([]);
+              setSubView('none');
+              setActiveTab('Home');
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel="Home"
+          >
+            <TabHomeIcon active={false} />
+            <Text style={styles.tabLabel}>Home</Text>
+          </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              setNavStack([]);
+              setSubView('none');
+              setActiveTab('Farmers');
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel="Farmers"
+          >
+            <TabFarmersIcon active={false} />
+            <Text style={styles.tabLabel}>Farmers</Text>
+          </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              setNavStack([]);
+              setSubView('none');
+              setActiveTab('Produce');
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel="Produce Calendar"
+          >
+            <TabProduceCalendarIcon active={false} />
+            <Text style={styles.tabLabel} numberOfLines={1}>
+              Produce Calendar
+            </Text>
+          </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              setNavStack([]);
+              setSubView('none');
+              setActiveTab('Audits');
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel="Audits"
+          >
+            <TabAuditsIcon active={false} />
+            <Text style={styles.tabLabel}>Audits</Text>
+          </Pressable>
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => {
+              goBack();
+            }}
+            accessibilityRole="tab"
+            accessibilityLabel="More"
+          >
+            <TabMoreIcon active={true} />
+            <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
-
-  // Module 7: Fair Price Ceilings & Filters (Screenshot 3 & 4)
+  // Module 7: Fair Price Ceilings & Filters (Screenshot 2 Left)
   if (subView === 'fair_price') {
     return (
-      <FairPriceCeilingScreen
+      <FarmerFairPriceScreen
         onBack={() => goBack()}
-        onNavigateToBreakdown={(item: any) => {
-          if (!item) {
-            pushNavigation({ subView: 'markup_breakdown' });
-            return;
-          }
-          pushNavigation({
-            subView: 'markup_breakdown',
-            selectedRetailItem: {
-              id: item.id,
-              cropGrade: `${item.product || item.crop || 'Produce'} · ${item.grade || 'Grade 1'}`,
-              product: item.product || item.crop || 'Produce',
-              grade: item.grade || 'Grade 1',
-              purchasePrice: item.purchasePrice || '₹80.00/kg',
-              markup: item.markup || '10%',
-              expenses: '₹10.00',
-              expensesDetail: item.expensesDetail || 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
-              retailPrice: item.retailPrice || `${item.priceVal || 80}.00/kg`,
-              customerDiscount: item.customerDiscount || '₹5.00',
-              effectiveDate: item.effectiveFrom || '1 Sep 2026',
-              status: 'Active',
-              category: 'Vegetables',
-            },
-          });
-        }}
       />
     );
   }
 
-  // Module 7: Categories & Grades (Mockup 1)
+  // Module 7: Categories & Grades (Screenshot 2 Middle)
   if (subView === 'categories_grades') {
     return (
-      <CategoriesGradesScreen
+      <FarmerCategoriesGradesScreen
         onBack={() => goBack()}
       />
     );
   }
 
-  // Module 7: Price History & Filters (Mockup 2 & 3 Left)
+  // Module 7: Price History & Filters (Screenshot 2 Right)
   if (subView === 'price_history') {
     return (
-      <PriceHistoryScreen
+      <FarmerPriceHistoryScreen
         onBack={() => goBack()}
       />
     );
   }
 
-  // Module 7: Retail Pricing & Filters (Mockup 3 Right & 4)
+  // Module 7: Retail Pricing & Filters (Screenshot 3 Left)
   if (subView === 'retail_pricing') {
     return (
-      <RetailPricingScreen
+      <FarmerRetailPricingScreen
         onBack={() => goBack()}
         onSelectBreakdown={(item: any) => {
-          if (!item) {
-            pushNavigation({ subView: 'markup_breakdown' });
-            return;
-          }
           pushNavigation({
             subView: 'markup_breakdown',
             selectedRetailItem: {
               id: item.id,
-              cropGrade: `${item.product} · ${item.grade}`,
-              product: item.product,
-              grade: item.grade,
-              purchasePrice: '₹80.00/kg',
-              markup: '10%',
-              expenses: '₹10.00',
-              expensesDetail: 'Freight ₹5.00 · Loading ₹2.00 · Unloading ₹3.00',
-              retailPrice: item.retailText || '₹55.00/kg',
-              customerDiscount: '₹5.00',
-              effectiveDate: item.effectiveDate,
-              status: 'Active',
+              cropGrade: item.cropGrade,
+              product: item.cropGrade.split(' · ')[0] || 'Carrot',
+              grade: item.cropGrade.split(' · ')[1] || 'Grade 1',
+              purchasePrice: item.purchasePrice ? `${item.purchasePrice}/kg` : '₹80.00/kg',
+              markup: item.markup || '10%',
+              expenses: item.expenses || '₹10.00',
+              expensesDetail: 'Freight ₹5 · Loading ₹2 · Unloading ₹3',
+              retailPrice: item.retailPrice ? `${item.retailPrice}/kg` : '₹98.00/kg',
+              customerDiscount: '₹5.00/kg',
+              effectiveDate: '30 Sep 2026',
+              status: item.status || 'Active',
               category: 'Vegetables',
             },
           });
@@ -3147,14 +3209,14 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // Module 7: Markup & Pricing Breakdown (Mockup 5)
+  // Module 7: Markup & Pricing Breakdown (Screenshot 3 Right)
   if (subView === 'markup_breakdown') {
     return (
-      <MarkupPricingBreakdownScreen
+      <FarmerMarkupPricingBreakdownScreen
         onBack={() => goBack()}
         cropGradeTitle={
           selectedRetailItem
-            ? `${selectedRetailItem.product} · ${selectedRetailItem.grade}`
+            ? selectedRetailItem.cropGrade
             : 'Carrot · Grade 1'
         }
         purchasePrice={
@@ -3774,16 +3836,17 @@ export function FarmerAdminDashboardScreen({
         )}
 
         {/* ─── More Tab (Screenshot 5) ─── */}
-        {activeTab === 'More' && moreSubScreen === 'menu' && subView === 'none' && (
+        {activeTab === 'More' && moreSubScreen === 'menu' && (
           <FarmerAdminMoreScreen
             onBack={() => goBack('Home')}
             onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
-            onNavigateMarketPricing={() => pushNavigation({ tab: 'More', moreSubScreen: 'market_pricing', subView: 'none' })}
+            onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
             onNavigateProduceListings={() => pushNavigation({ subView: 'produce_listings' })}
             onNavigateDisputes={() => {
               pushNavigation({ subView: 'disputes' });
             }}
-            onNavigateProfile={() => pushNavigation({ subView: 'profile' })}
+            onNavigateProfile={() => pushNavigation({ subView: 'settings' })}
+            onNavigateSettingsAndProfile={() => pushNavigation({ subView: 'settings' })}
             onNavigateNotifications={() => pushNavigation({ subView: 'notifications' })}
             onSwitchRole={() =>
               setModalItem({
@@ -3796,13 +3859,13 @@ export function FarmerAdminDashboardScreen({
               if (title === 'Inputs & Pest Management') {
                 pushNavigation({ subView: 'inputs_pest' });
               } else if (title === 'Market & Pricing') {
-                pushNavigation({ tab: 'More', moreSubScreen: 'market_pricing', subView: 'none' });
+                pushNavigation({ subView: 'market_pricing' });
               } else if (title === 'Ratings') {
                 pushNavigation({ subView: 'farmer_ratings' });
               } else if (title === 'Disputes') {
                 pushNavigation({ subView: 'disputes' });
-              } else if (title === 'Profile') {
-                pushNavigation({ subView: 'profile' });
+              } else if (title === 'Settings and Profile' || title === 'Profile') {
+                pushNavigation({ subView: 'settings' });
               } else {
                 setModalItem({
                   title,
@@ -3810,17 +3873,6 @@ export function FarmerAdminDashboardScreen({
                 });
               }
             }}
-          />
-        )}
-
-        {/* ─── Market & Pricing Home (Matching Images 1 & 2) ─── */}
-        {((activeTab === 'More' && moreSubScreen === 'market_pricing') || subView === 'market_pricing') && (
-          <MarketPricingHomeScreen
-            onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
-            onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
-            onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}
-            onNavigateToRetailPricing={() => pushNavigation({ subView: 'retail_pricing' })}
-            onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
           />
         )}
 
@@ -3932,13 +3984,12 @@ export function FarmerAdminDashboardScreen({
       </Modal>
 
       {/* ─── Bottom Tab Bar (Only show on the 5 primary dashboard screens) ─── */}
-      {(subView === 'none' || subView === 'market_pricing') &&
+      {subView === 'none' &&
         (activeTab === 'Home' ||
           (activeTab === 'Farmers' && farmersInternalView === 'list') ||
           activeTab === 'Produce' ||
           activeTab === 'Audits' ||
-          (activeTab === 'More' && (moreSubScreen === 'menu' || moreSubScreen === 'market_pricing')) ||
-          subView === 'market_pricing') && (
+          (activeTab === 'More' && moreSubScreen === 'menu')) && (
           <View style={styles.tabBar}>
             <Pressable
               style={styles.tabItem}
@@ -3951,8 +4002,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Home"
             >
-              <TabHomeIcon active={activeTab === 'Home' && subView === 'none'} />
-              <Text style={[styles.tabLabel, activeTab === 'Home' && subView === 'none' && styles.tabLabelActive]}>Home</Text>
+              <TabHomeIcon active={activeTab === 'Home'} />
+              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
             </Pressable>
 
             <Pressable
@@ -3967,8 +4018,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Farmers"
             >
-              <TabFarmersIcon active={activeTab === 'Farmers' && subView === 'none'} />
-              <Text style={[styles.tabLabel, activeTab === 'Farmers' && subView === 'none' && styles.tabLabelActive]}>Farmers</Text>
+              <TabFarmersIcon active={activeTab === 'Farmers'} />
+              <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
             </Pressable>
 
             <Pressable
@@ -3982,8 +4033,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Produce Calendar"
             >
-              <TabProduceCalendarIcon active={activeTab === 'Produce' && subView === 'none'} />
-              <Text style={[styles.tabLabel, activeTab === 'Produce' && subView === 'none' && styles.tabLabelActive]} numberOfLines={1}>
+              <TabProduceCalendarIcon active={activeTab === 'Produce'} />
+              <Text style={[styles.tabLabel, activeTab === 'Produce' && styles.tabLabelActive]} numberOfLines={1}>
                 Produce Calendar
               </Text>
             </Pressable>
@@ -3999,8 +4050,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Audits"
             >
-              <TabAuditsIcon active={activeTab === 'Audits' && subView === 'none'} />
-              <Text style={[styles.tabLabel, activeTab === 'Audits' && subView === 'none' && styles.tabLabelActive]}>Audits</Text>
+              <TabAuditsIcon active={activeTab === 'Audits'} />
+              <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
             </Pressable>
 
             <Pressable
@@ -4014,8 +4065,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="More"
             >
-              <TabMoreIcon active={activeTab === 'More' || subView === 'market_pricing'} />
-              <Text style={[styles.tabLabel, (activeTab === 'More' || subView === 'market_pricing') && styles.tabLabelActive]}>More</Text>
+              <TabMoreIcon active={activeTab === 'More'} />
+              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
             </Pressable>
           </View>
         )}

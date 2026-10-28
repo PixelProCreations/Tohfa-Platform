@@ -178,7 +178,7 @@ const CATEGORIES: readonly { id: FaqCategory; shortLabel: string; Icon: (props: 
 const TICKET_TONE = { Open: 'warning', 'Under Review': 'warning', Resolved: 'success' } as const;
 
 export function HelpSupportScreen({
-  can,
+  can = () => true,
   onBack,
   faqs = FAQ_ITEMS,
   tickets = SUPPORT_TICKETS,
@@ -203,7 +203,7 @@ export function HelpSupportScreen({
     }
   };
 
-  const showTickets = can(PROFILE_CODES.ticketViewAll);
+  const showTickets = Boolean(can?.(PROFILE_CODES.ticketViewAll));
 
   const visibleFaqs = useMemo(() => {
     const q = query.trim().toLowerCase();
