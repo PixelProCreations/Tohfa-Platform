@@ -164,7 +164,7 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher, onViewReferen
         {/* Printed-voucher presentation (ported from the Main copy). */}
         <View style={styles.receiptCard}>
           <Text style={styles.receiptHeader}>TOHFA · {warehouse}</Text>
-          <Text style={styles.receiptKind}>{voucher.type.toUpperCase()} VOUCHER</Text>
+          <Text style={styles.receiptKind}>{effectiveVoucher.type.toUpperCase()} VOUCHER</Text>
           <Text style={styles.receiptAmount}>{amount}</Text>
         </View>
 
@@ -176,7 +176,7 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher, onViewReferen
             </View>
             <View style={styles.col}>
               <Text style={styles.value}>Official Digital Voucher PDF</Text>
-              <Text style={styles.label}>{voucher.id} · Signed & Sealed</Text>
+              <Text style={styles.label}>{effectiveVoucher.id} · Signed & Sealed</Text>
             </View>
           </View>
         </Card>

@@ -65,7 +65,6 @@ import {
   scopeLabel,
   type FinanceAction,
 } from './FinanceParts';
-import { FINANCE_WAREHOUSES } from './fixtures';
 import { useExpenses, useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { ExpenseRecord, FinanceRoute, PermissionCheck, RevenueRecord, WarehouseScreenBaseProps } from './types';
@@ -129,7 +128,7 @@ export function FinanceHubScreen({
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
   const { options: liveWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = liveWarehouseOptions.length > 0 ? liveWarehouseOptions : FINANCE_WAREHOUSES;
+  const warehouseOptions = liveWarehouseOptions;
 
   const effectiveWarehouseId = selectedWarehouseId === 'All' ? undefined : (selectedWarehouseId ?? scope.warehouseId);
   const { expenses } = useExpenses({ warehouseId: effectiveWarehouseId });

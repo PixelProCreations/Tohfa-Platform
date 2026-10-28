@@ -139,7 +139,7 @@ interface ExpenseCategoryFilterViewProps {
 function ExpenseCategoryFilterView({
   selectedCategory,
   selectedWarehouseId,
-  warehouseOptions = DEFAULT_WAREHOUSE_OPTIONS,
+  warehouseOptions = [],
   isMain,
   hideWarehouseFilter = false,
   canLogExpense,

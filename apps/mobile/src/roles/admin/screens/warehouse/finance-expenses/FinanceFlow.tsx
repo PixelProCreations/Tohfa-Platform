@@ -26,7 +26,7 @@ import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
-import { FINANCE_TODAY, FINANCE_WAREHOUSES } from './fixtures';
+import { FINANCE_TODAY } from './fixtures';
 import { FINANCE_CODES } from './FinanceParts';
 import { FinanceHistoryScreen } from './FinanceHistoryScreen';
 import { canOpenFinanceRoute, FinanceHubScreen } from './FinanceHubScreen';
@@ -101,7 +101,7 @@ export function FinanceFlow({
   warehouseOptions: initialWarehouseOptions,
 }: FinanceFlowProps) {
   const { options: liveOptions } = useWarehouseOptions();
-  const warehouseOptions = initialWarehouseOptions ?? (liveOptions.length > 0 ? liveOptions : FINANCE_WAREHOUSES);
+  const warehouseOptions = initialWarehouseOptions ?? liveOptions;
   const [hubWarehouseId, setHubWarehouseId] = useState<string | undefined>(undefined);
   const [stack, setStack] = useState<FinanceStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 

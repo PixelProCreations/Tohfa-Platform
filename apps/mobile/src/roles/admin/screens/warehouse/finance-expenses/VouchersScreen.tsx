@@ -35,7 +35,6 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { FINANCE_WAREHOUSES } from './fixtures';
 import { canSeeVoucherType, FilterIcon, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { useExpenses, useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -71,7 +70,7 @@ function VoucherFilterView({
   options,
   selected,
   selectedWarehouseId,
-  warehouseOptions = FINANCE_WAREHOUSES,
+  warehouseOptions = [],
   isMain,
   hideWarehouseFilter = false,
   onBack,
@@ -155,7 +154,7 @@ export function VouchersScreen({
 }: VouchersScreenProps) {
   const isMain = isAllWarehouses(scope);
   const { options: liveWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : FINANCE_WAREHOUSES);
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
 
   const effectiveWarehouseId = isMain
