@@ -29,7 +29,6 @@ import {
   SectionTitle,
   StatusBadge,
 } from './BillingParts';
-import { INITIAL_INVOICE_TRANSACTIONS } from './fixtures';
 import type { InvoiceTransactionRecord, WarehouseScreenBaseProps } from './types';
 
 export interface GenerateInvoiceScreenProps extends WarehouseScreenBaseProps {
@@ -43,7 +42,7 @@ export function GenerateInvoiceScreen({
   can,
   onBack,
   onSelectTransaction,
-  transactions = INITIAL_INVOICE_TRANSACTIONS,
+  transactions = [],
 }: GenerateInvoiceScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
 

@@ -36,7 +36,6 @@ import {
   StatusBadge,
   rupeesOf,
 } from './BillingParts';
-import { INVOICE_REQUIRED_TRANSACTION } from './fixtures';
 import type { InvoiceRecord, WarehouseScope, WarehouseScreenBaseProps, WizardTransactionRecord } from './types';
 
 export interface BillingHubScreenProps extends WarehouseScreenBaseProps {
@@ -169,8 +168,8 @@ export function BillingHubScreen({
     },
   ];
   const recent = visible[0];
-  const required = INVOICE_REQUIRED_TRANSACTION;
-  const showRequired = canGenerate && inScope(scope, required.warehouseId, selectedWarehouseId);
+  // No API backing for "Invoice Required" — hidden until the API provides it (spec gap W4g-1)
+  const showRequired = false;
 
   if (isAllWarehouses(scope)) {
     return (
@@ -362,18 +361,7 @@ export function BillingHubScreen({
           </TouchableOpacity>
         </View>
 
-        {showRequired ? (
-          <>
-            <SectionTitle>Invoice Required</SectionTitle>
-            <View style={styles.requiredCard}>
-              <Text style={styles.requiredTag}>INVOICE REQUIRED</Text>
-              <Text style={styles.requiredOrderId}>{required.orderNumber}</Text>
-              <Text style={styles.requiredCustomer}>{required.customerName}</Text>
-              <Text style={styles.requiredAmount}>{required.amount}</Text>
-              <BillingButton label="Generate Invoice (not available yet)" disabled={true} onPress={() => {}} />
-            </View>
-          </>
-        ) : null}
+        {/* Invoice Required hidden — no API backing (spec gap W4g-1) */}
 
         <View style={styles.recentHeaderRow}>
           <SectionTitle>Recent Invoices</SectionTitle>

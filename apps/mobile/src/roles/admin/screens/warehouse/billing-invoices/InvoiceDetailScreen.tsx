@@ -38,7 +38,6 @@ import {
   PermissionNote,
   SectionTitle,
 } from './BillingParts';
-import { SAMPLE_INVOICE_DETAIL } from './fixtures';
 import type { InvoiceDetailRecord, WarehouseScreenBaseProps } from './types';
 
 export interface InvoiceDetailScreenProps extends WarehouseScreenBaseProps {
@@ -80,7 +79,7 @@ export function InvoiceDetailScreen({
   const [showToast, setShowToast] = useState(false);
 
   const { invoice: liveInvoice, isLoading, downloadPdf } = useInvoiceDetail(invoiceId, !invoiceProp);
-  const invoice = invoiceProp ?? liveInvoice ?? SAMPLE_INVOICE_DETAIL;
+  const invoice = invoiceProp ?? liveInvoice;
 
   useEffect(() => {
     if (!showPreview) return;
@@ -93,7 +92,6 @@ export function InvoiceDetailScreen({
 
   const canView = can('invoice.view_own');
   const allWarehouses = isAllWarehouses(scope);
-  const record: InvoiceDetailRecord = { ...invoice, invoiceId };
 
   if (isLoading && !invoiceProp) {
     return (
@@ -104,6 +102,18 @@ export function InvoiceDetailScreen({
       </BillingScreen>
     );
   }
+
+  if (!invoice) {
+    return (
+      <BillingScreen title="Invoice Detail" onBack={onBack}>
+        <View style={styles.scrollContent}>
+          <PermissionNote>Invoice not found.</PermissionNote>
+        </View>
+      </BillingScreen>
+    );
+  }
+
+  const record: InvoiceDetailRecord = { ...invoice, invoiceId };
 
   if (!inScope(scope, record.warehouseId)) {
     return (

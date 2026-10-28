@@ -35,7 +35,6 @@ import {
   PermissionNote,
   SectionTitle,
 } from './BillingParts';
-import { SAMPLE_GENERATED_INVOICE_ID, SAMPLE_INVOICE_DETAIL } from './fixtures';
 import type { InvoiceReviewData, InvoiceWizardStep, WarehouseScreenBaseProps, WizardTransactionRecord } from './types';
 
 export interface InvoiceWizardScreenProps extends WarehouseScreenBaseProps {
@@ -105,14 +104,14 @@ export function InvoiceWizardScreen({
   const [showFailure, setShowFailure] = useState(false);
   const canGenerate = can('invoice.generate');
   const step = STEPS[stepIndex] ?? 'summary';
-  const detail = SAMPLE_INVOICE_DETAIL;
+  // Build review data from the passed-in transaction; fixture fields not available
   const reviewData: InvoiceReviewData = review ?? {
-    invoiceType: detail.invoiceType,
+    invoiceType: 'standard',
     customerName: transaction.customerName,
-    itemsCount: detail.items.length,
-    subtotal: detail.subtotal,
-    gst: detail.gst,
-    total: detail.total,
+    itemsCount: 0,
+    subtotal: transaction.amount,
+    gst: '',
+    total: transaction.amount,
   };
 
   const handleBack = () => {
@@ -120,15 +119,8 @@ export function InvoiceWizardScreen({
     else onBack();
   };
 
-  const handleGenerate = () => {
-    if (!canGenerate) return;
-    // Mock until the invoice API is wired (SPEC_GAPS W4g): the server returns the number.
-    onSuccess(SAMPLE_GENERATED_INVOICE_ID);
-  };
-
   const handleRetry = () => {
     setShowFailure(false);
-    handleGenerate();
   };
 
   return (

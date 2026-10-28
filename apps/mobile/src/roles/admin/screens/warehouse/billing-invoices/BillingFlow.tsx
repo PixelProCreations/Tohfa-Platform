@@ -19,7 +19,6 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { BillingHubScreen } from './BillingHubScreen';
-import { BILLING_WAREHOUSES, SAMPLE_GENERATED_INVOICE_ID, SAMPLE_WIZARD_TRANSACTION } from './fixtures';
 import { GenerateInvoiceScreen } from './GenerateInvoiceScreen';
 import { InvoiceDetailScreen } from './InvoiceDetailScreen';
 import { InvoiceFiltersScreen } from './InvoiceFiltersScreen';
@@ -71,7 +70,7 @@ export function BillingFlow({
   const { scopes: liveWarehouseOptions } = useWarehouseOptions({
     enabled: initialWarehouseOptions === undefined && can('warehouse.all.view'),
   });
-  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : BILLING_WAREHOUSES);
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
   const [stack, setStack] = useState<BillingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // List filters and layout survive the trip to the filters screen and back.
   const [filters, setFilters] = useState<InvoiceFilterState | undefined>(undefined);
@@ -152,7 +151,8 @@ export function BillingFlow({
         />
       );
     case 'InvoiceDetail':
-      return <InvoiceDetailScreen {...common} invoiceId={params.invoiceId ?? SAMPLE_GENERATED_INVOICE_ID} />;
+      if (!params.invoiceId) return null;
+      return <InvoiceDetailScreen {...common} invoiceId={params.invoiceId} />;
     case 'GenerateInvoice':
       return (
         <GenerateInvoiceScreen
@@ -165,25 +165,27 @@ export function BillingFlow({
               amount: tx.amount,
               saleType: tx.saleType,
               status: tx.status,
-              date: SAMPLE_WIZARD_TRANSACTION.date,
+              date: tx.date,
             })
           }
         />
       );
     case 'InvoiceWizard':
+      if (!params.transaction) return null;
       return (
         <InvoiceWizardScreen
           {...common}
-          transaction={params.transaction ?? SAMPLE_WIZARD_TRANSACTION}
+          transaction={params.transaction}
           review={params.review}
           onSuccess={(invoiceId) => replace('InvoiceGenerated', { invoiceId })}
         />
       );
     case 'InvoiceGenerated':
+      if (!params.invoiceId) return null;
       return (
         <InvoiceGeneratedScreen
           {...common}
-          invoiceId={params.invoiceId ?? SAMPLE_GENERATED_INVOICE_ID}
+          invoiceId={params.invoiceId}
           onViewInvoice={openDetail}
         />
       );
