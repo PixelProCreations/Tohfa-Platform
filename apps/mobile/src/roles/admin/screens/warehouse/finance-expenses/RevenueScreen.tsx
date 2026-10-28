@@ -39,8 +39,6 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { FINANCE_WAREHOUSES, SAMPLE_REVENUE_RECORDS } from './fixtures';
-import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
 import { WarehouseSelector } from '../inventory';
 import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
@@ -105,9 +103,9 @@ export function RevenueScreen({
 }: RevenueScreenProps) {
   const isMain = isAllWarehouses(scope);
   const { options: liveWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : FINANCE_WAREHOUSES);
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
   const { revenueRecords: liveRevenues } = useRevenueList({});
-  const records = initialRecords ?? (liveRevenues.length > 0 ? liveRevenues : SAMPLE_REVENUE_RECORDS);
+  const records = initialRecords ?? liveRevenues;
 
   const [selectedFilter, setSelectedFilter] = useState<CategoryFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -290,7 +288,7 @@ export function RevenueScreen({
                 </View>
                 <Text style={styles.meta}>
                   {item.timestamp}
-                  {isMain ? ` · ${item.warehouseName ?? warehouseNameOf(item.warehouseId)}` : ''}
+                  {isMain && item.warehouseName ? ` · ${item.warehouseName}` : ''}
                 </Text>
               </TouchableOpacity>
             ))}

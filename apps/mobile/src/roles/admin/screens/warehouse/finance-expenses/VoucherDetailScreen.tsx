@@ -29,7 +29,6 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { SAMPLE_VOUCHERS } from './fixtures';
 import { canSeeVoucherType, FinanceNotAvailable, PadlockIcon, rupees, scopeLabel, VoucherIcon } from './FinanceParts';
 import { useExpenseVoucher } from './useFinanceData';
 import type { VoucherRecord, WarehouseScreenBaseProps } from './types';
@@ -38,16 +37,6 @@ export interface VoucherDetailScreenProps extends WarehouseScreenBaseProps {
   voucher?: VoucherRecord | undefined;
   onViewReference?: ((referenceId: string) => void) | undefined;
 }
-
-const DEFAULT_VOUCHER: VoucherRecord = SAMPLE_VOUCHERS[1] ?? {
-  id: 'VCH-000820',
-  type: 'Revenue',
-  title: 'Revenue Voucher',
-  amount: 0,
-  referenceId: '-',
-  date: '-',
-  status: 'Completed',
-};
 
 function PrintIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
@@ -97,10 +86,14 @@ function TimelineDot({ done }: { done: boolean }) {
   );
 }
 
-export function VoucherDetailScreen({ scope, can, onBack, voucher = DEFAULT_VOUCHER, onViewReference }: VoucherDetailScreenProps) {
-  const isExpense = voucher.type === 'Expense';
-  const { voucher: liveVoucher } = useExpenseVoucher(voucher.referenceId, isExpense);
-  const effectiveVoucher = liveVoucher ? { ...voucher, ...liveVoucher } : voucher;
+export function VoucherDetailScreen({ scope, can, onBack, voucher, onViewReference }: VoucherDetailScreenProps) {
+  const isExpense = voucher?.type === 'Expense';
+  const { voucher: liveVoucher } = useExpenseVoucher(voucher?.referenceId ?? '', isExpense);
+  const effectiveVoucher = liveVoucher && voucher ? { ...voucher, ...liveVoucher } : voucher;
+
+  if (!effectiveVoucher) {
+    return <FinanceNotAvailable title="Voucher Detail" message="Voucher not found." onBack={onBack} />;
+  }
 
   if (!canSeeVoucherType(can, effectiveVoucher.type)) {
     return (

@@ -49,87 +49,6 @@ const FILTER_CATEGORIES = [
   'Maintenance',
 ] as const;
 
-export const DEFAULT_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = [
-  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
-
-const SAMPLE_EXPENSE_RECORDS: ExpenseRecord[] = [
-  {
-    id: 'EXP-001245',
-    categoryRef: 'Transport · Collection point → Warehouse',
-    amount: 2400,
-    timestamp: '25 Sep - 09:30 AM',
-    status: 'Recorded',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-  },
-  {
-    id: 'EXP-001244',
-    categoryRef: 'Loading / Unloading · Morning unloading',
-    amount: 1800,
-    timestamp: '25 Sep - 08:15 AM',
-    status: 'Pending',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-  },
-  {
-    id: 'EXP-001241',
-    categoryRef: 'Warehouse Operations · Storage Crates & Pallets',
-    amount: 1200,
-    timestamp: '24 Sep - 05:45 PM',
-    status: 'Approved',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-  },
-  {
-    id: 'EXP-001238',
-    categoryRef: 'Utilities · Generator Diesel & Power',
-    amount: 620,
-    timestamp: '24 Sep - 02:30 PM',
-    status: 'Recorded',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri Warehouse',
-  },
-  {
-    id: 'EXP-001235',
-    categoryRef: 'Maintenance · Digital Weigh Scale Calibration',
-    amount: 400,
-    timestamp: '24 Sep - 11:00 AM',
-    status: 'Recorded',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur Market Warehouse',
-  },
-  {
-    id: 'EXP-001230',
-    categoryRef: 'Transport · Inter-warehouse shuttle transfer',
-    amount: 3200,
-    timestamp: '23 Sep - 04:30 PM',
-    status: 'Recorded',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-  },
-  {
-    id: 'EXP-001228',
-    categoryRef: 'Loading / Unloading · Evening shift crates',
-    amount: 1450,
-    timestamp: '23 Sep - 06:15 PM',
-    status: 'Approved',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri Warehouse',
-  },
-  {
-    id: 'EXP-001225',
-    categoryRef: 'Utilities · Cold Storage Electricity Bill',
-    amount: 5100,
-    timestamp: '22 Sep - 10:00 AM',
-    status: 'Recorded',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur Market Warehouse',
-  },
-];
 
 export interface WarehouseExpensesScreenProps extends WarehouseScreenBaseProps {
   onAddExpense?: (() => void) | undefined;
@@ -346,7 +265,7 @@ export function WarehouseExpensesScreen({
   hideWarehouseFilter = false,
 }: WarehouseExpensesScreenProps) {
   const { options: liveWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : DEFAULT_WAREHOUSE_OPTIONS);
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>(FILTER_ALL);
@@ -384,7 +303,7 @@ export function WarehouseExpensesScreen({
     }
   };
 
-  const recordsToFilter = liveExpenses.length > 0 ? liveExpenses : SAMPLE_EXPENSE_RECORDS;
+  const recordsToFilter = liveExpenses;
   const filteredRecords = canLogExpense
     ? recordsToFilter.filter((rec) => {
         // Warehouse filter

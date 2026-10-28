@@ -35,7 +35,7 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { FINANCE_WAREHOUSES, SAMPLE_VOUCHERS } from './fixtures';
+import { FINANCE_WAREHOUSES } from './fixtures';
 import { canSeeVoucherType, FilterIcon, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { useExpenses, useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -190,7 +190,7 @@ export function VouchersScreen({
   }));
 
   const allLiveVouchers = [...liveExpenseVouchers, ...liveRevenueVouchers];
-  const vouchers = initialVouchers ?? (allLiveVouchers.length > 0 ? allLiveVouchers : SAMPLE_VOUCHERS);
+  const vouchers = initialVouchers ?? allLiveVouchers;
 
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
