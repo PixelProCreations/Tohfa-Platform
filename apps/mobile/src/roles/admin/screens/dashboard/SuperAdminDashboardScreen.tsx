@@ -13,6 +13,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 import { Icon } from '@tohfa/mobile-ui';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
 import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
@@ -797,65 +798,47 @@ export function SuperAdminDashboardScreen({
 
               {/* Section 1: System-wide overview */}
               <SectionHeader title="System-wide overview" />
-              <View style={styles.statsGrid}>
-                <View style={styles.statsRow}>
-                  <OverviewCard
-                    iconBox={
-                      <View style={[styles.statIconBox, { backgroundColor: PALETTE.peachIconBg }]}>
-                        <FarmersGridIcon />
-                      </View>
+              <OverviewCardsGrid style={{ marginBottom: 16 }}>
+                <OverviewDashboardCard
+                  value="1,284"
+                  title="Total Farmers"
+                  subtitle="↑ +18 this month"
+                  icon="users"
+                  tone="success"
+                  titlePosition="bottom"
+                  onPress={() => {
+                    if (onNavigate) {
+                      onNavigate('AdminAllFarmers');
+                    } else {
+                      setActiveTab('Farmers');
                     }
-                    value="1,284"
-                    label="Total Farmers"
-                    delta="↑ +18 this month"
-                    deltaColor={PALETTE.greenText}
-                    onPress={() => {
-                      if (onNavigate) {
-                        onNavigate('AdminAllFarmers');
-                      } else {
-                        setActiveTab('Farmers');
-                      }
-                    }}
-                  />
-                  <OverviewCard
-                    iconBox={
-                      <View style={[styles.statIconBox, { backgroundColor: PALETTE.blueIconBg }]}>
-                        <CustomersGridIcon />
-                      </View>
-                    }
-                    value="6,502"
-                    label="Total Customers"
-                    delta="↑ +142 this month"
-                    deltaColor={PALETTE.greenText}
-                  />
-                </View>
-
-                <View style={styles.statsRow}>
-                  <OverviewCard
-                    iconBox={
-                      <View style={[styles.statIconBox, { backgroundColor: PALETTE.greenIconBg }]}>
-                        <RevenueGridIcon />
-                      </View>
-                    }
-                    value="₹18.4L"
-                    label="Revenue (MTD)"
-                    delta="↑ +6.2%"
-                    deltaColor={PALETTE.greenText}
-                  />
-                  <OverviewCard
-                    iconBox={
-                      <View style={[styles.statIconBox, { backgroundColor: PALETTE.amberIconBg }]}>
-                        <WarehouseGridIcon />
-                      </View>
-                    }
-                    value="4 / 4"
-                    valueStyle={styles.italicVal}
-                    label="Warehouses Active"
-                    delta="✓ All operational"
-                    deltaColor={PALETTE.checkGreen}
-                  />
-                </View>
-              </View>
+                  }}
+                />
+                <OverviewDashboardCard
+                  value="6,502"
+                  title="Total Customers"
+                  subtitle="↑ +142 this month"
+                  icon="users"
+                  tone="success"
+                  titlePosition="bottom"
+                />
+                <OverviewDashboardCard
+                  value="₹18.4L"
+                  title="Revenue (MTD)"
+                  subtitle="↑ +6.2%"
+                  icon="sales"
+                  tone="success"
+                  titlePosition="bottom"
+                />
+                <OverviewDashboardCard
+                  value="4 / 4"
+                  title="Warehouses Active"
+                  subtitle="All operational"
+                  icon="box"
+                  tone="success"
+                  titlePosition="bottom"
+                />
+              </OverviewCardsGrid>
 
               {/* Section 2: Needs your approval */}
               <SectionHeader title="Needs your approval" />

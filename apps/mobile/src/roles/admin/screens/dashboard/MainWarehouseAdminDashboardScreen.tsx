@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-import { OverviewDashboardCard } from '../../components';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -1148,28 +1148,33 @@ export function MainWarehouseAdminDashboardScreen({
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Performance</Text>
 
-          <View style={styles.metricsGridCard}>
-            <View style={styles.twoByTwoRow}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Receipts (MTD)</Text>
-                <Text style={styles.twoByTwoVal}>68,400 KG</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Sales (MTD)</Text>
-                <Text style={styles.twoByTwoVal}>₹1,45,10,000</Text>
-              </View>
-            </View>
-            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Quality Issues</Text>
-                <Text style={styles.twoByTwoVal}>18</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Avg Turnaround</Text>
-                <Text style={styles.twoByTwoVal}>2.4 days</Text>
-              </View>
-            </View>
-          </View>
+          <OverviewCardsGrid style={{ marginBottom: adminSpacing.lg }}>
+            <OverviewDashboardCard
+              value="68,400 KG"
+              title="Receipts (MTD)"
+              icon="receiving"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="₹1,45,10,000"
+              title="Sales (MTD)"
+              icon="sales"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="18"
+              title="Quality Issues"
+              icon="alert"
+              tone="warning"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="2.4 days"
+              title="Avg Turnaround"
+              icon="truck"
+              titlePosition="bottom"
+            />
+          </OverviewCardsGrid>
         </ScrollView>
       </View>
     );
@@ -1224,28 +1229,32 @@ export function MainWarehouseAdminDashboardScreen({
         <ScrollView style={styles.scroll} contentContainerStyle={styles.subScrollPad} showsVerticalScrollIndicator={false}>
           <Text style={styles.overviewSectionHeading}>Warehouse Capacity Summary</Text>
 
-          <View style={styles.metricsGridCard}>
-            <View style={styles.twoByTwoRow}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
-                <Text style={styles.twoByTwoVal}>12,840 KG</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
-                <Text style={styles.twoByTwoVal}>4,160 KG</Text>
-              </View>
-            </View>
-            <View style={[styles.twoByTwoRow, { marginTop: 18 }]}>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Storage Areas</Text>
-                <Text style={styles.twoByTwoVal}>28</Text>
-              </View>
-              <View style={styles.twoByTwoCol}>
-                <Text style={styles.twoByTwoLabel}>Utilization</Text>
-                <Text style={styles.twoByTwoVal}>75.5%</Text>
-              </View>
-            </View>
-          </View>
+          <OverviewCardsGrid style={{ marginBottom: adminSpacing.lg }}>
+            <OverviewDashboardCard
+              value="12,840 KG"
+              title="Used Capacity"
+              icon="inventory"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="4,160 KG"
+              title="Available Capacity"
+              icon="box"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="28"
+              title="Storage Areas"
+              icon="receiving"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="75.5%"
+              title="Utilization"
+              icon="truck"
+              titlePosition="bottom"
+            />
+          </OverviewCardsGrid>
         </ScrollView>
       </View>
     );

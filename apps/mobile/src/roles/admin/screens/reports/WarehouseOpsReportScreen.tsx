@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 const PALETTE = {
   pageBg: '#FAF8F5',
@@ -371,59 +372,38 @@ export function WarehouseOpsReportScreen({ onBack }: WarehouseOpsReportScreenPro
         </View>
 
         {/* 4 Metric Cards dynamically matching selected warehouse */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Stock Turnover</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.stockTurnover}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.turnoverTrendType === 'up' ? styles.trendUp : styles.trendDown,
-              ]}
-            >
-              {currentWarehouse.turnoverTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Receiving Volume</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.receivingVolume}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.volumeTrendType === 'up' ? styles.trendUp : styles.trendDown,
-              ]}
-            >
-              {currentWarehouse.volumeTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Rejection Rate</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.rejectionRate}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.rejectionTrendType === 'down' ? styles.trendUp : styles.trendDownAlert,
-              ]}
-            >
-              {currentWarehouse.rejectionTrend}
-            </Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Pending Transfers</Text>
-            <Text style={styles.kpiNumber}>{currentWarehouse.pendingTransfers}</Text>
-            <Text
-              style={[
-                styles.kpiTrend,
-                currentWarehouse.transfersTrendType === 'down' ? styles.trendUp : styles.trendDownAlert,
-              ]}
-            >
-              {currentWarehouse.transfersTrend}
-            </Text>
-          </View>
-        </View>
+        <OverviewCardsGrid style={{ marginBottom: 16 }}>
+          <OverviewDashboardCard
+            value={currentWarehouse.stockTurnover}
+            title="Stock Turnover"
+            subtitle={currentWarehouse.turnoverTrend}
+            icon="inventory"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.receivingVolume}
+            title="Receiving Volume"
+            subtitle={currentWarehouse.volumeTrend}
+            icon="receiving"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.rejectionRate}
+            title="Rejection Rate"
+            subtitle={currentWarehouse.rejectionTrend}
+            icon="alert"
+            tone={currentWarehouse.rejectionTrendType === 'down' ? 'success' : 'danger'}
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value={currentWarehouse.pendingTransfers}
+            title="Pending Transfers"
+            subtitle={currentWarehouse.transfersTrend}
+            icon="truck"
+            tone={currentWarehouse.transfersTrendType === 'down' ? 'default' : 'warning'}
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* Chart: Stock Turnover (Last 6 Months) */}
         <View style={styles.chartCard}>

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 const P = {
   bg: '#FAF8F5',
@@ -870,53 +871,65 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
           })}
         </ScrollView>
 
-        {/* ─── 6 Dynamic KPI Metric Cards ─────────────────────────────────────── */}
-        <View style={styles.kpiGrid}>
+        {/* ─── 6 Dynamic KPI Metric Cards (using reusable OverviewDashboardCard) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: 16 }}>
           {/* 1. New Applications */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>New Applications</Text>
-            <Text style={styles.kpiNumber}>{currentData.newApps}</Text>
-            <Text style={styles.kpiTrendGreen}>{currentData.newAppsTrend}</Text>
-          </View>
+          <OverviewDashboardCard
+            value={currentData.newApps}
+            title="New Applications"
+            subtitle={currentData.newAppsTrend}
+            icon="clipboard"
+            titlePosition="bottom"
+          />
 
           {/* 2. Avg Farm Rating */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Average Farm Rating</Text>
-            <Text style={styles.kpiNumber}>
-              {currentData.avgRating}
-              <Text style={styles.kpiSubNumber}>{currentData.avgRatingSub}</Text>
-            </Text>
-            <Text style={styles.kpiTrendGreen}>{currentData.ratingTrend}</Text>
-          </View>
+          <OverviewDashboardCard
+            value={`${currentData.avgRating}${currentData.avgRatingSub || ''}`}
+            title="Average Farm Rating"
+            subtitle={currentData.ratingTrend}
+            icon="orders"
+            tone="success"
+            titlePosition="bottom"
+          />
 
           {/* 3. Approved Listings */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Approved Listings</Text>
-            <Text style={styles.kpiNumber}>{currentData.approvedListings}</Text>
-            <Text style={styles.kpiTrendGreen}>{currentData.approvedTrend}</Text>
-          </View>
+          <OverviewDashboardCard
+            value={currentData.approvedListings}
+            title="Approved Listings"
+            subtitle={currentData.approvedTrend}
+            icon="box"
+            tone="success"
+            titlePosition="bottom"
+          />
 
           {/* 4. Active Farmers */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Active Farmers</Text>
-            <Text style={styles.kpiNumber}>{currentData.activeFarmers}</Text>
-            <Text style={styles.kpiTrendGreen}>{currentData.activeTrend}</Text>
-          </View>
+          <OverviewDashboardCard
+            value={currentData.activeFarmers}
+            title="Active Farmers"
+            subtitle={currentData.activeTrend}
+            icon="users"
+            titlePosition="bottom"
+          />
 
           {/* 5. Total Payouts Disbursed */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Payouts Disbursed</Text>
-            <Text style={styles.kpiNumber}>{currentData.payoutsDisbursed}</Text>
-            <Text style={styles.kpiTrendGreen}>{currentData.payoutsTrend}</Text>
-          </View>
+          <OverviewDashboardCard
+            value={currentData.payoutsDisbursed}
+            title="Payouts Disbursed"
+            subtitle={currentData.payoutsTrend}
+            icon="sales"
+            titlePosition="bottom"
+          />
 
           {/* 6. Organic Certified */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiLabel}>Organic Certified</Text>
-            <Text style={styles.kpiNumber}>{currentData.organicCert}</Text>
-            <Text style={styles.kpiTrendSub}>{currentData.organicTrend}</Text>
-          </View>
-        </View>
+          <OverviewDashboardCard
+            value={currentData.organicCert}
+            title="Organic Certified"
+            subtitle={currentData.organicTrend}
+            icon="receiving"
+            tone="success"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Chart 1: Application Trend ─────────────────────────────────────── */}
         <View style={styles.chartCard}>

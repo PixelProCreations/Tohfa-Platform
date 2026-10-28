@@ -21,6 +21,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 export interface AdminOperationsOverviewScreenProps {
   initialViewMode?: 'overview' | 'warehouses';
@@ -742,62 +743,53 @@ export function AdminOperationsOverviewScreen({
           </TouchableOpacity>
         </View>
 
-        {/* 6 Metric Cards in 2x3 Grid */}
-        <View style={styles.metricsGrid}>
-          <TouchableOpacity
-            style={styles.metricCard}
+        {/* 6 Metric Cards in 2x3 Grid using reusable OverviewDashboardCard */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.lg }}>
+          <OverviewDashboardCard
+            value="4,810 kg"
+            title="Total Available Stock"
+            subtitle="Available in warehouse"
+            icon="inventory"
             onPress={onNavigateToStockLedger}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricValue}>4,810 kg</Text>
-            <Text style={styles.metricLabel}>Total Available Stock</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="11"
+            title="Inventory Batches"
+            subtitle="Across active nodes"
+            icon="box"
             onPress={onNavigateToStockLedger}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricValue}>11</Text>
-            <Text style={styles.metricLabel}>Inventory Batches</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="05"
+            title="Low Stock Items"
+            subtitle="Needs attention"
+            icon="box"
+            tone="danger"
             onPress={onNavigateToStockLedger}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricValue}>Not configured</Text>
-            <Text style={styles.metricLabel}>Low-Stock Items</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="05"
+            title="Pending Verification"
+            subtitle="Awaiting QC check"
+            icon="receiving"
             onPress={onNavigateToStockVerification}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricValue}>5</Text>
-            <Text style={styles.metricLabel}>Pending Verification</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="02"
+            title="Pending Transfer Receipts"
+            subtitle="In transit"
+            icon="truck"
             onPress={onNavigateToTransfers}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricValue}>2</Text>
-            <Text style={styles.metricLabel}>Pending Transfer Receipts</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="01"
+            title="Stock Discrepancies"
+            subtitle="Needs reconciliation"
+            icon="alert"
+            tone="warning"
             onPress={onNavigateToStockVerification}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.metricValue}>1</Text>
-            <Text style={styles.metricLabel}>Stock Discrepancies</Text>
-          </TouchableOpacity>
-        </View>
+          />
+        </OverviewCardsGrid>
 
         {/* Warehouse comparison Section Heading */}
         <Text style={styles.sectionTitleBrown}>Warehouse comparison</Text>

@@ -18,6 +18,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -411,32 +412,35 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 4 Summary Metric Cards (2x2 Grid matching Screenshots) ─── */}
-        <View style={styles.metricsGrid}>
-          {/* Card 1: ALL FARMERS */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>ALL FARMERS</Text>
-            <Text style={[styles.metricValue, { color: adminColors.ink }]}>245</Text>
-          </View>
-
-          {/* Card 2: ACTIVE */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>ACTIVE</Text>
-            <Text style={[styles.metricValue, { color: adminColors.success.text }]}>221</Text>
-          </View>
-
-          {/* Card 3: PENDING APPROVEL */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>PENDING APPROVEL</Text>
-            <Text style={[styles.metricValue, { color: adminColors.warning.text }]}>12</Text>
-          </View>
-
-          {/* Card 4: INACTIVE */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>INACTIVE</Text>
-            <Text style={[styles.metricValue, { color: adminColors.ink }]}>12</Text>
-          </View>
-        </View>
+        {/* ─── 4 Summary Metric Cards (using reusable OverviewDashboardCard) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewDashboardCard
+            value="245"
+            title="All Farmers"
+            icon="users"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="221"
+            title="Active"
+            icon="users"
+            tone="success"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="12"
+            title="Pending Approval"
+            icon="clipboard"
+            tone="warning"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="12"
+            title="Inactive"
+            icon="alert"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* ─── Tab Switcher: [Farmers] | [Applications] ─── */}
         <View style={styles.tabToggleContainer}>

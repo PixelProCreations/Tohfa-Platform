@@ -182,29 +182,37 @@ export function MarketPricingHomeScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* KPI Cards (2x2 Grid Matching Image 1) */}
-        <View style={styles.kpiGrid}>
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>ACTIVE FAIR PRICES</Text>
-              <Text style={styles.kpiValue}>124</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PRODUCT CATEGORIES</Text>
-              <Text style={styles.kpiValue}>12</Text>
-            </View>
-          </View>
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>PRICE UPDATES</Text>
-              <Text style={styles.kpiValue}>18</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>RETAIL PRICE RECORDS</Text>
-              <Text style={styles.kpiValue}>124</Text>
-            </View>
-          </View>
-        </View>
+        {/* KPI Cards (2x2 Grid using reusable OverviewDashboardCard) */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.lg }}>
+          <OverviewDashboardCard
+            value="124"
+            title="Active Fair Prices"
+            icon="sales"
+            titlePosition="bottom"
+            onPress={onNavigateToFairPrice}
+          />
+          <OverviewDashboardCard
+            value="12"
+            title="Product Categories"
+            icon="inventory"
+            titlePosition="bottom"
+            onPress={onNavigateToCategories}
+          />
+          <OverviewDashboardCard
+            value="18"
+            title="Price Updates"
+            icon="orders"
+            titlePosition="bottom"
+            onPress={onNavigateToPriceHistory}
+          />
+          <OverviewDashboardCard
+            value="124"
+            title="Retail Price Records"
+            icon="cash"
+            titlePosition="bottom"
+            onPress={onNavigateToRetailPricing}
+          />
+        </OverviewCardsGrid>
 
         {/* Section 1: Current Market Snapshot */}
         <Text style={styles.sectionHeading}>Current Market Snapshot</Text>
