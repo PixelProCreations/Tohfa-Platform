@@ -182,29 +182,29 @@ export function MarketPricingHomeScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* KPI Cards (2x2 Grid - Static) */}
-        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
-          <OverviewDashboardCard
-            value="124"
-            title="Active fair prices"
-            icon="sales"
-          />
-          <OverviewDashboardCard
-            value="12"
-            title="Product categories"
-            icon="box"
-          />
-          <OverviewDashboardCard
-            value="18"
-            title="Price updates"
-            icon="receiving"
-          />
-          <OverviewDashboardCard
-            value="124"
-            title="Retail price records"
-            icon="cash"
-          />
-        </OverviewCardsGrid>
+        {/* KPI Cards (2x2 Grid Matching Image 1) */}
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>ACTIVE FAIR PRICES</Text>
+              <Text style={styles.kpiValue}>124</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>PRODUCT CATEGORIES</Text>
+              <Text style={styles.kpiValue}>12</Text>
+            </View>
+          </View>
+          <View style={styles.kpiRow}>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>PRICE UPDATES</Text>
+              <Text style={styles.kpiValue}>18</Text>
+            </View>
+            <View style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>RETAIL PRICE RECORDS</Text>
+              <Text style={styles.kpiValue}>124</Text>
+            </View>
+          </View>
+        </View>
 
         {/* Section 1: Current Market Snapshot */}
         <Text style={styles.sectionHeading}>Current Market Snapshot</Text>
@@ -299,29 +299,14 @@ export function MarketPricingHomeScreen({
           </View>
         </View>
 
-        <View style={[styles.recentPriceCard, { marginTop: adminSpacing.md }]}>
-          <View style={styles.recentCardHeader}>
-            <Text style={styles.recentCropTitle}>Cabbage · Grade 2</Text>
-            <View style={styles.activePill}>
-              <Text style={styles.activePillText}>Active</Text>
-            </View>
-          </View>
-
-          <View style={styles.priceColsRow}>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Fair Price</Text>
-              <Text style={styles.priceColValue}>₹60/kg</Text>
-            </View>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Retail Price</Text>
-              <Text style={styles.priceColValue}>₹75/kg</Text>
-            </View>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Effective</Text>
-              <Text style={styles.priceColValue}>29 Sep</Text>
-            </View>
-          </View>
-        </View>
+        {/* View History Button Matching Image 2 */}
+        <TouchableOpacity
+          style={styles.viewHistoryBtn}
+          onPress={onNavigateToPriceHistory}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.viewHistoryBtnText}>View History</Text>
+        </TouchableOpacity>
 
         {/* Section 3: Quick Actions 2x2 Grid */}
         <Text style={styles.sectionHeading}>{t('marketPricingHome.section.quickActions')}</Text>
@@ -368,7 +353,13 @@ export function MarketPricingHomeScreen({
           </View>
         </View>
 
-
+        {/* Callout Disclaimer Box Matching Image 2 */}
+        <View style={styles.disclaimerCard}>
+          <BlockCircleIcon size={18} color={adminColors.muted} />
+          <Text style={styles.disclaimerText}>
+            Fair-price ceiling setting is Super Admin only. Retail-price setting is not available to Farmer Admin. Nothing in this module can be edited.
+          </Text>
+        </View>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>

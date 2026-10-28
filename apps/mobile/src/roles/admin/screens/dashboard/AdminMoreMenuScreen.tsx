@@ -190,12 +190,11 @@ interface MenuItemConfig {
 
 const MENU_ITEMS: MenuItemConfig[] = [
   { id: 'farmers', label: 'Farmers Management', icon: <FarmersManagementIcon /> },
-  { id: 'produce', label: 'Produce control', icon: <ProduceControlIcon /> },
+  { id: 'produce', label: 'Produce Calendar', icon: <ProduceControlIcon /> },
   { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },
   { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
   { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
   { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
-  { id: 'finance', label: 'Accounts & Finance', icon: <AccountsFinanceIcon /> },
   { id: 'workforce', label: 'Workforce & Staff', icon: <WorkforceStaffIcon /> },
   { id: 'notifications', label: 'Notifications & Reports', icon: <NotificationsReportsIcon /> },
   { id: 'community', label: 'Community & Knowledge Management', icon: <CommunityIcon /> },

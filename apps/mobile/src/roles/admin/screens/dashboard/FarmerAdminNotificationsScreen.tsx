@@ -950,10 +950,10 @@ export function FarmerAdminNotificationsScreen({
             onPress={() => onTabChange?.('Produce')}
             activeOpacity={0.75}
             accessibilityRole="tab"
-            accessibilityLabel="Produce"
+            accessibilityLabel="Produce Calendar"
           >
             <TabProduceIcon active={false} />
-            <Text style={styles.tabLabel}>Produce</Text>
+            <Text style={styles.tabLabel} numberOfLines={1}>Produce Calendar</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

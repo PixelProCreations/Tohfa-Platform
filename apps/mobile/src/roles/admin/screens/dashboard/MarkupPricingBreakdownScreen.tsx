@@ -189,7 +189,20 @@ export function MarkupPricingBreakdownScreen({
           ))}
         </View>
 
+        {/* Note: Configured Expense Types */}
+        <View style={styles.noticeBanner}>
+          <Text style={styles.noticeBannerText}>
+            Only expense types actually configured in the system are shown here — no invented categories.
+          </Text>
+        </View>
 
+        {/* Read-Only Disclaimer Callout */}
+        <View style={styles.disclaimerCard}>
+          <BlockCircleIcon size={18} color={adminColors.muted} />
+          <Text style={styles.disclaimerText}>
+            Read-only pricing explanation — no Edit Markup, Edit Expenses, Set Retail Price, or Override Fair Price Ceiling anywhere.
+          </Text>
+        </View>
 
         <View style={{ height: adminSpacing.xxl }} />
       </ScrollView>

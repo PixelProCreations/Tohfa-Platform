@@ -1101,6 +1101,10 @@ export default function App(): React.JSX.Element {
         setHistory((prev) => [...prev, { screen, params: historyParams, tab: currentTab }]);
       }
 
+      if (nextScreen === 'MainTabs') {
+        setCurrentTab('Home');
+      }
+
       setParams(nextParams);
       setScreen(nextScreen);
     },
@@ -1364,6 +1368,10 @@ export default function App(): React.JSX.Element {
             <FarmerAdminDashboardScreen
               onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
+              onSwitchRole={() => {
+                setCurrentTab('Home');
+                navigate('MainTabs');
+              }}
             />
           ) : adminShell === 'MAIN_WH_ADMIN' ? (
             <MainWarehouseAdminDashboardScreen
@@ -1410,6 +1418,10 @@ export default function App(): React.JSX.Element {
           <FarmerAdminDashboardScreen
             onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
+            onSwitchRole={() => {
+              setCurrentTab('Home');
+              navigate('MainTabs');
+            }}
           />
         ) : screen === 'MainWarehouseAdminDashboard' ? (
           <MainWarehouseAdminDashboardScreen
@@ -2088,6 +2100,7 @@ export default function App(): React.JSX.Element {
         ) : screen === 'AdminAllFarmers' ? (
           <AdminAllFarmersScreen
             onBack={goBack}
+            initialTab={(params?.['initialTab'] as any) ?? 'farmers'}
             onNavigateTab={(tab) => {
               if (tab === 'Dashboard') {
                 navigate('TohfaAdminDashboard');
@@ -2103,6 +2116,10 @@ export default function App(): React.JSX.Element {
               setSelectedAdminFarmer(f);
               setAdminFarmerActiveTab('Overview');
               navigate('AdminFarmerDetail');
+            }}
+            onReviewApplication={(app) => {
+              setSelectedPendingApp(app as any);
+              navigate('AdminApplicationDetail');
             }}
           />
         ) : screen === 'AdminFarmerDetail' ? (

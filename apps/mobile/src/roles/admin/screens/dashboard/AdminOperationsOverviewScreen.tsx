@@ -13,16 +13,22 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import {
+  ADMIN_BUTTON_HEIGHT,
   adminColors,
   adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
+  adminType,
 } from '../../theme';
 
 export interface AdminOperationsOverviewScreenProps {
+  initialViewMode?: 'overview' | 'warehouses';
   onBack?: () => void;
   onExportReports?: () => void;
+  onNavigateToFarmers?: () => void;
+  onNavigateToApplications?: () => void;
+  onNavigateToProduce?: () => void;
   onNavigateToStockLedger?: () => void;
   onNavigateToStockVerification?: () => void;
   onNavigateToTransfers?: () => void;
@@ -31,7 +37,40 @@ export interface AdminOperationsOverviewScreenProps {
   onSelectWarehouse?: (warehouseId: string) => void;
 }
 
-// ─── Header & Section Icons ──────────────────────────────────────────────────
+// ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M19 12H5M12 19l-7-7 7-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FilterSlidersWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Line x1="4" y1="21" x2="4" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="4" y1="10" x2="4" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="12" y1="21" x2="12" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="12" y1="8" x2="12" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="20" y1="21" x2="20" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="20" y1="12" x2="20" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="1" y1="14" x2="7" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="9" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="17" y1="16" x2="23" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ClockOrangeIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 function WarehouseHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -99,15 +138,10 @@ function SearchGrayIcon({ size = 18, color = '#6B7280' }: { size?: number; color
 function FilterSlidersOrangeIcon({ size = 18, color = '#D97736' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top track & pip */}
       <Line x1="3" y1="6.5" x2="21" y2="6.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="15" y1="4" x2="15" y2="9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-
-      {/* Middle track & pip */}
       <Line x1="3" y1="12" x2="21" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="8" y1="9.5" x2="8" y2="14.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-
-      {/* Bottom track & pip */}
       <Line x1="3" y1="17.5" x2="21" y2="17.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="16" y1="15" x2="16" y2="20" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
@@ -117,11 +151,8 @@ function FilterSlidersOrangeIcon({ size = 18, color = '#D97736' }: { size?: numb
 function StockLedgerBoxIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top lid wider than box */}
       <Rect x="4" y="4.5" width="16" height="4.5" rx="1.2" stroke={color} strokeWidth="2" fill="none" />
-      {/* Box body */}
       <Rect x="5" y="9" width="14" height="11" rx="1.2" stroke={color} strokeWidth="2" fill="none" />
-      {/* Center slot handle */}
       <Line x1="10" y1="13" x2="14" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
@@ -130,12 +161,9 @@ function StockLedgerBoxIcon({ size = 26, color = adminColors.brand }: { size?: n
 function StockVerificationCheckIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Outer rounded card */}
       <Rect x="3.5" y="4" width="17" height="15.5" rx="2.5" stroke={color} strokeWidth="1.8" fill="none" />
-      {/* 2 checklist lines on left */}
       <Line x1="6.5" y1="9" x2="10" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Line x1="6.5" y1="13.5" x2="10" y2="13.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      {/* Checkmark on right */}
       <Path
         d="M13 11.5L15 13.5L18.8 9.2"
         stroke={color}
@@ -150,24 +178,10 @@ function StockVerificationCheckIcon({ size = 24, color = adminColors.brand }: { 
 function InterWarehouseArrowsIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top arrow pointing right */}
       <Line x1="7" y1="8.5" x2="17" y2="8.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Path
-        d="M13.5 5.2L17 8.5L13.5 11.8"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Bottom arrow pointing left */}
+      <Path d="M13.5 5.2L17 8.5L13.5 11.8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
       <Line x1="17" y1="15.5" x2="7" y2="15.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Path
-        d="M10.5 12.2L7 15.5L10.5 18.8"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <Path d="M10.5 12.2L7 15.5L10.5 18.8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -175,6 +189,12 @@ function InterWarehouseArrowsIcon({ size = 24, color = adminColors.brand }: { si
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function AdminOperationsOverviewScreen({
+  initialViewMode = 'warehouses',
+  onBack,
+  onExportReports,
+  onNavigateToFarmers,
+  onNavigateToApplications,
+  onNavigateToProduce,
   onNavigateToStockLedger,
   onNavigateToStockVerification,
   onNavigateToTransfers,
@@ -182,10 +202,10 @@ export function AdminOperationsOverviewScreen({
   onPlusAction,
   onSelectWarehouse,
 }: AdminOperationsOverviewScreenProps) {
+  const [viewMode, setViewMode] = useState<'overview' | 'warehouses'>(initialViewMode);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState('All Warehouses');
-  const [draftWarehouseFilter, setDraftWarehouseFilter] = useState('All Warehouses');
 
   // Warehouse items fixture in state for interactive actions
   const [warehouseList, setWarehouseList] = useState([
@@ -194,7 +214,7 @@ export function AdminOperationsOverviewScreen({
       title: 'Ooty (WH-MAIN)',
       status: 'Active' as 'Active' | 'Pending',
       failedLoad: false,
-      line1: 'Capacity/utilization 50,000 kg · 42% · Products 5 · Batches 4',
+      line1: 'Capacity/utilization: 50,000 kg · 42% · Products 5 · Batches 4',
       line2: 'Available 1,980 kg · Pending receipts 1 · Transfers 1',
       line3: 'Open discrepancies 0 · Updated 13 Oct 2026, 09:00',
     },
@@ -203,7 +223,7 @@ export function AdminOperationsOverviewScreen({
       title: 'Coonoor (WH-SUB1)',
       status: 'Active' as 'Active' | 'Pending',
       failedLoad: false,
-      line1: 'Capacity/utilization 40,000 kg · 38% · Products 4 · Batches 3',
+      line1: 'Capacity/utilization: 40,000 kg · 38% · Products 4 · Batches 3',
       line2: 'Available 1,520 kg · Pending receipts 1 · Transfers 0',
       line3: 'Open discrepancies 1 · Updated 13 Oct 2026, 09:00',
     },
@@ -217,13 +237,13 @@ export function AdminOperationsOverviewScreen({
       line3: 'Pending receipts 0 · Transfers 0 · Open discrepancies 0',
     },
     {
-      id: 'wh-gudalur',
-      title: 'Gudalur Market (WH-SUB3)',
+      id: 'wh-sholur',
+      title: 'Sholur Market (WH-SUB3)',
       status: 'Active' as 'Active' | 'Pending',
       failedLoad: false,
-      line1: 'Capacity/utilization 20,000 kg · 28% · Products 2 · Batches 2',
-      line2: 'Available 550 kg · Pending receipts 0 · Transfers 0',
-      line3: 'Open discrepancies 0 · Updated 12 Oct 2026, 18:00',
+      line1: 'Capacity/utilization: 20,000 kg · 28% · Products 3 · Batches 2',
+      line2: 'Available 650 kg · Pending receipts 0 · Transfers 2',
+      line3: 'Open discrepancies 0 · Updated 13 Oct 2026, 09:00',
     },
   ]);
 
@@ -235,7 +255,7 @@ export function AdminOperationsOverviewScreen({
               ...w,
               status: 'Active' as const,
               failedLoad: false,
-              line1: 'Capacity/utilization 35,000 kg · 30% · Products 3 · Batches 2',
+              line1: 'Capacity/utilization: 35,000 kg · 30% · Products 3 · Batches 2',
               line2: 'Available 1,100 kg · Pending receipts 0 · Transfers 0',
               line3: 'Open discrepancies 0 · Updated Just now',
             }
@@ -248,8 +268,15 @@ export function AdminOperationsOverviewScreen({
     );
   };
 
-  const handleCancelKotagiri = () => {
-    Alert.alert('Action Cancelled', 'No changes made to Kotagiri warehouse status.');
+  const handleExport = () => {
+    if (onExportReports) {
+      onExportReports();
+    } else {
+      Alert.alert(
+        'Export Reports',
+        'Operational overview reports exported successfully in PDF and Excel formats.'
+      );
+    }
   };
 
   const filteredWarehouses = useMemo(() => {
@@ -267,20 +294,402 @@ export function AdminOperationsOverviewScreen({
     );
   }, [searchQuery, warehouseList, selectedWarehouseFilter]);
 
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW 1: OPERATIONS OVERVIEW (M1-S04, exact match to Image 1 Left)
+  // ══════════════════════════════════════════════════════════════════════════
+  if (viewMode === 'overview') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* Header Banner matching Image 1 Left */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              style={styles.headerBackBtn}
+              onPress={onBack}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Home"
+            >
+              <BackArrowWhiteIcon />
+              <Text style={styles.headerTitle}>Operations Overview</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.headerFilterBtn}
+              onPress={() => setShowFilterModal(true)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Filter operations"
+            >
+              <FilterSlidersWhiteIcon />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Section A: Farmers and compliance ── */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeading}>A · Farmers and compliance</Text>
+
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={onNavigateToFarmers}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.rowLabel}>Total farmers</Text>
+                <Text style={styles.rowValue}>24</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                style={styles.row}
+                onPress={onNavigateToFarmers}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.rowLabel}>Active / inactive / terminated</Text>
+                <Text style={styles.rowValue}>20 / 2 / 2</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                style={styles.row}
+                onPress={onNavigateToApplications}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.rowLabel, { color: adminColors.brand, fontWeight: '600' }]}>
+                  Applications awaiting decision
+                </Text>
+                <Text style={[styles.rowValue, { color: adminColors.brand }]}>4 →</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>KYC verified / review required</Text>
+                <Text style={styles.rowValue}>22 / 2</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Audits upcoming / overdue</Text>
+                <Text style={styles.rowValue}>2 / 1</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Certification expired / expiring soon</Text>
+                <Text style={styles.rowValue}>1 / 3</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Section B: Produce and crop operations ── */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeading}>B · Produce and crop operations</Text>
+
+            {/* Listings Card */}
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={onNavigateToProduce}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.rowLabel}>Listings (all statuses)</Text>
+                <Text style={styles.rowValue}>10</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Pending Review</Text>
+                <Text style={styles.rowValue}>5</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Approved</Text>
+                <Text style={styles.rowValue}>4</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Rejected</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+            </View>
+
+            {/* By Crop */}
+            <Text style={styles.subHeading}>By crop</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Beans</Text>
+                <Text style={styles.rowValue}>2</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Cabbage</Text>
+                <Text style={styles.rowValue}>2</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Carrot</Text>
+                <Text style={styles.rowValue}>2</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Garlic</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Potato</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Tomato</Text>
+                <Text style={styles.rowValue}>2</Text>
+              </View>
+            </View>
+
+            {/* By Zone */}
+            <Text style={styles.subHeading}>By zone</Text>
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Coonoor</Text>
+                <Text style={styles.rowValue}>4</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Gudalur</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Kotagiri</Text>
+                <Text style={styles.rowValue}>2</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Ooty</Text>
+                <Text style={styles.rowValue}>3</Text>
+              </View>
+            </View>
+
+            <Text style={styles.subNote}>
+              Filters applied here: Zone, Farmer, Crop. Listings are current, so the date range does not apply.
+            </Text>
+          </View>
+
+          {/* ── Section C: Purchase and receiving ── */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeading}>C · Purchase and receiving</Text>
+
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Purchase orders in the selection</Text>
+                <Text style={styles.rowValue}>3</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Awaiting Processing</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Awaiting Receipt</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Received</Text>
+                <Text style={styles.rowValue}>0</Text>
+              </View>
+              <View style={styles.divider} />
+
+              <View style={styles.row}>
+                <Text style={styles.rowLabel}>Quality Approved</Text>
+                <Text style={styles.rowValue}>1</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* ── Section D: Warehouse overview ── */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.warehouseSectionTitleRow}>
+              <Text style={styles.sectionHeading}>D · Warehouse overview</Text>
+              <TouchableOpacity
+                onPress={() => setViewMode('warehouses')}
+                activeOpacity={0.7}
+                style={styles.manageWarehousesBtn}
+              >
+                <Text style={styles.manageWarehousesBtnText}>Manage Warehouses →</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Ooty */}
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => setViewMode('warehouses')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.warehouseTopRow}>
+                <Text style={styles.warehouseTitle}>Ooty (WH-MAIN)</Text>
+                <View style={styles.badgeActive}>
+                  <Text style={styles.badgeActiveText}>Active</Text>
+                </View>
+              </View>
+
+              <View style={styles.warehouseStatsGrid}>
+                <View style={styles.statCol}>
+                  <Text style={styles.statLabel}>Available stock</Text>
+                  <Text style={styles.statValue}>1,980 KG</Text>
+                </View>
+                <View style={styles.statCol}>
+                  <Text style={styles.statLabel}>Incoming goods</Text>
+                  <Text style={styles.statValue}>1</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Coonoor */}
+            <TouchableOpacity
+              style={[styles.card, { marginTop: adminSpacing.sm }]}
+              onPress={() => setViewMode('warehouses')}
+              activeOpacity={0.8}
+            >
+              <View style={styles.warehouseTopRow}>
+                <Text style={styles.warehouseTitle}>Coonoor (WH-SUB1)</Text>
+                <View style={styles.badgeActive}>
+                  <Text style={styles.badgeActiveText}>Active</Text>
+                </View>
+              </View>
+
+              <View style={styles.warehouseStatsGrid}>
+                <View style={styles.statCol}>
+                  <Text style={styles.statLabel}>Available stock</Text>
+                  <Text style={styles.statValue}>1,520 KG</Text>
+                </View>
+                <View style={styles.statCol}>
+                  <Text style={styles.statLabel}>Incoming goods</Text>
+                  <Text style={styles.statValue}>1</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── Section E: Recent administrative activity ── */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionHeading}>E · Recent administrative activity</Text>
+
+            {[
+              {
+                id: '1',
+                title: 'Quality check completed',
+                meta: 'Ooty · Lot PO-2026-00307',
+                actor: 'Ramesh K. · Approved',
+              },
+              {
+                id: '2',
+                title: 'Audit completed',
+                meta: 'AUD-2026-0056 · 8 Oct 2026',
+                actor: 'Auditor · Completed',
+              },
+              {
+                id: '3',
+                title: 'Farmer application reviewed',
+                meta: 'APP-2026-0101 · 5 Oct 2026',
+                actor: 'Priya Nair · Pending',
+              },
+            ].map((item) => (
+              <View key={item.id} style={styles.activityItemRow}>
+                <ClockOrangeIcon />
+                <View style={styles.activityContentCol}>
+                  <Text style={styles.activityTitle}>{item.title}</Text>
+                  <Text style={styles.activityMeta}>{item.meta}</Text>
+                  <Text style={styles.activityActor}>{item.actor}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Export Reports Button in Brand Orange #F0562A ── */}
+          <View style={styles.exportButtonContainer}>
+            <TouchableOpacity style={styles.exportButton} onPress={handleExport} activeOpacity={0.8}>
+              <Text style={styles.exportButtonText}>Export reports</Text>
+            </TouchableOpacity>
+            <Text style={styles.footerCaption}>M1-S04 · Operations Overview</Text>
+          </View>
+
+          <View style={{ height: adminSpacing.xxxl }} />
+        </ScrollView>
+
+        {/* Filter Modal */}
+        <Modal
+          visible={showFilterModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowFilterModal(false)}
+          >
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Filter Operations</Text>
+              {['All Warehouses', 'Ooty Warehouse', 'Coonoor Warehouse', 'Kotagiri Warehouse', 'Gudalur Market'].map((wh) => (
+                <TouchableOpacity
+                  key={wh}
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setSelectedWarehouseFilter(wh);
+                    setShowFilterModal(false);
+                  }}
+                >
+                  <Text style={[styles.modalOptionText, selectedWarehouseFilter === wh && styles.modalOptionTextSelected]}>
+                    {wh}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      </SafeAreaView>
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // VIEW 2: WAREHOUSES & INVENTORY MANAGEMENT VIEW
+  // ══════════════════════════════════════════════════════════════════════════
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ── Header Banner (Exact match to Images 1 & 3) ── */}
+      {/* Header Banner matching Screenshot 1 */}
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
-          {/* Left: Building icon + Inventory & Warehouse title */}
-          <View style={styles.headerLeftGroup}>
-            <WarehouseHeaderIcon size={24} color={adminColors.onBrand} />
+          <View style={styles.headerTitleGroup}>
+            <WarehouseHeaderIcon size={22} color={adminColors.onBrand} />
             <Text style={styles.headerTitle}>Inventory & Warehouse</Text>
           </View>
 
-          {/* Right: Plus Icon Button (Static as requested in Image 3) + Notification Bell */}
           <View style={styles.headerRightGroup}>
             <TouchableOpacity
               style={styles.headerCircleBtn}
@@ -314,7 +723,7 @@ export function AdminOperationsOverviewScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Search Bar with Filter Sliders Icon (Matching Image 1 & 3) ── */}
+        {/* Search Bar */}
         <View style={styles.searchBarContainer}>
           <SearchGrayIcon size={18} color="#9E9E9E" />
           <TextInput
@@ -326,79 +735,96 @@ export function AdminOperationsOverviewScreen({
           />
           <TouchableOpacity
             style={styles.searchFilterBtn}
-            onPress={() => {
-              setDraftWarehouseFilter(selectedWarehouseFilter);
-              setShowFilterModal(true);
-            }}
-            activeOpacity={0.7}
-            accessibilityLabel="Filter"
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}
           >
-            <FilterSlidersOrangeIcon size={18} color={adminColors.brand} />
+            <FilterSlidersOrangeIcon size={18} />
           </TouchableOpacity>
         </View>
 
-        {/* ── 6 Summary Metric Cards (Matching Images 1 & 3) ── */}
-        <View style={styles.kpiGridContainer}>
-          {/* Row 1 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValueText}>4,810 kg</Text>
-              <Text style={styles.kpiLabelText}>Total Available Stock</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValueText}>11</Text>
-              <Text style={styles.kpiLabelText}>Inventory Batches</Text>
-            </View>
-          </View>
+        {/* 6 Metric Cards in 2x3 Grid */}
+        <View style={styles.metricsGrid}>
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={onNavigateToStockLedger}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.metricValue}>4,810 kg</Text>
+            <Text style={styles.metricLabel}>Total Available Stock</Text>
+          </TouchableOpacity>
 
-          {/* Row 2 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={[styles.kpiValueText, styles.kpiValueSmall]}>Not configured</Text>
-              <Text style={styles.kpiLabelText}>Low-Stock Items</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValueText}>5</Text>
-              <Text style={styles.kpiLabelText}>Pending Verification</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={onNavigateToStockLedger}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.metricValue}>11</Text>
+            <Text style={styles.metricLabel}>Inventory Batches</Text>
+          </TouchableOpacity>
 
-          {/* Row 3 */}
-          <View style={styles.kpiRow}>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValueText}>2</Text>
-              <Text style={styles.kpiLabelText}>Pending Transfer Receipts</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiValueText}>1</Text>
-              <Text style={styles.kpiLabelText}>Stock Discrepancies</Text>
-            </View>
-          </View>
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={onNavigateToStockLedger}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.metricValue}>Not configured</Text>
+            <Text style={styles.metricLabel}>Low-Stock Items</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={onNavigateToStockVerification}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.metricValue}>5</Text>
+            <Text style={styles.metricLabel}>Pending Verification</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={onNavigateToTransfers}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.metricValue}>2</Text>
+            <Text style={styles.metricLabel}>Pending Transfer Receipts</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.metricCard}
+            onPress={onNavigateToStockVerification}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.metricValue}>1</Text>
+            <Text style={styles.metricLabel}>Stock Discrepancies</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* ── Warehouse comparison (Matching Images 1 & 3) ── */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>Warehouse comparison</Text>
+        {/* Warehouse comparison Section Heading */}
+        <Text style={styles.sectionTitleBrown}>Warehouse comparison</Text>
 
+        {/* Active Warehouse Cards */}
+        <View style={styles.whListSection}>
           {filteredWarehouses.map((wh) => (
             <TouchableOpacity
               key={wh.id}
-              style={styles.warehouseCompareCard}
-              onPress={() => onSelectWarehouse?.(wh.id)}
-              activeOpacity={0.9}
+              style={[styles.whCard, wh.failedLoad && styles.whCardPending]}
+              onPress={() => {
+                if (onSelectWarehouse) onSelectWarehouse(wh.id);
+              }}
+              activeOpacity={0.8}
             >
-              <View style={styles.compareHeaderRow}>
-                <Text style={styles.compareTitle}>{wh.title}</Text>
+              <View style={styles.whCardHeader}>
+                <Text style={styles.whCardTitle}>{wh.title}</Text>
                 <View
                   style={[
-                    styles.badge,
-                    wh.status === 'Active' ? styles.badgeActive : styles.badgePending,
+                    styles.whStatusBadge,
+                    wh.status === 'Active' ? styles.whStatusActive : styles.whStatusPending,
                   ]}
                 >
                   <Text
                     style={[
-                      styles.badgeText,
-                      wh.status === 'Active' ? styles.badgeActiveText : styles.badgePendingText,
+                      styles.whStatusText,
+                      wh.status === 'Active' ? styles.whStatusTextActive : styles.whStatusTextPending,
                     ]}
                   >
                     {wh.status}
@@ -406,85 +832,76 @@ export function AdminOperationsOverviewScreen({
                 </View>
               </View>
 
-              {wh.failedLoad ? (
-                <>
-                  <Text style={styles.compareFailedLine}>{wh.line1}</Text>
-                  <Text style={styles.compareLine}>{wh.line2}</Text>
-                  <Text style={styles.compareMetaLine}>{wh.line3}</Text>
-                  <View style={styles.compareActionsRow}>
-                    <TouchableOpacity
-                      style={styles.activateWhBtn}
-                      onPress={handleActivateKotagiri}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.activateWhBtnText}>Active warehouse</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.cancelWhBtn}
-                      onPress={handleCancelKotagiri}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.cancelWhBtnText}>Cancel</Text>
-                    </TouchableOpacity>
-                  </View>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.compareLine}>{wh.line1}</Text>
-                  <Text style={styles.compareLine}>{wh.line2}</Text>
-                  <Text style={styles.compareMetaLine}>{wh.line3}</Text>
-                </>
+              <Text style={[styles.whCardLine, wh.failedLoad && styles.whCardLineFailed]}>
+                {wh.line1}
+              </Text>
+              <Text style={styles.whCardLine}>{wh.line2}</Text>
+              <Text style={styles.whCardLine}>{wh.line3}</Text>
+
+              {wh.failedLoad && (
+                <View style={styles.whActionButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.activeWhBtn}
+                    onPress={handleActivateKotagiri}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.activeWhBtnText}>Active warehouse</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.cancelWhBtn}
+                    onPress={() => Alert.alert('Cancelled', 'No action performed.')}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.cancelWhBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* ── Quick links (Matching Images 1 & 3) ── */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionHeading}>Quick links</Text>
-          <View style={styles.quickLinksRow}>
-            {/* Card 1: Stock Ledger & Batches */}
-            <TouchableOpacity
-              style={styles.quickLinkCard}
-              onPress={onNavigateToStockLedger}
-              activeOpacity={0.75}
-            >
-              <StockLedgerBoxIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickLinkLabel}>{'Stock Ledger &\nBatches'}</Text>
-            </TouchableOpacity>
+        {/* Quick links Section (Screenshot 2) */}
+        <Text style={styles.sectionTitleBrown}>Quick links</Text>
 
-            {/* Card 2: Stock Verification */}
-            <TouchableOpacity
-              style={styles.quickLinkCard}
-              onPress={() => {
-                if (onNavigateToStockVerification) onNavigateToStockVerification();
-                else Alert.alert('Stock Verification', 'Opening Stock Verification workflow.');
-              }}
-              activeOpacity={0.75}
-            >
-              <StockVerificationCheckIcon size={24} color={adminColors.brand} />
-              <Text style={styles.quickLinkLabel}>{'Stock Verification'}</Text>
-            </TouchableOpacity>
+        <View style={styles.quickNavGrid}>
+          <TouchableOpacity
+            style={styles.quickNavTile}
+            onPress={onNavigateToStockLedger}
+            activeOpacity={0.75}
+          >
+            <View style={styles.tileIconContainer}>
+              <StockLedgerBoxIcon />
+            </View>
+            <Text style={styles.tileLabel}>Stock Ledger & Batches</Text>
+          </TouchableOpacity>
 
-            {/* Card 3: Inter-Warehouse Transfers */}
-            <TouchableOpacity
-              style={styles.quickLinkCard}
-              onPress={() => {
-                if (onNavigateToTransfers) onNavigateToTransfers();
-                else Alert.alert('Inter-Warehouse Transfers', 'Opening Transfers workflow.');
-              }}
-              activeOpacity={0.75}
-            >
-              <InterWarehouseArrowsIcon size={24} color={adminColors.brand} />
-              <Text style={styles.quickLinkLabel}>{'Inter-Warehouse\nTransfers'}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.quickNavTile}
+            onPress={onNavigateToStockVerification}
+            activeOpacity={0.75}
+          >
+            <View style={styles.tileIconContainer}>
+              <StockVerificationCheckIcon />
+            </View>
+            <Text style={styles.tileLabel}>Stock Verification</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickNavTile}
+            onPress={onNavigateToTransfers}
+            activeOpacity={0.75}
+          >
+            <View style={styles.tileIconContainer}>
+              <InterWarehouseArrowsIcon />
+            </View>
+            <Text style={styles.tileLabel}>Inter-Warehouse Transfers</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
 
-      {/* Filter Modal with Apply & Close buttons */}
+      {/* Filter Modal */}
       <Modal
         visible={showFilterModal}
         transparent
@@ -496,60 +913,22 @@ export function AdminOperationsOverviewScreen({
           activeOpacity={1}
           onPress={() => setShowFilterModal(false)}
         >
-          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Filter Warehouses</Text>
-            {[
-              'All Warehouses',
-              'Ooty (WH-MAIN)',
-              'Coonoor (WH-SUB1)',
-              'Kotagiri (WH-SUB2)',
-              'Gudalur Market (WH-SUB3)',
-            ].map((wh) => {
-              const isSelected = draftWarehouseFilter === wh;
-              return (
-                <TouchableOpacity
-                  key={wh}
-                  style={[styles.modalOption, isSelected && styles.modalOptionSelected]}
-                  onPress={() => setDraftWarehouseFilter(wh)}
-                  activeOpacity={0.7}
-                >
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      isSelected && styles.modalOptionTextSelected,
-                    ]}
-                  >
-                    {wh}
-                  </Text>
-                  {isSelected && (
-                    <View style={styles.radioDotOuter}>
-                      <View style={styles.radioDotInner} />
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-
-            {/* Apply and Close buttons */}
-            <View style={styles.modalButtonsRow}>
+            {['All Warehouses', 'Ooty (WH-MAIN)', 'Coonoor (WH-SUB1)', 'Kotagiri (WH-SUB2)', 'Sholur Market (WH-SUB3)'].map((wh) => (
               <TouchableOpacity
-                style={styles.modalCloseBtn}
-                onPress={() => setShowFilterModal(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.modalCloseBtnText}>Close</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalApplyBtn}
+                key={wh}
+                style={styles.modalOption}
                 onPress={() => {
-                  setSelectedWarehouseFilter(draftWarehouseFilter);
+                  setSelectedWarehouseFilter(wh);
                   setShowFilterModal(false);
                 }}
-                activeOpacity={0.8}
               >
-                <Text style={styles.modalApplyBtnText}>Apply</Text>
+                <Text style={[styles.modalOptionText, selectedWarehouseFilter === wh && styles.modalOptionTextSelected]}>
+                  {wh}
+                </Text>
               </TouchableOpacity>
-            </View>
+            ))}
           </View>
         </TouchableOpacity>
       </Modal>
@@ -562,340 +941,451 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
-
-  // ── Header Banner (Images 1 & 3) ──
   headerBanner: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: 12,
-    paddingBottom: 16,
+    paddingTop: 6,
+    paddingBottom: adminSpacing.sm,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  headerLeftGroup: {
+  headerTitleGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+  },
+  headerBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    ...adminType.title,
     color: adminColors.onBrand,
   },
   headerRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: adminSpacing.sm,
   },
   headerCircleBtn: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // ── Scroll & Content ──
+  headerFilterBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.headerIcon.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   scroll: {
     flex: 1,
     backgroundColor: adminColors.canvas,
   },
   scrollContent: {
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: 16,
+    paddingTop: adminSpacing.lg,
     paddingBottom: adminSpacing.xxxl,
   },
+  sectionContainer: {
+    marginBottom: adminSpacing.lg,
+  },
+  sectionHeading: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
+  },
+  subHeading: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    fontWeight: '700',
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xs,
+  },
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.xs,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 11,
+  },
+  rowLabel: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  rowValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+  },
+  subNote: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.sm,
+    lineHeight: 15,
+  },
 
-  // ── Search Bar (Images 1 & 3) ──
+  // Warehouse Overview Card inside Section D
+  warehouseSectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  manageWarehousesBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  manageWarehousesBtnText: {
+    ...adminType.caption,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  warehouseTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+  },
+  warehouseTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 15,
+  },
+  badgeActive: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.success.border,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 2,
+  },
+  badgeActiveText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    fontWeight: '700',
+  },
+  badgePending: {
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.warning.border,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 2,
+  },
+  badgePendingText: {
+    ...adminType.caption,
+    color: adminColors.warning.text,
+    fontWeight: '700',
+  },
+  warehouseStatsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingBottom: adminSpacing.sm,
+  },
+  statCol: {
+    flex: 1,
+  },
+  statLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  statValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+
+  // Activity Timeline
+  activityItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    padding: adminSpacing.md,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  activityContentCol: {
+    flex: 1,
+  },
+  activityTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: 2,
+    fontSize: 14,
+  },
+  activityMeta: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  activityActor: {
+    ...adminType.caption,
+    color: adminColors.brandDeep,
+    fontWeight: '600',
+  },
+
+  // Export Reports Button
+  exportButtonContainer: {
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
+  },
+  exportButton: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: ADMIN_BUTTON_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...adminShadow.sm,
+  },
+  exportButtonText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  footerCaption: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginTop: adminSpacing.md,
+  },
+
+  // Search Bar in Warehouses view
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8E1D7',
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E2DC',
+    paddingHorizontal: 12,
     height: 48,
-    marginBottom: 16,
-    ...adminShadow.sm,
+    marginBottom: adminSpacing.lg,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
     color: '#1A1412',
-    marginLeft: 8,
-    paddingVertical: 0,
+    paddingHorizontal: 8,
   },
   searchFilterBtn: {
     padding: 6,
   },
 
-  // ── 6 KPI Cards Grid (Images 1 & 3) ──
-  kpiGridContainer: {
-    marginBottom: 20,
-  },
-  kpiRow: {
+  // Quick Nav Grid in Warehouses view
+  quickNavGrid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: adminSpacing.lg,
   },
-  kpiCard: {
+  quickNavTile: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
-    ...adminShadow.sm,
+    borderColor: '#E8E2DC',
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 96,
   },
-  kpiValueText: {
-    fontSize: 18,
-    fontWeight: '700',
+  tileIconContainer: {
+    marginBottom: 6,
+  },
+  tileLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#1A1412',
-    marginBottom: 4,
-  },
-  kpiValueSmall: {
-    fontSize: 15,
-  },
-  kpiLabelText: {
-    fontSize: 12,
-    color: '#707070',
-    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: 14,
   },
 
-  // ── Section Common ──
-  sectionContainer: {
-    marginBottom: 20,
+  // Warehouse Cards in Warehouses view
+  whListSection: {
+    gap: 12,
+    marginBottom: adminSpacing.lg,
   },
-  sectionHeading: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#7A3205',
-    marginBottom: 12,
-  },
-
-  // ── Warehouse Comparison Cards (Images 1 & 3) ──
-  warehouseCompareCard: {
+  whCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
-    marginBottom: 12,
-    ...adminShadow.sm,
+    borderColor: '#E8E2DC',
+    padding: 14,
   },
-  compareHeaderRow: {
+  whCardPending: {
+    borderColor: '#F0ECE6',
+  },
+  whCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
   },
-  compareTitle: {
-    fontSize: 15,
+  whCardTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#1A1412',
   },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: adminRadius.full,
+  whStatusBadge: {
+    borderRadius: 100,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
   },
-  badgeActive: {
+  whStatusActive: {
     backgroundColor: '#E8F5E9',
   },
-  badgeActiveText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2E7D32',
-  },
-  badgePending: {
+  whStatusPending: {
     backgroundColor: '#FFF3E0',
   },
-  badgePendingText: {
+  whStatusText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  whStatusTextActive: {
+    color: '#2E7D32',
+  },
+  whStatusTextPending: {
     color: '#B25E00',
   },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  compareLine: {
+  whCardLine: {
     fontSize: 12,
-    color: '#5C554F',
+    color: '#78736E',
     lineHeight: 18,
-    marginBottom: 2,
   },
-  compareMetaLine: {
-    fontSize: 12,
-    color: adminColors.muted,
-    lineHeight: 18,
-    marginTop: 2,
-  },
-  compareFailedLine: {
-    fontSize: 12,
+  whCardLineFailed: {
     color: '#D32F2F',
     fontWeight: '600',
-    marginBottom: 2,
   },
-  compareActionsRow: {
+  whActionButtonsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     marginTop: 12,
   },
-  activateWhBtn: {
+  activeWhBtn: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8E1D7',
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6CE',
+    borderRadius: 8,
     paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activateWhBtnText: {
-    fontSize: 13,
+  activeWhBtnText: {
+    color: '#7C3411',
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#7A3205',
   },
   cancelWhBtn: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8E1D7',
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDD6CE',
+    borderRadius: 8,
     paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelWhBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#7A3205',
+    color: '#78736E',
+    fontSize: 12.5,
+    fontWeight: '600',
   },
-
-  // ── Quick Links (Images 1 & 3) ──
-  quickLinksRow: {
+  metricsGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
     gap: 10,
+    marginBottom: adminSpacing.md,
   },
-  quickLinkCard: {
-    flex: 1,
+  metricCard: {
+    width: '48.5%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#F0ECE6',
-    ...adminShadow.sm,
+    borderColor: '#E8E2DC',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
-  quickLinkLabel: {
-    fontSize: 11,
+  metricValue: {
+    fontSize: 17,
     fontWeight: '700',
     color: '#1A1412',
-    textAlign: 'center',
+  },
+  metricLabel: {
+    fontSize: 11,
+    color: '#8A827B',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  sectionTitleBrown: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#8A5835',
     marginTop: 10,
-    lineHeight: 15,
+    marginBottom: 10,
   },
 
-  // ── Modal Styles ──
+  // Filter Modal
   modalBackdrop: {
     flex: 1,
     backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: adminSpacing.xl,
+    padding: adminSpacing.lg,
   },
   modalContent: {
-    width: '90%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    ...adminShadow.lg,
+    width: '85%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   modalTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1A1412',
-    marginBottom: 16,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.md,
+    textAlign: 'center',
   },
   modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0ECE6',
-  },
-  modalOptionSelected: {
-    backgroundColor: '#FFF8F2',
-    marginHorizontal: -8,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    borderRadius: adminRadius.md,
   },
   modalOptionText: {
-    fontSize: 14,
-    color: '#1A1412',
-    fontWeight: '500',
+    ...adminType.body,
+    color: adminColors.ink,
+    textAlign: 'center',
   },
   modalOptionTextSelected: {
     fontWeight: '700',
     color: adminColors.brand,
-  },
-  radioDotOuter: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: adminColors.brand,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radioDotInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: adminColors.brand,
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-  },
-  modalCloseBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#E0DAD5',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalCloseBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1A1412',
-  },
-  modalApplyBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: adminColors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...adminShadow.sm,
-  },
-  modalApplyBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });

@@ -103,6 +103,63 @@ function ChevronDownIcon({ size = 20, color = adminColors.ink }: { size?: number
   );
 }
 
+function ShieldIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function GlobeIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Line x1="2" y1="12" x2="22" y2="12" stroke={color} strokeWidth="2" />
+      <Path
+        d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+        stroke={color}
+        strokeWidth="2"
+      />
+    </Svg>
+  );
+}
+
+function BellOutlineIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LogOutIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // ─── Interactive Pill Switch (Matching Screenshot 1 & 3) ─────────────────────
 
 interface PillSwitchProps {
@@ -353,19 +410,29 @@ export function FarmerAdminProfileScreen({
           contentContainerStyle={styles.scrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* Account Security Section */}
-          <Text style={styles.sectionHeader}>Account security</Text>
-          {!isChangingPassword ? (
-            <TouchableOpacity
-              style={styles.changePasswordOutlineBtn}
-              onPress={() => setIsChangingPassword(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.changePasswordOutlineBtnText}>Change Password</Text>
-            </TouchableOpacity>
-          ) : (
-            <View>
-              <View style={styles.card}>
+          {/* Account Security Card */}
+          <View style={styles.secCard}>
+            <View style={styles.secCardHeaderRow}>
+              <View style={styles.secIconWrap}>
+                <ShieldIcon size={20} color={adminColors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.secCardTitle}>Account Security</Text>
+                <Text style={styles.secCardSubtitle}>Password & credential management</Text>
+              </View>
+            </View>
+
+            {!isChangingPassword ? (
+              <TouchableOpacity
+                style={styles.changePasswordModernBtn}
+                onPress={() => setIsChangingPassword(true)}
+                activeOpacity={0.8}
+              >
+                <LockIcon size={18} color={adminColors.brand} />
+                <Text style={styles.changePasswordModernBtnText}>Change Password</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ marginTop: 12 }}>
                 {/* Current Password */}
                 <Text style={styles.fieldLabel}>Current Password</Text>
                 <View style={styles.textInputBox}>
@@ -374,7 +441,7 @@ export function FarmerAdminProfileScreen({
                     value={currentPassword}
                     onChangeText={setCurrentPassword}
                     secureTextEntry
-                    placeholder=""
+                    placeholder="Enter current password"
                     placeholderTextColor={adminColors.placeholder}
                   />
                 </View>
@@ -387,7 +454,7 @@ export function FarmerAdminProfileScreen({
                     value={newPassword}
                     onChangeText={setNewPassword}
                     secureTextEntry
-                    placeholder=""
+                    placeholder="Enter new password"
                     placeholderTextColor={adminColors.placeholder}
                   />
                 </View>
@@ -400,7 +467,7 @@ export function FarmerAdminProfileScreen({
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     secureTextEntry
-                    placeholder=""
+                    placeholder="Re-enter new password"
                     placeholderTextColor={adminColors.placeholder}
                   />
                 </View>
@@ -456,106 +523,153 @@ export function FarmerAdminProfileScreen({
                 {passwordError && (
                   <Text style={styles.passwordErrorText}>{passwordError}</Text>
                 )}
+
+                {/* Action Buttons: Update Password and Cancel */}
+                <View style={[styles.editActionButtonsContainer, { marginTop: 16, marginBottom: 8 }]}>
+                  <TouchableOpacity
+                    style={styles.primarySaveBtn}
+                    onPress={handleUpdatePassword}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.primarySaveBtnText}>Update Password</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.cancelNeutralBtn}
+                    onPress={() => {
+                      setIsChangingPassword(false);
+                      setPasswordError(null);
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-
-              {/* Action Buttons: Update Password and Cancel */}
-              <View style={[styles.editActionButtonsContainer, { marginBottom: 16 }]}>
-                <TouchableOpacity
-                  style={styles.primarySaveBtn}
-                  onPress={handleUpdatePassword}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.primarySaveBtnText}>Update Password</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.cancelNeutralBtn}
-                  onPress={() => {
-                    setIsChangingPassword(false);
-                    setPasswordError(null);
-                    setCurrentPassword('');
-                    setNewPassword('');
-                    setConfirmPassword('');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Application Preferences Section (Screenshot 1) */}
-          <Text style={[styles.sectionHeader, { marginTop: 14 }]}>Application preferences</Text>
-          <View style={styles.card}>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Application language</Text>
-              <Text style={styles.tableValueBold}>{language}</Text>
-            </View>
+            )}
           </View>
 
-          <Text style={styles.languageNoticeText}>
-            English and Tamil are available. Change your language from your profile.
-          </Text>
+          {/* Application Preferences Card */}
+          <View style={styles.secCard}>
+            <View style={styles.secCardHeaderRow}>
+              <View style={styles.secIconWrap}>
+                <GlobeIcon size={20} color={adminColors.brand} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.secCardTitle}>Application Preferences</Text>
+                <Text style={styles.secCardSubtitle}>Language and alert configurations</Text>
+              </View>
+            </View>
 
-          {/* Notification Preferences Sub-Card (Screenshot 1) */}
-          <View style={styles.card}>
-            <Text style={styles.notificationCardHeader}>Notification preferences</Text>
-            <Text style={styles.notificationPendingNotice}>
-              Notification categories for the Farmer Admin role have not been confirmed yet. They will appear here once the owner finalizes them.
+            <Text style={styles.secFieldLabel}>Application language</Text>
+            <View style={styles.languagePillRow}>
+              <TouchableOpacity
+                style={[styles.languagePill, language === 'English' && styles.languagePillActive]}
+                onPress={() => setLanguage('English')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.languagePillText, language === 'English' && styles.languagePillTextActive]}>
+                  English
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.languagePill, language === 'Tamil' && styles.languagePillActive]}
+                onPress={() => setLanguage('Tamil')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.languagePillText, language === 'Tamil' && styles.languagePillTextActive]}>
+                  Tamil (தமிழ்)
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.languageNoticeText}>
+              English and Tamil are available. Change your language from your profile.
             </Text>
-          </View>
 
-          {/* Action Buttons: Save Preferences and Reset to Defaults (Screenshot 1) */}
-          <View style={styles.prefActionButtonsRow}>
-            <TouchableOpacity
-              style={styles.savePreferencesBtn}
-              onPress={handleSavePreferences}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.savePreferencesBtnText}>Save Preferences</Text>
-            </TouchableOpacity>
+            {/* Notification Preferences Sub-Card */}
+            <View style={styles.notificationInfoBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                <BellOutlineIcon size={16} color={adminColors.brand} />
+                <Text style={styles.notificationCardHeader}>Notification preferences</Text>
+              </View>
+              <Text style={styles.notificationPendingNotice}>
+                Notification categories for the Farmer Admin role have not been confirmed yet. They will appear here once the owner finalizes them.
+              </Text>
+            </View>
 
-            <TouchableOpacity
-              style={styles.resetPreferencesBtn}
-              onPress={handleResetPreferences}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.resetPreferencesBtnText}>Reset to Defaults</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Sign Out Section (Screenshot 1) */}
-          <Text style={styles.sectionHeader}>Sign out</Text>
-          <TouchableOpacity
-            style={styles.solidSignOutBtn}
-            onPress={handleSignOutConfirm}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.solidSignOutBtnText}>Sign Out of This Device</Text>
-          </TouchableOpacity>
-
-          {showSignOutConfirm && (
-            <View style={styles.signOutConfirmCard}>
-              <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
-
+            {/* Action Buttons: Save Preferences and Reset to Defaults */}
+            <View style={styles.prefActionButtonsRow}>
               <TouchableOpacity
-                style={styles.signOutConfirmActionBtn}
-                onPress={() => onSignOut?.()}
-                activeOpacity={0.85}
+                style={styles.savePreferencesBtn}
+                onPress={handleSavePreferences}
+                activeOpacity={0.8}
               >
-                <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
+                <Text style={styles.savePreferencesBtnText}>Save Preferences</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.signOutConfirmCancelBtn}
-                onPress={() => setShowSignOutConfirm(false)}
-                activeOpacity={0.85}
+                style={styles.resetPreferencesBtn}
+                onPress={handleResetPreferences}
+                activeOpacity={0.8}
               >
-                <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
+                <Text style={styles.resetPreferencesBtnText}>Reset to Defaults</Text>
               </TouchableOpacity>
             </View>
-          )}
+          </View>
+
+          {/* Sign Out Card */}
+          <View style={[styles.secCard, styles.signOutCardBorder]}>
+            <View style={styles.secCardHeaderRow}>
+              <View style={[styles.secIconWrap, styles.signOutIconWrap]}>
+                <LogOutIcon size={20} color={adminColors.danger.text} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.secCardTitle, { color: adminColors.danger.text }]}>Sign out</Text>
+                <Text style={styles.secCardSubtitle}>End your session on this device</Text>
+              </View>
+            </View>
+
+            {!showSignOutConfirm ? (
+              <TouchableOpacity
+                style={styles.modernSignOutBtn}
+                onPress={handleSignOutConfirm}
+                activeOpacity={0.85}
+              >
+                <LogOutIcon size={18} color={adminColors.card} />
+                <Text style={styles.modernSignOutBtnText}>Sign Out of This Device</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.modernSignOutConfirmBox}>
+                <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
+                <Text style={styles.signOutConfirmSub}>
+                  Are you sure you want to sign out? You will need your credentials to sign back in.
+                </Text>
+
+                <View style={styles.signOutButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.signOutConfirmActionBtn}
+                    onPress={() => onSignOut?.()}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.signOutConfirmCancelBtn}
+                    onPress={() => setShowSignOutConfirm(false)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
 
           <View style={{ height: 40 }} />
         </ScrollView>
@@ -1729,6 +1843,143 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.ink,
+  },
+
+  // Security & Preferences Modern Card Styles
+  secCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  secCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: adminSpacing.md,
+  },
+  secIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secCardTitle: {
+    ...adminType.sectionHead,
+    fontSize: 16,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  secCardSubtitle: {
+    ...adminType.caption,
+    fontSize: 12,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  changePasswordModernBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 46,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+    marginTop: 4,
+  },
+  changePasswordModernBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.brand,
+  },
+  secFieldLabel: {
+    ...adminType.caption,
+    fontWeight: '800',
+    color: adminColors.ink,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  languagePillRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  languagePill: {
+    flex: 1,
+    height: 42,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  languagePillActive: {
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+  },
+  languagePillText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  languagePillTextActive: {
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+  },
+  notificationInfoBox: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  signOutCardBorder: {
+    borderColor: adminColors.danger.border,
+  },
+  signOutIconWrap: {
+    backgroundColor: adminColors.danger.bg,
+  },
+  modernSignOutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 48,
+    borderRadius: adminRadius.xl,
+    backgroundColor: adminColors.danger.text,
+    marginTop: 4,
+    ...adminShadow.sm,
+  },
+  modernSignOutBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.card,
+  },
+  modernSignOutConfirmBox: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    padding: adminSpacing.md,
+    marginTop: 4,
+  },
+  signOutConfirmSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    lineHeight: 18,
+    marginBottom: adminSpacing.md,
+  },
+  signOutButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
   },
 
   // Change Password Screen Styles (Screenshot 2)

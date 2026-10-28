@@ -133,6 +133,7 @@ export type TohfaAdminTab =
   | 'Home'
   | 'WorkQueue'
   | 'Operations'
+  | 'Inventory'
   | 'Finance'
   | 'More'
   | 'Dashboard'
@@ -881,6 +882,15 @@ function TabOperationsIcon({ color, size = 20 }: { color: string; size?: number 
   );
 }
 
+function TabInventoryIcon({ color, size = 20 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m3.3 7 8.7 5 8.7-5M12 22V12" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function TabFinanceIcon({ color, size = 20 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -1079,7 +1089,7 @@ function ProduceCompareIcon({ size = 18, color = adminColors.brandDeep }: { size
 
 // ─── Screen 1 & 2: Produce Control (Calendar) ──────────────────────────────────
 
-interface ProduceControlCalendarScreenProps {
+export interface ProduceControlCalendarScreenProps {
   onBack?: () => void;
   onOpenFilters: () => void;
   onNavigateToZoneBreakdown: () => void;
@@ -1087,7 +1097,7 @@ interface ProduceControlCalendarScreenProps {
   onNavigateToCropHistory: () => void;
 }
 
-function ProduceControlCalendarScreen({
+export function ProduceControlCalendarScreen({
   onBack,
   onOpenFilters,
   onNavigateToZoneBreakdown,
@@ -1154,8 +1164,7 @@ function ProduceControlCalendarScreen({
             </TouchableOpacity>
           )}
           <ProduceCalendarHeaderIcon size={26} color={adminColors.onBrand} />
-          {/* Note: "Produce Control" as explicitly requested by user */}
-          <Text style={produceStyles.headerTitle}>Produce Control</Text>
+          <Text style={produceStyles.headerTitle}>Produce Calendar</Text>
         </View>
         <Text style={produceStyles.headerSubtitle}>October 2026 · 43 crop records</Text>
       </View>
@@ -1383,7 +1392,7 @@ function ProduceControlCalendarScreen({
 
 // ─── Screen 3: Produce Control Filters Modal ────────────────────────────────────
 
-interface ProduceControlFiltersModalProps {
+export interface ProduceControlFiltersModalProps {
   visible: boolean;
   onClose: () => void;
   selectedFarmer: string;
@@ -1398,7 +1407,7 @@ interface ProduceControlFiltersModalProps {
   onChangeGrowthStage: (v: string) => void;
 }
 
-function ProduceControlFiltersModal({
+export function ProduceControlFiltersModal({
   visible,
   onClose,
   selectedFarmer,
@@ -1502,13 +1511,13 @@ function ProduceControlFiltersModal({
 
 // ─── Screen 4: Zone & Crop Breakdown ───────────────────────────────────────────
 
-interface ZoneCropBreakdownScreenProps {
+export interface ZoneCropBreakdownScreenProps {
   onBack: () => void;
   onOpenFilters: () => void;
   onSelectCropRecord: (recordId: string) => void;
 }
 
-function ZoneCropBreakdownScreen({
+export function ZoneCropBreakdownScreen({
   onBack,
   onOpenFilters,
   onSelectCropRecord,
@@ -1703,12 +1712,12 @@ function ZoneCropBreakdownScreen({
 
 // ─── Screen 5: Crop Record Detail (Tomato · CR-2026-0017) ─────────────────────
 
-interface CropRecordDetailScreenProps {
+export interface CropRecordDetailScreenProps {
   onBack: () => void;
   onOpenFarmerProfile?: () => void;
 }
 
-function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropRecordDetailScreenProps) {
+export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropRecordDetailScreenProps) {
   const [activePillTab, setActivePillTab] = useState('Overview');
 
   return (
@@ -2118,13 +2127,13 @@ function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropRecordDetai
 
 // ─── Harvest Forecast & Insights Screen (Images 1, 2, 3, 4) ────────────────────
 
-interface HarvestForecastInsightsScreenProps {
+export interface HarvestForecastInsightsScreenProps {
   onBack: () => void;
   onOpenExportModal: () => void;
   onOpenFilters?: () => void;
 }
 
-function HarvestForecastInsightsScreen({
+export function HarvestForecastInsightsScreen({
   onBack,
   onOpenExportModal,
   onOpenFilters,
@@ -2504,13 +2513,13 @@ function HarvestForecastInsightsScreen({
 
 // ─── Image 5: Export Crop Records Modal (Bottom Sheet) ──────────────────────────
 
-interface ExportCropRecordsModalProps {
+export interface ExportCropRecordsModalProps {
   visible: boolean;
   onClose: () => void;
   onDownloadCSV: () => void;
 }
 
-function ExportCropRecordsModal({
+export function ExportCropRecordsModal({
   visible,
   onClose,
   onDownloadCSV,
@@ -2570,7 +2579,7 @@ function ExportCropRecordsModal({
 
 // ─── Screen 6: Crop History & Records Screen (Image 1) ──────────────────────────
 
-interface CropHistoryRecordsScreenProps {
+export interface CropHistoryRecordsScreenProps {
   onBack: () => void;
   onOpenCompareModal: () => void;
   onSelectCropRecord: (recordId: string) => void;
@@ -2579,7 +2588,7 @@ interface CropHistoryRecordsScreenProps {
   onToggleCompare: (recordId: string) => void;
 }
 
-function CropHistoryRecordsScreen({
+export function CropHistoryRecordsScreen({
   onBack,
   onOpenCompareModal,
   onSelectCropRecord,
@@ -2717,13 +2726,13 @@ function CropHistoryRecordsScreen({
 
 // ─── Compare Crop Cycles Modal (Image 1 popup) ──────────────────────────────────
 
-interface CompareCropCyclesModalProps {
+export interface CompareCropCyclesModalProps {
   visible: boolean;
   onClose: () => void;
   onExportDetails: () => void;
 }
 
-function CompareCropCyclesModal({
+export function CompareCropCyclesModal({
   visible,
   onClose,
   onExportDetails,
@@ -7145,6 +7154,7 @@ export function TohfaAdminDashboardScreen({
   const [reportHistoryReturnScreen, setReportHistoryReturnScreen] = useState<
     'scheduleAudit' | 'auditReportsTierConfig'
   >('scheduleAudit');
+  const [auditReturnTab, setAuditReturnTab] = useState<'Home' | 'More' | 'WorkQueue'>('Home');
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [selectedAdminApplication, setSelectedAdminApplication] = useState<ApplicationListItem | null>(null);
   const [farmersMainTab, setFarmersMainTab] = useState<'farmers' | 'applications'>('farmers');
@@ -7154,7 +7164,8 @@ export function TohfaAdminDashboardScreen({
   >('overview');
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
-    const [financeSubScreen, setFinanceSubScreen] = useState<
+  const [financeSubScreen, setFinanceSubScreen] = useState<
+    | 'accountsFinance'
     | 'purchaseSales'
     | 'duesPayouts'
     | 'salesIncome'
@@ -7166,6 +7177,7 @@ export function TohfaAdminDashboardScreen({
     | 'reportExport'
     | null
   >(null);
+  const [farmersReturnTab, setFarmersReturnTab] = useState<'Home' | 'More' | 'WorkQueue' | 'Operations' | 'Inventory'>('Home');
   const [reportsSubScreen, setReportsSubScreen] = useState<
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
@@ -7645,6 +7657,17 @@ export function TohfaAdminDashboardScreen({
   };
 
   const handleOpenPendingApplications = () => {
+    setFarmersReturnTab(
+      activeTab === 'More'
+        ? 'More'
+        : activeTab === 'WorkQueue'
+        ? 'WorkQueue'
+        : activeTab === 'Inventory'
+        ? 'Inventory'
+        : activeTab === 'Operations'
+        ? 'Operations'
+        : 'Home'
+    );
     setFarmersMainTab('applications');
     setActiveTab('Farmers');
     setSelectedAdminFarmer(null);
@@ -7655,7 +7678,10 @@ export function TohfaAdminDashboardScreen({
     setDashboardSubScreen('listingApproval');
   };
 
-  const handleOpenScheduleAudit = () => {
+  const handleOpenScheduleAudit = (fromTab?: 'Home' | 'More' | 'WorkQueue') => {
+    setAuditReturnTab(
+      fromTab ?? (activeTab === 'More' ? 'More' : activeTab === 'WorkQueue' ? 'WorkQueue' : 'Home')
+    );
     setDashboardSubScreen('scheduleAudit');
   };
 
@@ -7679,8 +7705,8 @@ export function TohfaAdminDashboardScreen({
       created: 'Created 09 Oct 2026',
       actionLabel: 'Review Exception',
       onAction: () => {
-        if (onNavigate) onNavigate('PurchaseOrders');
-        else Alert.alert('Review Exception', 'Opening purchase exception PO-2026-00307.');
+        setFinanceSubScreen('purchaseSales');
+        setActiveTab('Finance');
       },
     },
     {
@@ -7695,6 +7721,7 @@ export function TohfaAdminDashboardScreen({
       actionLabel: 'Review Application',
       onAction: () => {
         const app = DEMO_APPLICATIONS.find(a => a.id === 'app-2026-0101') || DEMO_APPLICATIONS[0];
+        setFarmersReturnTab('WorkQueue');
         setSelectedAdminApplication(app ?? null);
         setFarmersMainTab('applications');
         setActiveTab('Farmers');
@@ -7711,7 +7738,7 @@ export function TohfaAdminDashboardScreen({
       created: 'Created 08 Oct 2026 · Due 08 Oct 2026',
       actionLabel: 'View Audit',
       onAction: () => {
-        handleOpenScheduleAudit();
+        handleOpenScheduleAudit('WorkQueue');
       },
     },
   ];
@@ -7740,6 +7767,10 @@ export function TohfaAdminDashboardScreen({
       value: '20',
       subtitle: 'of 24 registered',
       onPress: () => {
+        setFarmersReturnTab('Home');
+        setFarmersMainTab('farmers');
+        setSelectedAdminFarmer(null);
+        setSelectedAdminApplication(null);
         if (onNavigate) onNavigate('AdminAllFarmers');
         else setActiveTab('Farmers');
       },
@@ -7791,7 +7822,7 @@ export function TohfaAdminDashboardScreen({
       subtitle: '1 low stock · 2 discrepancies',
       onPress: () => {
         setOperationsSubScreen(null);
-        setActiveTab('Operations');
+        setActiveTab('Inventory');
       },
     },
     {
@@ -7836,7 +7867,7 @@ export function TohfaAdminDashboardScreen({
       icon: <QuickWarehouseActionIcon size={26} />,
       action: () => {
         setOperationsSubScreen('addWarehouse');
-        setActiveTab('Operations');
+        setActiveTab('Inventory');
       },
     },
     {
@@ -7860,7 +7891,7 @@ export function TohfaAdminDashboardScreen({
       icon: <QuickReceiveGoodsIcon size={26} />,
       action: () => {
         setOperationsSubScreen('stockVerification');
-        setActiveTab('Operations');
+        setActiveTab('Inventory');
       },
     },
     {
@@ -7877,7 +7908,7 @@ export function TohfaAdminDashboardScreen({
       icon: <QuickTransferStockIcon size={26} />,
       action: () => {
         setOperationsSubScreen('transfers');
-        setActiveTab('Operations');
+        setActiveTab('Inventory');
       },
     },
     {
@@ -10813,6 +10844,114 @@ export function TohfaAdminDashboardScreen({
             ceilingPrice={selectedPricingRecord?.ceiling}
             purchasePrice={selectedPricingRecord?.farmerPurchasePrice}
           />
+        ) : dashboardSubScreen === 'scheduleAudit' ? (
+          <AuditManagementScreen
+            onBack={() => {
+              setDashboardSubScreen(null);
+              setActiveTab(auditReturnTab);
+            }}
+            onOpenSchedule={() => setDashboardSubScreen('auditScheduleAssignment')}
+            onOpenHistory={() => setDashboardSubScreen('auditHistoryCompliance')}
+            onOpenGenerateReport={() => setDashboardSubScreen('generateAuditReport')}
+            onOpenReportHistory={() => {
+              setReportHistoryReturnScreen('scheduleAudit');
+              setDashboardSubScreen('auditReportHistory');
+            }}
+            onSelectAuditItem={(audit) => {
+              setSelectedAuditId(audit.code);
+              setAuditDetailsReturnScreen('scheduleAudit');
+              setDashboardSubScreen('auditDetailsRecord');
+            }}
+          />
+        ) : dashboardSubScreen === 'auditScheduleAssignment' ? (
+          <AuditScheduleAssignmentScreen
+            onBack={() => setDashboardSubScreen('scheduleAudit')}
+            onViewSchedule={(schedule) => {
+              setSelectedAuditId(schedule.code);
+              setAuditDetailsReturnScreen('auditScheduleAssignment');
+              setDashboardSubScreen('auditDetailsRecord');
+            }}
+            onEditSchedule={(schedule) => {
+              setSelectedAuditId(schedule.code);
+              setScheduleAuditFormReturnScreen('auditScheduleAssignment');
+              setDashboardSubScreen('scheduleAuditForm');
+            }}
+            onReschedule={(schedule) => {
+              setSelectedAuditId(schedule.code);
+              setScheduleAuditFormReturnScreen('auditScheduleAssignment');
+              setDashboardSubScreen('scheduleAuditForm');
+            }}
+          />
+        ) : dashboardSubScreen === 'auditDetailsRecord' ? (
+          <AuditDetailsFarmerRecordsScreen
+            auditId={selectedAuditId}
+            onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
+            onEditSchedule={() => {
+              setScheduleAuditFormReturnScreen('auditDetailsRecord');
+              setDashboardSubScreen('scheduleAuditForm');
+            }}
+            onReschedule={() => {
+              setScheduleAuditFormReturnScreen('auditDetailsRecord');
+              setDashboardSubScreen('scheduleAuditForm');
+            }}
+            onCancelSchedule={() => setDashboardSubScreen(auditDetailsReturnScreen)}
+            onOpenFarmerProfile={() => {
+              setFarmersReturnTab('Home');
+              setFarmersMainTab('farmers');
+              setSelectedAdminFarmer(null);
+              setSelectedAdminApplication(null);
+              if (onNavigate) onNavigate('AdminAllFarmers');
+              else setActiveTab('Farmers');
+            }}
+          />
+        ) : dashboardSubScreen === 'scheduleAuditForm' ? (
+          <ScheduleAuditFormScreen
+            initialAuditId={selectedAuditId}
+            onBack={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+            onScheduleSuccess={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+            onSaveDraft={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
+          />
+        ) : dashboardSubScreen === 'auditHistoryCompliance' ? (
+          <AuditHistoryComplianceScreen
+            onBack={() => setDashboardSubScreen('scheduleAudit')}
+            onSelectAudit={(audit) => {
+              setSelectedAuditId(audit.code);
+              setAuditDetailsReturnScreen('auditHistoryCompliance');
+              setDashboardSubScreen('auditDetailsRecord');
+            }}
+          />
+        ) : dashboardSubScreen === 'generateAuditReport' ? (
+          <GenerateAuditReportScreen
+            onBack={() => setDashboardSubScreen('scheduleAudit')}
+            onConfigureReport={() => {
+              setDashboardSubScreen('auditReportsTierConfig');
+            }}
+            onGenerateReport={() => {
+              setDashboardSubScreen('auditReportsTierConfig');
+            }}
+          />
+        ) : dashboardSubScreen === 'auditReportsTierConfig' ? (
+          <AuditReportsTierConfigScreen
+            onBack={() => setDashboardSubScreen('generateAuditReport')}
+            onGenerateReportSuccess={() => {
+              setReportHistoryReturnScreen('auditReportsTierConfig');
+              setDashboardSubScreen('auditReportHistory');
+            }}
+          />
+        ) : dashboardSubScreen === 'auditReportHistory' ? (
+          <AuditReportHistoryScreen
+            onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
+            onOpenReportDetails={(_reportId) => {
+              setDashboardSubScreen('auditReportDetails');
+            }}
+          />
+        ) : dashboardSubScreen === 'auditReportDetails' ? (
+          <AuditReportDetailsScreen
+            onBack={() => setDashboardSubScreen('auditReportHistory')}
+            onDownload={() => {
+              Alert.alert('Download Complete', 'Audit Summary Report has been downloaded.');
+            }}
+          />
         ) : (
           <>
             {/* ══════════════════════════════════════════════════════════════════════
@@ -10830,107 +10969,6 @@ export function TohfaAdminDashboardScreen({
                   }}
                   onReject={(id) => {
                     Alert.alert('Listing Rejected', `Listing #${id} has been rejected.`);
-                  }}
-                />
-              ) : dashboardSubScreen === 'scheduleAudit' ? (
-                <AuditManagementScreen
-                  onBack={() => setDashboardSubScreen(null)}
-                  onOpenSchedule={() => setDashboardSubScreen('auditScheduleAssignment')}
-                  onOpenHistory={() => setDashboardSubScreen('auditHistoryCompliance')}
-                  onOpenGenerateReport={() => setDashboardSubScreen('generateAuditReport')}
-                  onOpenReportHistory={() => {
-                    setReportHistoryReturnScreen('scheduleAudit');
-                    setDashboardSubScreen('auditReportHistory');
-                  }}
-                  onSelectAuditItem={(audit) => {
-                    setSelectedAuditId(audit.code);
-                    setAuditDetailsReturnScreen('scheduleAudit');
-                    setDashboardSubScreen('auditDetailsRecord');
-                  }}
-                />
-              ) : dashboardSubScreen === 'auditScheduleAssignment' ? (
-                <AuditScheduleAssignmentScreen
-                  onBack={() => setDashboardSubScreen('scheduleAudit')}
-                  onViewSchedule={(schedule) => {
-                    setSelectedAuditId(schedule.code);
-                    setAuditDetailsReturnScreen('auditScheduleAssignment');
-                    setDashboardSubScreen('auditDetailsRecord');
-                  }}
-                  onEditSchedule={(schedule) => {
-                    setSelectedAuditId(schedule.code);
-                    setScheduleAuditFormReturnScreen('auditScheduleAssignment');
-                    setDashboardSubScreen('scheduleAuditForm');
-                  }}
-                  onReschedule={(schedule) => {
-                    setSelectedAuditId(schedule.code);
-                    setScheduleAuditFormReturnScreen('auditScheduleAssignment');
-                    setDashboardSubScreen('scheduleAuditForm');
-                  }}
-                />
-              ) : dashboardSubScreen === 'auditDetailsRecord' ? (
-                <AuditDetailsFarmerRecordsScreen
-                  auditId={selectedAuditId}
-                  onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
-                  onEditSchedule={() => {
-                    setScheduleAuditFormReturnScreen('auditDetailsRecord');
-                    setDashboardSubScreen('scheduleAuditForm');
-                  }}
-                  onReschedule={() => {
-                    setScheduleAuditFormReturnScreen('auditDetailsRecord');
-                    setDashboardSubScreen('scheduleAuditForm');
-                  }}
-                  onCancelSchedule={() => setDashboardSubScreen(auditDetailsReturnScreen)}
-                  onOpenFarmerProfile={() => {
-                    if (onNavigate) onNavigate('AdminAllFarmers');
-                    else setActiveTab('Farmers');
-                  }}
-                />
-              ) : dashboardSubScreen === 'scheduleAuditForm' ? (
-                <ScheduleAuditFormScreen
-                  initialAuditId={selectedAuditId}
-                  onBack={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-                  onScheduleSuccess={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-                  onSaveDraft={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-                />
-              ) : dashboardSubScreen === 'auditHistoryCompliance' ? (
-                <AuditHistoryComplianceScreen
-                  onBack={() => setDashboardSubScreen('scheduleAudit')}
-                  onSelectAudit={(audit) => {
-                    setSelectedAuditId(audit.code);
-                    setAuditDetailsReturnScreen('auditHistoryCompliance');
-                    setDashboardSubScreen('auditDetailsRecord');
-                  }}
-                />
-              ) : dashboardSubScreen === 'generateAuditReport' ? (
-                <GenerateAuditReportScreen
-                  onBack={() => setDashboardSubScreen('scheduleAudit')}
-                  onConfigureReport={() => {
-                    setDashboardSubScreen('auditReportsTierConfig');
-                  }}
-                  onGenerateReport={() => {
-                    setDashboardSubScreen('auditReportsTierConfig');
-                  }}
-                />
-              ) : dashboardSubScreen === 'auditReportsTierConfig' ? (
-                <AuditReportsTierConfigScreen
-                  onBack={() => setDashboardSubScreen('generateAuditReport')}
-                  onGenerateReportSuccess={() => {
-                    setReportHistoryReturnScreen('auditReportsTierConfig');
-                    setDashboardSubScreen('auditReportHistory');
-                  }}
-                />
-              ) : dashboardSubScreen === 'auditReportHistory' ? (
-                <AuditReportHistoryScreen
-                  onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
-                  onOpenReportDetails={(_reportId) => {
-                    setDashboardSubScreen('auditReportDetails');
-                  }}
-                />
-              ) : dashboardSubScreen === 'auditReportDetails' ? (
-                <AuditReportDetailsScreen
-                  onBack={() => setDashboardSubScreen('auditReportHistory')}
-                  onDownload={() => {
-                    Alert.alert('Download Complete', 'Audit Summary Report has been downloaded.');
                   }}
                 />
               ) : dashboardSubScreen === 'support' ? (
@@ -11201,7 +11239,7 @@ export function TohfaAdminDashboardScreen({
                     <View style={styles.sectionHeaderRow}>
                       <Text style={styles.sectionHeading}>Operations summary</Text>
                       <TouchableOpacity
-                        onPress={() => setActiveTab('Operations')}
+                        onPress={() => setActiveTab('Inventory')}
                         activeOpacity={0.7}
                       >
                         <Text style={styles.sectionOpenLink}>Open →</Text>
@@ -11540,9 +11578,9 @@ export function TohfaAdminDashboardScreen({
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
-            OPERATIONS TAB (M1-S04 · Operations Overview)
+            INVENTORY / OPERATIONS TAB
            ══════════════════════════════════════════════════════════════════════ */}
-            {activeTab === 'Operations' && (
+            {(activeTab === 'Inventory' || activeTab === 'Operations') && (
               operationsSubScreen === 'stockLedger' ? (
                 <StockLedgerBatchesScreen
                   onBack={() => setOperationsSubScreen(null)}
@@ -11562,6 +11600,7 @@ export function TohfaAdminDashboardScreen({
                 />
               ) : (
                 <AdminOperationsOverviewScreen
+                  initialViewMode="warehouses"
                   onBack={() => setActiveTab('Home')}
                   onExportReports={() => {
                     Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
@@ -11571,6 +11610,21 @@ export function TohfaAdminDashboardScreen({
                   onNavigateToTransfers={() => setOperationsSubScreen('transfers')}
                   onPlusAction={() => setOperationsSubScreen('addWarehouse')}
                   onSelectWarehouse={() => setOperationsSubScreen('addWarehouse')}
+                  onNavigateToFarmers={() => {
+                    setFarmersReturnTab(activeTab === 'Inventory' ? 'Inventory' : 'Operations');
+                    setFarmersMainTab('farmers');
+                    setSelectedAdminFarmer(null);
+                    setSelectedAdminApplication(null);
+                    setActiveTab('Farmers');
+                  }}
+                  onNavigateToApplications={() => {
+                    setFarmersReturnTab(activeTab === 'Inventory' ? 'Inventory' : 'Operations');
+                    setFarmersMainTab('applications');
+                    setSelectedAdminFarmer(null);
+                    setSelectedAdminApplication(null);
+                    setActiveTab('Farmers');
+                  }}
+                  onNavigateToProduce={() => setProduceControlScreen('calendar')}
                 />
               )
             )}
@@ -11614,7 +11668,7 @@ export function TohfaAdminDashboardScreen({
                 <AdminAllFarmersScreen
                   showBottomNav={false}
                   initialTab={farmersMainTab}
-                  onBack={() => setActiveTab('More')}
+                  onBack={() => setActiveTab(farmersReturnTab)}
                   onSelectFarmer={(f) => {
                     setSelectedAdminFarmer(f);
                   }}
@@ -12377,16 +12431,21 @@ export function TohfaAdminDashboardScreen({
               onBack={() => setActiveTab('Home')}
               onSelectOption={(optionId) => {
                 if (optionId === 'farmers') {
+                  setFarmersReturnTab('More');
+                  setFarmersMainTab('farmers');
+                  setSelectedAdminFarmer(null);
+                  setSelectedAdminApplication(null);
                   if (onNavigate) onNavigate('AdminAllFarmers');
                   else setActiveTab('Farmers');
                 } else if (optionId === 'produce') {
                   setProduceControlScreen('calendar');
                 } else if (optionId === 'audit') {
-                  handleOpenScheduleAudit();
+                  handleOpenScheduleAudit('More');
                 } else if (optionId === 'inputs') {
                   setInputsPestScreen('home');
                 } else if (optionId === 'pricing') {
-                  if (onNavigate) onNavigate('RetailPricing');
+                  setPricingReturnTab('More');
+                  setDashboardSubScreen('marketPricingHome');
                 } else if (optionId === 'purchase_sales') {
                   setActiveTab('Finance');
                 } else if (optionId === 'customers') {
@@ -12579,7 +12638,7 @@ export function TohfaAdminDashboardScreen({
               </Text>
             </TouchableOpacity>
 
-            {/* Tab 3: Operations */}
+            {/* Tab 3: Inventory (formerly Operations) */}
             <TouchableOpacity
               style={styles.navTabItem}
               onPress={() => {
@@ -12589,13 +12648,13 @@ export function TohfaAdminDashboardScreen({
                 setCustomerScreen(null);
                 setCommunitySubScreen(null);
                 setOperationsSubScreen(null);
-                setActiveTab('Operations');
+                setActiveTab('Inventory');
               }}
               activeOpacity={0.7}
             >
-              <TabOperationsIcon
+              <TabInventoryIcon
                 color={
-                  activeTab === 'Operations'
+                  activeTab === 'Inventory' || activeTab === 'Operations'
                     ? adminColors.brand
                     : adminColors.muted
                 }
@@ -12603,10 +12662,10 @@ export function TohfaAdminDashboardScreen({
               <Text
                 style={[
                   styles.navTabLabel,
-                  activeTab === 'Operations' && styles.navTabLabelActive,
+                  (activeTab === 'Inventory' || activeTab === 'Operations') && styles.navTabLabelActive,
                 ]}
               >
-                Operations
+                Inventory
               </Text>
             </TouchableOpacity>
 

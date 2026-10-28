@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Modal,
   Pressable,
   SafeAreaView,
@@ -60,6 +61,16 @@ import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import {
+  ProduceControlCalendarScreen,
+  ZoneCropBreakdownScreen,
+  CropRecordDetailScreen,
+  HarvestForecastInsightsScreen,
+  CropHistoryRecordsScreen,
+  ProduceControlFiltersModal,
+  ExportCropRecordsModal,
+  CompareCropCyclesModal,
+} from './TohfaAdminDashboardScreen';
 
 // ─── Theme Colors (Strictly derived from Admin Theme & Design Tokens) ────────
 export type FarmerAdminTab = 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More';
@@ -360,10 +371,23 @@ function TabFarmersIcon({ active }: { active: boolean }) {
   return <PeopleGroupIcon size={21} color={color} />;
 }
 
-function _TabProduceIcon({ active }: { active: boolean }) {
+function TabProduceCalendarIcon({ active }: { active: boolean }) {
   const color = active ? adminColors.brand : adminColors.muted;
-  const leafColor = active ? adminColors.brandDeep : adminColors.muted;
-  return <TomatoProduceIcon size={21} color={color} leafColor={leafColor} />;
+  return (
+    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+      <Circle cx="6" cy="16" r="3" stroke={color} strokeWidth="1.8" />
+      <Circle cx="18" cy="17" r="2" stroke={color} strokeWidth="1.8" />
+      <Path
+        d="M6 13V9a1 1 0 0 1 1-1h4v4.5M11 11h6v3h2v3h-3"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M8 8V5h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 8v3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
 }
 
 function TabAuditsIcon({ active }: { active: boolean }) {
@@ -2003,6 +2027,106 @@ const commStyles = StyleSheet.create({
   },
 });
 
+interface FarmerProduceCalendarViewProps {
+  onBack: () => void;
+  onOpenFarmerProfile?: () => void;
+}
+
+function FarmerProduceCalendarView({ onBack, onOpenFarmerProfile }: FarmerProduceCalendarViewProps) {
+  const [produceScreen, setProduceScreen] = useState<
+    'calendar' | 'zoneBreakdown' | 'cropDetail' | 'harvestForecast' | 'cropHistory'
+  >('calendar');
+  const [showProduceFiltersModal, setShowProduceFiltersModal] = useState(false);
+  const [showExportCropModal, setShowExportCropModal] = useState(false);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+  const [selectedCompareIds, setSelectedCompareIds] = useState<string[]>(['CR-2026-0040', 'CR-2026-0031']);
+  const [produceFilterFarmer, setProduceFilterFarmer] = useState('All');
+  const [produceFilterZone, setProduceFilterZone] = useState('All');
+  const [produceFilterCrop, setProduceFilterCrop] = useState('All');
+  const [produceFilterSeason, setProduceFilterSeason] = useState('All');
+  const [produceFilterGrowthStage, setProduceFilterGrowthStage] = useState('All');
+
+  return (
+    <View style={{ flex: 1 }}>
+      {produceScreen === 'calendar' ? (
+        <ProduceControlCalendarScreen
+          onBack={onBack}
+          onOpenFilters={() => setShowProduceFiltersModal(true)}
+          onNavigateToZoneBreakdown={() => setProduceScreen('zoneBreakdown')}
+          onNavigateToHarvestForecast={() => setProduceScreen('harvestForecast')}
+          onNavigateToCropHistory={() => setProduceScreen('cropHistory')}
+        />
+      ) : produceScreen === 'zoneBreakdown' ? (
+        <ZoneCropBreakdownScreen
+          onBack={() => setProduceScreen('calendar')}
+          onOpenFilters={() => setShowProduceFiltersModal(true)}
+          onSelectCropRecord={(_recordId) => setProduceScreen('cropDetail')}
+        />
+      ) : produceScreen === 'cropDetail' ? (
+        <CropRecordDetailScreen
+          onBack={() => setProduceScreen('zoneBreakdown')}
+          onOpenFarmerProfile={onOpenFarmerProfile}
+        />
+      ) : produceScreen === 'harvestForecast' ? (
+        <HarvestForecastInsightsScreen
+          onBack={() => setProduceScreen('calendar')}
+          onOpenExportModal={() => setShowExportCropModal(true)}
+          onOpenFilters={() => setShowProduceFiltersModal(true)}
+        />
+      ) : produceScreen === 'cropHistory' ? (
+        <CropHistoryRecordsScreen
+          onBack={() => setProduceScreen('calendar')}
+          onOpenCompareModal={() => setShowCompareModal(true)}
+          onSelectCropRecord={(_recordId) => setProduceScreen('cropDetail')}
+          onOpenFilters={() => setShowProduceFiltersModal(true)}
+          selectedCompareIds={selectedCompareIds}
+          onToggleCompare={(recordId) => {
+            setSelectedCompareIds((prev) =>
+              prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]
+            );
+          }}
+        />
+      ) : null}
+
+      {/* Produce Control Filters Modal */}
+      <ProduceControlFiltersModal
+        visible={showProduceFiltersModal}
+        onClose={() => setShowProduceFiltersModal(false)}
+        selectedFarmer={produceFilterFarmer}
+        onChangeFarmer={setProduceFilterFarmer}
+        selectedZone={produceFilterZone}
+        onChangeZone={setProduceFilterZone}
+        selectedCrop={produceFilterCrop}
+        onChangeCrop={setProduceFilterCrop}
+        selectedSeason={produceFilterSeason}
+        onChangeSeason={setProduceFilterSeason}
+        selectedGrowthStage={produceFilterGrowthStage}
+        onChangeGrowthStage={setProduceFilterGrowthStage}
+      />
+
+      {/* Export Crop Records Modal */}
+      <ExportCropRecordsModal
+        visible={showExportCropModal}
+        onClose={() => setShowExportCropModal(false)}
+        onDownloadCSV={() => {
+          setShowExportCropModal(false);
+          Alert.alert('Download CSV', '43 crop records exported successfully as CSV.');
+        }}
+      />
+
+      {/* Compare Crop Cycles Modal */}
+      <CompareCropCyclesModal
+        visible={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        onExportDetails={() => {
+          setShowCompareModal(false);
+          Alert.alert('Export Details', 'Crop cycle comparison exported successfully.');
+        }}
+      />
+    </View>
+  );
+}
+
 export type AuditScheduleInitialView =
   | 'history'
   | 'audit_detail'
@@ -2021,12 +2145,14 @@ export type AuditScheduleInitialView =
 export interface FarmerAdminDashboardScreenProps {
   onSignOut: () => void;
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
+  onSwitchRole?: () => void;
   initialTab?: FarmerAdminTab;
 }
 
 export function FarmerAdminDashboardScreen({
   onSignOut,
-  onNavigate: _onNavigate,
+  onNavigate,
+  onSwitchRole,
   initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
@@ -2085,6 +2211,7 @@ export function FarmerAdminDashboardScreen({
   const [farmerAdminSelectedApp, setFarmerAdminSelectedApp] = useState<any>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<
     | 'menu'
+    | 'market_pricing'
     | 'disputes'
     | 'dispute_detail'
     | 'dispute_timeline'
@@ -2172,6 +2299,7 @@ export function FarmerAdminDashboardScreen({
       | 'farmers_management';
     moreSubScreen?:
       | 'menu'
+      | 'market_pricing'
       | 'disputes'
       | 'dispute_detail'
       | 'dispute_timeline'
@@ -2236,9 +2364,19 @@ export function FarmerAdminDashboardScreen({
 
     setNavStack((prev) => [...prev, currentSnapshot]);
 
-    if (next.tab !== undefined) setActiveTab(next.tab);
-    if (next.subView !== undefined) setSubView(next.subView);
-    if (next.moreSubScreen !== undefined) setMoreSubScreen(next.moreSubScreen);
+    let targetSubView = next.subView;
+    let targetMoreSubScreen = next.moreSubScreen;
+    let targetTab = next.tab;
+
+    if (targetSubView === 'market_pricing') {
+      targetTab = 'More';
+      targetMoreSubScreen = 'market_pricing';
+      targetSubView = 'none';
+    }
+
+    if (targetTab !== undefined) setActiveTab(targetTab);
+    if (targetSubView !== undefined) setSubView(targetSubView);
+    if (targetMoreSubScreen !== undefined) setMoreSubScreen(targetMoreSubScreen);
     if (next.selectedDispute !== undefined) setSelectedDispute(next.selectedDispute);
     if (next.activeIncidentItem !== undefined) setActiveIncidentItem(next.activeIncidentItem);
     if (next.activeOrderId !== undefined) setActiveOrderId(next.activeOrderId);
@@ -2299,7 +2437,20 @@ export function FarmerAdminDashboardScreen({
   };
 
   // Modal State for details
-  const [modalItem, setModalItem] = useState<{ title: string; content: string } | null>(null);
+  const [modalItem, setModalItem] = useState<{
+    title: string;
+    content: string;
+    onAction?: () => void;
+  } | null>(null);
+
+  const handleSwitchToFarmerApp = () => {
+    setModalItem(null);
+    if (onSwitchRole) {
+      onSwitchRole();
+    } else if (onNavigate) {
+      onNavigate('MainTabs');
+    }
+  };
   const [completedProduceNames, setCompletedProduceNames] = useState<string[]>([]);
 
   useEffect(() => {
@@ -2659,7 +2810,8 @@ export function FarmerAdminDashboardScreen({
         onSwitchRole={() =>
           setModalItem({
             title: 'Switch Role',
-            content: 'You are currently in Farmer Admin mode. Tap to switch to Smallholder Farmer mode.',
+            content: 'Tap to switch to Farmer application',
+            onAction: handleSwitchToFarmerApp,
           })
         }
       />
@@ -2909,19 +3061,7 @@ export function FarmerAdminDashboardScreen({
     );
   }
 
-  // Module 7: Market & Pricing Home (Screenshot 1 & 2)
-  if (subView === 'market_pricing') {
-    return (
-      <MarketPricingHomeScreen
-        onBack={() => goBack()}
-        onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
-        onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
-        onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}
-        onNavigateToRetailPricing={() => pushNavigation({ subView: 'retail_pricing' })}
-        onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-      />
-    );
-  }
+
 
   // Module 7: Fair Price Ceilings & Filters (Screenshot 3 & 4)
   if (subView === 'fair_price') {
@@ -3155,8 +3295,8 @@ export function FarmerAdminDashboardScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, & Audits pages) ─── */}
-      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Audits' && (
+      {/* ─── Terracotta Header (Only on Home — REMOVED on More, Farmers, Audits & Produce pages) ─── */}
+      {activeTab !== 'More' && activeTab !== 'Farmers' && activeTab !== 'Audits' && activeTab !== 'Produce' && (
         <View style={styles.header}>
           <View style={styles.headerTopRow}>
             <View style={styles.headerTitleWrap}>
@@ -3221,7 +3361,8 @@ export function FarmerAdminDashboardScreen({
                 onPress={() =>
                   setModalItem({
                     title: 'Switch Role',
-                    content: 'You are currently in Farmer Admin mode. Tap to switch to Smallholder Farmer mode.',
+                    content: 'Tap to switch to Farmer application',
+                    onAction: handleSwitchToFarmerApp,
                   })
                 }
                 activeOpacity={0.8}
@@ -3587,6 +3728,17 @@ export function FarmerAdminDashboardScreen({
           />
         )}
 
+        {/* ─── Produce Calendar Tab ─── */}
+        {activeTab === 'Produce' && (
+          <FarmerProduceCalendarView
+            onBack={() => goBack('Home')}
+            onOpenFarmerProfile={() => {
+              setFarmersInternalView('list');
+              setActiveTab('Farmers');
+            }}
+          />
+        )}
+
         {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
         {activeTab === 'Audits' && (
           <FarmerAuditsTabScreen
@@ -3622,11 +3774,11 @@ export function FarmerAdminDashboardScreen({
         )}
 
         {/* ─── More Tab (Screenshot 5) ─── */}
-        {activeTab === 'More' && moreSubScreen === 'menu' && (
+        {activeTab === 'More' && moreSubScreen === 'menu' && subView === 'none' && (
           <FarmerAdminMoreScreen
             onBack={() => goBack('Home')}
             onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
-            onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
+            onNavigateMarketPricing={() => pushNavigation({ tab: 'More', moreSubScreen: 'market_pricing', subView: 'none' })}
             onNavigateProduceListings={() => pushNavigation({ subView: 'produce_listings' })}
             onNavigateDisputes={() => {
               pushNavigation({ subView: 'disputes' });
@@ -3636,14 +3788,15 @@ export function FarmerAdminDashboardScreen({
             onSwitchRole={() =>
               setModalItem({
                 title: 'Switch Role',
-                content: 'You are currently in Farmer Admin mode. Tap to switch to Smallholder Farmer mode.',
+                content: 'Tap to switch to Farmer application',
+                onAction: handleSwitchToFarmerApp,
               })
             }
             onItemSelect={(title) => {
               if (title === 'Inputs & Pest Management') {
                 pushNavigation({ subView: 'inputs_pest' });
               } else if (title === 'Market & Pricing') {
-                pushNavigation({ subView: 'market_pricing' });
+                pushNavigation({ tab: 'More', moreSubScreen: 'market_pricing', subView: 'none' });
               } else if (title === 'Ratings') {
                 pushNavigation({ subView: 'farmer_ratings' });
               } else if (title === 'Disputes') {
@@ -3657,6 +3810,17 @@ export function FarmerAdminDashboardScreen({
                 });
               }
             }}
+          />
+        )}
+
+        {/* ─── Market & Pricing Home (Matching Images 1 & 2) ─── */}
+        {((activeTab === 'More' && moreSubScreen === 'market_pricing') || subView === 'market_pricing') && (
+          <MarketPricingHomeScreen
+            onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
+            onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
+            onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}
+            onNavigateToRetailPricing={() => pushNavigation({ subView: 'retail_pricing' })}
+            onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
           />
         )}
 
@@ -3736,12 +3900,29 @@ export function FarmerAdminDashboardScreen({
         onRequestClose={() => setModalItem(null)}
       >
         <Pressable style={styles.modalOverlay} onPress={() => setModalItem(null)}>
-          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={styles.modalCard}
+            onPress={(e) => {
+              e.stopPropagation();
+              if (modalItem?.title === 'Switch Role') {
+                handleSwitchToFarmerApp();
+              }
+            }}
+          >
             <Text style={styles.modalTitle}>{modalItem?.title}</Text>
             <Text style={styles.modalContent}>{modalItem?.content}</Text>
             <TouchableOpacity
               style={styles.modalCloseBtn}
-              onPress={() => setModalItem(null)}
+              onPress={() => {
+                const action = modalItem?.onAction;
+                const isSwitchRole = modalItem?.title === 'Switch Role';
+                setModalItem(null);
+                if (action) {
+                  action();
+                } else if (isSwitchRole) {
+                  handleSwitchToFarmerApp();
+                }
+              }}
               activeOpacity={0.8}
             >
               <Text style={styles.modalCloseText}>Done</Text>
@@ -3751,11 +3932,13 @@ export function FarmerAdminDashboardScreen({
       </Modal>
 
       {/* ─── Bottom Tab Bar (Only show on the 5 primary dashboard screens) ─── */}
-      {subView === 'none' &&
+      {(subView === 'none' || subView === 'market_pricing') &&
         (activeTab === 'Home' ||
           (activeTab === 'Farmers' && farmersInternalView === 'list') ||
+          activeTab === 'Produce' ||
           activeTab === 'Audits' ||
-          (activeTab === 'More' && moreSubScreen === 'menu')) && (
+          (activeTab === 'More' && (moreSubScreen === 'menu' || moreSubScreen === 'market_pricing')) ||
+          subView === 'market_pricing') && (
           <View style={styles.tabBar}>
             <Pressable
               style={styles.tabItem}
@@ -3768,8 +3951,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Home"
             >
-              <TabHomeIcon active={activeTab === 'Home'} />
-              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+              <TabHomeIcon active={activeTab === 'Home' && subView === 'none'} />
+              <Text style={[styles.tabLabel, activeTab === 'Home' && subView === 'none' && styles.tabLabelActive]}>Home</Text>
             </Pressable>
 
             <Pressable
@@ -3784,10 +3967,26 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Farmers"
             >
-              <TabFarmersIcon active={activeTab === 'Farmers'} />
-              <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>Farmers</Text>
+              <TabFarmersIcon active={activeTab === 'Farmers' && subView === 'none'} />
+              <Text style={[styles.tabLabel, activeTab === 'Farmers' && subView === 'none' && styles.tabLabelActive]}>Farmers</Text>
             </Pressable>
 
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => {
+                setNavStack([]);
+                setSubView('none');
+                setMoreSubScreen('menu');
+                setActiveTab('Produce');
+              }}
+              accessibilityRole="tab"
+              accessibilityLabel="Produce Calendar"
+            >
+              <TabProduceCalendarIcon active={activeTab === 'Produce' && subView === 'none'} />
+              <Text style={[styles.tabLabel, activeTab === 'Produce' && subView === 'none' && styles.tabLabelActive]} numberOfLines={1}>
+                Produce Calendar
+              </Text>
+            </Pressable>
 
             <Pressable
               style={styles.tabItem}
@@ -3800,8 +3999,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="Audits"
             >
-              <TabAuditsIcon active={activeTab === 'Audits'} />
-              <Text style={[styles.tabLabel, activeTab === 'Audits' && styles.tabLabelActive]}>Audits</Text>
+              <TabAuditsIcon active={activeTab === 'Audits' && subView === 'none'} />
+              <Text style={[styles.tabLabel, activeTab === 'Audits' && subView === 'none' && styles.tabLabelActive]}>Audits</Text>
             </Pressable>
 
             <Pressable
@@ -3815,8 +4014,8 @@ export function FarmerAdminDashboardScreen({
               accessibilityRole="tab"
               accessibilityLabel="More"
             >
-              <TabMoreIcon active={activeTab === 'More'} />
-              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+              <TabMoreIcon active={activeTab === 'More' || subView === 'market_pricing'} />
+              <Text style={[styles.tabLabel, (activeTab === 'More' || subView === 'market_pricing') && styles.tabLabelActive]}>More</Text>
             </Pressable>
           </View>
         )}
