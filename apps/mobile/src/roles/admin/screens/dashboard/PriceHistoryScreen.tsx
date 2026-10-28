@@ -87,7 +87,7 @@ export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
     previousPrice: '₹95.00',
     newPrice: '₹100.00',
     frequency: 'Weekly',
-    effectiveDate: '30 Sep',
+    effectiveDate: '30 Sep 2026',
     created: '30 Sep 2026, 6:00 AM',
     actor: 'System (SA-configured)',
   },
@@ -100,7 +100,7 @@ export const SAMPLE_PRICE_HISTORY: PriceHistoryRecord[] = [
     previousPrice: '₹90.00',
     newPrice: '₹95.00',
     frequency: 'Weekly',
-    effectiveDate: '29 Sep',
+    effectiveDate: '29 Sep 2026',
     created: '23 Sep 2026, 6:00 AM',
     actor: 'System (SA-configured)',
   },
@@ -256,27 +256,40 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
         {/* VIEW 2: Detail View */}
         {!showFilters && selectedRecord && (
           <View>
-            <Text style={styles.sectionHeading}>{t('priceHistory.section.detail')}</Text>
-
             <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cropTitleText}>{selectedRecord.cropGrade}</Text>
-                <View style={styles.datePill}>
-                  <Text style={styles.datePillText}>{selectedRecord.datePill}</Text>
+              {/* Row 1: Crop & Grade */}
+              <View style={styles.detailGridRow}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.crop')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.crop}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.grade')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.grade}</Text>
                 </View>
               </View>
 
-              <View style={styles.detailGridRow}>
+              {/* Row 2: Previous Price & New Price */}
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>{t('priceHistory.label.previousPrice')}</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.previousPrice}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedRecord.previousPrice.includes('/kg')
+                      ? selectedRecord.previousPrice
+                      : `${selectedRecord.previousPrice}/kg`}
+                  </Text>
                 </View>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>{t('priceHistory.label.newPrice')}</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.newPrice}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedRecord.newPrice.includes('/kg')
+                      ? selectedRecord.newPrice
+                      : `${selectedRecord.newPrice}/kg`}
+                  </Text>
                 </View>
               </View>
 
+              {/* Row 3: Frequency & Effective Date */}
               <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>{t('priceHistory.label.frequency')}</Text>
@@ -284,18 +297,24 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
                 </View>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>{t('priceHistory.label.effectiveDate')}</Text>
-                  <Text style={styles.detailValue}>{selectedRecord.effectiveDate}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedRecord.effectiveDate.includes('2026')
+                      ? selectedRecord.effectiveDate
+                      : `${selectedRecord.effectiveDate} 2026`}
+                  </Text>
                 </View>
               </View>
 
-              <View style={styles.gridRowSpacing}>
-                <Text style={styles.detailLabel}>{t('priceHistory.label.created')}</Text>
-                <Text style={styles.detailValue}>{selectedRecord.created}</Text>
-              </View>
-
-              <View style={styles.gridRowSpacing}>
-                <Text style={styles.detailLabel}>{t('priceHistory.label.actor')}</Text>
-                <Text style={styles.detailValue}>{selectedRecord.actor}</Text>
+              {/* Row 4: Created & Actor */}
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.created')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.created}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('priceHistory.label.actor')}</Text>
+                  <Text style={styles.detailValue}>{selectedRecord.actor}</Text>
+                </View>
               </View>
             </View>
 
@@ -366,13 +385,7 @@ export function PriceHistoryScreen({ onBack, itemName, category, currentPrice }:
               ))
             )}
 
-            {/* Info Notice Banner */}
-            <View style={styles.infoBanner}>
-              <CircleInfoIcon size={18} color={adminColors.brandDeep} />
-              <Text style={styles.infoBannerText}>
-                Money values are displayed exactly as returned by the API — never recalculated with frontend floating-point arithmetic. Newest changes shown first.
-              </Text>
-            </View>
+
           </View>
         )}
 
@@ -652,9 +665,9 @@ const styles = StyleSheet.create({
   backToHistoryBtn: {
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    backgroundColor: adminColors.brandTint,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
-    height: 44,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

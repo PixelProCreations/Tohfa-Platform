@@ -104,6 +104,21 @@ function DocumentPencilIcon({ size = 20, color = adminColors.brandDeep }: { size
   );
 }
 
+function DocumentFileIcon({ size = 22, color = adminColors.brandDeep }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function HeadsetSupportIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -141,22 +156,19 @@ function AuditClipboardIcon({ size = 20, color = adminColors.brandDeep }: { size
   );
 }
 
-function AlertExclamationIcon({ size = 18, color = adminColors.danger.text }: { size?: number; color?: string }) {
+function WrenchIcon({ size = 20, color = adminColors.warning.text }: { size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 7v7" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
-      <Circle cx="12" cy="18" r="1.3" fill={color} />
-    </Svg>
-  );
-}
-
-function WrenchToolIcon({ size = 18, color = adminColors.warning.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      style={{ transform: [{ scaleX: -1 }] }}
+    >
       <Path
-        d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
+        d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.9 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"
         stroke={color}
-        strokeWidth="1.8"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -300,14 +312,13 @@ function TabMoreIcon({ active }: { active: boolean }) {
 
 export type NotificationViewMode =
   | 'center'
-  | 'alerts'
   | 'reports'
   | 'report_config'
   | 'report_preview';
 
 export interface CenterNotificationItem {
   id: string;
-  type: 'produce' | 'support' | 'audit';
+  type: 'produce' | 'support' | 'audit' | 'report';
   title: string;
   body: string;
   reference: string;
@@ -316,14 +327,6 @@ export interface CenterNotificationItem {
   actionRequired?: boolean;
 }
 
-export interface SystemAlertRecord {
-  id: string;
-  severity: 'critical' | 'warning';
-  title: string;
-  detail: string;
-  timestamp: string;
-  code: string;
-}
 
 export interface ReportCatalogueItem {
   id: string;
@@ -354,13 +357,12 @@ const INITIAL_CENTER_NOTIFICATIONS: readonly CenterNotificationItem[] = [
   },
   {
     id: 'n2',
-    type: 'support',
-    title: 'Support request raised',
-    body: 'Meena reported a payment issue that needs your attention.',
-    reference: 'FS-00131 · Meena',
-    categoryTime: 'Farmer Support · 10 Oct 2026, 08:45',
+    type: 'report',
+    title: 'Report generation delayed',
+    body: 'RPT-2026-0012 took longer than expected to generate.',
+    reference: '',
+    categoryTime: 'System/Technical Alerts · 9 Oct 2026, 22:10',
     unread: true,
-    actionRequired: true,
   },
   {
     id: 'n3',
@@ -373,24 +375,6 @@ const INITIAL_CENTER_NOTIFICATIONS: readonly CenterNotificationItem[] = [
   },
 ];
 
-const INITIAL_SYSTEM_ALERTS: readonly SystemAlertRecord[] = [
-  {
-    id: 'sa1',
-    severity: 'critical',
-    title: 'Escalated support request',
-    detail: 'FS-00131 — payment issue unresolved for 48 hours.',
-    timestamp: 'Operational Alerts · 10 Oct 2026, 08:00',
-    code: 'FS-00131',
-  },
-  {
-    id: 'sa2',
-    severity: 'warning',
-    title: 'Report generation delayed',
-    detail: 'RPT-2026-0012 took longer than expected to generate.',
-    timestamp: 'System/Technical Alerts · 9 Oct 2026, 22:10',
-    code: 'RPT-2026-0012',
-  },
-];
 
 const REPORT_CATALOGUE_ITEMS: readonly ReportCatalogueItem[] = [
   {
@@ -404,38 +388,16 @@ const REPORT_CATALOGUE_ITEMS: readonly ReportCatalogueItem[] = [
     description: 'Review produce listings and their operational status.',
   },
   {
-    id: 'purchase_activity',
-    title: 'Purchase Activity',
-    description: 'Review purchase activity within your scope. No prices or payment data.',
-  },
-  {
     id: 'farmer_ratings',
     title: 'Farmer Ratings',
     description: 'Review ratings within your zone.',
-  },
-  {
-    id: 'disputes_mediation',
-    title: 'Disputes & Mediation',
-    description: 'Monitor farmer-to-TOHFA disputes. No internal notes included.',
-  },
-  {
-    id: 'collection_handover',
-    title: 'Collection & Handover',
-    description: 'Review collections and handovers.',
-  },
-  {
-    id: 'farmer_support',
-    title: 'Farmer Support',
-    description: 'Review support requests. Conditional on the support workflow being enabled.',
   },
 ];
 
 const DATE_RANGE_OPTIONS = [
   'Today',
-  'Yesterday',
   'Last 7 Days',
   'Last 30 Days',
-  'This Month',
   'Custom',
 ] as const;
 
@@ -465,11 +427,10 @@ const STATUS_FILTER_OPTIONS = [
 ] as const;
 
 const GROUP_BY_OPTIONS = [
-  'No grouping',
-  'Farmer',
-  'Produce',
-  'Zone',
+  'None',
   'Date',
+  'Farmer',
+  'Status',
 ] as const;
 
 const SAMPLE_PREVIEW_RECORDS: readonly ReportTableRow[] = [
@@ -525,24 +486,24 @@ export function FarmerAdminNotificationsScreen({
 
   // Search queries
   const [searchQuery, setSearchQuery] = useState('');
-  const [alertsSearchQuery, setAlertsSearchQuery] = useState('');
   const [resultsSearchQuery, setResultsSearchQuery] = useState('');
 
   // Notifications state
   const [notifications, setNotifications] = useState<readonly CenterNotificationItem[]>(
     INITIAL_CENTER_NOTIFICATIONS,
   );
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Unread' | 'Produce' | 'Support' | 'Audits'>('All');
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Unread' | 'Produce' | 'Reports' | 'Audits'>('All');
   const [showFilterPills, setShowFilterPills] = useState(false);
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
 
   // Reports state (M13-S02 & M13-S03B)
-  const [selectedReportId, setSelectedReportId] = useState<string>('farmer_activity');
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedDateRange, setSelectedDateRange] = useState<string>('Today');
   const [selectedFarmer, setSelectedFarmer] = useState<string>('Any farmer');
   const [selectedActivityType, setSelectedActivityType] = useState<string>('Any');
   const [selectedStatus, setSelectedStatus] = useState<string>('Any');
-  const [selectedGroupBy, setSelectedGroupBy] = useState<string>('No grouping');
+  const [selectedGroupBy, setSelectedGroupBy] = useState<string>('None');
+  const [openDropdown, setOpenDropdown] = useState<'date_range' | 'group_by' | null>(null);
 
   // Modal pickers
   const [pickerModalType, setPickerModalType] = useState<
@@ -563,16 +524,18 @@ export function FarmerAdminNotificationsScreen({
   // Recent reports list (M13-S03B)
   const [recentReports, setRecentReports] = useState<string[]>([]);
 
+  // Export format selection (M13-S03B)
+  const [selectedExportFormat, setSelectedExportFormat] = useState<'CSV' | 'PDF'>('CSV');
+
   // Preview & Pagination (M13-S04)
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(5);
   const [exportHistory, setExportHistory] = useState<string[]>([]);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const selectedReportItem: ReportCatalogueItem = useMemo(() => {
-    const found = REPORT_CATALOGUE_ITEMS.find((item) => item.id === selectedReportId);
-    if (found) return found;
-    return REPORT_CATALOGUE_ITEMS[0] as ReportCatalogueItem;
+  const selectedReportItem: ReportCatalogueItem | null = useMemo(() => {
+    if (!selectedReportId) return null;
+    return REPORT_CATALOGUE_ITEMS.find((item) => item.id === selectedReportId) ?? null;
   }, [selectedReportId]);
 
   // Derived unread count
@@ -595,25 +558,12 @@ export function FarmerAdminNotificationsScreen({
 
       if (activeFilter === 'Unread') return item.unread;
       if (activeFilter === 'Produce') return item.type === 'produce';
-      if (activeFilter === 'Support') return item.type === 'support';
+      if (activeFilter === 'Reports') return item.type === 'report';
       if (activeFilter === 'Audits') return item.type === 'audit';
       return true;
     });
   }, [notifications, searchQuery, activeFilter]);
 
-  // Filtered System Alerts list
-  const filteredAlerts = useMemo(() => {
-    const q = alertsSearchQuery.trim().toLowerCase();
-    return INITIAL_SYSTEM_ALERTS.filter((item) => {
-      return (
-        q === '' ||
-        item.title.toLowerCase().includes(q) ||
-        item.detail.toLowerCase().includes(q) ||
-        item.code.toLowerCase().includes(q) ||
-        item.timestamp.toLowerCase().includes(q)
-      );
-    });
-  }, [alertsSearchQuery]);
 
   // Filtered Table Rows for Report Preview (M13-S04)
   const filteredPreviewRows = useMemo(() => {
@@ -657,10 +607,10 @@ export function FarmerAdminNotificationsScreen({
 
     if (item.type === 'produce') {
       onViewListing?.();
-    } else if (item.type === 'support') {
-      setViewMode('alerts');
     } else if (item.type === 'audit') {
       onViewAudit?.();
+    } else if (item.type === 'report') {
+      setViewMode('reports');
     }
   };
 
@@ -676,7 +626,8 @@ export function FarmerAdminNotificationsScreen({
     setSelectedFarmer('Any farmer');
     setSelectedActivityType('Any');
     setSelectedStatus('Any');
-    setSelectedGroupBy('No grouping');
+    setSelectedGroupBy('None');
+    setOpenDropdown(null);
     setSelectedColumns({
       farmerId: true,
       farmerName: true,
@@ -690,23 +641,32 @@ export function FarmerAdminNotificationsScreen({
   };
 
   const handleGenerateReport = () => {
+    const reportTitle = selectedReportItem?.title ?? 'Farmer Activity';
     const ref = `RPT-2026-${String(Math.floor(Math.random() * 900) + 100).padStart(4, '0')}`;
     setRecentReports((prev) => [
-      `${selectedReportItem.title} (${ref}) · ${new Date().toLocaleDateString('en-GB')}`,
+      `${reportTitle} (${ref}) · ${new Date().toLocaleDateString('en-GB')}`,
       ...prev,
     ]);
-    setCurrentPage(1);
-    setResultsSearchQuery('');
-    setViewMode('report_preview');
+    setViewMode('report_config');
   };
 
   const handleExport = (type: 'CSV' | 'PDF' | 'Report') => {
+    const reportTitle = selectedReportItem?.title ?? 'Farmer Activity';
     const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     setExportHistory((prev) => [
-      `${selectedReportItem.title} — ${type} exported at ${timeStr}`,
+      `${reportTitle} — ${type} exported at ${timeStr}`,
       ...prev,
     ]);
     showToast(`${type} generated successfully`);
+  };
+
+  const handleExportAndPreview = (type: 'CSV' | 'PDF') => {
+    handleExport(type);
+    if (type === 'CSV') {
+      setCurrentPage(1);
+      setResultsSearchQuery('');
+      setViewMode('report_preview');
+    }
   };
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -728,7 +688,7 @@ export function FarmerAdminNotificationsScreen({
     if (pickerModalType === 'report_type') {
       title = 'Select Report Type';
       options = REPORT_CATALOGUE_ITEMS.map((i) => i.title);
-      selected = selectedReportItem.title;
+      selected = selectedReportItem?.title ?? REPORT_CATALOGUE_ITEMS[0]?.title ?? '';
       onSelect = (val) => {
         const found = REPORT_CATALOGUE_ITEMS.find((i) => i.title === val);
         if (found) setSelectedReportId(found.id);
@@ -886,7 +846,7 @@ export function FarmerAdminNotificationsScreen({
 
           {showFilterPills && (
             <View style={styles.filterPillsContainer}>
-              {(['All', 'Unread', 'Produce', 'Support', 'Audits'] as const).map((chip) => {
+              {(['All', 'Unread', 'Produce', 'Reports', 'Audits'] as const).map((chip) => {
                 const isActive = activeFilter === chip;
                 return (
                   <TouchableOpacity
@@ -928,6 +888,7 @@ export function FarmerAdminNotificationsScreen({
                         {item.type === 'produce' && <DocumentPencilIcon size={20} />}
                         {item.type === 'support' && <HeadsetSupportIcon size={20} />}
                         {item.type === 'audit' && <AuditClipboardIcon size={20} />}
+                        {item.type === 'report' && <WrenchIcon size={20} color={adminColors.warning.text} />}
                       </View>
 
                       <Text style={styles.cardTitle} numberOfLines={1}>
@@ -949,7 +910,9 @@ export function FarmerAdminNotificationsScreen({
                     </View>
 
                     <Text style={styles.cardBodyText}>{item.body}</Text>
-                    <Text style={styles.cardRefText}>{item.reference}</Text>
+                    {Boolean(item.reference) && (
+                      <Text style={styles.cardRefText}>{item.reference}</Text>
+                    )}
                     <Text style={styles.cardMetaText}>{item.categoryTime}</Text>
                   </TouchableOpacity>
                 );
@@ -957,119 +920,68 @@ export function FarmerAdminNotificationsScreen({
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
-  // ───────────────────────────────────────────────────────────────────────────
-  // Screen 2: System Alerts (Image 2)
-  // ───────────────────────────────────────────────────────────────────────────
-  if (viewMode === 'alerts') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {/* Bottom Tab Bar (Image 1) */}
+        <View style={styles.tabBar}>
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => onTabChange?.('Home')}
+            activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityLabel="Home"
+          >
+            <TabHomeIcon active={false} />
+            <Text style={styles.tabLabel}>Home</Text>
+          </TouchableOpacity>
 
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <View style={styles.headerLeftGroup}>
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={() => setViewMode('center')}
-                activeOpacity={0.7}
-                accessibilityLabel="Back to Notifications Center"
-              >
-                <BackArrowIcon size={22} color={adminColors.onBrand} />
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => onTabChange?.('Farmers')}
+            activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityLabel="Farmers"
+          >
+            <TabFarmersIcon active={false} />
+            <Text style={styles.tabLabel}>Farmers</Text>
+          </TouchableOpacity>
 
-              <Text style={styles.headerTitle}>System Alerts</Text>
-            </View>
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => onTabChange?.('Produce')}
+            activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityLabel="Produce"
+          >
+            <TabProduceIcon active={false} />
+            <Text style={styles.tabLabel}>Produce</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.headerShortcutBtn}
-              onPress={() => setViewMode('reports')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.headerShortcutText}>Reports →</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => onTabChange?.('Audits')}
+            activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityLabel="Audits"
+          >
+            <TabAuditsIcon active={false} />
+            <Text style={styles.tabLabel}>Audits</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => onTabChange?.('More')}
+            activeOpacity={0.75}
+            accessibilityRole="tab"
+            accessibilityLabel="More"
+          >
+            <TabMoreIcon active={true} />
+            <Text style={[styles.tabLabel, styles.tabLabelActive]}>More</Text>
+          </TouchableOpacity>
         </View>
-
-        {renderQuickModeSwitcher()}
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.searchBox}>
-            <SearchIcon size={18} color={adminColors.placeholder} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search notifications..."
-              placeholderTextColor={adminColors.placeholder}
-              value={alertsSearchQuery}
-              onChangeText={setAlertsSearchQuery}
-              returnKeyType="search"
-            />
-            {alertsSearchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setAlertsSearchQuery('')} activeOpacity={0.7}>
-                <Text style={styles.clearSearchText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.cardsContainer}>
-            {filteredAlerts.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No system alerts match search</Text>
-              </View>
-            ) : (
-              filteredAlerts.map((alert) => {
-                const isCritical = alert.severity === 'critical';
-                return (
-                  <TouchableOpacity
-                    key={alert.id}
-                    style={styles.alertCard}
-                    onPress={() => {
-                      if (isCritical) {
-                        onViewDispute?.();
-                      } else {
-                        setViewMode('reports');
-                      }
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <View
-                      style={[
-                        styles.alertLeftStripe,
-                        isCritical ? styles.alertStripeCritical : styles.alertStripeWarning,
-                      ]}
-                    />
-
-                    <View style={styles.alertContentPad}>
-                      <View style={styles.alertHeaderRow}>
-                        <View style={styles.alertIconBox}>
-                          {isCritical ? (
-                            <AlertExclamationIcon size={18} color={adminColors.danger.text} />
-                          ) : (
-                            <WrenchToolIcon size={18} color={adminColors.warning.text} />
-                          )}
-                        </View>
-                        <Text style={styles.alertTitle}>{alert.title}</Text>
-                      </View>
-
-                      <Text style={styles.alertDetailText}>{alert.detail}</Text>
-                      <Text style={styles.alertFooterText}>{alert.timestamp}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
       </SafeAreaView>
     );
   }
+
 
   // ───────────────────────────────────────────────────────────────────────────
   // Screen 3: Reports Dashboard & Catalogue (M13-S02)
@@ -1084,7 +996,14 @@ export function FarmerAdminNotificationsScreen({
             <View style={styles.headerLeftGroup}>
               <TouchableOpacity
                 style={styles.backBtn}
-                onPress={() => setViewMode('center')}
+                onPress={() => {
+                  if (selectedReportId) {
+                    setSelectedReportId(null);
+                    setOpenDropdown(null);
+                  } else {
+                    setViewMode('center');
+                  }
+                }}
                 activeOpacity={0.7}
                 accessibilityLabel="Back to Notifications Center"
               >
@@ -1093,14 +1012,6 @@ export function FarmerAdminNotificationsScreen({
 
               <Text style={styles.headerTitle}>Reports</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.headerShortcutBtn}
-              onPress={() => setViewMode('alerts')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.headerShortcutText}>Alerts</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1110,22 +1021,19 @@ export function FarmerAdminNotificationsScreen({
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.sectionHeaderTitle}>Report catalogue</Text>
 
           <View style={styles.catalogueList}>
             {REPORT_CATALOGUE_ITEMS.map((item) => {
-              const isSelected = selectedReportId === item.id;
               return (
                 <TouchableOpacity
                   key={item.id}
-                  style={[
-                    styles.catalogueCard,
-                    isSelected && styles.catalogueCardSelected,
-                  ]}
+                  style={styles.catalogueCard}
                   onPress={() => {
                     setSelectedReportId(item.id);
-                    setViewMode('report_config');
+                    setOpenDropdown(null);
                   }}
                   activeOpacity={0.75}
                 >
@@ -1135,53 +1043,154 @@ export function FarmerAdminNotificationsScreen({
                   </View>
                   <ChevronRightIcon
                     size={18}
-                    color={isSelected ? adminColors.brand : adminColors.muted}
+                    color={adminColors.muted}
                   />
                 </TouchableOpacity>
               );
             })}
           </View>
 
-          <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.lg }]}>
-            Configure: {selectedReportItem.title}
-          </Text>
+          {selectedReportItem && (
+            <>
+              <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.lg }]}>
+                Configure: {selectedReportItem.title}
+              </Text>
 
-          <View style={styles.configCard}>
-            <Text style={styles.configLabel}>
-              Date Range <Text style={styles.requiredAsterisk}>*</Text>
-            </Text>
+              <View
+                style={[
+                  styles.configCard,
+                  {
+                    zIndex: openDropdown ? 50 : 1,
+                    paddingBottom:
+                      openDropdown === 'group_by'
+                        ? 185
+                        : openDropdown === 'date_range'
+                        ? 185
+                        : adminSpacing.lg,
+                  },
+                ]}
+              >
+                {/* Field: Date Range * */}
+                <View
+                  style={[
+                    styles.dropdownFieldWrapper,
+                    { zIndex: openDropdown === 'date_range' ? 30 : 1 },
+                  ]}
+                >
+                  <Text style={styles.configLabel}>
+                    Date Range <Text style={styles.requiredAsterisk}>*</Text>
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.dropdownSelector}
+                    onPress={() =>
+                      setOpenDropdown((prev) => (prev === 'date_range' ? null : 'date_range'))
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.dropdownValueText}>{selectedDateRange}</Text>
+                    <ChevronDownIcon size={16} color={adminColors.ink} />
+                  </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.dropdownSelector}
-              onPress={() => setPickerModalType('date_range')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.dropdownValueText}>{selectedDateRange}</Text>
-              <ChevronDownIcon size={16} color={adminColors.ink} />
-            </TouchableOpacity>
+                  {openDropdown === 'date_range' && (
+                    <View style={styles.dropdownOverlayMenu}>
+                      {DATE_RANGE_OPTIONS.map((opt) => {
+                        const isSelected = selectedDateRange === opt;
+                        return (
+                          <TouchableOpacity
+                            key={opt}
+                            style={[
+                              styles.dropdownOptionRow,
+                              isSelected && styles.dropdownOptionRowActive,
+                            ]}
+                            onPress={() => {
+                              setSelectedDateRange(opt);
+                              setOpenDropdown(null);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownOptionLabel,
+                                isSelected && styles.dropdownOptionLabelActive,
+                              ]}
+                            >
+                              {opt}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
 
-            <Text style={[styles.configLabel, { marginTop: adminSpacing.md }]}>Group By</Text>
+                {/* Field: Group By */}
+                <View
+                  style={[
+                    styles.dropdownFieldWrapper,
+                    { marginTop: adminSpacing.md, zIndex: openDropdown === 'group_by' ? 20 : 1 },
+                  ]}
+                >
+                  <Text style={styles.configLabel}>Group By</Text>
+                  <TouchableOpacity
+                    style={styles.dropdownSelector}
+                    onPress={() =>
+                      setOpenDropdown((prev) => (prev === 'group_by' ? null : 'group_by'))
+                    }
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.dropdownValueText}>{selectedGroupBy}</Text>
+                    <ChevronDownIcon size={16} color={adminColors.ink} />
+                  </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.dropdownSelector}
-              onPress={() => setPickerModalType('group_by')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.dropdownValueText}>{selectedGroupBy}</Text>
-              <ChevronDownIcon size={16} color={adminColors.ink} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.generateReportBtn}
-            onPress={() => setViewMode('report_config')}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.generateReportBtnText}>Configure & Generate</Text>
-          </TouchableOpacity>
+                  {openDropdown === 'group_by' && (
+                    <View style={styles.dropdownOverlayMenu}>
+                      {GROUP_BY_OPTIONS.map((opt) => {
+                        const isSelected = selectedGroupBy === opt;
+                        return (
+                          <TouchableOpacity
+                            key={opt}
+                            style={[
+                              styles.dropdownOptionRow,
+                              isSelected && styles.dropdownOptionRowActive,
+                            ]}
+                            onPress={() => {
+                              setSelectedGroupBy(opt);
+                              setOpenDropdown(null);
+                            }}
+                            activeOpacity={0.8}
+                          >
+                            <Text
+                              style={[
+                                styles.dropdownOptionLabel,
+                                isSelected && styles.dropdownOptionLabelActive,
+                              ]}
+                            >
+                              {opt}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              </View>
+            </>
+          )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        {selectedReportItem && (
+          <View style={styles.generateReportFooter}>
+            <TouchableOpacity
+              style={styles.generateReportBtn}
+              onPress={handleGenerateReport}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.generateReportBtnText}>Generate Report</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {renderPickerModal()}
       </SafeAreaView>
@@ -1211,14 +1220,6 @@ export function FarmerAdminNotificationsScreen({
 
               <Text style={styles.headerTitle}>Report Configuration</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.headerShortcutBtn}
-              onPress={() => setViewMode('center')}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.headerShortcutText}>Exit</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
@@ -1242,7 +1243,9 @@ export function FarmerAdminNotificationsScreen({
             onPress={() => setPickerModalType('report_type')}
             activeOpacity={0.8}
           >
-            <Text style={styles.configDropdownValue}>{selectedReportItem.title}</Text>
+            <Text style={styles.configDropdownValue}>
+              {selectedReportItem?.title ?? REPORT_CATALOGUE_ITEMS[0]?.title ?? ''}
+            </Text>
             <ChevronDownIcon size={16} color={adminColors.ink} />
           </TouchableOpacity>
 
@@ -1258,9 +1261,6 @@ export function FarmerAdminNotificationsScreen({
             <Text style={styles.configDropdownValue}>{selectedDateRange}</Text>
             <ChevronDownIcon size={16} color={adminColors.ink} />
           </TouchableOpacity>
-          <Text style={styles.fieldNoteText}>
-            Dates use India Standard Time (IST). Longest period: 180 days (proposed).
-          </Text>
 
           {/* Field: Farmer */}
           <Text style={[styles.configLabel, { marginTop: adminSpacing.md }]}>Farmer</Text>
@@ -1339,13 +1339,76 @@ export function FarmerAdminNotificationsScreen({
             Only approved fields are listed. Restricted data (contact details, prices, payments, internal notes) can never be added.
           </Text>
 
-          {/* Action Buttons: Generate Report, Reset Filters, Cancel (Image 2) */}
+          {/* Section: Choose Export */}
+          <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.lg }]}>
+            Choose Export
+          </Text>
+
+          <View style={styles.exportFormatRow}>
+            <TouchableOpacity
+              style={[
+                styles.exportFormatCard,
+                selectedExportFormat === 'CSV' && styles.exportFormatCardActive,
+              ]}
+              onPress={() => setSelectedExportFormat('CSV')}
+              activeOpacity={0.75}
+            >
+              <DocumentFileIcon
+                size={22}
+                color={
+                  selectedExportFormat === 'CSV'
+                    ? adminColors.brandDeep
+                    : adminColors.ink
+                }
+              />
+              <Text
+                style={[
+                  styles.exportFormatCardText,
+                  selectedExportFormat === 'CSV' && styles.exportFormatCardTextActive,
+                ]}
+              >
+                CSV
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.exportFormatCard,
+                selectedExportFormat === 'PDF' && styles.exportFormatCardActive,
+              ]}
+              onPress={() => setSelectedExportFormat('PDF')}
+              activeOpacity={0.75}
+            >
+              <DocumentFileIcon
+                size={22}
+                color={
+                  selectedExportFormat === 'PDF'
+                    ? adminColors.brandDeep
+                    : adminColors.ink
+                }
+              />
+              <Text
+                style={[
+                  styles.exportFormatCardText,
+                  selectedExportFormat === 'PDF' && styles.exportFormatCardTextActive,
+                ]}
+              >
+                PDF
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.exportPermissionNote}>
+            Export permission (who may export, and to which formats) is not yet confirmed. Showing both options here is a placeholder until that's finalized.
+          </Text>
+
+          {/* Action Button: Export CSV / Export PDF */}
           <TouchableOpacity
             style={styles.generateReportBtn}
-            onPress={handleGenerateReport}
+            onPress={() => handleExportAndPreview(selectedExportFormat)}
             activeOpacity={0.85}
           >
-            <Text style={styles.generateReportBtnText}>Generate Report</Text>
+            <Text style={styles.generateReportBtnText}>Export {selectedExportFormat}</Text>
           </TouchableOpacity>
 
           <View style={styles.configBtnRow}>
@@ -1364,20 +1427,6 @@ export function FarmerAdminNotificationsScreen({
             >
               <Text style={styles.configOutlineBtnText}>Cancel</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Recent Reports Box (Image 2) */}
-          <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.lg }]}>Recent reports</Text>
-          <View style={styles.recentReportsBox}>
-            {recentReports.length === 0 ? (
-              <Text style={styles.recentReportsEmpty}>No reports generated yet.</Text>
-            ) : (
-              recentReports.map((item, idx) => (
-                <Text key={idx} style={styles.recentReportItemText}>
-                  • {item}
-                </Text>
-              ))
-            )}
           </View>
 
           <View style={styles.bottomSpacer} />
@@ -1410,17 +1459,9 @@ export function FarmerAdminNotificationsScreen({
           <View style={styles.previewHeaderTitleWrap}>
             <Text style={styles.headerTitle}>Report Preview & Export</Text>
             <Text style={styles.previewHeaderSub}>
-              {selectedReportItem.title} · RPT-2026-0001
+              {selectedReportItem?.title ?? 'Farmer Activity'} · RPT-2026-0001
             </Text>
           </View>
-
-          <TouchableOpacity
-            style={styles.headerShortcutBtn}
-            onPress={() => setViewMode('center')}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.headerShortcutText}>Done</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
@@ -1438,7 +1479,7 @@ export function FarmerAdminNotificationsScreen({
         {/* Top Report Metadata Card (Image 3) */}
         <View style={styles.previewMetaCard}>
           <Text style={styles.metaFieldLabel}>Report name</Text>
-          <Text style={styles.metaMainTitle}>{selectedReportItem.title}</Text>
+          <Text style={styles.metaMainTitle}>{selectedReportItem?.title ?? 'Farmer Activity'}</Text>
 
           <View style={styles.metaTwoColRow}>
             <View style={styles.metaCol}>
@@ -2098,6 +2139,47 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: adminColors.ink,
   },
+  dropdownFieldWrapper: {
+    position: 'relative',
+  },
+  dropdownOverlayMenu: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    marginTop: 4,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    overflow: 'hidden',
+    zIndex: 100,
+    ...adminShadow.md,
+  },
+  dropdownOptionRow: {
+    paddingVertical: 12,
+    paddingHorizontal: adminSpacing.md,
+    backgroundColor: adminColors.card,
+  },
+  dropdownOptionRowActive: {
+    backgroundColor: adminColors.brand,
+  },
+  dropdownOptionLabel: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  dropdownOptionLabelActive: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  generateReportFooter: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingBottom: adminSpacing.md,
+    paddingTop: adminSpacing.xs,
+    backgroundColor: adminColors.canvas,
+  },
 
   // ─── Report Configuration Form (M13-S03B) ───
   configDropdownInput: {
@@ -2150,6 +2232,42 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.muted,
     lineHeight: 16,
+    marginBottom: adminSpacing.lg,
+  },
+  exportFormatRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.xs,
+  },
+  exportFormatCard: {
+    flex: 1,
+    height: 76,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    ...adminShadow.sm,
+  },
+  exportFormatCardActive: {
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+  },
+  exportFormatCardText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  exportFormatCardTextActive: {
+    color: adminColors.brandDeep,
+  },
+  exportPermissionNote: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    lineHeight: 16,
+    marginTop: adminSpacing.xs,
     marginBottom: adminSpacing.lg,
   },
   configBtnRow: {

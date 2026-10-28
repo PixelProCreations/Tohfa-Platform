@@ -95,6 +95,14 @@ function LockIcon({ size = 32, color = adminColors.brand }: { size?: number; col
   );
 }
 
+function ChevronDownIcon({ size = 20, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 // ─── Interactive Pill Switch (Matching Screenshot 1 & 3) ─────────────────────
 
 interface PillSwitchProps {
@@ -138,9 +146,11 @@ export function FarmerAdminProfileScreen({
   // Navigation View State
   const [currentView, setCurrentView] = useState<'main' | 'edit' | 'confirm_password' | 'success' | 'security' | 'change_password'>('main');
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // User Profile Data State
-  const [fullName] = useState('Suresh Kumar');
+  const [fullName, setFullName] = useState('Suresh Kumar');
+  const [language, setLanguage] = useState<'English' | 'Tamil'>('English');
   const [farmerId] = useState('FR-00100');
   const [accountId] = useState('ACC-000100');
   const [accountStatus] = useState('Active');
@@ -151,13 +161,16 @@ export function FarmerAdminProfileScreen({
   const [lastLogin] = useState('10 Oct 2026, 08:45');
   const [rolePermissions] = useState('Assigned by TOHFA');
 
-  // Editable Form Fields
-  const [mobileNumber, setMobileNumber] = useState('+91 98765 00100');
+  // Contact Info (Locked / Read-only)
+  const [mobileNumber, setMobileNumber] = useState('+919876500100');
   const [emailAddress, setEmailAddress] = useState('suresh.kumar@example.org');
   const [address, setAddress] = useState('12 Hill Road, Coonoor, Nilgiris 643101');
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   // Edit Buffer Fields
+  const [editName, setEditName] = useState(fullName);
+  const [editLanguage, setEditLanguage] = useState<'English' | 'Tamil'>(language);
+  const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
   const [editMobile, setEditMobile] = useState(mobileNumber.replace(/\s+/g, ''));
   const [editEmail, setEditEmail] = useState(emailAddress);
   const [editAddress, setEditAddress] = useState(address);
@@ -185,22 +198,28 @@ export function FarmerAdminProfileScreen({
   // Switch Role Confirmation Modal State
   const [switchRoleModalVisible, setSwitchRoleModalVisible] = useState(false);
 
+
   // ─── Handlers ───────────────────────────────────────────────────────────────
 
   const handleOpenEdit = () => {
-    setEditMobile(mobileNumber.replace(/\s+/g, ''));
-    setEditEmail(emailAddress);
-    setEditAddress(address);
-    setConfirmPasswordInput('');
+    setEditName(fullName);
+    setEditLanguage(language);
+    setIsLanguageDropdownOpen(false);
     setCurrentView('edit');
   };
 
   const handleSaveChanges = () => {
-    setConfirmPasswordInput('');
-    setCurrentView('confirm_password');
+    setFullName(editName.trim() || fullName);
+    setLanguage(editLanguage);
+    setIsLanguageDropdownOpen(false);
+    setFeedbackToast('Profile updated successfully');
+    setCurrentView('main');
+    setTimeout(() => setFeedbackToast(null), 2500);
   };
 
   const handleConfirmAndSave = () => {
+    setFullName(editName.trim() || fullName);
+    setLanguage(editLanguage);
     setMobileNumber(editMobile);
     setEmailAddress(editEmail);
     setAddress(editAddress);
@@ -281,6 +300,7 @@ export function FarmerAdminProfileScreen({
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
+    setIsChangingPassword(false);
     setFeedbackToast('Password updated successfully');
     setCurrentView('security');
     setTimeout(() => setFeedbackToast(null), 2500);
@@ -293,173 +313,11 @@ export function FarmerAdminProfileScreen({
   };
 
   const handleSignOutConfirm = () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out of your Farmer Admin account?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: () => onSignOut?.(),
-        },
-      ]
-    );
+    setShowSignOutConfirm(true);
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // VIEW 5: CHANGE PASSWORD SCREEN (Screenshot 2)
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (currentView === 'change_password') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* Terracotta Header */}
-        <View style={styles.header}>
-          <View style={styles.headerRow}>
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={() => setCurrentView('security')}
-              activeOpacity={0.7}
-              accessibilityLabel="Back to Security & Preferences"
-            >
-              <BackArrowIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>{t('farmerSecurity.title') || 'Security & Preferences'}</Text>
-          </View>
-          <Text style={styles.headerSubtitle}>
-            {t('farmerSecurity.subtitle') || 'Manage your password, preferences, sessions and role.'}
-          </Text>
-        </View>
-
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollPad}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={styles.sectionHeader}>Account security</Text>
-
-          <View style={styles.card}>
-            {/* Current Password */}
-            <Text style={styles.fieldLabel}>Current Password</Text>
-            <View style={styles.textInputBox}>
-              <TextInput
-                style={styles.textInputField}
-                value={currentPassword}
-                onChangeText={setCurrentPassword}
-                secureTextEntry
-                placeholder=""
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-
-            {/* New Password */}
-            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>New Password</Text>
-            <View style={styles.textInputBox}>
-              <TextInput
-                style={styles.textInputField}
-                value={newPassword}
-                onChangeText={setNewPassword}
-                secureTextEntry
-                placeholder=""
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-
-            {/* Confirm New Password */}
-            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Confirm New Password</Text>
-            <View style={styles.textInputBox}>
-              <TextInput
-                style={styles.textInputField}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                placeholder=""
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-
-            {/* Password Requirements Checklist (Screenshot 2) */}
-            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Password requirements</Text>
-
-            <View style={styles.reqItemRow}>
-              <Text style={[styles.reqBullet, passwordRequirements.length && styles.reqBulletMet]}>
-                {passwordRequirements.length ? '✓' : '○'}
-              </Text>
-              <Text style={[styles.reqText, passwordRequirements.length && styles.reqTextMet]}>
-                8–64 characters
-              </Text>
-            </View>
-
-            <View style={styles.reqItemRow}>
-              <Text style={[styles.reqBullet, passwordRequirements.upper && styles.reqBulletMet]}>
-                {passwordRequirements.upper ? '✓' : '○'}
-              </Text>
-              <Text style={[styles.reqText, passwordRequirements.upper && styles.reqTextMet]}>
-                An uppercase letter
-              </Text>
-            </View>
-
-            <View style={styles.reqItemRow}>
-              <Text style={[styles.reqBullet, passwordRequirements.lower && styles.reqBulletMet]}>
-                {passwordRequirements.lower ? '✓' : '○'}
-              </Text>
-              <Text style={[styles.reqText, passwordRequirements.lower && styles.reqTextMet]}>
-                A lowercase letter
-              </Text>
-            </View>
-
-            <View style={styles.reqItemRow}>
-              <Text style={[styles.reqBullet, passwordRequirements.number && styles.reqBulletMet]}>
-                {passwordRequirements.number ? '✓' : '○'}
-              </Text>
-              <Text style={[styles.reqText, passwordRequirements.number && styles.reqTextMet]}>
-                A number
-              </Text>
-            </View>
-
-            <View style={styles.reqItemRow}>
-              <Text style={[styles.reqBullet, passwordRequirements.special && styles.reqBulletMet]}>
-                {passwordRequirements.special ? '✓' : '○'}
-              </Text>
-              <Text style={[styles.reqText, passwordRequirements.special && styles.reqTextMet]}>
-                A special character
-              </Text>
-            </View>
-
-            {passwordError && (
-              <Text style={styles.passwordErrorText}>{passwordError}</Text>
-            )}
-          </View>
-
-          {/* Action Buttons: Update Password and Cancel (Screenshot 2) */}
-          <View style={styles.editActionButtonsContainer}>
-            <TouchableOpacity
-              style={styles.primarySaveBtn}
-              onPress={handleUpdatePassword}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primarySaveBtnText}>Update Password</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelNeutralBtn}
-              onPress={() => setCurrentView('security')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // VIEW 4: SECURITY & PREFERENCES SCREEN (Screenshots 1 & 3)
+  // VIEW 4: SECURITY & PREFERENCES SCREEN
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentView === 'security') {
     return (
@@ -495,117 +353,160 @@ export function FarmerAdminProfileScreen({
           contentContainerStyle={styles.scrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* Account Security Section (Screenshot 1) */}
+          {/* Account Security Section */}
           <Text style={styles.sectionHeader}>Account security</Text>
-          <TouchableOpacity
-            style={styles.changePasswordOutlineBtn}
-            onPress={() => setCurrentView('change_password')}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.changePasswordOutlineBtnText}>Change Password</Text>
-          </TouchableOpacity>
+          {!isChangingPassword ? (
+            <TouchableOpacity
+              style={styles.changePasswordOutlineBtn}
+              onPress={() => setIsChangingPassword(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.changePasswordOutlineBtnText}>Change Password</Text>
+            </TouchableOpacity>
+          ) : (
+            <View>
+              <View style={styles.card}>
+                {/* Current Password */}
+                <Text style={styles.fieldLabel}>Current Password</Text>
+                <View style={styles.textInputBox}>
+                  <TextInput
+                    style={styles.textInputField}
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    secureTextEntry
+                    placeholder=""
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+                </View>
+
+                {/* New Password */}
+                <Text style={[styles.fieldLabel, { marginTop: 14 }]}>New Password</Text>
+                <View style={styles.textInputBox}>
+                  <TextInput
+                    style={styles.textInputField}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry
+                    placeholder=""
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+                </View>
+
+                {/* Confirm New Password */}
+                <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Confirm New Password</Text>
+                <View style={styles.textInputBox}>
+                  <TextInput
+                    style={styles.textInputField}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    placeholder=""
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+                </View>
+
+                {/* Password Requirements Checklist */}
+                <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Password requirements</Text>
+
+                <View style={styles.reqItemRow}>
+                  <Text style={[styles.reqBullet, passwordRequirements.length && styles.reqBulletMet]}>
+                    {passwordRequirements.length ? '✓' : '•'}
+                  </Text>
+                  <Text style={[styles.reqText, passwordRequirements.length && styles.reqTextMet]}>
+                    8–64 characters
+                  </Text>
+                </View>
+
+                <View style={styles.reqItemRow}>
+                  <Text style={[styles.reqBullet, passwordRequirements.upper && styles.reqBulletMet]}>
+                    {passwordRequirements.upper ? '✓' : '•'}
+                  </Text>
+                  <Text style={[styles.reqText, passwordRequirements.upper && styles.reqTextMet]}>
+                    An uppercase letter
+                  </Text>
+                </View>
+
+                <View style={styles.reqItemRow}>
+                  <Text style={[styles.reqBullet, passwordRequirements.lower && styles.reqBulletMet]}>
+                    {passwordRequirements.lower ? '✓' : '•'}
+                  </Text>
+                  <Text style={[styles.reqText, passwordRequirements.lower && styles.reqTextMet]}>
+                    A lowercase letter
+                  </Text>
+                </View>
+
+                <View style={styles.reqItemRow}>
+                  <Text style={[styles.reqBullet, passwordRequirements.number && styles.reqBulletMet]}>
+                    {passwordRequirements.number ? '✓' : '•'}
+                  </Text>
+                  <Text style={[styles.reqText, passwordRequirements.number && styles.reqTextMet]}>
+                    A number
+                  </Text>
+                </View>
+
+                <View style={styles.reqItemRow}>
+                  <Text style={[styles.reqBullet, passwordRequirements.special && styles.reqBulletMet]}>
+                    {passwordRequirements.special ? '✓' : '•'}
+                  </Text>
+                  <Text style={[styles.reqText, passwordRequirements.special && styles.reqTextMet]}>
+                    A special character
+                  </Text>
+                </View>
+
+                {passwordError && (
+                  <Text style={styles.passwordErrorText}>{passwordError}</Text>
+                )}
+              </View>
+
+              {/* Action Buttons: Update Password and Cancel */}
+              <View style={[styles.editActionButtonsContainer, { marginBottom: 16 }]}>
+                <TouchableOpacity
+                  style={styles.primarySaveBtn}
+                  onPress={handleUpdatePassword}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.primarySaveBtnText}>Update Password</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelNeutralBtn}
+                  onPress={() => {
+                    setIsChangingPassword(false);
+                    setPasswordError(null);
+                    setCurrentPassword('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* Application Preferences Section (Screenshot 1) */}
           <Text style={[styles.sectionHeader, { marginTop: 14 }]}>Application preferences</Text>
           <View style={styles.card}>
             <View style={styles.tableRow}>
               <Text style={styles.tableLabel}>Application language</Text>
-              <Text style={styles.tableValueBold}>English</Text>
+              <Text style={styles.tableValueBold}>{language}</Text>
             </View>
           </View>
 
           <Text style={styles.languageNoticeText}>
-            English is the only language available. Others are not confirmed. The app uses the TOHFA design system; there is no theme or date-format setting.
+            English and Tamil are available. Change your language from your profile.
           </Text>
 
-          {/* Notification Preferences Sub-Card (Screenshot 1 & 3) */}
+          {/* Notification Preferences Sub-Card (Screenshot 1) */}
           <View style={styles.card}>
             <Text style={styles.notificationCardHeader}>Notification preferences</Text>
-
-            {/* Toggle 1: Produce listing updates */}
-            <TouchableOpacity
-              style={styles.toggleRow}
-              onPress={() => handleToggleNotification('produceListings')}
-              activeOpacity={0.7}
-            >
-              <PillSwitch
-                value={notifications.produceListings}
-                onToggle={() => handleToggleNotification('produceListings')}
-              />
-              <Text style={styles.toggleLabel}>Produce listing updates</Text>
-            </TouchableOpacity>
-
-            {/* Toggle 2: Dispute updates */}
-            <TouchableOpacity
-              style={styles.toggleRow}
-              onPress={() => handleToggleNotification('disputes')}
-              activeOpacity={0.7}
-            >
-              <PillSwitch
-                value={notifications.disputes}
-                onToggle={() => handleToggleNotification('disputes')}
-              />
-              <Text style={styles.toggleLabel}>Dispute updates</Text>
-            </TouchableOpacity>
-
-            {/* Toggle 3: Handover updates */}
-            <TouchableOpacity
-              style={styles.toggleRow}
-              onPress={() => handleToggleNotification('handovers')}
-              activeOpacity={0.7}
-            >
-              <PillSwitch
-                value={notifications.handovers}
-                onToggle={() => handleToggleNotification('handovers')}
-              />
-              <Text style={styles.toggleLabel}>Handover updates</Text>
-            </TouchableOpacity>
-
-            {/* Toggle 4: Community information and training updates */}
-            <TouchableOpacity
-              style={styles.toggleRow}
-              onPress={() => handleToggleNotification('community')}
-              activeOpacity={0.7}
-            >
-              <PillSwitch
-                value={notifications.community}
-                onToggle={() => handleToggleNotification('community')}
-              />
-              <Text style={styles.toggleLabel}>Community information and training updates</Text>
-            </TouchableOpacity>
-
-            {/* Toggle 5: Farmer rating updates */}
-            <TouchableOpacity
-              style={styles.toggleRow}
-              onPress={() => handleToggleNotification('farmerRatings')}
-              activeOpacity={0.7}
-            >
-              <PillSwitch
-                value={notifications.farmerRatings}
-                onToggle={() => handleToggleNotification('farmerRatings')}
-              />
-              <Text style={styles.toggleLabel}>Farmer rating updates</Text>
-            </TouchableOpacity>
-
-            {/* Toggle 6: Farmer support updates */}
-            <TouchableOpacity
-              style={[styles.toggleRow, { borderBottomWidth: 0 }]}
-              onPress={() => handleToggleNotification('farmerSupport')}
-              activeOpacity={0.7}
-            >
-              <PillSwitch
-                value={notifications.farmerSupport}
-                onToggle={() => handleToggleNotification('farmerSupport')}
-              />
-              <Text style={styles.toggleLabel}>Farmer support updates</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.notificationFooterNotice}>
-              These control informational updates only. Notifications that need your action, and security alerts, are always delivered.
+            <Text style={styles.notificationPendingNotice}>
+              Notification categories for the Farmer Admin role have not been confirmed yet. They will appear here once the owner finalizes them.
             </Text>
           </View>
 
-          {/* Action Buttons: Save Preferences and Reset to Defaults (Screenshot 1 & 3) */}
+          {/* Action Buttons: Save Preferences and Reset to Defaults (Screenshot 1) */}
           <View style={styles.prefActionButtonsRow}>
             <TouchableOpacity
               style={styles.savePreferencesBtn}
@@ -624,59 +525,32 @@ export function FarmerAdminProfileScreen({
             </TouchableOpacity>
           </View>
 
-          {/* Role Selection Card (Screenshot 3) */}
-          <View style={styles.card}>
-            <Text style={styles.roleNoticeText}>
-              Select the role you want to use. Switching refreshes your navigation, dashboard and permissions together. Your Farmer ID and profile stay the same.
-            </Text>
-
-            {/* Role 1: Farmer Admin */}
-            <View style={styles.roleRadioRow}>
-              <RadioCheckedIcon size={20} color={adminColors.brandDeep} />
-              <Text style={styles.roleRadioTextBold}>Farmer Admin — Current Role</Text>
-            </View>
-
-            {/* Role 2: Farmer (Clickable to trigger Switch Role modal) */}
-            <TouchableOpacity
-              style={styles.roleRadioRow}
-              onPress={() => setSwitchRoleModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <RadioUncheckedIcon size={20} color={adminColors.muted} />
-              <Text style={styles.roleRadioText}>Farmer</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Sign Out Section (Image 1) */}
+          {/* Sign Out Section (Screenshot 1) */}
           <Text style={styles.sectionHeader}>Sign out</Text>
           <TouchableOpacity
             style={styles.solidSignOutBtn}
-            onPress={() => setShowSignOutConfirm(!showSignOutConfirm)}
+            onPress={handleSignOutConfirm}
             activeOpacity={0.85}
           >
-            <Text style={styles.solidSignOutBtnText}>Sign Out</Text>
+            <Text style={styles.solidSignOutBtnText}>Sign Out of This Device</Text>
           </TouchableOpacity>
 
           {showSignOutConfirm && (
             <View style={styles.signOutConfirmCard}>
               <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
+
               <TouchableOpacity
                 style={styles.signOutConfirmActionBtn}
-                onPress={() => {
-                  if (onSignOut) {
-                    onSignOut();
-                  } else {
-                    handleSignOutConfirm();
-                  }
-                }}
+                onPress={() => onSignOut?.()}
                 activeOpacity={0.85}
               >
                 <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={styles.signOutConfirmCancelBtn}
                 onPress={() => setShowSignOutConfirm(false)}
-                activeOpacity={0.8}
+                activeOpacity={0.85}
               >
                 <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
               </TouchableOpacity>
@@ -886,7 +760,7 @@ export function FarmerAdminProfileScreen({
             <Text style={styles.headerTitle}>{t('farmerProfile.edit.title') || 'Edit Profile'}</Text>
           </View>
           <Text style={styles.headerSubtitle}>
-            {t('farmerProfile.edit.subtitle') || 'Update your personal information below.'}
+            Update your personal information below.
           </Text>
         </View>
 
@@ -895,86 +769,110 @@ export function FarmerAdminProfileScreen({
           contentContainerStyle={styles.scrollPad}
           showsVerticalScrollIndicator={false}
         >
-          {/* Main Edit Form Card (Screenshot 3) */}
+          {/* Main Edit Form Card (Matching Screenshot 1) */}
           <View style={styles.card}>
-            {/* Profile Photo Block */}
-            <Text style={styles.fieldLabel}>Profile photo</Text>
-            <View style={styles.photoUploadRow}>
-              <View style={styles.avatarCircleSmall}>
-                <Text style={styles.avatarInitialSmall}>S</Text>
-              </View>
-
-              <Text style={styles.noPhotoText}>
-                {profilePhoto ? 'Photo selected' : 'No photo'}
-              </Text>
-
-              <TouchableOpacity
-                style={styles.uploadBtn}
-                onPress={handleSimulatePhotoUpload}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.uploadBtnText}>Upload</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.photoHintText}>JPG, PNG or WEBP, smaller than 2 MB.</Text>
-
-            {/* Field: Full Name (Read-only) */}
-            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>
+            {/* Field: Full Name (Editable) */}
+            <Text style={styles.fieldLabel}>
               Full Name <Text style={{ color: adminColors.danger.text }}>*</Text>
             </Text>
-            <View style={styles.readOnlyInputBox}>
-              <Text style={styles.readOnlyInputText}>{fullName}</Text>
+            <View style={styles.textInputBox}>
+              <TextInput
+                style={styles.textInputField}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder="Enter full name"
+                placeholderTextColor={adminColors.placeholder}
+              />
             </View>
-            <Text style={styles.toHfaControlledNotice}>Controlled by TOHFA and read-only here.</Text>
 
-            {/* Field: Mobile Number (Editable) */}
+            {/* Field: Mobile Number (Locked / Read-only) */}
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>
-              Mobile Number <Text style={{ color: adminColors.danger.text }}>*</Text>
+              Mobile Number
             </Text>
-            <View style={styles.textInputBox}>
-              <TextInput
-                style={styles.textInputField}
-                value={editMobile}
-                onChangeText={setEditMobile}
-                keyboardType="phone-pad"
-                placeholder="+91..."
-                placeholderTextColor={adminColors.placeholder}
-              />
+            <View style={styles.readOnlyInputBox}>
+              <Text style={styles.readOnlyInputText}>{mobileNumber}</Text>
             </View>
+            <Text style={styles.lockedNoticeText}>
+              Locked (BR-82). Contact TOHFA support to change this.
+            </Text>
 
-            {/* Field: Email Address (Editable) */}
+            {/* Field: Email Address (Locked / Read-only) */}
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Email Address</Text>
-            <View style={styles.textInputBox}>
-              <TextInput
-                style={styles.textInputField}
-                value={editEmail}
-                onChangeText={setEditEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="email@example.com"
-                placeholderTextColor={adminColors.placeholder}
-              />
+            <View style={styles.readOnlyInputBox}>
+              <Text style={styles.readOnlyInputText}>{emailAddress}</Text>
             </View>
+            <Text style={styles.lockedNoticeText}>
+              Locked (BR-82). Contact TOHFA support to change this.
+            </Text>
 
-            {/* Field: Address (Editable) */}
-            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Address</Text>
-            <View style={styles.textAreaContainer}>
-              <TextInput
-                style={styles.textAreaField}
-                value={editAddress}
-                onChangeText={setEditAddress}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-              <View style={styles.resizeHandleContainer}>
-                <ResizeHandleIcon size={12} color={adminColors.muted} />
+            {/* Field: Language (Dropdown) */}
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>
+              Language <Text style={{ color: adminColors.danger.text }}>*</Text>
+            </Text>
+            <TouchableOpacity
+              style={styles.dropdownSelector}
+              onPress={() => setIsLanguageDropdownOpen((prev) => !prev)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dropdownSelectorText}>{editLanguage}</Text>
+              <ChevronDownIcon size={20} color={adminColors.ink} />
+            </TouchableOpacity>
+
+            {isLanguageDropdownOpen && (
+              <View style={styles.dropdownMenu}>
+                <TouchableOpacity
+                  style={[
+                    styles.dropdownItem,
+                    editLanguage === 'English' && styles.dropdownItemSelected,
+                  ]}
+                  onPress={() => {
+                    setEditLanguage('English');
+                    setIsLanguageDropdownOpen(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      editLanguage === 'English' && styles.dropdownItemTextSelected,
+                    ]}
+                  >
+                    English
+                  </Text>
+                  {editLanguage === 'English' && (
+                    <CheckmarkCircleIcon size={18} color={adminColors.brand} />
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.dropdownItem,
+                    { borderBottomWidth: 0 },
+                    editLanguage === 'Tamil' && styles.dropdownItemSelected,
+                  ]}
+                  onPress={() => {
+                    setEditLanguage('Tamil');
+                    setIsLanguageDropdownOpen(false);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.dropdownItemText,
+                      editLanguage === 'Tamil' && styles.dropdownItemTextSelected,
+                    ]}
+                  >
+                    Tamil
+                  </Text>
+                  {editLanguage === 'Tamil' && (
+                    <CheckmarkCircleIcon size={18} color={adminColors.brand} />
+                  )}
+                </TouchableOpacity>
               </View>
-            </View>
+            )}
           </View>
 
-          {/* Read-Only Summary Section (Screenshot 3 & 4) */}
+          {/* Read-Only Summary Section (Screenshot 1) */}
           <Text style={styles.sectionHeader}>Read-only</Text>
           <View style={styles.card}>
             <View style={styles.tableRow}>
@@ -1003,12 +901,12 @@ export function FarmerAdminProfileScreen({
             </View>
           </View>
 
-          {/* Subtext note (Screenshot 4) */}
-          <Text style={styles.passwordPromptNotice}>
-            Changing your mobile number or email asks for your password again.
+          {/* Subtext note (Screenshot 1) */}
+          <Text style={styles.immediateSaveNotice}>
+            Saving updates your name and language immediately.
           </Text>
 
-          {/* Action Buttons: Save Changes and Cancel (Screenshot 4) */}
+          {/* Action Buttons: Save Changes and Cancel (Screenshot 1) */}
           <View style={styles.editActionButtonsContainer}>
             <TouchableOpacity
               style={styles.primarySaveBtn}
@@ -1115,8 +1013,8 @@ export function FarmerAdminProfileScreen({
             <Text style={styles.infoRowLabel}>Full name</Text>
             <View style={styles.infoRowRight}>
               <Text style={styles.infoRowValue}>{fullName}</Text>
-              <View style={styles.readOnlyPillBadge}>
-                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
+              <View style={styles.editablePillBadge}>
+                <Text style={styles.editablePillBadgeText}>Editable</Text>
               </View>
             </View>
           </View>
@@ -1125,8 +1023,8 @@ export function FarmerAdminProfileScreen({
             <Text style={styles.infoRowLabel}>Mobile number</Text>
             <View style={styles.infoRowRight}>
               <Text style={styles.infoRowValue}>{mobileNumber}</Text>
-              <View style={styles.editablePillBadge}>
-                <Text style={styles.editablePillBadgeText}>Editable</Text>
+              <View style={styles.readOnlyPillBadge}>
+                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
               </View>
             </View>
           </View>
@@ -1135,20 +1033,20 @@ export function FarmerAdminProfileScreen({
             <Text style={styles.infoRowLabel}>Email address</Text>
             <View style={styles.infoRowRight}>
               <Text style={styles.infoRowValue}>{emailAddress}</Text>
-              <View style={styles.editablePillBadge}>
-                <Text style={styles.editablePillBadgeText}>Editable</Text>
+              <View style={styles.readOnlyPillBadge}>
+                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
               </View>
             </View>
           </View>
 
-          <View style={styles.infoAddressRow}>
-            <View style={styles.infoAddressTopLine}>
-              <Text style={styles.infoRowLabel}>Address</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>Language</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{language}</Text>
               <View style={styles.editablePillBadge}>
                 <Text style={styles.editablePillBadgeText}>Editable</Text>
               </View>
             </View>
-            <Text style={styles.infoAddressValue}>{address}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -1658,7 +1556,13 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.ink,
-    marginBottom: 12,
+    marginBottom: 6,
+  },
+  notificationPendingNotice: {
+    ...adminType.caption,
+    fontSize: 12.5,
+    color: adminColors.muted,
+    lineHeight: 18,
   },
 
   // Custom Pill Switch
@@ -1788,32 +1692,33 @@ const styles = StyleSheet.create({
     marginTop: 12,
     borderWidth: 1.5,
     borderColor: adminColors.danger.text,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
     backgroundColor: adminColors.card,
+    ...adminShadow.sm,
   },
   signOutConfirmTitle: {
     ...adminType.body,
     fontWeight: '800',
     color: adminColors.danger.text,
-    marginBottom: 12,
+    marginBottom: adminSpacing.md,
   },
   signOutConfirmActionBtn: {
     backgroundColor: adminColors.danger.text,
-    height: 44,
+    height: 48,
     borderRadius: adminRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: adminSpacing.sm,
   },
   signOutConfirmActionBtnText: {
     ...adminType.body,
-    fontWeight: '700',
+    fontWeight: '800',
     color: adminColors.onBrand,
   },
   signOutConfirmCancelBtn: {
     backgroundColor: adminColors.card,
-    height: 44,
+    height: 48,
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
@@ -1822,7 +1727,7 @@ const styles = StyleSheet.create({
   },
   signOutConfirmCancelBtnText: {
     ...adminType.body,
-    fontWeight: '700',
+    fontWeight: '800',
     color: adminColors.ink,
   },
 
@@ -1961,6 +1866,63 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     color: adminColors.muted,
     marginBottom: 14,
+  },
+  lockedNoticeText: {
+    ...adminType.caption,
+    color: adminColors.info.text,
+    marginTop: adminSpacing.xs,
+  },
+  dropdownSelector: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: adminSpacing.md,
+  },
+  dropdownSelectorText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  dropdownMenu: {
+    marginTop: adminSpacing.xs,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    overflow: 'hidden',
+    ...adminShadow.sm,
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  dropdownItemSelected: {
+    backgroundColor: adminColors.brandTint,
+  },
+  dropdownItemText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  dropdownItemTextSelected: {
+    ...adminType.body,
+    color: adminColors.brandDeep,
+    fontWeight: '800',
+  },
+  immediateSaveNotice: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 14,
+    marginTop: 4,
   },
   editActionButtonsContainer: {
     gap: 8,

@@ -29,8 +29,6 @@ export * from './FarmerAdminActivityScreen';
 export * from './FarmerAdminNotificationsScreen';
 export * from './FarmerAdminMoreScreen';
 export * from './FarmerAdminProfileScreen';
-export * from './FarmerSupportScreen';
-export * from './FarmerSupportFilterScreen';
 export * from './FarmerDisputesMediationScreen';
 export * from './FarmerDisputesFilterScreen';
 export * from './FarmerDisputeDetailScreen';
@@ -82,5 +80,7 @@ export * from './PestIncidentDetailScreen';
 // Module 5: Audits screens
 export * from './FarmerAuditsTabScreen';
 export * from './AuditScheduleScreen';
+export * from './FarmerInspectionFindingsScreen';
+export * from './FarmerDocumentsFindingsScreen';
 export * from './AdminOperationsOverviewScreen';
 export * from './AdminMoreMenuScreen';

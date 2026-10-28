@@ -111,6 +111,7 @@ function getStatusBadgeStyle(status: DisputeStatus) {
     case 'Under Review':
       return { bg: adminColors.info.bg, text: adminColors.info.text };
     case 'Awaiting TOHFA':
+    case 'Awaiting Farmer':
       return { bg: adminColors.warning.bg, text: adminColors.warning.text };
     case 'Open':
       return { bg: adminColors.warning.bg, text: adminColors.warning.text };

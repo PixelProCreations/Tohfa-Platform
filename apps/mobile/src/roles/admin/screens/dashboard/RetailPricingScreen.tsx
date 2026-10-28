@@ -181,8 +181,8 @@ export function RetailPricingScreen({
           </TouchableOpacity>
         </View>
 
-        {!selectedItem && !showFilters && (
-          <Text style={[styles.headerSubtitle, { paddingLeft: 34 }]}>
+        {!showFilters && (
+          <Text style={styles.headerSubtitle}>
             View current retail prices by crop and grade
           </Text>
         )}
@@ -265,20 +265,28 @@ export function RetailPricingScreen({
         {/* VIEW 2: Detail Breakdown View */}
         {!showFilters && selectedItem && (
           <View>
-            <Text style={styles.sectionHeading}>{t('retailPricing.section.detail')}</Text>
-
             <View style={styles.detailCard}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cropTitleText}>{selectedItem.cropGrade}</Text>
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>{selectedItem.status}</Text>
+              {/* Row 1: Product & Grade */}
+              <View style={styles.detailGridRow}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.product')}</Text>
+                  <Text style={styles.detailValue}>{selectedItem.product}</Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.grade')}</Text>
+                  <Text style={styles.detailValue}>{selectedItem.grade}</Text>
                 </View>
               </View>
 
-              <View style={styles.detailGridRow}>
+              {/* Row 2: Purchase Price & Markup */}
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>{t('retailPricing.label.purchasePrice')}</Text>
-                  <Text style={styles.detailValue}>{selectedItem.purchasePrice}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedItem.purchasePrice.includes('/kg')
+                      ? selectedItem.purchasePrice
+                      : `${selectedItem.purchasePrice}/kg`}
+                  </Text>
                 </View>
                 <View style={styles.detailCol}>
                   <Text style={styles.detailLabel}>{t('retailPricing.label.markup')}</Text>
@@ -286,25 +294,26 @@ export function RetailPricingScreen({
                 </View>
               </View>
 
-              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>{t('retailPricing.label.expenses')}</Text>
-                  <Text style={styles.detailValue}>{selectedItem.expenses}</Text>
-                </View>
-                <View style={styles.detailCol}>
-                  <Text style={styles.detailLabel}>{t('retailPricing.label.retailPrice')}</Text>
-                  <Text style={styles.detailValue}>{selectedItem.retailPrice}</Text>
-                </View>
-              </View>
-
+              {/* Row 3: Expenses */}
               <View style={styles.gridRowSpacing}>
-                <Text style={styles.detailLabel}>Expenses Detail</Text>
+                <Text style={styles.detailLabel}>{t('retailPricing.label.expenses')}</Text>
                 <Text style={styles.detailExpensesValue}>{selectedItem.expensesDetail}</Text>
               </View>
 
-              <View style={styles.gridRowSpacing}>
-                <Text style={styles.detailLabel}>{t('retailPricing.label.discount')}</Text>
-                <Text style={styles.detailValue}>{selectedItem.customerDiscount}</Text>
+              {/* Row 4: Retail Price & Customer Discount */}
+              <View style={[styles.detailGridRow, styles.gridRowSpacing]}>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.retailPrice')}</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedItem.retailPrice.includes('/kg')
+                      ? selectedItem.retailPrice
+                      : `${selectedItem.retailPrice}/kg`}
+                  </Text>
+                </View>
+                <View style={styles.detailCol}>
+                  <Text style={styles.detailLabel}>{t('retailPricing.label.discount')}</Text>
+                  <Text style={styles.detailValue}>{selectedItem.customerDiscount}</Text>
+                </View>
               </View>
             </View>
 
@@ -577,9 +586,9 @@ const styles = StyleSheet.create({
   viewBreakdownBtn: {
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    backgroundColor: adminColors.brandTint,
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
-    height: 44,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -592,14 +601,13 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
-    height: 44,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: adminSpacing.sm,
   },
   backToRetailBtnText: {
-    ...adminType.caption,
-    fontWeight: '700',
+    ...adminType.rowTitle,
     color: adminColors.brandDeep,
   },
   filtersContainer: {
