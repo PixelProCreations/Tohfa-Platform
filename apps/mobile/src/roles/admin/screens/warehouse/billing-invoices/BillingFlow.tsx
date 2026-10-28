@@ -23,15 +23,16 @@
  * invoice number gets "not found", not a request.
  *
  * Invoice generation has no API (there is no create-invoice route; sales and
- * orders issue invoices). GenerateInvoice, InvoiceWizard and InvoiceGenerated
- * map to the 'invoiceGeneration' area (availability.ts billingRouteArea), which
- * is offered under the owner decision of 2026-10-14 (nothing is hidden for
- * having no API); they show sample data. If the area is ever withdrawn, a host
- * that opens one of them lands on the hub.
+ * orders issue invoices), and Generate Invoice is excluded from the app
+ * (2026-10-23 triage, M9-04). GenerateInvoice, InvoiceWizard and
+ * InvoiceGenerated are refused (availability.ts EXCLUDED_BILLING_ROUTES): a
+ * host or deep link that opens one lands on the hub, so their sample data is
+ * never shown. The Main hub's GST Invoice tile only lists existing B2B
+ * invoices (GST_INVOICE_LIST_PARAMS).
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
-import { isAreaAvailable, billingRouteArea } from '../availability';
+import { isAreaAvailable, billingRouteArea, isBillingRouteExcluded } from '../availability';
 
 import { BillingHubScreen } from './BillingHubScreen';
 import { GenerateInvoiceScreen } from './GenerateInvoiceScreen';
@@ -40,12 +41,13 @@ import { InvoiceFiltersScreen } from './InvoiceFiltersScreen';
 import { InvoiceGeneratedScreen } from './InvoiceGeneratedScreen';
 import { InvoiceListScreen } from './InvoiceListScreen';
 import { InvoiceWizardScreen } from './InvoiceWizardScreen';
-import { historyTypeFilter, invoiceIdParam } from './mappers';
+import { GST_INVOICE_LIST_PARAMS, historyTypeFilter, invoiceIdParam } from './mappers';
 import type {
   BillingRoute,
   BillingRouteParams,
   InvoiceHistoryChip,
   InvoiceListLayout,
+  InvoiceOrderRef,
   PermissionCheck,
   WarehouseScope,
   WarehouseScreenBaseProps,
@@ -83,11 +85,12 @@ const HOME_SCREEN: BillingRoute = 'BillingHub';
 interface LiveHubRouteProps {
   base: WarehouseScreenBaseProps;
   onOpenList: (layout: InvoiceListLayout) => void;
+  onOpenGstInvoices: () => void;
   onOpenDetail: (invoiceId: string) => void;
   onNavigateToNotifications?: (() => void) | undefined;
 }
 
-function LiveHubRoute({ base, onOpenList, onOpenDetail, onNavigateToNotifications }: LiveHubRouteProps) {
+function LiveHubRoute({ base, onOpenList, onOpenGstInvoices, onOpenDetail, onNavigateToNotifications }: LiveHubRouteProps) {
   const list = useInvoiceList(base.scope.warehouseId, undefined);
   const download = useInvoiceDownload();
   return (
@@ -95,6 +98,7 @@ function LiveHubRoute({ base, onOpenList, onOpenDetail, onNavigateToNotification
       {...base}
       onNavigateToInvoiceList={() => onOpenList('list')}
       onNavigateToInvoiceHistory={() => onOpenList('history')}
+      onNavigateToGstInvoices={onOpenGstInvoices}
       onNavigateToInvoiceDetail={onOpenDetail}
       onNavigateToNotifications={onNavigateToNotifications}
       recent={list.items[0]}
@@ -114,11 +118,13 @@ interface LiveListRouteProps {
   base: WarehouseScreenBaseProps;
   warehouseId: string | undefined;
   layout: InvoiceListLayout;
+  /** The chip to open on (the GST tile asks for 'B2B'); omitted = 'All'. */
+  initialChip?: InvoiceHistoryChip | undefined;
   onOpenDetail: (invoiceId: string) => void;
 }
 
-function LiveListRoute({ base, warehouseId, layout, onOpenDetail }: LiveListRouteProps) {
-  const [chip, setChip] = useState<InvoiceHistoryChip>('All');
+function LiveListRoute({ base, warehouseId, layout, initialChip, onOpenDetail }: LiveListRouteProps) {
+  const [chip, setChip] = useState<InvoiceHistoryChip>(initialChip ?? 'All');
   // The history chips are the server's type filter; the list layout draws no chips, so it stays 'All'.
   const list = useInvoiceList(warehouseId, historyTypeFilter(chip));
   const download = useInvoiceDownload();
@@ -147,13 +153,15 @@ function LiveListRoute({ base, warehouseId, layout, onOpenDetail }: LiveListRout
 export interface LiveInvoiceDetailProps extends WarehouseScreenBaseProps {
   /** An invoice uuid; anything else (a sample invoice number) shows "not found" without a request. */
   invoiceId: string | undefined;
+  /** The order the invoice is opened from (M5-18), for its Order No. and Customer rows; omitted elsewhere. */
+  order?: InvoiceOrderRef | undefined;
 }
 
 /**
  * The live invoice detail, for any host that has an invoice uuid (the flow's
  * InvoiceDetail route; a sale or order screen can render it directly).
  */
-export function LiveInvoiceDetail({ invoiceId: requested, ...base }: LiveInvoiceDetailProps) {
+export function LiveInvoiceDetail({ invoiceId: requested, order, ...base }: LiveInvoiceDetailProps) {
   const invoiceId = invoiceIdParam(requested);
   const live = useInvoice(base.scope.warehouseId, invoiceId);
   const download = useInvoiceDownload();
@@ -162,6 +170,7 @@ export function LiveInvoiceDetail({ invoiceId: requested, ...base }: LiveInvoice
       {...base}
       invoiceId={requested ?? ''}
       invoice={live.invoice}
+      order={order}
       notFound={invoiceId === undefined}
       isLoading={live.isLoading}
       error={live.error}
@@ -195,8 +204,9 @@ export function BillingFlow({
     setStack([{ screen: initialScreen, params: initialParams }]);
   }, [initialScreen, initialParams]);
 
-  /** False for a route of an area with no API (invoice generation). */
+  /** False for an excluded route (invoice generation) or one whose area is not offered. */
   const isRouteAvailable = (screen: BillingRoute): boolean => {
+    if (isBillingRouteExcluded(screen)) return false;
     const area = billingRouteArea(screen);
     return area === undefined || isAreaAvailable(area, can);
   };
@@ -227,6 +237,7 @@ export function BillingFlow({
   });
 
   const openList = (layout: InvoiceListLayout) => navigate('InvoiceList', { layout });
+  const openGstInvoices = () => navigate('InvoiceList', GST_INVOICE_LIST_PARAMS);
   const openDetail = (invoiceId: string) => navigate('InvoiceDetail', { invoiceId });
 
   const common = { scope, can, onBack: back, onTabChange };
@@ -237,6 +248,7 @@ export function BillingFlow({
         <LiveHubRoute
           base={common}
           onOpenList={openList}
+          onOpenGstInvoices={openGstInvoices}
           onOpenDetail={openDetail}
           onNavigateToNotifications={onNavigateToNotifications}
         />
@@ -247,6 +259,7 @@ export function BillingFlow({
           base={common}
           warehouseId={scope.warehouseId}
           layout={params.layout ?? 'list'}
+          initialChip={params.historyChip}
           onOpenDetail={openDetail}
         />
       );
@@ -255,8 +268,9 @@ export function BillingFlow({
       return <InvoiceFiltersScreen {...common} warehouseOptions={warehouseOptions} onApplyFilters={() => back()} />;
     case 'InvoiceDetail':
       return <LiveInvoiceDetail {...common} invoiceId={params.invoiceId} />;
-    // The three generation routes are refused above (isRouteAvailable); these
-    // branches only keep the hidden screens compiled for when an API exists.
+    // Never reached: isRouteAvailable refuses the three generation routes
+    // (isBillingRouteExcluded) and `screen` falls back to the hub. The branches
+    // only keep the excluded screens compiled in case an API is ever built.
     case 'GenerateInvoice':
       return <GenerateInvoiceScreen {...common} onSelectTransaction={() => undefined} />;
     case 'InvoiceWizard':

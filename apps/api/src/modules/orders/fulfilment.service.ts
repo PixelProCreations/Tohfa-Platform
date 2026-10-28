@@ -4,18 +4,25 @@ import type { Response, Request } from 'express';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  requireIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
 import {
   fulfilmentRepo,
   type AdminOrderDetailRecord,
+  type AdminOrderListRecord,
   type FulfilmentRepo,
 } from './fulfilment.repo.js';
 import { adminOrderDetailResponse, type AdminOrderDetailResponse } from './fulfilment.schema.js';
 import type {
   AdminOrdersQuery,
-  AdminOrderSummary,
+  AdminOrderListItem,
   AdminOrderDetail,
   AssignWarehouseRequest,
   PackOrderRequest,
@@ -51,7 +58,7 @@ export interface FulfilmentService {
   listAdminOrders(
     scope: ResolvedScope,
     query: AdminOrdersQuery,
-  ): Promise<{ items: AdminOrderSummary[]; page: { nextCursor: string | null; hasMore: boolean } }>;
+  ): Promise<{ items: AdminOrderListItem[]; page: { nextCursor: string | null; hasMore: boolean } }>;
 
   getAdminOrder(
     actor: Actor,
@@ -66,25 +73,31 @@ export interface FulfilmentService {
     input: AssignWarehouseRequest,
   ): Promise<AdminOrderDetail>;
 
+  /** BR-118: `idempotencyKey` is the required Idempotency-Key header (422 when missing). */
   packOrder(
     actor: Actor,
     scope: ResolvedScope,
     orderId: string,
     input: PackOrderRequest,
+    idempotencyKey?: string,
   ): Promise<AdminOrderDetail>;
 
+  /** BR-118: `idempotencyKey` is the required Idempotency-Key header (422 when missing). */
   dispatchOrder(
     actor: Actor,
     scope: ResolvedScope,
     orderId: string,
     input: DispatchOrderRequest,
+    idempotencyKey?: string,
   ): Promise<AdminOrderDetail>;
 
+  /** BR-118: `idempotencyKey` is the required Idempotency-Key header (422 when missing). */
   verifyOtp(
     actor: Actor,
     scope: ResolvedScope,
     orderId: string,
     input: VerifyOtpRequest,
+    idempotencyKey?: string,
   ): Promise<AdminOrderDetail>;
 
   getOrderTracking(
@@ -112,12 +125,39 @@ export interface FulfilmentService {
 /**
  * BR-92: `*` for every character but the last four, e.g. `+919876543210` -> `*********3210`; four
  * characters or fewer are masked fully. Same output as the sales read (`MaskedMobile`). Applied for
- * every scope on the admin order detail: like `Sale`, the response never carries a full mobile.
+ * every scope on the admin order detail and list (BR-99, BR-101): like `Sale`, the response never
+ * carries a full mobile.
  */
 export function maskMobile(mobile: string | null): string | null {
   if (mobile === null) return null;
   if (mobile.length <= 4) return '*'.repeat(Math.max(mobile.length, 1));
   return `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
+}
+
+/**
+ * BR-101 allow-list serializer for one `GET /admin/orders` item (openapi `AdminOrderSummary`). Every
+ * documented key is named here and nothing else, so a column joined into the list query later (a farm,
+ * batch or customer id) cannot reach the wire (BR-16). The owner amendment of 2026-10-23 adds exactly
+ * the buyer's name and mobile, the mobile masked by the same `maskMobile` as the detail (BR-92).
+ */
+export function toAdminOrderListItem(record: AdminOrderListRecord): AdminOrderListItem {
+  return {
+    id: record.id,
+    orderNumber: record.orderNumber,
+    status: record.status,
+    channel: record.channel,
+    fulfillmentType: record.fulfillmentType,
+    warehouseId: record.warehouseId,
+    itemCount: record.itemCount,
+    totalAmount: record.totalAmount,
+    paymentStatus: record.paymentStatus,
+    deliveryDate: record.deliveryDate,
+    placedAt: record.placedAt,
+    customerName: record.buyerName ?? null,
+    customerMobileMasked: maskMobile(record.buyerMobile ?? null),
+    packedAt: record.packedAt ?? null,
+    readyAt: record.readyAt ?? null,
+  };
 }
 
 /**
@@ -193,16 +233,51 @@ export function toAdminOrderDetail(record: AdminOrderDetailRecord): AdminOrderDe
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
 
+/**
+ * The `operation` recorded on an idempotency_keys claim (BR-118). One per endpoint, so a key used on
+ * one of them and sent to another is 409 IDEMPOTENCY_KEY_REUSED, never a replay of the wrong thing.
+ */
+const OPERATION = {
+  pack: 'order.mark_packed',
+  dispatch: 'order.dispatch',
+  verifyOtp: 'order.pickup_otp.verify',
+} as const;
+
+/**
+ * Thrown inside the verify-otp transaction when the code does not match, so that the transaction
+ * (and with it the Idempotency-Key claim) rolls back; the caller then counts the attempt OUTSIDE it
+ * (BR-20: a wrong code must still count) and answers OTP_INVALID. Never escapes the service.
+ */
+class WrongOtpAttempt extends Error {
+  constructor(readonly maxAttempts: number) {
+    super('wrong OTP');
+  }
+}
+
 export function createFulfilmentService(opts: {
   repo?: FulfilmentRepo;
   db?: Executor;
   emitter?: EventEmitter;
   runTx?: TransactionRunner;
+  idempotency?: IdempotencyStore;
 } = {}): FulfilmentService {
   const repo = opts.repo ?? fulfilmentRepo;
   const db = opts.db ?? pool;
   const runTx: TransactionRunner = opts.runTx ?? ((fn) => withTransaction(fn));
   const emitter = opts.emitter ?? orderEventsEmitter;
+  const idempotency = opts.idempotency ?? idempotencyStore;
+
+  /**
+   * BR-118: the response the route sends, read on the transaction that made the change so it can be
+   * stored with the claim and replayed byte for byte. The order exists: it was just updated.
+   */
+  async function orderAfterChange(tx: Executor, orderId: string): Promise<AdminOrderDetail> {
+    const updated = await repo.findOrderForFulfilment(tx, orderId);
+    if (updated === null) {
+      throw new AppError('INTERNAL', { detail: `Order ${orderId} vanished inside its own transaction.` });
+    }
+    return updated;
+  }
 
   /**
    * BR-85j: `updateOrderStatus` is conditional on the from-status and reports how many rows it
@@ -251,7 +326,7 @@ export function createFulfilmentService(opts: {
       // the page is simply empty (BR-30). A 403 would confirm the other warehouse's orders exist.
       const { items, nextCursor, hasMore } = await repo.listAdminOrders(db, scope, query);
 
-      return { items, page: { nextCursor, hasMore } };
+      return { items: items.map(toAdminOrderListItem), page: { nextCursor, hasMore } };
     },
 
     async getAdminOrder(actor, scope, orderId) {
@@ -330,19 +405,32 @@ export function createFulfilmentService(opts: {
       return updated!;
     },
 
-    async packOrder(actor, scope, orderId, _input) {
+    async packOrder(actor, scope, orderId, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
       const warehouseScope = getWarehouseScope(actor);
-      const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order || !warehouseVisible(scope, order.warehouseId)) {
-        throw new AppError('NOT_FOUND', {
-          status: 404,
-          detail: `Order ${orderId} not found.`,
+
+      // BR-118: the key is claimed first, in the transaction that changes the status. A replay
+      // returns the stored order before the state check (the first call already packed it, so it
+      // would be INVALID_STATE_TRANSITION) and writes no second history or audit row.
+      const outcome = await runTx(async (tx) => {
+        const idem = await beginIdempotent<AdminOrderDetail>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.pack,
+          request: { orderId, body: input },
         });
-      }
+        if (idem.replay) return { replayed: true as const, order: idem.response };
 
-      validateTransition(order.status, 'PACKED');
+        const order = await repo.findOrderForFulfilment(tx, orderId, warehouseScope);
+        if (!order || !warehouseVisible(scope, order.warehouseId)) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
 
-      await runTx(async (tx) => {
+        validateTransition(order.status, 'PACKED');
+
         assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
@@ -359,41 +447,56 @@ export function createFulfilmentService(opts: {
           entityId: orderId,
           after: { previousStatus: order.status, newStatus: 'PACKED' },
         });
+
+        const updated = await orderAfterChange(tx, orderId);
+        await idem.complete(updated);
+        return { replayed: false as const, order: updated, warehouseId: order.warehouseId };
       });
+      if (outcome.replayed) return outcome.order;
 
       const eventPayload: OrderTrackingEvent = {
         status: 'PACKED',
         at: new Date().toISOString(),
-        note: `Packed at warehouse ${order.warehouseId}`,
+        note: `Packed at warehouse ${outcome.warehouseId}`,
       };
       emitter.emit(`order:${orderId}`, eventPayload);
 
-      const updated = await repo.findOrderForFulfilment(db, orderId);
-      return updated!;
+      return outcome.order;
     },
 
-    async dispatchOrder(actor, scope, orderId, input) {
+    async dispatchOrder(actor, scope, orderId, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
       const warehouseScope = getWarehouseScope(actor);
-      const order = await repo.findOrderForFulfilment(db, orderId, warehouseScope);
-      if (!order || !warehouseVisible(scope, order.warehouseId)) {
-        throw new AppError('NOT_FOUND', {
-          status: 404,
-          detail: `Order ${orderId} not found.`,
+
+      // BR-118: claimed first, as for pack.
+      const outcome = await runTx(async (tx) => {
+        const idem = await beginIdempotent<AdminOrderDetail>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.dispatch,
+          request: { orderId, body: input },
         });
-      }
+        if (idem.replay) return { replayed: true as const, order: idem.response };
 
-      const targetStatus: OrderStatus =
-        order.fulfillmentType === 'PICKUP' ? 'READY_FOR_PICKUP' : 'DISPATCHED';
+        const order = await repo.findOrderForFulfilment(tx, orderId, warehouseScope);
+        if (!order || !warehouseVisible(scope, order.warehouseId)) {
+          throw new AppError('NOT_FOUND', {
+            status: 404,
+            detail: `Order ${orderId} not found.`,
+          });
+        }
 
-      validateTransition(order.status, targetStatus);
+        const targetStatus: OrderStatus =
+          order.fulfillmentType === 'PICKUP' ? 'READY_FOR_PICKUP' : 'DISPATCHED';
 
-      const note = input.vehicleNumber
-        ? `Dispatched via vehicle ${input.vehicleNumber}`
-        : order.fulfillmentType === 'PICKUP'
-          ? 'Ready for customer pickup'
-          : 'Dispatched for delivery';
+        validateTransition(order.status, targetStatus);
 
-      await runTx(async (tx) => {
+        const note = input.vehicleNumber
+          ? `Dispatched via vehicle ${input.vehicleNumber}`
+          : order.fulfillmentType === 'PICKUP'
+            ? 'Ready for customer pickup'
+            : 'Dispatched for delivery';
+
         assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
           orderId,
           fromStatus: order.status,
@@ -414,105 +517,132 @@ export function createFulfilmentService(opts: {
             deliveryPartnerId: input.deliveryPartnerId,
           },
         });
+
+        const updated = await orderAfterChange(tx, orderId);
+        await idem.complete(updated);
+        return { replayed: false as const, order: updated, targetStatus, note };
       });
+      if (outcome.replayed) return outcome.order;
 
       const eventPayload: OrderTrackingEvent = {
-        status: targetStatus,
+        status: outcome.targetStatus,
         at: new Date().toISOString(),
-        note,
+        note: outcome.note,
       };
       emitter.emit(`order:${orderId}`, eventPayload);
 
-      const updated = await repo.findOrderForFulfilment(db, orderId);
-      return updated!;
+      return outcome.order;
     },
 
-    async verifyOtp(actor, scope, orderId, input) {
-      const otpHolder = await repo.getOrderDeliveryOtpHolder(db, orderId);
-      if (!otpHolder || !warehouseVisible(scope, otpHolder.warehouseId)) {
-        throw new AppError('NOT_FOUND', {
-          status: 404,
-          detail: `Order ${orderId} not found.`,
-        });
-      }
-
+    async verifyOtp(actor, scope, orderId, input, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
       const warehouseScope = getWarehouseScope(actor);
-      if (warehouseScope && otpHolder.warehouseId !== warehouseScope) {
-        throw new AppError('NOT_FOUND', {
-          status: 404,
-          detail: `Order ${orderId} not found.`,
+
+      // BR-118: claimed first. A replay of a verification that succeeded returns the stored order:
+      // it re-checks no code, counts no attempt and writes no second history or audit row.
+      let outcome: { replayed: true; order: AdminOrderDetail } | { replayed: false; order: AdminOrderDetail; targetStatus: OrderStatus };
+      try {
+        outcome = await runTx(async (tx) => {
+          const idem = await beginIdempotent<AdminOrderDetail>(idempotency, tx, {
+            actorUserId: actor.userId,
+            key,
+            operation: OPERATION.verifyOtp,
+            request: { orderId, body: input },
+          });
+          if (idem.replay) return { replayed: true as const, order: idem.response };
+
+          const otpHolder = await repo.getOrderDeliveryOtpHolder(tx, orderId);
+          if (!otpHolder || !warehouseVisible(scope, otpHolder.warehouseId)) {
+            throw new AppError('NOT_FOUND', {
+              status: 404,
+              detail: `Order ${orderId} not found.`,
+            });
+          }
+
+          if (warehouseScope && otpHolder.warehouseId !== warehouseScope) {
+            throw new AppError('NOT_FOUND', {
+              status: 404,
+              detail: `Order ${orderId} not found.`,
+            });
+          }
+
+          const maxAttempts = await repo.getMaxOtpAttempts(tx);
+          if (otpHolder.otpAttempts >= maxAttempts) {
+            throw new AppError('OTP_LOCKED', {
+              status: 429,
+              detail: 'Maximum OTP verification attempts exceeded. OTP is locked.',
+            });
+          }
+
+          if (!otpHolder.deliveryOtpHash) {
+            throw new AppError('INVALID_STATE_TRANSITION', {
+              status: 409,
+              detail: 'Order has no delivery OTP configured.',
+            });
+          }
+
+          // Hash input OTP and compare in constant time
+          const inputHash = createHash('sha256').update(input.otp).digest('hex');
+          const bufA = Buffer.from(inputHash, 'utf8');
+          const bufB = Buffer.from(otpHolder.deliveryOtpHash, 'utf8');
+          const isMatch = bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
+
+          // Roll this transaction (and the claim) back; the attempt is counted below, outside it.
+          if (!isMatch) throw new WrongOtpAttempt(maxAttempts);
+
+          const targetStatus: OrderStatus =
+            otpHolder.fulfilmentType === 'PICKUP' ? 'PICKED_UP' : 'DELIVERED';
+
+          validateTransition(otpHolder.status, targetStatus);
+
+          assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
+            orderId,
+            fromStatus: otpHolder.status,
+            toStatus: targetStatus,
+            actorUserId: actor.userId,
+            completedAt: new Date(),
+            otpVerifiedAt: new Date(),
+            otpVerifiedBy: actor.userId,
+            note: 'Handover verified via OTP',
+          }));
+
+          await writeAuditLog(tx, {
+            actorId: actor.userId,
+            actionCode: 'order.pickup_otp.verify',
+            entityType: 'orders',
+            entityId: orderId,
+            after: {
+              previousStatus: otpHolder.status,
+              newStatus: targetStatus,
+            },
+          });
+
+          const updated = await orderAfterChange(tx, orderId);
+          await idem.complete(updated);
+          return { replayed: false as const, order: updated, targetStatus };
         });
-      }
-
-      const maxAttempts = await repo.getMaxOtpAttempts(db);
-      if (otpHolder.otpAttempts >= maxAttempts) {
-        throw new AppError('OTP_LOCKED', {
-          status: 429,
-          detail: 'Maximum OTP verification attempts exceeded. OTP is locked.',
-        });
-      }
-
-      if (!otpHolder.deliveryOtpHash) {
-        throw new AppError('INVALID_STATE_TRANSITION', {
-          status: 409,
-          detail: 'Order has no delivery OTP configured.',
-        });
-      }
-
-      // Hash input OTP and compare in constant time
-      const inputHash = createHash('sha256').update(input.otp).digest('hex');
-      const bufA = Buffer.from(inputHash, 'utf8');
-      const bufB = Buffer.from(otpHolder.deliveryOtpHash, 'utf8');
-      const isMatch = bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
-
-      if (!isMatch) {
+      } catch (error) {
+        if (!(error instanceof WrongOtpAttempt)) throw error;
+        // BR-20: the wrong code counts, committed on its own (as before BR-118), so the lockout
+        // holds even though the refused request's transaction and claim were rolled back.
         const attempts = await repo.incrementOtpAttempts(db, orderId);
-        const remaining = Math.max(0, maxAttempts - attempts);
+        const remaining = Math.max(0, error.maxAttempts - attempts);
         throw new AppError('OTP_INVALID', {
           status: 422,
           detail: `${remaining} attempts remaining before this OTP is locked.`,
           meta: { remainingAttempts: remaining },
         });
       }
-
-      const targetStatus: OrderStatus =
-        otpHolder.fulfilmentType === 'PICKUP' ? 'PICKED_UP' : 'DELIVERED';
-
-      validateTransition(otpHolder.status, targetStatus);
-
-      await runTx(async (tx) => {
-        assertOrderUpdated(orderId, await repo.updateOrderStatus(tx, {
-          orderId,
-          fromStatus: otpHolder.status,
-          toStatus: targetStatus,
-          actorUserId: actor.userId,
-          completedAt: new Date(),
-          otpVerifiedAt: new Date(),
-          otpVerifiedBy: actor.userId,
-          note: 'Handover verified via OTP',
-        }));
-
-        await writeAuditLog(tx, {
-          actorId: actor.userId,
-          actionCode: 'order.pickup_otp.verify',
-          entityType: 'orders',
-          entityId: orderId,
-          after: {
-            previousStatus: otpHolder.status,
-            newStatus: targetStatus,
-          },
-        });
-      });
+      if (outcome.replayed) return outcome.order;
 
       const eventPayload: OrderTrackingEvent = {
-        status: targetStatus,
+        status: outcome.targetStatus,
         at: new Date().toISOString(),
         note: 'Handover verified via OTP',
       };
       emitter.emit(`order:${orderId}`, eventPayload);
 
-      const updated = await repo.findOrderForFulfilment(db, orderId);
-      return updated!;
+      return outcome.order;
     },
 
     async getAdminOrderDetail(scope, orderId) {

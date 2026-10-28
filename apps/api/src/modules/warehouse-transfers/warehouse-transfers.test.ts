@@ -183,6 +183,9 @@ function makeWorld(options: { threshold?: number } = {}) {
     return {
       id: h.id,
       transferNumber: h.transferNumber,
+      // BR-126 fields: the in-memory repo does not model them (covered on PostgreSQL in
+      // warehouse-transfers.receive-details.test.ts).
+      receiptNumber: (stored.extra['receiptNumber'] as string | null | undefined) ?? null,
       fromWarehouseId: h.fromWarehouseId,
       toWarehouseId: h.toWarehouseId,
       status: h.status as Transfer['status'],
@@ -195,6 +198,7 @@ function makeWorld(options: { threshold?: number } = {}) {
       receiptNote: (stored.extra['receiptNote'] as string | null | undefined) ?? null,
       cancelReason: (stored.extra['cancelReason'] as string | null | undefined) ?? null,
       initiatedBy: h.initiatedBy,
+      initiatedByName: null,
       approvedBy: (stored.extra['approvedBy'] as string | null | undefined) ?? null,
       approvedAt: (stored.extra['approvedAt'] as string | null | undefined) ?? null,
       dispatchedAt: (stored.extra['dispatchedAt'] as string | null | undefined) ?? null,
@@ -223,6 +227,14 @@ function makeWorld(options: { threshold?: number } = {}) {
               ? null
               : `${Math.trunc(item.lineValuePaise / 100)}.${String(item.lineValuePaise % 100).padStart(2, '0')}`,
           destBatchId: item.destBatchId,
+          damagedQtyKg: null,
+          spoiledQtyKg: null,
+          condition: null,
+          actualGrade: null,
+          actualProductId: null,
+          actualProductName: null,
+          storageLocationId: null,
+          storageLocation: null,
         };
       }),
     };
@@ -331,6 +343,12 @@ function makeWorld(options: { threshold?: number } = {}) {
       t.extra['receivedAt'] = '2026-10-13T06:00:00.000Z';
       t.extra['hasDiscrepancy'] = input.hasDiscrepancy;
       t.extra['receiptNote'] = input.receiptNote;
+    },
+    async findLiveCropIds() {
+      return [];
+    },
+    async findPlaceableLocation() {
+      return null;
     },
     async markCancelled(_db, id, input) {
       const t = transfers.get(id)!;

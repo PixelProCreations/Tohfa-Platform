@@ -28,17 +28,28 @@ import {
 } from '../../../api/inventory';
 import { adminKeys } from '../../../api/queryKeys';
 import { collectPages } from '../../../../../shell/api/pagination';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   aggregateStockByProduct,
   allocatedByProduct,
   buildAllocationDashboard,
   cropNamesOf,
+  inventoryWarehouseName,
   lowStockKeysOf,
   toBatchRow,
   toLowStockRow,
   toStockMovementRow,
+  WAREHOUSE_LIST_CODE,
 } from './mappers';
-import type { AllocationDashboard, BatchRow, LowStockRow, StockMovementRow, StockSummary } from './types';
+import type {
+  AllocationDashboard,
+  BatchRow,
+  LowStockRow,
+  PermissionCheck,
+  StockMovementRow,
+  StockSummary,
+  WarehouseScope,
+} from './types';
 
 const INVENTORY = 'inventory';
 const ALERTS = 'alerts';
@@ -250,4 +261,21 @@ export function useLowStockRows(warehouseId: string | undefined): LiveLowStock {
     isRefreshing: alerts.isRefreshing,
     rows,
   };
+}
+
+/**
+ * The display name of a warehouse uuid (Movement Detail, Adjustment Detail).
+ * A Sub admin's own warehouse comes from its scope and nothing is fetched (it
+ * cannot read GET /warehouses, BR-30); otherwise GET /warehouses
+ * (warehouse.all.view), which TanStack Query shares with every other picker.
+ * Nothing is fetched while there is no uuid. undefined = hide the field.
+ */
+export function useInventoryWarehouseName(
+  scope: WarehouseScope,
+  can: PermissionCheck,
+  warehouseId: string | undefined,
+): string | undefined {
+  const own = inventoryWarehouseName(scope, [], warehouseId);
+  const list = useWarehouseOptions({ enabled: warehouseId !== undefined && own === undefined && can(WAREHOUSE_LIST_CODE) });
+  return own ?? inventoryWarehouseName(scope, list.options, warehouseId);
 }

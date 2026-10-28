@@ -21,9 +21,12 @@
  *     warehouse.
  *
  * Absorbs the Main BillingInvoicesHubScreen (pair M9-S01): its View Invoices,
- * Invoice History and GST Invoice tiles open the list and the history here
- * (the GST tile opens the list: invoice.gst.generate is none/none for both
- * warehouse roles, SPEC_GAPS W4g).
+ * Invoice History and GST Invoice tiles open the list and the history here.
+ * The GST tile (M9-05) lists the existing B2B invoices: the history layout on
+ * its B2B chip, GET /invoices?type=SALE_B2B (BR-15: GST is B2B / Horeca
+ * only). It offers no generation and no "generation restricted" notice:
+ * invoice.gst.generate is none/none for both warehouse roles (SPEC_GAPS W4g),
+ * and restoring the notice needs owner sign-off.
  */
 // Design id: M9-S01
 import React from 'react';
@@ -50,6 +53,8 @@ import type { InvoiceRow, WarehouseScope, WarehouseScreenBaseProps } from './typ
 export interface BillingHubScreenProps extends WarehouseScreenBaseProps {
   onNavigateToInvoiceList: () => void;
   onNavigateToInvoiceHistory: () => void;
+  /** Main GST Invoice tile: the B2B invoices (GST_INVOICE_LIST_PARAMS). */
+  onNavigateToGstInvoices: () => void;
   onNavigateToInvoiceDetail: (invoiceId: string) => void;
   onNavigateToNotifications?: (() => void) | undefined;
   /** Kept for hosts that still pass it; the live hub draws no warehouse selector. */
@@ -89,7 +94,7 @@ function TileIcon({ d, color = adminColors.brand }: { d: string; color?: string 
   );
 }
 
-function ViewInvoicesIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function ViewInvoicesIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -98,7 +103,7 @@ function ViewInvoicesIcon({ size = 26, color = '#F0562A' }: { size?: number; col
   );
 }
 
-function InvoiceHistoryIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function InvoiceHistoryIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -107,7 +112,7 @@ function InvoiceHistoryIcon({ size = 26, color = '#F0562A' }: { size?: number; c
   );
 }
 
-function GstInvoiceIcon({ size = 26, color = '#F0562A' }: { size?: number; color?: string }) {
+function GstInvoiceIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -128,6 +133,7 @@ export function BillingHubScreen({
   onTabChange,
   onNavigateToInvoiceList,
   onNavigateToInvoiceHistory,
+  onNavigateToGstInvoices,
   onNavigateToInvoiceDetail,
   onNavigateToNotifications,
   recent,
@@ -143,7 +149,6 @@ export function BillingHubScreen({
   const canView = can('invoice.view_own');
   const allWarehouses = isAllWarehouses(scope);
   const recentView = queryViewState({ isLoading: recentLoading, error: recentError, itemCount: recent === undefined ? 0 : 1 });
-
 
   const recentCard =
     recentView === 'loading' ? (
@@ -194,11 +199,11 @@ export function BillingHubScreen({
 
   return (
     <BillingScreen
-      title="Billing & Invoices"
+      title={t('billing.hub.title')}
       onBack={onBack}
       headerRight={
         onNavigateToNotifications ? (
-          <HeaderIconButton onPress={onNavigateToNotifications} accessibilityLabel="Notifications">
+          <HeaderIconButton onPress={onNavigateToNotifications} accessibilityLabel={t('billing.hub.notifications')}>
             <BellIcon />
           </HeaderIconButton>
         ) : null
@@ -218,48 +223,48 @@ export function BillingHubScreen({
         {allWarehouses ? (
           <>
             {/* Main: its own tile grid (Generate Invoice removed: no create-invoice route). */}
-            <Text style={styles.mainSectionTitle}>Quick Actions</Text>
+            <Text style={styles.mainSectionTitle}>{t('billing.hub.quickActions')}</Text>
             <View style={styles.mainActionGrid}>
               <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
                 <View style={styles.mainActionIconWrap}>
                   <ViewInvoicesIcon size={26} />
                 </View>
-                <Text style={styles.mainActionLabel}>View Invoices</Text>
+                <Text style={styles.mainActionLabel}>{t('billing.hub.viewInvoices')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
                 <View style={styles.mainActionIconWrap}>
                   <InvoiceHistoryIcon size={26} />
                 </View>
-                <Text style={styles.mainActionLabel}>Invoice History</Text>
+                <Text style={styles.mainActionLabel}>{t('billing.hub.invoiceHistory')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.mainActionCard} onPress={onNavigateToGstInvoices} activeOpacity={0.7}>
                 <View style={styles.mainActionIconWrap}>
                   <GstInvoiceIcon size={26} />
                 </View>
-                <Text style={styles.mainActionLabel}>GST Invoice</Text>
+                <Text style={styles.mainActionLabel}>{t('billing.hub.gstInvoice')}</Text>
               </TouchableOpacity>
             </View>
           </>
         ) : (
           <>
-            <SectionTitle>Quick Actions</SectionTitle>
+            <SectionTitle>{t('billing.hub.quickActions')}</SectionTitle>
             <View style={styles.actionsRow}>
               <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
                 <TileIcon d={ICON.list} />
-                <Text style={styles.actionLabel}>Invoice List</Text>
+                <Text style={styles.actionLabel}>{t('billing.hub.invoiceList')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.actionCard} onPress={onNavigateToInvoiceHistory} activeOpacity={0.7}>
                 <TileIcon d={ICON.history} />
-                <Text style={styles.actionLabel}>Invoice History</Text>
+                <Text style={styles.actionLabel}>{t('billing.hub.invoiceHistory')}</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
 
         <View style={styles.recentHeaderRow}>
-          <SectionTitle>Recent Invoices</SectionTitle>
+          <SectionTitle>{t('billing.hub.recentInvoices')}</SectionTitle>
           <TouchableOpacity onPress={onNavigateToInvoiceList} activeOpacity={0.7}>
-            <Text style={styles.viewAllText}>View all</Text>
+            <Text style={styles.viewAllText}>{t('billing.hub.viewAll')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -304,40 +309,39 @@ const styles = StyleSheet.create({
   recentActions: { flexDirection: 'row', gap: adminSpacing.sm, marginTop: adminSpacing.md },
   errorWrap: { marginTop: adminSpacing.sm },
 
-  // Main Warehouse hub tiles (kept from the Main design)
+  // Main Warehouse hub tiles (kept from the Main design, on admin tokens)
   mainSectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#8A5A30',
-    marginBottom: 10,
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
   },
   mainActionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 20,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.input,
   },
   mainActionCard: {
+    // Two tiles per row with the grid gap between them.
     width: '48.4%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#E8DED5',
-    paddingVertical: 18,
-    paddingHorizontal: 10,
+    borderColor: adminColors.border,
+    paddingVertical: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainActionIconWrap: {
-    marginBottom: 8,
-    height: 32,
+    marginBottom: adminSpacing.sm,
+    height: adminSpacing.xxl,
     alignItems: 'center',
     justifyContent: 'center',
   },
   mainActionLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#1E1612',
+    ...adminType.caption,
+    color: adminColors.ink,
     textAlign: 'center',
   },
 });

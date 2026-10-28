@@ -6,6 +6,9 @@
  * Every hook takes the warehouseId to send, which the flow computes once with
  * receivingWarehouseFilter (a Sub scope is always its own warehouse, BR-30). It
  * is part of every query key, so one warehouse's rows never answer another's.
+ * `naming` names each row's warehouse: a Sub scope's own name, or for the Main
+ * view (whose scope names none) the GET /warehouses list (mappers.ts
+ * warehouseNameFor). The flow memoises it, so it is a stable memo dependency.
  *
  * The dashboard and the shipment list need every receipt of the warehouse to
  * derive each order's receiving progress (the server never advances a purchase
@@ -31,10 +34,18 @@ import {
   type PurchaseOrderDetailDto,
   type PurchaseOrderDto,
 } from '../../../api/receiving';
+import { getBatch, type BatchDto } from '../../../api/inventory';
 import { adminKeys } from '../../../api/queryKeys';
 import { listStorageLocations } from '../../../api/warehouses';
 import { collectPages } from '../../../../../shell/api/pagination';
-import { pendingReceiptOf, qcPendingIssues, toIncomingShipment, toReceivingRecord, toStorageLocationOption } from './mappers';
+import {
+  pendingReceiptOf,
+  qcPendingIssues,
+  toIncomingShipment,
+  toReceivingRecord,
+  toStorageLocationOption,
+  type WarehouseNaming,
+} from './mappers';
 import type { ReceivingWrites } from './GoodsReceivingWizardScreen';
 import type { IncomingShipment, QualityIssue, ReceivingRecord, StorageBayOption } from './types';
 
@@ -103,20 +114,20 @@ export interface LiveReceivingDashboard extends LiveQueryState {
 }
 
 /** The dashboard's orders, receipts and QC-pending issues. */
-export function useReceivingDashboard(warehouseId: string | undefined, warehouseName: string | undefined): LiveReceivingDashboard {
+export function useReceivingDashboard(warehouseId: string | undefined, naming: WarehouseNaming): LiveReceivingDashboard {
   const orders = useAllPurchaseOrders(warehouseId);
   const receipts = useAllReceipts(warehouseId);
   const data = useMemo(() => {
     const now = new Date();
     const byOrder = receiptsByOrder(receipts.items);
     const poNumbers = new Map(orders.items.map((po) => [po.id, po.poNumber]));
-    const records = receipts.items.map((gr) => toReceivingRecord(gr, { now, warehouseName, poNumber: poNumbers.get(gr.purchaseOrderId) }));
+    const records = receipts.items.map((gr) => toReceivingRecord(gr, { ...naming, now, poNumber: poNumbers.get(gr.purchaseOrderId) }));
     return {
-      shipments: orders.items.map((po) => toIncomingShipment(po, { receipts: byOrder.get(po.id) ?? [], warehouseName })),
+      shipments: orders.items.map((po) => toIncomingShipment(po, { ...naming, receipts: byOrder.get(po.id) ?? [] })),
       records,
       issues: qcPendingIssues(records),
     };
-  }, [orders.items, receipts.items, warehouseName]);
+  }, [orders.items, receipts.items, naming]);
   return {
     isLoading: orders.isLoading || receipts.isLoading,
     error: orders.error ?? receipts.error,
@@ -134,14 +145,14 @@ export function useReceivingDashboard(warehouseId: string | undefined, warehouse
  * The purchase orders, page by page. A row's progress comes from the
  * warehouse's receipts once they load (until then, the order's own status).
  */
-export function useShipmentList(warehouseId: string | undefined, warehouseName: string | undefined): CursorList<IncomingShipment> {
+export function useShipmentList(warehouseId: string | undefined, naming: WarehouseNaming): CursorList<IncomingShipment> {
   const receipts = useAllReceipts(warehouseId);
   const receiptsKnown = !receipts.isLoading && receipts.error === null;
   const byOrder = useMemo(() => receiptsByOrder(receipts.items), [receipts.items]);
   const map = useCallback(
     (po: PurchaseOrderDto) =>
-      toIncomingShipment(po, { receipts: receiptsKnown ? byOrder.get(po.id) ?? [] : undefined, warehouseName }),
-    [byOrder, receiptsKnown, warehouseName],
+      toIncomingShipment(po, { ...naming, receipts: receiptsKnown ? byOrder.get(po.id) ?? [] : undefined }),
+    [byOrder, receiptsKnown, naming],
   );
   const list = useCursorList(
     adminKeys.scoped(RECEIVING, warehouseId, { resource: 'purchase-orders' }),
@@ -167,7 +178,7 @@ export interface LivePurchaseOrder extends LiveQueryState {
 }
 
 /** One purchase order with its farmer and receipts; nothing while `id` is undefined. */
-export function usePurchaseOrder(warehouseId: string | undefined, id: string | undefined, warehouseName: string | undefined): LivePurchaseOrder {
+export function usePurchaseOrder(warehouseId: string | undefined, id: string | undefined, naming: WarehouseNaming): LivePurchaseOrder {
   const query = useAdminQuery(
     adminKeys.scoped(RECEIVING, warehouseId, { resource: 'purchase-order', id: id ?? null }),
     (signal) => getPurchaseOrder(id ?? '', signal),
@@ -177,16 +188,16 @@ export function usePurchaseOrder(warehouseId: string | undefined, id: string | u
   const data = useMemo(() => {
     if (detail === undefined) return { shipment: undefined, records: [], pendingReceipt: undefined };
     const receipts = detail.goodsReceipts ?? [];
-    const shipment = toIncomingShipment(detail, { receipts, warehouseName });
+    const shipment = toIncomingShipment(detail, { ...naming, receipts });
     const now = new Date();
     return {
       shipment,
       records: receipts.map((gr) =>
-        toReceivingRecord(gr, { now, warehouseName, poNumber: detail.poNumber, expectedGrams: shipment.expectedGrams }),
+        toReceivingRecord(gr, { ...naming, now, poNumber: detail.poNumber, expectedGrams: shipment.expectedGrams }),
       ),
       pendingReceipt: pendingReceiptOf(receipts),
     };
-  }, [detail, warehouseName]);
+  }, [detail, naming]);
   return { ...queryState(query), isLoading: id !== undefined && query.isPending, detail, ...data };
 }
 
@@ -194,10 +205,10 @@ export function usePurchaseOrder(warehouseId: string | undefined, id: string | u
 export function useReceiptHistory(
   warehouseId: string | undefined,
   status: GoodsReceiptStatus | undefined,
-  warehouseName: string | undefined,
+  naming: WarehouseNaming,
 ): CursorList<ReceivingRecord> {
   // The clock is read when a page is mapped, so "Today" is fresh after every fetch.
-  const map = useCallback((gr: GoodsReceiptDto) => toReceivingRecord(gr, { now: new Date(), warehouseName }), [warehouseName]);
+  const map = useCallback((gr: GoodsReceiptDto) => toReceivingRecord(gr, { ...naming, now: new Date() }), [naming]);
   return useCursorList(
     adminKeys.scoped(RECEIVING, warehouseId, { resource: 'goods-receipts', status: status ?? null }),
     (cursor, signal) => listGoodsReceipts({ cursor, warehouseId, status }, signal),
@@ -210,21 +221,21 @@ export interface LiveReceipt extends LiveQueryState {
 }
 
 /** One receipt, with its order's quantity once the order loads. 404 outside the caller's scope. */
-export function useReceipt(warehouseId: string | undefined, id: string | undefined, warehouseName: string | undefined): LiveReceipt {
+export function useReceipt(warehouseId: string | undefined, id: string | undefined, naming: WarehouseNaming): LiveReceipt {
   const query = useAdminQuery(
     adminKeys.scoped(RECEIVING, warehouseId, { resource: 'goods-receipt', id: id ?? null }),
     (signal) => getGoodsReceipt(id ?? '', signal),
     { enabled: id !== undefined },
   );
-  const order = usePurchaseOrder(warehouseId, query.data?.purchaseOrderId, warehouseName);
+  const order = usePurchaseOrder(warehouseId, query.data?.purchaseOrderId, naming);
   const expectedGrams = order.shipment?.expectedGrams ?? null;
   const poNumber = order.detail?.poNumber;
   const record = useMemo(
     () =>
       query.data === undefined
         ? undefined
-        : toReceivingRecord(query.data, { now: new Date(), warehouseName, expectedGrams, poNumber }),
-    [query.data, warehouseName, expectedGrams, poNumber],
+        : toReceivingRecord(query.data, { ...naming, now: new Date(), expectedGrams, poNumber }),
+    [query.data, naming, expectedGrams, poNumber],
   );
   return {
     ...queryState(query),
@@ -235,6 +246,27 @@ export function useReceipt(warehouseId: string | undefined, id: string | undefin
     },
     record,
   };
+}
+
+export interface LiveReceiptBatch extends LiveQueryState {
+  batch: BatchDto | undefined;
+}
+
+/**
+ * The batch a receipt was stocked as (GET /admin/batches/{id}, needs
+ * inventory.batch.view), for its assigned grade (BR-106). Nothing is fetched
+ * while `batchId` is undefined or `enabled` is false.
+ */
+export function useReceiptBatch(warehouseId: string | undefined, batchId: string | undefined, enabled: boolean): LiveReceiptBatch {
+  const on = enabled && batchId !== undefined;
+  // Its own resource name: the inventory area caches the same batch as a mapped
+  // BatchRow under 'batch', and one key must never hold two shapes.
+  const query = useAdminQuery(
+    adminKeys.scoped(INVENTORY, warehouseId, { resource: 'receipt-batch', batchId: batchId ?? null }),
+    (signal) => getBatch(batchId ?? '', signal),
+    { enabled: on },
+  );
+  return { ...queryState(query), isLoading: on && query.isPending, batch: query.data };
 }
 
 export interface LiveStorageLocations extends LiveQueryState {

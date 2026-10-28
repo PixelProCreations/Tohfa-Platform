@@ -34,6 +34,7 @@ import { formatKg, gramsToKgString, parseKgToGrams } from '../../../money/quanti
 import type { AdminTone } from '../../../theme';
 import { formatAdminDate } from '../../../utils/datetime';
 import { gradeLabel } from '../inventory/mappers';
+import { pairFields, type InfoFieldValue } from '../shared/infoFields';
 import type { ActivityModule, WarehouseScope } from './types';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -515,6 +516,21 @@ export function toLocationRow(dto: StorageLocationDto, stock: LocationStock | un
     available: stock === undefined || capacityGrams === null ? undefined : formatKg(capacityGrams - used),
     createdAt: formatAdminDate(dto.createdAt, now),
   };
+}
+
+/**
+ * The Location Information card (design M4-04), two fields per row. The
+ * warehouse is the one the location was fetched under; undefined (not named
+ * yet) hides it. Section / Rack / Shelf are not drawn: the API has no layout.
+ */
+export function locationInfoRows(row: LocationRow, warehouseName: string | undefined): InfoFieldValue[][] {
+  return pairFields([
+    { label: t('storageOps.location.field.code'), value: row.code },
+    { label: t('storageOps.location.field.type'), value: row.typeLabel },
+    warehouseName === undefined ? undefined : { label: t('storageOps.location.field.warehouse'), value: warehouseName },
+    { label: t('storageOps.location.field.capacity'), value: row.capacity ?? t('storageOps.location.capacityNotSet') },
+    { label: t('storageOps.location.field.created'), value: row.createdAt },
+  ]);
 }
 
 export interface LocationGroup {

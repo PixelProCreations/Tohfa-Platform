@@ -266,9 +266,10 @@ describeIfDatabase('storage locations service (PostgreSQL)', () => {
       expect(rows.rows.map((row) => row.action_code)).toEqual(['warehouse.storage_location.create', 'warehouse.storage_location.update']);
       const [createRow, updateRow] = rows.rows;
       expect(createRow).toMatchObject({ entity_id: created.id, warehouse_id: wh.ooty, before: null });
-      expect(createRow!.after).toEqual({ code: 'CS-A01', locationType: 'Cold Storage', capacityKg: '2000.000', isActive: true });
-      expect(updateRow!.before).toEqual({ code: 'CS-A01', locationType: 'Cold Storage', capacityKg: '2000.000', isActive: true });
-      expect(updateRow!.after).toEqual({ code: 'CS-A01', locationType: 'Cold Storage', capacityKg: '2500.000', isActive: false });
+      // BR-125 added the tree position (parentId) to the masked image; still no name.
+      expect(createRow!.after).toEqual({ code: 'CS-A01', locationType: 'Cold Storage', capacityKg: '2000.000', isActive: true, parentId: null });
+      expect(updateRow!.before).toEqual({ code: 'CS-A01', locationType: 'Cold Storage', capacityKg: '2000.000', isActive: true, parentId: null });
+      expect(updateRow!.after).toEqual({ code: 'CS-A01', locationType: 'Cold Storage', capacityKg: '2500.000', isActive: false, parentId: null });
       expect([...updateRow!.changed_fields!].sort()).toEqual(['capacityKg', 'isActive', 'name']);
       expect(JSON.stringify(rows.rows)).not.toContain('Secret renamed label');
     });

@@ -25,6 +25,7 @@ import {
   randomMobile,
   requireDatabaseTables,
 } from '../../test/dbFixtures.js';
+import { walletRepo } from '../wallet/wallet.repo.js';
 import { decodeTimeKey } from './customers.policy.js';
 import { customersRepo } from './customers.repo.js';
 import {
@@ -406,6 +407,55 @@ describeIfDatabase('Customers service and repo (PostgreSQL)', () => {
     });
   });
 
+  dbIt('BR-129a: totalCredited sums every CREDIT row and totalUsed only ORDER_DEBIT and SUBSCRIPTION_DEBIT rows, in exact paise', async () => {
+    await inRolledBackTx(async (w) => {
+      const wallet = await addWallet(w.tx, w.cOrder.id);
+      const rows: Array<['CREDIT' | 'DEBIT', string, string]> = [
+        ['CREDIT', 'TOPUP_DIGITAL', '500.00'],
+        ['CREDIT', 'TOPUP_CASH', '0.10'],
+        ['CREDIT', 'TOPUP_DIGITAL', '0.20'],
+        ['CREDIT', 'ORDER_REFUND', '10.00'],
+        ['CREDIT', 'ADJUSTMENT', '1.00'],
+        ['DEBIT', 'ORDER_DEBIT', '100.30'],
+        ['DEBIT', 'SUBSCRIPTION_DEBIT', '5.00'],
+        ['DEBIT', 'ADJUSTMENT', '2.00'],
+      ];
+      for (const [direction, type, amount] of rows) {
+        const id = newId();
+        await w.tx.query(
+          `INSERT INTO wallet_transactions (id, wallet_id, idempotency_key, direction, type, amount, balance_after)
+           VALUES ($1, $2, $3, $4, $5, $6, 0)`,
+          [id, wallet, `br129-${id}`, direction, type, amount],
+        );
+      }
+      const summary = await w.svc.getWallet(w.subA('customer.wallet.view'), w.cOrder.id);
+      expect(adminCustomerWalletSummarySchema.parse(summary)).toEqual(summary);
+      // 500.00 + 0.10 + 0.20 + 10.00 + 1.00: a float sum would not land on .30 exactly.
+      expect(summary.totalCredited).toBe('511.30');
+      // ORDER_DEBIT + SUBSCRIPTION_DEBIT; the ADJUSTMENT debit is not usage.
+      expect(summary.totalUsed).toBe('105.30');
+      expect(summary.balance).toBe('404.00');
+      expect(typeof summary.totalCredited).toBe('string');
+      expect(typeof summary.totalUsed).toBe('string');
+    });
+  });
+
+  dbIt('BR-129b: a wallet with no ledger rows reports 0.00 for both totals; an out-of-scope customer is still 404 and nothing is summed for it', async () => {
+    await inRolledBackTx(async (w) => {
+      await addWallet(w.tx, w.cOrder.id);
+      const empty = await w.svc.getWallet(w.subA('customer.wallet.view'), w.cOrder.id);
+      expect(empty).toMatchObject({ balance: '0.00', totalCredited: '0.00', totalUsed: '0.00', transactionCount: 0 });
+      const other = await addWallet(w.tx, w.cNone.id);
+      const id = newId();
+      await w.tx.query(
+        `INSERT INTO wallet_transactions (id, wallet_id, idempotency_key, direction, type, amount, balance_after)
+         VALUES ($1, $2, $3, 'CREDIT', 'TOPUP_DIGITAL', 75.00, 0)`,
+        [id, other, `br129-${id}`],
+      );
+      await expect(w.svc.getWallet(w.subA('customer.wallet.view'), w.cNone.id)).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
+    });
+  });
+
   dbIt('BR-93: wallet transactions page by (created_at, id) DESC with no row skipped or repeated, including ties on created_at', async () => {
     await inRolledBackTx(async (w) => {
       const wallet = await addWallet(w.tx, w.cOrder.id);
@@ -434,6 +484,28 @@ describeIfDatabase('Customers service and repo (PostgreSQL)', () => {
       const other = await addTxn(w.tx, theirs, 'CREDIT', '7.00');
       expect((await rejects(w.svc.getWalletTransaction(w.subA(), w.cOrder.id, other))).status).toBe(404);
       expect(await w.svc.getWalletTransaction(w.subA(), w.cOrder.id, mine)).toMatchObject({ id: mine, amount: '5.00', txnType: 'TOPUP_DIGITAL' });
+    });
+  });
+
+  dbIt('BR-129c: the admin wallet list and detail and the own-ledger repo read carry status COMPLETED on every real ledger row, credit and debit', async () => {
+    await inRolledBackTx(async (w) => {
+      const wallet = await addWallet(w.tx, w.cOrder.id);
+      const credit = await addTxn(w.tx, wallet, 'CREDIT', '20.00');
+      const debit = await addTxn(w.tx, wallet, 'DEBIT', '5.00');
+
+      const page = await w.svc.listWalletTransactions(w.subA('customer.wallet.view'), w.cOrder.id, { limit: 10 });
+      expect(page.items.map((t) => t.id).sort()).toEqual([credit, debit].sort());
+      for (const t of page.items) {
+        expect(t.status).toBe('COMPLETED');
+        expect(walletTransactionSchema.parse(t)).toEqual(t);
+      }
+      for (const id of [credit, debit]) {
+        expect((await w.svc.getWalletTransaction(w.subA('customer.wallet.view'), w.cOrder.id, id)).status).toBe('COMPLETED');
+      }
+
+      // GET /wallets/me/transactions reads through this repo function and the same serializer.
+      const own = await walletRepo.listTransactions(w.tx, wallet, { limit: 10, tab: 'all' });
+      expect(own.items.map((t) => t.status)).toEqual(['COMPLETED', 'COMPLETED']);
     });
   });
 

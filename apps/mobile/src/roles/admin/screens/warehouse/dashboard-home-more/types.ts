@@ -1,11 +1,12 @@
 /** Types for the shared warehouse More menu and Home screens. */
 import type { AlertType } from '../../../api/alerts';
+import type { TranslationKey } from '../../../i18n';
 
 /** One row of the More menu. `id` is also the key the permission gate in MoreScreen looks up. */
 export interface MoreOptionItem {
   id: string;
-  title: string;
-  subtitle: string;
+  titleKey: TranslationKey;
+  subtitleKey: TranslationKey;
   iconType:
     | 'orders'
     | 'sales'
@@ -21,13 +22,14 @@ export interface MoreOptionItem {
     | 'profile'
     | 'settings'
     | 'warehouse_operations'
+    | 'warehouse_management'
     | 'help';
 }
 
 /** A titled card of More menu rows. */
 export interface OptionGroup {
   id: string;
-  title: string;
+  titleKey: TranslationKey;
   items: MoreOptionItem[];
 }
 

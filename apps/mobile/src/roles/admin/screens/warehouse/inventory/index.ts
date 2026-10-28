@@ -7,6 +7,7 @@ export { BatchListScreen, type BatchListScreenProps } from './BatchListScreen';
 export { InventoryDashboardScreen, type InventoryDashboardScreenProps } from './InventoryDashboardScreen';
 export { InventoryFiltersScreen, type InventoryFiltersScreenProps } from './InventoryFiltersScreen';
 export { LowStockScreen, type LowStockScreenProps } from './LowStockScreen';
+export { MovementDetailScreen, type MovementDetailScreenProps } from './MovementDetailScreen';
 export { PhysicalCountScreen, type PhysicalCountScreenProps } from './PhysicalCountScreen';
 export { ProductStockDetailScreen, type ProductStockDetailScreenProps } from './ProductStockDetailScreen';
 export { StockAdjustmentRequestScreen, type StockAdjustmentRequestScreenProps } from './StockAdjustmentRequestScreen';
@@ -16,8 +17,6 @@ export {
 } from './StockAllocationDashboardScreen';
 export { StockLedgerScreen, type StockLedgerScreenProps } from './StockLedgerScreen';
 export { StockListScreen, type StockListScreenProps } from './StockListScreen';
-export { StockMovementDetailScreen, type StockMovementDetailScreenProps } from './StockMovementDetailScreen';
-export { StockMovementReceiptScreen, type StockMovementReceiptScreenProps } from './StockMovementReceiptScreen';
 export { StockVerificationScreen, type StockVerificationScreenProps } from './StockVerificationScreen';
 export { VarianceReviewScreen, type VarianceReviewScreenProps } from './VarianceReviewScreen';
 export { WarehouseSelector, type WarehouseSelectorProps } from './WarehouseSelector';
@@ -27,3 +26,11 @@ export {
   type InventoryFlowProps,
 } from './InventoryFlow';
 export type { InventoryRouteParams, InventoryScreenBaseProps } from './types';
+// The Inventory tab overview (8 stat cards + sections), shared by both shells.
+export { MainInventoryDashboard, type ExtraPendingRow, type MainInventoryDashboardProps } from './MainInventoryDashboard';
+export {
+  useMainInventoryOverview,
+  type MainInventoryOverview,
+  type MainInventoryOverviewOptions,
+} from './useMainInventoryOverview';
+export type { MainInventoryTarget, MainInventoryWarehouse } from './mainInventoryMappers';

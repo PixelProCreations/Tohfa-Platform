@@ -1,7 +1,9 @@
 /**
- * BR-79: storage locations of a warehouse. Schemas must match docs/openapi.yaml
+ * BR-79 / BR-125: storage locations of a warehouse. Schemas must match docs/openapi.yaml
  * (/warehouses/{id}/storage-locations). Request bodies are `.strict()`; `capacityKg` is a decimal
  * STRING (never a JSON number) so a quantity is never rounded by a float on the way in or out.
+ * `parentId` places a location in the warehouse's tree (BR-125); `level` and the usage figures are
+ * derived at read time and never accepted in a request.
  */
 import { z } from 'zod';
 
@@ -30,6 +32,8 @@ export const createStorageLocationBody = z
     name,
     locationType: locationType.nullable().optional(),
     capacityKg: capacityKg.nullable().optional(),
+    /** BR-125: optional parent, a live active location of the same warehouse. */
+    parentId: z.string().uuid('parentId must be a UUID').optional(),
   })
   .strict();
 export type CreateStorageLocationBody = z.infer<typeof createStorageLocationBody>;
@@ -41,6 +45,8 @@ export const updateStorageLocationBody = z
     locationType: locationType.nullable().optional(),
     capacityKg: capacityKg.nullable().optional(),
     isActive: z.boolean().optional(),
+    /** BR-125: move under another location of the same warehouse; null makes it a root. */
+    parentId: z.string().uuid('parentId must be a UUID').nullable().optional(),
   })
   .strict()
   .refine((value) => Object.values(value).some((field) => field !== undefined), {
@@ -74,6 +80,15 @@ export const storageLocationResponse = z.object({
   isActive: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
+  /** BR-125: the tree position, derived at read time (root = 0). */
+  parentId: z.string().uuid().nullable(),
+  level: z.number().int().min(0),
+  /** BR-125: qty_available of the ACTIVE non-empty batches linked to this location itself. */
+  usedKg: z.string(),
+  batchCount: z.number().int().min(0),
+  /** BR-125: the same figures for this location and all its descendants. */
+  subtreeUsedKg: z.string(),
+  subtreeBatchCount: z.number().int().min(0),
 });
 export type StorageLocation = z.infer<typeof storageLocationResponse>;
 

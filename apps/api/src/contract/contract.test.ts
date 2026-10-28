@@ -34,6 +34,11 @@ interface SpecOperation {
   path: string;
   /** `x-permission` value, or `public` for unauthenticated endpoints. */
   permission: string;
+  /**
+   * `x-permission-any-of` codes, when the operation uses that instead of `x-permission` (the code
+   * depends on the body, e.g. POST /admin/accounts). Every listed code must exist in rbac.json.
+   */
+  anyOf?: string[];
 }
 
 /** Match a full Express path against how the same route is written in the spec. */
@@ -80,6 +85,13 @@ function readSpecOperations(): Map<string, SpecOperation> {
       if (permMatch !== null && permMatch[1] !== undefined) {
         const current = ops.get(opKey(lastVerb!, currentPath));
         if (current !== undefined) current.permission = permMatch[1];
+      }
+      const anyOfMatch: RegExpMatchArray | null = line.match(/^ {6}x-permission-any-of:\s*\[(.*)\]\s*$/) as RegExpMatchArray | null;
+      if (anyOfMatch !== null && anyOfMatch[1] !== undefined) {
+        const current = ops.get(opKey(lastVerb!, currentPath));
+        if (current !== undefined) {
+          current.anyOf = anyOfMatch[1].split(',').map((code) => code.trim()).filter(Boolean);
+        }
       }
     }
   }
@@ -152,6 +164,20 @@ describe('contract: API surface matches docs/openapi.yaml', () => {
         findings.push(
           `ROUTE NOT DOCUMENTED  ${method.toUpperCase()} ${fullPath}  -> spec has no ${opKey(method, specPath)}`,
         );
+        continue;
+      }
+
+      if (specOp.anyOf !== undefined) {
+        if (specOp.anyOf.length === 0) {
+          findings.push(`EMPTY x-permission-any-of  ${method.toUpperCase()} ${fullPath}`);
+        }
+        for (const code of specOp.anyOf) {
+          if (!rbacCodes.has(code)) {
+            findings.push(
+              `PERMISSION NOT IN RBAC  ${method.toUpperCase()} ${fullPath}  -> x-permission-any-of "${code}" is missing from docs/rbac.json`,
+            );
+          }
+        }
         continue;
       }
 

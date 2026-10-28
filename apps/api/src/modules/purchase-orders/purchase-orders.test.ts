@@ -113,7 +113,7 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     },
     findPurchaseOrderByListingId: async () => null,
     listPurchaseOrders: async () => ({
-      items: [formatPoRowToResponse(samplePoRow)],
+      items: [{ ...formatPoRowToResponse(samplePoRow), farmerName: 'Farmer Murugan', cropName: 'Carrot' }],
       nextCursor: null,
       hasMore: false,
     }),
@@ -274,6 +274,28 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     expect(result.poNumber).toBe('PO-2026-000042');
   });
 
+  it('BR-119b: the approval response purchase order carries cropName, on a new order and on the existing-order path; null when the crop row is missing', async () => {
+    const listing: ListingForApproval = {
+      id: 'lst-crop-name',
+      farmerId: IDS.farmer,
+      cropId: 'crop-1',
+      grade: 'GRADE_1',
+      askingPricePerKg: '50.00',
+      quantityKg: '100.000',
+    };
+    const created = await createTestService({
+      insertPurchaseOrder: async () => ({ ...samplePoRow, crop_name: 'Carrot' }),
+    }).createForListing({} as unknown as Executor, mockActorAdmin, mockScopeAdmin, listing, { warehouseId: WH_OOTY });
+    expect(created.cropName).toBe('Carrot');
+
+    const existing = await createTestService({
+      findPurchaseOrderByListingId: async () => ({ ...samplePoRow, crop_name: 'Beans' }),
+    }).createForListing({} as unknown as Executor, mockActorAdmin, mockScopeAdmin, listing, { warehouseId: WH_OOTY });
+    expect(existing.cropName).toBe('Beans');
+
+    expect(formatPoRowToResponse(samplePoRow).cropName).toBeNull();
+  });
+
   it('BR-30a: Sub Warehouse Admin fetches their assigned warehouse PO successfully', async () => {
     const service = createTestService();
     const result = await service.getById(
@@ -401,7 +423,204 @@ describe('Purchase order timestamps are ISO-8601 on the wire (docs/openapi.yaml:
     expect(Object.keys(page.items[0]!)).not.toContain('cursorIssuedAt');
   });
 
+  it('BR-30: list rows carry farmerName and cropName from ONE joined query (no per-row lookup), null when the join finds nothing', async () => {
+    const sql: string[] = [];
+    const tx = {
+      query: async (text: string) => {
+        sql.push(text);
+        return {
+          rows: [
+            { ...poFields, id: 'a', issuedAt: new Date('2026-10-05T07:42:36.490Z'), cursorIssuedAt: '2026-10-05T07:42:36.490266Z', farmerName: 'Murugan', cropName: 'Carrot' },
+            { ...poFields, id: 'b', issuedAt: new Date('2026-10-04T07:42:36.100Z'), cursorIssuedAt: '2026-10-04T07:42:36.100999Z', farmerName: null, cropName: null },
+          ],
+        };
+      },
+    } as unknown as Executor;
+    const page = await purchaseOrdersRepo.listPurchaseOrders(tx, allScope, { limit: 10 } as never);
+
+    expect(sql).toHaveLength(1);
+    expect(sql[0]).toMatch(/LEFT JOIN farmers/);
+    expect(sql[0]).toMatch(/LEFT JOIN crop_master/);
+    expect(page.items[0]).toMatchObject({ farmerName: 'Murugan', cropName: 'Carrot' });
+    expect(page.items[1]).toMatchObject({ farmerName: null, cropName: null });
+  });
+
+  it('BR-119a: PO detail and each nested receipt carry cropName from joined queries (one per read, no per-row lookup); null when the crop row is missing', async () => {
+    const sql: string[] = [];
+    const results: unknown[][] = [
+      [{ ...poFields, issuedAt: new Date('2026-10-05T07:42:36.490Z'), farmerName: 'F', tohfaFarmerId: 'T-1', cropName: 'Carrot' }],
+      [
+        {
+          id: '3f1c7b52-0000-4000-8000-000000000009',
+          grnNumber: 'GRN-2026-000001',
+          purchaseOrderId: poFields.id,
+          warehouseId: IDS.warehouseOoty,
+          grossQtyKg: '100.000',
+          acceptedQtyKg: '0.000',
+          rejectedQtyKg: '0.000',
+          status: 'AWAITING_QC',
+          receivedAt: new Date('2026-10-05T09:00:01.250Z'),
+          cropName: 'Carrot',
+        },
+        {
+          id: '3f1c7b52-0000-4000-8000-000000000010',
+          grnNumber: 'GRN-2026-000002',
+          purchaseOrderId: poFields.id,
+          warehouseId: IDS.warehouseOoty,
+          grossQtyKg: '50.000',
+          acceptedQtyKg: '0.000',
+          rejectedQtyKg: '0.000',
+          status: 'AWAITING_QC',
+          receivedAt: new Date('2026-10-05T09:30:01.250Z'),
+        },
+      ],
+      // second read: the crop join found nothing (no cropName column value)
+      [{ ...poFields, issuedAt: new Date('2026-10-05T07:42:36.490Z'), farmerName: 'F', tohfaFarmerId: 'T-1' }],
+      [],
+    ];
+    const tx = {
+      query: async (text: string) => {
+        sql.push(text);
+        return { rows: results[sql.length - 1] ?? [] };
+      },
+    } as unknown as Executor;
+
+    const detail = await purchaseOrdersRepo.findPurchaseOrderById(tx, poFields.id, allScope);
+    expect(sql).toHaveLength(2);
+    expect(sql[0]).toMatch(/LEFT JOIN crop_master/);
+    expect(sql[1]).toMatch(/LEFT JOIN crop_master/);
+    expect(detail?.cropName).toBe('Carrot');
+    expect(detail?.goodsReceipts.map((r) => r.cropName)).toEqual(['Carrot', null]);
+
+    const missing = await purchaseOrdersRepo.findPurchaseOrderById(tx, poFields.id, allScope);
+    expect(missing?.cropName).toBeNull();
+  });
+
   describeIfDatabase('against PostgreSQL (rolled-back transaction)', () => {
+    it('BR-30: GET /admin/purchase-orders rows name the farmer and the crop; another warehouse scope still sees nothing', async (ctx) => {
+      if (!(await requireDatabaseTables('purchase_orders', 'produce_listings', 'crop_master'))) return ctx.skip();
+      const { pool } = await import('../../db/pool.js');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const tx = client as unknown as Executor;
+        const fixture = await insertPurchaseOrder(tx);
+        const expected = await client.query<{ farmer_name: string; crop_name: string }>(
+          `SELECT u.full_name AS farmer_name, cm.name AS crop_name
+             FROM purchase_orders po
+             JOIN farmers f ON f.id = po.farmer_id
+             JOIN users u ON u.id = f.user_id
+             JOIN crop_master cm ON cm.id = po.crop_id
+            WHERE po.id = $1`,
+          [fixture.purchaseOrderId],
+        );
+
+        const page = await purchaseOrdersRepo.listPurchaseOrders(tx, allScope, {
+          limit: 100,
+          warehouseId: fixture.warehouseId,
+        } as never);
+        expect(page.items.map((i) => i.id)).toEqual([fixture.purchaseOrderId]);
+        expect(page.items[0]).toMatchObject({
+          farmerName: expected.rows[0]!.farmer_name,
+          cropName: expected.rows[0]!.crop_name,
+        });
+
+        const otherWarehouse = aScope({
+          level: ScopeLevel.OWN,
+          permission: 'purchase.order.view',
+          roleCode: RoleCode.SUB_WH_ADMIN,
+          warehouseIds: [IDS.warehouseCoonoor],
+        });
+        const hidden = await purchaseOrdersRepo.listPurchaseOrders(tx, otherWarehouse, {
+          limit: 100,
+          warehouseId: fixture.warehouseId,
+        } as never);
+        expect(hidden.items).toEqual([]);
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    });
+
+    it('BR-119a: GET /admin/purchase-orders/{id} names the crop on the order and on each nested receipt (real SQL); another warehouse scope still sees nothing', async (ctx) => {
+      if (!(await requireDatabaseTables('purchase_orders', 'goods_receipts', 'crop_master'))) return ctx.skip();
+      const { pool } = await import('../../db/pool.js');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const tx = client as unknown as Executor;
+        const fixture = await insertPurchaseOrder(tx);
+        await client.query(`UPDATE crop_master SET name = 'BR-119 Carrot' WHERE id = (SELECT crop_id FROM purchase_orders WHERE id = $1)`, [
+          fixture.purchaseOrderId,
+        ]);
+        await client.query(
+          `INSERT INTO goods_receipts (grn_number, purchase_order_id, warehouse_id, farmer_id, gross_qty_kg, received_by)
+           VALUES ($1, $2, $3, $4, 10, $5)`,
+          [`GRN-B119-${fixture.purchaseOrderId.slice(0, 8)}`, fixture.purchaseOrderId, fixture.warehouseId, fixture.farmerId, fixture.receivedBy],
+        );
+
+        const detail = await purchaseOrdersRepo.findPurchaseOrderById(tx, fixture.purchaseOrderId, allScope);
+        expect(detail?.cropName).toBe('BR-119 Carrot');
+        expect(detail?.goodsReceipts).toHaveLength(1);
+        expect(detail?.goodsReceipts[0]?.cropName).toBe('BR-119 Carrot');
+
+        const otherWarehouse = aScope({
+          level: ScopeLevel.OWN,
+          permission: 'purchase.order.view',
+          roleCode: RoleCode.SUB_WH_ADMIN,
+          warehouseIds: [IDS.warehouseCoonoor],
+        });
+        expect(await purchaseOrdersRepo.findPurchaseOrderById(tx, fixture.purchaseOrderId, otherWarehouse)).toBeNull();
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    });
+
+    it('BR-119b: a purchase order inserted for an approval, and the existing one found by listing, carry the crop name (real SQL)', async (ctx) => {
+      if (!(await requireDatabaseTables('purchase_orders', 'produce_listings', 'crop_master'))) return ctx.skip();
+      const { pool } = await import('../../db/pool.js');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const tx = client as unknown as Executor;
+        const fixture = await insertPurchaseOrder(tx);
+        const source = await client.query<{ listing_id: string; crop_id: string; crop_name: string }>(
+          `SELECT po.listing_id, po.crop_id, cm.name AS crop_name
+             FROM purchase_orders po JOIN crop_master cm ON cm.id = po.crop_id WHERE po.id = $1`,
+          [fixture.purchaseOrderId],
+        );
+        const { listing_id: listingId, crop_id: cropId, crop_name: cropName } = source.rows[0]!;
+
+        const existing = await purchaseOrdersRepo.findPurchaseOrderByListingId(tx, listingId);
+        expect(existing && formatPoRowToResponse(existing).cropName).toBe(cropName);
+
+        // A second listing of the same farmer and crop, approved into a new purchase order.
+        const newListing = await client.query<{ id: string }>(
+          `INSERT INTO produce_listings (listing_number, farmer_id, crop_id, grade, quantity_kg, price_per_kg, fair_price_id)
+           SELECT 'LST-B119-' || substr(md5(random()::text), 1, 8), farmer_id, crop_id, grade, quantity_kg, price_per_kg, fair_price_id
+             FROM produce_listings WHERE id = $1
+           RETURNING id`,
+          [listingId],
+        );
+        const inserted = await purchaseOrdersRepo.insertPurchaseOrder(tx, {
+          farmerId: fixture.farmerId,
+          listingId: newListing.rows[0]!.id,
+          warehouseId: fixture.warehouseId,
+          cropId,
+          grade: 'GRADE_1',
+          quantityKg: '10.000',
+          pricePerKg: '50.00',
+          totalAmount: '500.00',
+          issuedBy: fixture.issuedBy,
+        });
+        expect(formatPoRowToResponse(inserted).cropName).toBe(cropName);
+      } finally {
+        await client.query('ROLLBACK');
+        client.release();
+      }
+    });
+
     afterAll(async () => {
       const { closePool } = await import('../../db/pool.js');
       await closePool();

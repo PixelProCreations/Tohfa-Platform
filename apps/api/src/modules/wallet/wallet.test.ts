@@ -5,6 +5,7 @@ import { createWalletService } from './wallet.service.js';
 import {
   decodeTxnCursor,
   encodeTxnCursor,
+  toWalletTransactionResponse,
   walletRepo,
   type WalletRepo,
   type WalletRow,
@@ -21,6 +22,8 @@ import {
 } from '../../test/factories.js';
 import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { pool } from '../../db/pool.js';
+import { walletTransactionResponse } from './wallet.schema.js';
+import { walletTransactionSchema as adminWalletTransactionSchema } from '../customers/customers.schema.js';
 
 interface RecordingRepo extends WalletRepo {
   lastFindOwner: string | null;
@@ -85,6 +88,55 @@ const noopDb: Executor = {
     throw new Error('the fake repo should never reach the database');
   },
 };
+
+function aTxnRow(overrides: Partial<WalletTransactionRow> = {}): WalletTransactionRow {
+  return {
+    id: newId(),
+    wallet_id: newId(),
+    idempotency_key: 'k',
+    direction: 'CREDIT',
+    type: 'TOPUP_DIGITAL',
+    amount: '10.00',
+    balance_after: '10.00',
+    ref_type: null,
+    ref_id: null,
+    remarks: null,
+    created_by: null,
+    created_at: new Date('2026-10-01T00:00:00.000Z'),
+    fiscal_cash_tag: null,
+    warehouse_id: null,
+    ...overrides,
+  };
+}
+
+describe('BR-129: wallet transaction status (serializer and response schemas)', () => {
+  it('BR-129c: every serialized ledger row, credit or debit of any type, carries status COMPLETED', () => {
+    const rows = [
+      aTxnRow(),
+      aTxnRow({ type: 'TOPUP_CASH', fiscal_cash_tag: 'OOTY-1' }),
+      aTxnRow({ type: 'ORDER_REFUND' }),
+      aTxnRow({ direction: 'DEBIT', type: 'ORDER_DEBIT', amount: '4.50', balance_after: '5.50' }),
+      aTxnRow({ direction: 'DEBIT', type: 'ADJUSTMENT', amount: '1.00', balance_after: '4.50' }),
+    ];
+    for (const row of rows) {
+      const txn = toWalletTransactionResponse(row);
+      expect(txn.status, row.type).toBe('COMPLETED');
+      expect(walletTransactionResponse.parse(txn)).toEqual(txn);
+      expect(adminWalletTransactionSchema.parse(txn)).toEqual(txn);
+    }
+  });
+
+  it('BR-129c: the customer and admin transaction schemas require status and accept no value but COMPLETED', () => {
+    const txn = toWalletTransactionResponse(aTxnRow());
+    const { status: _status, ...withoutStatus } = txn;
+    for (const schema of [walletTransactionResponse, adminWalletTransactionSchema]) {
+      expect(schema.safeParse(withoutStatus).success).toBe(false);
+      expect(schema.safeParse({ ...txn, status: 'PENDING' }).success).toBe(false);
+      expect(schema.safeParse({ ...txn, status: 'FAILED' }).success).toBe(false);
+      expect(schema.safeParse({ ...txn, status: 'COMPLETED' }).success).toBe(true);
+    }
+  });
+});
 
 describe('walletService.getWalletForActor', () => {
   it('resolves and returns wallet for a customer actor', async () => {

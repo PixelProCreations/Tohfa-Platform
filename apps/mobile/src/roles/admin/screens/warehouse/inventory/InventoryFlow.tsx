@@ -8,7 +8,7 @@
  * `scope` + `can`, so both shells render the same flow: the Sub shell with its
  * own warehouse scope, the Main shell with MAIN_WAREHOUSE_SCOPE (all warehouses).
  *
- * Route keys are the design ids ('M3S01'...'M3S18') because deep links from the
+ * Route keys are the design ids ('M3S01'...'M3S17') because deep links from the
  * shells, notifications and App.tsx already use them. M3S08 (storage location
  * stock) was absorbed into the profile-settings StorageInfoScreen (W4 part B);
  * the 'M3S08' key renders that screen so ProductStockDetail's "View Storage
@@ -30,8 +30,10 @@
  * and Reject inside M3S17 need inventory.stock_adjustment.approve (a Sub admin
  * never holds it, BR-37a). M3S17 opened without an `adjustmentId` (the Main
  * dashboard's "stock adjustment approval" link) shows the history on PENDING.
- * M3S15 / M3S18 (movement detail / receipt) are design screens with sample
- * data and no per-row API, so the live ledger no longer opens them.
+ * M3S15 (Movement Detail, design M3-16) renders the ledger row the user
+ * tapped, carried in the route params: there is no GET /admin/stock-ledger/{id}.
+ * Opened without a row it shows "not found" and fetches nothing. The old
+ * sample-data movement detail / receipt screens (M3S15 / M3S18) are deleted.
  */
 import React, { useEffect, useState } from 'react';
 import { inventoryRouteArea, isAreaAvailable } from '../availability';
@@ -45,14 +47,14 @@ import { BatchListScreen } from './BatchListScreen';
 import { InventoryDashboardScreen } from './InventoryDashboardScreen';
 import { InventoryFiltersScreen } from './InventoryFiltersScreen';
 import { LowStockScreen } from './LowStockScreen';
+import { MovementDetailScreen } from './MovementDetailScreen';
+import { movementParam } from './movementDetailMappers';
 import { PhysicalCountScreen } from './PhysicalCountScreen';
 import { ProductStockDetailScreen } from './ProductStockDetailScreen';
 import { StockAdjustmentRequestScreen } from './StockAdjustmentRequestScreen';
 import { StockAllocationDashboardScreen } from './StockAllocationDashboardScreen';
 import { StockLedgerScreen } from './StockLedgerScreen';
 import { StockListScreen } from './StockListScreen';
-import { StockMovementDetailScreen } from './StockMovementDetailScreen';
-import { StockMovementReceiptScreen } from './StockMovementReceiptScreen';
 import { StockVerificationScreen } from './StockVerificationScreen';
 import { VarianceReviewScreen } from './VarianceReviewScreen';
 // File import, not the profile-settings barrel: the barrel pulls in ProfileFlow, which this flow never needs.
@@ -74,6 +76,7 @@ import {
   useAllocationDashboard,
   useBatch,
   useBatchList,
+  useInventoryWarehouseName,
   useLowStockRows,
   useStockLedger,
   useStockSummary,
@@ -282,6 +285,13 @@ function LiveAllocationRoute({ warehouseId, ...common }: RouteCommon) {
   );
 }
 
+function LiveMovementDetailRoute({ warehouseId: _warehouseId, ...common }: RouteCommon) {
+  const movement = movementParam(common.routeParams ?? null);
+  // No row, no uuid: the hook fetches nothing and the screen shows "not found".
+  const warehouseName = useInventoryWarehouseName(common.scope, common.can, movement?.warehouseId);
+  return <MovementDetailScreen {...common} movement={movement} warehouseName={warehouseName} />;
+}
+
 function LiveLowStockRoute({
   warehouseId,
   onInitiateTransfer,
@@ -407,7 +417,7 @@ export function InventoryFlow({
       case 'M3S14':
         return <AdjustmentHistoryScreen {...live} initialFilter={adjustmentFilterOf(params?.status)} />;
       case 'M3S15':
-        return <StockMovementDetailScreen {...common} />;
+        return <LiveMovementDetailRoute {...live} />;
       case 'M3S16':
         return <InventoryFiltersScreen {...common} />;
       case 'M3S17': {
@@ -416,8 +426,6 @@ export function InventoryFlow({
         if (adjustmentId === undefined) return <AdjustmentHistoryScreen {...live} initialFilter="PENDING" />;
         return <AdjustmentDetailScreen {...live} adjustmentId={adjustmentId} />;
       }
-      case 'M3S18':
-        return <StockMovementReceiptScreen {...common} />;
       default: {
         const external = renderExternalScreen?.(current.screen, params, { navigate, back });
         return external ?? <LiveDashboardRoute {...live} />;

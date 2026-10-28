@@ -25,7 +25,7 @@ import type {
   ListWarehousesQuery,
   ListWarehousesResponse,
   UpdateCapacityBody,
-  WarehouseCapacityResponse,
+  WarehouseCapacityView,
   WarehouseDetail,
 } from './warehouses.schema.js';
 
@@ -81,16 +81,17 @@ export function createWarehousesService(
       return warehouse;
     },
 
-    async getCapacity(scope, id): Promise<WarehouseCapacityResponse> {
+    async getCapacity(scope, id): Promise<WarehouseCapacityView> {
       const scopeFilter = scopedWhere(scope, { warehouseColumn: 'w.id', startIndex: 2 });
       const capacity = await repo.findCapacity(db, id, scopeFilter);
 
       if (capacity === null) throw notFound(id);
 
-      return capacity;
+      // BR-131: read after the scope check, so an invisible warehouse reads nothing more.
+      return { ...capacity, thresholdPercent: await repo.capacityThresholdPercent(db) };
     },
 
-    async setCapacity(scope, id, body): Promise<WarehouseCapacityResponse> {
+    async setCapacity(scope, id, body): Promise<WarehouseCapacityView> {
       const scopeFilter = scopedWhere(scope, { warehouseColumn: 'w.id', startIndex: 2 });
 
       // BR-66: the audit row shares the transaction with the change, and the
@@ -119,7 +120,7 @@ export function createWarehousesService(
 
         const capacity = await repo.findCapacity(tx, id, scopeFilter);
         if (capacity === null) throw notFound(id);
-        return capacity;
+        return { ...capacity, thresholdPercent: await repo.capacityThresholdPercent(tx) };
       });
     },
   };
@@ -128,12 +129,12 @@ export function createWarehousesService(
 export interface WarehousesService {
   list(scope: ResolvedScope, filters: ListWarehousesQuery): Promise<ListWarehousesResponse>;
   getById(scope: ResolvedScope, id: string): Promise<WarehouseDetail>;
-  getCapacity(scope: ResolvedScope, id: string): Promise<WarehouseCapacityResponse>;
+  getCapacity(scope: ResolvedScope, id: string): Promise<WarehouseCapacityView>;
   setCapacity(
     scope: ResolvedScope,
     id: string,
     body: UpdateCapacityBody,
-  ): Promise<WarehouseCapacityResponse>;
+  ): Promise<WarehouseCapacityView>;
 }
 
 /** The production instance. */

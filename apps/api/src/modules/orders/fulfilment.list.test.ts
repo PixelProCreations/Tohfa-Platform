@@ -10,7 +10,8 @@
  *   - A Sub Warehouse Admin sees only its warehouse; a `warehouseId` filter naming another
  *     warehouse is an EMPTY list, never 403 (BR-30: a 403 confirms the other warehouse's data).
  *   - scope `all` (MAIN_WH_ADMIN, TOHFA_ADMIN, SUPER_ADMIN) sees every warehouse; the filter narrows.
- *   - The list item is an allow-list: no farm identity and no buyer PII at any depth (BR-16).
+ *   - The list item is an allow-list: no farm identity at any depth (BR-16); the only buyer data is
+ *     `customerName` and the BR-92-masked `customerMobileMasked` (owner amendment 2026-10-23).
  *
  * The HTTP layer mounts `adminFulfilmentRouter` on a local express app (as fulfilment.detail.test.ts
  * does). The handler reads through the shared pool, so the fixture rows are COMMITTED and removed in
@@ -24,7 +25,9 @@ import type { Server } from 'node:http';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { randomUUID } from 'node:crypto';
 import { aScope, databaseReady, describeIfDatabase, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import type { FulfilmentRepo } from './fulfilment.repo.js';
 import { encodeAdminOrderCursor } from './fulfilment.cursor.js';
 import { adminOrdersQuerySchema } from './fulfilment.schema.js';
@@ -37,10 +40,31 @@ const WH_B = '10000000-0000-4000-8000-0000000000b2';
 /** Any key that could carry a farm identity (BR-16, BR-90) or buyer PII (BR-92). */
 const FORBIDDEN_KEY = /farm|village|gps|fmb|latitude|longitude|^lat$|^lng$|batch|source|allocation|plot|mobile|phone|address|customer|walkIn|otp|hash/i;
 
+/**
+ * Any key that could carry a farm identity (BR-16, BR-90). The owner amendment of 2026-10-23 to
+ * BR-101 changed NOTHING here: this is asserted with no exception at any depth.
+ */
+const FARM_KEY = /farm|village|gps|fmb|latitude|longitude|^lat$|^lng$|batch|source|allocation|plot/i;
+
+/**
+ * BR-101, owner amendment 2026-10-23: the ONLY two buyer keys a list item may carry, and only at the
+ * top level of an item. Every other FORBIDDEN_KEY match (customerId, walkInMobile, address, otp ...)
+ * is still a failure.
+ */
+const OWNER_APPROVED_BUYER_KEYS = ['customerName', 'customerMobileMasked'] as const;
+const isOwnerApprovedBuyerPath = (path: string): boolean =>
+  OWNER_APPROVED_BUYER_KEYS.some((key) => new RegExp(`^\\$\\[\\d+\\]\\.${key}$`).test(path));
+
+// BR-101 owner amendment 2026-10-26 (D1): `packedAt` and `readyAt` join the documented key set.
 const LIST_ITEM_KEYS = [
-  'channel', 'deliveryDate', 'fulfillmentType', 'id', 'itemCount', 'orderNumber', 'paymentStatus', 'placedAt',
-  'status', 'totalAmount', 'warehouseId',
+  'channel', 'deliveryDate', 'fulfillmentType', 'id', 'itemCount', 'orderNumber', 'packedAt', 'paymentStatus',
+  'placedAt', 'readyAt', 'status', 'totalAmount', 'warehouseId', ...OWNER_APPROVED_BUYER_KEYS,
 ].sort();
+
+/** BR-92 format, written out here so the test does not borrow the implementation's masker. */
+const MASKED_MOBILE = /^\*+[0-9]{0,4}$/;
+const expectedMask = (mobile: string): string =>
+  mobile.length <= 4 ? '*'.repeat(Math.max(mobile.length, 1)) : `${'*'.repeat(mobile.length - 4)}${mobile.slice(-4)}`;
 
 function keysMatching(pattern: RegExp, value: unknown, path = '$'): string[] {
   if (Array.isArray(value)) return value.flatMap((item, i) => keysMatching(pattern, item, `${path}[${i}]`));
@@ -94,14 +118,14 @@ describe('admin order list service (fake repo)', () => {
       incrementOtpAttempts: vi.fn(),
     } as unknown as FulfilmentRepo;
     const runTx = async <T>(fn: (tx: Executor) => Promise<T>): Promise<T> => fn({} as Executor);
-    const service = createFulfilmentService({ repo, db: {} as Executor, runTx });
+    const service = createFulfilmentService({ repo, db: {} as Executor, runTx, idempotency: createInMemoryIdempotencyStore() });
     const actor = { userId: newId(), roles: [{ code: RoleCode.CUSTOMER }], farmerId: null, customerId: newId() };
     const customer: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.CUSTOMER, customerId: actor.customerId });
     for (const call of [
       () => service.assignWarehouse(actor, customer, order.id, { warehouseId: WH_B }),
-      () => service.packOrder(actor, customer, order.id, {}),
-      () => service.dispatchOrder(actor, customer, order.id, {}),
-      () => service.verifyOtp(actor, customer, order.id, { otp: '1234' }),
+      () => service.packOrder(actor, customer, order.id, {}, newId()),
+      () => service.dispatchOrder(actor, customer, order.id, {}, newId()),
+      () => service.verifyOtp(actor, customer, order.id, { otp: '1234' }, newId()),
     ]) {
       await expect(call()).rejects.toMatchObject({ code: 'NOT_FOUND', status: 404 });
     }
@@ -130,6 +154,54 @@ describe('admin order list service (fake repo)', () => {
     }
   });
 
+  it('BR-101e: the list item is an allow-list — the buyer name and BR-92-masked mobile only; farm fields and raw buyer PII on the record never reach the item', async () => {
+    const rawMobile = '+919876543210';
+    const base = {
+      id: newId(), orderNumber: 'OL-UNIT-1', status: 'CONFIRMED', channel: 'ONLINE', fulfillmentType: 'PICKUP',
+      warehouseId: WH_A, itemCount: 2, totalAmount: '10.00', paymentStatus: 'PAID', deliveryDate: null,
+      placedAt: '2026-10-23T05:06:07.000Z', packedAt: '2026-10-23T06:00:00.000Z', readyAt: '2026-10-23T07:00:00.000Z',
+    };
+    const record = {
+      ...base,
+      buyerName: 'Asha Buyer',
+      buyerMobile: rawMobile,
+      // None of these may ever reach the response (BR-16, BR-20, BR-92).
+      farmerId: newId(), sourceFarmerId: newId(), farmName: 'Green Acres Farm', farmerName: 'Ravi Farmer',
+      farmLocation: 'Kotagiri village', gps: '11.41,76.70', fmbNumber: 'FMB-123', customerId: newId(),
+      walkInMobile: rawMobile, deliveryAddressId: newId(), deliveryOtpHash: 'deadbeef',
+    };
+    const noBuyer = { ...base, id: newId(), buyerName: null, buyerMobile: null, packedAt: null, readyAt: null };
+    const repo = {
+      listAdminOrders: vi.fn(async () => ({ items: [record, noBuyer], nextCursor: null, hasMore: false })),
+    } as unknown as FulfilmentRepo;
+    const service = createFulfilmentService({ repo, db: {} as Executor });
+    const main: ResolvedScope = aScope({ level: ScopeLevel.ALL, roleCode: RoleCode.MAIN_WH_ADMIN, permission: PERMISSION });
+
+    const out = await service.listAdminOrders(main, { limit: 20 });
+    const [item, empty] = out.items as unknown as Array<Record<string, unknown>>;
+    expect(Object.keys(item!).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(Object.keys(empty!).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(item!['customerName']).toBe('Asha Buyer');
+    expect(item!['customerMobileMasked']).toBe('*********3210');
+    expect(item!['customerMobileMasked']).toBe(expectedMask(rawMobile));
+    expect(item!['customerMobileMasked']).toMatch(MASKED_MOBILE);
+    // Null-safe: an order that records no buyer name or mobile is null, never '' or a crash.
+    expect(empty!['customerName']).toBeNull();
+    expect(empty!['customerMobileMasked']).toBeNull();
+    // BR-101 owner amendment 2026-10-26 (D1): the two fulfilment timestamps pass through, null-safe.
+    expect(item!['packedAt']).toBe('2026-10-23T06:00:00.000Z');
+    expect(item!['readyAt']).toBe('2026-10-23T07:00:00.000Z');
+    expect(empty!['packedAt']).toBeNull();
+    expect(empty!['readyAt']).toBeNull();
+
+    expect(keysMatching(FARM_KEY, out)).toEqual([]);
+    expect(keysMatching(FORBIDDEN_KEY, out.items).filter((path) => !isOwnerApprovedBuyerPath(path))).toEqual([]);
+    const json = JSON.stringify(out);
+    for (const leaked of ['Green Acres Farm', 'Ravi Farmer', 'Kotagiri village', '11.41,76.70', 'FMB-123', 'deadbeef', rawMobile, rawMobile.slice(-5)]) {
+      expect(json, leaked).not.toContain(leaked);
+    }
+  });
+
   it('BR-101: the admin order list accepts channel=DIRECT (openapi SalesChannel lists it), so the filter is not a 422', () => {
     expect(adminOrdersQuerySchema.safeParse({ channel: 'DIRECT' }).success).toBe(true);
     expect(adminOrdersQuerySchema.safeParse({ channel: 'direct' }).success).toBe(false);
@@ -147,6 +219,16 @@ describe('admin order list service (fake repo)', () => {
       encodeAdminOrderCursor({ ts: '2026-10-11T05:06:07.123456Z', id: 'not-a-uuid' }),
     ]) {
       expect(adminOrdersQuerySchema.safeParse({ cursor }).success, cursor).toBe(false);
+    }
+  });
+
+  it('BR-127a: q is trimmed and must be 1-100 characters; blank or 101 characters is rejected', () => {
+    const ok = adminOrdersQuerySchema.safeParse({ q: '  Asha  ' });
+    expect(ok.success).toBe(true);
+    expect(ok.success && ok.data.q).toBe('Asha');
+    expect(adminOrdersQuerySchema.safeParse({ q: 'x'.repeat(100) }).success).toBe(true);
+    for (const q of ['', '   ', 'x'.repeat(101)]) {
+      expect(adminOrdersQuerySchema.safeParse({ q }).success, JSON.stringify(q)).toBe(false);
     }
   });
 });
@@ -288,6 +370,7 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
       const res = await request(server)
         .post(`/v1/admin/orders/${coonoorOrder}/${action}`)
         .set('Authorization', auth('customer'))
+        .set('Idempotency-Key', randomUUID())
         .send(body);
       expect(res.status, action).toBe(403);
       expect(res.body.code, action).toBe('FORBIDDEN');
@@ -389,15 +472,188 @@ describeIfDatabase('admin order list and actions (HTTP, PostgreSQL) — BR-101',
     expect(bad.body.code).toBe('VALIDATION_FAILED');
   });
 
-  it('BR-101e (HTTP): a list item is the documented allow-list — no farm identity and no buyer PII at any depth', async () => {
+  // BR-101 owner amendment 2026-10-23: the item now carries the buyer's name and BR-92-masked mobile.
+  // Everything else this test refused before it still refuses: no farm-identity key at any depth, no
+  // other buyer key (customerId, walkIn*, address, otp ...), and no run of the stored mobile's digits
+  // beyond the last four.
+  it('BR-101e (HTTP): a list item is the documented allow-list — buyer name and masked mobile only, no farm identity and no other buyer PII at any depth', async () => {
     if (!ready) return;
     const res = await list('super', { deliveryDate });
+    expect(res.status).toBe(200);
     expect(res.body.items.length).toBe(2);
     for (const item of res.body.items as Array<Record<string, unknown>>) {
       expect(Object.keys(item).sort()).toEqual(LIST_ITEM_KEYS);
+      expect(item['customerName']).toBe('HTTP List Buyer');
+      expect(item['customerMobileMasked']).toBe(expectedMask(customerMobile));
+      expect(item['customerMobileMasked']).toMatch(MASKED_MOBILE);
     }
-    expect(keysMatching(FORBIDDEN_KEY, res.body.items)).toEqual([]);
-    expect(JSON.stringify(res.body)).not.toContain(customerMobile.slice(-6));
-    expect(JSON.stringify(res.body)).not.toContain('HTTP List Buyer');
+    expect(keysMatching(FARM_KEY, res.body)).toEqual([]);
+    expect(keysMatching(FORBIDDEN_KEY, res.body.items).filter((path) => !isOwnerApprovedBuyerPath(path))).toEqual([]);
+    const json = JSON.stringify(res.body);
+    expect(json).not.toContain(customerMobile);
+    expect(json).not.toContain(customerMobile.slice(-6));
+    expect(json).not.toContain(customerMobile.slice(-5));
+  });
+
+  it('BR-101e (HTTP): a walk-in counter sale (no customer) lists the walk-in buyer, masked like the detail; the Sub admin of another warehouse sees nothing', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    // A delivery date no other test in this file uses (their years are 2090-2099).
+    const walkInDate = `2089-${deliveryDate.slice(5)}`;
+    const walkInMobile = '+919812345678';
+    const o = await pool.query<{ id: string }>(
+      `INSERT INTO orders (order_number, customer_id, walk_in_name, walk_in_mobile, warehouse_id, channel, subtotal, total_amount,
+                           payment_method, payment_status, status, delivery_date)
+       VALUES ($1, NULL, 'Counter Walk-in', $2, $3, 'DIRECT', 1.10, 1.10, 'CASH', 'PAID', 'CONFIRMED', $4::date) RETURNING id`,
+      [`OL-WALK-${newId().slice(0, 12)}`, walkInMobile, gudalur, walkInDate],
+    );
+    created.orders.push(o.rows[0]!.id);
+
+    const res = await list('super', { deliveryDate: walkInDate });
+    expect(res.status).toBe(200);
+    expect(ids(res.body)).toEqual([o.rows[0]!.id]);
+    const item = res.body.items[0] as Record<string, unknown>;
+    expect(Object.keys(item).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(item['customerName']).toBe('Counter Walk-in');
+    expect(item['customerMobileMasked']).toBe(expectedMask(walkInMobile));
+    expect(keysMatching(FARM_KEY, res.body)).toEqual([]);
+    expect(JSON.stringify(res.body)).not.toContain(walkInMobile.slice(-5));
+
+    // Scope unchanged by the amendment: the Coonoor Sub admin gets an empty page, not this buyer.
+    const sub = await list('sub', { deliveryDate: walkInDate });
+    expect(sub.status).toBe(200);
+    expect(sub.body).toEqual({ items: [], page: { nextCursor: null, hasMore: false } });
+  });
+
+  it('BR-101 (HTTP, owner amendment 2026-10-26): packedAt is the order\'s packed_at (as the detail) and readyAt the first READY_FOR_PICKUP history row; both null when absent', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    const readyDate = `2088-${deliveryDate.slice(5)}`;
+    const customerId = created.customers[0]!;
+    const packedAt = '2026-10-20T04:05:06.000Z';
+    const readyAt = '2026-10-20T05:06:07.000Z';
+    const make = async (status: string, packed: string | null): Promise<string> => {
+      const o = await pool.query<{ id: string }>(
+        `INSERT INTO orders (order_number, customer_id, warehouse_id, channel, subtotal, total_amount,
+                             payment_method, payment_status, status, delivery_date, packed_at)
+         VALUES ($1, $2, $3, 'ONLINE', 1.10, 1.10, 'WALLET', 'PAID', $4, $5::date, $6::timestamptz) RETURNING id`,
+        [`OL-RDY-${newId().slice(0, 12)}`, customerId, coonoor, status, readyDate, packed],
+      );
+      created.orders.push(o.rows[0]!.id);
+      return o.rows[0]!.id;
+    };
+    const readyOrder = await make('READY_FOR_PICKUP', packedAt);
+    const freshOrder = await make('CONFIRMED', null);
+    await pool.query(
+      `INSERT INTO order_status_history (order_id, from_status, to_status, changed_by, note, created_at)
+       VALUES ($1, 'CONFIRMED', 'PACKED', $2, NULL, $3::timestamptz),
+              ($1, 'PACKED', 'READY_FOR_PICKUP', $2, NULL, $4::timestamptz)`,
+      [readyOrder, seededUserId, packedAt, readyAt],
+    );
+
+    const res = await list('super', { deliveryDate: readyDate });
+    expect(res.status).toBe(200);
+    const byId = new Map((res.body.items as Array<Record<string, unknown>>).map((item) => [item['id'], item]));
+    expect(byId.size).toBe(2);
+    for (const item of byId.values()) expect(Object.keys(item).sort()).toEqual(LIST_ITEM_KEYS);
+    expect(byId.get(readyOrder)!['packedAt']).toBe(packedAt);
+    expect(byId.get(readyOrder)!['readyAt']).toBe(readyAt);
+    expect(byId.get(freshOrder)!['packedAt']).toBeNull();
+    expect(byId.get(freshOrder)!['readyAt']).toBeNull();
+
+    // Same packedAt the order detail (BR-99) reports for that order.
+    const detail = await request(server).get(`/v1/admin/orders/${readyOrder}`).set('Authorization', auth('super'));
+    expect(detail.status).toBe(200);
+    expect(detail.body.packedAt).toBe(packedAt);
+  });
+
+  it('BR-127b (HTTP): q matches the order number or the buyer name (registered or walk-in) as a literal, case-insensitive substring', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+    const searchDate = `2087-${deliveryDate.slice(5)}`;
+    const tag = newId().slice(0, 8).toUpperCase();
+    const customerId = created.customers[0]!;
+    const insert = async (orderNumber: string, walkInName: string | null, walkInMobile: string | null, withCustomer: boolean): Promise<string> => {
+      const o = await pool.query<{ id: string }>(
+        `INSERT INTO orders (order_number, customer_id, walk_in_name, walk_in_mobile, warehouse_id, channel, subtotal, total_amount,
+                             payment_method, payment_status, status, delivery_date)
+         VALUES ($1, $2, $3, $4, $5, $6, 1.10, 1.10, $7, 'PAID', 'CONFIRMED', $8::date) RETURNING id`,
+        [orderNumber, withCustomer ? customerId : null, walkInName, walkInMobile, gudalur,
+         withCustomer ? 'ONLINE' : 'DIRECT', withCustomer ? 'WALLET' : 'CASH', searchDate],
+      );
+      created.orders.push(o.rows[0]!.id);
+      return o.rows[0]!.id;
+    };
+    const byNumber = await insert(`OL-Q${tag}-1`, null, null, true);
+    const literal = await insert(`OL-Q${tag}-%_2`, 'Plain Counter', '+919800011122', false);
+    const walkIn = await insert(`OL-Q${tag}-3`, `Meena ${tag} Walkin`, '+919811122233', false);
+    const search = (q: string, extra: Record<string, string> = {}) => list('super', { deliveryDate: searchDate, q, ...extra });
+
+    // Order number, case-insensitive.
+    expect(ids((await search(`ol-q${tag.toLowerCase()}-1`)).body)).toEqual([byNumber]);
+    // Registered buyer name (users.full_name), case-insensitive: every customer order on the date.
+    expect(ids((await search('http list BUYER')).body)).toEqual([byNumber]);
+    // Walk-in buyer name.
+    expect(ids((await search(`meena ${tag.toLowerCase()}`)).body)).toEqual([walkIn]);
+    // % and _ are literals, never wildcards.
+    expect(ids((await search('%_')).body)).toEqual([literal]);
+    expect(ids((await search(`Q${tag}-%`)).body)).toEqual([literal]);
+    expect(ids((await search('_')).body)).toEqual([literal]);
+    expect((await search('%')).body.items.length).toBe(1);
+    // Trimmed before matching.
+    expect(ids((await search(`  OL-Q${tag}-3  `)).body)).toEqual([walkIn]);
+    // No match is an empty 200 page.
+    const none = await search(`no-such-${tag}`);
+    expect(none.status).toBe(200);
+    expect(none.body).toEqual({ items: [], page: { nextCursor: null, hasMore: false } });
+  });
+
+  it('BR-127c (HTTP): q never matches a mobile number (registered or walk-in)', async () => {
+    if (!ready) return;
+    const searchDate = `2087-${deliveryDate.slice(5)}`;
+    for (const q of ['9811122233', '1122233', '9800011122', customerMobile.slice(-7), customerMobile]) {
+      const res = await list('super', { deliveryDate: searchDate, q });
+      expect(res.status, q).toBe(200);
+      expect(ids(res.body), q).toEqual([]);
+    }
+  });
+
+  it('BR-127d (HTTP): q only narrows the resolved scope (a Sub admin never finds another warehouse\'s order, empty not 403); blank or 101 characters is 422', async () => {
+    if (!ready) return;
+    const searchDate = `2087-${deliveryDate.slice(5)}`;
+    // Every BR-127b order is at Gudalur; the Coonoor Sub admin searching by the buyer name sees none.
+    const sub = await list('sub', { deliveryDate: searchDate, q: 'OL-Q' });
+    expect(sub.status).toBe(200);
+    expect(sub.body).toEqual({ items: [], page: { nextCursor: null, hasMore: false } });
+    const main = await list('main', { deliveryDate: searchDate, q: 'OL-Q' });
+    expect(main.body.items.length).toBe(3);
+    for (const q of ['', '   ', 'x'.repeat(101)]) {
+      const res = await list('super', { q });
+      expect(res.status, JSON.stringify(q)).toBe(422);
+      expect(res.body.code).toBe('VALIDATION_FAILED');
+    }
+  });
+
+  it('BR-127e (HTTP): q pages with the unchanged keyset cursor, and a cursor from an unfiltered page still works', async () => {
+    if (!ready) return;
+    const searchDate = `2087-${deliveryDate.slice(5)}`;
+    const all = await list('super', { deliveryDate: searchDate, q: 'OL-Q' });
+    const expected = ids(all.body);
+    expect(expected.length).toBe(3);
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    for (let page = 0; page < 5; page += 1) {
+      const res = await list('super', { deliveryDate: searchDate, q: 'OL-Q', limit: '1', ...(cursor === undefined ? {} : { cursor }) });
+      expect(res.status).toBe(200);
+      seen.push(...ids(res.body));
+      cursor = res.body.page.nextCursor ?? undefined;
+      if (cursor === undefined) break;
+    }
+    expect(seen).toEqual(expected);
+    // A cursor issued without q is accepted with q (same keyset).
+    const first = await list('super', { deliveryDate: searchDate, limit: '1' });
+    const next = await list('super', { deliveryDate: searchDate, q: 'OL-Q', cursor: first.body.page.nextCursor });
+    expect(next.status).toBe(200);
+    expect(ids(next.body)).toEqual(expected.slice(1));
   });
 });

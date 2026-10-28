@@ -13,8 +13,12 @@
  * hands its signed 15-minute URL to the OS viewer (Linking), where the admin
  * can also save it; a deleted file says so instead.
  *
- * Edit metadata and Archive (warehouse.document.manage: Main all, Sub none)
- * are offered only with that code and never on an archived document. Adding a
+ * Edit metadata and Archive need warehouse.document.manage and a
+ * single-warehouse scope (mappers_documents canManageDocuments): the Main
+ * admin holds the code (rbac all) but, by owner decision 2026-10-23 (design
+ * M15-08), sees documents view-only; the server would still accept its writes.
+ * A Sub admin keeps its code (rbac none today). Never on an archived document.
+ * An EXPIRING_SOON document shows the design's renewal banner. Adding a
  * document needs a file picker and an upload to POST /uploads/sign, which the
  * admin app does not have yet (the only uploader is farmer-only, and the
  * cross-role guard keeps it out of admin), so Add is not offered; a note says
@@ -43,6 +47,9 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import {
   canManageDocument,
+  canManageDocuments,
+  documentExpiryBannerKey,
+  documentsReadOnlyNoteKey,
   DOCUMENT_STATUS_FILTERS,
   DOCUMENT_TYPE_FILTERS,
   documentEditBody,
@@ -118,14 +125,15 @@ function errorText(err: unknown): string {
 
 export function DocumentsScreen(props: DocumentsScreenProps) {
   const { scope, can, onBack, onTabChange, warehouseOptions, headerWarehouseId, onSelectWarehouse } = props;
-  const canManage = can(WAREHOUSE_DOCUMENT_CODES.manage);
+  const canManage = canManageDocuments(scope, can(WAREHOUSE_DOCUMENT_CODES.manage));
+  const readOnlyNoteKey = documentsReadOnlyNoteKey(scope, can(WAREHOUSE_DOCUMENT_CODES.manage));
   const header = (
     <SingleWarehouseHeader scope={scope} warehouseId={headerWarehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
   );
   const footer = onTabChange ? <WarehouseTabBar onTabChange={onTabChange} onBack={onBack} /> : undefined;
 
   if (props.openDocumentId !== undefined) {
-    return <DocumentDetail {...props} canManage={canManage} header={header} footer={footer} />;
+    return <DocumentDetail {...props} canManage={canManage} readOnlyNoteKey={readOnlyNoteKey} header={header} footer={footer} />;
   }
 
   const documents = props.documents ?? [];
@@ -202,9 +210,14 @@ export function DocumentsScreen(props: DocumentsScreenProps) {
 }
 
 function DocumentDetail(
-  props: DocumentsScreenProps & { canManage: boolean; header: React.ReactNode; footer: React.ReactNode },
+  props: DocumentsScreenProps & {
+    canManage: boolean;
+    readOnlyNoteKey: ReturnType<typeof documentsReadOnlyNoteKey>;
+    header: React.ReactNode;
+    footer: React.ReactNode;
+  },
 ) {
-  const { detail, canManage } = props;
+  const { detail, canManage, readOnlyNoteKey } = props;
   const [form, setForm] = useState<DocumentForm | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const close = () => props.onOpenDocument(undefined);
@@ -249,6 +262,14 @@ function DocumentDetail(
             <Text style={styles.detailTitle}>{detail.title}</Text>
             <StatusBadge label={detail.statusLabel} tone={detail.statusTone} />
           </View>
+          {(() => {
+            const bannerKey = documentExpiryBannerKey(detail.status);
+            return bannerKey === null ? null : (
+              <InfoNote tone="warning" icon={<WarningTriangleIcon />}>
+                {t(bannerKey)}
+              </InfoNote>
+            );
+          })()}
           <InfoCard
             rows={[
               [
@@ -292,7 +313,7 @@ function DocumentDetail(
             </View>
           ) : null}
           {props.archiveError ? <Text style={styles.error}>{errorText(props.archiveError)}</Text> : null}
-          {!canManage ? <Text style={styles.hint}>{t('warehouseDocs.readOnlyNote')}</Text> : null}
+          {readOnlyNoteKey !== null ? <Text style={styles.hint}>{t(readOnlyNoteKey)}</Text> : null}
         </ScrollView>
       )}
 
