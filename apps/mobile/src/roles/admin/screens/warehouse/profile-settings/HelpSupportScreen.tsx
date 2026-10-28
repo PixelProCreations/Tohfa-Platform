@@ -22,7 +22,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { EmptyState, SearchBar, SectionTitle, StatusBadge, WalletButton, WalletScreen } from '../wallet-cashtopup/WalletParts';
-import { FAQ_ITEMS, SUPPORT_CONTACT, SUPPORT_TICKETS } from './fixtures';
+import { FAQ_ITEMS, SUPPORT_CONTACT } from './fixtures';
 import { ChevronRightIcon, HelpCircleIcon, PROFILE_CODES, profileLayout } from './ProfileParts';
 import type { FaqCategory, FaqItem, SupportTicketItem, WarehouseScreenBaseProps } from './types';
 
@@ -183,7 +183,7 @@ export function HelpSupportScreen({
   can,
   onBack,
   faqs: customFaqs,
-  tickets = SUPPORT_TICKETS,
+  tickets = [],
   onReportIssue,
 }: HelpSupportScreenProps) {
   const [category, setCategory] = useState<FaqCategory | null>(null);

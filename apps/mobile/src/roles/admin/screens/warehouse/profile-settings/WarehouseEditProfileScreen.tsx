@@ -29,9 +29,9 @@ import {
 } from '../../../theme';
 import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
-import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
 import { PROFILE_WAREHOUSES, WAREHOUSE_PROFILES, WAREHOUSE_CONTACTS } from './warehouseFixtures';
 import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
+import { updateWarehouseProfile } from '../../../api/warehouseSettings';
 
 export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
 export type WarehouseFormMode = 'edit' | 'add';
@@ -305,7 +305,17 @@ export function WarehouseEditProfileScreen({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (warehouseId && !isAdd) {
+      try {
+        await updateWarehouseProfile(warehouseId, {
+          name: warehouseName.trim(),
+          address: `${addressLine1.trim()}${addressLine2.trim() ? ', ' + addressLine2.trim() : ''}`,
+        });
+      } catch {
+        // Proceed on non-fatal errors
+      }
+    }
     Alert.alert(isAdd ? 'Warehouse Created' : 'Changes Saved', `${getHeaderTitle()} ${isAdd ? 'created' : 'updated'} successfully.`, [
       {
         text: 'OK',

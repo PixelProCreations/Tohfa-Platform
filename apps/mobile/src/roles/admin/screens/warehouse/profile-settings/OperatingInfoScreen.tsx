@@ -28,7 +28,6 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { StatusDot } from './ProfileParts';
 import type { OperatingInfo, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
-import { OPERATING_INFO, PROFILE_WAREHOUSES } from './warehouseFixtures';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { DetailRow, recordFor, singleWarehouseId, SingleWarehouseHeader, warehouseProfileLayout } from './WarehouseProfileParts';
 
@@ -47,12 +46,12 @@ export function OperatingInfoScreen({
   warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  operatingInfo = OPERATING_INFO,
+  operatingInfo = [],
   today = new Date(),
 }: OperatingInfoScreenProps) {
   const isMain = isAllWarehouses(scope);
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const info = recordFor(operatingInfo, warehouseId);
