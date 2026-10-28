@@ -42,7 +42,6 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { BlockIcon } from './ProfileParts';
 import type { DocumentCategory, WarehouseDocItem, WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
-import { PROFILE_WAREHOUSES, WAREHOUSE_DOCUMENTS } from './warehouseFixtures';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useWarehouseDocuments } from './useProfileSettingsData';
 import { warehouseNameOf, warehouseProfileLayout, WarningTriangleIcon } from './WarehouseProfileParts';
@@ -98,11 +97,11 @@ export function DocumentsScreen({
   const select = onSelectWarehouse ?? setLocalSelection;
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const warehouseId = scope.warehouseId ?? (selected === 'ALL' ? undefined : selected);
   const { documents: liveDocs } = useWarehouseDocuments(warehouseId);
-  const documents = customDocuments ?? (liveDocs.length > 0 ? liveDocs : WAREHOUSE_DOCUMENTS);
+  const documents = customDocuments ?? liveDocs;
 
   const [category, setCategory] = useState<CategoryFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');

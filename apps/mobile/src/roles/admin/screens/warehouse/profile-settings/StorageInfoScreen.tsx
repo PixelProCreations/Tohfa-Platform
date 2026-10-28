@@ -47,7 +47,6 @@ import type {
   WarehouseScreenBaseProps,
   WarehouseSelectionProps,
 } from './types';
-import { PROFILE_WAREHOUSES, STORAGE_HIERARCHY, STORAGE_LOCATIONS, STORAGE_SECTIONS } from './warehouseFixtures';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useStorageLocations } from './useProfileSettingsData';
 import { FillBar, formatKg, warehouseNameOf, warehouseProfileLayout } from './WarehouseProfileParts';
@@ -72,8 +71,8 @@ export function StorageInfoScreen({
   selectedWarehouseId,
   onSelectWarehouse,
   locations: customLocations,
-  sections = STORAGE_SECTIONS,
-  hierarchy = STORAGE_HIERARCHY,
+  sections = [],
+  hierarchy = {} as Readonly<Record<string, readonly StorageHierarchyNode[]>>,
 }: StorageInfoScreenProps) {
   const isMain = isAllWarehouses(scope);
   // Main keeps its own pick when the host does not control it.
@@ -82,11 +81,11 @@ export function StorageInfoScreen({
   const select = onSelectWarehouse ?? setLocalSelection;
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const warehouseId = scope.warehouseId ?? (selected === 'ALL' ? undefined : selected);
   const { locations: liveLocations, capacity: liveCapacity } = useStorageLocations(warehouseId);
-  const locations = customLocations ?? (liveLocations.length > 0 ? liveLocations : STORAGE_LOCATIONS);
+  const locations = customLocations ?? liveLocations;
 
   const [filter, setFilter] = useState<StatusFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');

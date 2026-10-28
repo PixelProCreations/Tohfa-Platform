@@ -31,6 +31,7 @@ import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
+import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
 import { updateWarehouseProfile } from '../../../api/warehouseSettings';
 
 export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
@@ -312,8 +313,7 @@ export function WarehouseEditProfileScreen({
     if (warehouseId && !isAdd) {
       try {
         await updateWarehouseProfile(warehouseId, {
-          name: warehouseName.trim(),
-          address: `${addressLine1.trim()}${addressLine2.trim() ? ', ' + addressLine2.trim() : ''}`,
+          // name/address are not part of the BR-80 contract; only phone+hours are updatable
         });
       } catch {
         // Proceed on non-fatal errors

@@ -38,7 +38,6 @@ import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
 import Svg, { Path } from 'react-native-svg';
 import { MenuCard, MenuRow } from './ProfileParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo, StorageLocationItem } from './types';
-import { PROFILE_WAREHOUSES, STORAGE_LOCATIONS, WAREHOUSE_PROFILES } from './warehouseFixtures';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useWarehouseProfile } from './useProfileSettingsData';
 import {
@@ -102,16 +101,16 @@ export function WarehouseInfoScreen({
   selectedWarehouseId,
   onSelectWarehouse,
   profiles: customProfiles,
-  storageLocations = STORAGE_LOCATIONS,
+  storageLocations = [],
 }: WarehouseInfoScreenProps) {
   const [showMap, setShowMap] = useState(false);
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
   const { profileInfo: liveProfileInfo } = useWarehouseProfile(warehouseId);
-  const profile = customProfiles ? recordFor(customProfiles, warehouseId) : (liveProfileInfo ?? recordFor(WAREHOUSE_PROFILES, warehouseId));
+  const profile = customProfiles ? recordFor(customProfiles, warehouseId) : (liveProfileInfo ?? undefined);
   const locationCount = storageLocations.filter((loc) => loc.warehouseId === warehouseId).length;
 
   const isMainWarehouse = isAllWarehouses(scope);

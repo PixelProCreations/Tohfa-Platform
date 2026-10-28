@@ -37,7 +37,6 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { PencilIcon } from './ProfileParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseSettingsValues } from './types';
-import { PROFILE_WAREHOUSES, THRESHOLD_PRESETS, WAREHOUSE_SETTINGS } from './warehouseFixtures';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useWarehouseSettings } from './useProfileSettingsData';
 import {
@@ -65,15 +64,15 @@ export function WarehouseSettingsScreen({
   warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  settings = WAREHOUSE_SETTINGS,
-  thresholdPresets = THRESHOLD_PRESETS,
+  settings = undefined,
+  thresholdPresets = [],
 }: WarehouseSettingsScreenProps) {
   const [localSelection, setLocalSelection] = useState<string | undefined>(selectedWarehouseId);
   const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
   const select = onSelectWarehouse ?? setLocalSelection;
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : PROFILE_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const warehouseId = singleWarehouseId(scope, selected, warehouseOptions);
   const warehouseName = warehouseNameOf(scope, warehouseId, warehouseOptions);
@@ -81,7 +80,7 @@ export function WarehouseSettingsScreen({
   const { capacity: liveCapacity, isCapacityNearFull, updateCapacity } = useWarehouseSettings(warehouseId);
 
   // Local edits per warehouse.
-  const [values, setValues] = useState<readonly WarehouseSettingsValues[]>(settings);
+  const [values, setValues] = useState<readonly WarehouseSettingsValues[]>(settings ?? []);
   const current = values.find((v) => v.warehouseId === warehouseId);
 
   const [dialog, setDialog] = useState<Dialog>('none');
