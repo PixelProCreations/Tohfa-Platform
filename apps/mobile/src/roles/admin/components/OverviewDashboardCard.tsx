@@ -25,7 +25,20 @@ export interface OverviewDashboardCardProps {
   /** Secondary subtitle / counter, e.g. "8 need action", "3 customers expected" */
   subtitle?: string | undefined;
   /** Built-in icon name or custom React node for the top-right icon badge */
-  icon?: 'orders' | 'pickup' | 'receiving' | 'inventory' | 'sales' | 'cash' | 'truck' | 'box' | 'alert' | React.ReactNode;
+  icon?:
+    | 'orders'
+    | 'pickup'
+    | 'receiving'
+    | 'inventory'
+    | 'sales'
+    | 'cash'
+    | 'truck'
+    | 'box'
+    | 'alert'
+    | 'wallet'
+    | 'users'
+    | 'clipboard'
+    | React.ReactNode;
   /** Optional custom icon tint or defaults to warm brown/tan from admin theme */
   iconColor?: string;
   /** Optional custom icon badge background or defaults to warm peach/cream from admin theme */
@@ -125,11 +138,29 @@ function renderBuiltinIcon(type: string, color: string) {
         </Svg>
       );
     case 'cash':
+    case 'wallet':
       return (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'users':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+          <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'clipboard':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Rect x="4" y="4" width="16" height="17" rx="2.5" stroke={color} strokeWidth="1.9" />
+          <Path d="M9 2.5h6a1 1 0 0 1 1 1V5H8V3.5a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.9" strokeLinejoin="round" />
+          <Path d="M8.5 13l2.5 2.5 5-5" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
     case 'alert':
@@ -206,7 +237,7 @@ export function OverviewDashboardCard({
   style,
   valueStyle,
   titleStyle,
-  preserveCase = false,
+  preserveCase = true,
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
@@ -239,11 +270,13 @@ export function OverviewDashboardCard({
 
   const valStr = String(value);
   const isCurrency = valStr.includes('₹') || valStr.length > 5;
+  const isMutedVal = valStr === 'Not defined';
+  const effectiveValColor = isMutedVal ? adminColors.muted : toneValueColor;
   const displayTitle = preserveCase ? title : toSentenceCase(title);
 
   return (
     <TouchableOpacity
-      style={[styles.card, style]}
+      style={[styles.card, !renderedIcon && styles.cardCompact, style]}
       onPress={onPress}
       activeOpacity={onPress ? 0.72 : 1}
       disabled={disabled || !onPress}
@@ -253,7 +286,7 @@ export function OverviewDashboardCard({
       {titlePosition === 'top' ? (
         <>
           <View style={[styles.topRow, !renderedIcon && styles.topRowWithoutIcon]}>
-            <Text style={[styles.title, titleStyle]} numberOfLines={2}>
+            <Text style={[styles.title, styles.titleTop, titleStyle]} numberOfLines={2}>
               {displayTitle}
             </Text>
             {renderedIcon ? (
@@ -266,8 +299,9 @@ export function OverviewDashboardCard({
           <Text
             style={[
               styles.value,
+              styles.valueTop,
               isCurrency && styles.currencyValue,
-              { color: toneValueColor },
+              { color: effectiveValColor },
               valueStyle,
             ]}
             numberOfLines={1}
@@ -290,7 +324,7 @@ export function OverviewDashboardCard({
               style={[
                 styles.value,
                 isCurrency && styles.currencyValue,
-                { color: toneValueColor },
+                { color: effectiveValColor },
                 valueStyle,
               ]}
               numberOfLines={1}
@@ -378,6 +412,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     minHeight: 112,
   },
+  cardCompact: {
+    minHeight: 88,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
   topRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -388,6 +427,14 @@ const styles = StyleSheet.create({
     minHeight: 0,
     marginBottom: 2,
   },
+  titleTop: {
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    color: adminColors.muted,
+    letterSpacing: 0.2,
+    marginBottom: 4,
+  },
   value: {
     ...adminType.kpiValue,
     fontSize: 25,
@@ -397,6 +444,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     flex: 1,
     paddingRight: 6,
+  },
+  valueTop: {
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   currencyValue: {
     fontSize: 21,

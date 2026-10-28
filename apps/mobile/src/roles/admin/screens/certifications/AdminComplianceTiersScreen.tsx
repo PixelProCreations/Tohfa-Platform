@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 const P = {
   bg: '#FAF8F5',
@@ -119,26 +120,23 @@ export const AdminComplianceTiersScreen: React.FC<Props> = ({ onBack }) => {
         {/* Section Heading */}
         <Text style={styles.sectionHeading}>Quarterly audit compliance</Text>
 
-        {/* 2 Metric Cards */}
-        <View style={styles.metricsRow}>
-          {/* Card 1: 94% Audited This Quarter */}
-          <View style={styles.metricCard}>
-            <View style={[styles.metricIconBox, { backgroundColor: P.greenBadgeBg }]}>
-              <Icon name="check" size={18} color={P.greenBadgeText} />
-            </View>
-            <Text style={styles.metricValue}>94%</Text>
-            <Text style={styles.metricLabel}>Audited This Quarter</Text>
-          </View>
-
-          {/* Card 2: 7 Overdue Audits */}
-          <View style={styles.metricCard}>
-            <View style={[styles.metricIconBox, { backgroundColor: P.redBadgeBg }]}>
-              <Icon name="shield" size={18} color={P.redBadgeText} />
-            </View>
-            <Text style={styles.metricValue}>7</Text>
-            <Text style={styles.metricLabel}>Overdue Audits</Text>
-          </View>
-        </View>
+        {/* 2 Metric Cards (using reusable OverviewDashboardCard) */}
+        <OverviewCardsGrid style={{ marginBottom: 16 }}>
+          <OverviewDashboardCard
+            value="94%"
+            title="Audited This Quarter"
+            icon="clipboard"
+            tone="success"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="7"
+            title="Overdue Audits"
+            icon="alert"
+            tone="danger"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         <View style={{ height: 40 }} />
       </ScrollView>

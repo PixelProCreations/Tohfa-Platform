@@ -16,6 +16,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -143,64 +144,70 @@ export function CommunityKnowledgeHomeScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 8 Metrics Grid (2 columns, 4 rows) ─── */}
-        <View style={styles.metricsGrid}>
+        {/* ─── 8 Metrics Grid (using reusable OverviewDashboardCard) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
           {/* Row 1 */}
-          <TouchableOpacity
-            style={styles.metricCard}
+          <OverviewDashboardCard
+            value="5 (4 active)"
+            title="Communities"
+            icon="users"
+            titlePosition="bottom"
             onPress={() => (onNavigateAllCommunities ? onNavigateAllCommunities() : onNavigateCommunityDetails?.('nilgiris'))}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.metricValue}>5 (4 active)</Text>
-            <Text style={styles.metricLabel}>Communities</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="8 (7 active)"
+            title="Groups"
+            icon="users"
+            titlePosition="bottom"
             onPress={() => (onNavigateAllGroups ? onNavigateAllGroups() : onNavigateCreateGroup?.())}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.metricValue}>8 (7 active)</Text>
-            <Text style={styles.metricLabel}>Groups</Text>
-          </TouchableOpacity>
+          />
 
           {/* Row 2 */}
-          <TouchableOpacity
-            style={styles.metricCard}
+          <OverviewDashboardCard
+            value="12"
+            title="Content items (5 articles, 3 guides, 4 videos)"
+            icon="clipboard"
+            titlePosition="bottom"
             onPress={() => (onNavigateKnowledgeLibrary ? onNavigateKnowledgeLibrary() : onNavigateAddVideo?.())}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.metricValue}>12</Text>
-            <Text style={styles.metricLabel}>Content items (5 articles, 3 guides, 4 videos)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.metricCard}
+          />
+          <OverviewDashboardCard
+            value="5"
+            title="Announcements"
+            icon="orders"
+            titlePosition="bottom"
             onPress={() => onNavigateCreateContent('Announcement')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.metricValue}>5</Text>
-            <Text style={styles.metricLabel}>Announcements</Text>
-          </TouchableOpacity>
+          />
 
           {/* Row 3 */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>8</Text>
-            <Text style={styles.metricLabel}>Discussions</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>6</Text>
-            <Text style={styles.metricLabel}>Open reports</Text>
-          </View>
+          <OverviewDashboardCard
+            value="8"
+            title="Discussions"
+            icon="clipboard"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="6"
+            title="Open reports"
+            icon="alert"
+            tone="warning"
+            titlePosition="bottom"
+          />
 
           {/* Row 4 */}
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>Not enabled</Text>
-            <Text style={styles.metricLabel}>Pending review</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>2</Text>
-            <Text style={styles.metricLabel}>Unverified crop content</Text>
-          </View>
-        </View>
+          <OverviewDashboardCard
+            value="Not enabled"
+            title="Pending review"
+            icon="clipboard"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="2"
+            title="Unverified crop content"
+            icon="alert"
+            tone="danger"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* Footnote text matching Screenshot 1 */}
         <Text style={styles.footnoteText}>

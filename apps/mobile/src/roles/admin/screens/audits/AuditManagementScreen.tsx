@@ -16,6 +16,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── Header & Section SVG Icons Matching Exact Design Mockup ──────────────────
 
@@ -172,13 +173,18 @@ export function AuditManagementScreen({
   const [selectedMonth] = useState('October 2026');
 
   // 6 KPI Metric Cards matching Reference Image 1 Top
-  const kpiCards: AuditKpiItem[] = [
-    { value: '6', label: 'Upcoming Audits' },
-    { value: '1', label: 'Audits In Progress' },
-    { value: '2', label: 'Pending Review' },
-    { value: '32', label: 'Completed Audits' },
-    { value: '17', label: 'Corrective Actions (open)' },
-    { value: '5', label: 'Compliance Alerts' },
+  const kpiCards: Array<{
+    value: string;
+    label: string;
+    icon: 'clipboard' | 'pickup' | 'orders' | 'receiving' | 'alert';
+    tone?: 'default' | 'warning' | 'danger' | 'success';
+  }> = [
+    { value: '6', label: 'Upcoming Audits', icon: 'clipboard' },
+    { value: '1', label: 'Audits In Progress', icon: 'pickup' },
+    { value: '2', label: 'Pending Review', icon: 'orders', tone: 'warning' },
+    { value: '32', label: 'Completed Audits', icon: 'receiving', tone: 'success' },
+    { value: '17', label: 'Corrective Actions (open)', icon: 'alert', tone: 'danger' },
+    { value: '5', label: 'Compliance Alerts', icon: 'alert', tone: 'danger' },
   ];
 
   // Calendar Day Markers matching Image 1
@@ -248,42 +254,6 @@ export function AuditManagementScreen({
           <Text style={styles.headerTitle}>Audit Management</Text>
           <Text style={styles.headerSubtitle}>TOHFA Admin · All zones</Text>
         </View>
-
-        <View style={styles.headerRightCol}>
-          {/* 1. Search Button */}
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Search audits"
-          >
-            <SearchHeaderIcon />
-          </TouchableOpacity>
-
-          {/* 2. Notification Bell with Badge '3' */}
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications (3 unread)"
-          >
-            <BellHeaderIcon />
-            <View style={styles.bellBadge}>
-              <Text style={styles.bellBadgeText}>3</Text>
-            </View>
-          </TouchableOpacity>
-
-          {/* 3. Refresh Button */}
-          <TouchableOpacity
-            style={styles.headerIconBtn}
-            onPress={onRefresh}
-            activeOpacity={0.75}
-            accessibilityRole="button"
-            accessibilityLabel="Refresh audit data"
-          >
-            <RefreshHeaderIcon />
-          </TouchableOpacity>
-        </View>
       </View>
 
       <ScrollView
@@ -291,15 +261,19 @@ export function AuditManagementScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── 1. Top 6 KPI Metric Cards (2x3 Grid) Matching Image 1 ── */}
-        <View style={styles.kpiGrid}>
+        {/* ── 1. Top 6 KPI Metric Cards (using reusable OverviewDashboardCard) ── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
           {kpiCards.map((kpi) => (
-            <View key={kpi.label} style={styles.kpiCard}>
-              <Text style={styles.kpiValue}>{kpi.value}</Text>
-              <Text style={styles.kpiLabel}>{kpi.label}</Text>
-            </View>
+            <OverviewDashboardCard
+              key={kpi.label}
+              value={kpi.value}
+              title={kpi.label}
+              icon={kpi.icon}
+              tone={kpi.tone ?? 'default'}
+              titlePosition="bottom"
+            />
           ))}
-        </View>
+        </OverviewCardsGrid>
 
         {/* ── 2. Interactive Calendar Widget Matching Image 1 ── */}
         <View style={styles.calendarCard}>

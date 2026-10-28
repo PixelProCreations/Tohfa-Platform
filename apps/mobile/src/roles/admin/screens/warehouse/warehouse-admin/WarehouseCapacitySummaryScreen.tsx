@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../../components';
 import { WalletScreen } from '../wallet-cashtopup/WalletParts';
 import type { WarehouseScreenBaseProps } from './types';
 
@@ -12,28 +13,32 @@ export function WarehouseCapacitySummaryScreen({ onBack }: WarehouseCapacitySumm
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionHeading}>Warehouse Capacity Summary</Text>
 
-        <View style={styles.metricsGridCard}>
-          <View style={styles.twoByTwoRow}>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Used Capacity</Text>
-              <Text style={styles.twoByTwoVal}>12,840 KG</Text>
-            </View>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Available Capacity</Text>
-              <Text style={styles.twoByTwoVal}>4,160 KG</Text>
-            </View>
-          </View>
-          <View style={[styles.twoByTwoRow, { marginTop: adminSpacing.lg }]}>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Storage Areas</Text>
-              <Text style={styles.twoByTwoVal}>28</Text>
-            </View>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Utilization</Text>
-              <Text style={styles.twoByTwoVal}>75.5%</Text>
-            </View>
-          </View>
-        </View>
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.lg }}>
+          <OverviewDashboardCard
+            value="12,840 KG"
+            title="Used Capacity"
+            icon="inventory"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="4,160 KG"
+            title="Available Capacity"
+            icon="box"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="28"
+            title="Storage Areas"
+            icon="receiving"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="75.5%"
+            title="Utilization"
+            icon="truck"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
       </ScrollView>
     </WalletScreen>
   );

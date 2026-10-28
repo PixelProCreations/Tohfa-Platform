@@ -179,36 +179,45 @@ export function InputsPestHomeScreen({
           <OverviewDashboardCard
             value="18"
             title="Total Inputs"
+            icon="inventory"
             titlePosition="bottom"
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
             value="14"
             title="Approved Inputs"
+            icon="receiving"
+            tone="success"
             titlePosition="bottom"
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
             value="2"
             title="Pending Review"
+            icon="orders"
+            tone="warning"
             titlePosition="bottom"
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
             value="2"
             title="Inactive / Expired"
+            icon="alert"
+            tone="danger"
             titlePosition="bottom"
             onPress={onNavigateApprovedInputs}
           />
           <OverviewDashboardCard
             value="11"
             title="Pest & Disease Records"
+            icon="box"
             titlePosition="bottom"
             onPress={onNavigatePestLibrary}
           />
           <OverviewDashboardCard
             value="9"
             title="Application Guides"
+            icon="clipboard"
             titlePosition="bottom"
             onPress={onNavigateApplicationGuides}
           />

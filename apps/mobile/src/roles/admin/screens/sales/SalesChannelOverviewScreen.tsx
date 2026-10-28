@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const SALES_PALETTE = {
@@ -216,26 +217,21 @@ export function SalesChannelOverviewScreen({
           </TouchableOpacity>
         </View>
 
-        {/* 2 Metric Cards */}
-        <View style={styles.metricsRow}>
-          {/* Total Revenue */}
-          <View style={styles.metricCard}>
-            <View style={styles.greenIconContainer}>
-              <CreditCardIcon color="#2E7D32" size={18} />
-            </View>
-            <Text style={styles.metricValue}>₹18.4L</Text>
-            <Text style={styles.metricLabel}>Total Revenue (MTD)</Text>
-          </View>
-
-          {/* Total Orders */}
-          <View style={styles.metricCard}>
-            <View style={styles.orangeIconContainer}>
-              <ReceiptDocIcon color={SALES_PALETTE.primaryOrange} size={18} />
-            </View>
-            <Text style={styles.metricValue}>496</Text>
-            <Text style={styles.metricLabel}>Total Orders</Text>
-          </View>
-        </View>
+        {/* 2 Metric Cards (using reusable OverviewDashboardCard) */}
+        <OverviewCardsGrid style={{ marginBottom: 16 }}>
+          <OverviewDashboardCard
+            value="₹18.4L"
+            title="Total Revenue (MTD)"
+            icon="sales"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="496"
+            title="Total Orders"
+            icon="orders"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* Quick Access Section */}
         <View style={styles.quickAccessSection}>

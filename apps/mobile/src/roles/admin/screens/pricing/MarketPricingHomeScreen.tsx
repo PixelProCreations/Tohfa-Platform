@@ -18,6 +18,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons Matching Exact Design Mockup & Screenshot 2 ────────────────────
 
@@ -189,43 +190,38 @@ export function MarketPricingHomeScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ── 6 KPI Cards in 2-Column Grid Matching Image 1 ── */}
-        <View style={styles.kpiGrid}>
-          {/* KPI 1 */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiNumber}>6</Text>
-            <Text style={styles.kpiLabel}>Total Products</Text>
-          </View>
-
-          {/* KPI 2 */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiNumber}>5</Text>
-            <Text style={styles.kpiLabel}>With Retail Prices</Text>
-          </View>
-
-          {/* KPI 3 */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiTextVal}>Not used</Text>
-            <Text style={styles.kpiLabel}>Pending Price Updates</Text>
-          </View>
-
-          {/* KPI 4 */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiNumber}>10 / 11</Text>
-            <Text style={styles.kpiLabel}>Ceiling Compliance</Text>
-          </View>
-
-          {/* KPI 5 */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiNumber}>2 / 4</Text>
-            <Text style={styles.kpiLabel}>Categories & Grades</Text>
-          </View>
-
-          {/* KPI 6 */}
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiNumber}>3</Text>
-            <Text style={styles.kpiLabel}>Recent Changes (7d)</Text>
-          </View>
-        </View>
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewDashboardCard
+            value="6"
+            title="Total Products"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="5"
+            title="With Retail Prices"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="Not used"
+            title="Pending Price Updates"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="10 / 11"
+            title="Ceiling Compliance"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="2 / 4"
+            title="Categories & Grades"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="3"
+            title="Recent Changes (7d)"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* ── Subtitle Disclaimer below KPIs Matching Image 1 ── */}
         <Text style={styles.disclaimerSubtext}>

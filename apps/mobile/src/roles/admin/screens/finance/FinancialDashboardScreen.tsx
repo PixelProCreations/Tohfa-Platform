@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
+import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
@@ -183,26 +184,24 @@ export function FinancialDashboardScreen({
           </View>
         </View>
 
-        {/* 2 Summary Mini-Cards (Static Information Cards) */}
-        <View style={styles.miniCardsRow}>
-          {/* Card 1: Farmer Dues Pending */}
-          <View style={styles.miniCard}>
-            <View style={[styles.miniIconBox, { backgroundColor: PALETTE.blueBox }]}>
-              <CreditCardIcon />
-            </View>
-            <Text style={styles.miniVal}>₹4.2L</Text>
-            <Text style={styles.miniLabel}>Farmer Dues Pending</Text>
-          </View>
-
-          {/* Card 2: Expenses Awaiting Approval */}
-          <View style={styles.miniCard}>
-            <View style={[styles.miniIconBox, { backgroundColor: PALETTE.amberBox }]}>
-              <NoteIcon />
-            </View>
-            <Text style={styles.miniVal}>18</Text>
-            <Text style={styles.miniLabel}>Expenses Awaiting Approval</Text>
-          </View>
-        </View>
+        {/* 2 Summary Overview Cards */}
+        <OverviewCardsGrid style={{ marginBottom: 20 }}>
+          <OverviewDashboardCard
+            value="₹4.2L"
+            title="Farmer Dues Pending"
+            subtitle="Pending clearance"
+            icon="cash"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="18"
+            title="Expenses Pending"
+            subtitle="Awaiting approval"
+            icon="clipboard"
+            tone="warning"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* 4 Navigation Cards */}
         <View style={styles.navActionsCol}>

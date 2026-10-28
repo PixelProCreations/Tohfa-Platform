@@ -1556,34 +1556,34 @@ export function ZoneCropBreakdownScreen({
         contentContainerStyle={produceStyles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 2x2 Metric Cards Grid */}
-        <View style={produceStyles.breakdownMetricGrid}>
-          {/* Tile 1: Farms with crop records */}
-          <View style={produceStyles.breakdownMetricCard}>
-            <Text style={produceStyles.breakdownMetricValue}>18</Text>
-            <Text style={produceStyles.breakdownMetricLabel}>Farms with crop records</Text>
-          </View>
-
-          {/* Tile 2: Zones with active plans */}
-          <View style={produceStyles.breakdownMetricCard}>
-            <Text style={produceStyles.breakdownMetricValue}>4</Text>
-            <Text style={produceStyles.breakdownMetricLabel}>Zones with active plans</Text>
-          </View>
-
-          {/* Tile 3: Crops in growth stages */}
-          <View style={produceStyles.breakdownMetricCard}>
-            <Text style={produceStyles.breakdownMetricValue}>27</Text>
-            <Text style={produceStyles.breakdownMetricLabel}>Crops in growth stages</Text>
-          </View>
-
-          {/* Tile 4: Expected harvests in 30 days */}
-          <View style={produceStyles.breakdownMetricCard}>
-            <Text style={produceStyles.breakdownMetricValue}>
-              6 <Text style={produceStyles.breakdownMetricValueSub}>(2 excluded)</Text>
-            </Text>
-            <Text style={produceStyles.breakdownMetricLabel}>Expected harvests in 30 days</Text>
-          </View>
-        </View>
+        {/* 2x2 Metric Cards Grid (using reusable OverviewDashboardCard) */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewDashboardCard
+            value="18"
+            title="Farms with crop records"
+            icon="users"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="4"
+            title="Zones with active plans"
+            icon="inventory"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="27"
+            title="Crops in growth stages"
+            icon="receiving"
+            titlePosition="bottom"
+          />
+          <OverviewDashboardCard
+            value="6"
+            subtitle="(2 excluded)"
+            title="Expected harvests in 30 days"
+            icon="box"
+            titlePosition="bottom"
+          />
+        </OverviewCardsGrid>
 
         {/* Footnote */}
         <Text style={produceStyles.breakdownFootnote}>
@@ -4672,13 +4672,18 @@ function CustomersManagementScreen({
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('This week');
 
-  const metrics = [
-    { value: '18', label: 'Total Customers' },
-    { value: '2', label: 'New Registrations' },
-    { value: '11', label: 'Individual' },
-    { value: '7', label: 'Business (B2B/HORECA)' },
-    { value: '24', label: 'Recent Orders' },
-    { value: '2', label: 'Business Details Pending' },
+  const metrics: Array<{
+    value: string;
+    label: string;
+    icon: 'users' | 'clipboard' | 'box' | 'orders' | 'alert';
+    tone?: 'default' | 'warning' | 'danger';
+  }> = [
+    { value: '18', label: 'Total Customers', icon: 'users' },
+    { value: '2', label: 'New Registrations', icon: 'clipboard' },
+    { value: '11', label: 'Individual', icon: 'users' },
+    { value: '7', label: 'Business (B2B/HORECA)', icon: 'box' },
+    { value: '24', label: 'Recent Orders', icon: 'orders' },
+    { value: '2', label: 'Business Details Pending', icon: 'alert', tone: 'warning' },
   ];
 
   return (
@@ -4733,15 +4738,19 @@ function CustomersManagementScreen({
           />
         </View>
 
-        {/* 6 Metric Cards Grid */}
-        <View style={customerStyles.metricsGrid}>
+        {/* 6 Metric Cards Grid (using reusable OverviewDashboardCard) */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
           {metrics.map((m, idx) => (
-            <View key={idx} style={customerStyles.metricCard}>
-              <Text style={customerStyles.metricValue}>{m.value}</Text>
-              <Text style={customerStyles.metricLabel}>{m.label}</Text>
-            </View>
+            <OverviewDashboardCard
+              key={idx}
+              title={m.label}
+              value={m.value}
+              icon={m.icon}
+              tone={m.tone ?? 'default'}
+              titlePosition="bottom"
+            />
           ))}
-        </View>
+        </OverviewCardsGrid>
 
         {/* Helper Note */}
         <Text style={customerStyles.helperNote}>
@@ -7741,7 +7750,7 @@ export function TohfaAdminDashboardScreen({
       badgeTone: 'danger' as const,
       name: 'Vijay',
       code: 'TSK-AUD-2026-0052 · AUD-2026-0052',
-      detail: 'Audit date passed without completion',
+      detail: '',
       created: 'Created 08 Oct 2026 · Due 08 Oct 2026',
       actionLabel: 'View Audit',
       onAction: () => {
@@ -7755,6 +7764,7 @@ export function TohfaAdminDashboardScreen({
     title: string;
     value: string;
     subtitle: string;
+    icon?: 'orders' | 'pickup' | 'receiving' | 'inventory' | 'sales' | 'cash' | 'wallet' | 'truck' | 'box' | 'alert' | 'users' | 'clipboard';
     tone?: 'default' | 'danger' | 'warning' | 'success';
     onPress: () => void;
   }
@@ -7766,6 +7776,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Farmer applications',
       value: '4',
       subtitle: '1 documents requested',
+      icon: 'orders',
       onPress: handleOpenPendingApplications,
     },
     {
@@ -7773,6 +7784,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Active farmers',
       value: '20',
       subtitle: 'of 24 registered',
+      icon: 'pickup',
       onPress: () => {
         setFarmersReturnTab('Home');
         setFarmersMainTab('farmers');
@@ -7787,6 +7799,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Upcoming / overdue audits',
       value: '2/1',
       subtitle: 'upcoming · overdue',
+      icon: 'clipboard',
       onPress: handleOpenScheduleAudit,
     },
     {
@@ -7794,6 +7807,8 @@ export function TohfaAdminDashboardScreen({
       title: 'Open exceptions',
       value: '3',
       subtitle: 'queue items blocked',
+      icon: 'box',
+      tone: 'danger',
       onPress: () => setActiveTab('WorkQueue'),
     },
     {
@@ -7801,6 +7816,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Produce activity',
       value: '4',
       subtitle: '5 pending review',
+      icon: 'truck',
       onPress: () => {
         setProduceControlScreen('calendar');
         setActiveTab('More');
@@ -7811,6 +7827,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Purchase activity',
       value: '3',
       subtitle: '3 awaiting receipt',
+      icon: 'box',
       onPress: () => {
         if (onNavigate) onNavigate('PurchaseOrders');
       },
@@ -7820,6 +7837,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Sales and orders',
       value: '₹3,33,660',
       subtitle: '▼ 27% vs previous 30 days',
+      icon: 'sales',
       onPress: () => setActiveTab('Finance'),
     },
     {
@@ -7827,6 +7845,8 @@ export function TohfaAdminDashboardScreen({
       title: 'Warehouse exceptions',
       value: '3',
       subtitle: '1 low stock · 2 discrepancies',
+      icon: 'alert',
+      tone: 'danger',
       onPress: () => {
         setOperationsSubScreen(null);
         setActiveTab('Inventory');
@@ -7837,6 +7857,8 @@ export function TohfaAdminDashboardScreen({
       title: 'Finance attention',
       value: '3',
       subtitle: '1 awaiting approval · 2 on hold',
+      icon: 'cash',
+      tone: 'danger',
       onPress: () => setActiveTab('Finance'),
     },
     {
@@ -7844,6 +7866,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Customer support',
       value: '3',
       subtitle: '3 open tickets',
+      icon: 'pickup',
       onPress: handleOpenSupport,
     },
     {
@@ -7851,6 +7874,7 @@ export function TohfaAdminDashboardScreen({
       title: 'Staff operations',
       value: '2',
       subtitle: '3 salary payments pending',
+      icon: 'users',
       onPress: () => {
         if (onNavigate) onNavigate('Staff');
       },
@@ -8245,33 +8269,49 @@ export function TohfaAdminDashboardScreen({
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* 6 KPI Metric Cards Grid */}
-          <View style={styles.workforceKpiGrid}>
-            <View style={styles.workforceKpiCard}>
-              <Text style={styles.workforceKpiLabel}>ADMIN STAFF</Text>
-              <Text style={styles.workforceKpiValue}>11</Text>
-            </View>
-            <View style={styles.workforceKpiCard}>
-              <Text style={styles.workforceKpiLabel}>WAREHOUSE STAFF</Text>
-              <Text style={styles.workforceKpiValue}>14 <Text style={styles.workforceKpiValueSub}>(13 active)</Text></Text>
-            </View>
-            <View style={styles.workforceKpiCard}>
-              <Text style={styles.workforceKpiLabel}>ACTIVE DRIVERS</Text>
-              <Text style={styles.workforceKpiValue}>6 of 7</Text>
-            </View>
-            <View style={styles.workforceKpiCard}>
-              <Text style={styles.workforceKpiLabel}>TODAY'S ATTENDANCE</Text>
-              <Text style={styles.workforceKpiValue}>22 of 27</Text>
-            </View>
-            <View style={styles.workforceKpiCard}>
-              <Text style={styles.workforceKpiLabel}>PENDING CORRECTIONS</Text>
-              <Text style={styles.workforceKpiValueSmall}>Not configured</Text>
-            </View>
-            <View style={styles.workforceKpiCard}>
-              <Text style={styles.workforceKpiLabel}>NEEDS ATTENTION</Text>
-              <Text style={styles.workforceKpiValue}>2 pending{'\n'}activation</Text>
-            </View>
-          </View>
+          {/* 6 KPI Metric Cards Grid (using reusable OverviewDashboardCard) */}
+          <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+            <OverviewDashboardCard
+              value="11"
+              title="Admin Staff"
+              icon="users"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="14"
+              subtitle="(13 active)"
+              title="Warehouse Staff"
+              icon="box"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="6 of 7"
+              title="Active Drivers"
+              icon="truck"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="22 of 27"
+              title="Today's Attendance"
+              icon="clipboard"
+              tone="success"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="Not configured"
+              title="Pending Corrections"
+              icon="orders"
+              titlePosition="bottom"
+            />
+            <OverviewDashboardCard
+              value="2"
+              subtitle="Pending activation"
+              title="Needs Attention"
+              icon="alert"
+              tone="danger"
+              titlePosition="bottom"
+            />
+          </OverviewCardsGrid>
 
           {/* Role Distribution Section */}
           <View style={styles.workforceSection}>
@@ -11125,8 +11165,9 @@ export function TohfaAdminDashboardScreen({
                           title={item.title}
                           value={item.value}
                           subtitle={item.subtitle}
+                          icon={item.icon}
                           tone={item.tone ?? 'default'}
-                          titlePosition="top"
+                          titlePosition="bottom"
                           onPress={item.onPress}
                         />
                       ))}
@@ -11569,7 +11610,7 @@ export function TohfaAdminDashboardScreen({
 
                         <Text style={styles.workQueuePersonName}>{task.name}</Text>
                         <Text style={styles.workQueueTaskCode}>{task.code}</Text>
-                        <Text style={styles.workQueueTaskDetail}>{task.detail}</Text>
+                        {task.detail ? <Text style={styles.workQueueTaskDetail}>{task.detail}</Text> : null}
                         <Text style={styles.workQueueTaskCreated}>{task.created}</Text>
 
                         <TouchableOpacity
@@ -11791,80 +11832,48 @@ export function TohfaAdminDashboardScreen({
               </View>
 
               {/* 3. 8 KPI Cards (Reusing OverviewDashboardCard component strictly as requested) */}
-              <View style={styles.financeKpiGrid}>
+              <OverviewCardsGrid style={{ paddingHorizontal: adminSpacing.md, rowGap: 10 }}>
                 <OverviewDashboardCard
                   title="SALES"
                   value="₹2,14,600.00"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="FARMER PURCHASE VALUE"
                   value="₹1,38,900.00"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="OUTSTANDING DUES"
                   value="₹32,450.00"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="EXPENSES"
                   value="₹18,200.00"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="WALLET LIABILITY"
                   value="₹9,340.00"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="PENDING PAYOUTS"
                   value="6"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="REFUNDS"
                   value="₹1,840.00"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValue}
-                  style={styles.financeKpiCard}
                 />
                 <OverviewDashboardCard
                   title="NET FINANCIAL SUMMARY"
                   value="Not defined"
                   titlePosition="top"
-                  preserveCase
-                  titleStyle={styles.financeKpiCardTitle}
-                  valueStyle={styles.financeKpiCardValueMuted}
-                  style={styles.financeKpiCard}
                 />
-              </View>
+              </OverviewCardsGrid>
 
               {/* 4. Disclaimer Note */}
               <Text style={styles.financeDisclaimerText}>
@@ -13839,13 +13848,13 @@ const styles = StyleSheet.create({
   },
   workQueueSearchContainer: {
     paddingHorizontal: adminSpacing.md,
-    marginTop: -adminSpacing.md,
+    marginTop: adminSpacing.md,
   },
   workQueueSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.md,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.sm,
     borderWidth: 1,
@@ -13897,7 +13906,7 @@ const styles = StyleSheet.create({
   workQueueBadge: {
     paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
-    borderRadius: adminRadius.full,
+    borderRadius: adminRadius.sm,
   },
   workQueueBadgeDanger: {
     backgroundColor: adminColors.danger.bg,
@@ -13939,10 +13948,10 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.md,
   },
   workQueueActionButton: {
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: adminColors.brand,
-    borderRadius: adminRadius.full,
-    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.md,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: adminColors.card,
@@ -13951,7 +13960,7 @@ const styles = StyleSheet.create({
     ...adminType.body,
     fontWeight: '700',
     color: adminColors.brand,
-    fontSize: 13,
+    fontSize: 13.5,
   },
 
   // ── Filter & Sort Bottom Sheet Modal (M1-S03a) ──
