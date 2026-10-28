@@ -44,7 +44,16 @@ import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
-import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './fixtures';
+import {
+  useHubKpis,
+  useSalesReport,
+  useInventoryReport,
+  useReceivingReport,
+  useReturnsReport,
+  useCustomersReport,
+  useCashTopupsReport,
+} from './useReportsData';
+import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, reportVisible } from './fixtures';
 import type { ReportCode, ReportScreenType } from './types';
 import {
   TimelineDotIcon,
@@ -96,7 +105,7 @@ export function ReportsScreen({
   warehouseOptions: customWarehouseOptions,
 }: ReportsScreenProps) {
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = customWarehouseOptions ?? (fetchedWarehouseOptions.length > 0 ? fetchedWarehouseOptions : REPORT_WAREHOUSES);
+  const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
   const [currentScreen, setCurrentScreen] = useState<ReportScreenType>('main');
   const [searchQuery, setSearchQuery] = useState('');
@@ -235,6 +244,14 @@ export function ReportsScreen({
 
     return false;
   };
+
+  const { kpis: liveKpis } = useHubKpis(scope, effectiveWarehouseId);
+  const { data: salesData } = useSalesReport(scope, effectiveWarehouseId, timeFilter);
+  const { items: inventoryRows } = useInventoryReport(scope, effectiveWarehouseId);
+  const { items: receivingRows } = useReceivingReport(scope, effectiveWarehouseId);
+  const { items: customerRows } = useCustomersReport(scope, effectiveWarehouseId);
+  const { items: topupRows } = useCashTopupsReport(scope, effectiveWarehouseId);
+  const { items: returnRows } = useReturnsReport(scope, effectiveWarehouseId);
 
   const openFilterModal = () => {
     setTempReportWarehouseId(reportWarehouseId);
@@ -715,92 +732,7 @@ export function ReportsScreen({
   // SCREEN 1: SALES REPORT (M12-S02)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'sales_report') {
-    const SALES_REPORTS_DATA = [
-      {
-        orderId: 'ORD-10284',
-        date: '25 Sep · 11:20 AM',
-        channel: 'Online' as const,
-        customerRef: 'Customer #C1024',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        product: 'Tomato',
-        grade: 'Grade 1',
-        quantity: '4 KG',
-        unitPrice: '₹100',
-        amount: '₹1,240',
-        amountNum: 1240,
-        items: 4,
-        paymentMethod: 'Wallet',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882145',
-        invoiceNumber: 'INV-2026-010284',
-        invoiceStatus: 'Generated',
-        status: 'Completed',
-      },
-      {
-        orderId: 'ORD-10283',
-        date: '25 Sep · 10:45 AM',
-        channel: 'Market' as const,
-        customerRef: 'Walk-in Buyer',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        product: 'Potato',
-        grade: 'Grade 1',
-        quantity: '2 KG',
-        unitPrice: '₹425',
-        amount: '₹850',
-        amountNum: 850,
-        items: 2,
-        paymentMethod: 'Cash',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882144',
-        invoiceNumber: 'INV-2026-010283',
-        invoiceStatus: 'Generated',
-        status: 'Completed',
-      },
-      {
-        orderId: 'ORD-10280',
-        date: '24 Sep · 04:15 PM',
-        channel: 'HORECA' as const,
-        customerRef: 'Hillview Resort',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        product: 'Carrot & Beans',
-        grade: 'Grade 1',
-        quantity: '25 KG',
-        unitPrice: '₹120',
-        amount: '₹3,200',
-        amountNum: 3200,
-        items: 6,
-        paymentMethod: 'UPI',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882142',
-        invoiceNumber: 'INV-2026-010280',
-        invoiceStatus: 'Generated',
-        status: 'Completed',
-      },
-      {
-        orderId: 'ORD-10278',
-        date: '24 Sep · 02:30 PM',
-        channel: 'B2B' as const,
-        customerRef: 'Nilgiri Traders',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        product: 'Cabbage',
-        grade: 'Grade 1',
-        quantity: '50 KG',
-        unitPrice: '₹45',
-        amount: '₹2,250',
-        amountNum: 2250,
-        items: 8,
-        paymentMethod: 'Bank Transfer',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882138',
-        invoiceNumber: 'INV-2026-010278',
-        invoiceStatus: 'Generated',
-        status: 'Completed',
-      },
-    ];
+    const SALES_REPORTS_DATA = salesData?.orders ?? [];
 
     const filteredSales = SALES_REPORTS_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -817,8 +749,8 @@ export function ReportsScreen({
     });
 
     const totalSalesAmount = filteredSales.reduce((a, b) => a + b.amountNum, 0);
-    const totalOrdersCount = isSpecificWarehouseChosen || reportWarehouseId ? filteredSales.length : 284;
-    const totalItemsCount = isSpecificWarehouseChosen || reportWarehouseId ? filteredSales.reduce((a, b) => a + b.items, 0) : 1248;
+    const totalOrdersCount = filteredSales.length;
+    const totalItemsCount = filteredSales.reduce((a, b) => a + b.items, 0);
 
     return (
       <SafeAreaView style={styles.root}>
@@ -846,7 +778,7 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL SALES</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${totalSalesAmount.toLocaleString('en-IN')}` : '₹1,84,500'}
+                {`₹${totalSalesAmount.toLocaleString('en-IN')}`}
               </Text>
             </View>
             <View style={styles.kpiCard}>
@@ -860,9 +792,9 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG ORDER</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId && filteredSales.length > 0
+                {filteredSales.length > 0
                   ? `₹${Math.round(totalSalesAmount / filteredSales.length).toLocaleString('en-IN')}`
-                  : '₹649'}
+                  : '₹0'}
               </Text>
             </View>
           </View>
@@ -1416,104 +1348,7 @@ export function ReportsScreen({
   // SCREEN 2: INVENTORY REPORT (M12-S03)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'inventory_report') {
-    const INVENTORY_REPORTS_DATA = [
-      {
-        productName: 'Carrot',
-        productCode: 'CRT-001',
-        crop: 'Carrot',
-        grade: 'Grade 1',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        availableQty: '420 kg',
-        reservedQty: '35 kg',
-        allocatedQty: '20 kg',
-        consumedQty: '—',
-        batchCode: 'BAT-CR-0245',
-        receivedDate: '23 Sep 2026',
-        storageLocation: 'Cold Storage A',
-        status: 'Available' as const,
-        movementReceived: '475 kg',
-        movementAvailable: '420 kg',
-        movementReserved: '35 kg',
-        movementSold: '20 kg',
-        lastVerification: '20 Sep 2026',
-        verifiedQty: '418 kg',
-        difference: '-2 kg',
-        verificationStatus: 'Reconciled',
-      },
-      {
-        productName: 'Nilgiris Potato',
-        productCode: 'POT-002',
-        crop: 'Potato',
-        grade: 'Grade 1',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        availableQty: '1,250 kg',
-        reservedQty: '150 kg',
-        allocatedQty: '80 kg',
-        consumedQty: '—',
-        batchCode: 'BAT-PT-0189',
-        receivedDate: '22 Sep 2026',
-        storageLocation: 'Zone 2 - Bay 4',
-        status: 'Available' as const,
-        movementReceived: '1,480 kg',
-        movementAvailable: '1,250 kg',
-        movementReserved: '150 kg',
-        movementSold: '80 kg',
-        lastVerification: '19 Sep 2026',
-        verifiedQty: '1,250 kg',
-        difference: '0 kg',
-        verificationStatus: 'Reconciled',
-      },
-      {
-        productName: 'Tomato',
-        productCode: 'TOM-003',
-        crop: 'Tomato',
-        grade: 'Grade 1',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        availableQty: '45 kg',
-        reservedQty: '10 kg',
-        allocatedQty: '5 kg',
-        consumedQty: '—',
-        batchCode: 'BAT-TM-0312',
-        receivedDate: '24 Sep 2026',
-        storageLocation: 'Cold Storage B',
-        status: 'Low Stock' as const,
-        movementReceived: '120 kg',
-        movementAvailable: '45 kg',
-        movementReserved: '10 kg',
-        movementSold: '65 kg',
-        lastVerification: '23 Sep 2026',
-        verifiedQty: '45 kg',
-        difference: '0 kg',
-        verificationStatus: 'Reconciled',
-      },
-      {
-        productName: 'Green Peas',
-        productCode: 'PEA-004',
-        crop: 'Peas',
-        grade: 'Grade 1',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        availableQty: '0 kg',
-        reservedQty: '0 kg',
-        allocatedQty: '0 kg',
-        consumedQty: '—',
-        batchCode: 'BAT-PE-0105',
-        receivedDate: '21 Sep 2026',
-        storageLocation: 'Cold Storage C',
-        status: 'Out of Stock' as const,
-        movementReceived: '200 kg',
-        movementAvailable: '0 kg',
-        movementReserved: '0 kg',
-        movementSold: '200 kg',
-        lastVerification: '24 Sep 2026',
-        verifiedQty: '0 kg',
-        difference: '0 kg',
-        verificationStatus: 'Reconciled',
-      },
-    ];
+    const INVENTORY_REPORTS_DATA = inventoryRows;
 
     const filteredInventory = INVENTORY_REPORTS_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -1842,104 +1677,7 @@ export function ReportsScreen({
   // SCREEN 3: RECEIVING REPORT (M12-S04)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'receiving_report') {
-    const RECEIVING_REPORTS_DATA = [
-      {
-        receiptId: 'GR-00245',
-        dateTime: '25 Sep, 10:20 AM',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        sourceRef: 'Farmer #FRM-0842',
-        product: 'Carrot',
-        grade: 'Grade 1',
-        qtyReceived: '420 kg',
-        qtyNum: 420,
-        acceptedNum: 400,
-        rejectedNum: 5,
-        partialNum: 15,
-        qualityStatus: 'Accepted' as const,
-        acceptedQty: '400 kg',
-        partialQty: '15 kg',
-        rejectedQty: '5 kg',
-        qcNotes: 'Minor surface blemish on rejected portion.',
-        timeline: [
-          { title: 'Goods Received', time: '10:20 AM' },
-          { title: 'QC Started', time: '10:25 AM' },
-          { title: 'QC Completed', time: '10:40 AM' },
-        ],
-      },
-      {
-        receiptId: 'GR-00244',
-        dateTime: '25 Sep, 09:15 AM',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        sourceRef: 'Farmer #FRM-0714',
-        product: 'Nilgiris Potato',
-        grade: 'Grade 1',
-        qtyReceived: '1,250 kg',
-        qtyNum: 1250,
-        acceptedNum: 1250,
-        rejectedNum: 0,
-        partialNum: 0,
-        qualityStatus: 'Accepted' as const,
-        acceptedQty: '1,250 kg',
-        partialQty: '0 kg',
-        rejectedQty: '0 kg',
-        qcNotes: 'Full batch verified and meets grade 1 quality standards.',
-        timeline: [
-          { title: 'Goods Received', time: '09:15 AM' },
-          { title: 'QC Started', time: '09:20 AM' },
-          { title: 'QC Completed', time: '09:35 AM' },
-        ],
-      },
-      {
-        receiptId: 'GR-00243',
-        dateTime: '24 Sep, 04:45 PM',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        sourceRef: 'Farmer #FRM-0690',
-        product: 'Tomato',
-        grade: 'Grade 2',
-        qtyReceived: '320 kg',
-        qtyNum: 320,
-        acceptedNum: 0,
-        rejectedNum: 320,
-        partialNum: 0,
-        qualityStatus: 'Rejected' as const,
-        acceptedQty: '0 kg',
-        partialQty: '0 kg',
-        rejectedQty: '320 kg',
-        qcNotes: 'Excessive moisture and rot detected — rejected per quality threshold.',
-        timeline: [
-          { title: 'Goods Received', time: '04:45 PM' },
-          { title: 'QC Started', time: '04:50 PM' },
-          { title: 'QC Completed', time: '05:05 PM' },
-        ],
-      },
-      {
-        receiptId: 'GR-00242',
-        dateTime: '24 Sep, 01:10 PM',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        sourceRef: 'Farmer #FRM-0512',
-        product: 'Beans',
-        grade: 'Grade 1',
-        qtyReceived: '150 kg',
-        qtyNum: 150,
-        acceptedNum: 135,
-        rejectedNum: 0,
-        partialNum: 15,
-        qualityStatus: 'Partial' as const,
-        acceptedQty: '135 kg',
-        partialQty: '15 kg',
-        rejectedQty: '0 kg',
-        qcNotes: 'Partial acceptance due to packaging discrepancy.',
-        timeline: [
-          { title: 'Goods Received', time: '01:10 PM' },
-          { title: 'QC Started', time: '01:15 PM' },
-          { title: 'QC Completed', time: '01:30 PM' },
-        ],
-      },
-    ];
+    const RECEIVING_REPORTS_DATA = receivingRows;
 
     const filteredReceiving = RECEIVING_REPORTS_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -2240,116 +1978,7 @@ export function ReportsScreen({
   // SCREEN 4: CUSTOMER REPORT (M12-S05)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'customer_report') {
-    const CUSTOMER_DATA = [
-      {
-        id: 'CUS-10284',
-        name: 'Customer #10284',
-        channel: 'Online',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        orders: 12,
-        completedOrders: 11,
-        cancelledOrders: 1,
-        lastOrder: '24 Sep 2026',
-        totalSpent: '₹8,450',
-        mobile: '+91 XXXXX XXXXX',
-        frequency: '~2/month',
-        orderHistory: [
-          { orderId: 'ORD-1001', amount: '₹850', status: 'Completed' },
-          { orderId: 'ORD-1008', amount: '₹1,240', status: 'Completed' },
-        ],
-      },
-      {
-        id: 'CUS-10283',
-        name: 'Customer #10283',
-        channel: 'Market',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        orders: 8,
-        completedOrders: 8,
-        cancelledOrders: 0,
-        lastOrder: '24 Sep 2026',
-        totalSpent: '₹5,120',
-        mobile: '+91 XXXXX XXXXX',
-        frequency: '~3/month',
-        orderHistory: [
-          { orderId: 'ORD-0995', amount: '₹1,450', status: 'Completed' },
-          { orderId: 'ORD-0980', amount: '₹980', status: 'Completed' },
-        ],
-      },
-      {
-        id: 'CUS-10280',
-        name: 'Customer #10280',
-        channel: 'B2B',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        orders: 24,
-        completedOrders: 23,
-        cancelledOrders: 1,
-        lastOrder: '23 Sep 2026',
-        totalSpent: '₹22,800',
-        mobile: '+91 XXXXX XXXXX',
-        frequency: '~6/month',
-        orderHistory: [
-          { orderId: 'ORD-1015', amount: '₹4,800', status: 'Completed' },
-          { orderId: 'ORD-0952', amount: '₹6,200', status: 'Completed' },
-        ],
-      },
-      {
-        id: 'CUS-10275',
-        name: 'Customer #10275',
-        channel: 'Online',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        orders: 5,
-        completedOrders: 5,
-        cancelledOrders: 0,
-        lastOrder: '22 Sep 2026',
-        totalSpent: '₹3,450',
-        mobile: '+91 XXXXX XXXXX',
-        frequency: '~1/month',
-        orderHistory: [
-          { orderId: 'ORD-0965', amount: '₹750', status: 'Completed' },
-          { orderId: 'ORD-0920', amount: '₹1,200', status: 'Completed' },
-        ],
-      },
-      {
-        id: 'CUS-10268',
-        name: 'Customer #10268',
-        channel: 'Market',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        orders: 19,
-        completedOrders: 18,
-        cancelledOrders: 1,
-        lastOrder: '21 Sep 2026',
-        totalSpent: '₹14,200',
-        mobile: '+91 XXXXX XXXXX',
-        frequency: '~4/month',
-        orderHistory: [
-          { orderId: 'ORD-0988', amount: '₹2,100', status: 'Completed' },
-          { orderId: 'ORD-0945', amount: '₹1,650', status: 'Completed' },
-        ],
-      },
-      {
-        id: 'CUS-10260',
-        name: 'Customer #10260',
-        channel: 'B2B',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        orders: 31,
-        completedOrders: 30,
-        cancelledOrders: 1,
-        lastOrder: '20 Sep 2026',
-        totalSpent: '₹38,900',
-        mobile: '+91 XXXXX XXXXX',
-        frequency: '~8/month',
-        orderHistory: [
-          { orderId: 'ORD-1005', amount: '₹8,900', status: 'Completed' },
-          { orderId: 'ORD-0972', amount: '₹7,400', status: 'Completed' },
-        ],
-      },
-    ];
+    const CUSTOMER_DATA = customerRows;
 
     const filteredCustomers = CUSTOMER_DATA.filter((cust) => {
       if (!matchWarehouse(cust.warehouse, cust.warehouseId)) return false;
@@ -2625,116 +2254,7 @@ export function ReportsScreen({
   // SCREEN 5: CASH TOP-UP REPORT (M12-S06)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'cash_topup_report') {
-    const TOPUP_DATA = [
-      {
-        id: 'TOP-002845',
-        customerId: 'CUS-1024',
-        customer: 'Customer CUS-1024 · Cash',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        amount: '₹2,000',
-        amountNum: 2000,
-        paymentMethod: 'Cash',
-        auth: 'SWA',
-        processedBy: 'SWA – Suresh',
-        status: 'Completed',
-        referenceId: 'TOP-002845',
-        cashTagFiscalRef: 'FT-2026-004512',
-        time: '10:24 AM',
-        dateTime: '25 Sep, 10:24 AM',
-        period: 'Today',
-      },
-      {
-        id: 'TOP-002844',
-        customerId: 'CUS-1018',
-        customer: 'Customer CUS-1018 · Cash',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        amount: '₹1,500',
-        amountNum: 1500,
-        paymentMethod: 'Cash',
-        auth: 'SWA',
-        processedBy: 'SWA – Suresh',
-        status: 'Completed',
-        referenceId: 'TOP-002844',
-        cashTagFiscalRef: 'FT-2026-004511',
-        time: '09:40 AM',
-        dateTime: '25 Sep, 09:40 AM',
-        period: 'Today',
-      },
-      {
-        id: 'TOP-002843',
-        customerId: 'CUS-1092',
-        customer: 'Customer CUS-1092 · Cash',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        amount: '₹5,000',
-        amountNum: 5000,
-        paymentMethod: 'Cash',
-        auth: 'SWA',
-        processedBy: 'SWA – Suresh',
-        status: 'Completed',
-        referenceId: 'TOP-002843',
-        cashTagFiscalRef: 'FT-2026-004510',
-        time: '08:15 AM',
-        dateTime: '25 Sep, 08:15 AM',
-        period: 'Today',
-      },
-      {
-        id: 'TOP-002840',
-        customerId: 'CUS-0984',
-        customer: 'Customer CUS-0984 · Cash',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        amount: '₹3,000',
-        amountNum: 3000,
-        paymentMethod: 'Cash',
-        auth: 'SWA',
-        processedBy: 'SWA – Suresh',
-        status: 'Completed',
-        referenceId: 'TOP-002840',
-        cashTagFiscalRef: 'FT-2026-004505',
-        time: '24 Sep 2026 · 05:10 PM',
-        dateTime: '24 Sep, 05:10 PM',
-        period: 'This Month',
-      },
-      {
-        id: 'TOP-002838',
-        customerId: 'CUS-1002',
-        customer: 'Customer CUS-1002 · Cash',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        amount: '₹7,000',
-        amountNum: 7000,
-        paymentMethod: 'Cash',
-        auth: 'SWA',
-        processedBy: 'SWA – Suresh',
-        status: 'Completed',
-        referenceId: 'TOP-002838',
-        cashTagFiscalRef: 'FT-2026-004502',
-        time: '24 Sep 2026 · 02:30 PM',
-        dateTime: '24 Sep, 02:30 PM',
-        period: 'This Month',
-      },
-      {
-        id: 'TOP-002835',
-        customerId: 'CUS-0950',
-        customer: 'Customer CUS-0950 · Cash',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        amount: '₹10,000',
-        amountNum: 10000,
-        paymentMethod: 'Cash',
-        auth: 'SWA',
-        processedBy: 'SWA – Suresh',
-        status: 'Completed',
-        referenceId: 'TOP-002835',
-        cashTagFiscalRef: 'FT-2026-004498',
-        time: '23 Sep 2026 · 11:00 AM',
-        dateTime: '23 Sep, 11:00 AM',
-        period: 'This Month',
-      },
-    ];
+    const TOPUP_DATA = topupRows;
 
     const filteredTopups = TOPUP_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -2973,72 +2493,7 @@ export function ReportsScreen({
   // SCREEN 6: REVENUE REPORT (M12-S08)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'revenue_report') {
-    const REVENUE_DATA = [
-      {
-        id: 'REV-000845',
-        orderId: 'ORD-10284',
-        invoice: 'INV-2026-000845',
-        type: 'Market Sale',
-        product: 'Tomato',
-        quantity: '3 KG',
-        order: 'Order ORD-10284',
-        amount: '₹3,450',
-        amountNum: 3450,
-        paymentMethod: 'Wallet',
-        status: 'Completed',
-        dateTime: '25 Sep, 11:20 AM',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-      },
-      {
-        id: 'REV-000844',
-        orderId: 'ORD-10280',
-        invoice: 'INV-2026-000844',
-        type: 'Online Order',
-        product: 'Carrot & Beans',
-        quantity: '4 KG',
-        order: 'Order ORD-10280',
-        amount: '₹1,850',
-        amountNum: 1850,
-        paymentMethod: 'UPI',
-        status: 'Completed',
-        dateTime: '25 Sep, 10:45 AM',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-      },
-      {
-        id: 'REV-000842',
-        orderId: 'ORD-10275',
-        invoice: 'INV-2026-000842',
-        type: 'Market Sale',
-        product: 'Potato',
-        quantity: '6 KG',
-        order: 'Order ORD-10275',
-        amount: '₹4,200',
-        amountNum: 4200,
-        paymentMethod: 'Card',
-        status: 'Completed',
-        dateTime: '24 Sep, 04:30 PM',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-      },
-      {
-        id: 'REV-000840',
-        orderId: 'ORD-10268',
-        invoice: 'INV-2026-000840',
-        type: 'Online Order',
-        product: 'Capsicum & Tomato',
-        quantity: '5 KG',
-        order: 'Order ORD-10268',
-        amount: '₹6,100',
-        amountNum: 6100,
-        paymentMethod: 'Cash',
-        status: 'Completed',
-        dateTime: '24 Sep, 02:15 PM',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-      },
-    ];
+    const REVENUE_DATA = [];
 
     const filteredRevenue = REVENUE_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -3325,84 +2780,7 @@ export function ReportsScreen({
   // SCREEN 7: EXPENSE REPORT (M12-S07)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'expense_report') {
-    const EXPENSE_DATA = [
-      {
-        id: 'EXP-001245',
-        category: 'Transport',
-        voucher: 'Voucher VCH-000821',
-        amount: '₹2,400',
-        amountNum: 2400,
-        status: 'Recorded',
-        date: '25 Sep 2026',
-        paymentMethod: 'Cash',
-        vendorPayee: 'Local Transport Co.',
-        description: 'Transport from the collection point to the warehouse',
-        createdBy: 'SWA – Suresh',
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        timeline: [
-          { title: 'Expense Created' },
-          { title: 'Recorded' },
-        ],
-      },
-      {
-        id: 'EXP-001244',
-        category: 'Loading',
-        voucher: 'VCH-000820',
-        amount: '₹1,800',
-        amountNum: 1800,
-        status: 'Recorded',
-        date: '25 Sep 2026',
-        paymentMethod: 'Cash',
-        vendorPayee: 'Local Handlers',
-        description: 'Unloading & stacking produce crates at dock 2',
-        createdBy: 'SWA – Suresh',
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        timeline: [
-          { title: 'Expense Created' },
-          { title: 'Recorded' },
-        ],
-      },
-      {
-        id: 'EXP-001243',
-        category: 'Maintenance',
-        voucher: 'VCH-000818',
-        amount: '₹4,200',
-        amountNum: 4200,
-        status: 'Recorded',
-        date: '24 Sep 2026',
-        paymentMethod: 'UPI',
-        vendorPayee: 'CoolTech Ref Services',
-        description: 'Chiller room condenser maintenance and refilling',
-        createdBy: 'SWA – Suresh',
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        timeline: [
-          { title: 'Expense Created' },
-          { title: 'Recorded' },
-        ],
-      },
-      {
-        id: 'EXP-001240',
-        category: 'Other',
-        voucher: 'VCH-000815',
-        amount: '₹3,500',
-        amountNum: 3500,
-        status: 'Pending',
-        date: '24 Sep 2026',
-        paymentMethod: 'Card',
-        vendorPayee: 'Nilgiris Packaging Supplies',
-        description: 'Purchase of carton boxes and barcode roll labels',
-        createdBy: 'SWA – Suresh',
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        timeline: [
-          { title: 'Expense Created' },
-          { title: 'Pending Approval' },
-        ],
-      },
-    ];
+    const EXPENSE_DATA = [];
 
     const filteredExpenses = EXPENSE_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -4542,199 +3920,7 @@ export function ReportsScreen({
   // SCREEN 10: RETURNS & ISSUES REPORT (M12-S09)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'returns_report') {
-    const RETURN_DATA = [
-      {
-        id: 'RMA-00245',
-        orderId: 'ORD-10284',
-        order: 'Order ORD-10284',
-        customer: 'Ravi Kumar',
-        product: 'Tomato',
-        affectedQty: 'Affected Qty 2',
-        affectedQuantity: '2 KG',
-        category: 'Damaged',
-        customerPhotos: '2',
-        issueDescription: 'Customer reported damaged produce after pickup.',
-        inspectionStatus: 'Completed',
-        inspectionResult: 'Confirmed',
-        inspectionNotes: '2 KG received, 0.5 KG visibly damaged.',
-        decision: 'Approved',
-        refundStatus: 'Completed',
-        refundMethod: 'TOHFA Wallet',
-        refundAmount: '₹200',
-        resolutionDate: '25 Sep 2026',
-        status: 'Approved',
-        resolution: 'Refund Completed',
-        resolutionColor: adminColors.success.text,
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        timeline: [
-          { title: 'Issue Raised' },
-          { title: 'RMA Created' },
-          { title: 'Inspection' },
-          { title: 'Decision' },
-          { title: 'Refund / Resolution' },
-          { title: 'Completed' },
-        ],
-      },
-      {
-        id: 'RMA-00244',
-        orderId: 'ORD-10279',
-        order: 'Order ORD-10279',
-        customer: 'Priya Sundaram',
-        product: 'Carrot',
-        affectedQty: 'Affected Qty 5 kg',
-        affectedQuantity: '5 KG',
-        category: 'Quality',
-        customerPhotos: '1',
-        issueDescription: 'Carrots soft and discolored upon delivery.',
-        inspectionStatus: 'Completed',
-        inspectionResult: 'Confirmed',
-        inspectionNotes: '5 KG produce decayed.',
-        decision: 'Approved',
-        refundStatus: 'Completed',
-        refundMethod: 'Replacement Dispatched',
-        refundAmount: '5 KG Produce',
-        resolutionDate: '25 Sep 2026',
-        status: 'Approved',
-        resolution: 'Replacement Dispatched',
-        resolutionColor: adminColors.success.text,
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        timeline: [
-          { title: 'Issue Raised' },
-          { title: 'RMA Created' },
-          { title: 'Inspection' },
-          { title: 'Decision' },
-          { title: 'Refund / Resolution' },
-          { title: 'Completed' },
-        ],
-      },
-      {
-        id: 'RMA-00243',
-        orderId: 'ORD-10265',
-        order: 'Order ORD-10265',
-        customer: 'Karthik Raj',
-        product: 'Beans',
-        affectedQty: 'Affected Qty 1',
-        affectedQuantity: '1 KG',
-        category: 'Missing',
-        customerPhotos: '0',
-        issueDescription: '1 KG Beans item missing from packet.',
-        inspectionStatus: 'Pending',
-        inspectionResult: 'Under Review',
-        inspectionNotes: 'Verifying dispatch checklist.',
-        decision: 'Pending',
-        refundStatus: 'Under Review',
-        refundMethod: 'TOHFA Wallet',
-        refundAmount: '₹80',
-        resolutionDate: '24 Sep 2026',
-        status: 'Pending',
-        resolution: 'Under Review',
-        resolutionColor: adminColors.warning.text,
-        warehouse: 'Ooty',
-        warehouseId: 'ooty',
-        timeline: [
-          { title: 'Issue Raised' },
-          { title: 'RMA Created' },
-          { title: 'Inspection' },
-        ],
-      },
-      {
-        id: 'RMA-00240',
-        orderId: 'ORD-10250',
-        order: 'Order ORD-10250',
-        customer: 'Ananya Sharma',
-        product: 'Potato',
-        affectedQty: 'Affected Qty 3 kg',
-        affectedQuantity: '3 KG',
-        category: 'Wrong',
-        customerPhotos: '1',
-        issueDescription: 'Customer claimed wrong size received.',
-        inspectionStatus: 'Completed',
-        inspectionResult: 'Not Confirmed',
-        inspectionNotes: 'Produce matches standard size grade specified.',
-        decision: 'Rejected',
-        refundStatus: 'Dispute Closed',
-        refundMethod: 'None',
-        refundAmount: '₹0',
-        resolutionDate: '24 Sep 2026',
-        status: 'Rejected',
-        resolution: 'Dispute Closed',
-        resolutionColor: adminColors.danger.text,
-        warehouse: 'Kotagiri',
-        warehouseId: 'kotagiri',
-        timeline: [
-          { title: 'Issue Raised' },
-          { title: 'RMA Created' },
-          { title: 'Inspection' },
-          { title: 'Decision' },
-          { title: 'Completed' },
-        ],
-      },
-      {
-        id: 'RMA-00238',
-        orderId: 'ORD-10242',
-        order: 'Order ORD-10242',
-        customer: 'Selvamurugan M',
-        product: 'Cabbage',
-        affectedQty: 'Affected Qty 4 kg',
-        affectedQuantity: '4 KG',
-        category: 'Quantity',
-        customerPhotos: '1',
-        issueDescription: 'Short weight by 1 KG.',
-        inspectionStatus: 'Completed',
-        inspectionResult: 'Confirmed',
-        inspectionNotes: 'Weight discrepancy confirmed at scale.',
-        decision: 'Approved',
-        refundStatus: 'Completed',
-        refundMethod: 'TOHFA Wallet',
-        refundAmount: '₹120',
-        resolutionDate: '24 Sep 2026',
-        status: 'Approved',
-        resolution: 'Wallet Credited',
-        resolutionColor: adminColors.success.text,
-        warehouse: 'Gudalur Market',
-        warehouseId: 'gudalur',
-        timeline: [
-          { title: 'Issue Raised' },
-          { title: 'RMA Created' },
-          { title: 'Inspection' },
-          { title: 'Decision' },
-          { title: 'Refund / Resolution' },
-          { title: 'Completed' },
-        ],
-      },
-      {
-        id: 'RMA-00235',
-        orderId: 'ORD-10231',
-        order: 'Order ORD-10231',
-        customer: 'Deepa Natarajan',
-        product: 'Onion',
-        affectedQty: 'Affected Qty 10 kg',
-        affectedQuantity: '10 KG',
-        category: 'Late',
-        customerPhotos: '0',
-        issueDescription: 'Delivery delayed past evening slot.',
-        inspectionStatus: 'In Progress',
-        inspectionResult: 'Carrier Tracing',
-        inspectionNotes: 'Carrier transit delay being verified.',
-        decision: 'Pending',
-        refundStatus: 'Carrier Tracing',
-        refundMethod: 'TOHFA Wallet',
-        refundAmount: '₹350',
-        resolutionDate: '23 Sep 2026',
-        status: 'Pending',
-        resolution: 'Carrier Tracing',
-        resolutionColor: adminColors.warning.text,
-        warehouse: 'Coonoor',
-        warehouseId: 'coonoor',
-        timeline: [
-          { title: 'Issue Raised' },
-          { title: 'RMA Created' },
-          { title: 'Carrier Tracing' },
-        ],
-      },
-    ];
+    const RETURN_DATA = returnRows;
 
     const filteredReturns = RETURN_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -5075,14 +4261,14 @@ export function ReportsScreen({
 
   // Hub KPI tiles, each shown only when the viewer may see the data behind it.
   const hubKpis = [
-    { label: "Today's Sales", value: '₹24,850', permission: REPORT_CODES.sales },
-    { label: 'Inventory', value: '12,480 kg', permission: REPORT_CODES.inventory },
-    { label: 'Received Today', value: '2,850 kg', permission: REPORT_CODES.inventory },
-    { label: 'Customers Served', value: '126', permission: REPORT_CODES.customers },
-    { label: 'Cash Top-Up', value: '₹18,500', permission: REPORT_CODES.cashTopUp },
-    { label: 'Expenses', value: '₹6,420', permission: REPORT_CODES.expense },
-    { label: 'Returns', value: '8', permission: REPORT_CODES.returns },
-  ].filter((k) => can(k.permission));
+    { label: "Today's Sales", value: liveKpis?.todaySales.amount ?? null, permission: REPORT_CODES.sales },
+    { label: 'Inventory', value: liveKpis?.inventory.total ?? null, permission: REPORT_CODES.inventory },
+    { label: 'Received Today', value: liveKpis?.receivedToday.count ?? null, permission: REPORT_CODES.inventory },
+    { label: 'Customers Served', value: liveKpis?.customersServed.count ?? null, permission: REPORT_CODES.customers },
+    { label: 'Cash Top-Up', value: liveKpis?.cashTopUp.amount ?? null, permission: REPORT_CODES.cashTopUp },
+    { label: 'Expenses', value: liveKpis?.expenses.amount ?? null, permission: REPORT_CODES.expense },
+    { label: 'Returns', value: liveKpis?.returns.count ?? null, permission: REPORT_CODES.returns },
+  ].filter((k) => can(k.permission) && k.value !== null);
 
   return (
     <SafeAreaView style={styles.root}>

@@ -1,118 +1,189 @@
 import { describe, expect, it } from 'vitest';
-import type {
-  CashTopupsReportDto,
-  CustomersReportDto,
-  InventoryReportDto,
-  ReceivingReportDto,
-  ReturnsReportDto,
-  SalesReportDto,
-} from '../api/reports';
+import type { SalesReportDto } from '../api/reports';
+import type { OrderSummaryDto } from '../api/orders';
+import type { BatchDto } from '../api/inventory';
+import type { GoodsReceiptDto } from '../api/receiving';
+import type { CustomerSummaryDto } from '../api/customers';
+import type { CashTopupSummaryDto } from '../api/wallet';
+import type { ExpenseDto } from '../api/finance';
+import type { ReturnSummaryDto } from '../api/returns';
 import {
-  mapCashTopupsReportDto,
-  mapCustomersReportDto,
-  mapInventoryReportDto,
-  mapReceivingReportDto,
-  mapReturnsReportDto,
-  mapSalesReportDto,
+  mapSalesReportToSummary,
+  mapOrderToReportRow,
+  mapBatchToInventoryReportRow,
+  mapGoodsReceiptToReceivingReportRow,
+  mapCustomerToReportRow,
+  mapCashTopupToReportRow,
+  mapExpenseToReportRow,
+  mapReturnToReportRow,
+  getIstDateRange,
 } from '../screens/warehouse/reports/mappers';
 
-describe('reports mappers', () => {
-  it('maps SalesReportDto with paise money conversion', () => {
+describe('Reports mappers', () => {
+  it('maps SalesReportDto to summary metrics', () => {
     const dto: SalesReportDto = {
       from: '2026-09-01',
       to: '2026-09-25',
-      warehouseId: 'WH-COON',
-      count: 42,
-      total: '125000.00' as any,
-      averageOrderValue: '2976.19' as any,
-      byDay: [{ date: '2026-09-25', count: 5, total: '15000.00' as any }],
-      byChannel: [{ channel: 'ONLINE', count: 20, total: '60000.00' as any }],
-      byStatus: [{ status: 'DELIVERED', count: 35 }],
+      warehouseId: 'wh-1',
+      count: 15,
+      total: '15000.00',
+      averageOrderValue: '1000.00',
+      byDay: [],
+      byChannel: [],
+      byStatus: [],
     };
-
-    const res = mapSalesReportDto(dto);
-    expect(res.count).toBe(42);
-    expect(res.totalPaise).toBe(12500000);
-    expect(res.averageOrderValuePaise).toBe(297619);
-    expect(res.byChannel.length).toBe(1);
+    const summary = mapSalesReportToSummary(dto);
+    expect(summary.totalSales).toBe('₹15,000');
+    expect(summary.ordersCount).toBe(15);
+    expect(summary.avgOrder).toBe('₹1,000');
   });
 
-  it('maps InventoryReportDto with grams conversion', () => {
-    const dto: InventoryReportDto = {
-      from: null,
-      to: null,
-      warehouseId: 'WH-COON',
-      items: [
-        { cropId: 'crop-1', name: 'Carrot', totalQty: '150.500', batchCount: 3 },
-      ],
+  it('maps OrderSummaryDto to report row enforcing negative rules (no buyer PII)', () => {
+    const order: OrderSummaryDto = {
+      id: 'ord-123',
+      orderNumber: 'ORD-10284',
+      status: 'DELIVERED',
+      channel: 'ONLINE',
+      warehouseId: 'wh-1',
+      itemCount: 4,
+      totalAmount: '1240.00' as any,
+      placedAt: '2026-09-25T11:20:00Z',
     };
-
-    const res = mapInventoryReportDto(dto);
-    expect(res.totalItems).toBe(1);
-    expect(res.items[0]?.totalQtyGrams).toBe(150500);
+    const row = mapOrderToReportRow(order);
+    expect(row.orderId).toBe('ORD-10284');
+    expect(row.channel).toBe('Online');
+    expect(row.amount).toBe('₹1,240');
+    expect(row.amountNum).toBe(1240);
+    expect(row.items).toBe(4);
+    expect(row.status).toBe('Completed');
   });
 
-  it('maps ReceivingReportDto correctly', () => {
-    const dto: ReceivingReportDto = {
-      from: '2026-09-01',
-      to: '2026-09-25',
-      warehouseId: 'WH-COON',
-      byDay: [
-        { date: '2026-09-25', status: 'ACCEPTED', count: 8 },
-        { date: '2026-09-25', status: 'REJECTED', count: 1 },
-      ],
+  it('maps BatchDto to inventory report row', () => {
+    const batch: BatchDto = {
+      id: 'batch-1',
+      batchCode: 'BAT-CR-0245',
+      warehouseId: 'wh-1',
+      cropId: 'crop-1',
+      cropName: 'Carrot',
+      grade: 'GRADE_1',
+      qtyAvailableKg: '420.000',
+      qtyReservedKg: '35.000',
+      storageLocation: 'Cold Storage A',
+      receivedOn: '2026-09-23',
+      status: 'ACTIVE',
     };
-
-    const res = mapReceivingReportDto(dto);
-    expect(res.totalReceipts).toBe(9);
-    expect(res.byDay.length).toBe(2);
+    const row = mapBatchToInventoryReportRow(batch);
+    expect(row.productName).toBe('Carrot');
+    expect(row.batchCode).toBe('BAT-CR-0245');
+    expect(row.availableQty).toBe('420 kg');
+    expect(row.reservedQty).toBe('35 kg');
+    expect(row.status).toBe('Available');
   });
 
-  it('maps ReturnsReportDto with paise money conversion', () => {
-    const dto: ReturnsReportDto = {
-      from: '2026-09-01',
-      to: '2026-09-25',
-      warehouseId: 'WH-COON',
-      byStatus: [
-        { status: 'RESOLVED', count: 4 },
-        { status: 'REJECTED', count: 1 },
-      ],
-      byDay: [{ date: '2026-09-25', count: 5 }],
-      refundedTotal: '4500.00' as any,
+  it('maps GoodsReceiptDto to receiving report row', () => {
+    const gr: GoodsReceiptDto = {
+      id: 'gr-1',
+      grnNumber: 'GR-00245',
+      purchaseOrderId: 'po-1',
+      warehouseId: 'wh-1',
+      receivedAt: '2026-09-25T10:20:00Z',
+      receivedWeightKg: '420.000',
+      acceptedWeightKg: '400.000',
+      rejectedWeightKg: '5.000',
+      status: 'ACCEPTED',
+      cropName: 'Carrot',
+      grade: 'GRADE_1',
+      notes: 'Clean produce',
     };
-
-    const res = mapReturnsReportDto(dto);
-    expect(res.totalReturns).toBe(5);
-    expect(res.refundedTotalPaise).toBe(450000);
+    const row = mapGoodsReceiptToReceivingReportRow(gr);
+    expect(row.receiptId).toBe('GR-00245');
+    expect(row.product).toBe('Carrot');
+    expect(row.qtyReceived).toBe('420 kg');
+    expect(row.qualityStatus).toBe('Accepted');
+    expect(row.acceptedQty).toBe('400 kg');
   });
 
-  it('maps CustomersReportDto correctly', () => {
-    const dto: CustomersReportDto = {
-      from: '2026-09-01',
-      to: '2026-09-25',
-      warehouseId: 'WH-COON',
-      customersWithOrders: 120,
-      newCustomers: 15,
-      byDay: [{ date: '2026-09-25', count: 3 }],
+  it('maps CustomerSummaryDto to customer report row', () => {
+    const cust: CustomerSummaryDto = {
+      id: 'cus-1',
+      displayName: 'Customer #10284',
+      phone: '+91 98765 43210',
+      status: 'ACTIVE',
+      kycStatus: 'VERIFIED',
+      hasWallet: true,
+      createdAt: '2026-08-01T00:00:00Z',
     };
-
-    const res = mapCustomersReportDto(dto);
-    expect(res.customersWithOrders).toBe(120);
-    expect(res.newCustomers).toBe(15);
+    const row = mapCustomerToReportRow(cust);
+    expect(row.id).toBe('cus-1');
+    expect(row.name).toBe('Customer #10284');
   });
 
-  it('maps CashTopupsReportDto with paise conversion', () => {
-    const dto: CashTopupsReportDto = {
-      from: '2026-09-01',
-      to: '2026-09-25',
-      warehouseId: 'WH-COON',
-      count: 18,
-      total: '36000.00' as any,
-      byDay: [{ date: '2026-09-25', count: 2, total: '4000.00' as any }],
+  it('maps CashTopupSummaryDto to cash top-up report row', () => {
+    const topup: CashTopupSummaryDto = {
+      id: 'top-1',
+      customerId: 'CUS-1024',
+      warehouseId: 'wh-1',
+      amount: '2000.00' as any,
+      collectedAt: '2026-09-25T10:24:00Z',
+      notes: null,
     };
+    const row = mapCashTopupToReportRow(topup);
+    expect(row.id).toBe('top-1');
+    expect(row.amount).toBe('₹2,000');
+    expect(row.amountNum).toBe(2000);
+    expect(row.paymentMethod).toBe('Cash');
+    expect(row.status).toBe('Completed');
+  });
 
-    const res = mapCashTopupsReportDto(dto);
-    expect(res.count).toBe(18);
-    expect(res.totalPaise).toBe(3600000);
+  it('maps ExpenseDto to expense report row', () => {
+    const exp: ExpenseDto = {
+      id: 'exp-1',
+      expenseNumber: 'EXP-001245',
+      warehouseId: 'wh-1',
+      categoryId: 'cat-1',
+      categoryName: 'Transport',
+      amount: '2400.00' as any,
+      paymentMethod: 'CASH',
+      status: 'RECORDED',
+      expenseDate: '2026-09-25',
+      vendor: 'Local Transport Co.',
+      description: 'Transport from collection point',
+      recordedBy: 'Suresh',
+      voucherNumber: 'VCH-000821',
+      createdAt: '2026-09-25T10:00:00Z',
+    };
+    const row = mapExpenseToReportRow(exp);
+    expect(row.id).toBe('EXP-001245');
+    expect(row.category).toBe('Transport');
+    expect(row.amount).toBe('₹2,400');
+    expect(row.amountNum).toBe(2400);
+    expect(row.status).toBe('Recorded');
+  });
+
+  it('maps ReturnSummaryDto to return report row', () => {
+    const ret: ReturnSummaryDto = {
+      id: 'ret-1',
+      orderId: 'ORD-10284',
+      customerId: 'CUS-10284',
+      warehouseId: 'wh-1',
+      status: 'APPROVED',
+      reason: 'Produce damaged during transit',
+      createdAt: '2026-09-25T12:00:00Z',
+    };
+    const row = mapReturnToReportRow(ret);
+    expect(row.id).toBe('ret-1');
+    expect(row.orderId).toBe('ORD-10284');
+    expect(row.status).toBe('Approved');
+  });
+
+  it('computes correct IST date range for Today, Week, Month', () => {
+    const refDate = new Date('2026-09-25T12:00:00Z');
+    const today = getIstDateRange('Today', refDate);
+    expect(today.from).toBe('2026-09-25');
+    expect(today.to).toBe('2026-09-25');
+
+    const month = getIstDateRange('Month', refDate);
+    expect(month.from).toBe('2026-09-01');
+    expect(month.to).toBe('2026-09-25');
   });
 });
