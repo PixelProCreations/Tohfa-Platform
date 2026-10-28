@@ -2493,7 +2493,8 @@ export function ReportsScreen({
   // SCREEN 6: REVENUE REPORT (M12-S08)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'revenue_report') {
-    const REVENUE_DATA = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const REVENUE_DATA: any[] = [];
 
     const filteredRevenue = REVENUE_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -2780,7 +2781,8 @@ export function ReportsScreen({
   // SCREEN 7: EXPENSE REPORT (M12-S07)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'expense_report') {
-    const EXPENSE_DATA = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const EXPENSE_DATA: any[] = [];
 
     const filteredExpenses = EXPENSE_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -4358,7 +4360,7 @@ export function ReportsScreen({
                 return (
                   <OverviewDashboardCard
                     key={k.label}
-                    value={k.value}
+                    value={k.value ?? '—'}
                     title={k.label}
                     subtitle="Report Metric"
                     icon={getIcon(k.label)}

@@ -2,8 +2,9 @@ import type { SalesReportDto } from '../../../api/reports';
 import type { OrderSummaryDto } from '../../../api/orders';
 import type { BatchDto } from '../../../api/inventory';
 import type { GoodsReceiptDto } from '../../../api/receiving';
-import type { CustomerSummaryDto } from '../../../api/customers';
-import type { CashTopupSummaryDto } from '../../../api/wallet';
+import type { AdminCustomerListItemDto } from '../../../api/customers';
+// CashTopupSummaryDto has no API definition; use a local shape
+interface CashTopupSummaryDto { id: string; customerId: string; warehouseId: string; amount: unknown; notes?: string | null; collectedAt?: string; }
 import type { ExpenseDto } from '../../../api/finance';
 import type { ReturnSummaryDto } from '../../../api/returns';
 
@@ -122,9 +123,9 @@ export function mapBatchToInventoryReportRow(batch: BatchDto) {
 }
 
 export function mapGoodsReceiptToReceivingReportRow(gr: GoodsReceiptDto) {
-  const received = parseFloat(gr.receivedWeightKg || '0');
-  const accepted = parseFloat(gr.acceptedWeightKg || '0');
-  const rejected = parseFloat(gr.rejectedWeightKg || '0');
+  const received = parseFloat(String(gr.grossQtyKg || '0'));
+  const accepted = parseFloat(String(gr.acceptedQtyKg || '0'));
+  const rejected = parseFloat(String(gr.rejectedQtyKg || '0'));
   const partial = Math.max(0, received - accepted - rejected);
 
   return {
@@ -144,7 +145,7 @@ export function mapGoodsReceiptToReceivingReportRow(gr: GoodsReceiptDto) {
     acceptedQty: formatKg(accepted),
     partialQty: formatKg(partial),
     rejectedQty: formatKg(rejected),
-    qcNotes: gr.notes || 'QC check completed.',
+    qcNotes: gr.rejectionReason || 'QC check completed.',
     timeline: [
       { title: 'Goods Received', time: gr.receivedAt ? new Date(gr.receivedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }) : '—' },
       { title: 'QC Completed', time: '—' },
@@ -152,10 +153,10 @@ export function mapGoodsReceiptToReceivingReportRow(gr: GoodsReceiptDto) {
   };
 }
 
-export function mapCustomerToReportRow(cust: CustomerSummaryDto) {
+export function mapCustomerToReportRow(cust: AdminCustomerListItemDto) {
   return {
     id: cust.id,
-    name: cust.displayName || 'Customer',
+    name: cust.name || 'Customer',
     channel: 'Online',
     warehouse: 'Warehouse',
     warehouseId: '',
@@ -164,7 +165,7 @@ export function mapCustomerToReportRow(cust: CustomerSummaryDto) {
     cancelledOrders: 0,
     lastOrder: cust.createdAt ? new Date(cust.createdAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     totalSpent: '—',
-    mobile: cust.phone || '—',
+    mobile: cust.mobile || cust.mobileMasked || '—',
     frequency: 'Regular',
     orderHistory: [],
   };
@@ -195,9 +196,9 @@ export function mapCashTopupToReportRow(topup: CashTopupSummaryDto) {
 export function mapExpenseToReportRow(exp: ExpenseDto) {
   const amt = typeof exp.amount === 'string' ? parseFloat(exp.amount) : Number(exp.amount);
   return {
-    id: exp.expenseNumber,
-    category: exp.categoryName || 'General',
-    voucher: exp.voucherNumber || `VCH-${exp.expenseNumber}`,
+    id: exp.id,
+    category: exp.category || 'General',
+    voucher: `VCH-${exp.id.slice(-6)}`,
     amount: formatInr(amt),
     amountNum: amt,
     status: (exp.status === 'RECORDED' ? 'Recorded' : exp.status) as string,

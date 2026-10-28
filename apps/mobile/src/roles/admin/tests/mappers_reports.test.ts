@@ -3,8 +3,9 @@ import type { SalesReportDto } from '../api/reports';
 import type { OrderSummaryDto } from '../api/orders';
 import type { BatchDto } from '../api/inventory';
 import type { GoodsReceiptDto } from '../api/receiving';
-import type { CustomerSummaryDto } from '../api/customers';
-import type { CashTopupSummaryDto } from '../api/wallet';
+import type { AdminCustomerListItemDto } from '../api/customers';
+// CashTopupSummaryDto has no API type; use inline shape
+type CashTopupSummaryDto = { id: string; customerId: string; warehouseId: string; amount: unknown; notes?: string | null; collectedAt?: string };
 import type { ExpenseDto } from '../api/finance';
 import type { ReturnSummaryDto } from '../api/returns';
 import {
@@ -87,13 +88,13 @@ describe('Reports mappers', () => {
       purchaseOrderId: 'po-1',
       warehouseId: 'wh-1',
       receivedAt: '2026-09-25T10:20:00Z',
-      receivedWeightKg: '420.000',
-      acceptedWeightKg: '400.000',
-      rejectedWeightKg: '5.000',
+      grossQtyKg: '420.000',
+      acceptedQtyKg: '400.000',
+      rejectedQtyKg: '5.000',
       status: 'ACCEPTED',
       cropName: 'Carrot',
       grade: 'GRADE_1',
-      notes: 'Clean produce',
+      rejectionReason: 'Clean produce',
     };
     const row = mapGoodsReceiptToReceivingReportRow(gr);
     expect(row.receiptId).toBe('GR-00245');
@@ -104,13 +105,18 @@ describe('Reports mappers', () => {
   });
 
   it('maps CustomerSummaryDto to customer report row', () => {
-    const cust: CustomerSummaryDto = {
+    const cust: AdminCustomerListItemDto = {
       id: 'cus-1',
-      displayName: 'Customer #10284',
-      phone: '+91 98765 43210',
+      customerCode: 'C-001',
+      name: 'Customer #10284',
+      mobileMasked: '******3210',
+      customerType: 'RETAIL',
       status: 'ACTIVE',
-      kycStatus: 'VERIFIED',
-      hasWallet: true,
+      isNew: false,
+      preferredWarehouseId: null,
+      totalOrders: 5,
+      lastActivityAt: null,
+      piiMasked: true,
       createdAt: '2026-08-01T00:00:00Z',
     };
     const row = mapCustomerToReportRow(cust);
@@ -138,10 +144,9 @@ describe('Reports mappers', () => {
   it('maps ExpenseDto to expense report row', () => {
     const exp: ExpenseDto = {
       id: 'exp-1',
-      expenseNumber: 'EXP-001245',
       warehouseId: 'wh-1',
       categoryId: 'cat-1',
-      categoryName: 'Transport',
+      category: 'Transport',
       amount: '2400.00' as any,
       paymentMethod: 'CASH',
       status: 'RECORDED',
@@ -149,7 +154,6 @@ describe('Reports mappers', () => {
       vendor: 'Local Transport Co.',
       description: 'Transport from collection point',
       recordedBy: 'Suresh',
-      voucherNumber: 'VCH-000821',
       createdAt: '2026-09-25T10:00:00Z',
     };
     const row = mapExpenseToReportRow(exp);

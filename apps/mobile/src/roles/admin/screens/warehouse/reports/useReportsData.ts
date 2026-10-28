@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { AdminScope } from '../../../types';
+import type { WarehouseScope } from '../wallet-cashtopup/types';
 import { getSalesReport, getInventoryReport, getReceivingReport, getCustomersReport, getCashTopupsReport, getReturnsReport } from '../../../api/reports';
-import { listOrders } from '../../../api/orders';
+import { listAdminOrders } from '../../../api/orders';
 import { listBatches } from '../../../api/inventory';
 import { listGoodsReceipts } from '../../../api/receiving';
 import { listCustomers } from '../../../api/customers';
-import { listCashTopups } from '../../../api/wallet';
 import { listExpenses, getFinanceExpenseReport, listFinanceRevenue, getFinanceRevenueReport } from '../../../api/finance';
 import { listReturns } from '../../../api/returns';
 import {
@@ -22,8 +21,8 @@ import {
   mapReturnToReportRow,
 } from './mappers';
 
-export function resolveWarehouseId(scope: AdminScope, selectedWarehouseId?: string): string | undefined {
-  if (scope.type === 'sub') {
+export function resolveWarehouseId(scope: WarehouseScope, selectedWarehouseId?: string): string | undefined {
+  if (scope.warehouseId !== undefined) {
     return scope.warehouseId;
   }
   if (!selectedWarehouseId || selectedWarehouseId === 'all') {
@@ -42,7 +41,7 @@ export interface HubKpis {
   returns: { count: string; subtext: string };
 }
 
-export function useHubKpis(scope: AdminScope, selectedWarehouseId?: string) {
+export function useHubKpis(scope: WarehouseScope, selectedWarehouseId?: string) {
   const [kpis, setKpis] = useState<HubKpis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,8 +55,8 @@ export function useHubKpis(scope: AdminScope, selectedWarehouseId?: string) {
     try {
       const [sales, inv, recv, cust, topup, exp, ret] = await Promise.allSettled([
         getSalesReport({ from, to, warehouseId }),
-        getInventoryReport(warehouseId),
-        getReceivingReport({ date: to, warehouseId }),
+        getInventoryReport(warehouseId ? { warehouseId } : undefined),
+        getReceivingReport({ from, to, warehouseId }),
         getCustomersReport({ from, to, warehouseId }),
         getCashTopupsReport({ from, to, warehouseId }),
         getFinanceExpenseReport({ from, to }),
@@ -75,21 +74,21 @@ export function useHubKpis(scope: AdminScope, selectedWarehouseId?: string) {
       const totalSalesAmt = salesVal ? formatInr(salesVal.total) : '₹0';
       const totalSalesCount = salesVal ? `${salesVal.count} orders` : '0 orders';
 
-      const invTotalWeight = invVal ? `${Math.round(invVal.totalWeightKg).toLocaleString('en-IN')} kg` : '0 kg';
+      const invTotalWeight = invVal ? `${invVal.items.length} crop types` : '0 crop types';
       const invCrops = invVal ? `${invVal.items.length} crops` : '0 crops';
 
-      const recvCount = recvVal ? `${recvVal.summary.total} receipts` : '0 receipts';
-      const recvWeight = recvVal ? `${recvVal.summary.acceptedWeightKg} kg accepted` : '0 kg accepted';
+      const recvCount = recvVal ? `${recvVal.byDay.reduce((s, d) => s + d.count, 0)} receipts` : '0 receipts';
+      const recvWeight = recvVal ? 'Received today' : '0 receipts';
 
-      const custCount = custVal ? `${custVal.activeInPeriod}` : '0';
+      const custCount = custVal ? `${custVal.customersWithOrders}` : '0';
 
       const topupAmt = topupVal ? formatInr(topupVal.total) : '₹0';
       const topupCount = topupVal ? `${topupVal.count} top-ups` : '0 top-ups';
 
-      const expAmt = expVal ? formatInr(expVal.total) : '₹0';
+      const expAmt = expVal ? formatInr(expVal.summary.total) : '₹0';
       const expCount = expVal ? `${expVal.byCategory.length} categories` : '0 categories';
 
-      const retCount = retVal ? `${retVal.total}` : '0';
+      const retCount = retVal ? `${retVal.byStatus.reduce((s, r) => s + r.count, 0)}` : '0';
 
       setKpis({
         todaySales: { amount: totalSalesAmt, count: totalSalesCount },
@@ -114,7 +113,7 @@ export function useHubKpis(scope: AdminScope, selectedWarehouseId?: string) {
   return { kpis, loading, error, refresh: load };
 }
 
-export function useSalesReportData(scope: AdminScope, selectedWarehouseId?: string, period: string = 'Today') {
+export function useSalesReportData(scope: WarehouseScope, selectedWarehouseId?: string, period: string = 'Today') {
   const [data, setData] = useState<{
     summary: ReturnType<typeof mapSalesReportToSummary>;
     orders: ReturnType<typeof mapOrderToReportRow>[];
@@ -131,7 +130,7 @@ export function useSalesReportData(scope: AdminScope, selectedWarehouseId?: stri
     try {
       const [reportRes, ordersRes] = await Promise.all([
         getSalesReport({ from, to, warehouseId }),
-        listOrders({ warehouseId, limit: 100 }),
+        listAdminOrders({ warehouseId, limit: 100 }),
       ]);
       const summary = mapSalesReportToSummary(reportRes);
       const orders = ordersRes.items.map(mapOrderToReportRow);
@@ -150,7 +149,7 @@ export function useSalesReportData(scope: AdminScope, selectedWarehouseId?: stri
   return { data, loading, error, refresh: load };
 }
 
-export function useInventoryReportData(scope: AdminScope, selectedWarehouseId?: string) {
+export function useInventoryReportData(scope: WarehouseScope, selectedWarehouseId?: string) {
   const [items, setItems] = useState<ReturnType<typeof mapBatchToInventoryReportRow>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -177,7 +176,7 @@ export function useInventoryReportData(scope: AdminScope, selectedWarehouseId?: 
   return { items, loading, error, refresh: load };
 }
 
-export function useReceivingReportData(scope: AdminScope, selectedWarehouseId?: string) {
+export function useReceivingReportData(scope: WarehouseScope, selectedWarehouseId?: string) {
   const [items, setItems] = useState<ReturnType<typeof mapGoodsReceiptToReceivingReportRow>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -204,7 +203,7 @@ export function useReceivingReportData(scope: AdminScope, selectedWarehouseId?: 
   return { items, loading, error, refresh: load };
 }
 
-export function useCustomerReportData(scope: AdminScope, selectedWarehouseId?: string) {
+export function useCustomerReportData(scope: WarehouseScope, selectedWarehouseId?: string) {
   const [items, setItems] = useState<ReturnType<typeof mapCustomerToReportRow>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -230,7 +229,7 @@ export function useCustomerReportData(scope: AdminScope, selectedWarehouseId?: s
   return { items, loading, error, refresh: load };
 }
 
-export function useCashTopupReportData(scope: AdminScope, selectedWarehouseId?: string) {
+export function useCashTopupReportData(scope: WarehouseScope, selectedWarehouseId?: string) {
   const [items, setItems] = useState<ReturnType<typeof mapCashTopupToReportRow>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -241,8 +240,8 @@ export function useCashTopupReportData(scope: AdminScope, selectedWarehouseId?: 
     const warehouseId = resolveWarehouseId(scope, selectedWarehouseId);
 
     try {
-      const res = await listCashTopups({ warehouseId, limit: 100 });
-      setItems(res.items.map(mapCashTopupToReportRow));
+      // listCashTopups has no API endpoint; topup rows come from aggregate report only
+      setItems([]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -257,7 +256,7 @@ export function useCashTopupReportData(scope: AdminScope, selectedWarehouseId?: 
   return { items, loading, error, refresh: load };
 }
 
-export function useRevenueReportData(scope: AdminScope, selectedWarehouseId?: string, period: string = 'Today') {
+export function useRevenueReportData(scope: WarehouseScope, selectedWarehouseId?: string, period: string = 'Today') {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -271,18 +270,18 @@ export function useRevenueReportData(scope: AdminScope, selectedWarehouseId?: st
       const res = await listFinanceRevenue({ from, to, limit: 100 });
       setItems(
         res.items.map((r) => ({
-          id: r.id,
+          id: r.orderId,
           orderId: r.orderId,
-          invoice: `INV-${r.id.slice(0, 8)}`,
+          invoice: `INV-${r.orderId.slice(0, 8)}`,
           type: r.channel === 'ONLINE' ? 'Online Order' : 'Market Sale',
           product: 'Produce',
           quantity: '—',
           order: `Order #${r.orderId.slice(-6)}`,
-          amount: formatInr(r.amount),
-          amountNum: typeof r.amount === 'string' ? parseFloat(r.amount) : Number(r.amount),
+          amount: formatInr(r.totalAmount),
+          amountNum: typeof r.totalAmount === 'string' ? parseFloat(r.totalAmount) : Number(r.totalAmount),
           paymentMethod: r.paymentMethod,
           status: 'Completed',
-          dateTime: new Date(r.recordedAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+          dateTime: new Date(r.placedAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
           warehouse: 'Warehouse',
           warehouseId: '',
         })),
@@ -301,7 +300,7 @@ export function useRevenueReportData(scope: AdminScope, selectedWarehouseId?: st
   return { items, loading, error, refresh: load };
 }
 
-export function useExpenseReportData(scope: AdminScope, selectedWarehouseId?: string, period: string = 'Today') {
+export function useExpenseReportData(scope: WarehouseScope, selectedWarehouseId?: string, period: string = 'Today') {
   const [items, setItems] = useState<ReturnType<typeof mapExpenseToReportRow>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -329,7 +328,7 @@ export function useExpenseReportData(scope: AdminScope, selectedWarehouseId?: st
   return { items, loading, error, refresh: load };
 }
 
-export function useReturnsReportData(scope: AdminScope, selectedWarehouseId?: string) {
+export function useReturnsReportData(scope: WarehouseScope, selectedWarehouseId?: string) {
   const [items, setItems] = useState<ReturnType<typeof mapReturnToReportRow>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
