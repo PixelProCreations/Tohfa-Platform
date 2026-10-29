@@ -10,5 +10,4 @@ export {
   type TransferReceivingInspectionScreenProps,
 } from './TransferReceivingInspectionScreen';
 export { TRANSFER_CODES, transferInScope } from './TransferParts';
-export { TRANSFERS } from './fixtures';
 export type { TransferItem, TransferRoute, TransferRouteParams, TransferStatus } from './types';

@@ -17,7 +17,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors } from '../../../theme';
 import { EmptyState, WalletButton, WalletFooter, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
-import { TRANSFERS, type TransferItem, type TransferStatus } from '../transfers';
+import type { TransferItem, TransferStatus } from '../transfers';
 import { WAREHOUSE_ADMIN_ROWS, type WarehouseAdminRow } from '../warehouse-admin';
 import { adminWarehouseLabel } from '../warehouse-admin/fixtures';
 import { formatAdminKg } from '../warehouse-admin/WarehouseAdminParts';
@@ -55,7 +55,7 @@ export function StockAndTransferOverviewScreen({
   can,
   onBack,
   warehouses = WAREHOUSE_ADMIN_ROWS,
-  transfers = TRANSFERS,
+  transfers = [],
   lowStockSummary = '3 products below target · 2 warehouses with surplus available',
   onInitiateTransfer,
   onViewConsolidatedStock,

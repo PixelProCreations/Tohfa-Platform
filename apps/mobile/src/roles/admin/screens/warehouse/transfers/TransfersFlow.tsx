@@ -23,14 +23,13 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
-import { TRANSFERS } from './fixtures';
 import { InitiateNewTransferScreen } from './InitiateNewTransferScreen';
 import { InterWarehouseTransferScreen } from './InterWarehouseTransferScreen';
 import { TransferDetailScreen } from './TransferDetailScreen';
 import { TRANSFER_CODES } from './TransferParts';
 import { TransferReceivingInspectionScreen } from './TransferReceivingInspectionScreen';
 import { TransferReceivingScreen } from './TransferReceivingScreen';
-import type { PermissionCheck, TransferItem, TransferRoute, TransferRouteParams, WarehouseScope } from './types';
+import type { PermissionCheck, TransferRoute, TransferRouteParams, WarehouseScope } from './types';
 
 interface TransferStackEntry {
   screen: TransferRoute;
@@ -53,7 +52,6 @@ export interface TransfersFlowProps {
 
 export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initialParams, onBack }: TransfersFlowProps) {
   const [stack, setStack] = useState<TransferStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  const [transfers, setTransfers] = useState<readonly TransferItem[]>(TRANSFERS);
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do (keyed on the value, not the params object).
@@ -88,7 +86,7 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
     else onBack();
   };
 
-  const common = { scope, can, onBack: back, transfers };
+  const common = { scope, can, onBack: back };
 
   switch (current.screen) {
     case 'Transfers':
@@ -109,15 +107,7 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
         />
       );
     case 'InitiateNewTransfer':
-      return (
-        <InitiateNewTransferScreen
-          {...common}
-          onSubmitTransfer={(t) => {
-            setTransfers((prev) => [t, ...prev]);
-            back();
-          }}
-        />
-      );
+      return <InitiateNewTransferScreen {...common} />;
     case 'TransferReceiving':
       return (
         <TransferReceivingScreen

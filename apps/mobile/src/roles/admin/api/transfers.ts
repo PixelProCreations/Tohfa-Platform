@@ -99,3 +99,34 @@ export function receiveWarehouseTransfer(
 ): Promise<WarehouseTransferDetailDto> {
   return adminPost<WarehouseTransferDetailDto>(`${transferPath(id)}/receive`, body, { idempotencyKey });
 }
+
+export interface WarehouseTransferCreateLineDto {
+  batchId: string;
+  qtyKg: string;
+}
+
+export interface WarehouseTransferCreateDto {
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  lines: WarehouseTransferCreateLineDto[];
+  vehicleNumber?: string | undefined;
+  notes?: string | undefined;
+}
+
+/** Initiate an inter-warehouse transfer (Main Warehouse Admin / Super only). */
+export function createWarehouseTransfer(
+  body: WarehouseTransferCreateDto,
+  idempotencyKey: string,
+): Promise<WarehouseTransferDetailDto> {
+  return adminPost<WarehouseTransferDetailDto>('/warehouse-transfers', body, { idempotencyKey });
+}
+
+/** Approve a high-value transfer. */
+export function approveWarehouseTransfer(id: string): Promise<WarehouseTransferDetailDto> {
+  return adminPost<WarehouseTransferDetailDto>(`${transferPath(id)}/approve`, {});
+}
+
+/** Cancel a transfer before receipt. */
+export function cancelWarehouseTransfer(id: string): Promise<WarehouseTransferDetailDto> {
+  return adminPost<WarehouseTransferDetailDto>(`${transferPath(id)}/cancel`, {});
+}

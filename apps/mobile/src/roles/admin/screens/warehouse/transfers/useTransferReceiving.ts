@@ -114,6 +114,53 @@ export interface ReceivedTransfers extends TransferQueryState {
   mismatch: MismatchTally | undefined;
 }
 
+export interface TransferListResult extends TransferQueryState {
+  items: LiveTransferRow[];
+  total: number;
+}
+
+/**
+ * Live list of inter-warehouse transfers matching status/direction filters.
+ */
+export function useTransferList(
+  scope: WarehouseScope,
+  can: PermissionCheck,
+  filter: { status?: TransferStatus | undefined; direction?: 'INBOUND' | 'OUTBOUND' | undefined; page?: number | undefined } = {},
+): TransferListResult {
+  const enabled = can(TRANSFER_RECEIVING_CODES.view);
+  const naming = useTransferNaming(scope, can);
+  const page = filter.page ?? 1;
+  const direction = scope.warehouseId ? filter.direction : undefined;
+  const query = useAdminQuery(
+    adminKeys.scoped(TRANSFERS_MODULE, scope.warehouseId, {
+      resource: 'list',
+      status: filter.status,
+      direction,
+      page,
+    }),
+    (signal) =>
+      listWarehouseTransfers(
+        {
+          status: filter.status,
+          warehouseId: scope.warehouseId,
+          direction,
+          page,
+          pageSize: 20,
+        },
+        signal,
+      ),
+    { enabled },
+  );
+
+  const data = query.data;
+  const items = useMemo(() => (data?.items ?? []).map((dto) => toLiveTransferRow(dto, naming)), [data, naming]);
+  return {
+    ...stateOf(query, enabled),
+    items,
+    total: data?.total ?? 0,
+  };
+}
+
 /**
  * The scope's RECEIVED transfers: their total (COMPLETED) and how many were
  * received short (QTY MISMATCH, hasDiscrepancy). The list takes no

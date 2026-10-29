@@ -718,5 +718,15 @@
   "stockShared.tile.variance": "வித்தியாசம்",
   "profile.edit.notPermitted": "கிடங்கு விவரங்களை மாற்ற அனுமதி இல்லை.",
   "profile.save.success.title": "மாற்றங்கள் சேமிக்கப்பட்டன",
-  "profile.save.success.message": "கிடங்கு விவரங்கள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன."
+  "profile.save.success.message": "கிடங்கு விவரங்கள் வெற்றிகரமாக புதுப்பிக்கப்பட்டன.",
+  "transfers.initiate.title": "பரிமாற்றத்தைத் தொடங்கு",
+  "transfers.initiate.unavailable.title": "கிடைக்கவில்லை",
+  "transfers.initiate.unavailable": "கிடங்குகளுக்கிடையேயான பரிமாற்றத்தைத் தொடங்குவது இன்னும் கிடைக்கவில்லை.",
+  "transfers.empty.title": "பரிமாற்றங்கள் எதுவும் கிடைக்கவில்லை",
+  "transfers.empty.subtitle": "இந்த நிலையில் எந்தப் பரிமாற்றங்களும் இல்லை.",
+  "orders.cancel.unavailable.button": "ஆர்டரை ரத்துசெய்",
+  "orders.cancel.unavailable.body": "வாடிக்கையாளர் ஆர்டரை ரத்து செய்வது இன்னும் கிடைக்கவில்லை.",
+  "orders.issue.unavailable.body": "ஆர்டர் தொடர்பான சிக்கலைப் புகாரளிப்பது இன்னும் கிடைக்கவில்லை.",
+  "home.recent_orders": "சமீபத்திய ஆர்டர்கள்",
+  "home.attention.qc_pending.detail": "{{crop}} {{grn}} · பெறப்பட்டது {{qtyKg}} கிலோ, தர பரிசோதனை நிலுவையில் உள்ளது"
 }

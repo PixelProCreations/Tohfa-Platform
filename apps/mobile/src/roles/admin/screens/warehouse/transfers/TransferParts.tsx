@@ -10,7 +10,6 @@ import Svg, { Circle, Path, Polygon, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType, type AdminTone } from '../../../theme';
 import { StatusBadge } from '../wallet-cashtopup/WalletParts';
-import { transferWarehouseLabel } from './fixtures';
 import { transferRouteText, transferRowMeta, type LiveTransferRow } from './transferReceiving';
 import type { TransferItem, TransferStatus, WarehouseScope } from './types';
 
@@ -46,7 +45,7 @@ export function formatTransferKg(kg: number): string {
 
 /** 'Kotagiri → Coonoor' */
 export function transferRouteLabel(transfer: TransferItem): string {
-  return `${transferWarehouseLabel(transfer.sourceWarehouseId)} → ${transferWarehouseLabel(transfer.destinationWarehouseId)}`;
+  return `${transfer.sourceWarehouseId} → ${transfer.destinationWarehouseId}`;
 }
 
 interface IconProps {
@@ -170,15 +169,15 @@ function TransferCard({ sourceName, destinationName, meta, statusLabel, statusTo
   );
 }
 
-/** One transfer card: route, code + produce, status and ETA (sample rows of the transfer list). */
+/** One transfer card: route, code + produce, status and ETA. */
 export function TransferRow({ transfer, onPress }: { transfer: TransferItem; onPress?: (() => void) | undefined }) {
   return (
     <TransferCard
-      sourceName={transferWarehouseLabel(transfer.sourceWarehouseId)}
-      destinationName={transferWarehouseLabel(transfer.destinationWarehouseId)}
-      meta={`${transfer.code} · ${transfer.produce} — ${formatTransferKg(transfer.quantityKg)}`}
+      sourceName={transfer.sourceWarehouseId}
+      destinationName={transfer.destinationWarehouseId}
+      meta={`${transfer.code}${transfer.produce ? ` · ${transfer.produce}` : ''}${transfer.quantityKg ? ` — ${formatTransferKg(transfer.quantityKg)}` : ''}`}
       statusLabel={transfer.status}
-      statusTone={TRANSFER_STATUS_TONE[transfer.status]}
+      statusTone={TRANSFER_STATUS_TONE[transfer.status] ?? 'info'}
       eta={transfer.eta}
       accessibilityLabel={`${transfer.code} ${transferRouteLabel(transfer)}`}
       onPress={onPress}
