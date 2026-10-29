@@ -728,5 +728,19 @@
   "orders.cancel.unavailable.body": "வாடிக்கையாளர் ஆர்டரை ரத்து செய்வது இன்னும் கிடைக்கவில்லை.",
   "orders.issue.unavailable.body": "ஆர்டர் தொடர்பான சிக்கலைப் புகாரளிப்பது இன்னும் கிடைக்கவில்லை.",
   "home.recent_orders": "சமீபத்திய ஆர்டர்கள்",
-  "home.attention.qc_pending.detail": "{{crop}} {{grn}} · பெறப்பட்டது {{qtyKg}} கிலோ, தர பரிசோதனை நிலுவையில் உள்ளது"
+  "home.awaiting_qc_none": "— தர பரிசோதனை நிலுவை",
+  "home.awaiting_qc": "தர பரிசோதனை நிலுவை",
+  "home.expected": "எதிர்பார்க்கப்பட்டது",
+  "home.received": "பெறப்பட்டது",
+  "home.low_stock": "குறைந்த இருப்பு",
+  "home.item": "பொருள்",
+  "home.pending_orders.subtitle": "செயலில் உள்ள ஆர்டர்கள்",
+  "home.tile.error": "—",
+  "home.attention.qc_pending.detail": "{{crop}} {{grn}} · பெறப்பட்டது {{qtyKg}}, தர பரிசோதனை நிலுவையில் உள்ளது",
+  "home.attention.qty_mismatch.detail": "எதிர்பார்க்கப்பட்டது {{expected}}, பெறப்பட்டது {{received}}",
+  "allocation.channel.ONLINE": "ஆன்லைன்",
+  "allocation.channel.LIVE_MARKET": "நேரடி சந்தை",
+  "allocation.channel.RESERVE": "இருப்பு",
+  "allocation.channel.BUFFER": "இடைநிலை இருப்பு",
+  "allocation.empty": "இன்றைய ஒதுக்கீடுகள் எதுவும் இல்லை"
 }

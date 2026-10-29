@@ -44,6 +44,9 @@ import {
 } from '../../admin/api/dashboardFeeds';
 import { listAdminOrders } from '../../admin/api/orders';
 import { getCashTopupsReport, getSalesReport } from '../../admin/api/reports';
+import { getInventoryOverview, listAllocations } from '../../admin/api/inventory';
+import { formatKg, parseKgToGrams } from '../../admin/money/quantity';
+import { t } from '../../admin/i18n';
 import { formatAdminDate, formatAdminTime, istDay } from '../../admin/utils/datetime';
 import { formatPaise, parseRupeesToPaise } from '../../admin/money/paise';
 import { greetingText } from '../../admin/screens/dashboard/mappers_mainDashboard';
@@ -641,10 +644,20 @@ function SubWarehouseTodayOverviewView({
   onOpenSales,
   onOpenCash,
   onNavigateTab,
+  dateText,
+  warehouseLabel,
+  receiving,
+  orders,
+  inventory,
   sales,
   cash,
 }: {
   onBack: () => void;
+  dateText: string;
+  warehouseLabel: string;
+  receiving: { totalText: string; pendingText: string; completedText: string };
+  orders: { pendingText: string; readyText: string; completedText: string };
+  inventory: { lowStockText: string; verificationPendingText: string };
   sales: { countText: string; totalText: string };
   cash: { countText: string; totalText: string };
   onOpenReceiving?: () => void;
@@ -677,7 +690,7 @@ function SubWarehouseTodayOverviewView({
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 21, fontWeight: '800', color: adminColors.onBrand, letterSpacing: -0.3 }}>Today's Overview</Text>
-            <Text style={{ fontSize: 13.5, fontWeight: '500', color: adminColors.onBrand, marginTop: 2 }}>24 September · Coonoor Warehouse</Text>
+            <Text style={{ fontSize: 13.5, fontWeight: '500', color: adminColors.onBrand, marginTop: 2 }}>{`${dateText} · ${warehouseLabel}`}</Text>
           </View>
         </View>
       </View>
@@ -730,15 +743,15 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>03</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{receiving.totalText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>total</Text>
                 </View>
                 <View style={{ flex: 1.2 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>01</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{receiving.pendingText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>pending QC</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>02</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{receiving.completedText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>completed</Text>
                 </View>
               </View>
@@ -766,15 +779,15 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>12</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{orders.pendingText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>pending</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>08</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{orders.readyText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>ready</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>27</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{orders.completedText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>completed</Text>
                 </View>
               </View>
@@ -802,11 +815,11 @@ function SubWarehouseTodayOverviewView({
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>05</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{inventory.lowStockText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>low stock</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>02</Text>
+                  <Text style={{ fontSize: 19, fontWeight: '800', color: adminColors.ink }}>{inventory.verificationPendingText}</Text>
                   <Text style={{ fontSize: 13, color: adminColors.muted, marginTop: 2, fontWeight: '500' }}>verification pending</Text>
                 </View>
               </View>
@@ -1698,9 +1711,115 @@ export function SubWarehouseAdminDashboardScreen({
 
   const formatOrderCount = (q: { isLoading: boolean; error: unknown; data?: { count: number } | undefined }) => {
     if (q.isLoading) return '—';
-    if (q.error || q.data === undefined) return '00';
+    if (q.error || q.data === undefined) return '—';
     return String(q.data.count).padStart(2, '0');
   };
+
+  // Inventory overview (BR-116)
+  const inventoryOverviewQuery = useAdminQuery(
+    adminKeys.scoped('inventory', scope.warehouseId, { resource: 'overview' }),
+    (signal) => getInventoryOverview(signal),
+    { enabled: canStock },
+  );
+
+  // Allocations for today (BR-116)
+  const canAllocations = can('allocation.dashboard.view');
+  const allocationsQuery = useAdminQuery(
+    adminKeys.scoped('inventory', scope.warehouseId, { resource: 'allocations', day: today }),
+    (signal) => listAllocations({ warehouseId: scope.warehouseId, allocationDate: today, limit: 100 }, signal),
+    { enabled: canAllocations },
+  );
+
+  const pendingOrdersText = useMemo(() => {
+    if (confirmedCountQuery.isLoading || packingCountQuery.isLoading || readyOrdersQuery.isLoading) {
+      return '—';
+    }
+    if (confirmedCountQuery.isError || packingCountQuery.isError || readyOrdersQuery.isError) {
+      return t('home.tile.error');
+    }
+    const confirmedCount = confirmedCountQuery.data?.count ?? 0;
+    const packingCount = packingCountQuery.data?.count ?? 0;
+    const readyCount = readyOrdersQuery.data?.count ?? 0;
+    const sum = confirmedCount + packingCount + readyCount;
+    const isExact =
+      (confirmedCountQuery.data?.exact ?? true) &&
+      (packingCountQuery.data?.exact ?? true) &&
+      (readyOrdersQuery.data?.exact ?? true);
+    return `${String(sum).padStart(2, '0')}${isExact ? '' : '+'}`;
+  }, [
+    confirmedCountQuery.isLoading,
+    confirmedCountQuery.isError,
+    confirmedCountQuery.data,
+    packingCountQuery.isLoading,
+    packingCountQuery.isError,
+    packingCountQuery.data,
+    readyOrdersQuery.isLoading,
+    readyOrdersQuery.isError,
+    readyOrdersQuery.data,
+  ]);
+
+  const readyOrdersText = useMemo(() => {
+    if (readyOrdersQuery.isLoading) return '—';
+    if (readyOrdersQuery.isError || readyOrdersQuery.data === undefined) return '—';
+    return `${String(readyOrdersQuery.data.count).padStart(2, '0')}${readyOrdersQuery.data.exact ? '' : '+'}`;
+  }, [readyOrdersQuery.isLoading, readyOrdersQuery.isError, readyOrdersQuery.data]);
+
+  const completedOrdersText = useMemo(() => {
+    if (completedCountQuery.isLoading) return '—';
+    if (completedCountQuery.isError || completedCountQuery.data === undefined) return '—';
+    return `${String(completedCountQuery.data.count).padStart(2, '0')}${completedCountQuery.data.exact ? '' : '+'}`;
+  }, [completedCountQuery.isLoading, completedCountQuery.isError, completedCountQuery.data]);
+
+  const verificationPendingText = useMemo(() => {
+    if (inventoryOverviewQuery.isLoading) return '—';
+    if (inventoryOverviewQuery.isError || inventoryOverviewQuery.data === undefined) return '—';
+    return String(inventoryOverviewQuery.data.unreconciledVerificationCount).padStart(2, '0');
+  }, [inventoryOverviewQuery.isLoading, inventoryOverviewQuery.isError, inventoryOverviewQuery.data]);
+
+  const reservedGrams = useMemo(() => {
+    if (!batchesQuery.data?.items) return null;
+    let total = 0;
+    for (const b of batchesQuery.data.items) {
+      if (b.qtyReservedKg) {
+        const g = parseKgToGrams(b.qtyReservedKg);
+        if (g !== null) total += g;
+      }
+    }
+    return total;
+  }, [batchesQuery.data?.items]);
+  const reservedStockText = reservedGrams !== null ? formatKg(reservedGrams) : '—';
+
+  const whOverview = inventoryOverviewQuery.data?.warehouses?.[0];
+  const availGrams = whOverview?.availableQtyKg ? parseKgToGrams(whOverview.availableQtyKg) : null;
+  const availableStockText = availGrams !== null ? formatKg(availGrams) : '—';
+  const lowStockNum = inventoryOverviewQuery.data?.lowStockCount;
+  const lowStockSnapshotText = lowStockNum !== null && lowStockNum !== undefined ? String(lowStockNum).padStart(2, '0') : '—';
+
+  const allocationChannels = useMemo(() => {
+    if (!allocationsQuery.data?.items) return null;
+    const items = allocationsQuery.data.items;
+    if (items.length === 0) return [];
+    const map: Record<string, number> = {
+      ONLINE: 0,
+      LIVE_MARKET: 0,
+      RESERVE: 0,
+      BUFFER: 0,
+    };
+    for (const item of items) {
+      if (item.channel && item.allocatedQtyKg) {
+        const g = parseKgToGrams(item.allocatedQtyKg);
+        if (g !== null) {
+          map[item.channel] = (map[item.channel] ?? 0) + g;
+        }
+      }
+    }
+    return [
+      { channel: 'ONLINE', label: t('allocation.channel.ONLINE'), valueText: formatKg(map.ONLINE ?? 0) },
+      { channel: 'LIVE_MARKET', label: t('allocation.channel.LIVE_MARKET'), valueText: formatKg(map.LIVE_MARKET ?? 0) },
+      { channel: 'RESERVE', label: t('allocation.channel.RESERVE'), valueText: formatKg(map.RESERVE ?? 0) },
+      { channel: 'BUFFER', label: t('allocation.channel.BUFFER'), valueText: formatKg(map.BUFFER ?? 0) },
+    ];
+  }, [allocationsQuery.data?.items]);
 
   // Today's sales and cash top-ups (BR-64): read-only, warehouse-scoped aggregates
   const canCashTopup = can('wallet.cash_topup.process');
@@ -2122,6 +2241,31 @@ export function SubWarehouseAdminDashboardScreen({
   if (showTodayOverview) {
     return (
       <SubWarehouseTodayOverviewView
+        dateText={formatAdminDate(now, now)}
+        warehouseLabel={warehouseLabel}
+        receiving={{
+          totalText:
+            receiptsTodayQuery.isLoading || receiptsTodayQuery.isError
+              ? '—'
+              : `${String(todayReceivingItems.length).padStart(2, '0')}${receiptsTodayQuery.data?.complete === false ? '+' : ''}`,
+          pendingText:
+            awaitingQcQuery.isLoading || awaitingQcQuery.isError || awaitingQcQuery.data === undefined
+              ? '—'
+              : `${String(awaitingQcQuery.data.count).padStart(2, '0')}${awaitingQcQuery.data.exact ? '' : '+'}`,
+          completedText:
+            receiptsTodayQuery.isLoading || receiptsTodayQuery.isError
+              ? '—'
+              : `${String(todayReceivingItems.filter((i) => !i.isAwaitingQc).length).padStart(2, '0')}`,
+        }}
+        orders={{
+          pendingText: pendingOrdersText,
+          readyText: readyOrdersText,
+          completedText: completedOrdersText,
+        }}
+        inventory={{
+          lowStockText: lowStockCountText,
+          verificationPendingText,
+        }}
         sales={{ countText: salesSummary.countNumberText, totalText: salesSummary.totalText }}
         cash={{ countText: cashSummary.countNumberText, totalText: cashSummary.totalText }}
         onBack={() => {
@@ -2726,9 +2870,8 @@ export function SubWarehouseAdminDashboardScreen({
                   <Text style={styles.receivingValue}>
                     {receiptsTodayQuery.isLoading
                       ? '—'
-                      : `${todayReceivingItems.length} ${todayReceivingItems.length === 1 ? 'shipment' : 'shipments'}`}
+                      : `${todayReceivingItems.length}${receiptsTodayQuery.data?.complete === false ? '+' : ''} ${todayReceivingItems.length === 1 ? 'shipment' : 'shipments'}`}
                   </Text>
-                  <Text style={styles.syncText}>Last sync: 2 min ago</Text>
                 </View>
               </View>
 
@@ -2750,9 +2893,9 @@ export function SubWarehouseAdminDashboardScreen({
                   <>
                     {/* 1. Pending Orders */}
                     <OverviewDashboardCard
-                      value={ordersQuery.isLoading ? '—' : String(ordersQuery.data?.items.length ?? 0).padStart(2, '0')}
+                      value={pendingOrdersText}
                       title="Pending Orders"
-                      subtitle="Active orders"
+                      subtitle={t('home.pending_orders.subtitle')}
                       icon="orders"
                       onPress={() => {
                         setOrdersInitialScreen('M5S02');
@@ -2936,36 +3079,18 @@ export function SubWarehouseAdminDashboardScreen({
                     <Text style={styles.alertCardTitle}>QC Pending</Text>
                     <Text style={styles.alertCardSub}>
                       {awaitingQcFirstReceipt
-                        ? `${awaitingQcFirstReceipt.cropName ?? 'Shipment'} — Batch ${awaitingQcFirstReceipt.grnNumber} · Received ${awaitingQcFirstReceipt.grossQtyKg ?? 0} KG, awaiting quality check`
+                        ? (() => {
+                            const grams = awaitingQcFirstReceipt.grossQtyKg ? parseKgToGrams(awaitingQcFirstReceipt.grossQtyKg) : null;
+                            const qtyStr = grams !== null ? formatKg(grams) : '';
+                            const crop = awaitingQcFirstReceipt.cropName ?? '';
+                            const grn = `Batch ${awaitingQcFirstReceipt.grnNumber}`;
+                            return t('home.attention.qc_pending.detail', { crop, grn, qtyKg: qtyStr });
+                          })()
                         : `${awaitingQcCount} shipment(s) awaiting quality check`}
                     </Text>
                   </View>
                 </TouchableOpacity>
                 ) : null}
-
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
-                    <ExclamationCircleIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Quantity Mismatch</Text>
-                    <Text style={styles.alertCardSub}>Expected 100 KG, received 95 KG</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => setReceivingWizardStep('damage_mismatch')}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.redIconBg }]}>
-                    <BrokenCrateIcon />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Damage Report</Text>
-                    <Text style={styles.alertCardSub}>2 crates reported damaged on today's receiving</Text>
-                  </View>
-                </TouchableOpacity>
 
                 {canOrders && readyOrdersCount > 0 ? (
                 <View style={styles.alertCard}>
@@ -3006,7 +3131,7 @@ export function SubWarehouseAdminDashboardScreen({
                 <Text style={styles.sectionHeaderSub}>
                   {receiptsTodayQuery.isLoading
                     ? '...'
-                    : `${todayReceivingItems.length} Shipment${todayReceivingItems.length === 1 ? '' : 's'}`}
+                    : `${todayReceivingItems.length}${receiptsTodayQuery.data?.complete === false ? '+' : ''} Shipment${todayReceivingItems.length === 1 ? '' : 's'}`}
                 </Text>
               </View>
 
@@ -3074,7 +3199,7 @@ export function SubWarehouseAdminDashboardScreen({
               {canOrders ? (
               <>
               <View style={styles.sectionHeaderBetween}>
-                <Text style={styles.sectionHeading}>Today's Orders</Text>
+                <Text style={styles.sectionHeading}>{t('home.recent_orders')}</Text>
                 <Text style={styles.sectionHeaderSub}>
                   {ordersQuery.isLoading
                     ? '...'
@@ -3119,7 +3244,11 @@ export function SubWarehouseAdminDashboardScreen({
                         {order.itemCount ? `${order.itemCount} Item${order.itemCount === 1 ? '' : 's'}` : 'Order Items'}
                       </Text>
                       <Text style={styles.detailText}>
-                        {`${formatPaise(parseRupeesToPaise(String(order.totalAmount)) ?? 0)} · ${formatAdminTime(order.placedAt)}`}
+                        {(() => {
+                          const paise = parseRupeesToPaise(String(order.totalAmount));
+                          const moneyText = paise === null ? '—' : formatPaise(paise);
+                          return `${moneyText} · ${formatAdminTime(order.placedAt)}`;
+                        })()}
                       </Text>
                     </TouchableOpacity>
                   ))
@@ -3198,85 +3327,104 @@ export function SubWarehouseAdminDashboardScreen({
               </>
               ) : null}
 
-              {/* 8. Inventory Snapshot + 9. Stock Allocation: inventory.batch.view */}
+              {/* 8. Inventory Snapshot: inventory.batch.view */}
               {canStock ? (
               <>
               <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Available Stock</Text>
-                  <Text style={styles.infoTableValue}>1,245 KG</Text>
+              {inventoryOverviewQuery.isLoading ? (
+                <AdminLoadingState label="Loading inventory..." />
+              ) : inventoryOverviewQuery.isError ? (
+                <AdminErrorState
+                  error={inventoryOverviewQuery.error}
+                  onRetry={() => inventoryOverviewQuery.refetch()}
+                />
+              ) : (
+                <View style={styles.infoTableCard}>
+                  <View style={styles.infoTableRow}>
+                    <Text style={styles.infoTableLabel}>Available Stock</Text>
+                    <Text style={styles.infoTableValue}>{availableStockText}</Text>
+                  </View>
+                  <View style={styles.infoTableRow}>
+                    <Text style={styles.infoTableLabel}>Reserved</Text>
+                    <Text style={styles.infoTableValue}>{reservedStockText}</Text>
+                  </View>
+                  <View style={styles.infoTableRow}>
+                    <Text style={styles.infoTableLabel}>Low Stock</Text>
+                    <Text style={[styles.infoTableValue, { color: adminColors.danger.text }]}>{lowStockSnapshotText}</Text>
+                  </View>
+                  {/* Ported from the absorbed Today's Overview (Inventory card). */}
+                  <TouchableOpacity
+                    style={[styles.infoTableRow, { borderBottomWidth: 0 }]}
+                    onPress={() => {
+                      setReturnToTabOnBack('Home');
+                      setInventoryInitialScreen('M3S10');
+                      setActiveTab('Inventory');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.infoTableLabel}>Verification Pending</Text>
+                    <Text style={styles.infoTableValue}>{verificationPendingText}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.tableLinkButton}
+                    onPress={() => {
+                      setReturnToTabOnBack('Home');
+                      setInventoryInitialScreen('M3S10');
+                      setActiveTab('Inventory');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.linkButtonText}>View Inventory →</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Reserved</Text>
-                  <Text style={styles.infoTableValue}>320 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Allocated</Text>
-                  <Text style={styles.infoTableValue}>580 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Low Stock</Text>
-                  <Text style={[styles.infoTableValue, { color: adminColors.danger.text }]}>05</Text>
-                </View>
-                {/* Ported from the absorbed Today's Overview (Inventory card). */}
-                <TouchableOpacity
-                  style={[styles.infoTableRow, { borderBottomWidth: 0 }]}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S10');
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.infoTableLabel}>Verification Pending</Text>
-                  <Text style={styles.infoTableValue}>02</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S10');
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Inventory →</Text>
-                </TouchableOpacity>
-              </View>
+              )}
 
               {/* 9. Stock Allocation */}
+              {canAllocations ? (
+              <>
               <Text style={styles.sectionHeading}>Stock Allocation</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>ONLINE</Text>
-                  <Text style={styles.infoTableValue}>420 KG</Text>
+              {allocationsQuery.isLoading ? (
+                <AdminLoadingState label="Loading allocations..." />
+              ) : allocationsQuery.isError ? (
+                <AdminErrorState
+                  error={allocationsQuery.error}
+                  onRetry={() => allocationsQuery.refetch()}
+                />
+              ) : (allocationsQuery.data?.items.length ?? 0) === 0 ? (
+                <AdminEmptyState
+                  title={t('allocation.empty')}
+                  subtitle="No channel allocations scheduled for today."
+                />
+              ) : (
+                <View style={styles.infoTableCard}>
+                  {allocationChannels?.map((ch, idx) => (
+                    <View
+                      key={ch.channel}
+                      style={[
+                        styles.infoTableRow,
+                        idx === (allocationChannels.length - 1) ? { borderBottomWidth: 0 } : null,
+                      ]}
+                    >
+                      <Text style={styles.infoTableLabel}>{ch.label}</Text>
+                      <Text style={styles.infoTableValue}>{ch.valueText}</Text>
+                    </View>
+                  ))}
+                  <TouchableOpacity
+                    style={styles.tableLinkButton}
+                    onPress={() => {
+                      setReturnToTabOnBack('Home');
+                      setInventoryInitialScreen('M3S02');
+                      setInventoryInitialParams({ initialTab: 'Allocation' });
+                      setActiveTab('Inventory');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>LIVE MARKET</Text>
-                  <Text style={styles.infoTableValue}>120 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>RESERVE</Text>
-                  <Text style={styles.infoTableValue}>80 KG</Text>
-                </View>
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>BUFFER</Text>
-                  <Text style={styles.infoTableValue}>60 KG</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S02');
-                    setInventoryInitialParams({ initialTab: 'Allocation' });
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
-                </TouchableOpacity>
-              </View>
+              )}
+              </>
+              ) : null}
               </>
               ) : null}
 

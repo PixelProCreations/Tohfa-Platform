@@ -42,7 +42,6 @@ export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
 
 export interface WarehouseEditProfileScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   initialTab?: EditWarehouseTab;
-  mode?: 'edit' | 'add' | undefined;
   onSaveSuccess?: () => void;
 }
 

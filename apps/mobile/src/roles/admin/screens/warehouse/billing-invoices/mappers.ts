@@ -13,7 +13,8 @@
  * here so the screens never import implementation detail from the data layer.
  */
 import type { Money } from '@tohfa/shared-types';
-import { format as formatMoney, fromPaise, parseMoney, toPaise } from '@tohfa/shared-types';
+import { fromPaise, parseMoney, toPaise } from '@tohfa/shared-types';
+import { formatPaise } from '../../../money/paise';
 import type {
   InvoiceDetailDto,
   InvoiceDto,
@@ -106,7 +107,7 @@ export function formatMoneyAmount(amount: Money | string | number | undefined | 
   if (!/^\d+(\.\d{1,2})?$/.test(str)) return '—';
   try {
     const money = parseMoney(str as Money);
-    return formatMoney(money);
+    return formatPaise(toPaise(money));
   } catch {
     return '—';
   }
@@ -188,7 +189,7 @@ export function mapInvoiceDetailDtoToRecord(dto: InvoiceDetailDto): InvoiceDetai
     cgst: formatMoneyAmount(dto.cgst),
     sgst: formatMoneyAmount(dto.sgst),
     igst: formatMoneyAmount(dto.igst),
-    gst: formatMoney(fromPaise(taxTotalPaise)),
+    gst: formatPaise(taxTotalPaise),
     total: formatMoneyAmount(dto.totalAmount),
     // Every invoice the detail route returns is visible to the caller (BR-36);
     // the PDF may not be available yet when pdfUrl is null, but the download

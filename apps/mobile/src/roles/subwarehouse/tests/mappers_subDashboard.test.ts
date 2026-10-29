@@ -83,7 +83,7 @@ describe('SubWarehouse Dashboard Mappers', () => {
         isAwaitingQc: true,
         route: 'Main Warehouse → Coonoor',
         produceTitle: 'Tomato · Grade 1',
-        detailText: 'Expected: 150.000 KG',
+        detailText: 'Expected: 150 kg',
       });
 
       expect(items[1]).toMatchObject({
@@ -93,7 +93,7 @@ describe('SubWarehouse Dashboard Mappers', () => {
         isAwaitingQc: false,
         route: 'Main Warehouse → Coonoor',
         produceTitle: 'Carrot · Grade 1',
-        detailText: 'Received: 78.500 KG',
+        detailText: 'Received: 78.5 kg',
       });
     });
   });

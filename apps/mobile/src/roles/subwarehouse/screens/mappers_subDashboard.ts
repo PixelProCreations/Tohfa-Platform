@@ -18,6 +18,7 @@ import type { GoodsReceiptDto, PurchaseOrderDto } from '../../admin/api/receivin
 import type { WarehouseActivityEventDto } from '../../admin/api/warehouseActivity';
 import { formatAdminTime, istDay } from '../../admin/utils/datetime';
 import { formatKg, parseKgToGrams } from '../../admin/money/quantity';
+import { t } from '../../admin/i18n';
 import { gradeLabel } from '../../admin/screens/warehouse/receiving-qc/mappers';
 import type { CustomerIssueRecord, CustomerRecord, Loose } from '../../admin/screens/warehouse/customers/types';
 import type { RmaRecord } from '../../admin/screens/warehouse/returns-rma/types';
@@ -41,8 +42,8 @@ export function deriveSubReceivingKpi(
 
   const awaitingText =
     awaitingQc === undefined
-      ? '— awaiting QC'
-      : `${awaitingQc.count}${awaitingQc.exact ? '' : '+'} awaiting QC`;
+      ? t('home.awaiting_qc_none')
+      : `${awaitingQc.count}${awaitingQc.exact ? '' : '+'} ${t('home.awaiting_qc')}`;
 
   return { countText, awaitingText };
 }
@@ -76,9 +77,14 @@ export function deriveSubTodayReceiving(
     }
     const produceTitle = produceParts.length > 0 ? produceParts.join(' · ') : r.grnNumber;
 
+    const grossGrams = parseKgToGrams(r.grossQtyKg);
+    const grossFormatted = grossGrams !== null ? formatKg(grossGrams) : '';
+    const acceptedGrams = r.acceptedQtyKg ? parseKgToGrams(r.acceptedQtyKg) : null;
+    const acceptedFormatted = acceptedGrams !== null ? formatKg(acceptedGrams) : grossFormatted;
+
     const detailText = isAwaitingQc
-      ? `Expected: ${r.grossQtyKg} KG`
-      : `Received: ${r.acceptedQtyKg ?? r.grossQtyKg} KG`;
+      ? (grossFormatted ? `${t('home.expected')}: ${grossFormatted}` : '')
+      : (acceptedFormatted ? `${t('home.received')}: ${acceptedFormatted}` : '');
 
     return {
       id: r.id,
@@ -107,18 +113,18 @@ export function deriveSubLowStockAlert(
 ): SubLowStockAlertView {
   const lowAlert = alerts?.find((a) => a.type === 'LOW_STOCK');
   if (!lowAlert) {
-    return { hasAlert: false, title: 'Low Stock', subText: '' };
+    return { hasAlert: false, title: t('home.low_stock'), subText: '' };
   }
 
   const cropId = typeof lowAlert.params.cropId === 'string' ? lowAlert.params.cropId : '';
-  const cropName = cropNames.get(cropId) ?? (typeof lowAlert.params.cropName === 'string' ? lowAlert.params.cropName : 'Item');
+  const cropName = cropNames.get(cropId) ?? (typeof lowAlert.params.cropName === 'string' ? lowAlert.params.cropName : t('home.item'));
   const gradeStr = typeof lowAlert.params.grade === 'string' ? lowAlert.params.grade : undefined;
   const grade = gradeStr ? gradeLabel(gradeStr as any) : '';
   const rawQty = lowAlert.params.totalQtyKg;
   let availableText = '';
   if (rawQty !== undefined && rawQty !== null) {
     const grams = parseKgToGrams(String(rawQty));
-    availableText = grams !== null ? formatKg(grams) : `${rawQty} KG`;
+    availableText = grams !== null ? formatKg(grams) : '';
   }
 
   const parts: string[] = [];
@@ -134,7 +140,7 @@ export function deriveSubLowStockAlert(
 
   return {
     hasAlert: true,
-    title: 'Low Stock',
+    title: t('home.low_stock'),
     subText,
   };
 }
@@ -199,7 +205,7 @@ export function mapSubWarehouseActivity(
     const subParts: string[] = [event.reference];
     if (event.qtyKg) {
       const grams = parseKgToGrams(event.qtyKg);
-      subParts.push(grams !== null ? formatKg(grams) : `${event.qtyKg} KG`);
+      if (grams !== null) subParts.push(formatKg(grams));
     } else if (event.status) {
       subParts.push(event.status);
     }

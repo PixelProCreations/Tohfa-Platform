@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
   changeButtonText: { ...adminType.caption, fontWeight: '600', color: adminColors.brand },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   modalSheet: {

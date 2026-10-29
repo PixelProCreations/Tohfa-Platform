@@ -27,7 +27,6 @@ import { ProfileFlow } from '../profile-settings';
 import { StorageFlow } from '../storage-ops';
 import { CustomersFlow } from '../customers';
 import { StaffFlow } from '../staff-attendance';
-import { MainWarehouseAdminScreen } from '../../dashboard/MainWarehouseAdminScreen';
 import { WarehouseAdminFlow } from '../warehouse-admin';
 import { WarehouseSelector } from '../inventory';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
@@ -904,7 +903,10 @@ export function MoreScreen({
 
   if (showWarehouseManagementScreen && isMain) {
     return (
-      <MainWarehouseAdminScreen
+      <WarehouseAdminFlow
+        scope={scope}
+        can={can}
+        initialScreen="WarehouseOverview"
         onBack={() => setShowWarehouseManagementScreen(false)}
       />
     );

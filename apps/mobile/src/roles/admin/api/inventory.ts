@@ -192,3 +192,30 @@ export function listAllocations(params: ListAllocationsParams = {}, signal?: Abo
     signal,
   );
 }
+
+export interface InventoryOverviewWarehouse {
+  warehouseId: string;
+  name: string;
+  availableQtyKg: string;
+}
+
+export interface InventoryOverviewDto {
+  warehouses: InventoryOverviewWarehouse[];
+  nearExpiryBatchCount: number | null;
+  lowStockCount: number | null;
+  pendingAdjustmentCount: number;
+  unreconciledVerificationCount: number;
+  varianceUnreconciledVerificationCount: number;
+  thresholds: {
+    alertBatchExpiryDays: number | null;
+    lowStockThresholdKg: string | null;
+  };
+}
+
+/**
+ * Inventory overview (BR-116, GET /admin/inventory/overview).
+ * One aggregate inside the caller's warehouse scope.
+ */
+export function getInventoryOverview(signal?: AbortSignal): Promise<InventoryOverviewDto> {
+  return adminGet<InventoryOverviewDto>('/admin/inventory/overview', undefined, signal);
+}
