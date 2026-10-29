@@ -52,10 +52,6 @@ export function scopeLabel(scope: WarehouseScope): string {
   return scope.warehouseId === undefined ? 'All Warehouses' : (scope.warehouseName ?? scope.warehouseId);
 }
 
-/** '₹3,450' from whole rupees (mock display values only; never used to move money). */
-export function rupees(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN')}`;
-}
 
 /** A screen the viewer's role does not include: header + explanation, nothing else. */
 export function FinanceNotAvailable({

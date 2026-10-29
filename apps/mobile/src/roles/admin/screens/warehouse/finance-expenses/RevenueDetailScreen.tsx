@@ -108,7 +108,9 @@ export function RevenueDetailScreen({
   }
 
   const warehouse = displayWarehouseName ?? scopeLabel(scope);
-  const amount = `₹${displayFinalAmount}`;
+  const amount = !displayFinalAmount || displayFinalAmount.startsWith('₹') || displayFinalAmount === '—'
+    ? (displayFinalAmount ?? '—')
+    : `₹${displayFinalAmount}`;
   const rows = isShortVersion
     ? [
         [

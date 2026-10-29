@@ -35,7 +35,8 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { canSeeVoucherType, FilterIcon, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
+import { canSeeVoucherType, FilterIcon, FinanceNotAvailable, scopeLabel } from './FinanceParts';
+import { formatPaiseOrDash } from './mappers';
 import { useExpenses, useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { VoucherRecord, VoucherType, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -361,7 +362,7 @@ export function VouchersScreen({
                 </View>
                 <Text style={styles.title}>{item.title}</Text>
                 <View style={styles.detailsRow}>
-                  <Text style={styles.amount}>{rupees(item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100) : 0)}</Text>
+                  <Text style={styles.amount}>{formatPaiseOrDash(item.amountPaise)}</Text>
                   <Text style={styles.meta}>{item.referenceId}</Text>
                 </View>
                 <Text style={styles.meta}>

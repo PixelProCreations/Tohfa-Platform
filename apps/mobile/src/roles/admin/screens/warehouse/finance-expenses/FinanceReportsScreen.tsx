@@ -30,6 +30,7 @@ import { RevenueScreen } from './RevenueScreen';
 import { VouchersScreen } from './VouchersScreen';
 import { WarehouseExpensesScreen } from './WarehouseExpensesScreen';
 import { getFinanceExpenseReport, getFinanceRevenueReport } from '../../../api/finance';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { FinanceReportItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
 /** Which rbac code(s) unlock a report: any one of `codes` is enough. */
@@ -287,17 +288,11 @@ export function FinanceReportsScreen({
   >(null);
 
   const isMain = scope.warehouseId === undefined;
+  const { options: warehouseOptions } = useWarehouseOptions();
+  const matchedWarehouse = warehouseOptions.find((o) => o.warehouseId === initialWarehouseId);
   const warehouseLabel = isMain
     ? initialWarehouseId && initialWarehouseId !== 'All'
-      ? initialWarehouseId === 'WH-OOTY'
-        ? 'Ooty Warehouse'
-        : initialWarehouseId === 'WH-COON'
-        ? 'Coonoor Warehouse'
-        : initialWarehouseId === 'WH-KOTA'
-        ? 'Kotagiri Warehouse'
-        : initialWarehouseId === 'WH-GUDA'
-        ? 'Gudalur Market Warehouse'
-        : initialWarehouseId
+      ? (matchedWarehouse?.warehouseName ?? initialWarehouseId)
       : 'All Warehouses'
     : (scope.warehouseName ?? '');
   const exportAllowed = canExport ?? can('report.export.file');

@@ -13,6 +13,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { WarehouseScreenBaseProps } from './types';
 import { useExpenseDetail } from './useFinanceData';
+import { formatPaiseOrDash } from './mappers';
 
 /**
  * Expense detail, shared by Main Warehouse and Sub Warehouse admins.
@@ -191,7 +192,7 @@ export function ExpenseDetailScreen({
   const [showReceiptScreen, setShowReceiptScreen] = useState(Boolean(isReceiptView));
 
   const { expense: liveExpense, rawDto } = useExpenseDetail(expenseId);
-  const displayAmount = liveExpense ? (liveExpense.amountPaise !== null && liveExpense.amountPaise !== undefined ? Math.round(liveExpense.amountPaise / 100).toLocaleString('en-IN') : '—') : (typeof amount === 'number' ? amount.toLocaleString('en-IN') : amount);
+  const displayAmount = formatPaiseOrDash(liveExpense?.amountPaise);
   const displayCategory = liveExpense ? (liveExpense.categoryRef.split('·')[0]?.trim() || liveExpense.categoryRef) : category;
   const displayDate = liveExpense ? liveExpense.timestamp : date;
   const displayDescription = rawDto?.description || description;
@@ -331,7 +332,7 @@ export function ExpenseDetailScreen({
             {/* Highlighted Amount Box */}
             <View style={styles.voucherAmountBox}>
               <Text style={styles.voucherAmountLabel}>TOTAL AMOUNT</Text>
-              <Text style={styles.voucherAmountValue}>₹{formattedAmount}</Text>
+              <Text style={styles.voucherAmountValue}>{formattedAmount}</Text>
               <Text style={styles.voucherAmountSub}>{displayCategory} · Paid via {displayPaymentMethod}</Text>
             </View>
 
@@ -466,7 +467,7 @@ export function ExpenseDetailScreen({
               <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
                 <View style={styles.gridCol}>
                   <Text style={styles.gridLabel}>Amount</Text>
-                  <Text style={styles.gridValue}>₹{formattedAmount}</Text>
+                  <Text style={styles.gridValue}>{formattedAmount}</Text>
                 </View>
                 <View style={styles.gridCol}>
                   <Text style={styles.gridLabel}>Status</Text>
@@ -489,7 +490,7 @@ export function ExpenseDetailScreen({
 
                   <View style={styles.gridCol}>
                     <Text style={styles.gridLabel}>Amount</Text>
-                    <Text style={styles.gridValue}>₹{formattedAmount}</Text>
+                    <Text style={styles.gridValue}>{formattedAmount}</Text>
                   </View>
                 </View>
 

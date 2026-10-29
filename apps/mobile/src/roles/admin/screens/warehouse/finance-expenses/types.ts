@@ -190,6 +190,7 @@ export interface ExpenseDraft {
   expenseId: string;
   amount: string;
   category: string;
+  categoryId?: string | undefined;
   date: string;
   description: string;
   paymentMethod: 'Cash' | 'UPI' | 'Bank';

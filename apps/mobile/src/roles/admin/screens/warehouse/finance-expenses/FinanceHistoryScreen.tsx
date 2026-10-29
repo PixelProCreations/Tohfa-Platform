@@ -8,7 +8,7 @@
  * holding neither gets an empty state. This is presentation only; the server
  * re-checks every code and scope (CLAUDE.md 2.1).
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -26,6 +26,8 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { useExpenses, useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { formatPaise } from '../../../money/paise';
+import { formatPaiseOrDash } from './mappers';
 import type { FinanceHistoryItem, WarehouseScreenBaseProps, WarehouseTab } from './types';
 
 export interface FinanceHistoryScreenProps extends WarehouseScreenBaseProps {
@@ -215,6 +217,16 @@ export function FinanceHistoryScreen({
   const liveHistory = [...liveExpenseHistory, ...liveRevenueHistory];
   const historySource = liveHistory;
 
+  const revenuePaise = useMemo(
+    () => historySource.filter((i) => i.type === 'Revenue').reduce((acc, i) => acc + (i.amountPaise ?? 0), 0),
+    [historySource],
+  );
+  const expensePaise = useMemo(
+    () => historySource.filter((i) => i.type === 'Expense').reduce((acc, i) => acc + (i.amountPaise ?? 0), 0),
+    [historySource],
+  );
+  const netPaise = revenuePaise - expensePaise;
+
   const canSeeRevenue = can('finance.sales_income.view');
   const canSeeExpense = can('finance.expense.log');
   const canSeeAny = canSeeRevenue || canSeeExpense;
@@ -292,7 +304,7 @@ export function FinanceHistoryScreen({
               {canSeeRevenue && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Revenue</Text>
-                  <Text style={styles.revenueValue}>₹24,850</Text>
+                  <Text style={styles.revenueValue}>{formatPaise(revenuePaise)}</Text>
                 </View>
               )}
 
@@ -301,7 +313,7 @@ export function FinanceHistoryScreen({
               {canSeeExpense && (
                 <View style={styles.summaryRow}>
                   <Text style={styles.summaryLabel}>Expenses</Text>
-                  <Text style={styles.expensesValue}>₹6,420</Text>
+                  <Text style={styles.expensesValue}>{formatPaise(expensePaise)}</Text>
                 </View>
               )}
 
@@ -311,7 +323,7 @@ export function FinanceHistoryScreen({
                   <View style={styles.divider} />
                   <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>Net</Text>
-                    <Text style={styles.netValue}>₹18,430</Text>
+                    <Text style={styles.netValue}>{`${netPaise < 0 ? '-' : ''}${formatPaise(Math.abs(netPaise))}`}</Text>
                   </View>
                 </>
               )}
@@ -386,7 +398,7 @@ export function FinanceHistoryScreen({
                       } else {
                         Alert.alert(
                           item.id,
-                          `Transaction: ${item.id}\nType: ${item.type}\nTitle: ${item.title}\nAmount: ₹${item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}\nTime: ${item.time}`
+                          `Transaction: ${item.id}\nType: ${item.type}\nTitle: ${item.title}\nAmount: ${formatPaiseOrDash(item.amountPaise)}\nTime: ${item.time}`
                         );
                       }
                     }}
@@ -424,7 +436,7 @@ export function FinanceHistoryScreen({
                             : { color: adminColors.danger.text },
                         ]}
                       >
-                        {item.type === 'Revenue' ? `+₹${item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}` : `-₹${item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}`}
+                        {item.type === 'Revenue' ? `+${formatPaiseOrDash(item.amountPaise)}` : `-${formatPaiseOrDash(item.amountPaise)}`}
                       </Text>
                       <Text style={styles.txTime}>
                         {item.time}

@@ -35,6 +35,7 @@ import { VouchersScreen } from './VouchersScreen';
 import { WarehouseSelector } from '../inventory';
 import { useExpenses } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { formatPaise } from '../../../money/paise';
 
 const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';
@@ -395,14 +396,9 @@ export function WarehouseExpensesScreen({
         scope={scope}
         can={can}
         expenseId={selectedExpense.id}
-        amount={selectedExpense.amountPaise !== null && selectedExpense.amountPaise !== undefined ? `₹${Math.round(selectedExpense.amountPaise / 100).toLocaleString('en-IN')}` : undefined}
-        category={selectedExpense.categoryRef.split('·')[0]?.trim() || 'Transport'}
-        date="25 Sep 2026"
-        description="Transport from collection point to warehouse"
-        paymentMethod="Cash"
-        vendorPayee="Local Transport Co."
+        amount={selectedExpense.amountPaise !== null && selectedExpense.amountPaise !== undefined ? formatPaise(selectedExpense.amountPaise) : undefined}
+        category={selectedExpense.categoryRef.split('·')[0]?.trim()}
         warehouse={isAllWarehouses ? (selectedExpense.warehouseName ?? warehouseLabel) : warehouseLabel}
-        createdBy="Warehouse Admin"
         status={selectedExpense.status}
         isShortVersion={isShortVersion}
         onBack={() => setShowReceiptScreen(false)}
@@ -418,14 +414,9 @@ export function WarehouseExpensesScreen({
         scope={scope}
         can={can}
         expenseId={selectedExpense.id}
-        amount={selectedExpense.amountPaise !== null && selectedExpense.amountPaise !== undefined ? `₹${Math.round(selectedExpense.amountPaise / 100).toLocaleString('en-IN')}` : undefined}
-        category={selectedExpense.categoryRef.split('·')[0]?.trim() || 'Transport'}
-        date="25 Sep 2026"
-        description="Transport from collection point to warehouse"
-        paymentMethod="Cash"
-        vendorPayee="Local Transport Co."
+        amount={selectedExpense.amountPaise !== null && selectedExpense.amountPaise !== undefined ? formatPaise(selectedExpense.amountPaise) : undefined}
+        category={selectedExpense.categoryRef.split('·')[0]?.trim()}
         warehouse={isAllWarehouses ? (selectedExpense.warehouseName ?? warehouseLabel) : warehouseLabel}
-        createdBy="Warehouse Admin"
         status={selectedExpense.status}
         isShortVersion={isShortVersion}
         onBack={() => setSelectedExpense(null)}
@@ -438,15 +429,6 @@ export function WarehouseExpensesScreen({
   }
 
   if (showAddExpenseScreen && canLogExpense) {
-    const initialExpense: ExpenseDraft = {
-      expenseId: 'EXP-001245',
-      amount: '2400',
-      category: 'Transport',
-      date: '25 Sep 2026',
-      description: 'Transport from collection point to warehouse',
-      paymentMethod: 'Cash',
-      vendorPayee: 'Local Transport Co.',
-    };
     return (
       <WarehouseAddExpenseScreen
         scope={scope}
@@ -458,51 +440,43 @@ export function WarehouseExpensesScreen({
           reloadExpenses();
           if (saved) {
             setSelectedExpense(saved);
-          } else {
-            setSelectedExpense({
-              id: 'EXP-001245',
-              categoryRef: 'Transport',
-              amountPaise: 240000,
-              timestamp: '25 Sep - 09:30 AM',
-              status: 'Recorded',
-              warehouseId: 'WH-COON',
-              warehouseName: 'Coonoor Warehouse',
-            });
           }
         }}
-        initialExpense={initialExpense}
       />
     );
   }
 
   const totalFilteredAmount = filteredRecords.reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
   const pendingCount = filteredRecords.filter((r) => r.status === 'Pending').length;
-  const avgExpense = filteredRecords.length > 0 ? Math.round(totalFilteredAmount / filteredRecords.length / 100) : 0;
-  const isSpecificWarehouseFilter = isAllWarehouses && selectedWarehouseId && selectedWarehouseId !== 'All';
+  const approvedCount = filteredRecords.filter((r) => r.status === 'Approved' || r.status === 'Recorded').length;
+  const avgExpensePaise = filteredRecords.length > 0 ? Math.floor(totalFilteredAmount / filteredRecords.length) : 0;
+
+  const isSpecificWarehouseFilter = isAllWarehouses && selectedWarehouseId !== undefined && selectedWarehouseId !== 'All';
 
   // Main view shows portfolio-wide totals when All Warehouses is chosen; single warehouse shows filtered view.
   const kpis = isAllWarehouses
     ? [
-        { label: 'TOTAL EXPENSES', value: isSpecificWarehouseFilter ? `₹${Math.round(totalFilteredAmount / 100).toLocaleString()}` : '₹1,48,600' },
-        { label: 'TRANSACTIONS', value: isSpecificWarehouseFilter ? `${filteredRecords.length}` : '82' },
-        { label: 'AVERAGE', value: isSpecificWarehouseFilter ? `₹${avgExpense.toLocaleString()}` : '₹1,812' },
-        { label: 'PENDING', value: isSpecificWarehouseFilter ? `${pendingCount}` : '8' },
+        { label: 'TOTAL EXPENSES', value: formatPaise(totalFilteredAmount) },
+        { label: 'TRANSACTIONS', value: `${filteredRecords.length}` },
+        { label: 'AVERAGE', value: formatPaise(avgExpensePaise) },
+        { label: 'PENDING', value: `${pendingCount}` },
       ]
     : [
-        { label: "TODAY'S EXPENSES", value: '₹6,420' },
-        { label: 'THIS MONTH', value: '₹1,48,600' },
-        { label: 'PENDING', value: '8' },
-        { label: 'APPROVED', value: '42' },
+        { label: "TODAY'S EXPENSES", value: formatPaise(totalFilteredAmount) },
+        { label: 'TRANSACTIONS', value: `${filteredRecords.length}` },
+        { label: 'PENDING', value: `${pendingCount}` },
+        { label: 'RECORDED', value: `${approvedCount}` },
       ];
 
-  const categorySummary = [
-    { label: 'Transport', value: '₹32,500' },
-    { label: 'Loading', value: '₹18,400' },
-    { label: 'Unloading', value: '₹12,600' },
-    { label: 'Maintenance', value: '₹8,200' },
-    { label: 'Utilities', value: '₹5,500' },
-    { label: 'Other', value: '₹3,400' },
-  ];
+  const categoryMap: Record<string, number> = {};
+  for (const e of filteredRecords) {
+    const cat = e.categoryRef.split('·')[0]?.trim() || 'General';
+    categoryMap[cat] = (categoryMap[cat] || 0) + (e.amountPaise ?? 0);
+  }
+  const categorySummary = Object.entries(categoryMap).map(([label, val]) => ({
+    label,
+    value: formatPaise(val),
+  }));
 
   const statusTone = (status: ExpenseRecord['status']) => {
     if (status === 'Pending') return adminColors.warning;
@@ -679,9 +653,9 @@ export function WarehouseExpensesScreen({
                   <View style={styles.cardDivider} />
                   <View style={styles.recordFooterRow}>
                     <Text style={styles.recordTimestamp}>
-                      {item.timestamp}{isAllWarehouses ? ` · ${item.warehouseName ?? 'Coonoor Warehouse'}` : ''}
+                      {item.timestamp}{isAllWarehouses && item.warehouseName ? ` · ${item.warehouseName}` : ''}
                     </Text>
-                    <Text style={styles.recordAmount}>-₹{item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}</Text>
+                    <Text style={styles.recordAmount}>-{formatPaise(item.amountPaise ?? 0)}</Text>
                   </View>
                 </TouchableOpacity>
               );

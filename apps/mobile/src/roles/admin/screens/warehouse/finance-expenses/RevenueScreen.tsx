@@ -40,7 +40,9 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
-import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
+import { FINANCE_CODES, FinanceNotAvailable, scopeLabel } from './FinanceParts';
+import { formatPaiseOrDash } from './mappers';
+import { formatPaise } from '../../../money/paise';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
 import { useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -79,7 +81,7 @@ export interface RevenueScreenProps extends WarehouseScreenBaseProps {
 export function revenueDetailOf(record: RevenueRecord) {
   return {
     revenueId: record.id,
-    finalAmount: record.amountPaise !== null && record.amountPaise !== undefined ? `₹${Math.round(record.amountPaise / 100).toLocaleString('en-IN')}` : '—',
+    finalAmount: formatPaiseOrDash(record.amountPaise),
     paymentMethod: record.paymentMethod,
     paymentStatus: record.status,
     salesChannel: record.orderRef.split('·')[0]?.trim(),
@@ -174,10 +176,10 @@ export function RevenueScreen({
   const onlineOrderAmount = visible.filter((r) => r.category === 'Orders').reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
   const marketSalesAmount = visible.filter((r) => r.category === 'Direct Sales').reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
 
-  const displayTotalRevenue = isMain && !selectedWarehouseId ? '₹1,84,500' : rupees(Math.round(totalAmount / 100));
-  const displayTodayRevenue = isMain && !selectedWarehouseId ? '₹24,850' : rupees(Math.round(totalAmount / 100));
-  const displayOnlineOrder = isMain && !selectedWarehouseId ? '₹12,400' : rupees(Math.round(onlineOrderAmount / 100));
-  const displayMarketSales = isMain && !selectedWarehouseId ? '₹9,850' : rupees(Math.round(marketSalesAmount / 100));
+  const displayTotalRevenue = formatPaise(totalAmount);
+  const displayTodayRevenue = formatPaise(totalAmount);
+  const displayOnlineOrder = formatPaise(onlineOrderAmount);
+  const displayMarketSales = formatPaise(marketSalesAmount);
 
 
   const hasActiveFilters =
@@ -283,7 +285,7 @@ export function RevenueScreen({
                 </View>
                 <Text style={styles.orderRef}>{item.orderRef}</Text>
                 <View style={styles.amountRow}>
-                  <Text style={styles.amount}>{rupees(item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100) : 0)}</Text>
+                  <Text style={styles.amount}>{formatPaise(item.amountPaise ?? 0)}</Text>
                   <Text style={styles.meta}>{item.paymentMethod}</Text>
                 </View>
                 <Text style={styles.meta}>

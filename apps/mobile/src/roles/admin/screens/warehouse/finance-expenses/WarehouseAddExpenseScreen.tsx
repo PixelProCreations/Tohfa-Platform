@@ -16,32 +16,14 @@ import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '
 import type { ExpenseDraft, ExpenseRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { useCreateExpense, useExpenseCategories } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
-
-/**
- * Add / edit expense form, shared by Main Warehouse and Sub Warehouse admins.
- * - Save Expense is enabled only when can('finance.expense.log'); otherwise it is
- *   rendered disabled and the handler no-ops.
- * - There is no approve control: rbac.json has no approve code for expenses.
- * - Main Warehouse admins can select the destination warehouse from a dropdown list.
- * The server re-checks every permission (CLAUDE.md 2.1); `can` only decides what to render.
- */
-
-const DEFAULT_WAREHOUSES: readonly WarehouseScope[] = [
-  { warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' },
-  { warehouseId: 'WH-OOTY', warehouseName: 'Ooty Warehouse' },
-  { warehouseId: 'WH-KOTA', warehouseName: 'Kotagiri Warehouse' },
-  { warehouseId: 'WH-GUDA', warehouseName: 'Gudalur Market Warehouse' },
-];
-
-const EXPENSE_CATEGORIES = [
-  'Transport',
-  'Loading',
-  'Unloading',
-  'Maintenance',
-  'Utilities',
-  'Warehouse Operations',
-  'Other',
-];
+import { buildExpenseCreateBody, partsOfIsoDay, isoDayOf, type ExpenseFormProblem } from './expenseForm';
+import { istDay, formatAdminDay } from '../../../utils/datetime';
+import { formatPaise } from '../../../money/paise';
+import type { Paise } from '@tohfa/shared-types';
+import type { ExpenseDto } from '../../../api/finance';
+import { mapExpenseDtoToRecord } from './mappers';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { t } from '../../../i18n';
 
 export interface WarehouseAddExpenseScreenProps extends WarehouseScreenBaseProps {
   onSaveSuccess?: ((savedRecord?: ExpenseRecord) => void) | undefined;
@@ -254,52 +236,64 @@ export function WarehouseAddExpenseScreen({
   initialWarehouseId,
 }: WarehouseAddExpenseScreenProps) {
   const { options: liveWarehouseOptions } = useWarehouseOptions();
-  const warehouseOptions = initialWarehouseOptions ?? (liveWarehouseOptions.length > 0 ? liveWarehouseOptions : DEFAULT_WAREHOUSES);
-  const { categories: liveCategories } = useExpenseCategories();
+  const warehouseOptions = initialWarehouseOptions ?? liveWarehouseOptions;
+  const {
+    categories: liveCategories,
+    isLoading: categoriesLoading,
+    error: categoriesError,
+    refresh: refreshCategories,
+  } = useExpenseCategories();
   const createExpenseMutation = useCreateExpense();
 
   const canLog = can('finance.expense.log');
   const isMain = scope.warehouseId === undefined;
-  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id: string; name: string }>(() => {
+  const [selectedWarehouse, setSelectedWarehouse] = useState<{ id?: string | undefined; name: string } | null>(() => {
     if (initialExpense?.warehouseId && initialExpense?.warehouseName) {
       return { id: initialExpense.warehouseId, name: initialExpense.warehouseName };
     }
     if (initialWarehouseId) {
       const match = warehouseOptions.find((w) => w.warehouseId === initialWarehouseId || w.warehouseName === initialWarehouseId);
-      if (match) {
-        return { id: match.warehouseId ?? initialWarehouseId, name: match.warehouseName ?? initialWarehouseId };
+      if (match && match.warehouseId) {
+        return { id: match.warehouseId, name: match.warehouseName ?? '' };
       }
     }
-    if (scope.warehouseId && scope.warehouseName) {
-      return { id: scope.warehouseId, name: scope.warehouseName };
+    if (scope.warehouseId) {
+      return { id: scope.warehouseId, name: scope.warehouseName ?? '' };
     }
-    return { id: 'WH-COON', name: 'Coonoor Warehouse' };
+    return null;
   });
   const [showWarehousePicker, setShowWarehousePicker] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || 'Transport');
+  const [categoryId, setCategoryId] = useState<string | undefined>(initialExpense?.categoryId);
+  const selectedCategoryObj = liveCategories.find((c) => c.id === categoryId);
+  const selectedCategory = selectedCategoryObj?.name ?? (initialExpense?.category || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [expenseDate, setExpenseDate] = useState(initialExpense?.date || '25 Sep 2026');
+  const todayIso = istDay(new Date());
+  const [expenseIso, setExpenseIso] = useState<string>(() => {
+    if (initialExpense?.date && partsOfIsoDay(initialExpense.date)) {
+      return initialExpense.date;
+    }
+    return todayIso;
+  });
   const [amount, setAmount] = useState(initialExpense?.amount ? String(initialExpense.amount) : '');
-  const [description, setDescription] = useState(initialExpense?.description || 'Transport · Collection point → Warehouse');
+  const [description, setDescription] = useState(initialExpense?.description || '');
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank'>(initialExpense?.paymentMethod || 'Cash');
   const [vendorPayee, setVendorPayee] = useState(initialExpense?.vendorPayee || '');
   const [, setAttachedDoc] = useState<string | null>(null);
 
-  // Add Category State
-  const [showAddCategoryScreen, setShowAddCategoryScreen] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryStatus, setNewCategoryStatus] = useState('Active');
-  const [showStatusPicker, setShowStatusPicker] = useState(false);
-
-  // Confirmation state
+  // Form submission state
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<unknown>(null);
+  const [savedExpense, setSavedExpense] = useState<ExpenseDto | null>(null);
+  const [submittedPaise, setSubmittedPaise] = useState<Paise | null>(null);
+  const [, setFormProblems] = useState<ExpenseFormProblem[]>([]);
 
   // Calendar State
   const [showCalendarModal, setShowCalendarModal] = useState(false);
-  const [calYear, setCalYear] = useState(2026);
-  const [calMonth, setCalMonth] = useState(8); // September (0-indexed)
-  const [tempSelectedDay, setTempSelectedDay] = useState(25);
+  const initialParts = partsOfIsoDay(expenseIso) ?? partsOfIsoDay(todayIso)!;
+  const [calYear, setCalYear] = useState(initialParts.year);
+  const [calMonth, setCalMonth] = useState(initialParts.month0);
+  const [tempSelectedDay, setTempSelectedDay] = useState(initialParts.day);
 
   const getDaysInMonth = (year: number, month: number) => {
     return new Date(year, month + 1, 0).getDate();
@@ -329,13 +323,11 @@ export function WarehouseAddExpenseScreen({
 
   const handleSelectDay = (day: number) => {
     setTempSelectedDay(day);
-    const formatted = `${day} ${MONTH_SHORT[calMonth]} ${calYear}`;
-    setExpenseDate(formatted);
+    setExpenseIso(isoDayOf(calYear, calMonth, day));
   };
 
   const handleApplyDate = () => {
-    const formatted = `${tempSelectedDay} ${MONTH_SHORT[calMonth]} ${calYear}`;
-    setExpenseDate(formatted);
+    setExpenseIso(isoDayOf(calYear, calMonth, tempSelectedDay));
     setShowCalendarModal(false);
   };
 
@@ -343,154 +335,64 @@ export function WarehouseAddExpenseScreen({
     setCalYear(year);
     setCalMonth(month);
     setTempSelectedDay(day);
-    const formatted = `${day} ${MONTH_SHORT[month]} ${year}`;
-    setExpenseDate(formatted);
+    setExpenseIso(isoDayOf(year, month, day));
   };
+
+  const displayDateText = formatAdminDay(expenseIso) || expenseIso;
 
   const handleSaveExpense = () => {
     if (!canLog) return;
-    const cleanAmount = amount.replace(/[^0-9.]/g, '').trim();
-    const parsed = Number(cleanAmount);
-    if (!cleanAmount || isNaN(parsed) || parsed <= 0) {
-      Alert.alert('Validation Error', 'Please enter a valid expense amount.');
+    const effectiveCategoryId = categoryId ?? liveCategories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase())?.id;
+    const built = buildExpenseCreateBody({
+      categoryId: effectiveCategoryId,
+      warehouseId: isMain ? selectedWarehouse?.id : undefined,
+      requiresWarehouse: isMain,
+      expenseDate: expenseIso,
+      amountText: amount,
+      paymentMethod,
+      vendor: vendorPayee,
+      description,
+    });
+    if (!built.ok) {
+      setFormProblems(built.problems);
+      const firstProblem = built.problems[0];
+      Alert.alert('Validation Error', t(`finance.expense.problem.${firstProblem}` as any) || `Please check ${firstProblem}`);
       return;
     }
+    setFormProblems([]);
+    setSubmittedPaise(built.amountPaise);
+    setSubmitError(null);
     setIsConfirming(true);
   };
 
   const handleConfirmSave = async () => {
     if (!canLog) return;
-    const cleanAmount = amount.replace(/[^0-9.]/g, '').trim();
-    const parsed = Number(cleanAmount);
-    const matchedCategory = liveCategories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase());
-    const catId = matchedCategory?.id ?? 'cat-1';
-    const methodEnum = paymentMethod === 'UPI' ? 'UPI' : paymentMethod === 'Bank' ? 'BANK' : 'CASH';
-
-    try {
-      await createExpenseMutation.mutateAsync({
-        categoryId: catId,
-        expenseDate: new Date().toISOString().slice(0, 10),
-        amount: parsed.toFixed(2),
-        paymentMethod: methodEnum,
-        description,
-        vendor: vendorPayee || undefined,
-        warehouseId: selectedWarehouse.id,
-      });
+    const effectiveCategoryId = categoryId ?? liveCategories.find((c) => c.name.toLowerCase() === selectedCategory.toLowerCase())?.id;
+    const built = buildExpenseCreateBody({
+      categoryId: effectiveCategoryId,
+      warehouseId: isMain ? selectedWarehouse?.id : undefined,
+      requiresWarehouse: isMain,
+      expenseDate: expenseIso,
+      amountText: amount,
+      paymentMethod,
+      vendor: vendorPayee,
+      description,
+    });
+    if (!built.ok) {
+      setFormProblems(built.problems);
       setIsConfirming(false);
-      setIsSuccess(true);
-    } catch {
-      setIsConfirming(false);
-      setIsSuccess(true);
-    }
-  };
-
-  const handleSaveCategory = () => {
-    if (!newCategoryName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a category name.');
       return;
     }
-    Alert.alert('Category Added', `Category "${newCategoryName}" has been successfully added.`);
-    setShowAddCategoryScreen(false);
-    setNewCategoryName('');
+    setSubmitError(null);
+    try {
+      const saved = await createExpenseMutation.mutateAsync(built.body);
+      setSavedExpense(saved);
+      setIsConfirming(false);
+      setIsSuccess(true);
+    } catch (err) {
+      setSubmitError(err);
+    }
   };
-
-  if (showAddCategoryScreen) {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-
-        {/* ─── Top Brand Header Banner ─── */}
-        <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => setShowAddCategoryScreen(false)}
-              activeOpacity={0.75}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <ArrowBackIcon size={22} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Add Category</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={[styles.confirmCard, { borderColor: adminColors.brand, paddingBottom: adminSpacing.input }]}>
-            <View style={[styles.confirmHeaderRow, { marginBottom: adminSpacing.lg }]}>
-              <Text style={{ ...adminType.sectionHead, color: adminColors.brandDeep }}>⊕ Add Category</Text>
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Category Name</Text>
-              <TextInput
-                style={styles.textInput}
-                value={newCategoryName}
-                onChangeText={setNewCategoryName}
-                placeholder="e.g. Packaging"
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
-
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <TouchableOpacity
-                style={styles.dropdownBtn}
-                onPress={() => setShowStatusPicker(!showStatusPicker)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.dropdownValueText}>{newCategoryStatus}</Text>
-                <ChevronDownIcon size={16} color={adminColors.ink} />
-              </TouchableOpacity>
-
-              {showStatusPicker && (
-                <View style={styles.pickerDropdown}>
-                  {['Active', 'Inactive'].map((status) => (
-                    <TouchableOpacity
-                      key={status}
-                      style={[
-                        styles.pickerOption,
-                        newCategoryStatus === status && styles.pickerOptionActive,
-                      ]}
-                      onPress={() => {
-                        setNewCategoryStatus(status);
-                        setShowStatusPicker(false);
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.pickerOptionText,
-                          newCategoryStatus === status && styles.pickerOptionTextActive,
-                        ]}
-                      >
-                        {status}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.confirmGreenBtn, { marginTop: adminSpacing.sm }]}
-              onPress={handleSaveCategory}
-              activeOpacity={0.8}
-            >
-              <CheckIcon size={18} color={adminColors.success.text} />
-              <Text style={styles.confirmGreenBtnText}>Save</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.confirmCancelBtn, { marginTop: adminSpacing.md }]}
-              onPress={() => setShowAddCategoryScreen(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
   // If in Confirmation step, render confirmation view
   if (isConfirming) {
@@ -503,7 +405,10 @@ export function WarehouseAddExpenseScreen({
           <View style={styles.headerTopRow}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => setIsConfirming(false)}
+              onPress={() => {
+                setIsConfirming(false);
+                setSubmitError(null);
+              }}
               activeOpacity={0.75}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
@@ -527,28 +432,40 @@ export function WarehouseAddExpenseScreen({
               <View style={styles.confirmDetailRow}>
                 <View style={styles.confirmDetailCol}>
                   <Text style={styles.confirmDetailLabel}>Category</Text>
-                  <Text style={styles.confirmDetailValue}>{selectedCategory}</Text>
+                  <Text style={styles.confirmDetailValue}>{selectedCategory || '—'}</Text>
                 </View>
 
                 <View style={styles.confirmDetailCol}>
                   <Text style={styles.confirmDetailLabel}>Amount</Text>
-                  <Text style={styles.confirmDetailValue}>₹{amount}</Text>
+                  <Text style={styles.confirmDetailValue}>
+                    {submittedPaise !== null ? formatPaise(submittedPaise) : `₹${amount}`}
+                  </Text>
                 </View>
               </View>
 
               <View style={[styles.confirmDetailRow, { marginTop: adminSpacing.md }]}>
                 <View style={styles.confirmDetailCol}>
                   <Text style={styles.confirmDetailLabel}>Date</Text>
-                  <Text style={styles.confirmDetailValue}>{expenseDate}</Text>
+                  <Text style={styles.confirmDetailValue}>{displayDateText}</Text>
                 </View>
                 {isMain ? (
                   <View style={styles.confirmDetailCol}>
                     <Text style={styles.confirmDetailLabel}>Warehouse</Text>
-                    <Text style={styles.confirmDetailValue}>{selectedWarehouse.name}</Text>
+                    <Text style={styles.confirmDetailValue}>{selectedWarehouse?.name ?? '—'}</Text>
                   </View>
                 ) : null}
               </View>
             </View>
+
+            {submitError !== null ? (
+              <View style={{ marginVertical: adminSpacing.md }}>
+                <AdminErrorState
+                  error={submitError}
+                  onRetry={handleConfirmSave}
+                  retryLabel={t('async.retry')}
+                />
+              </View>
+            ) : null}
 
             {/* Confirm Outline Button (Green) */}
             <TouchableOpacity
@@ -564,10 +481,13 @@ export function WarehouseAddExpenseScreen({
             {/* Cancel Outline Button (Warm Brown) */}
             <TouchableOpacity
               style={styles.confirmCancelBtn}
-              onPress={() => setIsConfirming(false)}
+              onPress={() => {
+                setIsConfirming(false);
+                setSubmitError(null);
+              }}
               activeOpacity={0.8}
             >
-              <Text style={styles.confirmCancelBtnText}>Cancel</Text>
+              <Text style={styles.confirmCancelBtnText}>{submitError !== null ? 'Back to Edit' : 'Cancel'}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -587,19 +507,13 @@ export function WarehouseAddExpenseScreen({
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => {
-                const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100);
-                const newRecord: ExpenseRecord = {
-                  id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
-                  categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
-                  amountPaise: parsedAmt,
-                  timestamp: `${expenseDate} - 10:00 AM`,
-                  status: 'Recorded',
-                  warehouseId: selectedWarehouse.id,
-                  warehouseName: selectedWarehouse.name,
-                };
-                if (onSaveSuccess) onSaveSuccess(newRecord);
-                else if (onBack) onBack();
-                else setIsSuccess(false);
+                if (savedExpense && onSaveSuccess) {
+                  onSaveSuccess(mapExpenseDtoToRecord(savedExpense));
+                } else if (onBack) {
+                  onBack();
+                } else {
+                  setIsSuccess(false);
+                }
               }}
               activeOpacity={0.75}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
@@ -616,11 +530,17 @@ export function WarehouseAddExpenseScreen({
             <CheckCircleOutlineIcon size={32} color={adminColors.success.text} />
           </View>
           <Text style={styles.successTitle}>Expense Recorded</Text>
-          <Text style={styles.successSubtitle}>Expense ID EXP-001245</Text>
+          {savedExpense ? (
+            <Text style={styles.successSubtitle}>
+              {savedExpense.id.length > 8 ? savedExpense.id.slice(0, 8) : savedExpense.id}
+            </Text>
+          ) : null}
 
           <View style={styles.amountCard}>
             <Text style={styles.amountCardLabel}>Amount</Text>
-            <Text style={styles.amountCardValue}>₹{amount}</Text>
+            <Text style={styles.amountCardValue}>
+              {submittedPaise !== null ? formatPaise(submittedPaise) : `₹${amount}`}
+            </Text>
           </View>
         </View>
 
@@ -629,18 +549,11 @@ export function WarehouseAddExpenseScreen({
           <TouchableOpacity
             style={styles.viewExpenseBtn}
             onPress={() => {
-              const parsedAmt = Math.round(Number(amount.replace(/[^0-9.]/g, '')) * 100);
-              const newRecord: ExpenseRecord = {
-                id: initialExpense?.expenseId || `EXP-${String(Date.now()).slice(-6)}`,
-                categoryRef: `${selectedCategory} · ${description || 'Warehouse Expense'}`,
-                amountPaise: parsedAmt,
-                timestamp: `${expenseDate} - 10:00 AM`,
-                status: 'Recorded',
-                warehouseId: selectedWarehouse.id,
-                warehouseName: selectedWarehouse.name,
-              };
-              if (onSaveSuccess) onSaveSuccess(newRecord);
-              else if (onBack) onBack();
+              if (savedExpense && onSaveSuccess) {
+                onSaveSuccess(mapExpenseDtoToRecord(savedExpense));
+              } else if (onBack) {
+                onBack();
+              }
             }}
             activeOpacity={0.8}
           >
@@ -693,7 +606,7 @@ export function WarehouseAddExpenseScreen({
               }}
               activeOpacity={0.8}
             >
-              <Text style={styles.dropdownValueText}>{selectedWarehouse.name || 'Select Warehouse'}</Text>
+              <Text style={styles.dropdownValueText}>{selectedWarehouse?.name || t('finance.expense.pickWarehouse')}</Text>
               <ChevronDownIcon size={16} color={adminColors.ink} />
             </TouchableOpacity>
 
@@ -703,7 +616,7 @@ export function WarehouseAddExpenseScreen({
                 {warehouseOptions.map((wh) => {
                   const whId = wh.warehouseId ?? '';
                   const whName = wh.warehouseName ?? whId;
-                  const isSelected = selectedWarehouse.id === whId || selectedWarehouse.name === whName;
+                  const isSelected = selectedWarehouse?.id === whId || selectedWarehouse?.name === whName;
                   return (
                     <TouchableOpacity
                       key={whId || whName}
@@ -736,9 +649,6 @@ export function WarehouseAddExpenseScreen({
         <View style={styles.fieldGroup}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.sm }}>
             <Text style={[styles.fieldLabel, { marginBottom: 0 }]}>Expense Category</Text>
-            <TouchableOpacity onPress={() => setShowAddCategoryScreen(true)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <Text style={{ ...adminType.sectionHead, color: adminColors.brand }}>+ Add</Text>
-            </TouchableOpacity>
           </View>
           <TouchableOpacity
             style={styles.dropdownBtn}
@@ -755,28 +665,37 @@ export function WarehouseAddExpenseScreen({
           {/* Category Dropdown List */}
           {showCategoryPicker && (
             <View style={styles.pickerDropdown}>
-              {(liveCategories.length > 0 ? liveCategories.map((c) => c.name) : EXPENSE_CATEGORIES).map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.pickerOption,
-                    selectedCategory === cat && styles.pickerOptionActive,
-                  ]}
-                  onPress={() => {
-                    setSelectedCategory(cat);
-                    setShowCategoryPicker(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.pickerOptionText,
-                      selectedCategory === cat && styles.pickerOptionTextActive,
-                    ]}
-                  >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              {categoriesLoading ? (
+                <AdminLoadingState />
+              ) : categoriesError ? (
+                <AdminErrorState error={categoriesError} onRetry={refreshCategories} />
+              ) : (
+                liveCategories.map((cat) => {
+                  const isSelected = categoryId === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[
+                        styles.pickerOption,
+                        isSelected && styles.pickerOptionActive,
+                      ]}
+                      onPress={() => {
+                        setCategoryId(cat.id);
+                        setShowCategoryPicker(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerOptionText,
+                          isSelected && styles.pickerOptionTextActive,
+                        ]}
+                      >
+                        {cat.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
           )}
 
@@ -798,7 +717,7 @@ export function WarehouseAddExpenseScreen({
             onPress={() => setShowCalendarModal(true)}
             activeOpacity={0.8}
           >
-            <Text style={styles.dateValueText}>{expenseDate}</Text>
+            <Text style={styles.dateValueText}>{displayDateText}</Text>
             <CalendarIcon size={18} color={adminColors.brand} />
           </TouchableOpacity>
         </View>

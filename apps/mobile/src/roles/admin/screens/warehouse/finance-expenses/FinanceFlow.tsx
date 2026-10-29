@@ -26,13 +26,14 @@ import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { DailyCashScreen } from '../wallet-cashtopup/DailyCashScreen';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
-import { FINANCE_TODAY } from './fixtures';
 import { FINANCE_CODES } from './FinanceParts';
 import { FinanceHistoryScreen } from './FinanceHistoryScreen';
 import { canOpenFinanceRoute, FinanceHubScreen } from './FinanceHubScreen';
 import { FinanceReportsScreen } from './FinanceReportsScreen';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
 import { revenueDetailOf, RevenueScreen } from './RevenueScreen';
+import { fromPaise } from '@tohfa/shared-types';
+import { formatPaiseOrDash } from './mappers';
 import type {
   ExpenseDraft,
   FinanceRoute,
@@ -78,7 +79,7 @@ function draftOf(params: FinanceRouteParams): ExpenseDraft | undefined {
   const method = e.paymentMethod;
   return {
     expenseId: e.expenseId,
-    amount: e.amountPaise !== null && e.amountPaise !== undefined ? String(Math.round(e.amountPaise / 100)) : '',
+    amount: e.amountPaise == null ? '' : fromPaise(e.amountPaise),
     category: e.category ?? '',
     date: e.date ?? '',
     description: e.description ?? '',
@@ -199,14 +200,6 @@ export function FinanceFlow({
               expense: savedRecord
                 ? {
                     expenseId: savedRecord.id,
-                    amountPaise: savedRecord.amountPaise,
-                    category: savedRecord.categoryRef.split('·')[0]?.trim(),
-                    date: savedRecord.timestamp.split('-')[0]?.trim() || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    description: savedRecord.categoryRef,
-                    paymentMethod: 'Cash',
-                    vendorPayee: 'Transport & Logistics Payee',
-                    warehouse: savedRecord.warehouseName,
-                    status: 'Recorded',
                   }
                 : undefined,
             })
@@ -254,7 +247,7 @@ export function FinanceFlow({
                 isShortVersion: isMain,
                 revenue: {
                   revenueId: item.id,
-                  finalAmount: item.amountPaise !== null && item.amountPaise !== undefined ? `₹${Math.round(item.amountPaise / 100).toLocaleString('en-IN')}` : '—',
+                  finalAmount: formatPaiseOrDash(item.amountPaise),
                   salesChannel: item.title,
                   transactionDate: item.time,
                 },
@@ -286,7 +279,6 @@ export function FinanceFlow({
       return (
         <DailyCashScreen
           {...common}
-          date={FINANCE_TODAY}
           warehouseOptions={warehouseOptions}
           initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
           hideWarehouseFilter={isSpecificWarehouseChosen}

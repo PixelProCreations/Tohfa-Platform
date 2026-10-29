@@ -67,23 +67,8 @@ import {
 } from './FinanceParts';
 import { useExpenses, useRevenueList } from './useFinanceData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { formatPaise } from '../../../money/paise';
 import type { ExpenseRecord, FinanceRoute, PermissionCheck, RevenueRecord, WarehouseScreenBaseProps } from './types';
-
-type TrendTab = 'Revenue' | 'Expenses' | 'Net';
-
-/** Bar heights (percent of the chart) of the mock 6-day trend. */
-const TREND_BARS: Record<TrendTab, readonly number[]> = {
-  Revenue: [55, 70, 60, 85, 75, 95],
-  Expenses: [40, 50, 35, 45, 65, 75],
-  Net: [65, 80, 45, 75, 85, 100],
-};
-const TREND_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-const TREND_AXIS = ['30k', '20k', '10k', '0'] as const;
-const TREND_CAPTION: Record<TrendTab, string> = {
-  Revenue: 'Revenue trend chart: daily revenue for selected period',
-  Expenses: 'Expense trend chart: daily expenses for selected period',
-  Net: 'Net movement chart: daily net for selected period',
-};
 
 /** Which code(s) unlock a hub route: any one is enough. */
 const ROUTE_CODES: Partial<Record<FinanceRoute, readonly string[]>> = {
@@ -124,7 +109,6 @@ export function FinanceHubScreen({
   onOpenWallet,
   onNavigateToNotifications,
 }: FinanceHubScreenProps) {
-  const [trendTab, setTrendTab] = useState<TrendTab>('Revenue');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
   const { options: liveWarehouseOptions } = useWarehouseOptions();
@@ -175,49 +159,37 @@ export function FinanceHubScreen({
   const totalExpPaise = expenses.reduce((sum: number, e: ExpenseRecord) => sum + (e.amountPaise ?? 0), 0);
   const netPaise = totalRevPaise - totalExpPaise;
 
-  const revDisplay = `₹${Math.round(totalRevPaise / 100).toLocaleString('en-IN')}`;
-  const expDisplay = `₹${Math.round(totalExpPaise / 100).toLocaleString('en-IN')}`;
-  const netDisplay = `${netPaise < 0 ? '-' : ''}₹${Math.abs(Math.round(netPaise / 100)).toLocaleString('en-IN')}`;
+  const revDisplay = formatPaise(totalRevPaise);
+  const expDisplay = formatPaise(totalExpPaise);
+  const netDisplay = formatPaise(netPaise);
 
   const directSalesPaise = revenues.filter((r: RevenueRecord) => r.category === 'Direct Sales').reduce((s: number, r: RevenueRecord) => s + (r.amountPaise ?? 0), 0);
   const ordersPaise = revenues.filter((r: RevenueRecord) => r.category === 'Orders').reduce((s: number, r: RevenueRecord) => s + (r.amountPaise ?? 0), 0);
   const otherPaise = revenues.filter((r: RevenueRecord) => r.category === 'Other').reduce((s: number, r: RevenueRecord) => s + (r.amountPaise ?? 0), 0);
 
-  const revenueBreakdown = revenues.length > 0
-    ? {
-        direct: `₹${Math.round(directSalesPaise / 100).toLocaleString('en-IN')}`,
-        orders: `₹${Math.round(ordersPaise / 100).toLocaleString('en-IN')}`,
-        other: `₹${Math.round(otherPaise / 100).toLocaleString('en-IN')}`,
-        total: revDisplay,
-      }
-    : { direct: '₹9,850', orders: '₹12,400', other: '₹2,600', total: '₹24,850' };
+  const revenueBreakdown = {
+    direct: formatPaise(directSalesPaise),
+    orders: formatPaise(ordersPaise),
+    other: formatPaise(otherPaise),
+    total: revDisplay,
+  };
 
   const categoryMap: Record<string, number> = {};
   for (const e of expenses) {
     const cat = e.categoryRef.split('·')[0]?.trim() || 'General';
     categoryMap[cat] = (categoryMap[cat] || 0) + (e.amountPaise ?? 0);
   }
-  const liveExpenseRows = Object.entries(categoryMap).map(([label, val]) => ({
+  const expenseRows = Object.entries(categoryMap).map(([label, val]) => ({
     label,
-    value: `₹${Math.round(val / 100).toLocaleString('en-IN')}`,
+    value: formatPaise(val),
   }));
-  const expenseRows = expenses.length > 0
-    ? liveExpenseRows
-    : [
-        { label: 'Transport', value: '₹2,400' },
-        { label: 'Loading / Unloading', value: '₹1,800' },
-        { label: 'Warehouse Operations', value: '₹1,200' },
-        { label: 'Utilities', value: '₹620' },
-        { label: 'Maintenance', value: '₹400' },
-      ];
 
-  const totalExpenseStr = expenses.length > 0 ? expDisplay : '₹6,420';
+  const totalExpenseStr = expDisplay;
 
   const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; subtitle: string }[] = [
-    { label: 'Revenue', value: revenues.length > 0 ? revDisplay : '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
-    { label: 'Expenses', value: expenses.length > 0 ? expDisplay : '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
-    { label: 'Net Movement', value: (revenues.length > 0 || expenses.length > 0) ? netDisplay : '₹18,430', tone: 'success', subtitle: 'Net Movement' },
-    { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
+    { label: 'Revenue', value: revDisplay, route: 'Revenue', subtitle: 'Tap To View' },
+    { label: 'Expenses', value: expDisplay, route: 'Expenses', subtitle: 'Tap To View' },
+    { label: 'Net Movement', value: netDisplay, tone: 'success', subtitle: 'Net Movement' },
   ];
 
   const revenuePress = opener('Revenue');
@@ -237,7 +209,6 @@ export function FinanceHubScreen({
           accessibilityLabel="Notifications"
           onPress={() => {
             if (onNavigateToNotifications) onNavigateToNotifications();
-            else Alert.alert('Notifications', '3 unread finance notifications.');
           }}
         >
           <BellRingIcon size={20} color={adminColors.onBrand} />
@@ -318,66 +289,6 @@ export function FinanceHubScreen({
           </>
         ) : null}
 
-        <SectionTitle
-          right={
-            historyPress ? (
-              <TouchableOpacity onPress={historyPress} activeOpacity={0.7} hitSlop={HIT_SLOP}>
-                <Text style={styles.sectionAction}>History ›</Text>
-              </TouchableOpacity>
-            ) : undefined
-          }
-        >
-          Financial Trend
-        </SectionTitle>
-        <View style={styles.trendPills}>
-          {(Object.keys(TREND_BARS) as TrendTab[]).map((tab) => {
-            const active = tab === trendTab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.trendPill, active && styles.trendPillActive]}
-                onPress={() => setTrendTab(tab)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.trendPillText, active && styles.trendPillTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.85}>
-          <View style={styles.chartRow}>
-            <View style={styles.chartAxis}>
-              {TREND_AXIS.map((label) => (
-                <Text key={label} style={styles.chartAxisText}>
-                  {label}
-                </Text>
-              ))}
-            </View>
-            <View style={styles.chartBody}>
-              <View style={styles.chartBars}>
-                {TREND_BARS[trendTab].map((height, index) => (
-                  <View
-                    key={TREND_DAYS[index]}
-                    style={[
-                      styles.bar,
-                      { height: `${height}%` },
-                      index === TREND_DAYS.length - 1 && styles.barToday,
-                    ]}
-                  />
-                ))}
-              </View>
-              <View style={styles.chartDays}>
-                {TREND_DAYS.map((day, index) => (
-                  <Text key={day} style={[styles.chartAxisText, index === TREND_DAYS.length - 1 && styles.chartDayToday]}>
-                    {day}
-                  </Text>
-                ))}
-              </View>
-            </View>
-          </View>
-          <Text style={styles.chartCaption}>{TREND_CAPTION[trendTab]}</Text>
-        </TouchableOpacity>
-
         {isMain ? null : (
           <>
             <SectionTitle
@@ -392,38 +303,43 @@ export function FinanceHubScreen({
               Recent Finance Activity
             </SectionTitle>
             <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.8}>
-              {can(FINANCE_CODES.salesIncome) ? (
+              {can(FINANCE_CODES.salesIncome) && latestRevenue ? (
                 <View style={styles.activityRow}>
                   <View style={[styles.activityIcon, styles.activityIconRevenue]}>
                     <TrendUpIcon size={18} color={adminColors.success.text} />
                   </View>
                   <View style={styles.activityInfo}>
-                    <Text style={styles.activityCode}>{latestRevenue?.id ?? 'REV-000845'}</Text>
-                    <Text style={styles.activityMeta}>{latestRevenue?.orderRef.split('·')[0]?.trim() || latestRevenue?.category || 'Market Sale'}</Text>
+                    <Text style={styles.activityCode}>{latestRevenue.id}</Text>
+                    <Text style={styles.activityMeta}>{latestRevenue.orderRef.split('·')[0]?.trim() || latestRevenue.category || 'Market Sale'}</Text>
                   </View>
                   <View style={styles.activityRight}>
                     <Text style={[styles.activityAmount, styles.amountCredit]}>
-                      {latestRevenue ? `+₹${latestRevenue.amountPaise !== null && latestRevenue.amountPaise !== undefined ? Math.round(latestRevenue.amountPaise / 100).toLocaleString('en-IN') : '0'}` : '+₹3,450'}
+                      {`+${formatPaise(latestRevenue.amountPaise ?? 0)}`}
                     </Text>
-                    <Text style={styles.activityMeta}>{latestRevenue?.timestamp ?? 'Today, 11:20 AM'}</Text>
+                    <Text style={styles.activityMeta}>{latestRevenue.timestamp}</Text>
                   </View>
                 </View>
               ) : null}
-              {can(FINANCE_CODES.expenseLog) ? (
-                <View style={[styles.activityRow, can(FINANCE_CODES.salesIncome) && styles.activityDivided]}>
+              {can(FINANCE_CODES.expenseLog) && latestExpense ? (
+                <View style={[styles.activityRow, can(FINANCE_CODES.salesIncome) && latestRevenue && styles.activityDivided]}>
                   <View style={[styles.activityIcon, styles.activityIconExpense]}>
                     <TruckIcon size={18} />
                   </View>
                   <View style={styles.activityInfo}>
-                    <Text style={styles.activityCode}>{latestExpense?.id ?? 'EXP-000124'}</Text>
-                    <Text style={styles.activityMeta}>{latestExpense?.categoryRef ?? 'Transport Expense'}</Text>
+                    <Text style={styles.activityCode}>{latestExpense.id}</Text>
+                    <Text style={styles.activityMeta}>{latestExpense.categoryRef}</Text>
                   </View>
                   <View style={styles.activityRight}>
                     <Text style={[styles.activityAmount, styles.amountDebit]}>
-                      {latestExpense ? `-₹${latestExpense.amountPaise !== null && latestExpense.amountPaise !== undefined ? Math.round(latestExpense.amountPaise / 100).toLocaleString('en-IN') : '0'}` : '-₹1,200'}
+                      {`-${formatPaise(latestExpense.amountPaise ?? 0)}`}
                     </Text>
-                    <Text style={styles.activityMeta}>{latestExpense?.timestamp ?? 'Today, 10:42 AM'}</Text>
+                    <Text style={styles.activityMeta}>{latestExpense.timestamp}</Text>
                   </View>
+                </View>
+              ) : null}
+              {!latestRevenue && !latestExpense ? (
+                <View style={{ padding: adminSpacing.md, alignItems: 'center' }}>
+                  <Text style={{ ...adminType.caption, color: adminColors.muted }}>No recent finance activity</Text>
                 </View>
               ) : null}
             </TouchableOpacity>
@@ -449,8 +365,6 @@ export function FinanceHubScreen({
 }
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
-const CHART_HEIGHT = 108;
-const CHART_AXIS_WIDTH = 36;
 
 const styles = StyleSheet.create({
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.md },
@@ -483,43 +397,6 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.xs,
   },
   sectionAction: { ...adminType.rowTitle, color: adminColors.brand },
-
-  trendPills: { flexDirection: 'row', gap: adminSpacing.sm, marginBottom: adminSpacing.sm },
-  trendPill: {
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.full,
-  },
-  trendPillActive: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
-  trendPillText: { ...adminType.caption, color: adminColors.muted },
-  trendPillTextActive: { color: adminColors.brandDeep },
-  chartRow: { flexDirection: 'row', height: CHART_HEIGHT + 30, paddingTop: adminSpacing.md },
-  chartAxis: { width: CHART_AXIS_WIDTH, justifyContent: 'space-between', paddingBottom: 22 },
-  chartAxisText: { ...adminType.caption, color: adminColors.muted },
-  chartBody: { flex: 1 },
-  chartBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    height: CHART_HEIGHT,
-    gap: adminSpacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-  },
-  // The old light bars used a hardcoded light orange: brandTint is
-  // too close to the card, so the bars use the border tone and today's bar the brand.
-  bar: { flex: 1, backgroundColor: adminColors.border, borderRadius: adminRadius.xs },
-  barToday: { backgroundColor: adminColors.brand },
-  chartDays: { flexDirection: 'row', justifyContent: 'space-around', paddingTop: 6 },
-  chartDayToday: { color: adminColors.brandDeep },
-  chartCaption: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    textAlign: 'center',
-    marginVertical: adminSpacing.sm,
-  },
 
   activityRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: adminSpacing.sm },
   activityDivided: { borderTopWidth: 1, borderTopColor: adminColors.border },

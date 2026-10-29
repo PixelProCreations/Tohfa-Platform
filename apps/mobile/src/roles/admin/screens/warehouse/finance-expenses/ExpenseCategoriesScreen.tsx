@@ -29,7 +29,7 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { EXPENSE_CATEGORIES } from './fixtures';
+import { AdminLoadingState, AdminErrorState } from '../shared/AsyncStates';
 import { useExpenseCategories } from './useFinanceData';
 import type { ExpenseCategoryItem, WarehouseScreenBaseProps } from './types';
 
@@ -46,10 +46,26 @@ export function ExpenseCategoriesScreen({
   onTabChange: _onTabChange,
   categories: initialCategories,
 }: ExpenseCategoriesScreenProps) {
-  const { categories: liveCategories } = useExpenseCategories();
-  const categories = initialCategories ?? (liveCategories.length > 0 ? liveCategories : EXPENSE_CATEGORIES);
+  const { categories: liveCategories, isLoading, error, refresh } = useExpenseCategories();
+  const categories = initialCategories ?? liveCategories;
   const [filter, setFilter] = useState<StatusFilter>('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  if (isLoading && !initialCategories) {
+    return (
+      <WalletScreen title="Expense Categories" onBack={onBack}>
+        <AdminLoadingState />
+      </WalletScreen>
+    );
+  }
+
+  if (error && !initialCategories) {
+    return (
+      <WalletScreen title="Expense Categories" onBack={onBack}>
+        <AdminErrorState error={error} onRetry={refresh} />
+      </WalletScreen>
+    );
+  }
 
   const query = searchQuery.trim().toLowerCase();
   const visible = categories.filter(

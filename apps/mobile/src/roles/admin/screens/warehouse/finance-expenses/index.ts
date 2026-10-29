@@ -13,7 +13,6 @@ export { RevenueDetailScreen, type RevenueDetailScreenProps } from './RevenueDet
 export { VouchersScreen, type VouchersScreenProps } from './VouchersScreen';
 export { VoucherDetailScreen, type VoucherDetailScreenProps } from './VoucherDetailScreen';
 export { FinanceFlow, type FinanceFlowProps, type FinanceStackEntry } from './FinanceFlow';
-export { FINANCE_WAREHOUSES } from './fixtures';
 export type {
   ExpenseCategoryItem,
   ExpenseDetailParams,

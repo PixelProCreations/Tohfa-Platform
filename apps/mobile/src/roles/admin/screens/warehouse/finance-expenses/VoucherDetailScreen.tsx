@@ -29,7 +29,8 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { canSeeVoucherType, FinanceNotAvailable, PadlockIcon, rupees, scopeLabel, VoucherIcon } from './FinanceParts';
+import { canSeeVoucherType, FinanceNotAvailable, PadlockIcon, scopeLabel, VoucherIcon } from './FinanceParts';
+import { formatPaiseOrDash } from './mappers';
 import { useExpenseVoucher } from './useFinanceData';
 import type { VoucherRecord, WarehouseScreenBaseProps } from './types';
 
@@ -106,7 +107,7 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher, onViewReferen
   }
 
   const warehouse = effectiveVoucher.warehouseName ?? scopeLabel(scope);
-  const amount = rupees(effectiveVoucher.amountPaise !== null && effectiveVoucher.amountPaise !== undefined ? Math.round(effectiveVoucher.amountPaise / 100) : 0);
+  const amount = formatPaiseOrDash(effectiveVoucher.amountPaise);
   const tone = effectiveVoucher.status === 'Completed' ? 'success' : effectiveVoucher.status === 'Pending' ? 'warning' : 'brandSoft';
   const settled = effectiveVoucher.status === 'Completed';
 
