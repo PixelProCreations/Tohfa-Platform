@@ -2,7 +2,7 @@
  * Edit Warehouse Profile screen (M15 Edit Profile / Contact / Storage / Operations).
  * Accessible exclusively by the Main Warehouse Admin via the Edit icon.
  */
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -16,8 +16,6 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Calendar } from 'react-native-calendars';
-import type { DateData } from 'react-native-calendars';
 
 import {
   adminColors,
@@ -30,17 +28,21 @@ import {
 import { StatusBadge, WalletScreen } from '../wallet-cashtopup/WalletParts';
 import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
-import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
-import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
+import { OperatingHoursEditor, singleWarehouseId, WAREHOUSE_PROFILE_CODES } from './WarehouseProfileParts';
+import type { WarehouseScreenBaseProps, WarehouseSelectionProps } from './types';
 import { updateWarehouseProfile } from '../../../api/warehouseSettings';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getWarehouse } from '../../../api/warehouses';
+import { AdminLoadingState, AdminErrorState } from '../shared/AsyncStates';
+import { buildWarehouseProfileEditBody, operatingHoursToEdit, type OperatingHoursEdit } from './warehouseProfileRules';
+import { t } from '../../../i18n';
 
 export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
-export type WarehouseFormMode = 'edit' | 'add';
 
 export interface WarehouseEditProfileScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   initialTab?: EditWarehouseTab;
-  profiles?: readonly WarehouseProfileInfo[] | undefined;
-  mode?: WarehouseFormMode;
+  mode?: 'edit' | 'add' | undefined;
   onSaveSuccess?: () => void;
 }
 
@@ -159,198 +161,168 @@ function CalendarEventIcon({ color = adminColors.brand }: { color?: string }) {
 
 export function WarehouseEditProfileScreen({
   scope,
+  can,
   onBack,
   initialTab = 'Details',
   warehouseOptions: initialWarehouseOptions,
   selectedWarehouseId,
-  profiles = [],
-  mode = 'edit',
   onSaveSuccess,
 }: WarehouseEditProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<EditWarehouseTab>(initialTab);
-  const isAdd = mode === 'add';
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
   const warehouseOptions = initialWarehouseOptions ?? fetchedWarehouseOptions;
-
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
-  const profile = isAdd ? undefined : recordFor(profiles, warehouseId);
-  const contact = undefined;
 
-  // Dynamic Screen Heading based on Active Tab & Mode
+  const canEdit = can(WAREHOUSE_PROFILE_CODES.profileEdit);
+
+  const warehouseQuery = useAdminQuery(
+    adminKeys.detail('warehouses', warehouseId ?? ''),
+    (signal: AbortSignal) => getWarehouse(warehouseId!, signal),
+    { enabled: Boolean(warehouseId) },
+  );
+
+  const rawWarehouse = warehouseQuery.data;
+
+  // Dynamic Screen Heading based on Active Tab
   const getHeaderTitle = () => {
-    const prefix = isAdd ? 'Add' : 'Edit';
     switch (activeTab) {
       case 'Details':
-        return `${prefix} Warehouse Profile`;
+        return 'Edit Warehouse Profile';
       case 'Contact':
-        return `${prefix} Warehouse Contact`;
+        return 'Edit Warehouse Contact';
       case 'Storage':
-        return `${prefix} Warehouse Storage`;
+        return 'Edit Warehouse Storage';
       case 'Operations':
-        return `${prefix} Warehouse Operations`;
+        return 'Edit Warehouse Operations';
     }
   };
 
-  // Details Tab Form State
-  const [warehouseName, setWarehouseName] = useState(isAdd ? '' : (profile?.warehouseName ?? 'Coonoor Warehouse'));
-  const [warehouseCode, setWarehouseCode] = useState(isAdd ? '' : 'CNR');
-  const [warehouseType, setWarehouseType] = useState('Main Warehouse');
-  const [status, setStatus] = useState('Active');
-  const [addressLine1, setAddressLine1] = useState(isAdd ? '' : 'Near Vegetable Market');
-  const [addressLine2, setAddressLine2] = useState(isAdd ? '' : 'Mettupalayam Road');
-  const [stateName, setStateName] = useState('Tamil Nadu');
-  const [district, setDistrict] = useState(isAdd ? '' : 'Nilgiris');
-  const [city, setCity] = useState(isAdd ? '' : 'Coonoor');
-  const [pinCode, setPinCode] = useState(isAdd ? '' : '643101');
-  const [description, setDescription] = useState(
-    isAdd ? '' : 'Main warehouse for collection, sorting and temporary storage of fresh produce from Nilgiris region.'
-  );
+  // State
+  const [primaryPhone, setPrimaryPhone] = useState(rawWarehouse?.contactPhone ?? '');
+  const [hours, setHours] = useState<OperatingHoursEdit>(() => operatingHoursToEdit(rawWarehouse?.operatingHours));
+  const [saveError, setSaveError] = useState<unknown>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Contact Tab Form State
-  const [contactPersonName, setContactPersonName] = useState(isAdd ? '' : 'Suresh Kumar');
-  const [designation, setDesignation] = useState(isAdd ? '' : 'Warehouse Manager');
-  const [primaryPhone, setPrimaryPhone] = useState(isAdd ? '' : '98765 43210');
-  const [alternatePhone, setAlternatePhone] = useState(isAdd ? '' : '91234 56789');
-  const [officialEmail, setOfficialEmail] = useState(isAdd ? '' : 'coonoor.warehouse@tohfa.org');
-  const [alternateEmail, setAlternateEmail] = useState(isAdd ? '' : 'suresh.kumar@tohfa.org');
-  const [landline, setLandline] = useState(isAdd ? '' : '0423 223344');
-  const [emergencyPerson, setEmergencyPerson] = useState(isAdd ? '' : 'Kannan R');
-  const [emergencyPhone, setEmergencyPhone] = useState(isAdd ? '' : '87654 32109');
-  const [contactNotes, setContactNotes] = useState(
-    isAdd ? '' : 'Available for warehouse operations during working hours. For urgent support, contact emergency number.'
-  );
+  useEffect(() => {
+    if (rawWarehouse) {
+      setPrimaryPhone(rawWarehouse.contactPhone ?? '');
+      setHours(operatingHoursToEdit(rawWarehouse.operatingHours));
+    }
+  }, [rawWarehouse]);
 
-  // Storage Tab Form State
-  const [storageType, setStorageType] = useState('General + Cold Storage');
-  const [totalCapacityInput, setTotalCapacityInput] = useState(isAdd ? '' : '50,000');
-  const [storageLocationsCount, setStorageLocationsCount] = useState(isAdd ? '' : '3');
-  const [tempControlledEnabled, setTempControlledEnabled] = useState(true);
-  const [tempMin, setTempMin] = useState(isAdd ? '' : '2');
-  const [tempMax, setTempMax] = useState(isAdd ? '' : '8');
-  const [tempCapacity, setTempCapacity] = useState(isAdd ? '' : '50,000');
-  const [humidityEnabled, setHumidityEnabled] = useState(true);
-  const [humidityMin, setHumidityMin] = useState(isAdd ? '' : '60');
-  const [humidityMax, setHumidityMax] = useState(isAdd ? '' : '90');
-  const [humidityCapacity, setHumidityCapacity] = useState(isAdd ? '' : '50,000');
-  const [handlingReqs, setHandlingReqs] = useState(
-    isAdd ? '' : 'Keep temperature between 2°C – 8°C for perishable items. Separate area for organic produce.'
-  );
-
-  // Operations Tab Form State
-  const [operatingDays, setOperatingDays] = useState<string[]>(['Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
-  const [openingTime, setOpeningTime] = useState(isAdd ? '' : '08:00 AM');
-  const [closingTime, setClosingTime] = useState(isAdd ? '' : '06:00 PM');
-  const [receivingEnabled, setReceivingEnabled] = useState(true);
-  const [receivingStartTime, setReceivingStartTime] = useState(isAdd ? '' : '08:00 AM');
-  const [receivingEndTime, setReceivingEndTime] = useState(isAdd ? '' : '04:00 PM');
-  const [qcAreaAvailable, setQcAreaAvailable] = useState(true);
-  const [operationNotes, setOperationNotes] = useState(
-    isAdd ? '' : 'Warehouse operates 6 days a week. Closed on Sundays and public holidays. Ensure cold storage temperature is monitored regularly.'
-  );
-
-  interface WarehouseHolidayItem {
-    id: string;
-    date: string; // YYYY-MM-DD
-    name: string;
+  if (!canEdit) {
+    return (
+      <WalletScreen title="Edit Warehouse Profile" onBack={onBack}>
+        <View style={{ padding: adminSpacing.lg }}>
+          <Text style={{ ...adminType.body, color: adminColors.ink }}>
+            {t('profile.edit.notPermitted')}
+          </Text>
+        </View>
+      </WalletScreen>
+    );
   }
 
-  const [holidays, setHolidays] = useState<WarehouseHolidayItem[]>([]);
-  const [showHolidayModal, setShowHolidayModal] = useState(false);
-  const [selectedHolidayDate, setSelectedHolidayDate] = useState<string>('');
-  const [holidayNameInput, setHolidayNameInput] = useState('');
+  if (warehouseQuery.isPending) {
+    return (
+      <WalletScreen title={getHeaderTitle()} onBack={onBack}>
+        <AdminLoadingState />
+      </WalletScreen>
+    );
+  }
 
-  const openAddHolidayModal = () => {
-    const today = new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    setSelectedHolidayDate(`${yyyy}-${mm}-${dd}`);
-    setHolidayNameInput('');
-    setShowHolidayModal(true);
-  };
+  if (warehouseQuery.error) {
+    return (
+      <WalletScreen title={getHeaderTitle()} onBack={onBack}>
+        <AdminErrorState error={warehouseQuery.error} onRetry={() => void warehouseQuery.refetch()} />
+      </WalletScreen>
+    );
+  }
 
-  const handleSelectHolidayDate = (dateString: string) => {
-    setSelectedHolidayDate(dateString);
-    const newHoliday: WarehouseHolidayItem = {
-      id: `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      date: dateString,
-      name: 'Holiday / Closure',
-    };
-    setHolidays((prev) => [...prev, newHoliday].sort((a, b) => a.date.localeCompare(b.date)));
-    setShowHolidayModal(false);
-  };
+  // Details Tab Form State (Loaded from API, read-only)
+  const warehouseName = rawWarehouse?.name ?? '';
+  const warehouseCode = rawWarehouse?.code ?? '';
+  const warehouseType = rawWarehouse?.type === 'MAIN' ? 'Main Warehouse' : 'Sub Warehouse';
+  const status = rawWarehouse?.isActive ? 'Active' : 'Inactive';
+  const addressLine1 = rawWarehouse?.address ?? '';
+  const addressLine2 = '';
+  const stateName = 'Tamil Nadu';
+  const district = 'Nilgiris';
+  const city = rawWarehouse?.city ?? '';
+  const pinCode = rawWarehouse?.pincode ?? '';
+  const description = 'Warehouse facility for regional produce collection, sorting and storage.';
 
-  const handleRemoveHoliday = (id: string) => {
-    setHolidays((prev) => prev.filter((h) => h.id !== id));
-  };
+  // Contact Tab Form State
+  const contactPersonName = 'Warehouse Manager';
+  const designation = 'Manager';
+  const alternatePhone = '';
+  const officialEmail = '';
+  const alternateEmail = '';
+  const landline = '';
+  const emergencyPerson = '';
+  const emergencyPhone = '';
+  const contactNotes = '';
 
-  const formatHolidayDate = (dateStr: string) => {
-    try {
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-        return d.toLocaleDateString('en-IN', {
-          day: '2-digit',
-          month: 'short',
-          year: 'numeric',
-          weekday: 'short',
-        });
-      }
-    } catch {}
-    return dateStr;
-  };
+  // Storage Tab Form State (Read-only reference)
+  const storageType = 'General + Cold Storage';
+  const totalCapacityInput = rawWarehouse?.capacityKg ?? '—';
+  const storageLocationsCount = '—';
+  const tempControlledEnabled = true;
+  const tempMin = '2';
+  const tempMax = '8';
+  const tempCapacity = '—';
+  const humidityEnabled = true;
+  const humidityMin = '60';
+  const humidityMax = '90';
+  const humidityCapacity = '—';
+  const handlingReqs = '';
 
-  const toggleDay = (day: string) => {
-    if (operatingDays.includes(day)) {
-      setOperatingDays(operatingDays.filter((d) => d !== day));
-    } else {
-      setOperatingDays([...operatingDays, day]);
-    }
-  };
+  // Operations Tab (non-hours fields read-only)
+  const receivingEnabled = true;
+  const receivingStartTime = '08:00 AM';
+  const receivingEndTime = '04:00 PM';
+  const qcAreaAvailable = true;
+  const operationNotes = '';
 
   const handleSave = async () => {
-    if (warehouseId && !isAdd) {
-      try {
-        await updateWarehouseProfile(warehouseId, {
-          // name/address are not part of the BR-80 contract; only phone+hours are updatable
-        });
-      } catch {
-        // Proceed on non-fatal errors
+    if (!warehouseId) return;
+    const current = {
+      contactPhone: rawWarehouse?.contactPhone,
+      operatingHours: rawWarehouse?.operatingHours,
+    };
+    const built = buildWarehouseProfileEditBody(current, {
+      contactPhone: primaryPhone,
+      hours,
+    });
+    if (!built.ok) {
+      if (built.errorKey === 'profile.edit.error.noChanges') {
+        Alert.alert('No Changes', 'No changes have been made to save.');
+      } else {
+        Alert.alert('Invalid Input', t(built.errorKey));
       }
+      return;
     }
-    Alert.alert(isAdd ? 'Warehouse Created' : 'Changes Saved', `${getHeaderTitle()} ${isAdd ? 'created' : 'updated'} successfully.`, [
-      {
-        text: 'OK',
-        onPress: () => {
-          onSaveSuccess?.();
-          onBack();
+    setSaveError(null);
+    setIsSaving(true);
+    try {
+      await updateWarehouseProfile(warehouseId, built.value);
+      Alert.alert(t('profile.save.success.title'), t('profile.save.success.message'), [
+        {
+          text: 'OK',
+          onPress: () => {
+            onSaveSuccess?.();
+            onBack();
+          },
         },
-      },
-    ]);
-  };
-
-  const handleNextOrSave = () => {
-    if (isAdd) {
-      if (activeTab === 'Details') {
-        setActiveTab('Contact');
-        return;
-      }
-      if (activeTab === 'Contact') {
-        setActiveTab('Storage');
-        return;
-      }
-      if (activeTab === 'Storage') {
-        setActiveTab('Operations');
-        return;
-      }
+      ]);
+    } catch (err) {
+      setSaveError(err);
+    } finally {
+      setIsSaving(false);
     }
-    handleSave();
   };
 
-  const subHeaderLabel = isAdd
-    ? 'New Warehouse Hub'
-    : `${profile?.warehouseName ?? 'Coonoor Warehouse'} (${profile?.code ?? 'WH-002'})`;
+  const subHeaderLabel = `${rawWarehouse?.name ?? 'Warehouse'} (${rawWarehouse?.code ?? ''})`;
 
   return (
     <WalletScreen
@@ -401,40 +373,37 @@ export function WarehouseEditProfileScreen({
         {/* ─── 1. DETAILS TAB CONTENT ─── */}
         {activeTab === 'Details' && (
           <>
-            {/* Header Card (Only in Edit mode) */}
-            {!isAdd && (
-              <View style={styles.summaryCard}>
-                <View style={styles.summaryCardLeft}>
-                  <View style={styles.thumbnailBox} />
-                  <View style={styles.summaryCardInfo}>
-                    <Text style={styles.summaryCardTitle}>{warehouseName}</Text>
-                    <Text style={styles.summaryCardMeta}>Warehouse ID : {profile?.code ?? 'WH-002'}</Text>
-                    <Text style={styles.summaryCardMeta}>Warehouse Code : {warehouseCode}</Text>
-                    <Text style={styles.summaryCardMeta}>Type : {warehouseType}</Text>
-                  </View>
-                </View>
-                <View style={styles.activeBadge}>
-                  <Text style={styles.activeBadgeText}>Active</Text>
+            {/* Header Card */}
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryCardLeft}>
+                <View style={styles.thumbnailBox} />
+                <View style={styles.summaryCardInfo}>
+                  <Text style={styles.summaryCardTitle}>{warehouseName}</Text>
+                  <Text style={styles.summaryCardMeta}>Warehouse Code : {warehouseCode}</Text>
+                  <Text style={styles.summaryCardMeta}>Type : {warehouseType}</Text>
                 </View>
               </View>
-            )}
+              <View style={styles.activeBadge}>
+                <Text style={styles.activeBadgeText}>{status}</Text>
+              </View>
+            </View>
 
             <Text style={styles.sectionHeader}>Basic Information</Text>
             <View style={styles.rowTwoCols}>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Warehouse Name *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={warehouseName}
-                  onChangeText={setWarehouseName}
+                  editable={false}
                 />
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Warehouse Code *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={warehouseCode}
-                  onChangeText={setWarehouseCode}
+                  editable={false}
                 />
               </View>
             </View>
@@ -444,14 +413,12 @@ export function WarehouseEditProfileScreen({
                 <Text style={styles.fieldLabel}>Warehouse Type</Text>
                 <View style={styles.dropdownInput}>
                   <Text style={styles.dropdownInputText}>{warehouseType}</Text>
-                  <ChevronDownSmallIcon />
                 </View>
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Status</Text>
                 <View style={styles.dropdownInput}>
                   <Text style={styles.dropdownInputText}>{status}</Text>
-                  <ChevronDownSmallIcon />
                 </View>
               </View>
             </View>
@@ -460,54 +427,27 @@ export function WarehouseEditProfileScreen({
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Address Line 1 *</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.inputDisabled]}
                 value={addressLine1}
-                onChangeText={setAddressLine1}
+                editable={false}
               />
-            </View>
-
-            <View style={styles.fieldWrap}>
-              <Text style={styles.fieldLabel}>Address Line 2</Text>
-              <TextInput
-                style={styles.textInput}
-                value={addressLine2}
-                onChangeText={setAddressLine2}
-              />
-            </View>
-
-            <View style={styles.rowTwoCols}>
-              <View style={styles.colHalf}>
-                <Text style={styles.fieldLabel}>State *</Text>
-                <View style={styles.dropdownInput}>
-                  <Text style={styles.dropdownInputText}>{stateName}</Text>
-                  <ChevronDownSmallIcon />
-                </View>
-              </View>
-              <View style={styles.colHalf}>
-                <Text style={styles.fieldLabel}>District *</Text>
-                <View style={styles.dropdownInput}>
-                  <Text style={styles.dropdownInputText}>{district}</Text>
-                  <ChevronDownSmallIcon />
-                </View>
-              </View>
             </View>
 
             <View style={styles.rowTwoCols}>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>City / Town *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={city}
-                  onChangeText={setCity}
+                  editable={false}
                 />
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>PIN Code *</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={pinCode}
-                  keyboardType="numeric"
-                  onChangeText={setPinCode}
+                  editable={false}
                 />
               </View>
             </View>
@@ -540,9 +480,9 @@ export function WarehouseEditProfileScreen({
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Description</Text>
               <TextInput
-                style={[styles.textInput, styles.textArea]}
+                style={[styles.textInput, styles.textArea, styles.inputDisabled]}
                 value={description}
-                onChangeText={setDescription}
+                editable={false}
                 multiline
                 maxLength={500}
               />
@@ -560,20 +500,20 @@ export function WarehouseEditProfileScreen({
             </View>
 
             <View style={styles.fieldWrap}>
-              <Text style={styles.fieldLabel}>Contact Person Name *</Text>
+              <Text style={styles.fieldLabel}>Contact Person Name</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.inputDisabled]}
                 value={contactPersonName}
-                onChangeText={setContactPersonName}
+                editable={false}
               />
             </View>
 
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Designation</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.inputDisabled]}
                 value={designation}
-                onChangeText={setDesignation}
+                editable={false}
               />
             </View>
 
@@ -588,6 +528,7 @@ export function WarehouseEditProfileScreen({
                   value={primaryPhone}
                   onChangeText={setPrimaryPhone}
                   keyboardType="phone-pad"
+                  editable={!isSaving}
                 />
               </View>
             </View>
@@ -599,9 +540,9 @@ export function WarehouseEditProfileScreen({
                   <Text style={styles.phonePrefixText}>+91</Text>
                 </View>
                 <TextInput
-                  style={[styles.textInput, styles.phoneInputFlex]}
+                  style={[styles.textInput, styles.phoneInputFlex, styles.inputDisabled]}
                   value={alternatePhone}
-                  onChangeText={setAlternatePhone}
+                  editable={false}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -610,20 +551,9 @@ export function WarehouseEditProfileScreen({
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Official Email</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.inputDisabled]}
                 value={officialEmail}
-                onChangeText={setOfficialEmail}
-                keyboardType="email-address"
-              />
-            </View>
-
-            <View style={styles.fieldWrap}>
-              <Text style={styles.fieldLabel}>Alternate Email</Text>
-              <TextInput
-                style={styles.textInput}
-                value={alternateEmail}
-                onChangeText={setAlternateEmail}
-                keyboardType="email-address"
+                editable={false}
               />
             </View>
 
@@ -634,10 +564,9 @@ export function WarehouseEditProfileScreen({
                   <ContactTabIcon color={adminColors.brandDeep} />
                 </View>
                 <TextInput
-                  style={[styles.textInput, styles.iconInputFlex]}
+                  style={[styles.textInput, styles.iconInputFlex, styles.inputDisabled]}
                   value={landline}
-                  onChangeText={setLandline}
-                  keyboardType="phone-pad"
+                  editable={false}
                 />
               </View>
             </View>
@@ -650,9 +579,9 @@ export function WarehouseEditProfileScreen({
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Emergency Contact Person</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.inputDisabled]}
                 value={emergencyPerson}
-                onChangeText={setEmergencyPerson}
+                editable={false}
               />
             </View>
 
@@ -663,9 +592,9 @@ export function WarehouseEditProfileScreen({
                   <Text style={styles.phonePrefixText}>+91</Text>
                 </View>
                 <TextInput
-                  style={[styles.textInput, styles.phoneInputFlex]}
+                  style={[styles.textInput, styles.phoneInputFlex, styles.inputDisabled]}
                   value={emergencyPhone}
-                  onChangeText={setEmergencyPhone}
+                  editable={false}
                   keyboardType="phone-pad"
                 />
               </View>
@@ -679,9 +608,9 @@ export function WarehouseEditProfileScreen({
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Contact Notes</Text>
               <TextInput
-                style={[styles.textInput, styles.textArea]}
+                style={[styles.textInput, styles.textArea, styles.inputDisabled]}
                 value={contactNotes}
-                onChangeText={setContactNotes}
+                editable={false}
                 multiline
                 maxLength={500}
               />
@@ -693,62 +622,55 @@ export function WarehouseEditProfileScreen({
         {/* ─── 3. STORAGE TAB CONTENT ─── */}
         {activeTab === 'Storage' && (
           <>
-            {/* KPI Cards 2x2 (Edit mode only) */}
-            {!isAdd && (
-              <>
-                <View style={styles.rowTwoCols}>
-                  <View style={styles.kpiCardHalf}>
-                    <Text style={styles.kpiLabel}>Total Capacity</Text>
-                    <Text style={styles.kpiValueDark}>50,000 KG</Text>
-                  </View>
-                  <View style={styles.kpiCardHalf}>
-                    <Text style={styles.kpiLabel}>Used Capacity</Text>
-                    <Text style={styles.kpiValueGreen}>32,450 KG</Text>
-                    <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: '64.9%' }]} />
-                    </View>
-                    <Text style={styles.kpiSubText}>64.9%</Text>
-                  </View>
+            <View style={styles.rowTwoCols}>
+              <View style={styles.kpiCardHalf}>
+                <Text style={styles.kpiLabel}>Total Capacity</Text>
+                <Text style={styles.kpiValueDark}>50,000 KG</Text>
+              </View>
+              <View style={styles.kpiCardHalf}>
+                <Text style={styles.kpiLabel}>Used Capacity</Text>
+                <Text style={styles.kpiValueGreen}>32,450 KG</Text>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: '64.9%' }]} />
                 </View>
+                <Text style={styles.kpiSubText}>64.9%</Text>
+              </View>
+            </View>
 
-                <View style={styles.rowTwoCols}>
-                  <View style={styles.kpiCardHalf}>
-                    <Text style={styles.kpiLabel}>Available Capacity</Text>
-                    <Text style={styles.kpiValueGreen}>17,550 KG</Text>
-                    <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: '35.1%' }]} />
-                    </View>
-                    <Text style={styles.kpiSubText}>35.1%</Text>
-                  </View>
-                  <View style={styles.kpiCardHalf}>
-                    <Text style={styles.kpiLabel}>Storage Locations</Text>
-                    <Text style={styles.kpiValueDark}>3</Text>
-                    <Text style={styles.kpiSubTextMuted}>Active locations</Text>
-                  </View>
+            <View style={styles.rowTwoCols}>
+              <View style={styles.kpiCardHalf}>
+                <Text style={styles.kpiLabel}>Available Capacity</Text>
+                <Text style={styles.kpiValueGreen}>17,550 KG</Text>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: '35.1%' }]} />
                 </View>
-              </>
-            )}
+                <Text style={styles.kpiSubText}>35.1%</Text>
+              </View>
+              <View style={styles.kpiCardHalf}>
+                <Text style={styles.kpiLabel}>Storage Locations</Text>
+                <Text style={styles.kpiValueDark}>3</Text>
+                <Text style={styles.kpiSubTextMuted}>Active locations</Text>
+              </View>
+            </View>
 
             <Text style={styles.sectionHeader}>Storage Configuration</Text>
             <View style={styles.rowTwoCols}>
               <View style={styles.colHalf}>
-                <Text style={styles.fieldLabel}>Storage Type *</Text>
+                <Text style={styles.fieldLabel}>Storage Type</Text>
                 <View style={styles.dropdownInput}>
                   <Text style={styles.dropdownInputText}>{storageType}</Text>
-                  <ChevronDownSmallIcon />
                 </View>
               </View>
               <View style={styles.colHalf}>
-                <Text style={styles.fieldLabel}>Total Storage Capacity *</Text>
+                <Text style={styles.fieldLabel}>Total Storage Capacity</Text>
                 <View style={styles.unitInputRow}>
                   <TextInput
-                    style={[styles.textInput, styles.unitInputFlex]}
+                    style={[styles.textInput, styles.unitInputFlex, styles.inputDisabled]}
                     value={totalCapacityInput}
-                    onChangeText={setTotalCapacityInput}
+                    editable={false}
                   />
                   <View style={styles.unitSelector}>
                     <Text style={styles.unitText}>KG</Text>
-                    <ChevronDownSmallIcon />
                   </View>
                 </View>
               </View>
@@ -757,10 +679,9 @@ export function WarehouseEditProfileScreen({
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Number of Storage Locations</Text>
               <TextInput
-                style={styles.textInput}
+                style={[styles.textInput, styles.inputDisabled]}
                 value={storageLocationsCount}
-                onChangeText={setStorageLocationsCount}
-                keyboardType="numeric"
+                editable={false}
               />
             </View>
 
@@ -769,7 +690,7 @@ export function WarehouseEditProfileScreen({
               <Text style={styles.switchTitle}>Temperature Controlled Storage</Text>
               <Switch
                 value={tempControlledEnabled}
-                onValueChange={setTempControlledEnabled}
+                disabled
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
                 thumbColor={adminColors.onBrand}
               />
@@ -779,35 +700,18 @@ export function WarehouseEditProfileScreen({
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Min</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={tempMin}
-                  onChangeText={setTempMin}
-                  keyboardType="numeric"
+                  editable={false}
                 />
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Max</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={tempMax}
-                  onChangeText={setTempMax}
-                  keyboardType="numeric"
+                  editable={false}
                 />
-              </View>
-            </View>
-
-            <View style={[styles.fieldWrap, { width: '48%' }]}>
-              <Text style={styles.fieldLabel}>Total Storage Capacity *</Text>
-              <View style={styles.unitInputRow}>
-                <TextInput
-                  style={[styles.textInput, styles.unitInputFlex]}
-                  value={tempCapacity}
-                  onChangeText={setTempCapacity}
-                />
-                <View style={styles.unitSelector}>
-                  <Text style={styles.unitText}>KG</Text>
-                  <ChevronDownSmallIcon />
-                </View>
               </View>
             </View>
 
@@ -816,7 +720,7 @@ export function WarehouseEditProfileScreen({
               <Text style={styles.switchTitle}>Humidity Monitoring</Text>
               <Switch
                 value={humidityEnabled}
-                onValueChange={setHumidityEnabled}
+                disabled
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
                 thumbColor={adminColors.onBrand}
               />
@@ -826,48 +730,30 @@ export function WarehouseEditProfileScreen({
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Min</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={humidityMin}
-                  onChangeText={setHumidityMin}
-                  keyboardType="numeric"
+                  editable={false}
                 />
               </View>
               <View style={styles.colHalf}>
                 <Text style={styles.fieldLabel}>Max</Text>
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, styles.inputDisabled]}
                   value={humidityMax}
-                  onChangeText={setHumidityMax}
-                  keyboardType="numeric"
+                  editable={false}
                 />
-              </View>
-            </View>
-
-            <View style={[styles.fieldWrap, { width: '48%' }]}>
-              <Text style={styles.fieldLabel}>Total Storage Capacity *</Text>
-              <View style={styles.unitInputRow}>
-                <TextInput
-                  style={[styles.textInput, styles.unitInputFlex]}
-                  value={humidityCapacity}
-                  onChangeText={setHumidityCapacity}
-                />
-                <View style={styles.unitSelector}>
-                  <Text style={styles.unitText}>KG</Text>
-                  <ChevronDownSmallIcon />
-                </View>
               </View>
             </View>
 
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Special Handling Requirements</Text>
               <TextInput
-                style={[styles.textInput, styles.textArea]}
+                style={[styles.textInput, styles.textArea, styles.inputDisabled]}
                 value={handlingReqs}
-                onChangeText={setHandlingReqs}
+                editable={false}
                 multiline
                 maxLength={500}
               />
-              <Text style={styles.counterText}>{handlingReqs.length}/500</Text>
             </View>
           </>
         )}
@@ -877,56 +763,10 @@ export function WarehouseEditProfileScreen({
           <>
             <View style={styles.sectionHeaderRow}>
               <ClockOutlineIcon />
-              <Text style={styles.sectionHeaderWithIcon}>Operating Schedule</Text>
+              <Text style={styles.sectionHeaderWithIcon}>Operating Schedule (7 Days)</Text>
             </View>
 
-            <View style={styles.fieldWrap}>
-              <Text style={styles.fieldLabel}>Operating Days *</Text>
-              <View style={styles.daysRow}>
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => {
-                  const isSelected = operatingDays.includes(day);
-                  return (
-                    <TouchableOpacity
-                      key={day}
-                      style={[styles.dayChip, isSelected && styles.dayChipSelected]}
-                      onPress={() => toggleDay(day)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.dayChipText, isSelected && styles.dayChipTextSelected]}>{day}</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.rowTwoCols}>
-              <View style={styles.colHalf}>
-                <Text style={styles.fieldLabel}>Opening Time *</Text>
-                <View style={styles.iconInputRow}>
-                  <View style={styles.innerInputIcon}>
-                    <ClockOutlineIcon color={adminColors.muted} />
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, styles.iconInputFlex]}
-                    value={openingTime}
-                    onChangeText={setOpeningTime}
-                  />
-                </View>
-              </View>
-              <View style={styles.colHalf}>
-                <Text style={styles.fieldLabel}>Closing Time *</Text>
-                <View style={styles.iconInputRow}>
-                  <View style={styles.innerInputIcon}>
-                    <ClockOutlineIcon color={adminColors.muted} />
-                  </View>
-                  <TextInput
-                    style={[styles.textInput, styles.iconInputFlex]}
-                    value={closingTime}
-                    onChangeText={setClosingTime}
-                  />
-                </View>
-              </View>
-            </View>
+            <OperatingHoursEditor value={hours} onChange={setHours} disabled={isSaving} />
 
             <View style={styles.sectionHeaderRow}>
               <TruckIcon />
@@ -937,7 +777,7 @@ export function WarehouseEditProfileScreen({
               <Text style={styles.switchTitle}>Goods Receiving Enabled</Text>
               <Switch
                 value={receivingEnabled}
-                onValueChange={setReceivingEnabled}
+                disabled
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
                 thumbColor={adminColors.onBrand}
               />
@@ -952,9 +792,9 @@ export function WarehouseEditProfileScreen({
                     <ClockOutlineIcon color={adminColors.muted} />
                   </View>
                   <TextInput
-                    style={[styles.textInput, styles.iconInputFlex]}
+                    style={[styles.textInput, styles.iconInputFlex, styles.inputDisabled]}
                     value={receivingStartTime}
-                    onChangeText={setReceivingStartTime}
+                    editable={false}
                   />
                 </View>
               </View>
@@ -965,9 +805,9 @@ export function WarehouseEditProfileScreen({
                     <ClockOutlineIcon color={adminColors.muted} />
                   </View>
                   <TextInput
-                    style={[styles.textInput, styles.iconInputFlex]}
+                    style={[styles.textInput, styles.iconInputFlex, styles.inputDisabled]}
                     value={receivingEndTime}
-                    onChangeText={setReceivingEndTime}
+                    editable={false}
                   />
                 </View>
               </View>
@@ -977,7 +817,7 @@ export function WarehouseEditProfileScreen({
               <Text style={styles.switchTitle}>Quality Check Area Available</Text>
               <Switch
                 value={qcAreaAvailable}
-                onValueChange={setQcAreaAvailable}
+                disabled
                 trackColor={{ false: adminColors.border, true: adminColors.success.text }}
                 thumbColor={adminColors.onBrand}
               />
@@ -985,134 +825,42 @@ export function WarehouseEditProfileScreen({
 
             <View style={styles.sectionHeaderRow}>
               <CalendarEventIcon />
-              <Text style={styles.sectionHeaderWithIcon}>Holidays / Closure Schedule</Text>
+              <Text style={styles.sectionHeaderWithIcon}>Holidays & Closures</Text>
             </View>
-
-            {holidays.length === 0 ? (
-              <Text style={styles.noHolidaysText}>No upcoming holidays</Text>
-            ) : null}
-
-            <TouchableOpacity
-              style={styles.addClosureBtn}
-              activeOpacity={0.8}
-              onPress={openAddHolidayModal}
-            >
-              <CalendarEventIcon color={adminColors.brandDeep} />
-              <Text style={styles.addClosureBtnText}>Add Holiday / Closure</Text>
-            </TouchableOpacity>
-
-            {/* List of Scheduled Holidays */}
-            {holidays.length > 0 && (
-              <View style={styles.holidaysListWrap}>
-                {holidays.map((item) => (
-                  <View key={item.id} style={styles.holidayCard}>
-                    <View style={styles.holidayIconBox}>
-                      <CalendarEventIcon color={adminColors.brand} />
-                    </View>
-                    <View style={styles.holidayInfoFlex}>
-                      <Text style={styles.holidayTitleText}>{item.name}</Text>
-                      <Text style={styles.holidayDateText}>{formatHolidayDate(item.date)}</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => handleRemoveHoliday(item.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      style={styles.holidayDeleteBtn}
-                    >
-                      <TrashOutlineRedIcon color={adminColors.danger.text} size={20} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
-            )}
+            <Text style={styles.noHolidaysText}>Holidays and closures are managed through the central admin calendar.</Text>
 
             <View style={styles.fieldWrap}>
               <TextInput
-                style={[styles.textInput, styles.textArea, { minHeight: 90 }]}
+                style={[styles.textInput, styles.textArea, styles.inputDisabled]}
                 value={operationNotes}
-                onChangeText={setOperationNotes}
+                editable={false}
                 multiline
                 maxLength={500}
               />
-              <Text style={styles.counterText}>{operationNotes.length}/500</Text>
             </View>
           </>
         )}
 
+        {saveError !== null ? (
+          <View style={{ marginBottom: adminSpacing.md }}>
+            <AdminErrorState error={saveError} onRetry={handleSave} />
+          </View>
+        ) : null}
+
         {/* ─── Footer Action Buttons ─── */}
         <View style={styles.footerRow}>
-          <TouchableOpacity style={styles.cancelBtn} onPress={onBack} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.cancelBtn} onPress={onBack} activeOpacity={0.8} disabled={isSaving}>
             <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.saveBtn} onPress={handleNextOrSave} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.8} disabled={isSaving}>
             <Text style={styles.saveBtnText}>
-              {isAdd ? (activeTab === 'Operations' ? 'Add Warehouse' : 'Next') : 'Save Changes'}
+              {isSaving ? 'Saving…' : 'Save Changes'}
             </Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
-
-      {/* ─── Add Holiday Calendar Modal ─── */}
-      <Modal
-        visible={showHolidayModal}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowHolidayModal(false)}
-      >
-        
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowHolidayModal(false)}
-          />
-          <View style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Holiday Date</Text>
-              <TouchableOpacity
-                onPress={() => setShowHolidayModal(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.modalCloseText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.calendarContainer}>
-              <Calendar
-                current={selectedHolidayDate || undefined}
-                onDayPress={(day: DateData) => {
-                  handleSelectHolidayDate(day.dateString);
-                }}
-                markedDates={
-                  selectedHolidayDate
-                    ? {
-                        [selectedHolidayDate]: {
-                          selected: true,
-                          selectedColor: adminColors.brand,
-                          selectedTextColor: adminColors.onBrand,
-                        },
-                      }
-                    : {}
-                }
-                theme={{
-                  calendarBackground: adminColors.card,
-                  todayTextColor: adminColors.brand,
-                  arrowColor: adminColors.brand,
-                  monthTextColor: adminColors.ink,
-                  textMonthFontWeight: '700',
-                  textMonthFontSize: 16,
-                  textDayHeaderFontWeight: '600',
-                  textDayFontSize: 14,
-                  selectedDayBackgroundColor: adminColors.brand,
-                  selectedDayTextColor: adminColors.onBrand,
-                }}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </WalletScreen>
   );
 }
@@ -1252,6 +1000,10 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.sm + 2,
     ...adminType.body,
     color: adminColors.ink,
+  },
+  inputDisabled: {
+    backgroundColor: adminColors.canvas,
+    color: adminColors.muted,
   },
   textArea: {
     minHeight: 80,

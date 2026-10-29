@@ -11,17 +11,21 @@
  * fill bar and the icons.
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
 import type { WarehouseScope } from './types';
+import { WEEKDAYS, type Weekday } from '../../../api/warehouseSettings';
+import { dayLabel, type OperatingHoursEdit, type DayEdit } from './warehouseProfileRules';
 /** docs/rbac.json codes the warehouse-facing screens check (each one exists there). */
 export const WAREHOUSE_PROFILE_CODES = {
   /** Set warehouse capacity limits. MAIN_WH_ADMIN all, SUB_WH_ADMIN none (reqs Ch.6 precedence). */
   capacitySet: 'warehouse.capacity.set',
+  /** Edit warehouse profile (operating hours, contact phone). */
+  profileEdit: 'warehouse.profile.edit',
 } as const;
 
 // ─── Scope helpers ───────────────────────────────────────────────────────────
@@ -376,4 +380,117 @@ export const warehouseProfileLayout = StyleSheet.create({
     paddingBottom: adminSpacing.xxl,
   },
   gap: { height: adminSpacing.md },
+});
+
+export interface OperatingHoursEditorProps {
+  value: OperatingHoursEdit;
+  onChange: (value: OperatingHoursEdit) => void;
+  disabled?: boolean;
+}
+
+export function OperatingHoursEditor({ value, onChange, disabled = false }: OperatingHoursEditorProps) {
+  const updateDay = (day: Weekday, patch: Partial<DayEdit>) => {
+    onChange({
+      ...value,
+      [day]: { ...value[day], ...patch },
+    });
+  };
+
+  return (
+    <View style={editorStyles.container}>
+      {(WEEKDAYS as readonly Weekday[]).map((day) => {
+        const item = value[day];
+        const isOpen = item?.open ?? false;
+        return (
+          <View key={day} style={editorStyles.dayRow}>
+            <View style={editorStyles.dayHeader}>
+              <Text style={editorStyles.dayName}>{dayLabel(day)}</Text>
+              <Switch
+                value={isOpen}
+                onValueChange={(val) => updateDay(day, { open: val })}
+                disabled={disabled}
+                trackColor={{ false: adminColors.border, true: adminColors.brand }}
+              />
+            </View>
+            {isOpen ? (
+              <View style={editorStyles.timeInputs}>
+                <TextInput
+                  style={editorStyles.timeInput}
+                  placeholder="09:00"
+                  placeholderTextColor={adminColors.placeholder}
+                  value={item?.openTime ?? ''}
+                  onChangeText={(text) => updateDay(day, { openTime: text })}
+                  editable={!disabled}
+                  maxLength={5}
+                />
+                <Text style={editorStyles.timeSeparator}>–</Text>
+                <TextInput
+                  style={editorStyles.timeInput}
+                  placeholder="18:00"
+                  placeholderTextColor={adminColors.placeholder}
+                  value={item?.closeTime ?? ''}
+                  onChangeText={(text) => updateDay(day, { closeTime: text })}
+                  editable={!disabled}
+                  maxLength={5}
+                />
+              </View>
+            ) : (
+              <Text style={editorStyles.closedText}>Closed</Text>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const editorStyles = StyleSheet.create({
+  container: {
+    gap: adminSpacing.sm,
+  },
+  dayRow: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.sm,
+  },
+  dayHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  dayName: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  timeInputs: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.xs,
+  },
+  timeInput: {
+    flex: 1,
+    height: 38,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.sm,
+    ...adminType.body,
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
+  timeSeparator: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  closedText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontStyle: 'italic',
+    marginTop: adminSpacing.xs,
+  },
 });

@@ -22,7 +22,7 @@
  * scope's warehouse options.
  */
 import React, { useEffect, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
@@ -41,13 +41,19 @@ import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useWarehouseSettings } from './useProfileSettingsData';
 import {
   ClockIcon,
-  formatKg,
   singleWarehouseId,
   SingleWarehouseHeader,
   WAREHOUSE_PROFILE_CODES,
   warehouseNameOf,
   warehouseProfileLayout,
+  OperatingHoursEditor,
 } from './WarehouseProfileParts';
+import { CAPACITY_KG_RE, updateWarehouseProfile } from '../../../api/warehouseSettings';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getWarehouse } from '../../../api/warehouses';
+import { buildOperatingHours, operatingHoursLines, operatingHoursToEdit, kgText, type OperatingHoursEdit } from './warehouseProfileRules';
+import { t } from '../../../i18n';
 
 export interface WarehouseSettingsScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
   settings?: readonly WarehouseSettingsValues[] | undefined;
@@ -55,7 +61,7 @@ export interface WarehouseSettingsScreenProps extends WarehouseScreenBaseProps, 
   thresholdPresets?: readonly number[] | undefined;
 }
 
-type Dialog = 'none' | 'thresholdHours' | 'capacity';
+type Dialog = 'none' | 'operatingHours' | 'capacity';
 
 export function WarehouseSettingsScreen({
   scope,
@@ -64,8 +70,6 @@ export function WarehouseSettingsScreen({
   warehouseOptions: customWarehouseOptions,
   selectedWarehouseId,
   onSelectWarehouse,
-  settings = undefined,
-  thresholdPresets = [],
 }: WarehouseSettingsScreenProps) {
   const [localSelection, setLocalSelection] = useState<string | undefined>(selectedWarehouseId);
   const selected = onSelectWarehouse ? selectedWarehouseId : localSelection;
@@ -79,17 +83,24 @@ export function WarehouseSettingsScreen({
 
   const { capacity: liveCapacity, isCapacityNearFull, updateCapacity } = useWarehouseSettings(warehouseId);
 
-  // Local edits per warehouse.
-  const [values, setValues] = useState<readonly WarehouseSettingsValues[]>(settings ?? []);
-  const current = values.find((v) => v.warehouseId === warehouseId);
+  const warehouseQuery = useAdminQuery(
+    adminKeys.detail('warehouses', warehouseId ?? ''),
+    (signal: AbortSignal) => getWarehouse(warehouseId!, signal),
+    { enabled: Boolean(warehouseId) },
+  );
+  const rawWarehouse = warehouseQuery.data;
 
   const [dialog, setDialog] = useState<Dialog>('none');
-  const [thresholdInput, setThresholdInput] = useState('');
-  const [hoursInput, setHoursInput] = useState('');
-  const [staffInput, setStaffInput] = useState(1);
+  const [hoursEdit, setHoursEdit] = useState<OperatingHoursEdit>(() => operatingHoursToEdit(null));
   const [capacityInput, setCapacityInput] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (rawWarehouse?.operatingHours) {
+      setHoursEdit(operatingHoursToEdit(rawWarehouse.operatingHours));
+    }
+  }, [rawWarehouse]);
 
   useEffect(() => {
     if (savedMessage === null) return undefined;
@@ -107,60 +118,60 @@ export function WarehouseSettingsScreen({
     );
   }
 
-  const update = (patch: Partial<WarehouseSettingsValues>) => {
-    setValues((prev) => prev.map((v) => (v.warehouseId === warehouseId ? { ...v, ...patch } : v)));
-  };
-
-  const openThresholdHours = () => {
-    if (!current) return;
-    setThresholdInput(String(current.lowStockThresholdPercent));
-    setHoursInput(current.operatingHours);
-    setStaffInput(current.assignedStaff);
+  const openHoursDialog = () => {
+    setHoursEdit(operatingHoursToEdit(rawWarehouse?.operatingHours));
     setInputError(null);
-    setDialog('thresholdHours');
+    setDialog('operatingHours');
   };
 
   const openCapacity = () => {
-    if (!current) return;
-    setCapacityInput(String(current.capacityKg));
+    setCapacityInput(liveCapacity?.capacityKg ?? '');
     setInputError(null);
     setDialog('capacity');
   };
 
-  const saveThresholdHours = () => {
-    const threshold = Number(thresholdInput.trim());
-    if (!Number.isInteger(threshold) || threshold < 1 || threshold > 100) {
-      setInputError('Enter a whole-number threshold between 1 and 100.');
+  const saveOperatingHours = async () => {
+    if (!warehouseId) return;
+    const built = buildOperatingHours(hoursEdit);
+    if (!built.ok) {
+      setInputError(t(built.errorKey));
       return;
     }
-    if (!hoursInput.trim()) {
-      setInputError('Enter the operating hours.');
-      return;
+    try {
+      await updateWarehouseProfile(warehouseId, { operatingHours: built.value });
+      await warehouseQuery.refetch();
+      setDialog('none');
+      setSavedMessage(`Operating hours updated for ${warehouseName}`);
+    } catch (err) {
+      setInputError(err instanceof Error ? err.message : 'Failed to update operating hours');
     }
-    update({ lowStockThresholdPercent: threshold, operatingHours: hoursInput.trim(), assignedStaff: staffInput });
-    setDialog('none');
-    setSavedMessage(`Settings updated for ${warehouseName}`);
   };
 
   const saveCapacity = async () => {
-    const kg = Number(capacityInput.replace(/,/g, '').trim());
-    if (!Number.isInteger(kg) || kg <= 0) {
-      setInputError('Enter the capacity as a whole number of kg.');
+    const text = capacityInput.replace(/,/g, '').trim();
+    if (!CAPACITY_KG_RE.test(text) || !/[1-9]/.test(text)) {
+      setInputError('Enter a valid capacity in kg (greater than 0).');
       return;
     }
-    if (warehouseId) {
-      try {
-        await updateCapacity(String(kg));
-      } catch {
-        // Proceed on non-fatal errors
-      }
+    if (!warehouseId) {
+      setInputError('Please select a warehouse.');
+      return;
     }
-    update({ capacityKg: kg });
-    setDialog('none');
-    setSavedMessage(`Capacity updated for ${warehouseName}`);
+    try {
+      await updateCapacity(text);
+      setDialog('none');
+      setSavedMessage(`Capacity updated for ${warehouseName}`);
+    } catch (err) {
+      setInputError(err instanceof Error ? err.message : 'Failed to update capacity');
+    }
   };
 
-  const displayedCapacityKg = liveCapacity?.capacityKg ? Math.round(parseFloat(liveCapacity.capacityKg)) : (current?.capacityKg ?? 0);
+  const hoursLines = operatingHoursLines(rawWarehouse?.operatingHours);
+  const hoursDisplayText = hoursLines
+    ? hoursLines.map((l) => `${l.dayLabel}: ${l.text}`).join(' · ')
+    : 'Not configured';
+
+  const canEditProfile = can(WAREHOUSE_PROFILE_CODES.profileEdit);
 
   return (
     <WalletScreen
@@ -169,85 +180,77 @@ export function WarehouseSettingsScreen({
       onBack={onBack}
       headerExtra={<SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={select} />}
     >
-      {current === undefined ? (
-        <EmptyState title="No settings" subtitle="This warehouse has no configuration yet." />
-      ) : (
-        <ScrollView contentContainerStyle={warehouseProfileLayout.scrollContent} showsVerticalScrollIndicator={false}>
-          {savedMessage ? (
-            <View style={styles.savedBanner}>
-              <View style={styles.savedIcon}>
-                <CheckIcon size={14} />
-              </View>
-              <Text style={styles.savedText}>{savedMessage}</Text>
+      <ScrollView contentContainerStyle={warehouseProfileLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {savedMessage ? (
+          <View style={styles.savedBanner}>
+            <View style={styles.savedIcon}>
+              <CheckIcon size={14} />
             </View>
-          ) : null}
+            <Text style={styles.savedText}>{savedMessage}</Text>
+          </View>
+        ) : null}
 
-          {isCapacityNearFull ? (
-            <View style={{ marginBottom: adminSpacing.md }}>
-              <StatusBadge label="CAPACITY NEAR FULL ALERT" tone="danger" />
+        {isCapacityNearFull ? (
+          <View style={{ marginBottom: adminSpacing.md }}>
+            <StatusBadge label="CAPACITY NEAR FULL ALERT" tone="danger" />
+          </View>
+        ) : null}
+
+        <SectionTitle>Threshold & Operating Configurations</SectionTitle>
+        <Card>
+          <SettingRow label="Capacity limit" sub="Maximum storage for this warehouse" first>
+            <View style={styles.rowRight}>
+              <Text style={styles.rowValue}>{kgText(liveCapacity?.capacityKg)}</Text>
+              <TouchableOpacity
+                style={styles.editPill}
+                onPress={openCapacity}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Edit capacity limit"
+              >
+                <PencilIcon size={12} color={adminColors.brandDeep} />
+                <Text style={styles.editPillText}>Edit</Text>
+              </TouchableOpacity>
             </View>
-          ) : null}
-
-          <SectionTitle>Threshold & Operating Configurations</SectionTitle>
-          <Card>
-            <SettingRow label="Capacity limit" sub="Maximum storage for this warehouse" first>
-              <View style={styles.rowRight}>
-                <Text style={styles.rowValue}>{formatKg(displayedCapacityKg)}</Text>
-                <TouchableOpacity
-                  style={styles.editPill}
-                  onPress={openCapacity}
-                  activeOpacity={0.8}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit capacity limit"
-                >
-                  <PencilIcon size={12} color={adminColors.brandDeep} />
-                  <Text style={styles.editPillText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-            </SettingRow>
-            <SettingRow label="Low-stock threshold" sub="Triggers procurement replenishment alert">
-              <StatusBadge label={`${current.lowStockThresholdPercent}%`} tone="warning" />
-            </SettingRow>
-            <SettingRow label="Operating hours" sub="Receiving & dispatch operational window">
-              <View style={styles.hoursBadge}>
-                <ClockIcon size={14} />
-                <Text style={styles.hoursText}>{current.operatingHours}</Text>
-              </View>
-            </SettingRow>
-            <SettingRow label="Assigned staff" sub="Active Sub-Warehouse Administrators">
-              <Text style={styles.rowValue}>{`${current.assignedStaff} members`}</Text>
-            </SettingRow>
-          </Card>
-          <View style={warehouseProfileLayout.gap} />
+          </SettingRow>
+          <SettingRow label="Operating hours" sub="Receiving & dispatch operational window">
+            <View style={styles.hoursBadge}>
+              <ClockIcon size={14} />
+              <Text style={styles.hoursText}>{hoursDisplayText}</Text>
+            </View>
+          </SettingRow>
+        </Card>
+        <View style={warehouseProfileLayout.gap} />
+        {canEditProfile ? (
           <WalletButton
-            label="Edit Threshold & Hours"
+            label="Edit Operating Hours"
             variant="outline"
             icon={<PencilIcon size={16} color={adminColors.brandDeep} />}
-            onPress={openThresholdHours}
+            onPress={openHoursDialog}
           />
+        ) : null}
 
-          <SectionTitle>Automated Operational Rules</SectionTitle>
-          <Card>
-            <SettingRow label="Inbound Storage Auto-Assignment" sub="Auto-assign storage racks based on product temperature" first>
-              <RuleSwitch value={current.autoAssignment} onChange={(v) => update({ autoAssignment: v })} />
-            </SettingRow>
-            <SettingRow label="Immediate Low-Stock Push Alerts" sub="Notify central warehouse when threshold is breached">
-              <RuleSwitch value={current.lowStockAlerts} onChange={(v) => update({ lowStockAlerts: v })} />
-            </SettingRow>
-            <SettingRow
-              label="Auto-Escalate Discrepancies"
-              sub={`Escalate quantity mismatches exceeding ${current.escalationThresholdPercent}%`}
-            >
-              <RuleSwitch value={current.discrepancyEscalation} onChange={(v) => update({ discrepancyEscalation: v })} />
-            </SettingRow>
-          </Card>
-        </ScrollView>
-      )}
+        <SectionTitle>Automated Operational Rules</SectionTitle>
+        <Card>
+          <SettingRow label="Inbound Storage Auto-Assignment" sub="Auto-assign storage racks based on product temperature" first>
+            <StatusBadge label="ACTIVE" tone="success" />
+          </SettingRow>
+          <SettingRow label="Immediate Low-Stock Push Alerts" sub="Notify central warehouse when threshold is breached">
+            <StatusBadge label="ACTIVE" tone="success" />
+          </SettingRow>
+          <SettingRow
+            label="Auto-Escalate Discrepancies"
+            sub="Escalate quantity mismatches exceeding server threshold"
+          >
+            <StatusBadge label="SERVER-OWNED" tone="brandSoft" />
+          </SettingRow>
+        </Card>
+      </ScrollView>
 
       <Modal visible={dialog !== 'none'} transparent animationType="fade" onRequestClose={() => setDialog('none')}>
         <View style={styles.backdrop}>
           <View style={styles.dialog}>
-            <Text style={styles.dialogTitle}>{dialog === 'capacity' ? 'Set Capacity Limit' : 'Configure Threshold & Hours'}</Text>
+            <Text style={styles.dialogTitle}>{dialog === 'capacity' ? 'Set Capacity Limit' : 'Configure Operating Hours'}</Text>
             <Text style={styles.dialogSub}>{warehouseName}</Text>
 
             {dialog === 'capacity' ? (
@@ -258,78 +261,20 @@ export function WarehouseSettingsScreen({
                   value={capacityInput}
                   onChangeText={setCapacityInput}
                   keyboardType="numeric"
-                  placeholder="Capacity in kg"
+                  placeholder="e.g. 50000"
                   placeholderTextColor={adminColors.placeholder}
                 />
               </View>
             ) : (
-              <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>LOW-STOCK THRESHOLD (%)</Text>
-                  <View style={styles.presetRow}>
-                    {thresholdPresets.map((preset) => {
-                      const active = thresholdInput === String(preset);
-                      return (
-                        <TouchableOpacity
-                          key={preset}
-                          style={[styles.preset, active && styles.presetActive]}
-                          onPress={() => setThresholdInput(String(preset))}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: active }}
-                        >
-                          <Text style={[styles.presetText, active && styles.presetTextActive]}>{preset}%</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                  <TextInput
-                    style={styles.input}
-                    value={thresholdInput}
-                    onChangeText={setThresholdInput}
-                    keyboardType="numeric"
-                    placeholder="Custom threshold"
-                    placeholderTextColor={adminColors.placeholder}
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>OPERATING HOURS</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={hoursInput}
-                    onChangeText={setHoursInput}
-                    placeholder="Opening – closing time"
-                    placeholderTextColor={adminColors.placeholder}
-                  />
-                </View>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>ASSIGNED SWA STAFF</Text>
-                  <View style={styles.stepper}>
-                    <TouchableOpacity
-                      style={styles.stepperButton}
-                      onPress={() => setStaffInput((n) => Math.max(1, n - 1))}
-                      accessibilityRole="button"
-                      accessibilityLabel="Fewer staff"
-                    >
-                      <Text style={styles.stepperButtonText}>−</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.stepperValue}>{`${staffInput} members`}</Text>
-                    <TouchableOpacity
-                      style={styles.stepperButton}
-                      onPress={() => setStaffInput((n) => n + 1)}
-                      accessibilityRole="button"
-                      accessibilityLabel="More staff"
-                    >
-                      <Text style={styles.stepperButtonText}>+</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
+              <ScrollView style={{ maxHeight: 350 }} showsVerticalScrollIndicator={false}>
+                <OperatingHoursEditor value={hoursEdit} onChange={setHoursEdit} />
+              </ScrollView>
             )}
 
             {inputError ? <Text style={styles.error}>{inputError}</Text> : null}
             <View style={styles.dialogActions}>
               <WalletButton label="Cancel" variant="neutral" flex onPress={() => setDialog('none')} />
-              <WalletButton label="Save" flex onPress={dialog === 'capacity' ? saveCapacity : saveThresholdHours} />
+              <WalletButton label="Save" flex onPress={dialog === 'capacity' ? saveCapacity : saveOperatingHours} />
             </View>
           </View>
         </View>
@@ -357,17 +302,6 @@ function SettingRow({
       </View>
       {children}
     </View>
-  );
-}
-
-function RuleSwitch({ value, onChange }: { value: boolean; onChange: (next: boolean) => void }) {
-  return (
-    <Switch
-      value={value}
-      onValueChange={onChange}
-      trackColor={{ false: adminColors.border, true: adminColors.brand }}
-      thumbColor={adminColors.card}
-    />
   );
 }
 

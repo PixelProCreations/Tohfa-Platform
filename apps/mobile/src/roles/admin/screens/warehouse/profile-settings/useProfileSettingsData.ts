@@ -271,7 +271,7 @@ export function useWarehouseSettings(warehouseId?: string) {
 
   const updateCapacity = useCallback(
     async (capacityKg: string) => {
-      if (!warehouseId) return;
+      if (!warehouseId) throw new Error('Warehouse not specified');
       setLoading(true);
       setError(null);
       try {

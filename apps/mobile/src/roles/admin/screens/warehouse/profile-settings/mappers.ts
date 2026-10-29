@@ -1,7 +1,9 @@
 import type { CurrentUserDto, HelpArticleDto, MySessionDto } from '../../../api/profile';
 import type { StorageLocationDto, WarehouseCapacityDto, WarehouseDto } from '../../../api/warehouses';
 import type { WarehouseDocumentDto, WarehouseDocumentType } from '../../../api/warehouseDocuments';
+import { t } from '../../../i18n';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
+import { accessLevelKey, roleLabelKey } from './warehouseProfileRules';
 import type {
   AdminAccountProfile,
   CurrentSessionInfo,
@@ -14,7 +16,6 @@ import type {
   WarehouseProfileInfo,
   WarehouseScope,
 } from './types';
-import { roleLabelOf } from './fixtures';
 
 export function formatIstDate(isoString: string): string {
   try {
@@ -52,31 +53,46 @@ export function formatRelativeTimeOrDate(isoString: string): string {
 }
 
 export function mapCurrentUserDtoToProfile(dto: CurrentUserDto, scope?: WarehouseScope): AdminAccountProfile {
-  const warehouseLabel = scope?.warehouseName ?? (scope?.warehouseId ? scope.warehouseId : 'All Warehouses');
-  const roleCode = dto.roles?.[0]?.code ?? 'Admin';
-  const roleLabel = scope ? roleLabelOf(scope) : 'Warehouse Admin';
+  const role = dto.roles?.[0];
+  const roleCode = role?.code;
+  const roleLabel = t(roleLabelKey(roleCode));
+  const accessLevel = t(accessLevelKey(roleCode));
+
+  let warehouseLabel = t('profile.scope.allWarehouses');
+  if (scope?.warehouseName) {
+    warehouseLabel = scope.warehouseName;
+  } else if (scope?.warehouseId) {
+    warehouseLabel = scope.warehouseId;
+  } else if (role?.warehouseName) {
+    warehouseLabel = role.warehouseName;
+  } else if (role?.warehouseId) {
+    warehouseLabel = role.warehouseId;
+  }
+
+  const none = t('profile.noValue');
 
   return {
     fullName: dto.fullName,
     roleLabel,
     adminId: dto.id,
-    mobileNumber: dto.mobile ?? '—',
-    email: dto.email ?? '—',
+    mobileNumber: dto.mobile ?? none,
+    email: dto.email ?? none,
     warehouseLabel,
-    accessLevel: roleCode === 'MAIN_WH_ADMIN' ? 'Main Warehouse Administrator' : 'Sub Warehouse Administrator',
-    createdDate: dto.createdAt ? formatIstDate(dto.createdAt) : '—',
+    accessLevel,
+    createdDate: dto.createdAt ? formatIstDate(dto.createdAt) : none,
     lastLogin: dto.lastLoginAt ? formatRelativeTimeOrDate(dto.lastLoginAt) : 'Never',
-    passwordChanged: '—',
+    passwordChanged: none,
     status: dto.status === 'DISABLED' ? 'Inactive' : 'Active',
   };
 }
 
 export function mapWarehouseDtoToProfileInfo(dto: WarehouseDto, capacity?: WarehouseCapacityDto | null): WarehouseProfileInfo {
-  const coordinates = dto.latitude && dto.longitude ? `${dto.latitude}° N, ${dto.longitude}° E` : '—';
-  let currentStock = '—';
+  const none = t('profile.noValue');
+  const coordinates = dto.latitude && dto.longitude ? `${dto.latitude}° N, ${dto.longitude}° E` : none;
+  let currentStock = none;
   if (capacity) {
     const grams = parseKgToGrams(capacity.usedKg);
-    currentStock = grams !== null ? formatKg(grams) : '—';
+    currentStock = grams !== null ? formatKg(grams) : none;
   }
 
   return {
@@ -85,11 +101,11 @@ export function mapWarehouseDtoToProfileInfo(dto: WarehouseDto, capacity?: Wareh
     code: dto.code,
     status: dto.isActive ? 'Active' : 'Inactive',
     kind: dto.type === 'MAIN' ? 'Main Warehouse' : 'Sub Warehouse',
-    region: dto.city ?? 'Nilgiris',
-    assignedAdmin: 'Admin',
-    address: dto.address ?? '—',
+    region: dto.city ? dto.city : none,
+    assignedAdmin: none,
+    address: dto.address ?? none,
     coordinates,
-    mapAddress: dto.address ?? '—',
+    mapAddress: dto.address ?? none,
     currentStock,
   };
 }
@@ -103,6 +119,14 @@ export function mapStorageLocationDtoToItem(dto: StorageLocationDto): StorageLoc
     else if (lower.includes('staging')) type = 'Staging Area';
   }
 
+  let capacityKg = 0;
+  if (dto.capacityKg) {
+    const grams = parseKgToGrams(dto.capacityKg);
+    if (grams !== null) {
+      capacityKg = Math.floor(grams / 1000);
+    }
+  }
+
   // Negative rule: Storage location hierarchy/used-kg -> '—' or hide / set to 0
   return {
     id: dto.id,
@@ -111,7 +135,7 @@ export function mapStorageLocationDtoToItem(dto: StorageLocationDto): StorageLoc
     code: dto.code,
     type,
     status: dto.isActive ? 'Active' : 'Inactive',
-    capacityKg: dto.capacityKg ? Math.round(parseFloat(dto.capacityKg)) : 0,
+    capacityKg,
     currentKg: 0,
   };
 }
