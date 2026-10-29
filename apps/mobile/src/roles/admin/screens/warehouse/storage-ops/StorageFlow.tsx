@@ -2,14 +2,11 @@
  * In-module navigator for the warehouse storage-ops screens (design module
  * M4, parts A and B).
  *
- *   Material Handling -> Material Detail -> Add Material (Add Stock)
- *                     -> Add Material (Add Material / Receive)
  *   Storage Location (detail)            (host: View Stock, product rows)
  *   Storage Location Assignment          (host: confirmed location)
  *   Warehouse Capacity                   (host: history, Manage Capacity Limits)
  *   Warehouse Performance (Main)         (host: warehouse, operations log, staff)
- *   Warehouse Operations (hub) -> Material Handling / Capacity / Operational
- *                                 Issues / Warehouse Activity (in the flow)
+ *   Warehouse Operations (hub) -> Capacity / Operational Issues / Warehouse Activity (in the flow)
  *                              -> storage locations, staff, receiving, stock
  *                                 verification (host, onOpenModule)
  *   Warehouse Activity (Today / All preset) -> Activity Detail -> owning module
@@ -26,8 +23,7 @@
  * `can`. Hops that leave the module (Inventory & Stock, the receiving flow,
  * storage locations, staff, orders, cash, QC) go to the host.
  *
- * Gates: Add Material needs `inventory.material_handling.manage` and
- * Warehouse Performance needs `warehouse.all.view`; navigate() refuses them
+ * Gates: Warehouse Performance needs `warehouse.all.view`; navigate() refuses them
  * without the code and the screens render a not-available note if opened
  * directly. The other routes are view-only and gate their actions inside.
  *
@@ -37,11 +33,7 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { ActivityDetailScreen } from './ActivityDetailScreen';
-import { AddMaterialScreen } from './AddMaterialScreen';
-import { MATERIALS } from './fixtures';
 import { IssueSubmittedScreen } from './IssueSubmittedScreen';
-import { MaterialDetailScreen } from './MaterialDetailScreen';
-import { MaterialHandlingScreen } from './MaterialHandlingScreen';
 import { OperationalIssueDetailScreen } from './OperationalIssueDetailScreen';
 import { OperationalIssuesScreen } from './OperationalIssuesScreen';
 import { ReportIssueScreen } from './ReportIssueScreen';
@@ -70,7 +62,6 @@ interface StorageStackEntry {
 
 /** The code each gated route needs; routes not listed are ungated (view-only). */
 const ROUTE_CODE: Partial<Record<StorageRoute, string>> = {
-  AddMaterial: STORAGE_CODES.materialManage,
   Performance: STORAGE_CODES.allWarehousesView,
 };
 
@@ -88,12 +79,12 @@ export interface StorageFlowProps {
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
-  /** Material movement / capacity history; defaults to the flow's own Warehouse Activity. */
+  /** Capacity history; defaults to the flow's own Warehouse Activity. */
   onViewActivity?: (() => void) | undefined;
   /**
    * Open a module outside storage-ops that owns an activity record or a metric
    * tile (receiving, stock verification, storage locations, orders, cash, QC,
-   * staff). Material handling and operational issues open inside the flow.
+   * staff). Operational issues open inside the flow.
    */
   onOpenModule?: ((module: ActivityModule) => void) | undefined;
   /** Warehouse Activity "Export Operations (CSV)"; the button also needs report.export.file. */
@@ -152,7 +143,6 @@ export function StorageFlow({
   const presetKey = [
     initialParams?.activityPreset,
     initialParams?.activityId,
-    initialParams?.materialId,
     initialParams?.locationId,
     initialParams?.batchId,
     initialParams?.productName,
@@ -203,40 +193,12 @@ export function StorageFlow({
   const viewActivity = onViewActivity ?? (() => navigate('Activity'));
   /** Records and tiles of storage-ops' own modules open in the flow; the rest go to the host. */
   const openModule = (module: ActivityModule) => {
-    if (module === 'material_handling') navigate('MaterialHandling');
-    else if (module === 'operational_issue') navigate('OperationalIssues');
+    if (module === 'operational_issue') navigate('OperationalIssues');
     else if (module === 'storage') navigate('StorageLocations');
     else onOpenModule?.(module);
   };
 
   switch (current.screen) {
-    case 'MaterialHandling':
-      return (
-        <MaterialHandlingScreen
-          {...common}
-          onSelectMaterial={(materialId) => navigate('MaterialDetail', { materialId })}
-          onAddMaterial={() => navigate('AddMaterial')}
-          onReceiveMaterial={() => navigate('AddMaterial')}
-          onIssueMaterial={(materialId) => navigate('MaterialDetail', { materialId })}
-          onViewHistory={viewActivity}
-        />
-      );
-    case 'MaterialDetail':
-      return (
-        <MaterialDetailScreen
-          {...common}
-          materialId={params.materialId}
-          onAddStock={() => navigate('AddMaterial', { materialId: params.materialId })}
-        />
-      );
-    case 'AddMaterial':
-      return (
-        <AddMaterialScreen
-          {...common}
-          initialMaterialName={MATERIALS.find((m) => m.id === params.materialId)?.name}
-          onSave={back}
-        />
-      );
     case 'StorageLocationDetail':
       return (
         <StorageLocationDetailScreen
@@ -279,7 +241,6 @@ export function StorageFlow({
       return (
         <WarehouseOperationsScreen
           {...common}
-          onOpenMaterials={() => navigate('MaterialHandling')}
           onOpenCapacity={() => navigate('Capacity')}
           onOpenIssues={() => navigate('OperationalIssues')}
           onOpenActivity={(activityPreset) => navigate('Activity', { activityPreset })}

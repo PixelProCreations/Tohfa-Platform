@@ -17,10 +17,6 @@ import type {
   IssueSeverity,
   LocationLayout,
   LocationStockItem,
-  MaterialDaySummary,
-  MaterialHistoryEntry,
-  MaterialItem,
-  MaterialOption,
   OperationalIssue,
   OperationsSummary,
   PerformanceKpi,
@@ -39,39 +35,6 @@ export const STORAGE_WAREHOUSES: readonly WarehouseScope[] = WALLET_WAREHOUSES;
 export const storageWarehouseName = warehouseNameOf;
 
 export { STORAGE_LOCATIONS };
-
-export const MATERIALS: readonly MaterialItem[] = [
-  { id: 'MAT-0021', name: 'Packaging Box', code: 'MAT-0021', category: 'Packaging', unit: 'Units', warehouseId: 'WH-COON', storageLocation: 'Material Storage Area', current: 120, reserved: 20, status: 'Available', lastUpdated: 'Today, 10:30 AM' },
-  { id: 'MAT-0034', name: 'Crates', code: 'MAT-0034', category: 'Storage Containers', unit: 'Units', warehouseId: 'WH-COON', storageLocation: 'Material Storage Area', current: 8, reserved: 0, status: 'Low Stock', lastUpdated: 'Today, 9:15 AM' },
-  { id: 'MAT-0041', name: 'Labels', code: 'MAT-0041', category: 'Packaging', unit: 'Units', warehouseId: 'WH-COON', storageLocation: 'Material Storage Area', current: 340, reserved: 40, status: 'Available', lastUpdated: 'Yesterday' },
-  { id: 'MAT-0105', name: 'Packaging Box', code: 'MAT-0105', category: 'Packaging', unit: 'Units', warehouseId: 'WH-OOTY', storageLocation: 'Dry Storage B', current: 260, reserved: 30, status: 'Available', lastUpdated: 'Today, 8:40 AM' },
-  { id: 'MAT-0112', name: 'Pallets', code: 'MAT-0112', category: 'Handling Equipment', unit: 'Units', warehouseId: 'WH-OOTY', storageLocation: 'Dry Storage B', current: 0, reserved: 0, status: 'Out of Stock', lastUpdated: 'Yesterday' },
-  { id: 'MAT-0207', name: 'Sealing Tape', code: 'MAT-0207', category: 'Consumables', unit: 'Rolls', warehouseId: 'WH-KOTA', storageLocation: 'Dry Storage B', current: 6, reserved: 2, status: 'Low Stock', lastUpdated: 'Today, 11:05 AM' },
-  { id: 'MAT-0301', name: 'Crates', code: 'MAT-0301', category: 'Storage Containers', unit: 'Units', warehouseId: 'WH-GUDA', storageLocation: 'Dry Storage A', current: 75, reserved: 10, status: 'Available', lastUpdated: 'Today, 7:50 AM' },
-];
-
-export const MATERIAL_HISTORY: readonly MaterialHistoryEntry[] = [
-  { id: 'mh-1', materialId: 'MAT-0021', kind: 'Issued', quantity: 20, detail: 'Reason: Order Fulfillment', by: 'Suresh · SWA', at: '24 Sep, 09:50 AM' },
-  { id: 'mh-2', materialId: 'MAT-0021', kind: 'Received', quantity: 50, detail: 'From Main Warehouse', by: 'Suresh · SWA', at: '22 Sep, 11:10 AM' },
-  { id: 'mh-3', materialId: 'MAT-0034', kind: 'Issued', quantity: 12, detail: 'Reason: Dispatch Packing', by: 'Suresh · SWA', at: '24 Sep, 08:30 AM' },
-  { id: 'mh-4', materialId: 'MAT-0105', kind: 'Received', quantity: 100, detail: 'From Supplier', by: 'Ravi · SWA', at: '23 Sep, 04:15 PM' },
-];
-
-/** Today's issued / received counts per warehouse (demo). */
-export const MATERIAL_DAY_SUMMARY: readonly MaterialDaySummary[] = [
-  { warehouseId: 'WH-COON', issuedToday: 18, receivedToday: 12 },
-  { warehouseId: 'WH-OOTY', issuedToday: 24, receivedToday: 30 },
-  { warehouseId: 'WH-KOTA', issuedToday: 6, receivedToday: 4 },
-  { warehouseId: 'WH-GUDA', issuedToday: 9, receivedToday: 5 },
-];
-
-export const MATERIAL_OPTIONS: readonly MaterialOption[] = [
-  { name: 'Packaging Box', category: 'Packaging' },
-  { name: 'Crates', category: 'Storage Containers' },
-  { name: 'Labels', category: 'Packaging' },
-  { name: 'Pallets', category: 'Handling Equipment' },
-  { name: 'Sealing Tape', category: 'Consumables' },
-];
 
 /** Product lots per storage location (Location Usage / Stored Stock). */
 export const LOCATION_STOCK: readonly LocationStockItem[] = [
@@ -223,7 +186,6 @@ export const ACTIVITIES: readonly ActivityItem[] = [
   { id: 'ACT-004830', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'Tomato · Grade 1 · cycle count', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 10:25 AM', timeOfDay: 'morning', status: 'Completed', action: 'Cycle count of Tomato Grade 1 in Cold Storage', reference: 'Verification Log VER-2026-10', notes: 'Variance posted for review.', metrics: { system: '100 KG', counted: '95 KG', variance: '-5 KG' } },
   { id: 'ACT-004831', title: 'Order Packed', category: 'Orders', module: 'orders', warehouseId: 'WH-COON', subtitle: 'ORD-10242 · 3 items', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 10:20 AM', timeOfDay: 'morning', status: 'Completed', action: 'Order ORD-10242 packed and staged for pickup', reference: 'Related Order ORD-10242', notes: 'Packed at station 2.' },
   { id: 'ACT-004832', title: 'Cash Top-Up', category: 'Cash', module: 'cash', warehouseId: 'WH-COON', subtitle: '₹2,000 · Customer CUS-1042', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:55 AM', timeOfDay: 'morning', status: 'Completed', action: 'Cash top-up credited to customer wallet CUS-1042', reference: 'Wallet Top-Up WAL-TOP-9921', notes: 'Receipt printed at the counter.' },
-  { id: 'ACT-004821', title: 'Material Handling', category: 'Material Handling', module: 'material_handling', warehouseId: 'WH-COON', subtitle: 'Packaging Box · Issued 20 units', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:50 AM', timeOfDay: 'morning', status: 'Completed', action: 'Packaging boxes issued for order fulfillment · 20 units', reference: 'Related Order ORD-1018', notes: 'Issued to packing station 1.' },
   { id: 'ACT-004822', title: 'Storage location updated', category: 'Storage', module: 'storage', warehouseId: 'WH-COON', subtitle: 'Rack 02 · Cold Storage · Tomato moved', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:35 AM', timeOfDay: 'morning', status: 'Completed', action: 'Tomato moved to Cold Storage · Rack 02, Shelf 03', reference: 'Related Batch BAT-COO-00241', notes: 'Relocated to make room for incoming Section B stock.' },
   { id: 'ACT-004833', title: 'QC Completed', category: 'QC', module: 'qc', warehouseId: 'WH-COON', subtitle: 'GR-00123 · Carrot, Grade 1 · Accepted in full', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 09:20 AM', timeOfDay: 'morning', status: 'Completed', action: 'Quality check passed for GR-00123 · Carrot Grade 1', reference: 'Related GRN GR-00123', notes: 'Accepted in full.' },
   { id: 'ACT-004823', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'Tomato · Grade 1 · Variance -5 KG detected', performedBy: 'Suresh · SWA', day: 'Today', when: 'Today · 08:20 AM', timeOfDay: 'morning', status: 'Pending', action: 'Physical stock verification conducted · Tomato Grade 1', reference: 'Variance Check VER-2026-09', notes: 'Variance of -5 KG detected during morning cycle count. System: 100 KG, Counted: 95 KG.' },
@@ -235,31 +197,29 @@ export const ACTIVITIES: readonly ActivityItem[] = [
   { id: 'ACT-004818', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'Carrot · Grade 1 · Verified count 80 KG', performedBy: 'Suresh · SWA', day: 'Yesterday', when: 'Yesterday · 04:15 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Physical count matched system balance 100%', reference: 'Verification Log VER-2026-08', notes: 'Rack 02 Shelf 03 verified.' },
   { id: 'ACT-004817', title: 'Storage location updated', category: 'Storage', module: 'storage', warehouseId: 'WH-COON', subtitle: 'Rack 03 · Ambient · Potato 220 KG placed', performedBy: 'Suresh · SWA', day: 'Yesterday', when: 'Yesterday · 02:30 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Pallet position confirmed in Rack 03 Shelf 01', reference: 'Batch BAT-COO-00238', notes: 'Ambient storage zone allocated.' },
   { id: 'ACT-004790', title: 'Stock Verification', category: 'Verification', module: 'verification', warehouseId: 'WH-COON', subtitle: 'VER-0021 · full cycle count', performedBy: 'Suresh · SWA', day: 'Earlier', when: '28 Sep 2026, 09:30 AM', timeOfDay: 'morning', status: 'Completed', action: 'Stock verification VER-0021 completed', reference: 'Verification Log VER-0021', notes: 'Long-term operations history record.' },
-  { id: 'ACT-004781', title: 'Material Issued', category: 'Material Handling', module: 'material_handling', warehouseId: 'WH-COON', subtitle: 'Packaging Box · 20 units', performedBy: 'Suresh · SWA', day: 'Earlier', when: '27 Sep 2026, 04:20 PM', timeOfDay: 'afternoon', status: 'Completed', action: 'Material issued · Packaging Box (20 units)', reference: 'Material MAT-0021', notes: 'Long-term operations history record.' },
 ];
 
 // ─── Part B: Warehouse Operations hub ────────────────────────────────────────
 
 /** Operations snapshot per warehouse (demo; summed / averaged for the Main view). */
 export const OPERATIONS_SUMMARY: readonly OperationsSummary[] = [
-  { warehouseId: 'WH-COON', storageLocations: 18, occupancyPercent: 72, materialItems: 42, staffPresent: 8, staffTotal: 10, activitiesToday: 28, historyRecords: 26, receivingShipments: 3, storageMovements: 5, verificationPending: 2 },
-  { warehouseId: 'WH-OOTY', storageLocations: 22, occupancyPercent: 68, materialItems: 38, staffPresent: 7, staffTotal: 9, activitiesToday: 24, historyRecords: 31, receivingShipments: 5, storageMovements: 9, verificationPending: 3 },
-  { warehouseId: 'WH-KOTA', storageLocations: 12, occupancyPercent: 61, materialItems: 21, staffPresent: 6, staffTotal: 8, activitiesToday: 14, historyRecords: 15, receivingShipments: 2, storageMovements: 4, verificationPending: 2 },
-  { warehouseId: 'WH-GUDA', storageLocations: 10, occupancyPercent: 55, materialItems: 17, staffPresent: 6, staffTotal: 7, activitiesToday: 11, historyRecords: 12, receivingShipments: 2, storageMovements: 3, verificationPending: 1 },
+  { warehouseId: 'WH-COON', storageLocations: 18, occupancyPercent: 72, staffPresent: 8, staffTotal: 10, activitiesToday: 28, historyRecords: 26, receivingShipments: 3, storageMovements: 5, verificationPending: 2 },
+  { warehouseId: 'WH-OOTY', storageLocations: 22, occupancyPercent: 68, staffPresent: 7, staffTotal: 9, activitiesToday: 24, historyRecords: 31, receivingShipments: 5, storageMovements: 9, verificationPending: 3 },
+  { warehouseId: 'WH-KOTA', storageLocations: 12, occupancyPercent: 61, staffPresent: 6, staffTotal: 8, activitiesToday: 14, historyRecords: 15, receivingShipments: 2, storageMovements: 4, verificationPending: 2 },
+  { warehouseId: 'WH-GUDA', storageLocations: 10, occupancyPercent: 55, staffPresent: 6, staffTotal: 7, activitiesToday: 11, historyRecords: 12, receivingShipments: 2, storageMovements: 3, verificationPending: 1 },
 ];
 
 /** Needs Attention cards of the hub (demo). */
 export const ATTENTION_ITEMS: readonly AttentionItem[] = [
   { id: 'att-1', warehouseId: 'WH-COON', title: 'Storage Location Issue', detail: 'Rack A-03 requires attention', tone: 'danger', module: 'storage' },
-  { id: 'att-2', warehouseId: 'WH-COON', title: 'Material Low', detail: 'Packaging boxes', tone: 'warning', module: 'material_handling' },
   { id: 'att-3', warehouseId: 'WH-COON', title: 'Operational Issue', detail: 'Cold storage maintenance', tone: 'danger', module: 'operational_issue' },
   { id: 'att-4', warehouseId: 'WH-KOTA', title: 'Stock Count Variance', detail: 'Dry Storage A · Beans -12 KG', tone: 'warning', module: 'operational_issue' },
 ];
 
 /** Today's operation counts per warehouse (demo; summed for the Main view). */
 export const TODAY_METRICS: readonly TodayMetrics[] = [
-  { warehouseId: 'WH-COON', receiving: 3, storage: 8, verification: 2, materials: 6, issues: 3, staffPresent: 8 },
-  { warehouseId: 'WH-OOTY', receiving: 5, storage: 9, verification: 3, materials: 5, issues: 1, staffPresent: 7 },
-  { warehouseId: 'WH-KOTA', receiving: 2, storage: 4, verification: 2, materials: 3, issues: 1, staffPresent: 6 },
-  { warehouseId: 'WH-GUDA', receiving: 2, storage: 3, verification: 1, materials: 2, issues: 0, staffPresent: 6 },
+  { warehouseId: 'WH-COON', receiving: 3, storage: 8, verification: 2, issues: 3, staffPresent: 8 },
+  { warehouseId: 'WH-OOTY', receiving: 5, storage: 9, verification: 3, issues: 1, staffPresent: 7 },
+  { warehouseId: 'WH-KOTA', receiving: 2, storage: 4, verification: 2, issues: 1, staffPresent: 6 },
+  { warehouseId: 'WH-GUDA', receiving: 2, storage: 3, verification: 1, issues: 0, staffPresent: 6 },
 ];

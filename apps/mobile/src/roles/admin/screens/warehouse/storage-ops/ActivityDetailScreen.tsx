@@ -33,7 +33,6 @@ const MODULE_NAME: Record<ActivityModule, string> = {
   receiving: 'Receiving',
   storage: 'Storage Locations',
   verification: 'Stock Verification',
-  material_handling: 'Material Handling',
   operational_issue: 'Operational Issues',
   orders: 'Orders',
   cash: 'Cash Top-Up',

@@ -191,8 +191,6 @@ type WarehouseSubView =
   | 'manage_swas'
   | 'storage_locations'
   | 'location_detail'
-  | 'material_handling'
-  | 'material_detail'
   | 'warehouse_capacity'
   | 'warehouse_activity'
   | 'operational_issues'
@@ -793,9 +791,6 @@ export function MainWarehouseAdminDashboardScreen({
   const [selectedWHFilter, setSelectedWHFilter] = useState('All Warehouses');
   const [selectedWHName, setSelectedWHName] = useState('Ooty Warehouse');
   const [selectedLocationId, setSelectedLocationId] = useState('CS-C01');
-  // Only the old Warehouse Activity / Operations History rows set this (now inside
-  // StorageFlow, W4 storage-ops part B); the 'material_detail' sub-view keeps its default.
-  const [selectedMaterialId] = useState('MAT-0021');
   /** Filter the Sales hub's Needs Attention card opened the queue on. */
   const [attentionCategory, setAttentionCategory] = useState<AttentionFilter>('all');
   const [selectedAlert, setSelectedAlert] = useState<DashboardAlert | null>(null);
@@ -2766,8 +2761,8 @@ export function MainWarehouseAdminDashboardScreen({
           ) : whSubView === 'warehouse_operations' ? (
             // Shared storage-ops hub (W4, M4-S01): all warehouses with the shared
             // selector (replaces the shell's filter modal here); per-warehouse cards,
-            // Open Issues / Operations History tiles need warehouse.all.view. Materials,
-            // capacity, issues and activity open inside the flow.
+            // Open Issues / Operations History tiles need warehouse.all.view.
+            // Capacity, issues and activity open inside the flow.
             <StorageFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
@@ -2829,25 +2824,6 @@ export function MainWarehouseAdminDashboardScreen({
                 setActiveTab('Inventory');
                 setWhSubView('overview');
               }}
-            />
-          ) : whSubView === 'material_handling' ? (
-            // Shared storage-ops flow (W4, M4 part A): Main's Receive / Issue / History
-            // actions were ported into the shared screens (inventory.material_handling.manage).
-            <StorageFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="MaterialHandling"
-              onBack={() => navigateWh('warehouse_operations')}
-              onViewActivity={() => navigateWh('warehouse_activity')}
-            />
-          ) : whSubView === 'material_detail' ? (
-            <StorageFlow
-              scope={MAIN_WAREHOUSE_SCOPE}
-              can={can}
-              initialScreen="MaterialDetail"
-              initialParams={{ materialId: selectedMaterialId }}
-              onBack={goBackWh}
-              onViewActivity={() => navigateWh('warehouse_activity')}
             />
           ) : whSubView === 'warehouse_capacity' ? (
             renderWarehouseCapacityScreen()

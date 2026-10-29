@@ -3,7 +3,7 @@
  * today's status, needs attention, recent activity).
  *
  * Gate (FINAL_LIST 141): no view code (SPEC_GAPS W4v-5); scope-locked. Every
- * tile leads to a child that carries its own gate (Material Handling's actions,
+ * tile leads to a child that carries its own gate (Capacity limits,
  * Capacity's Manage link, Report an Issue, ...). The Main-only parts show only
  * for the all-warehouses scope (scope.warehouseId undefined) with
  * `warehouse.all.view`: the per-warehouse cards, the Open Issues and Operations
@@ -41,7 +41,6 @@ import { ACTIVITIES, ATTENTION_ITEMS, OPERATIONS_SUMMARY, OPERATIONAL_ISSUES, ST
 import {
   AlertCircleIcon,
   ChevronRightIcon,
-  ClipboardIcon,
   DonutIcon,
   HistoryIcon,
   ReceiveGoodsIcon,
@@ -57,7 +56,6 @@ import type { ActivityModule, WarehouseScreenBaseProps } from './types';
 const RECENT_PREVIEW = 2;
 
 export interface WarehouseOperationsScreenProps extends WarehouseScreenBaseProps {
-  onOpenMaterials: () => void;
   onOpenCapacity: () => void;
   onOpenIssues: () => void;
   /** Warehouse Activity on a preset ('Today' = Today's Operational Status). */
@@ -77,7 +75,6 @@ export function WarehouseOperationsScreen({
   can,
   onBack,
   onTabChange,
-  onOpenMaterials,
   onOpenCapacity,
   onOpenIssues,
   onOpenActivity,
@@ -101,7 +98,7 @@ export function WarehouseOperationsScreen({
   const visibleIn = (warehouseId: string) => inScope(scope, warehouseId, selectedWarehouseId);
 
   const summaries = OPERATIONS_SUMMARY.filter((s) => visibleIn(s.warehouseId));
-  const total = (key: 'storageLocations' | 'materialItems' | 'staffPresent' | 'staffTotal' | 'historyRecords' | 'receivingShipments' | 'storageMovements' | 'verificationPending') =>
+  const total = (key: 'storageLocations' | 'staffPresent' | 'staffTotal' | 'historyRecords' | 'receivingShipments' | 'storageMovements' | 'verificationPending') =>
     summaries.reduce((sum, s) => sum + s[key], 0);
   const occupancy = summaries.length > 0 ? Math.round(summaries.reduce((sum, s) => sum + s.occupancyPercent, 0) / summaries.length) : 0;
   const openIssues = OPERATIONAL_ISSUES.filter((i) => visibleIn(i.warehouseId) && i.status !== 'Resolved');
@@ -114,7 +111,6 @@ export function WarehouseOperationsScreen({
   const mainKpiTiles = [
     { label: 'Storage Locations', value: '4', sub: 'Warehouses', onPress: () => onOpenModule('storage') },
     { label: 'Occupancy', value: '64%', sub: 'Avg', onPress: onOpenCapacity },
-    { label: 'Material Items', value: '42', sub: 'Tracked', onPress: onOpenMaterials },
     { label: 'Open Issues', value: '9', sub: 'Requires Attention', onPress: onOpenIssues },
     { label: 'Staff Present', value: '27/34', sub: 'Today', onPress: () => onOpenModule('staff') },
     { label: "Today's Activities", value: '84', sub: 'Total', onPress: () => onOpenActivity('Today') },
@@ -123,7 +119,6 @@ export function WarehouseOperationsScreen({
   const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
     { label: 'Storage Locations', value: '4', sub: 'Warehouses', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
     { label: 'Occupancy', value: '64%', sub: 'Avg', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: '42', sub: 'Tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials },
     { label: 'Open Issues', value: '9', sub: 'Requires Attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
     { label: 'Staff Present', value: '27/34', sub: 'Today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
     { label: "Today's Activities", value: '84', sub: 'Total', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('Today') },
@@ -131,14 +126,12 @@ export function WarehouseOperationsScreen({
 
   const mainQuickActions = [
     { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials },
     { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
   ];
 
   const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
     { label: 'Storage Locations', icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials },
     { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
     { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
@@ -178,7 +171,6 @@ export function WarehouseOperationsScreen({
                 const lower = label.toLowerCase();
                 if (lower.includes('location')) return 'box';
                 if (lower.includes('occupancy')) return 'inventory';
-                if (lower.includes('material')) return 'orders';
                 if (lower.includes('issue')) return 'alert';
                 if (lower.includes('staff')) return 'pickup';
                 return 'receiving';
@@ -205,7 +197,6 @@ export function WarehouseOperationsScreen({
                   const lower = label.toLowerCase();
                   if (lower.includes('location')) return 'box';
                   if (lower.includes('occupancy')) return 'inventory';
-                  if (lower.includes('material')) return 'orders';
                   if (lower.includes('issue')) return 'alert';
                   if (lower.includes('staff')) return 'pickup';
                   return 'receiving';
@@ -293,11 +284,6 @@ export function WarehouseOperationsScreen({
                 <Text style={styles.statusRowItemLabel}>Storage</Text>
                 <Text style={styles.statusRowItemValue}>8 activities</Text>
               </TouchableOpacity>
-              <View style={styles.rowDivider} />
-              <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.statusRowItemLabel}>Material Handling</Text>
-                <Text style={styles.statusRowItemValue}>6 activities</Text>
-              </TouchableOpacity>
             </View>
 
             <SectionTitle
@@ -372,8 +358,7 @@ export function WarehouseOperationsScreen({
                     key={item.id}
                     style={styles.attentionCard}
                     onPress={() => {
-                      if (item.module === 'material_handling') onOpenMaterials();
-                      else if (item.module === 'operational_issue') onOpenIssues();
+                      if (item.module === 'operational_issue') onOpenIssues();
                       else onOpenModule(item.module);
                     }}
                     activeOpacity={0.75}
