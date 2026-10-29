@@ -40,7 +40,6 @@ export interface WarehouseActivityScreenProps extends WarehouseScreenBaseProps {
   /** The tapped row itself: the API has no detail route, so the detail shows the row it was given. */
   onSelectActivity: (activity: ActivityRow) => void;
   onOpenModule?: ((module: ActivityModule) => void) | undefined;
-  onExport?: (() => void) | undefined;
 }
 
 /**
@@ -57,7 +56,6 @@ export function WarehouseActivityScreen({
   initialPreset,
   onSelectActivity,
   onOpenModule: _onOpenModule,
-  onExport: _onExport,
 }: WarehouseActivityScreenProps) {
   const [query, setQuery] = useState('');
   const [chip, setChip] = useState<ActivityChip>('all');

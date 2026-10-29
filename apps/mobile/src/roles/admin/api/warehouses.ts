@@ -98,6 +98,12 @@ export function getWarehouseCapacity(warehouseId: string, signal?: AbortSignal):
 export interface StorageLocationDto {
   id: string;
   warehouseId: string;
+  parentId: string | null;
+  level: number;
+  usedKg: string;
+  batchCount: number;
+  subtreeUsedKg: string;
+  subtreeBatchCount: number;
   code: string;
   name: string;
   /** Free text, not an enum. */

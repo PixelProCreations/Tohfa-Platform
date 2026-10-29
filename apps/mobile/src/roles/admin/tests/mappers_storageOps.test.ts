@@ -15,6 +15,12 @@ import {
 const COLD_LOC: StorageLocationDto = {
   id: 'loc-001',
   warehouseId: 'wh-ooty',
+  parentId: null,
+  level: 0,
+  usedKg: '120.500',
+  batchCount: 2,
+  subtreeUsedKg: '120.500',
+  subtreeBatchCount: 2,
   code: 'CS-A01',
   name: 'Cold Storage A',
   locationType: 'Cold Storage',
@@ -27,6 +33,12 @@ const COLD_LOC: StorageLocationDto = {
 const DRY_LOC: StorageLocationDto = {
   id: 'loc-002',
   warehouseId: 'wh-ooty',
+  parentId: null,
+  level: 0,
+  usedKg: '0.000',
+  batchCount: 0,
+  subtreeUsedKg: '0.000',
+  subtreeBatchCount: 0,
   code: 'DS-B01',
   name: 'Dry Storage B',
   locationType: 'Dry Storage',
@@ -39,6 +51,12 @@ const DRY_LOC: StorageLocationDto = {
 const NULL_TYPE_LOC: StorageLocationDto = {
   id: 'loc-003',
   warehouseId: 'wh-ooty',
+  parentId: null,
+  level: 0,
+  usedKg: '0.000',
+  batchCount: 0,
+  subtreeUsedKg: '0.000',
+  subtreeBatchCount: 0,
   code: 'SA-C01',
   name: 'Staging Area C',
   locationType: null,
@@ -120,9 +138,10 @@ describe('toStorageLocationItem', () => {
     expect(r.status).toBe('Inactive');
   });
 
-  it('currentKg is 0 (spec-gap: no per-location stock endpoint)', () => {
+  it('maps usedKg to currentKg', () => {
     const r = toStorageLocationItem(COLD_LOC);
-    expect(r.currentKg).toBe(0);
+    expect(r.currentKg).toBeCloseTo(120.5, 1);
+    expect(toStorageLocationItem(DRY_LOC).currentKg).toBe(0);
   });
 
   it('maps null locationType to "Dry Storage" fallback', () => {

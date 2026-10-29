@@ -1,64 +1,32 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { useAdminMutation } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import {
+  createWarehouseIssue,
+  ISSUE_CATEGORIES,
+  ISSUE_SEVERITIES,
+  type IssueCategoryCode,
+  type IssueSeverityCode,
+} from '../../../api/warehouseIssues';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
+  AdminEmptyState,
+  AdminErrorState,
+} from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import {
+  isAllWarehouses,
+  ScopeHeader,
   WalletButton,
   WalletFooter,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { ChevronDownIcon, SendIcon } from './StorageParts';
-import { FAQ_ITEMS } from '../profile-settings/fixtures';
-import {
-  DEMO_SUBMITTED_ID,
-  SUPPORT_CATEGORIES,
-  SUPPORT_REFERENCE_HINT,
-  SUPPORT_SPECIFIC_ISSUES,
-} from './fixtures';
 import type { IssueSeverity, ReportIssueMode, WarehouseScreenBaseProps } from './types';
-
-function CameraIcon({ size = 22, color = adminColors.muted }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="13" r="4" stroke={color} strokeWidth="1.8" />
-    </Svg>
-  );
-}
-
-function InfoCircleIcon({ size = 18, color = adminColors.info.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-const ISSUE_TYPES = [
-  'Equipment Breakdown',
-  'Facility Damage',
-  'Temperature Alert',
-  'Cleanliness / Safety',
-  'Crate / Pallet Shortage',
-  'Other Issue',
-];
-
-const LOCATIONS = [
-  'Cold Storage · Section A',
-  'Cold Storage · Section B',
-  'Dry Storage · Section C',
-  'Loading Dock / Staging Area',
-  'Sorting Line',
-];
 
 export interface ReportIssueSubmission {
   mode: ReportIssueMode;
@@ -81,485 +49,274 @@ export interface ReportIssueScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function ReportIssueScreen({
+  scope,
   onBack,
   mode = 'operational',
   initialCategory,
   onSubmit,
 }: ReportIssueScreenProps) {
-  const [category, setCategory] = useState<string>(initialCategory ?? 'Warehouse Operations');
-  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const isSupport = mode === 'support';
+  const { options, scopes } = useWarehouseOptions();
+  const allWarehouses = isAllWarehouses(scope);
 
-  const [issueType, setIssueType] = useState<string | undefined>(undefined);
-  const [issueTypePickerOpen, setIssueTypePickerOpen] = useState(false);
-
-  const [referenceId, setReferenceId] = useState('');
-  const [location, setLocation] = useState<string | undefined>(undefined);
-  const [locationPickerOpen, setLocationPickerOpen] = useState(false);
-
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
+    scope.warehouseId ?? options[0]?.warehouseId,
+  );
+  const [category, setCategory] = useState<IssueCategoryCode>('STORAGE');
+  const [severity, setSeverity] = useState<IssueSeverityCode>('MEDIUM');
+  const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
-  const [hasPhoto, setHasPhoto] = useState(false);
-  const [expandedFaqId, setExpandedFaqId] = useState<string | null>(null);
 
-  const isSupport = mode === 'support' || initialCategory !== undefined;
-  const categoriesList = isSupport ? SUPPORT_CATEGORIES : ISSUE_TYPES;
-  const specificIssuesList = isSupport
-    ? SUPPORT_SPECIFIC_ISSUES[category] ?? ['General Issue', 'Other Issue']
-    : ISSUE_TYPES;
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [severityPickerOpen, setSeverityPickerOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<unknown>(null);
 
-  const relatedFaqs = FAQ_ITEMS.filter((faq) => faq.category === category);
+  const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
 
-  const submit = () => {
-    const defaultSubject = isSupport ? (issueType ?? `${category} Support Request`) : (issueType ?? 'Operational Issue');
-    const demoId = isSupport ? (DEMO_SUBMITTED_ID.support ?? 'SUP-00246') : (DEMO_SUBMITTED_ID.operational ?? 'ISS-0029');
+  const createMutation = useAdminMutation({
+    mutationFn: (body: {
+      category: IssueCategoryCode;
+      severity: IssueSeverityCode;
+      title: string;
+      description?: string;
+    }) => createWarehouseIssue(effectiveWarehouseId as string, body),
+    invalidates: [adminKeys.module('warehouseIssues')],
+  });
 
-    onSubmit(demoId, {
-      mode,
-      category,
-      specificIssue: issueType ?? defaultSubject,
-      subject: defaultSubject,
-      description: description.trim() || `${category} support request`,
-      location: referenceId.trim() || location,
-      referenceId: referenceId.trim() || undefined,
-      issueCategory: issueType ?? category,
-    });
-  };
+  if (isSupport) {
+    return (
+      <WalletScreen title={t('storageOps.report.title')} onBack={onBack}>
+        <AdminEmptyState
+          title={t('storageOps.report.supportUnavailable')}
+          subtitle={t('storageOps.issues.notAvailable.subtitle')}
+        />
+      </WalletScreen>
+    );
+  }
 
-  const attachPhoto = () => {
-    Alert.alert('Attach Photo', 'Choose photo source:', [
-      { text: 'Take Photo', onPress: () => setHasPhoto(true) },
-      { text: 'Choose from Library', onPress: () => setHasPhoto(true) },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const isValid = subject.trim().length > 0 && !!effectiveWarehouseId;
+
+  const handleSubmit = async () => {
+    if (!isValid || createMutation.isPending) return;
+    setSubmitError(null);
+    try {
+      const trimmedDesc = description.trim();
+      const res = await createMutation.mutateAsync({
+        category,
+        severity,
+        title: subject.trim(),
+        ...(trimmedDesc ? { description: trimmedDesc } : {}),
+      });
+      onSubmit(res.issueNumber, {
+        mode,
+        category,
+        specificIssue: subject.trim(),
+        subject: subject.trim(),
+        description: description.trim(),
+        warehouseId: effectiveWarehouseId,
+        severity: severity as IssueSeverity,
+      });
+    } catch (err) {
+      setSubmitError(err);
+    }
   };
 
   return (
     <WalletScreen
-      title={isSupport ? 'Report an Issue' : 'Report Issue'}
+      title={t('storageOps.report.title')}
       onBack={onBack}
+      headerExtra={
+        allWarehouses ? (
+          <ScopeHeader
+            scope={scope}
+            warehouseOptions={scopes}
+            selectedWarehouseId={selectedWarehouseId}
+            onSelectWarehouse={setSelectedWarehouseId}
+          />
+        ) : undefined
+      }
       footer={
         <WalletFooter>
-          <WalletButton label="Submit Issue" icon={<SendIcon />} onPress={submit} />
+          <WalletButton
+            label={t('storageOps.report.submit')}
+            icon={<SendIcon size={18} color={adminColors.onBrand} />}
+            disabled={!isValid || createMutation.isPending}
+            onPress={handleSubmit}
+          />
         </WalletFooter>
       }
     >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Topic / Category Selector */}
-        <Text style={styles.labelTitle}>
-          Topic / Category <Text style={styles.requiredText}>Required</Text>
+      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {submitError ? (
+          <View style={styles.errorBanner}>
+            <AdminErrorState error={submitError} onRetry={handleSubmit} />
+          </View>
+        ) : null}
+
+        {/* Category Picker */}
+        <Text style={styles.fieldLabel}>
+          {t('storageOps.report.category')} <Text style={styles.required}>*</Text>
         </Text>
         <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => {
-            setCategoryPickerOpen((prev) => !prev);
-            setIssueTypePickerOpen(false);
-            setLocationPickerOpen(false);
-          }}
-          activeOpacity={0.8}
+          style={styles.pickerButton}
+          onPress={() => setCategoryPickerOpen((prev) => !prev)}
+          activeOpacity={0.7}
           accessibilityRole="button"
         >
-          <Text style={styles.dropdownText}>{category}</Text>
-          <ChevronDownIcon />
+          <Text style={styles.pickerButtonText}>{t(`storageOps.issues.category.${category}`)}</Text>
+          <ChevronDownIcon size={16} />
         </TouchableOpacity>
 
         {categoryPickerOpen ? (
-          <View style={styles.dropdownList}>
-            {categoriesList.map((item) => (
+          <View style={styles.dropdown}>
+            {ISSUE_CATEGORIES.map((cat) => (
               <TouchableOpacity
-                key={item}
-                style={[styles.dropdownOption, item === category && styles.dropdownOptionActive]}
+                key={cat}
+                style={[styles.dropdownItem, category === cat && styles.dropdownItemSelected]}
                 onPress={() => {
-                  setCategory(item);
-                  setIssueType(undefined);
+                  setCategory(cat);
                   setCategoryPickerOpen(false);
-                  setExpandedFaqId(null);
                 }}
-                activeOpacity={0.7}
+                accessibilityRole="button"
               >
-                <Text style={[styles.dropdownOptionText, item === category && styles.dropdownOptionTextActive]}>{item}</Text>
+                <Text style={[styles.dropdownItemText, category === cat && styles.dropdownItemTextSelected]}>
+                  {t(`storageOps.issues.category.${cat}`)}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : null}
 
-        {/* RELATED Q&A FOR THE CHOSEN TOPIC */}
-        {relatedFaqs.length > 0 ? (
-          <View style={styles.faqSection}>
-            <View style={styles.faqHeaderRow}>
-              <Text style={styles.faqHeaderTitle}>RELATED Q&A FOR {category.toUpperCase()}</Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{relatedFaqs.length} FAQs</Text>
-              </View>
-            </View>
-            <Text style={styles.faqHeaderSub}>Check if these frequent questions solve your issue:</Text>
-
-            <View style={styles.faqList}>
-              {relatedFaqs.map((faq) => {
-                const expanded = expandedFaqId === faq.id;
-                return (
-                  <View key={faq.id} style={[styles.faqCard, expanded && styles.faqCardExpanded]}>
-                    <TouchableOpacity
-                      style={styles.faqRow}
-                      onPress={() => setExpandedFaqId(expanded ? null : faq.id)}
-                      activeOpacity={0.75}
-                      accessibilityRole="button"
-                    >
-                      <Text style={[styles.faqQuestion, expanded && styles.faqQuestionActive]}>{faq.question}</Text>
-                      <ChevronDownIcon size={16} color={expanded ? adminColors.brand : adminColors.muted} />
-                    </TouchableOpacity>
-                    {expanded ? (
-                      <View style={styles.faqAnswerBox}>
-                        <Text style={styles.faqAnswer}>{faq.answer}</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-
-        {/* Specific Issue Type */}
-        <Text style={[styles.labelTitle, { marginTop: adminSpacing.md }]}>
-          {isSupport ? 'Specific Issue' : 'Issue Type'} <Text style={styles.requiredText}>Required</Text>
+        {/* Severity Picker */}
+        <Text style={styles.fieldLabel}>
+          {t('storageOps.report.severity')} <Text style={styles.required}>*</Text>
         </Text>
         <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => {
-            setIssueTypePickerOpen((prev) => !prev);
-            setCategoryPickerOpen(false);
-            setLocationPickerOpen(false);
-          }}
-          activeOpacity={0.8}
+          style={styles.pickerButton}
+          onPress={() => setSeverityPickerOpen((prev) => !prev)}
+          activeOpacity={0.7}
           accessibilityRole="button"
         >
-          <Text style={[styles.dropdownText, !issueType && styles.placeholder]}>
-            {issueType ?? 'Select specific issue'}
-          </Text>
-          <ChevronDownIcon />
+          <Text style={styles.pickerButtonText}>{t(`storageOps.issues.severity.${severity}`)}</Text>
+          <ChevronDownIcon size={16} />
         </TouchableOpacity>
 
-        {issueTypePickerOpen ? (
-          <View style={styles.dropdownList}>
-            {specificIssuesList.map((item) => (
+        {severityPickerOpen ? (
+          <View style={styles.dropdown}>
+            {ISSUE_SEVERITIES.map((sev) => (
               <TouchableOpacity
-                key={item}
-                style={styles.dropdownOption}
+                key={sev}
+                style={[styles.dropdownItem, severity === sev && styles.dropdownItemSelected]}
                 onPress={() => {
-                  setIssueType(item);
-                  setIssueTypePickerOpen(false);
+                  setSeverity(sev);
+                  setSeverityPickerOpen(false);
                 }}
-                activeOpacity={0.7}
+                accessibilityRole="button"
               >
-                <Text style={styles.dropdownOptionText}>{item}</Text>
+                <Text style={[styles.dropdownItemText, severity === sev && styles.dropdownItemTextSelected]}>
+                  {t(`storageOps.issues.severity.${sev}`)}
+                </Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : null}
 
-        {/* Reference / Location */}
-        <Text style={styles.labelTitle}>
-          {isSupport ? 'Reference ID / Tag' : 'Location'}{' '}
-          <Text style={styles.optionalText}>Optional</Text>
+        {/* Subject */}
+        <Text style={styles.fieldLabel}>
+          {t('storageOps.report.subject')} <Text style={styles.required}>*</Text>
         </Text>
-        {isSupport ? (
-          <View style={styles.inputBox}>
-            <TextInput
-              style={styles.input}
-              placeholder={SUPPORT_REFERENCE_HINT[category] ?? 'e.g. Reference #'}
-              placeholderTextColor={adminColors.placeholder}
-              value={referenceId}
-              onChangeText={setReferenceId}
-            />
-          </View>
-        ) : (
-          <>
-            <TouchableOpacity
-              style={styles.dropdown}
-              onPress={() => {
-                setLocationPickerOpen((prev) => !prev);
-                setCategoryPickerOpen(false);
-                setIssueTypePickerOpen(false);
-              }}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.dropdownText, !location && styles.placeholder]}>
-                {location ?? 'Select'}
-              </Text>
-              <ChevronDownIcon />
-            </TouchableOpacity>
+        <TextInput
+          style={styles.input}
+          value={subject}
+          onChangeText={setSubject}
+          placeholder={t('storageOps.report.subjectPlaceholder')}
+          placeholderTextColor={adminColors.muted}
+          maxLength={160}
+        />
 
-            {locationPickerOpen ? (
-              <View style={styles.dropdownList}>
-                {LOCATIONS.map((item) => (
-                  <TouchableOpacity
-                    key={item}
-                    style={styles.dropdownOption}
-                    onPress={() => {
-                      setLocation(item);
-                      setLocationPickerOpen(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.dropdownOptionText}>{item}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
-          </>
-        )}
-
-        <Text style={styles.labelTitle}>
-          Description <Text style={styles.requiredText}>Required</Text>
-        </Text>
-        <View style={styles.textAreaBox}>
-          <TextInput
-            style={styles.textArea}
-            placeholder="Enter issue details..."
-            placeholderTextColor={adminColors.placeholder}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            value={description}
-            onChangeText={setDescription}
-          />
-        </View>
-
-        <Text style={styles.labelTitle}>
-          Photo <Text style={styles.optionalText}>Optional</Text>
-        </Text>
-        <TouchableOpacity
-          style={[styles.photoButton, hasPhoto && styles.photoButtonActive]}
-          onPress={attachPhoto}
-          activeOpacity={0.75}
-          accessibilityRole="button"
-        >
-          <CameraIcon size={22} color={hasPhoto ? adminColors.brand : adminColors.muted} />
-          <Text style={[styles.photoButtonText, hasPhoto && styles.photoButtonTextActive]}>
-            {hasPhoto ? 'Photo Added' : 'Add Photo'}
-          </Text>
-        </TouchableOpacity>
-
-        <Text style={[styles.labelTitle, { marginTop: adminSpacing.lg }]}>Priority</Text>
-        <View style={styles.infoCard}>
-          <InfoCircleIcon size={18} color={adminColors.info.text} />
-          <Text style={styles.infoCardText}>
-            Priority levels are backend-defined — this app doesn't invent a High/Medium/Low scale unless the API provides one.
-          </Text>
-        </View>
+        {/* Description */}
+        <Text style={styles.fieldLabel}>{t('storageOps.report.description')}</Text>
+        <TextInput
+          style={[styles.input, styles.textArea]}
+          value={description}
+          onChangeText={setDescription}
+          placeholder={t('storageOps.report.descriptionPlaceholder')}
+          placeholderTextColor={adminColors.muted}
+          multiline
+          numberOfLines={4}
+          maxLength={1000}
+        />
       </ScrollView>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  labelTitle: {
-    ...adminType.sectionHead,
+  fieldLabel: {
+    ...adminType.caption,
+    fontWeight: '600',
     color: adminColors.ink,
-    marginBottom: 8,
+    marginBottom: adminSpacing.xs,
+    marginTop: adminSpacing.md,
   },
-  requiredText: {
-    ...adminType.rowMeta,
-    fontWeight: '400',
-    color: adminColors.muted,
+  required: {
+    color: adminColors.danger.text,
   },
-  optionalText: {
-    ...adminType.rowMeta,
-    fontWeight: '400',
-    color: adminColors.muted,
-  },
-  dropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  input: {
     backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.lg,
-    height: 52,
-    marginBottom: adminSpacing.lg,
-  },
-  dropdownText: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
     ...adminType.body,
     color: adminColors.ink,
   },
-  placeholder: {
-    color: adminColors.placeholder,
+  textArea: {
+    height: 100,
+    textAlignVertical: 'top',
   },
-  dropdownList: {
+  pickerButton: {
     backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pickerButtonText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  dropdown: {
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
-    marginTop: -adminSpacing.md,
-    marginBottom: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginTop: adminSpacing.xs,
     overflow: 'hidden',
   },
-  dropdownOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  dropdownItem: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: adminColors.border,
   },
-  dropdownOptionText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  textAreaBox: {
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
-    height: 120,
-    marginBottom: adminSpacing.lg,
-  },
-  textArea: {
-    flex: 1,
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  photoButton: {
-    width: 80,
-    height: 72,
-    borderRadius: adminRadius.md,
-    borderWidth: 1.5,
-    borderColor: adminColors.border,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-    gap: 4,
-  },
-  photoButtonActive: {
-    borderColor: adminColors.brand,
-    backgroundColor: adminColors.brandTint,
-  },
-  photoButtonText: {
-    ...adminType.caption,
-    fontWeight: '600',
-    color: adminColors.muted,
-  },
-  photoButtonTextActive: {
-    color: adminColors.brand,
-  },
-  infoCard: {
-    flexDirection: 'row',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.info.bg,
-    borderWidth: 1,
-    borderColor: adminColors.info.border,
-    borderRadius: adminRadius.md,
-    padding: 14,
-    alignItems: 'flex-start',
-    marginBottom: adminSpacing.xl,
-  },
-  infoCardText: {
-    flex: 1,
-    ...adminType.body,
-    lineHeight: 18,
-    color: adminColors.info.text,
-    fontWeight: '500',
-  },
-  dropdownOptionActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  dropdownOptionTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  faqSection: {
-    marginBottom: adminSpacing.lg,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-  },
-  faqHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  faqHeaderTitle: {
-    ...adminType.caption,
-    fontWeight: '700',
-    color: adminColors.ink,
-    letterSpacing: 0.5,
-  },
-  faqHeaderSub: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginBottom: adminSpacing.sm,
-  },
-  badge: {
-    backgroundColor: adminColors.brandTint,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: adminRadius.full,
-  },
-  badgeText: {
-    ...adminType.caption,
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  faqList: {
-    gap: adminSpacing.xs,
-  },
-  faqCard: {
+  dropdownItemSelected: {
     backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    overflow: 'hidden',
   },
-  faqCardExpanded: {
-    borderColor: adminColors.brandSoft.border,
-    backgroundColor: adminColors.card,
-  },
-  faqRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: adminSpacing.sm,
-    gap: adminSpacing.xs,
-  },
-  faqQuestion: {
+  dropdownItemText: {
     ...adminType.body,
-    fontWeight: '600',
     color: adminColors.ink,
-    flex: 1,
   },
-  faqQuestionActive: {
+  dropdownItemTextSelected: {
+    fontWeight: '700',
     color: adminColors.brand,
   },
-  faqAnswerBox: {
-    paddingHorizontal: adminSpacing.sm,
-    paddingBottom: adminSpacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    paddingTop: adminSpacing.xs,
-  },
-  faqAnswer: {
-    ...adminType.rowMeta,
-    lineHeight: 18,
-    color: adminColors.muted,
-  },
-  inputBox: {
-    backgroundColor: adminColors.card,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
-    paddingHorizontal: adminSpacing.lg,
-    height: 52,
-    marginBottom: adminSpacing.lg,
-    justifyContent: 'center',
-  },
-  input: {
-    ...adminType.body,
-    color: adminColors.ink,
+  errorBanner: {
+    marginBottom: adminSpacing.md,
   },
 });

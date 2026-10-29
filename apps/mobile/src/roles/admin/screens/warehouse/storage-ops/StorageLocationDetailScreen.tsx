@@ -2,12 +2,22 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getStorageLocation } from '../../../api/storageLocations';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from '../shared/AsyncStates';
 import {
   LockIcon,
   WalletScreen,
 } from '../wallet-cashtopup/WalletParts';
-import { STORAGE_LOCATIONS } from '../profile-settings/warehouseFixtures';
+import { STORAGE_CODES } from './StorageParts';
 import type { WarehouseScreenBaseProps } from './types';
 
 function BoxOutlineIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -27,93 +37,115 @@ export interface StorageLocationDetailScreenProps extends WarehouseScreenBasePro
 
 export function StorageLocationDetailScreen({
   scope,
-  locationId = 'CS-A01',
+  can,
+  locationId,
   onBack,
   onViewStock,
 }: StorageLocationDetailScreenProps) {
-  const fallbackLoc = {
-    id: 'CS-A01',
-    warehouseId: 'WH-COON',
-    name: 'Cold Storage A',
-    code: 'CS-A01',
-    type: 'Cold Storage',
-    status: 'Active',
-    capacityKg: 2000,
-    currentKg: 1850,
-  };
-  const loc = STORAGE_LOCATIONS.find((l) => l.id === locationId) ?? STORAGE_LOCATIONS[0] ?? fallbackLoc;
-  const whName = scope?.warehouseName ?? 'Coonoor Warehouse';
+  const warehouseId = scope.warehouseId;
+  const canView = can(STORAGE_CODES.batchView);
 
-  const usageItems = [
-    { name: 'Carrot', qty: '420 kg' },
-    { name: 'Cabbage', qty: '320 kg' },
-    { name: 'Beans', qty: '210 kg' },
-  ];
+  const locationQuery = useAdminQuery(
+    adminKeys.detail('storageLocations', locationId ?? 'none'),
+    (signal) => getStorageLocation(warehouseId as string, locationId as string, signal),
+    { enabled: !!warehouseId && !!locationId && canView },
+  );
 
-  const capacityText = `${loc.capacityKg.toLocaleString('en-IN')} kg`;
-  const occupancyText = `${loc.currentKg.toLocaleString('en-IN')} kg`;
-  const availableKg = Math.max(0, loc.capacityKg - loc.currentKg);
-  const availableText = `${availableKg.toLocaleString('en-IN')} kg`;
+  const whName = scope?.warehouseName ?? '';
+
+  if (!locationId || !warehouseId) {
+    return (
+      <WalletScreen title={t('storageOps.locations.detailTitle')} onBack={onBack}>
+        <AdminEmptyState
+          title={t('storageOps.locations.missing')}
+          subtitle={t('storageOps.locations.emptyHint')}
+        />
+      </WalletScreen>
+    );
+  }
 
   return (
     <WalletScreen
-      title="Storage Location"
+      title={t('storageOps.locations.detailTitle')}
       onBack={onBack}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.scopeRow}>
-          <LockIcon size={14} color={adminColors.muted} />
-          <Text style={styles.scopeText}>{whName}</Text>
-        </View>
+        {locationQuery.isLoading ? (
+          <AdminLoadingState />
+        ) : locationQuery.error ? (
+          <AdminErrorState error={locationQuery.error} onRetry={() => locationQuery.refetch()} />
+        ) : locationQuery.data ? (
+          <>
+            <View style={styles.scopeRow}>
+              <LockIcon size={14} color={adminColors.muted} />
+              <Text style={styles.scopeText}>{whName}</Text>
+            </View>
 
-        <Text style={styles.locationTitle}>{`${loc.name} — ${loc.code}`}</Text>
+            <Text style={styles.locationTitle}>{`${locationQuery.data.name} — ${locationQuery.data.code}`}</Text>
 
-        <View style={styles.card}>
-          <View style={styles.infoGridRow}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Status</Text>
-              <Text style={styles.infoValue}>{loc.status}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Capacity</Text>
-              <Text style={styles.infoValue}>{capacityText}</Text>
-            </View>
-          </View>
-          <View style={[styles.infoGridRow, styles.infoGridRowSpaced]}>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Current Occupancy</Text>
-              <Text style={styles.infoValue}>{occupancyText}</Text>
-            </View>
-            <View style={styles.infoCol}>
-              <Text style={styles.infoLabel}>Available</Text>
-              <Text style={styles.infoValue}>{availableText}</Text>
-            </View>
-          </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Location Usage</Text>
-        <View style={styles.usageCard}>
-          {usageItems.map((item, idx) => (
-            <React.Fragment key={item.name}>
-              {idx > 0 ? <View style={styles.usageDivider} /> : null}
-              <View style={styles.usageRow}>
-                <Text style={styles.usageItemName}>{item.name}</Text>
-                <Text style={styles.usageItemQty}>{item.qty}</Text>
+            <View style={styles.card}>
+              <View style={styles.infoGridRow}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>{t('storageOps.capacity.status')}</Text>
+                  <Text style={styles.infoValue}>
+                    {locationQuery.data.isActive ? t('storageOps.locations.active') : t('storageOps.locations.inactive')}
+                  </Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>{t('storageOps.locations.capacity')}</Text>
+                  <Text style={styles.infoValue}>
+                    {locationQuery.data.capacityKg ? formatKg(parseKgToGrams(locationQuery.data.capacityKg) ?? 0) : '—'}
+                  </Text>
+                </View>
               </View>
-            </React.Fragment>
-          ))}
-        </View>
+              <View style={[styles.infoGridRow, styles.infoGridRowSpaced]}>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>{t('storageOps.locations.currentOccupancy')}</Text>
+                  <Text style={styles.infoValue}>
+                    {formatKg(parseKgToGrams(locationQuery.data.usedKg) ?? 0)}
+                  </Text>
+                </View>
+                <View style={styles.infoCol}>
+                  <Text style={styles.infoLabel}>{t('storageOps.locations.available')}</Text>
+                  <Text style={styles.infoValue}>
+                    {(() => {
+                      const capG = locationQuery.data.capacityKg ? (parseKgToGrams(locationQuery.data.capacityKg) ?? 0) : 0;
+                      const usedG = parseKgToGrams(locationQuery.data.usedKg) ?? 0;
+                      return formatKg(Math.max(0, capG - usedG));
+                    })()}
+                  </Text>
+                </View>
+              </View>
+            </View>
 
-        <TouchableOpacity
-          style={styles.viewStockButton}
-          onPress={onViewStock}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="View Stock"
-        >
-          <BoxOutlineIcon size={20} color={adminColors.onBrand} />
-          <Text style={styles.viewStockButtonText}>View Stock</Text>
-        </TouchableOpacity>
+            <Text style={styles.sectionTitle}>{t('storageOps.locations.locationUsage')}</Text>
+            <View style={styles.usageCard}>
+              <View style={styles.usageRow}>
+                <Text style={styles.usageItemName}>
+                  {t('storageOps.locations.usageSummary', {
+                    batches: locationQuery.data.batchCount,
+                    qty: formatKg(parseKgToGrams(locationQuery.data.usedKg) ?? 0),
+                  })}
+                </Text>
+              </View>
+            </View>
+
+            {canView && onViewStock ? (
+              <TouchableOpacity
+                style={styles.viewStockButton}
+                onPress={onViewStock}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('storageOps.locations.viewStock')}
+              >
+                <BoxOutlineIcon size={20} color={adminColors.onBrand} />
+                <Text style={styles.viewStockButtonText}>{t('storageOps.locations.viewStock')}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        ) : (
+          <AdminEmptyState title={t('storageOps.locations.missing')} />
+        )}
       </ScrollView>
     </WalletScreen>
   );
@@ -186,16 +218,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
   },
-  usageDivider: {
-    height: 1,
-    backgroundColor: adminColors.border,
-  },
   usageItemName: {
     ...adminType.body,
-    color: adminColors.ink,
-  },
-  usageItemQty: {
-    ...adminType.rowTitle,
     color: adminColors.ink,
   },
   viewStockButton: {

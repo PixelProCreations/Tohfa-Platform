@@ -1,11 +1,4 @@
-// Warehouse storage-ops area (design module M4). Part A: storage locations
-// (detail: inventory.batch.view; assignment: inventory.batch.assign)
-// and capacity (no view code; Manage Capacity Limits: warehouse.capacity.set),
-// plus Main-only Warehouse Performance (warehouse.all.view). Part B: operational
-// issues (no code), Report an Issue / Request Submitted (support.ticket.create_own),
-// Warehouse Activity with the Today preset + Activity Detail (no code; CSV export
-// report.export.file), and the Warehouse Operations hub (no code; Main parts
-// need warehouse.all.view).
+// Warehouse storage-ops area (design module M4).
 // Explicit exports only (no `export *`).
 export { StorageFlow, canOpenStorageRoute, type StorageFlowProps } from './StorageFlow';
 export { StorageLocationDetailScreen, type StorageLocationDetailScreenProps } from './StorageLocationDetailScreen';
@@ -29,7 +22,6 @@ export { OperationalIssueDetailScreen, type OperationalIssueDetailScreenProps } 
 export { ReportIssueScreen, type ReportIssueScreenProps, type ReportIssueSubmission } from './ReportIssueScreen';
 export { IssueSubmittedScreen, type IssueSubmittedScreenProps } from './IssueSubmittedScreen';
 export { STORAGE_CODES } from './StorageParts';
-export { STORAGE_WAREHOUSES } from './fixtures';
 export type {
   ActivityCategory,
   ActivityItem,

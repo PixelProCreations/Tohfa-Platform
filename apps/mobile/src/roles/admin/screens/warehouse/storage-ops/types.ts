@@ -209,7 +209,6 @@ export interface AttentionItem {
 /** Screens of the storage-ops flow (old App.tsx keys without the 'SubWarehouse' prefix). */
 export type StorageRoute =
   | 'StorageLocationDetail'
-  | 'StorageLocationAssignment'
   | 'Capacity'
   | 'Performance'
   | 'Operations'

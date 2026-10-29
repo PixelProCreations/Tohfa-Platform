@@ -2,28 +2,23 @@
  * Warehouse Operations: the storage-ops hub (overview tiles, quick actions,
  * today's status, needs attention, recent activity).
  *
- * Gate (FINAL_LIST 141): no view code (SPEC_GAPS W4v-5); scope-locked. Every
- * tile leads to a child that carries its own gate (Capacity limits,
- * Capacity's Manage link, Report an Issue, ...). The Main-only parts show only
- * for the all-warehouses scope (scope.warehouseId undefined) with
- * `warehouse.all.view`: the per-warehouse cards, the Open Issues and Operations
- * History tiles, and the Operations History card / quick action. The warehouse
- * selector shows for the all-warehouses scope.
- *
- * Absorbs Main WarehouseOperationsHubScreen (pair M4-S01): the hub over all
- * warehouses with the warehouse filter (now the shared selector instead of the
- * shell's filter modal), the per-warehouse Overview cards (all four seeded
- * warehouses from data, not the old fixed Ooty / Coonoor pair), Open Issues and
- * Operations History tiles, the Operations History card and the note that
- * Receive Goods / Stock Verification always open their own modules. The
- * values come from the warehouses in view instead of fixed numbers.
+ * Gate: scope-locked. Every tile leads to a child that carries its own gate.
+ * The Main-only parts show only for the all-warehouses scope with `warehouse.all.view`.
  */
-// Design id: M4-S01
 import React, { useEffect, useMemo, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getOpenIssueCounts, getWarehouseCapacities } from '../../../api/dashboardFeeds';
+import { listStorageLocations } from '../../../api/warehouses';
+import { listWarehouseActivity } from '../../../api/warehouseActivity';
+import { listWarehouseIssues } from '../../../api/warehouseIssues';
 import { OverviewDashboardCard } from '../../../components';
+import { t } from '../../../i18n';
+import { parseKgToGrams } from '../../../money/quantity';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { istDay } from '../../../utils/datetime';
 import {
   BellRingIcon,
   HeaderIconButton,
@@ -33,11 +28,11 @@ import {
   SectionTitle,
   StatusBadge,
   WalletScreen,
-  WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
-import { ACTIVITIES, ATTENTION_ITEMS, OPERATIONS_SUMMARY, OPERATIONAL_ISSUES, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { toActivityRow, type ActivityRow } from './mappers_activity';
 import {
   AlertCircleIcon,
   ChevronRightIcon,
@@ -47,21 +42,17 @@ import {
   ReportIssueIcon,
   STORAGE_CODES,
   ShelfIcon,
-  StaffBadgeIcon,
   WarningTriangleIcon,
 } from './StorageParts';
 import type { ActivityModule, WarehouseScreenBaseProps } from './types';
-
-/** Recent Activity rows previewed on the hub. */
-const RECENT_PREVIEW = 2;
 
 export interface WarehouseOperationsScreenProps extends WarehouseScreenBaseProps {
   onOpenCapacity: () => void;
   onOpenIssues: () => void;
   /** Warehouse Activity on a preset ('Today' = Today's Operational Status). */
   onOpenActivity: (preset: 'Today' | 'All') => void;
-  onSelectActivity: (activityId: string) => void;
-  /** Modules outside storage-ops: storage locations, staff, receiving, stock verification. */
+  onSelectActivity: (activity: ActivityRow) => void;
+  /** Modules outside storage-ops: storage locations, receiving. */
   onOpenModule: (module: ActivityModule) => void;
   onOpenNotifications?: (() => void) | undefined;
   /** Main: Warehouse Overview "View" link. */
@@ -74,7 +65,6 @@ export function WarehouseOperationsScreen({
   scope,
   can,
   onBack,
-  onTabChange,
   onOpenCapacity,
   onOpenIssues,
   onOpenActivity,
@@ -95,52 +85,175 @@ export function WarehouseOperationsScreen({
   }, [onBack]);
 
   const mainView = isAllWarehouses(scope) && can(STORAGE_CODES.allWarehousesView);
-  const visibleIn = (warehouseId: string) => inScope(scope, warehouseId, selectedWarehouseId);
 
-  const summaries = OPERATIONS_SUMMARY.filter((s) => visibleIn(s.warehouseId));
-  const total = (key: 'storageLocations' | 'staffPresent' | 'staffTotal' | 'historyRecords' | 'receivingShipments' | 'storageMovements' | 'verificationPending') =>
-    summaries.reduce((sum, s) => sum + s[key], 0);
-  const occupancy = summaries.length > 0 ? Math.round(summaries.reduce((sum, s) => sum + s.occupancyPercent, 0) / summaries.length) : 0;
-  const openIssues = OPERATIONAL_ISSUES.filter((i) => visibleIn(i.warehouseId) && i.status !== 'Resolved');
-  const attention = ATTENTION_ITEMS.filter((a) => visibleIn(a.warehouseId));
-  const recent = useMemo(
-    () => ACTIVITIES.filter((a) => inScope(scope, a.warehouseId, selectedWarehouseId)).slice(0, RECENT_PREVIEW),
-    [scope, selectedWarehouseId],
+  const { options, scopes } = useWarehouseOptions({
+    enabled: mainView,
+    activeOnly: true,
+  });
+
+  const targetWarehouseIds = useMemo(() => {
+    if (scope.warehouseId) return [scope.warehouseId];
+    if (selectedWarehouseId) return [selectedWarehouseId];
+    return options.map((o) => o.warehouseId);
+  }, [scope.warehouseId, selectedWarehouseId, options]);
+
+  // Storage Locations count
+  const locationsQuery = useAdminQuery(
+    adminKeys.scoped('storageLocationsCount', undefined, { ids: targetWarehouseIds }),
+    async (signal) => {
+      const results = await Promise.all(
+        targetWarehouseIds.map((id) => listStorageLocations(id, { isActive: true, page: 1, pageSize: 1 }, signal)),
+      );
+      return results.reduce((sum: number, p) => sum + p.total, 0);
+    },
+    { enabled: targetWarehouseIds.length > 0 && can(STORAGE_CODES.batchView) },
   );
 
-  const mainKpiTiles = [
-    { label: 'Storage Locations', value: '4', sub: 'Warehouses', onPress: () => onOpenModule('storage') },
-    { label: 'Occupancy', value: '64%', sub: 'Avg', onPress: onOpenCapacity },
-    { label: 'Open Issues', value: '9', sub: 'Requires Attention', onPress: onOpenIssues },
-    { label: 'Staff Present', value: '27/34', sub: 'Today', onPress: () => onOpenModule('staff') },
-    { label: "Today's Activities", value: '84', sub: 'Total', onPress: () => onOpenActivity('Today') },
-  ];
+  // Capacities
+  const capacityQuery = useAdminQuery(
+    adminKeys.scoped('warehouseCapacity', undefined, { ids: targetWarehouseIds }),
+    (signal) => getWarehouseCapacities(targetWarehouseIds, signal),
+    { enabled: targetWarehouseIds.length > 0 && (can('warehouse.own.view') || can(STORAGE_CODES.allWarehousesView)) },
+  );
 
-  const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', value: '4', sub: 'Warehouses', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Occupancy', value: '64%', sub: 'Avg', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Open Issues', value: '9', sub: 'Requires Attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
-    { label: 'Staff Present', value: '27/34', sub: 'Today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
-    { label: "Today's Activities", value: '84', sub: 'Total', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('Today') },
+  // Open Issues count
+  const issuesQuery = useAdminQuery(
+    adminKeys.scoped('openIssuesCount', undefined, { ids: targetWarehouseIds }),
+    (signal) => getOpenIssueCounts(targetWarehouseIds, signal),
+    { enabled: targetWarehouseIds.length > 0 && can(STORAGE_CODES.issueView) },
+  );
+
+  // High / Critical Open Issues for Needs Attention
+  const highIssuesQuery = useAdminQuery(
+    adminKeys.scoped('highIssues', undefined, { ids: targetWarehouseIds }),
+    async (signal) => {
+      const pages = await Promise.all(
+        targetWarehouseIds.map((id) =>
+          listWarehouseIssues(id, { status: 'OPEN', severity: 'HIGH', page: 1, pageSize: 3 }, signal),
+        ),
+      );
+      return pages.flatMap((p) => p.items).slice(0, 3);
+    },
+    { enabled: targetWarehouseIds.length > 0 && can(STORAGE_CODES.issueView) },
+  );
+
+  // Activities today
+  const today = useMemo(() => istDay(new Date()), []);
+  const activityQuery = useAdminQuery(
+    adminKeys.scoped('warehouseActivityToday', undefined, { ids: targetWarehouseIds, today }),
+    async (signal) => {
+      const pages = await Promise.all(
+        targetWarehouseIds.map(async (id) => {
+          const res = await listWarehouseActivity(id, { from: today, to: today, limit: 100 }, signal);
+          return { warehouseId: id, items: res.items, hasMore: res.page.hasMore };
+        }),
+      );
+      return pages;
+    },
+    { enabled: targetWarehouseIds.length > 0 && can(STORAGE_CODES.activityView) },
+  );
+
+  const occupancyDisplay = useMemo(() => {
+    if (!capacityQuery.data || capacityQuery.data.size === 0) return '—';
+    let totalUsedGrams = 0;
+    let totalCapGrams = 0;
+    for (const cap of capacityQuery.data.values()) {
+      totalUsedGrams += parseKgToGrams(cap.usedKg ?? '0') ?? 0;
+      totalCapGrams += parseKgToGrams(cap.capacityKg ?? '0') ?? 0;
+    }
+    if (totalCapGrams === 0) return '—';
+    const pct = Math.round((totalUsedGrams / totalCapGrams) * 100);
+    return `${pct}%`;
+  }, [capacityQuery.data]);
+
+  const totalOpenIssues = useMemo(() => {
+    if (!issuesQuery.data) return '—';
+    return String(Object.values(issuesQuery.data).reduce((sum, n) => sum + n, 0));
+  }, [issuesQuery.data]);
+
+  const totalTodayActivities = useMemo(() => {
+    if (!activityQuery.data) return '—';
+    return String(activityQuery.data.reduce((sum, p) => sum + p.items.length, 0));
+  }, [activityQuery.data]);
+
+  const receivingCount = useMemo(() => {
+    if (!activityQuery.data) return 0;
+    return activityQuery.data.reduce(
+      (sum, p) => sum + p.items.filter((item) => item.type === 'GOODS_RECEIPT').length,
+      0,
+    );
+  }, [activityQuery.data]);
+
+  const storageMovementCount = useMemo(() => {
+    if (!activityQuery.data) return 0;
+    return activityQuery.data.reduce(
+      (sum, p) => sum + p.items.filter((item) => item.type === 'STOCK_MOVEMENT').length,
+      0,
+    );
+  }, [activityQuery.data]);
+
+  const recentRows = useMemo(() => {
+    if (!activityQuery.data) return [];
+    const now = new Date();
+    const rows: ActivityRow[] = [];
+    for (const page of activityQuery.data) {
+      const opt = options.find((o) => o.warehouseId === page.warehouseId);
+      const whName = opt?.warehouseName ?? (scope.warehouseName ?? '');
+      for (const item of page.items) {
+        rows.push(toActivityRow(item, { id: page.warehouseId, name: whName }, now));
+      }
+    }
+    return rows.slice(0, 2);
+  }, [activityQuery.data, options, scope.warehouseName]);
+
+  const overviewTiles = [
+    {
+      label: t('storageOps.operations.locations'),
+      value: locationsQuery.data !== undefined ? String(locationsQuery.data) : '—',
+      sub: t('storageOps.operations.locations'),
+      icon: <ShelfIcon size={22} color={adminColors.brand} />,
+      onPress: () => onOpenModule('storage'),
+    },
+    {
+      label: t('storageOps.operations.occupancy'),
+      value: occupancyDisplay,
+      sub: t('storageOps.operations.occupancy'),
+      icon: <DonutIcon size={22} color={adminColors.brand} />,
+      onPress: onOpenCapacity,
+    },
+    {
+      label: t('storageOps.operations.openIssues'),
+      value: totalOpenIssues,
+      sub: t('storageOps.operations.needsAttention'),
+      icon: <AlertCircleIcon />,
+      onPress: onOpenIssues,
+    },
+    {
+      label: t('storageOps.operations.todayActivities'),
+      value: totalTodayActivities,
+      sub: t('storageOps.operations.todayStatus'),
+      icon: <HistoryIcon color={adminColors.warning.text} />,
+      onPress: () => onOpenActivity('Today'),
+    },
   ];
 
   const mainQuickActions = [
-    { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: t('storageOps.operations.locations'), icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: t('storageOps.operations.occupancy'), icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: t('storageOps.operations.openIssues'), icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
   ];
 
-  const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
-    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
-    ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
+  const quickActions = [
+    { label: t('storageOps.operations.locations'), icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: t('storageOps.operations.occupancy'), icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: t('storageOps.operations.openIssues'), icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: t('storageOps.operations.receiving'), icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
+    ...(mainView ? [{ label: t('storageOps.performance.operationsLog'), icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
   ];
 
   return (
     <WalletScreen
-      title="Warehouse Operations"
+      title={t('storageOps.operations.title')}
       onBack={onBack}
       headerRight={
         <HeaderIconButton onPress={onOpenNotifications ?? (() => {})} accessibilityLabel="Notifications">
@@ -151,71 +264,35 @@ export function WarehouseOperationsScreen({
         mainView ? (
           <WarehouseSelector
             scope={scope}
-            options={STORAGE_WAREHOUSES}
+            options={scopes}
             selectedId={selectedWarehouseId}
             onSelect={setSelectedWarehouseId}
           />
         ) : (
           <ScopeHeader
             scope={scope}
-            label={`${scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse'} · Operational`}
+            label={`${scope.warehouseName ?? ''} · Operational`}
           />
         )
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {mainView ? (
-          <View style={styles.grid}>
-            {mainKpiTiles.map((card) => {
-              const getIcon = (label: string): 'box' | 'orders' | 'inventory' | 'alert' | 'pickup' | 'receiving' => {
-                const lower = label.toLowerCase();
-                if (lower.includes('location')) return 'box';
-                if (lower.includes('occupancy')) return 'inventory';
-                if (lower.includes('issue')) return 'alert';
-                if (lower.includes('staff')) return 'pickup';
-                return 'receiving';
-              };
-              const isAlert = card.label.toLowerCase().includes('issue');
-              return (
-                <OverviewDashboardCard
-                  key={card.label}
-                  value={card.value}
-                  title={card.label}
-                  subtitle={card.sub}
-                  icon={getIcon(card.label)}
-                  tone={isAlert ? 'danger' : 'default'}
-                />
-              );
-            })}
-          </View>
-        ) : (
-          <>
-            <SectionTitle>Operations Overview</SectionTitle>
-            <View style={styles.grid}>
-              {overviewTiles.map((tile) => {
-                const getIcon = (label: string): 'box' | 'orders' | 'inventory' | 'alert' | 'pickup' | 'receiving' => {
-                  const lower = label.toLowerCase();
-                  if (lower.includes('location')) return 'box';
-                  if (lower.includes('occupancy')) return 'inventory';
-                  if (lower.includes('issue')) return 'alert';
-                  if (lower.includes('staff')) return 'pickup';
-                  return 'receiving';
-                };
-                const isAlert = tile.label.toLowerCase().includes('issue');
-                return (
-                  <OverviewDashboardCard
-                    key={tile.label}
-                    value={tile.value}
-                    title={tile.label}
-                    subtitle={tile.sub}
-                    icon={getIcon(tile.label)}
-                    tone={isAlert ? 'danger' : 'default'}
-                  />
-                );
-              })}
-            </View>
-          </>
-        )}
+        <SectionTitle>{t('storageOps.operations.overview')}</SectionTitle>
+        <View style={styles.grid}>
+          {overviewTiles.map((tile) => {
+            const isAlert = tile.label === t('storageOps.operations.openIssues');
+            return (
+              <OverviewDashboardCard
+                key={tile.label}
+                value={tile.value}
+                title={tile.label}
+                subtitle={tile.sub}
+                icon="box"
+                tone={isAlert ? 'danger' : 'default'}
+              />
+            );
+          })}
+        </View>
 
         {mainView ? (
           <>
@@ -223,23 +300,28 @@ export function WarehouseOperationsScreen({
               right={
                 onOpenWarehouseOverview ? (
                   <TouchableOpacity onPress={onOpenWarehouseOverview} accessibilityRole="button">
-                    <Text style={styles.link}>View</Text>
+                    <Text style={styles.link}>{t('storageOps.operations.view')}</Text>
                   </TouchableOpacity>
                 ) : undefined
               }
             >
-              Warehouse Overview
+              {t('storageOps.operations.hubOverview')}
             </SectionTitle>
-            {summaries.map((s) => {
-              const rawName = storageWarehouseName(s.warehouseId);
-              const displayName = rawName.replace(/ Warehouse$/, '');
-              const issues = s.warehouseId === 'WH-OOTY' ? 2 : s.warehouseId === 'WH-COON' ? 3 : OPERATIONAL_ISSUES.filter((i) => i.warehouseId === s.warehouseId && i.status !== 'Resolved').length;
+
+            {options.map((w) => {
+              const displayName = w.warehouseName.replace(/ Warehouse$/, '');
+              const cap = capacityQuery.data?.get(w.warehouseId);
+              const occPercent = cap?.utilizationPercent != null ? `${cap.utilizationPercent}%` : '—';
+              const whIssues = issuesQuery.data?.[w.warehouseId] ?? 0;
+              const whPage = activityQuery.data?.find((p) => p.warehouseId === w.warehouseId);
+              const whActivities = whPage ? whPage.items.length : 0;
+
               return (
                 <TouchableOpacity
-                  key={s.warehouseId}
+                  key={w.warehouseId}
                   style={styles.card}
                   disabled={onSelectWarehouse === undefined && onOpenWarehouseOverview === undefined}
-                  onPress={() => (onSelectWarehouse ? onSelectWarehouse(rawName) : onOpenWarehouseOverview?.())}
+                  onPress={() => (onSelectWarehouse ? onSelectWarehouse(w.warehouseName) : onOpenWarehouseOverview?.())}
                   activeOpacity={0.8}
                   accessibilityRole="button"
                 >
@@ -249,16 +331,16 @@ export function WarehouseOperationsScreen({
                   </View>
                   <View style={styles.statsRow}>
                     <View style={styles.statCol}>
-                      <Text style={styles.statLabel}>Occupancy</Text>
-                      <Text style={styles.statValue}>{s.occupancyPercent}%</Text>
+                      <Text style={styles.statLabel}>{t('storageOps.operations.occupancy')}</Text>
+                      <Text style={styles.statValue}>{occPercent}</Text>
                     </View>
                     <View style={styles.statCol}>
-                      <Text style={styles.statLabel}>Activities</Text>
-                      <Text style={styles.statValue}>{s.activitiesToday}</Text>
+                      <Text style={styles.statLabel}>{t('storageOps.operations.todayActivities')}</Text>
+                      <Text style={styles.statValue}>{whActivities}</Text>
                     </View>
                     <View style={styles.statCol}>
-                      <Text style={styles.statLabel}>Issues</Text>
-                      <Text style={styles.statValue}>{issues}</Text>
+                      <Text style={styles.statLabel}>{t('storageOps.operations.openIssues')}</Text>
+                      <Text style={styles.statValue}>{whIssues}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -268,50 +350,57 @@ export function WarehouseOperationsScreen({
             <SectionTitle
               right={
                 <TouchableOpacity onPress={() => onOpenActivity('Today')} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
+                  <Text style={styles.link}>{t('storageOps.operations.view')} →</Text>
                 </TouchableOpacity>
               }
             >
-              {"Today's Operational Status"}
+              {t('storageOps.operations.todayStatus')}
             </SectionTitle>
             <View style={styles.card}>
               <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.statusRowItemLabel}>Receiving</Text>
-                <Text style={styles.statusRowItemValue}>{total('receivingShipments')} shipments</Text>
+                <Text style={styles.statusRowItemLabel}>{t('storageOps.operations.receiving')}</Text>
+                <Text style={styles.statusRowItemValue}>{receivingCount} shipments</Text>
               </TouchableOpacity>
               <View style={styles.rowDivider} />
               <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.statusRowItemLabel}>Storage</Text>
-                <Text style={styles.statusRowItemValue}>8 activities</Text>
+                <Text style={styles.statusRowItemLabel}>{t('storageOps.operations.storage')}</Text>
+                <Text style={styles.statusRowItemValue}>{storageMovementCount} activities</Text>
               </TouchableOpacity>
             </View>
 
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={onOpenIssues} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
-                </TouchableOpacity>
-              }
-            >
-              Needs Attention
-            </SectionTitle>
-            <TouchableOpacity
-              style={styles.attentionCard}
-              onPress={onOpenIssues}
-              activeOpacity={0.75}
-              accessibilityRole="button"
-            >
-              <View style={[styles.attentionAccent, { backgroundColor: adminColors.brand }]} />
-              <View style={styles.attentionIconBrand}>
-                <WarningTriangleIcon size={20} color={adminColors.brand} />
-              </View>
-              <View style={styles.attentionText}>
-                <Text style={styles.cardTitle}>Storage Issue — Rack A-03</Text>
-                <Text style={styles.statLabel}>Coonoor · Requires attention</Text>
-              </View>
-            </TouchableOpacity>
+            {highIssuesQuery.data && highIssuesQuery.data.length > 0 ? (
+              <>
+                <SectionTitle
+                  right={
+                    <TouchableOpacity onPress={onOpenIssues} accessibilityRole="button">
+                      <Text style={styles.link}>{t('storageOps.operations.view')} →</Text>
+                    </TouchableOpacity>
+                  }
+                >
+                  {t('storageOps.operations.needsAttention')}
+                </SectionTitle>
+                {highIssuesQuery.data.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.attentionCard}
+                    onPress={onOpenIssues}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                  >
+                    <View style={[styles.attentionAccent, { backgroundColor: adminColors.brand }]} />
+                    <View style={styles.attentionIconBrand}>
+                      <WarningTriangleIcon size={20} color={adminColors.brand} />
+                    </View>
+                    <View style={styles.attentionText}>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
+                      <Text style={styles.statLabel}>{item.issueNumber} · {item.severity}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : null}
 
-            <SectionTitle>Quick Actions</SectionTitle>
+            <SectionTitle>{t('storageOps.operations.quickActions')}</SectionTitle>
             <View style={styles.grid}>
               {mainQuickActions.map((qa) => (
                 <TouchableOpacity key={qa.label} style={styles.mainActionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
@@ -323,7 +412,7 @@ export function WarehouseOperationsScreen({
           </>
         ) : (
           <>
-            <SectionTitle>Quick Actions</SectionTitle>
+            <SectionTitle>{t('storageOps.operations.quickActions')}</SectionTitle>
             <View style={styles.grid}>
               {quickActions.map((qa) => (
                 <TouchableOpacity key={qa.label} style={styles.actionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
@@ -333,44 +422,36 @@ export function WarehouseOperationsScreen({
               ))}
             </View>
 
-            <SectionTitle>{"Today's Operational Status"}</SectionTitle>
+            <SectionTitle>{t('storageOps.operations.todayStatus')}</SectionTitle>
             <View style={styles.grid}>
-              {(
-                [
-                  ['RECEIVING · SHIPMENTS', total('receivingShipments')],
-                  ['STORAGE · MOVEMENTS', total('storageMovements')],
-                  ['VERIFICATION · PENDING', total('verificationPending')],
-                  ['ISSUES · OPEN', openIssues.length],
-                ] as const
-              ).map(([label, value]) => (
-                <TouchableOpacity key={label} style={styles.statusTile} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
-                  <Text style={styles.tileValue}>{value}</Text>
-                  <Text style={styles.statusLabel}>{label}</Text>
-                </TouchableOpacity>
-              ))}
+              <TouchableOpacity style={styles.statusTile} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.tileValue}>{receivingCount}</Text>
+                <Text style={styles.statusLabel}>{t('storageOps.operations.receiving')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.statusTile} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
+                <Text style={styles.tileValue}>{storageMovementCount}</Text>
+                <Text style={styles.statusLabel}>{t('storageOps.operations.storage')}</Text>
+              </TouchableOpacity>
             </View>
 
-            {attention.length > 0 ? (
+            {highIssuesQuery.data && highIssuesQuery.data.length > 0 ? (
               <>
-                <SectionTitle>Needs Attention</SectionTitle>
-                {attention.map((item) => (
+                <SectionTitle>{t('storageOps.operations.needsAttention')}</SectionTitle>
+                {highIssuesQuery.data.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     style={styles.attentionCard}
-                    onPress={() => {
-                      if (item.module === 'operational_issue') onOpenIssues();
-                      else onOpenModule(item.module);
-                    }}
+                    onPress={onOpenIssues}
                     activeOpacity={0.75}
                     accessibilityRole="button"
                   >
-                    <View style={[styles.attentionAccent, { backgroundColor: adminColors[item.tone].border }]} />
-                    <View style={[styles.attentionIcon, { backgroundColor: adminColors[item.tone].bg }]}>
-                      <AlertCircleIcon size={18} color={adminColors[item.tone].text} />
+                    <View style={[styles.attentionAccent, { backgroundColor: adminColors.danger.border }]} />
+                    <View style={[styles.attentionIcon, { backgroundColor: adminColors.danger.bg }]}>
+                      <AlertCircleIcon size={18} color={adminColors.danger.text} />
                     </View>
                     <View style={styles.attentionText}>
                       <Text style={styles.cardTitle}>{item.title}</Text>
-                      <Text style={styles.statLabel}>{item.detail}</Text>
+                      <Text style={styles.statLabel}>{item.issueNumber} · {item.severity}</Text>
                     </View>
                     <ChevronRightIcon color={adminColors.muted} />
                   </TouchableOpacity>
@@ -378,23 +459,27 @@ export function WarehouseOperationsScreen({
               </>
             ) : null}
 
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={() => onOpenActivity('All')} accessibilityRole="button">
-                  <Text style={styles.link}>View All</Text>
-                </TouchableOpacity>
-              }
-            >
-              Recent Activity
-            </SectionTitle>
-            {recent.map((act) => (
-              <TouchableOpacity key={act.id} style={styles.card} onPress={() => onSelectActivity(act.id)} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.cardTitle}>{act.title}</Text>
-                <Text style={styles.statLabel}>
-                  {act.subtitle} · {act.when}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {recentRows.length > 0 ? (
+              <>
+                <SectionTitle
+                  right={
+                    <TouchableOpacity onPress={() => onOpenActivity('All')} accessibilityRole="button">
+                      <Text style={styles.link}>{t('storageOps.operations.viewAll')}</Text>
+                    </TouchableOpacity>
+                  }
+                >
+                  {t('storageOps.operations.recentActivity')}
+                </SectionTitle>
+                {recentRows.map((act) => (
+                  <TouchableOpacity key={act.key} style={styles.card} onPress={() => onSelectActivity(act)} activeOpacity={0.75} accessibilityRole="button">
+                    <Text style={styles.cardTitle}>{act.title}</Text>
+                    <Text style={styles.statLabel}>
+                      {act.subtitle} · {act.time}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -402,253 +487,150 @@ export function WarehouseOperationsScreen({
   );
 }
 
-const TILE_ICON = 36;
-
 const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: adminSpacing.sm,
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: adminColors.brandDeep,
-    borderWidth: 1,
-    borderColor: adminColors.brandTint,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.full,
-    marginTop: adminSpacing.sm,
-    gap: adminSpacing.xs,
-  },
-  dropdownButtonText: {
-    ...adminType.caption,
-    color: adminColors.onBrand,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: adminColors.toast.bg,
-    opacity: 0.96,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: adminSpacing.lg,
-  },
-  dropdownMenu: {
-    width: '85%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    ...adminShadow.md,
-  },
-  dropdownMenuTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    marginBottom: adminSpacing.sm,
-    paddingBottom: adminSpacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
-  },
-  dropdownMenuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-  },
-  dropdownMenuItemActive: {
-    backgroundColor: adminColors.brandTint,
-  },
-  dropdownMenuItemText: {
-    ...adminType.body,
-    color: adminColors.ink,
-  },
-  dropdownMenuItemTextActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
-  },
-  overviewTile: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-  },
-  tileIcon: {
-    width: TILE_ICON,
-    height: TILE_ICON,
-    borderRadius: adminRadius.sm,
-    backgroundColor: adminColors.warning.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: adminSpacing.sm,
-  },
-  tileValue: { ...adminType.kpiValue, color: adminColors.ink },
-  tileLabel: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
-  tileSub: { ...adminType.rowMeta, color: adminColors.muted },
-  link: { ...adminType.caption, color: adminColors.brand },
   card: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
     marginBottom: adminSpacing.sm,
   },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  statsRow: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    marginTop: adminSpacing.sm,
-    paddingTop: adminSpacing.sm,
-  },
-  statCol: { flex: 1 },
-  statLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  statValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
-  actionTile: {
-    flexBasis: '30%',
-    flexGrow: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.xs,
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    ...adminShadow.sm,
-  },
-  actionLabel: { ...adminType.caption, color: adminColors.ink, textAlign: 'center' },
-  wideAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    marginTop: adminSpacing.sm,
-    ...adminShadow.sm,
-  },
-  wideActionText: { ...adminType.rowTitle, color: adminColors.ink, fontWeight: '700' },
-  statusTile: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    alignItems: 'center',
-  },
-  statusLabel: { ...adminType.caption, color: adminColors.muted, marginTop: adminSpacing.xs, textAlign: 'center' },
-  attentionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.md,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingRight: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
-    overflow: 'hidden',
-  },
-  attentionAccent: { width: 4, alignSelf: 'stretch' },
-  attentionIcon: {
-    width: TILE_ICON,
-    height: TILE_ICON,
-    borderRadius: adminRadius.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attentionIconBrand: {
-    width: TILE_ICON,
-    height: TILE_ICON,
-    borderRadius: adminRadius.sm,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attentionText: { flex: 1 },
-  mainKpiCard: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-  },
-  mainKpiLabel: {
-    ...adminType.caption,
-    fontWeight: '700',
-    color: adminColors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  mainKpiValue: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-    marginBottom: 2,
-  },
-  mainKpiSub: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-  },
-  statusRowItem: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: adminSpacing.sm,
+  },
+  cardTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  statCol: {
+    flex: 1,
+  },
+  statLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  statValue: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginTop: 2,
+  },
+  link: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+  },
+  statusRowItem: {
     paddingVertical: adminSpacing.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   statusRowItemLabel: {
     ...adminType.body,
-    fontWeight: '600',
     color: adminColors.ink,
   },
   statusRowItemValue: {
-    ...adminType.rowTitle,
-    fontWeight: '700',
-    color: adminColors.ink,
+    ...adminType.caption,
+    color: adminColors.muted,
   },
   rowDivider: {
     height: 1,
     backgroundColor: adminColors.border,
   },
-  mainActionTile: {
-    flexBasis: '47%',
-    flexGrow: 1,
+  attentionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.lg,
-    paddingHorizontal: adminSpacing.sm,
+    padding: adminSpacing.sm,
+    marginBottom: adminSpacing.sm,
+    overflow: 'hidden',
+  },
+  attentionAccent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+  },
+  attentionIconBrand: {
+    marginRight: adminSpacing.sm,
+    marginLeft: adminSpacing.xs,
+  },
+  attentionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: adminRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: adminSpacing.sm,
-    ...adminShadow.sm,
+    marginRight: adminSpacing.sm,
+    marginLeft: adminSpacing.xs,
+  },
+  attentionText: {
+    flex: 1,
+  },
+  mainActionTile: {
+    width: '31%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.xs,
   },
   mainActionLabel: {
     ...adminType.caption,
-    fontWeight: '700',
     color: adminColors.ink,
     textAlign: 'center',
+  },
+  actionTile: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.xs,
+  },
+  actionLabel: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
+  statusTile: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  tileValue: {
+    ...adminType.kpiValue,
+    color: adminColors.ink,
+  },
+  statusLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
 });

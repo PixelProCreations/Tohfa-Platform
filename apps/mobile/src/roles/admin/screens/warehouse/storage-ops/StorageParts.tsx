@@ -12,23 +12,14 @@ import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '
 
 /** docs/rbac.json codes the storage-ops screens check (MAIN / SUB grants in types.ts). */
 export const STORAGE_CODES = {
-  /** Storage location detail 'View Stock' link. MAIN all, SUB own. */
-  batchView: 'inventory.batch.view',
-  /** Confirm Location Assignment. MAIN all, SUB all. */
-  batchAssign: 'inventory.batch.assign',
-  /** Manage Capacity Limits link (the edit itself lives in Warehouse Settings). MAIN all, SUB none. */
+  batchView: 'inventory.batch.view', // locations list/detail, capacity location rows
+  qualityCheckPerform: 'inventory.quality_check.perform', // assignment confirm (B-2.5)
+  capacityView: 'warehouse.own.view', // GET /warehouses/{id}/capacity
   capacitySet: 'warehouse.capacity.set',
-  /** Consolidated all-warehouse views: Warehouse Performance, the capacity comparison. MAIN all, SUB none. */
   allWarehousesView: 'warehouse.all.view',
-  /** The warehouse workforce roster (Top Performing Staff). MAIN all, SUB own. */
-  staffRoster: 'warehouse.staff.list_view',
-  /**
-   * Report an Issue (support request and operational issue). MAIN none, SUB
-   * none today, so the form is unreachable for warehouse admins (SPEC_GAPS W4v-2).
-   */
-  issueReport: 'support.ticket.create_own',
-  /** Activity log CSV export (absorbed Operations History). MAIN view, SUB own. */
-  reportExport: 'report.export.file',
+  issueView: 'warehouse.issue.view',
+  issueManage: 'warehouse.issue.manage',
+  activityView: 'warehouse.activity.view',
 } as const;
 
 interface IconProps {

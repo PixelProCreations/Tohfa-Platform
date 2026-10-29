@@ -1,20 +1,19 @@
-/**
- * Operational Issue Detail: one issue's information, location, description,
- * evidence, reporter and resolution.
- *
- * Gate (FINAL_LIST 132): none; read-only. A resolve / update action would need
- * a new rbac code (SPEC_GAPS W4v-1), so none is offered. Scope-locked: an
- * issue outside the viewer's warehouse renders "not found" (no existence leak).
- * The warehouse label comes from the issue's warehouse id, not a fixed name.
- */
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getWarehouseIssue } from '../../../api/warehouseIssues';
+import { t } from '../../../i18n';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
-  EmptyState,
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import {
   InfoCard,
-  inScope,
   ScopeHeader,
   SectionTitle,
   StatusBadge,
@@ -23,117 +22,190 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { OPERATIONAL_ISSUES, storageWarehouseName } from './fixtures';
 import { ISSUE_STATUS_TONE } from './OperationalIssuesScreen';
-import { ImageIcon } from './StorageParts';
-import type { OperationalIssue, WarehouseScreenBaseProps } from './types';
+import { STORAGE_CODES } from './StorageParts';
+import type { WarehouseScreenBaseProps } from './types';
 
 export interface OperationalIssueDetailScreenProps extends WarehouseScreenBaseProps {
   issueId?: string | undefined;
-  issues?: readonly OperationalIssue[] | undefined;
+  warehouseId?: string | undefined;
 }
 
-export function OperationalIssueDetailScreen({ scope, onBack, issueId, issues = OPERATIONAL_ISSUES }: OperationalIssueDetailScreenProps) {
-  const issue = issues.find((i) => i.id === issueId && inScope(scope, i.warehouseId));
+export function OperationalIssueDetailScreen({
+  scope,
+  can,
+  onBack,
+  issueId,
+  warehouseId,
+}: OperationalIssueDetailScreenProps) {
+  const { options } = useWarehouseOptions();
+  const effectiveWarehouseId = warehouseId ?? scope.warehouseId ?? options[0]?.warehouseId;
+  const canView = can(STORAGE_CODES.issueView);
 
-  if (issue === undefined) {
+  const issueQuery = useAdminQuery(
+    adminKeys.detail('warehouseIssues', issueId ?? 'none'),
+    (signal) => getWarehouseIssue(effectiveWarehouseId as string, issueId as string, signal),
+    { enabled: !!effectiveWarehouseId && !!issueId && canView },
+  );
+
+  const issue = issueQuery.data;
+  const warehouseName =
+    options.find((o) => o.warehouseId === issue?.warehouseId)?.warehouseName ??
+    scope.warehouseName ??
+    '';
+
+  if (!canView) {
     return (
-      <WalletScreen title="Issue Detail" onBack={onBack} headerExtra={<ScopeHeader scope={scope} />}>
-        <EmptyState title="Issue not found" subtitle="This issue is not available in your warehouse." />
+      <WalletScreen title={t('storageOps.issues.detailTitle')} onBack={onBack}>
+        <AdminEmptyState
+          title={t('storageOps.issues.notAvailable.title')}
+          subtitle={t('storageOps.issues.notAvailable.subtitle')}
+        />
+      </WalletScreen>
+    );
+  }
+
+  if (!issueId || !effectiveWarehouseId) {
+    return (
+      <WalletScreen title={t('storageOps.issues.detailTitle')} onBack={onBack}>
+        <AdminEmptyState
+          title={t('storageOps.issues.empty')}
+          subtitle={t('storageOps.issues.emptyHint')}
+        />
       </WalletScreen>
     );
   }
 
   return (
     <WalletScreen
-      title="Issue Detail"
-      subtitle={issue.id}
+      title={t('storageOps.issues.detailTitle')}
+      subtitle={issue?.issueNumber}
       onBack={onBack}
-      headerExtra={<ScopeHeader scope={scope} label={storageWarehouseName(issue.warehouseId)} />}
+      headerExtra={warehouseName ? <ScopeHeader scope={scope} label={warehouseName} /> : undefined}
       footer={
         <WalletFooter>
-          <WalletButton label="Back to Issues" onPress={onBack} />
+          <WalletButton label={t('storageOps.issues.back')} onPress={onBack} />
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle right={<StatusBadge label={issue.status} tone={ISSUE_STATUS_TONE[issue.status]} />}>Issue Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Issue ID', value: issue.id },
-              { label: 'Issue Type', value: issue.type },
-            ],
-            [
-              { label: 'Status', value: issue.status },
-              { label: 'Reported Date', value: issue.reportedDate },
-            ],
-            ...(issue.severity !== undefined ? [[{ label: 'Severity', value: issue.severity }]] : []),
-          ]}
-        />
-
-        <SectionTitle>Location</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Warehouse', value: storageWarehouseName(issue.warehouseId) },
-              { label: 'Location', value: issue.location },
-            ],
-          ]}
-        />
-
-        <SectionTitle>Description</SectionTitle>
-        <InfoCard rows={[[{ label: issue.title, value: issue.description }]]} />
-
-        {issue.evidenceCount > 0 ? (
+        {issueQuery.isLoading ? (
+          <AdminLoadingState />
+        ) : issueQuery.error ? (
+          <AdminErrorState error={issueQuery.error} onRetry={() => issueQuery.refetch()} />
+        ) : issue ? (
           <>
-            <SectionTitle>Evidence</SectionTitle>
-            <View style={styles.evidenceRow}>
-              {Array.from({ length: issue.evidenceCount }, (_, i) => (
-                <View key={i} style={styles.evidenceBox} accessibilityLabel={`Evidence photo ${i + 1}`}>
-                  <ImageIcon />
-                </View>
-              ))}
+            <SectionTitle
+              right={
+                <StatusBadge
+                  label={t(`storageOps.issues.status.${issue.status}`)}
+                  tone={ISSUE_STATUS_TONE[issue.status] ?? 'default'}
+                />
+              }
+            >
+              {issue.issueNumber}
+            </SectionTitle>
+
+            <InfoCard
+              rows={[
+                [
+                  { label: 'Category', value: t(`storageOps.issues.category.${issue.category}`) },
+                  { label: 'Severity', value: t(`storageOps.issues.severity.${issue.severity}`) },
+                ],
+                [
+                  { label: t('storageOps.issues.reportedOn'), value: issue.createdAt.slice(0, 10) },
+                  { label: t('storageOps.issues.reportedBy'), value: issue.reportedBy.slice(0, 8) },
+                ],
+              ]}
+            />
+
+            <SectionTitle>{issue.title}</SectionTitle>
+            <View style={styles.card}>
+              <Text style={styles.descriptionText}>
+                {issue.description || '—'}
+              </Text>
             </View>
+
+            {issue.resolutionNote ? (
+              <>
+                <SectionTitle>{t('storageOps.issues.resolution')}</SectionTitle>
+                <View style={styles.card}>
+                  <Text style={styles.resolutionText}>{issue.resolutionNote}</Text>
+                  {issue.resolvedAt ? (
+                    <Text style={styles.resolutionMeta}>
+                      Resolved on: {issue.resolvedAt.slice(0, 10)}
+                    </Text>
+                  ) : null}
+                </View>
+              </>
+            ) : null}
+
+            {issue.comments && issue.comments.length > 0 ? (
+              <>
+                <SectionTitle>{t('storageOps.issues.comments')}</SectionTitle>
+                <View style={styles.commentsList}>
+                  {issue.comments.map((comment) => (
+                    <View key={comment.id} style={styles.commentItem}>
+                      <Text style={styles.commentBody}>{comment.body}</Text>
+                      <Text style={styles.commentMeta}>
+                        {comment.createdAt.slice(0, 10)} · {comment.authorId.slice(0, 8)}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
           </>
-        ) : null}
-
-        <SectionTitle>Reporter</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Reported By', value: issue.reportedBy },
-              { label: 'Date / Time', value: issue.reportedAt },
-            ],
-          ]}
-        />
-
-        <SectionTitle>Resolution</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Resolved By', value: issue.resolvedBy ?? '—' },
-              { label: 'Resolved At', value: issue.resolvedAt ?? '—' },
-            ],
-          ]}
-        />
+        ) : (
+          <AdminEmptyState title={t('storageOps.issues.empty')} />
+        )}
       </ScrollView>
     </WalletScreen>
   );
 }
 
-const EVIDENCE_BOX = 84;
-
 const styles = StyleSheet.create({
-  evidenceRow: { flexDirection: 'row', gap: adminSpacing.md },
-  evidenceBox: {
-    width: EVIDENCE_BOX,
-    height: EVIDENCE_BOX,
+  card: {
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    backgroundColor: adminColors.warning.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  descriptionText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    lineHeight: 20,
+  },
+  resolutionText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    lineHeight: 20,
+    marginBottom: adminSpacing.xs,
+  },
+  resolutionMeta: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  commentsList: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  commentItem: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  commentBody: {
+    ...adminType.body,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+  },
+  commentMeta: {
+    ...adminType.caption,
+    color: adminColors.muted,
   },
 });

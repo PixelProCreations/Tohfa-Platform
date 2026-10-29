@@ -2,6 +2,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   WalletButton,
@@ -37,7 +38,7 @@ function GreenCheckCircleIcon({ size = 56, color = adminColors.success.text }: {
 
 export interface IssueSubmittedScreenProps extends WarehouseScreenBaseProps {
   mode?: ReportIssueMode | undefined;
-  submittedId?: string | undefined;
+  submittedId: string;
   onDone: () => void;
   showViewIssueButton?: boolean | undefined;
 }
@@ -45,7 +46,7 @@ export interface IssueSubmittedScreenProps extends WarehouseScreenBaseProps {
 export function IssueSubmittedScreen({
   onBack,
   mode = 'operational',
-  submittedId = 'ISS-0029',
+  submittedId,
   onDone,
   showViewIssueButton,
 }: IssueSubmittedScreenProps) {
@@ -55,13 +56,13 @@ export function IssueSubmittedScreen({
 
   return (
     <WalletScreen
-      title="Issue Submitted"
+      title={t('storageOps.submitted.title')}
       onBack={handleBack}
       footer={
         showButton ? (
           <WalletFooter>
             <WalletButton
-              label="View Issue"
+              label={t('storageOps.submitted.done')}
               icon={<EyeIcon />}
               onPress={onDone}
             />
@@ -73,7 +74,7 @@ export function IssueSubmittedScreen({
         <View style={styles.iconWrap}>
           <GreenCheckCircleIcon size={56} />
         </View>
-        <Text style={styles.title}>Issue Submitted</Text>
+        <Text style={styles.title}>{t('storageOps.submitted.title')}</Text>
 
         <View style={styles.card}>
           <View style={styles.column}>
@@ -82,7 +83,7 @@ export function IssueSubmittedScreen({
           </View>
           <View style={styles.column}>
             <Text style={styles.label}>Status</Text>
-            <Text style={styles.value}>Open</Text>
+            <Text style={styles.value}>{t('storageOps.issues.status.OPEN')}</Text>
           </View>
         </View>
       </ScrollView>

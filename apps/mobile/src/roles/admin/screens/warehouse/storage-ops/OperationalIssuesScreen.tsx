@@ -1,30 +1,24 @@
-/**
- * Operational Issues: the warehouse floor / facility issue list.
- *
- * Gate (FINAL_LIST 133): no rbac code covers operational issues (SPEC_GAPS
- * W4v-1), so the list is ungated and scope-locked: Sub sees its own
- * warehouse's issues behind the locked pill, Main sees all four with the
- * warehouse selector. The Report button opens Report an Issue only with
- * `support.ticket.create_own`, which neither warehouse admin role holds today
- * (W4v-2), so it is normally replaced by a note.
- *
- * Absorbs Main OperationalIssuesScreen (pair M4-S09): the cross-warehouse rows
- * (warehouse name on each card, accent stripe) for the Main view. The Open /
- * In Progress / Resolved counts are computed from the rows in scope instead of
- * the hard-coded 3 / 2 / 8 both copies showed.
- */
-// Design id: M4-S09
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import {
+  listWarehouseIssues,
+  type IssueStatusCode,
+  type WarehouseIssueDto,
+} from '../../../api/warehouseIssues';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType, type AdminTone } from '../../../theme';
 import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import {
   ChipGroup,
-  EmptyState,
-  inScope,
   isAllWarehouses,
-  KpiRow,
-  PermissionNote,
   ScopeHeader,
   StatusBadge,
   WalletButton,
@@ -32,23 +26,31 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { OPERATIONAL_ISSUES, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
 import { AlertCircleIcon, PlusIcon, STORAGE_CODES } from './StorageParts';
-import type { IssueFilter, IssueStatus, OperationalIssue, WarehouseScreenBaseProps } from './types';
+import type { WarehouseScreenBaseProps } from './types';
 
-const FILTERS: readonly IssueFilter[] = ['Open', 'In Progress', 'Resolved', 'All'];
+type IssueFilter = IssueStatusCode | 'ALL';
+
+const FILTERS: readonly IssueFilter[] = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'ALL'];
 
 /** Badge tone per status; also exported for the detail screen. */
-export const ISSUE_STATUS_TONE: Record<IssueStatus, AdminTone> = {
-  Open: 'danger',
-  'In Progress': 'warning',
-  Resolved: 'success',
+export const ISSUE_STATUS_TONE: Record<IssueStatusCode, AdminTone> = {
+  OPEN: 'danger',
+  IN_PROGRESS: 'warning',
+  RESOLVED: 'success',
+  CLOSED: 'info',
+};
+
+const SEVERITY_TONE: Record<string, AdminTone> = {
+  LOW: 'info',
+  MEDIUM: 'warning',
+  HIGH: 'danger',
+  CRITICAL: 'danger',
 };
 
 export interface OperationalIssuesScreenProps extends WarehouseScreenBaseProps {
-  issues?: readonly OperationalIssue[] | undefined;
-  onSelectIssue: (issueId: string) => void;
-  /** Report Operational Issue; offered only with support.ticket.create_own. */
+  onSelectIssue: (issueId: string, warehouseId?: string) => void;
+  /** Report Operational Issue; offered only with warehouse.issue.manage. */
   onReportIssue?: (() => void) | undefined;
 }
 
@@ -56,111 +58,189 @@ export function OperationalIssuesScreen({
   scope,
   can,
   onBack,
-  issues = OPERATIONAL_ISSUES,
   onSelectIssue,
   onReportIssue,
 }: OperationalIssuesScreenProps) {
-  const [filter, setFilter] = useState<IssueFilter>('Open');
+  const [filter, setFilter] = useState<IssueFilter>('OPEN');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
+  const { options, scopes } = useWarehouseOptions();
   const allWarehouses = isAllWarehouses(scope);
-  const canReport = can(STORAGE_CODES.issueReport) && onReportIssue !== undefined;
+  const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId ?? options[0]?.warehouseId;
 
-  const scoped = useMemo(
-    () => issues.filter((i) => inScope(scope, i.warehouseId, selectedWarehouseId)),
-    [issues, scope, selectedWarehouseId],
+  const canView = can(STORAGE_CODES.issueView);
+  const canReport = can(STORAGE_CODES.issueManage) && onReportIssue !== undefined;
+
+  const issuesQuery = useAdminQuery(
+    adminKeys.scoped('warehouseIssues', effectiveWarehouseId, {
+      status: filter === 'ALL' ? undefined : filter,
+    }),
+    (signal) =>
+      listWarehouseIssues(
+        effectiveWarehouseId as string,
+        {
+          status: filter === 'ALL' ? undefined : filter,
+          pageSize: 50,
+        },
+        signal,
+      ),
+    { enabled: !!effectiveWarehouseId && canView },
   );
-  const visible = filter === 'All' ? scoped : scoped.filter((i) => i.status === filter);
-  const count = (status: IssueStatus) => scoped.filter((i) => i.status === status).length;
-  const openCount = count('Open');
+
+  const issues = issuesQuery.data?.items ?? [];
+
+  if (!canView) {
+    return (
+      <WalletScreen title={t('storageOps.issues.title')} onBack={onBack}>
+        <AdminEmptyState
+          title={t('storageOps.issues.notAvailable.title')}
+          subtitle={t('storageOps.issues.notAvailable.subtitle')}
+        />
+      </WalletScreen>
+    );
+  }
+
+  const filterOptions = FILTERS.map((f) => t(`storageOps.issues.status.${f}`));
+  const activeFilterLabel = t(`storageOps.issues.status.${filter}`);
+
+  const handleFilterChange = (label: string) => {
+    const idx = filterOptions.indexOf(label);
+    if (idx >= 0 && FILTERS[idx]) {
+      setFilter(FILTERS[idx]!);
+    }
+  };
 
   return (
     <WalletScreen
-      title="Operational Issues"
+      title={t('storageOps.issues.title')}
       onBack={onBack}
       headerExtra={
-        <ScopeHeader
-          scope={scope}
-          warehouseOptions={STORAGE_WAREHOUSES}
-          selectedWarehouseId={selectedWarehouseId}
-          onSelectWarehouse={setSelectedWarehouseId}
-        />
+        allWarehouses ? (
+          <ScopeHeader
+            scope={scope}
+            warehouseOptions={scopes}
+            selectedWarehouseId={selectedWarehouseId}
+            onSelectWarehouse={setSelectedWarehouseId}
+          />
+        ) : undefined
       }
       footer={
-        onReportIssue ? (
+        canReport ? (
           <WalletFooter>
-            <WalletButton label="Report Operational Issue" icon={<PlusIcon />} onPress={onReportIssue} />
+            <WalletButton
+              label={t('storageOps.issues.report')}
+              icon={<PlusIcon size={18} color={adminColors.onBrand} />}
+              onPress={onReportIssue}
+            />
           </WalletFooter>
         ) : undefined
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <KpiRow
-          items={[
-            { value: String(openCount), label: 'OPEN', tone: openCount > 0 ? 'danger' : undefined },
-            { value: String(count('In Progress')), label: 'IN PROGRESS' },
-            { value: String(count('Resolved')), label: 'RESOLVED' },
-          ]}
+        <ChipGroup
+          options={filterOptions}
+          value={activeFilterLabel}
+          onChange={handleFilterChange}
         />
-        <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
 
-        <View style={styles.list}>
-          {visible.length === 0 ? (
-            <EmptyState title="No issues" subtitle="No operational issues match this filter." />
-          ) : (
-            visible.map((issue) => {
-              const tone = ISSUE_STATUS_TONE[issue.status];
+        {issuesQuery.isLoading ? (
+          <AdminLoadingState />
+        ) : issuesQuery.error ? (
+          <AdminErrorState error={issuesQuery.error} onRetry={() => issuesQuery.refetch()} />
+        ) : issues.length === 0 ? (
+          <AdminEmptyState
+            title={t('storageOps.issues.empty')}
+            subtitle={t('storageOps.issues.emptyHint')}
+          />
+        ) : (
+          <View style={styles.list}>
+            {issues.map((issue, index) => {
+              const statusTone = ISSUE_STATUS_TONE[issue.status] ?? 'default';
+              const sevTone: AdminTone = SEVERITY_TONE[issue.severity] ?? 'info';
               return (
                 <TouchableOpacity
                   key={issue.id}
-                  style={styles.card}
-                  activeOpacity={0.7}
-                  onPress={() => onSelectIssue(issue.id)}
+                  style={[styles.item, index > 0 && styles.itemDivider]}
+                  onPress={() => onSelectIssue(issue.id, issue.warehouseId)}
+                  activeOpacity={0.75}
                   accessibilityRole="button"
-                  accessibilityLabel={`${issue.id} ${issue.title}`}
                 >
-                  <View style={[styles.accent, { backgroundColor: adminColors[tone].border }]} />
-                  <View style={styles.cardBody}>
-                    <View style={styles.cardHeader}>
-                      <View style={styles.idRow}>
-                        <AlertCircleIcon size={18} color={adminColors[tone].text} />
-                        <Text style={styles.cardId}>{issue.id}</Text>
-                      </View>
-                      <StatusBadge label={issue.status} tone={tone} />
-                    </View>
-                    <Text style={styles.cardMeta}>
-                      {allWarehouses ? `${storageWarehouseName(issue.warehouseId)} · ` : ''}
-                      {issue.area}
-                    </Text>
-                    <Text style={styles.cardTitle}>{issue.title}</Text>
-                    <Text style={styles.cardMeta}>{issue.reportedAt}</Text>
+                  <View style={[styles.itemIcon, { backgroundColor: adminColors[statusTone].bg }]}>
+                    <AlertCircleIcon color={adminColors[statusTone].text} />
                   </View>
+                  <View style={styles.itemText}>
+                    <View style={styles.titleRow}>
+                      <Text style={styles.issueNumber}>{issue.issueNumber}</Text>
+                      <StatusBadge
+                        label={t(`storageOps.issues.severity.${issue.severity}`)}
+                        tone={sevTone}
+                      />
+                    </View>
+                    <Text style={styles.itemTitle}>{issue.title}</Text>
+                    <Text style={styles.itemSub}>
+                      {t(`storageOps.issues.category.${issue.category}`)} · {issue.createdAt.slice(0, 10)}
+                    </Text>
+                  </View>
+                  <StatusBadge
+                    label={t(`storageOps.issues.status.${issue.status}`)}
+                    tone={statusTone}
+                  />
                 </TouchableOpacity>
               );
-            })
-          )}
-        </View>
+            })}
+          </View>
+        )}
       </ScrollView>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { marginTop: adminSpacing.md },
-  card: {
-    flexDirection: 'row',
+  list: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    marginBottom: adminSpacing.md,
-    overflow: 'hidden',
+    padding: adminSpacing.sm,
+    marginBottom: 20,
+    marginTop: adminSpacing.sm,
   },
-  accent: { width: 4 },
-  cardBody: { flex: 1, padding: adminSpacing.lg, gap: adminSpacing.xs },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  idRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.xs },
-  cardId: { ...adminType.sectionHead, color: adminColors.ink },
-  cardTitle: { ...adminType.rowTitle, color: adminColors.ink },
-  cardMeta: { ...adminType.rowMeta, color: adminColors.muted },
+  item: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: adminSpacing.md,
+    gap: adminSpacing.sm,
+  },
+  itemDivider: {
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+  },
+  itemIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemText: { flex: 1 },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+    marginBottom: 2,
+  },
+  issueNumber: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  itemTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: 2,
+  },
+  itemSub: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+  },
 });

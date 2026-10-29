@@ -1,219 +1,226 @@
 /**
- * Warehouse Performance: throughput and SLA across the warehouses (Main only).
+ * Warehouse Performance: throughput across the warehouses (Main only).
  *
- * Gate (FINAL_LIST 127): the screen needs `warehouse.all.view` (MAIN all, SUB
- * none). StorageFlow refuses the route without it and the screen renders a
+ * Gate: the screen needs `warehouse.all.view` (MAIN all, SUB none).
+ * StorageFlow refuses the route without it and the screen renders a
  * not-available note if opened directly.
  *
- * The Top Performing Staff block is hidden unless the viewer holds
- * `warehouse.staff.list_view`, the warehouse workforce roster code (rbac
- * 1.2.0). FINAL_LIST names `admin.staff.list_view`, but that code is the
- * admin-account list; the ranked people here are warehouse staff and "All
- * Staff" opens the warehouse roster / attendance, so the roster code is the
- * one meant (MAIN holds both, so nothing changes for Main today).
- *
- * KPI targets ("Target: 95.0% on-time") and warehouse tones are row data
- * (fixtures), not thresholds in this screen; warehouse names are looked up by
- * id.
+ * Server contract: performance deliberately carries no score, rate, SLA, target or
+ * ranking (the data model has no column for them).
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getWarehousePerformances } from '../../../api/dashboardFeeds';
+import { t } from '../../../i18n';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import {
   ChipGroup,
   EmptyState,
   SectionHint,
   SectionTitle,
-  StatusBadge,
   WalletButton,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { PERFORMANCE_KPIS, storageWarehouseName, TOP_PERFORMERS, WAREHOUSE_PERFORMANCE } from './fixtures';
-import { CheckCircleIcon, ProgressBar, STORAGE_CODES, TrendingUpIcon } from './StorageParts';
-import type { PerformanceKpi, PerformancePeriod, TopPerformer, WarehousePerformanceRow, WarehouseScreenBaseProps } from './types';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { getIstDateRange } from '../reports/mappers';
+import { STORAGE_CODES, TrendingUpIcon } from './StorageParts';
+import type { PerformancePeriod, WarehouseScreenBaseProps } from './types';
 
 const PERIODS: readonly PerformancePeriod[] = ['Today', 'This Week', 'This Month'];
 
 export interface WarehousePerformanceScreenProps extends WarehouseScreenBaseProps {
-  kpis?: readonly PerformanceKpi[] | undefined;
-  warehouses?: readonly WarehousePerformanceRow[] | undefined;
-  performers?: readonly TopPerformer[] | undefined;
   /** A warehouse card: the host opens that warehouse (by display name, as the Main shell keys it). */
   onSelectWarehouse?: ((warehouseName: string) => void) | undefined;
   onViewOperationsHistory?: (() => void) | undefined;
-  /** "All Staff": the warehouse roster / attendance (host). */
-  onViewStaffAttendance?: (() => void) | undefined;
 }
 
 export function WarehousePerformanceScreen({
   can,
   onBack,
-  kpis = PERFORMANCE_KPIS,
-  warehouses = WAREHOUSE_PERFORMANCE,
-  performers = TOP_PERFORMERS,
   onSelectWarehouse,
   onViewOperationsHistory,
-  onViewStaffAttendance,
 }: WarehousePerformanceScreenProps) {
   const [period, setPeriod] = useState<PerformancePeriod>('Today');
 
-  if (!can(STORAGE_CODES.allWarehousesView)) {
+  const canViewAll = can(STORAGE_CODES.allWarehousesView);
+
+  const { options, isLoading: optionsLoading, error: optionsError, refresh: refetchOptions } = useWarehouseOptions({
+    enabled: canViewAll,
+    activeOnly: true,
+  });
+
+  const range = useMemo(() => {
+    const periodKey = period === 'This Week' ? 'Week' : period === 'This Month' ? 'Month' : 'Today';
+    return getIstDateRange(periodKey);
+  }, [period]);
+
+  const warehouseIds = useMemo(() => options.map((o) => o.warehouseId), [options]);
+
+  const query = useAdminQuery(
+    adminKeys.scoped('warehousePerformance', undefined, { from: range.from, to: range.to, count: warehouseIds.length }),
+    (signal) => getWarehousePerformances(warehouseIds, range, signal),
+    { enabled: canViewAll && warehouseIds.length > 0 },
+  );
+
+  if (!canViewAll) {
     return (
-      <WalletScreen title="Warehouse Performance" onBack={onBack}>
-        <EmptyState title="Warehouse performance not available" subtitle="Your role does not include the all-warehouses view." />
+      <WalletScreen title={t('storageOps.performance.title')} onBack={onBack}>
+        <EmptyState
+          title={t('storageOps.performance.notAvailable.title')}
+          subtitle={t('storageOps.performance.notAvailable.subtitle')}
+        />
       </WalletScreen>
     );
   }
 
-  const showStaff = can(STORAGE_CODES.staffRoster);
+  const isLoading = optionsLoading || query.isPending;
+  const error = optionsError ?? query.error;
+
+  const performances = query.data ?? [];
+
+  // Aggregates across warehouses
+  const totals = useMemo(() => {
+    let grossGrams = 0;
+    let rejectedGrams = 0;
+    let ordersPlaced = 0;
+    let ordersFulfilled = 0;
+    let returnsRequested = 0;
+
+    for (const p of performances) {
+      grossGrams += parseKgToGrams(p.receiving?.grossQtyKg ?? '0') ?? 0;
+      rejectedGrams += parseKgToGrams(p.receiving?.rejectedQtyKg ?? '0') ?? 0;
+      ordersPlaced += p.orders?.placed ?? 0;
+      ordersFulfilled += p.orders?.fulfilled ?? 0;
+      returnsRequested += p.returns?.requested ?? 0;
+    }
+
+    return {
+      receiptsGross: formatKg(grossGrams),
+      receiptsRejected: formatKg(rejectedGrams),
+      ordersRatio: `${ordersFulfilled}/${ordersPlaced}`,
+      returnsCount: String(returnsRequested),
+    };
+  }, [performances]);
 
   return (
-    <WalletScreen title="Warehouse Performance" subtitle="Operational throughput & SLA metrics · All Hubs" onBack={onBack}>
+    <WalletScreen
+      title={t('storageOps.performance.title')}
+      subtitle={t('storageOps.performance.subtitle')}
+      onBack={onBack}
+    >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <ChipGroup options={PERIODS} value={period} onChange={setPeriod} />
 
-        <View style={styles.metricsGridCard}>
-          <View style={styles.twoByTwoRow}>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Receipts (MTD)</Text>
-              <Text style={styles.twoByTwoVal}>68,400 KG</Text>
-            </View>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Sales (MTD)</Text>
-              <Text style={styles.twoByTwoVal}>₹1,45,10,000</Text>
-            </View>
-          </View>
-          <View style={[styles.twoByTwoRow, { marginTop: adminSpacing.lg }]}>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Quality Issues</Text>
-              <Text style={styles.twoByTwoVal}>18</Text>
-            </View>
-            <View style={styles.twoByTwoCol}>
-              <Text style={styles.twoByTwoLabel}>Avg Turnaround</Text>
-              <Text style={styles.twoByTwoVal}>2.4 days</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => (
-            <View key={kpi.id} style={styles.kpiCard}>
-              <View style={styles.kpiHead}>
-                <Text style={styles.kpiLabel}>{kpi.label}</Text>
-                <StatusBadge label={kpi.badge} tone={kpi.badgeTone} />
-              </View>
-              <Text style={styles.kpiValue}>{kpi.value}</Text>
-              <Text style={styles.kpiSub}>{kpi.sub}</Text>
-            </View>
-          ))}
-        </View>
-
-        <SectionTitle right={<SectionHint>{warehouses.length} Hubs Monitored</SectionHint>}>Warehouse Hub Breakdown</SectionTitle>
-        {warehouses.map((wh) => {
-          const name = storageWarehouseName(wh.warehouseId);
-          const toneColors = adminColors[wh.tone];
-          return (
-            <TouchableOpacity
-              key={wh.warehouseId}
-              style={styles.whCard}
-              onPress={() => onSelectWarehouse?.(name)}
-              disabled={onSelectWarehouse === undefined}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel={name}
-            >
-              <View style={styles.whHead}>
-                <Text style={styles.whTitle}>{name}</Text>
-                <View style={[styles.slaPill, { backgroundColor: toneColors.bg }]}>
-                  <CheckCircleIcon color={toneColors.text} />
-                  <Text style={[styles.slaPillText, { color: toneColors.text }]}>{wh.slaRate} SLA</Text>
+        {isLoading ? (
+          <AdminLoadingState />
+        ) : error ? (
+          <AdminErrorState
+            error={error}
+            onRetry={() => {
+              refetchOptions();
+              void query.refetch();
+            }}
+          />
+        ) : performances.length === 0 ? (
+          <AdminEmptyState
+            title={t('storageOps.performance.empty')}
+            subtitle={t('storageOps.performance.emptyHint')}
+          />
+        ) : (
+          <>
+            <View style={styles.metricsGridCard}>
+              <View style={styles.twoByTwoRow}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('storageOps.performance.receipts')}</Text>
+                  <Text style={styles.twoByTwoVal}>{totals.receiptsGross}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('storageOps.performance.orders')}</Text>
+                  <Text style={styles.twoByTwoVal}>{totals.ordersRatio}</Text>
                 </View>
               </View>
-              <View style={styles.progressHead}>
-                <Text style={styles.progressLabel}>Capacity Utilization</Text>
-                <Text style={styles.progressPercent}>{wh.utilizationPercent}%</Text>
+              <View style={[styles.twoByTwoRow, { marginTop: adminSpacing.lg }]}>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('storageOps.performance.rejected')}</Text>
+                  <Text style={styles.twoByTwoVal}>{totals.receiptsRejected}</Text>
+                </View>
+                <View style={styles.twoByTwoCol}>
+                  <Text style={styles.twoByTwoLabel}>{t('storageOps.performance.returns')}</Text>
+                  <Text style={styles.twoByTwoVal}>{totals.returnsCount}</Text>
+                </View>
               </View>
-              <ProgressBar percent={wh.utilizationPercent} tone={wh.tone === 'warning' ? 'warning' : 'success'} />
-              <View style={styles.statsRow}>
-                {[
-                  { label: 'INBOUND', value: wh.inbound, alert: false },
-                  { label: 'OUTBOUND', value: wh.outbound, alert: false },
-                  { label: 'ISSUES', value: String(wh.openIssues), alert: wh.openIssues > 0 },
-                ].map((stat, index) => (
-                  <View key={stat.label} style={[styles.stat, index > 0 && styles.statDivider]}>
-                    <Text style={styles.statLabel}>{stat.label}</Text>
-                    <Text style={[styles.statValue, stat.alert && styles.statValueAlert]}>{stat.value}</Text>
-                  </View>
-                ))}
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+            </View>
 
-        {showStaff ? (
-          <>
             <SectionTitle
               right={
-                onViewStaffAttendance ? (
-                  <TouchableOpacity onPress={onViewStaffAttendance} activeOpacity={0.7} accessibilityRole="link">
-                    <Text style={styles.link}>All Staff →</Text>
-                  </TouchableOpacity>
-                ) : undefined
+                <SectionHint>
+                  {t('storageOps.performance.hubsMonitored', { count: performances.length })}
+                </SectionHint>
               }
             >
-              Top Performing Staff
+              {t('storageOps.performance.hubBreakdown')}
             </SectionTitle>
-            <View style={styles.staffCard}>
-              {performers.map((staff, index) => (
-                <View key={staff.id} style={[styles.staffRow, index > 0 && styles.staffRowDivider]}>
-                  <View style={styles.rank}>
-                    <Text style={styles.rankText}>#{index + 1}</Text>
-                  </View>
-                  <View style={styles.staffText}>
-                    <Text style={styles.staffName}>{staff.name}</Text>
-                    <Text style={styles.staffMeta}>
-                      {staff.role} · {storageWarehouseName(staff.warehouseId)}
-                    </Text>
-                  </View>
-                  <View style={styles.alignEnd}>
-                    <Text style={styles.staffScore}>{staff.score}</Text>
-                    <Text style={styles.staffMeta}>{staff.taskCount}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </>
-        ) : null}
 
-        {onViewOperationsHistory ? (
-          <WalletButton
-            label="View Operations Log & History →"
-            variant="outline"
-            icon={<TrendingUpIcon />}
-            onPress={onViewOperationsHistory}
-          />
-        ) : null}
+            {performances.map((wh) => {
+              const opt = options.find((o) => o.warehouseId === wh.warehouseId);
+              const name = opt ? opt.warehouseName : wh.warehouseId;
+              const inboundKg = formatKg(parseKgToGrams(wh.receiving?.grossQtyKg ?? '0') ?? 0);
+              const ordersText = `${wh.orders?.fulfilled ?? 0}/${wh.orders?.placed ?? 0}`;
+              const rejectedKg = formatKg(parseKgToGrams(wh.receiving?.rejectedQtyKg ?? '0') ?? 0);
+
+              return (
+                <TouchableOpacity
+                  key={wh.warehouseId}
+                  style={styles.whCard}
+                  onPress={() => onSelectWarehouse?.(name)}
+                  disabled={onSelectWarehouse === undefined}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={name}
+                >
+                  <View style={styles.whHead}>
+                    <Text style={styles.whTitle}>{name}</Text>
+                  </View>
+                  <View style={styles.statsRow}>
+                    <View style={styles.stat}>
+                      <Text style={styles.statLabel}>{t('storageOps.performance.inbound')}</Text>
+                      <Text style={styles.statValue}>{inboundKg}</Text>
+                    </View>
+                    <View style={[styles.stat, styles.statDivider]}>
+                      <Text style={styles.statLabel}>{t('storageOps.performance.orders')}</Text>
+                      <Text style={styles.statValue}>{ordersText}</Text>
+                    </View>
+                    <View style={[styles.stat, styles.statDivider]}>
+                      <Text style={styles.statLabel}>{t('storageOps.performance.rejected')}</Text>
+                      <Text style={styles.statValue}>{rejectedKg}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+
+            {onViewOperationsHistory ? (
+              <WalletButton
+                label={t('storageOps.performance.operationsLog')}
+                variant="outline"
+                icon={<TrendingUpIcon />}
+                onPress={onViewOperationsHistory}
+              />
+            ) : null}
+          </>
+        )}
       </ScrollView>
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: adminSpacing.md, marginBottom: adminSpacing.lg },
-  kpiCard: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-  },
-  kpiHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: adminSpacing.xs },
-  kpiLabel: { ...adminType.caption, color: adminColors.muted, flexShrink: 1 },
-  kpiValue: { ...adminType.kpiValue, color: adminColors.ink },
-  kpiSub: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
   whCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
@@ -224,49 +231,11 @@ const styles = StyleSheet.create({
   },
   whHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.md },
   whTitle: { ...adminType.sectionHead, color: adminColors.ink, flex: 1, marginRight: adminSpacing.sm },
-  slaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.xs,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.full,
-  },
-  slaPillText: { ...adminType.rowTitle },
-  progressHead: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  progressLabel: { ...adminType.rowMeta, color: adminColors.muted },
-  progressPercent: { ...adminType.caption, color: adminColors.ink },
-  statsRow: { flexDirection: 'row', marginTop: adminSpacing.md },
+  statsRow: { flexDirection: 'row', marginTop: adminSpacing.xs },
   stat: { flex: 1, alignItems: 'center' },
   statDivider: { borderLeftWidth: 1, borderLeftColor: adminColors.border },
   statLabel: { ...adminType.caption, color: adminColors.muted },
   statValue: { ...adminType.sectionHead, color: adminColors.ink, marginTop: 2 },
-  statValueAlert: { color: adminColors.warning.text },
-  link: { ...adminType.rowTitle, color: adminColors.brand },
-  staffCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    marginBottom: adminSpacing.lg,
-  },
-  staffRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: adminSpacing.md },
-  staffRowDivider: { borderTopWidth: 1, borderTopColor: adminColors.border },
-  rank: {
-    width: 32,
-    height: 32,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandTint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankText: { ...adminType.caption, color: adminColors.brandDeep },
-  staffText: { flex: 1, marginLeft: 10 },
-  staffName: { ...adminType.sectionHead, color: adminColors.ink },
-  staffMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  staffScore: { ...adminType.sectionHead, color: adminColors.success.text },
-  alignEnd: { alignItems: 'flex-end' },
   metricsGridCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,

@@ -11,19 +11,32 @@
  * share, the Warehouse Comparison card (only for the all-warehouses view,
  * scope.warehouseId undefined, with `warehouse.all.view`) and View Capacity
  * History (host). Sub's location list stays for both roles; Main gets the
- * warehouse selector. A location reads 'Occupied' at or above its warehouse's
- * capacity-alert level (warehouse data, not a screen constant) and
- * 'Unavailable' when inactive.
+ * warehouse selector. Inactive locations read 'Unavailable'.
  */
-// Design id: M4-S07
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getWarehouseCapacities } from '../../../api/dashboardFeeds';
+import {
+  getWarehouseCapacity,
+  listStorageLocations,
+  type StorageLocationDto,
+  type WarehouseCapacityDto,
+} from '../../../api/warehouses';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
+import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import {
+  AdminEmptyState,
+  AdminErrorState,
+  AdminLoadingState,
+} from '../shared/AsyncStates';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   Card,
   ChipGroup,
-  EmptyState,
   InfoNote,
   isAllWarehouses,
   KpiRow,
@@ -36,29 +49,15 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { capacityAlertPercentOf, locationsInScope, STORAGE_LOCATIONS, STORAGE_WAREHOUSES, storageWarehouseName } from './fixtures';
-import { formatKg, occupancyPercent, ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
-import type { CapacityFilter, CapacityState, StorageLocationItem, WarehouseScreenBaseProps } from './types';
+import { ProgressBar, STORAGE_CODES, WarehouseIcon } from './StorageParts';
+import type {
+  CapacityFilter,
+  CapacityState,
+  StorageLocationItem,
+  WarehouseScreenBaseProps,
+} from './types';
 
-const FILTERS: readonly CapacityFilter[] = ['All', 'Available', 'Occupied', 'Unavailable'];
-
-const MWA_COMPARISON_ROWS = [
-  { name: 'Ooty', percent: '68%' },
-  { name: 'Coonoor', percent: '72%' },
-  { name: 'Kotagiri', percent: '54%' },
-  { name: 'Gudalur Market', percent: '61%' },
-];
-
-const STORAGE_AREA_ROWS = [
-  { name: 'Cold Storage', percent: '68%' },
-  { name: 'Dry Storage', percent: '52%' },
-  { name: 'Material Storage', percent: '41%' },
-];
-
-const LOCATION_CAPACITY_ROWS = [
-  { name: 'Cold Storage · Section A', percent: '72%' },
-  { name: 'Cold Storage · Section B', percent: '58%' },
-];
+const FILTERS: readonly CapacityFilter[] = ['All', 'Available', 'Unavailable'];
 
 const STATE_TONE: Record<CapacityState, 'success' | 'warning' | 'danger'> = {
   Available: 'success',
@@ -66,18 +65,10 @@ const STATE_TONE: Record<CapacityState, 'success' | 'warning' | 'danger'> = {
   Unavailable: 'danger',
 };
 
-/** Capacity state of a location: inactive = Unavailable; at/above the warehouse alert level = Occupied. */
-export function capacityStateOf(location: StorageLocationItem): CapacityState {
-  if (location.status !== 'Active') return 'Unavailable';
-  const alertAt = capacityAlertPercentOf(location.warehouseId);
-  const percent = occupancyPercent(location.currentKg, location.capacityKg);
-  return alertAt !== undefined && percent >= alertAt ? 'Occupied' : 'Available';
-}
-
-function totals(locations: readonly StorageLocationItem[]) {
-  const capacityKg = locations.reduce((sum, l) => sum + l.capacityKg, 0);
-  const currentKg = locations.reduce((sum, l) => sum + l.currentKg, 0);
-  return { capacityKg, currentKg, percent: occupancyPercent(currentKg, capacityKg) };
+/** Capacity state of a location: inactive = Unavailable; active = Available. */
+export function capacityStateOf(location: { isActive?: boolean; status?: string }): CapacityState {
+  const active = location.isActive ?? (location.status === 'Active');
+  return active ? 'Available' : 'Unavailable';
 }
 
 export interface WarehouseCapacityScreenProps extends WarehouseScreenBaseProps {
@@ -92,7 +83,7 @@ export function WarehouseCapacityScreen({
   scope,
   can,
   onBack,
-  locations = STORAGE_LOCATIONS,
+  locations: initialLocations,
   onViewHistory,
   onManageCapacity,
 }: WarehouseCapacityScreenProps) {
@@ -100,110 +91,189 @@ export function WarehouseCapacityScreen({
   const [filter, setFilter] = useState<CapacityFilter>('All');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
+  const { options, scopes } = useWarehouseOptions();
   const allWarehouses = isAllWarehouses(scope);
-  const scoped = useMemo(() => locationsInScope(scope, selectedWarehouseId, locations), [scope, selectedWarehouseId, locations]);
-  const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return scoped.filter(
-      (l) =>
-        (filter === 'All' || capacityStateOf(l) === filter) &&
-        (q === '' || l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q)),
-    );
-  }, [scoped, filter, query]);
+  const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const isMainOverview = allWarehouses && selectedWarehouseId === undefined;
 
-  const sum = totals(scoped);
-  const showComparison = allWarehouses && selectedWarehouseId === undefined && can(STORAGE_CODES.allWarehousesView);
-  const comparison = STORAGE_WAREHOUSES.filter((w) => w.warehouseId !== undefined).map((w) => ({
-    warehouseId: w.warehouseId as string,
-    ...totals(locations.filter((l) => l.warehouseId === w.warehouseId)),
-  }));
+  // Single warehouse capacity & locations
+  const singleCapQuery = useAdminQuery(
+    adminKeys.scoped('warehouseCapacity', effectiveWarehouseId),
+    (signal) => getWarehouseCapacity(effectiveWarehouseId as string, signal),
+    { enabled: !isMainOverview && !!effectiveWarehouseId && can(STORAGE_CODES.capacityView) },
+  );
+
+  const singleLocsQuery = useAdminQuery(
+    adminKeys.scoped('storageLocations', effectiveWarehouseId, { pageSize: 100 }),
+    (signal) => listStorageLocations(effectiveWarehouseId as string, { pageSize: 100 }, signal),
+    { enabled: !isMainOverview && !!effectiveWarehouseId && can(STORAGE_CODES.batchView) },
+  );
+
+  // Multi-warehouse capacities for Main overview
+  const multiCapQuery = useAdminQuery(
+    adminKeys.scoped('warehouseCapacities', undefined),
+    (signal) => getWarehouseCapacities(options.map((o) => o.warehouseId), signal),
+    { enabled: isMainOverview && options.length > 0 && can(STORAGE_CODES.allWarehousesView) },
+  );
+
   const canManageCapacity = can(STORAGE_CODES.capacitySet) && onManageCapacity !== undefined;
+
+  // Derive multi-warehouse metrics
+  const multiSummary = useMemo(() => {
+    if (!isMainOverview || !multiCapQuery.data) return null;
+    let totalUsedGrams = 0;
+    let totalCapGrams = 0;
+    for (const cap of multiCapQuery.data.values()) {
+      const used = parseKgToGrams(cap.usedKg) ?? 0;
+      const total = cap.capacityKg ? (parseKgToGrams(cap.capacityKg) ?? 0) : 0;
+      totalUsedGrams += used;
+      totalCapGrams += total;
+    }
+    const percent = totalCapGrams > 0 ? Math.round((totalUsedGrams / totalCapGrams) * 100) : null;
+    return {
+      usedGrams: totalUsedGrams,
+      capacityGrams: totalCapGrams,
+      percent,
+    };
+  }, [isMainOverview, multiCapQuery.data]);
+
+  // Derive single warehouse locations & groups
+  const locationRows = useMemo((): readonly StorageLocationDto[] => {
+    return singleLocsQuery.data?.items ?? [];
+  }, [singleLocsQuery.data]);
+
+  const visibleLocations = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return locationRows.filter((l) => {
+      const state = capacityStateOf(l);
+      if (filter !== 'All' && state !== filter) return false;
+      if (q !== '' && !l.name.toLowerCase().includes(q) && !l.code.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [locationRows, filter, query]);
+
+  // Storage Area Capacity (grouped by locationType)
+  const storageAreaRows = useMemo(() => {
+    const groups = new Map<string, { usedGrams: number; capGrams: number }>();
+    for (const l of locationRows) {
+      const type = l.locationType || 'Other';
+      const existing = groups.get(type) ?? { usedGrams: 0, capGrams: 0 };
+      const used = parseKgToGrams(l.usedKg) ?? 0;
+      const cap = l.capacityKg ? (parseKgToGrams(l.capacityKg) ?? 0) : 0;
+      groups.set(type, {
+        usedGrams: existing.usedGrams + used,
+        capGrams: existing.capGrams + cap,
+      });
+    }
+    return Array.from(groups.entries()).map(([name, data]) => {
+      const percent = data.capGrams > 0 ? Math.round((data.usedGrams / data.capGrams) * 100) : 0;
+      return { name, percent: `${percent}%` };
+    });
+  }, [locationRows]);
+
+  // Location Capacity (roots with level === 0)
+  const rootLocationRows = useMemo(() => {
+    return locationRows
+      .filter((l) => l.level === 0)
+      .map((l) => {
+        const used = parseKgToGrams(l.subtreeUsedKg || l.usedKg) ?? 0;
+        const cap = l.capacityKg ? (parseKgToGrams(l.capacityKg) ?? 0) : 0;
+        const percent = cap > 0 ? Math.round((used / cap) * 100) : 0;
+        return { name: l.name, percent: `${percent}%` };
+      });
+  }, [locationRows]);
+
+  // Loading & error handling
+  const isLoading = isMainOverview
+    ? multiCapQuery.isLoading
+    : singleCapQuery.isLoading || singleLocsQuery.isLoading;
+
+  const queryError = isMainOverview
+    ? multiCapQuery.error
+    : singleCapQuery.error || singleLocsQuery.error;
+
+  const handleRetry = () => {
+    if (isMainOverview) multiCapQuery.refetch();
+    else {
+      singleCapQuery.refetch();
+      singleLocsQuery.refetch();
+    }
+  };
+
+  const cap = singleCapQuery.data;
+  const singleCapGrams = cap?.capacityKg ? (parseKgToGrams(cap.capacityKg) ?? 0) : 0;
+  const singleUsedGrams = cap ? (parseKgToGrams(cap.usedKg) ?? 0) : 0;
+  const singleAvailableGrams = Math.max(0, singleCapGrams - singleUsedGrams);
+  const singlePercent = cap?.utilizationPercent ?? (singleCapGrams > 0 ? Math.round((singleUsedGrams / singleCapGrams) * 100) : 0);
 
   return (
     <WalletScreen
-      title="Warehouse Capacity"
+      title={t('storageOps.capacity.title')}
       onBack={onBack}
       headerExtra={
-        allWarehouses ? undefined : (
+        allWarehouses ? (
           <ScopeHeader
             scope={scope}
-            label={scope.warehouseName}
-            warehouseOptions={STORAGE_WAREHOUSES}
+            warehouseOptions={scopes}
             selectedWarehouseId={selectedWarehouseId}
             onSelectWarehouse={setSelectedWarehouseId}
           />
-        )
+        ) : undefined
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {allWarehouses ? (
+        {isLoading ? (
+          <AdminLoadingState />
+        ) : queryError ? (
+          <AdminErrorState error={queryError} onRetry={handleRetry} />
+        ) : isMainOverview ? (
           <>
             <View style={styles.mwaSummaryCard}>
               <View style={styles.mwaSummaryRow}>
                 <View style={styles.mwaSummaryCol}>
-                  <Text style={styles.mwaSummaryLabel}>Occupied</Text>
-                  <Text style={styles.mwaSummaryValue}>68%</Text>
+                  <Text style={styles.mwaSummaryLabel}>{t('storageOps.capacity.occupied')}</Text>
+                  <Text style={styles.mwaSummaryValue}>
+                    {multiSummary?.percent != null ? `${multiSummary.percent}%` : '—'}
+                  </Text>
                 </View>
                 <View style={styles.mwaSummaryCol}>
-                  <Text style={styles.mwaSummaryLabel}>Available</Text>
-                  <Text style={styles.mwaSummaryValue}>32%</Text>
+                  <Text style={styles.mwaSummaryLabel}>{t('storageOps.capacity.available')}</Text>
+                  <Text style={styles.mwaSummaryValue}>
+                    {multiSummary ? formatKg(Math.max(0, multiSummary.capacityGrams - multiSummary.usedGrams)) : '—'}
+                  </Text>
                 </View>
               </View>
               <View style={styles.mwaStatusGroup}>
-                <Text style={styles.mwaSummaryLabel}>Status</Text>
-                <Text style={styles.mwaStatusValue}>Operational</Text>
+                <Text style={styles.mwaSummaryLabel}>{t('storageOps.capacity.status')}</Text>
+                <Text style={styles.mwaStatusValue}>{t('storageOps.capacity.operational')}</Text>
               </View>
             </View>
 
-            <SectionTitle>Warehouse Comparison</SectionTitle>
-            <Card>
-              {MWA_COMPARISON_ROWS.map((row, index) => (
-                <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
-                  <Text style={styles.tableRowName}>{row.name}</Text>
-                  <Text style={styles.tableRowValue}>{row.percent}</Text>
-                </View>
-              ))}
-            </Card>
-
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={onViewHistory} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
-                </TouchableOpacity>
-              }
-            >
-              Storage Area Capacity
-            </SectionTitle>
-            <Card>
-              {STORAGE_AREA_ROWS.map((row, index) => (
-                <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
-                  <Text style={styles.tableRowName}>{row.name}</Text>
-                  <Text style={styles.tableRowValue}>{row.percent}</Text>
-                </View>
-              ))}
-            </Card>
-
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={onViewHistory} accessibilityRole="button">
-                  <Text style={styles.link}>View →</Text>
-                </TouchableOpacity>
-              }
-            >
-              Location Capacity
-            </SectionTitle>
-            <Card>
-              {LOCATION_CAPACITY_ROWS.map((row, index) => (
-                <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
-                  <Text style={styles.tableRowName}>{row.name}</Text>
-                  <Text style={styles.tableRowValue}>{row.percent}</Text>
-                </View>
-              ))}
-            </Card>
+            {can(STORAGE_CODES.allWarehousesView) ? (
+              <>
+                <SectionTitle>{t('storageOps.capacity.warehouseComparison')}</SectionTitle>
+                <Card>
+                  {options.map((opt, index) => {
+                    const c = multiCapQuery.data?.get(opt.warehouseId);
+                    const pct = c?.utilizationPercent != null ? `${c.utilizationPercent}%` : '—';
+                    return (
+                      <View key={opt.warehouseId} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
+                        <Text style={styles.tableRowName}>{opt.warehouseName}</Text>
+                        <Text style={styles.tableRowValue}>{pct}</Text>
+                      </View>
+                    );
+                  })}
+                </Card>
+              </>
+            ) : null}
 
             {canManageCapacity ? (
               <View style={styles.historyButton}>
-                <WalletButton label="Manage Capacity Limits" variant="outline" onPress={() => onManageCapacity?.()} />
+                <WalletButton
+                  label={t('storageOps.capacity.manageLimits')}
+                  variant="outline"
+                  onPress={() => onManageCapacity?.()}
+                />
               </View>
             ) : null}
           </>
@@ -211,44 +281,64 @@ export function WarehouseCapacityScreen({
           <>
             <KpiRow
               items={[
-                { value: `${sum.percent}%`, label: 'OCCUPIED' },
-                { value: `${100 - sum.percent}%`, label: 'AVAILABLE', tone: 'success' },
+                { value: `${singlePercent}%`, label: t('storageOps.capacity.occupied') },
+                { value: formatKg(singleAvailableGrams), label: t('storageOps.capacity.available'), tone: 'success' },
               ]}
             />
 
-            {showComparison ? (
+            {storageAreaRows.length > 0 ? (
               <>
-                <SectionTitle>Warehouse Comparison</SectionTitle>
+                <SectionTitle>{t('storageOps.capacity.storageAreaCapacity')}</SectionTitle>
                 <Card>
-                  {comparison.map((row, index) => (
-                    <View key={row.warehouseId} style={[styles.compareRow, index > 0 && styles.compareRowDivider]}>
-                      <View style={styles.compareHead}>
-                        <Text style={styles.compareName}>{storageWarehouseName(row.warehouseId)}</Text>
-                        <Text style={styles.compareValue}>{row.percent}%</Text>
-                      </View>
-                      <ProgressBar percent={row.percent} />
+                  {storageAreaRows.map((row, index) => (
+                    <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
+                      <Text style={styles.tableRowName}>{row.name}</Text>
+                      <Text style={styles.tableRowValue}>{row.percent}</Text>
                     </View>
                   ))}
                 </Card>
               </>
             ) : null}
 
-            <SectionTitle>Storage Locations</SectionTitle>
+            {rootLocationRows.length > 0 ? (
+              <>
+                <SectionTitle>{t('storageOps.capacity.locationCapacity')}</SectionTitle>
+                <Card>
+                  {rootLocationRows.map((row, index) => (
+                    <View key={row.name} style={[styles.tableRow, index > 0 && styles.tableRowDivider]}>
+                      <Text style={styles.tableRowName}>{row.name}</Text>
+                      <Text style={styles.tableRowValue}>{row.percent}</Text>
+                    </View>
+                  ))}
+                </Card>
+              </>
+            ) : null}
+
+            <SectionTitle>{t('storageOps.capacity.title')}</SectionTitle>
             <KpiRow
               items={[
-                { value: formatKg(sum.capacityKg), label: 'STORAGE TOTAL' },
-                { value: formatKg(Math.max(0, sum.capacityKg - sum.currentKg)), label: 'AVAILABLE CAPACITY', tone: 'success' },
+                { value: formatKg(singleCapGrams), label: t('storageOps.capacity.storageTotal') },
+                { value: formatKg(singleAvailableGrams), label: t('storageOps.capacity.availableCapacity'), tone: 'success' },
               ]}
             />
-            <SearchBar value={query} onChangeText={setQuery} placeholder="Search storage locations..." />
+            <SearchBar
+              value={query}
+              onChangeText={setQuery}
+              placeholder={t('storageOps.capacity.searchPlaceholder')}
+            />
             <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
 
-            {visible.length === 0 ? (
-              <EmptyState title="No storage locations found" subtitle="Try another filter or search." />
+            {visibleLocations.length === 0 ? (
+              <AdminEmptyState
+                title={t('storageOps.capacity.empty')}
+                subtitle={t('storageOps.capacity.emptyHint')}
+              />
             ) : (
               <View style={styles.list}>
-                {visible.map((loc, index) => {
+                {visibleLocations.map((loc, index) => {
                   const state = capacityStateOf(loc);
+                  const usedG = parseKgToGrams(loc.usedKg) ?? 0;
+                  const capG = loc.capacityKg ? (parseKgToGrams(loc.capacityKg) ?? 0) : 0;
                   return (
                     <View key={loc.id} style={[styles.item, index > 0 && styles.itemDivider]}>
                       <View style={styles.itemIcon}>
@@ -257,10 +347,14 @@ export function WarehouseCapacityScreen({
                       <View style={styles.itemText}>
                         <Text style={styles.itemTitle}>{loc.name}</Text>
                         <Text style={styles.itemSub}>
-                          Code: {loc.code} · {formatKg(loc.currentKg)} / {formatKg(loc.capacityKg)}
+                          {t('storageOps.capacity.code', {
+                            code: loc.code,
+                            used: formatKg(usedG),
+                            capacity: formatKg(capG),
+                          })}
                         </Text>
                       </View>
-                      <StatusBadge label={state} tone={STATE_TONE[state]} />
+                      <StatusBadge label={t(`storageOps.capacity.state.${state}`)} tone={STATE_TONE[state]} />
                     </View>
                   );
                 })}
@@ -268,16 +362,19 @@ export function WarehouseCapacityScreen({
             )}
 
             {canManageCapacity ? (
-              <WalletButton label="Manage Capacity Limits" variant="outline" onPress={() => onManageCapacity?.()} />
-            ) : allWarehouses ? (
-              <InfoNote tone="warning" icon={<LockIcon size={16} color={adminColors.warning.text} />}>
-                View only. Locations are scoped to your assigned warehouse — No capacity editing, storage configuration, or
-                quantity allocation here.
-              </InfoNote>
+              <WalletButton
+                label={t('storageOps.capacity.manageLimits')}
+                variant="outline"
+                onPress={() => onManageCapacity?.()}
+              />
             ) : null}
             {onViewHistory ? (
               <View style={styles.historyButton}>
-                <WalletButton label="View Capacity History" variant="neutral" onPress={onViewHistory} />
+                <WalletButton
+                  label={t('storageOps.capacity.viewHistory')}
+                  variant="neutral"
+                  onPress={onViewHistory}
+                />
               </View>
             ) : null}
           </>
@@ -288,24 +385,6 @@ export function WarehouseCapacityScreen({
 }
 
 const styles = StyleSheet.create({
-  mwaBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.sm,
-    backgroundColor: adminColors.success.bg,
-    borderWidth: 1,
-    borderColor: adminColors.success.border,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    marginBottom: adminSpacing.md,
-  },
-  mwaBannerText: {
-    flex: 1,
-    ...adminType.body,
-    fontWeight: '600',
-    color: adminColors.success.text,
-    lineHeight: 18,
-  },
   mwaSummaryCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

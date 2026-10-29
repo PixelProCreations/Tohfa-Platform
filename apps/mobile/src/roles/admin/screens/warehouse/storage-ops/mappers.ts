@@ -4,11 +4,6 @@
  * Maps API DTOs → screen types (StorageLocationItem).
  * No React. No network. No business logic beyond presentation.
  *
- * Spec-gap: StorageLocationDto has no per-location stock or currentKg.
- * The batch table's storage_location is free text; a per-location used-kg
- * figure needs an aggregation query not yet exposed (SPEC_GAPS W4u-3).
- * We map currentKg = 0 until that endpoint exists.
- *
  * Spec-gap: locationType is free text, not an enum. We normalize to the four
  * StorageType values by case-insensitive match, falling back to 'Dry Storage'.
  */
@@ -37,10 +32,6 @@ export function storageTypeOf(locationType: string | null | undefined): StorageT
  * Maps a StorageLocationDto from GET /warehouses/{id}/storage-locations
  * to a StorageLocationItem used by WarehouseCapacityScreen and
  * StorageLocationDetailScreen.
- *
- * currentKg is always 0: there is no per-location stock endpoint (SPEC_GAPS
- * W4u-3). The value comes from inventory_batches.storage_location free-text
- * joins that are not yet aggregated and exposed by the API.
  */
 export function toStorageLocationItem(dto: StorageLocationDto): StorageLocationItem {
   return {
@@ -51,7 +42,6 @@ export function toStorageLocationItem(dto: StorageLocationDto): StorageLocationI
     type: storageTypeOf(dto.locationType),
     status: dto.isActive ? 'Active' : 'Inactive',
     capacityKg: dto.capacityKg !== null ? parseFloat(dto.capacityKg) : 0,
-    // Spec-gap W4u-3: no per-location stock endpoint exists.
-    currentKg: 0,
+    currentKg: dto.usedKg != null ? parseFloat(dto.usedKg) : 0,
   };
 }

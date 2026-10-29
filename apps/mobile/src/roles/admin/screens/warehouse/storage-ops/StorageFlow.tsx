@@ -37,7 +37,6 @@ import { IssueSubmittedScreen } from './IssueSubmittedScreen';
 import { OperationalIssueDetailScreen } from './OperationalIssueDetailScreen';
 import { OperationalIssuesScreen } from './OperationalIssuesScreen';
 import { ReportIssueScreen } from './ReportIssueScreen';
-import { StorageLocationAssignmentScreen } from './StorageLocationAssignmentScreen';
 import { StorageLocationDetailScreen } from './StorageLocationDetailScreen';
 import { StorageLocationsScreen } from './StorageLocationsScreen';
 import { STORAGE_CODES } from './StorageParts';
@@ -208,17 +207,6 @@ export function StorageFlow({
           onViewActivity={viewActivity}
         />
       );
-    case 'StorageLocationAssignment':
-      return (
-        <StorageLocationAssignmentScreen
-          {...common}
-          batchId={params.batchId}
-          productName={params.productName}
-          quantity={params.quantity}
-          warehouseId={params.warehouseId}
-          onConfirmAssignment={onConfirmAssignment}
-        />
-      );
     case 'Capacity':
       return (
         <WarehouseCapacityScreen
@@ -234,7 +222,6 @@ export function StorageFlow({
           {...common}
           onSelectWarehouse={onSelectWarehouse}
           onViewOperationsHistory={onViewOperationsHistory ?? (() => navigate('Activity', { activityPreset: 'All' }))}
-          onViewStaffAttendance={onViewStaffAttendance}
         />
       );
     case 'Operations':
@@ -244,7 +231,7 @@ export function StorageFlow({
           onOpenCapacity={() => navigate('Capacity')}
           onOpenIssues={() => navigate('OperationalIssues')}
           onOpenActivity={(activityPreset) => navigate('Activity', { activityPreset })}
-          onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
+          onSelectActivity={(activity) => navigate('ActivityDetail', { activity })}
           onOpenModule={openModule}
           onOpenNotifications={onOpenNotifications}
           onOpenWarehouseOverview={onOpenWarehouseOverview}
@@ -258,7 +245,6 @@ export function StorageFlow({
           initialPreset={params.activityPreset}
           onSelectActivity={(activity) => navigate('ActivityDetail', { activity })}
           onOpenModule={openModule}
-          onExport={onExportActivity}
         />
       );
     case 'ActivityDetail':
@@ -266,7 +252,6 @@ export function StorageFlow({
         <ActivityDetailScreen
           {...common}
           activity={params.activity}
-          activityId={params.activityId}
           onOpenModule={openModule}
         />
       );
@@ -294,7 +279,7 @@ export function StorageFlow({
         <IssueSubmittedScreen
           {...common}
           mode={params.reportMode}
-          submittedId={params.submittedId}
+          submittedId={params.submittedId ?? ''}
           onDone={() => {
             if (params.reportMode === 'operational') backTo('OperationalIssues');
             else (onSupportRequestDone ?? onBack)();

@@ -443,6 +443,12 @@ describe('toStorageOption', () => {
       locationType: 'Cold Storage',
       capacityKg: '2000.000',
       isActive: true,
+      parentId: null,
+      level: 1,
+      usedKg: '0.000',
+      batchCount: 0,
+      subtreeUsedKg: '0.000',
+      subtreeBatchCount: 0,
       createdAt: '2026-01-01T00:00:00Z',
       updatedAt: null,
     };
