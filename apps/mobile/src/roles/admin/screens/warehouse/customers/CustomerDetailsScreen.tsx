@@ -154,8 +154,8 @@ export function CustomerDetailsScreen({
 
   const c = resolveCustomer(customer);
   const code = customer?.code ?? customer?.id ?? '—';
-  const purchases = c.totalPurchases ?? '₹0';
-  const wallet = c.walletBalance ?? '₹0';
+  const purchases = c.totalPurchases ?? '—';
+  const wallet = c.walletBalance ?? '—';
   const openIssues = c.openIssues ?? 0;
   const initials = c.name
     .split(' ')

@@ -180,6 +180,7 @@ function purchaseChannelLabel(channel: string): string {
 export function toPurchaseRecord(dto: AdminCustomerPurchaseDto): PurchaseRecord {
   return {
     id: `${dto.orderId}-${dto.productId}`,
+    orderId: dto.orderId,
     invoiceNo: dto.orderNumber,
     dateText: formatAdminDate(dto.purchasedAt),
     itemsSummary: `${dto.productName} — ${dto.qtyKg} KG`,

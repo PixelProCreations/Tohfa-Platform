@@ -117,6 +117,7 @@ export interface SupportTicketRecord {
 /** One purchase (invoiced sale) of a customer. */
 export interface PurchaseRecord {
   id: string;
+  orderId?: string | undefined;
   invoiceNo: string;
   dateText: string;
   itemsSummary: string;
@@ -161,6 +162,31 @@ export interface PurchaseFilterState {
   warehouseId?: string | undefined;
 }
 
+export const DEFAULT_ORDER_FILTERS: OrderFilterState = {
+  searchQuery: '',
+  orderStatus: 'All',
+  orderType: 'All',
+  channel: 'All',
+  paymentStatus: 'All',
+  datePreset: 'All Time',
+  startDate: '',
+  endDate: '',
+  customer: '',
+  warehouseId: undefined,
+};
+
+export const DEFAULT_PURCHASE_FILTERS: PurchaseFilterState = {
+  searchQuery: '',
+  datePreset: 'All Time',
+  startDate: '',
+  endDate: '',
+  purchaseStatus: 'All',
+  productCrop: '',
+  grade: 'All',
+  sortBy: 'Newest First',
+  warehouseId: undefined,
+};
+
 /** Which field set OrderFiltersScreen renders. */
 export type FiltersConfig = 'order' | 'purchase';
 
@@ -192,9 +218,11 @@ export type CustomersExternalRoute = 'CustomerWallet' | 'CashTopUp' | 'NewSale' 
 
 /** Params carried between customer routes and to external routes. */
 export interface CustomersRouteParams {
+  customerId?: string | undefined;
   customer?: CustomerRef | undefined;
+  returnId?: string | undefined;
   order?: CustomerOrderRecord | undefined;
-  /** Order number for 'OrderDetail' (a purchase knows only the number). */
+  orderId?: string | undefined;
   orderNo?: string | undefined;
   issue?: Loose<CustomerIssueRecord> | undefined;
   ticket?: Loose<SupportTicketRecord> | undefined;

@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
+import { useCustomerList } from './useCustomerData';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import type { CustomerRecord, CustomerSearchItem } from './types';
@@ -107,17 +108,20 @@ export function CustomerSearchScreen({
   const [query, setQuery] = useState('');
   const [selectedCustomerForWallet, setSelectedCustomerForWallet] = useState<CustomerSearchItem | null>(null);
 
+  const serverResults = useCustomerList(scope, can, undefined, query.trim() || undefined);
+  const activeItems = serverResults.items.length > 0 || query.trim() ? serverResults.items : customers;
+
   const searchDatabase: CustomerSearchItem[] = React.useMemo(
     () =>
-      customers.map((c) => ({
+      activeItems.map((c) => ({
         name: c.name,
         code: c.code ?? c.id,
         id: c.id ?? c.code,
         phone: c.phone ?? '—',
-        balance: c.walletBalance ?? '₹0',
+        balance: c.walletBalance ?? '—',
         status: c.status ?? 'Active',
       })),
-    [customers],
+    [activeItems],
   );
 
   // Declared before the internal-wallet branch below, which calls it.
@@ -189,15 +193,7 @@ export function CustomerSearchScreen({
     );
   }
 
-  const trimmed = query.trim().toLowerCase();
-  const searchResults = trimmed
-    ? searchDatabase.filter(
-        (c) =>
-          c.name.toLowerCase().includes(trimmed) ||
-          c.code.toLowerCase().includes(trimmed) ||
-          c.phone.toLowerCase().includes(trimmed)
-      )
-    : searchDatabase;
+  const searchResults = searchDatabase;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -227,19 +223,13 @@ export function CustomerSearchScreen({
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search Customer ID or mobile number"
+            placeholder="Search Customer ID or name"
             placeholderTextColor={adminColors.placeholder}
             value={query}
             onChangeText={setQuery}
             autoFocus={true}
             clearButtonMode="while-editing"
           />
-          <TouchableOpacity
-            onPress={() => Alert.alert('QR Scanner', 'Opening QR & Barcode scanner...')}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <QrScanIcon size={20} color={adminColors.muted} />
-          </TouchableOpacity>
         </View>
 
         {/* Read-only scope indicator, not a toggle. Main Warehouse searches every
@@ -255,7 +245,7 @@ export function CustomerSearchScreen({
         {/* ─── Customer Results ─── */}
         <View style={styles.sectionWrap}>
           <Text style={styles.resultsHeader}>
-            {trimmed ? 'Matching Customers' : 'Recent / Suggested Customers'}
+            {query.trim() ? 'Matching Customers' : 'Recent / Suggested Customers'}
           </Text>
 
           {searchResults.length > 0 ? (
@@ -285,7 +275,7 @@ export function CustomerSearchScreen({
         </View>
 
         {/* ─── Quick Recent Tags (when not typing) ─── */}
-        {!trimmed && RECENT_SEARCHES.length > 0 && (
+        {!query.trim() && RECENT_SEARCHES.length > 0 && (
           <View style={[styles.sectionWrap, { marginTop: adminSpacing.md }]}>
             <Text style={styles.resultsHeader}>Recent Searches</Text>
             <View style={styles.recentTagsWrap}>

@@ -1,23 +1,41 @@
 /**
  * Live data for the customer area.
  *
- * A thin hook over useCursorList / useWarehouseOptions; all mapping is in
- * ./mappers.ts, which is unit-tested. BR-30: a Sub scope always sends its own
- * warehouseId; a Main scope can be undefined (all warehouses) or narrowed by
- * the user's warehouse selector.
- *
- * Only the customer list is wired here. Customer detail, orders, purchases,
- * issues and support tickets stay on fixture data for now (those sub-screens
- * have no server-side list endpoint in PR #139). The list screen is the
- * highest-traffic screen, so it is wired first.
+ * Hooks over useCursorList, useAdminQuery, and useAdminMutation; mapping is in ./mappers.ts.
  */
 import { useCallback, useMemo } from 'react';
-import { listCustomers } from '../../../api/customers';
-import { useCursorList, type CursorList } from '../../../api/hooks';
+import {
+  getCustomer,
+  getCustomerWallet,
+  listCustomerIssues,
+  listCustomerOrders,
+  listCustomerPurchases,
+  listCustomerSupportTickets,
+  listCustomers,
+  replyToSupportTicket,
+  type AdminCustomerDetailDto,
+  type AdminCustomerSupportMessageDto,
+  type CustomerStatus,
+} from '../../../api/customers';
+import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
 import { adminKeys } from '../../../api/queryKeys';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
-import { toCustomerRecord } from './mappers';
-import type { CustomerRecord, PermissionCheck, WarehouseScope } from './types';
+import {
+  toCustomerIssueRecord,
+  toCustomerOrderRecord,
+  toCustomerRecord,
+  toPurchaseRecord,
+  toSupportTicketRecord,
+} from './mappers';
+import type {
+  CustomerIssueRecord,
+  CustomerOrderRecord,
+  CustomerRecord,
+  PermissionCheck,
+  PurchaseRecord,
+  SupportTicketRecord,
+  WarehouseScope,
+} from './types';
 
 export { CustomerRecord };
 
@@ -26,25 +44,16 @@ export const CUSTOMER_WAREHOUSE_LIST_CODE = 'warehouse.all.view';
 
 /**
  * The live customer list for the current scope.
- *
- * - Sub scope: `warehouseId` is always scope.warehouseId (BR-30).
- * - Main scope: `warehouseId` is the picker's selection, or undefined for all.
- *
- * `warehouseId` is part of the query key so a scope change invalidates the
- * cached page and forces a refetch.
  */
 export function useCustomerList(
   scope: WarehouseScope,
   can: PermissionCheck,
-  /** Narrowing warehouse (Main only; Sub ignores it). */
-  selectedWarehouseId: string | undefined,
+  selectedWarehouseId?: string | undefined,
+  q?: string | undefined,
+  status?: CustomerStatus | undefined,
 ): CursorList<CustomerRecord> {
-  // A Sub scope always enforces its own warehouse (BR-30).
   const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
 
-  // Warehouse names for augmenting the customer rows (not needed for list rows
-  // today — warehouseName is shown on the customer detail, not the list — but
-  // we pre-load it so the picker works and the mapper has the lookup ready).
   const warehouses = useWarehouseOptions({
     enabled: can(CUSTOMER_WAREHOUSE_LIST_CODE),
     activeOnly: true,
@@ -62,10 +71,94 @@ export function useCustomerList(
   );
 
   return useCursorList(
-    adminKeys.scoped('customers', effectiveWarehouseId, { resource: 'list' }),
-    // warehouseId is not a param; server scopes by the auth token (BR-30).
-    (cursor, signal) => listCustomers({ cursor }, signal),
+    adminKeys.scoped('customers', effectiveWarehouseId, { resource: 'list', q, status }),
+    (cursor, signal) => listCustomers({ cursor, q, status }, signal),
     map,
     { enabled: can('customer.list.view') },
   );
+}
+
+/** One customer by UUID */
+export function useCustomer(customerId: string | undefined, can: PermissionCheck) {
+  return useAdminQuery<AdminCustomerDetailDto>(
+    adminKeys.detail('customers', customerId ?? ''),
+    (signal) => getCustomer(customerId!, signal),
+    { enabled: can('customer.detail.view') && Boolean(customerId) },
+  );
+}
+
+/** Orders of a customer */
+export function useCustomerOrders(customerId: string | undefined, can: PermissionCheck) {
+  const query = useAdminQuery(
+    adminKeys.detail('customer-orders', customerId ?? ''),
+    (signal) => listCustomerOrders(customerId!, {}, signal),
+    { enabled: can('customer.purchase_history.view') && Boolean(customerId) },
+  );
+  const items: CustomerOrderRecord[] = useMemo(
+    () => (query.data?.items ?? []).map(toCustomerOrderRecord),
+    [query.data?.items],
+  );
+  return { ...query, items };
+}
+
+/** Purchases of a customer */
+export function useCustomerPurchases(customerId: string | undefined, can: PermissionCheck) {
+  const query = useAdminQuery(
+    adminKeys.detail('customer-purchases', customerId ?? ''),
+    (signal) => listCustomerPurchases(customerId!, {}, signal),
+    { enabled: can('customer.purchase_history.view') && Boolean(customerId) },
+  );
+  const items: PurchaseRecord[] = useMemo(
+    () => (query.data?.items ?? []).map(toPurchaseRecord),
+    [query.data?.items],
+  );
+  return { ...query, items };
+}
+
+/** Issues reported by a customer */
+export function useCustomerIssues(customerId: string | undefined, can: PermissionCheck) {
+  const query = useAdminQuery(
+    adminKeys.detail('customer-issues', customerId ?? ''),
+    (signal) => listCustomerIssues(customerId!, {}, signal),
+    { enabled: can('customer.issues.view') && Boolean(customerId) },
+  );
+  const items: CustomerIssueRecord[] = useMemo(
+    () => (query.data?.items ?? []).map(toCustomerIssueRecord),
+    [query.data?.items],
+  );
+  return { ...query, items };
+}
+
+/** Support tickets of a customer */
+export function useCustomerSupportTickets(customerId: string | undefined, can: PermissionCheck) {
+  const query = useAdminQuery(
+    adminKeys.detail('customer-support', customerId ?? ''),
+    (signal) => listCustomerSupportTickets(customerId!, {}, signal),
+    { enabled: can('customer.support_history.view') && Boolean(customerId) },
+  );
+  const items: SupportTicketRecord[] = useMemo(
+    () => (query.data?.items ?? []).map(toSupportTicketRecord),
+    [query.data?.items],
+  );
+  return { ...query, items };
+}
+
+/** Wallet summary of a customer */
+export function useCustomerWallet(customerId: string | undefined, can: PermissionCheck) {
+  return useAdminQuery(
+    adminKeys.detail('customer-wallet', customerId ?? ''),
+    (signal) => getCustomerWallet(customerId!, signal),
+    { enabled: can('customer.wallet.view') && Boolean(customerId) },
+  );
+}
+
+/** Reply to a customer support ticket */
+export function useReplySupportTicket() {
+  return useAdminMutation<
+    { customerId: string; ticketId: string; message: string },
+    AdminCustomerSupportMessageDto
+  >({
+    mutationFn: ({ customerId, ticketId, message }) => replyToSupportTicket(customerId, ticketId, { message }),
+    invalidates: [adminKeys.module('customers')],
+  });
 }

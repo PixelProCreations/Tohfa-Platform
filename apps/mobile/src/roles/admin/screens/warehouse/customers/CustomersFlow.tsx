@@ -1,40 +1,38 @@
 /**
  * In-module navigator for the warehouse customer screens (design module M7).
  *
- * The customer flows (list -> search / details -> orders / purchases / issues /
- * support -> filters / detail) used to be stitched three times: eleven `show*`
- * state branches in the Sub shell, fifteen App.tsx route keys, and six
- * `whSubView` values in the Main shell (onto the separate Main twins). They
- * live next to the screens now and take `scope` + `can`, so every host renders
- * the same flow: the Sub shell / App.tsx with the Sub warehouse scope, the
- * Main shell with MAIN_WAREHOUSE_SCOPE (all warehouses).
- *
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix
- * (CustomersRoute). Removed: CustomerActions (dropped, SPEC_GAPS W4h-1).
- *
- * Screens outside the customer area (wallet, cash top-up, new sale, order
- * detail, RMA) are opened through the host: a shell that can
- * draw them inline passes `renderExternalScreen` (they join this flow's back
- * stack); App.tsx, and the Main shell for New Sale, pass `onOpenExternal`
- * and navigate to their own route.
+ * (CustomersRoute).
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
-import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { CustomerDetailsScreen } from './CustomerDetailsScreen';
+import { CustomerFiltersScreen, type CustomerFilterValues } from './CustomerFiltersScreen';
 import { CustomerIssueDetailScreen } from './CustomerIssueDetailScreen';
 import { CustomerIssuesScreen } from './CustomerIssuesScreen';
 import { CustomerOrdersScreen } from './CustomerOrdersScreen';
 import { CustomerSearchScreen } from './CustomerSearchScreen';
-import { CustomersListScreen } from './CustomersListScreen';
 import { CustomerSupportDetailScreen } from './CustomerSupportDetailScreen';
-import { CustomerFiltersScreen, type CustomerFilterValues } from './CustomerFiltersScreen';
+import { CustomersListScreen } from './CustomersListScreen';
 import { OrderFiltersScreen } from './OrderFiltersScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
 import { SupportHistoryScreen } from './SupportHistoryScreen';
-import { useCustomerList, CUSTOMER_WAREHOUSE_LIST_CODE } from './useCustomerData';
+import {
+  CUSTOMER_WAREHOUSE_LIST_CODE,
+  useCustomer,
+  useCustomerIssues,
+  useCustomerList,
+  useCustomerOrders,
+  useCustomerPurchases,
+  useCustomerSupportTickets,
+  useCustomerWallet,
+} from './useCustomerData';
+import { augmentCustomerRecord, formatMoney } from './mappers';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type {
+  CustomerOrderRecord,
+  CustomerRecord,
   CustomerRef,
   CustomersExternalRoute,
   CustomersRoute,
@@ -42,9 +40,17 @@ import type {
   OrderFilterState,
   PermissionCheck,
   PurchaseFilterState,
+  PurchaseRecord,
+  SupportTicketRecord,
   WarehouseScope,
   WarehouseTab,
 } from './types';
+
+/** One entry of the flow's back stack. */
+export interface CustomersStackEntry {
+  screen: CustomersRoute | CustomersExternalRoute;
+  params?: CustomersRouteParams | undefined;
+}
 
 const EXTERNAL_ROUTES: readonly CustomersExternalRoute[] = [
   'CustomerWallet',
@@ -58,17 +64,9 @@ function isExternal(screen: CustomersRoute | CustomersExternalRoute): screen is 
   return (EXTERNAL_ROUTES as readonly string[]).includes(screen);
 }
 
-/** One entry of the flow's back stack. */
-export interface CustomersStackEntry {
-  screen: CustomersRoute | CustomersExternalRoute;
-  params?: CustomersRouteParams | undefined;
-}
-
-/** Navigation handle given to `renderExternalScreen`. */
 export interface CustomersFlowNavigation {
   back: () => void;
-  /** Push another external screen (e.g. wallet -> cash top-up) onto the flow's stack. */
-  open: (screen: CustomersExternalRoute, params?: CustomersRouteParams) => void;
+  open: (screen: CustomersRoute | CustomersExternalRoute, params?: CustomersRouteParams) => void;
 }
 
 export interface CustomersFlowProps {
@@ -76,23 +74,18 @@ export interface CustomersFlowProps {
   can: PermissionCheck;
   initialScreen?: CustomersRoute | undefined;
   initialParams?: CustomersRouteParams | undefined;
-  /** Leave the customer module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
-  /** Bell on the customers list. */
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Draw an external screen inside the flow; return null for routes the host does not own. */
   renderExternalScreen?:
-    | ((screen: CustomersExternalRoute, params: CustomersRouteParams, nav: CustomersFlowNavigation) => React.ReactNode)
+    | ((
+        screen: CustomersExternalRoute,
+        params: CustomersRouteParams,
+        nav: CustomersFlowNavigation,
+      ) => React.ReactNode)
     | undefined;
-  /**
-   * External routes `renderExternalScreen` draws inline. Defaults to all of
-   * them when `renderExternalScreen` is given; the rest go to `onOpenExternal`.
-   */
   inlineExternalRoutes?: readonly CustomersExternalRoute[] | undefined;
-  /** Navigate the host to an external screen that is not drawn inline. */
   onOpenExternal?: ((screen: CustomersExternalRoute, params: CustomersRouteParams) => void) | undefined;
 }
 
@@ -110,46 +103,65 @@ export function CustomersFlow({
   onOpenExternal,
 }: CustomersFlowProps) {
   const [stack, setStack] = useState<CustomersStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  // Filters survive the trip to the filter screen and back (one set per list).
   const [customerFilters, setCustomerFilters] = useState<CustomerFilterValues | undefined>(undefined);
   const [orderFilters, setOrderFilters] = useState<OrderFilterState | undefined>(undefined);
   const [purchaseFilters, setPurchaseFilters] = useState<PurchaseFilterState | undefined>(undefined);
-  // Live warehouse options for the Main-admin warehouse picker (ignored for Sub).
+
   const liveWarehouses = useWarehouseOptions({
     enabled: can(CUSTOMER_WAREHOUSE_LIST_CODE),
     activeOnly: true,
   });
   const effectiveWarehouseOptions = warehouseOptions ?? liveWarehouses.options;
-  // Warehouse narrowing for the customer list (Main picks a warehouse; Sub is always its own).
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
-  // Live customer list for the current scope + selected warehouse.
   const customerList = useCustomerList(scope, can, selectedWarehouseId);
 
-  // A host that re-targets the open module restarts the stack, as the other
-  // area flows do. Hosts keep these props referentially stable.
   useEffect(() => {
     setStack([{ screen: initialScreen, params: initialParams }]);
   }, [initialScreen, initialParams]);
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: CustomersRouteParams = current.params ?? {};
-  const customer: CustomerRef | undefined = params.customer;
+  const customerId = params.customerId ?? params.customer?.id;
+
+  const customerQuery = useCustomer(customerId, can);
+  const walletQuery = useCustomerWallet(customerId, can);
+  const ordersHook = useCustomerOrders(customerId, can);
+  const purchasesHook = useCustomerPurchases(customerId, can);
+  const issuesHook = useCustomerIssues(customerId, can);
+  const supportHook = useCustomerSupportTickets(customerId, can);
+
+  const resolvedCustomer: CustomerRef | undefined = useMemo(() => {
+    if (!customerQuery.data) return params.customer;
+    const base = params.customer ?? {
+      id: customerQuery.data.id,
+      name: customerQuery.data.name,
+      code: customerQuery.data.customerCode,
+      phone: customerQuery.data.mobileMasked,
+      status: 'Active',
+      ordersCount: customerQuery.data.totalOrders,
+      lastPurchase: '—',
+    };
+    const aug = augmentCustomerRecord(base as CustomerRecord, customerQuery.data, undefined);
+    if (walletQuery.data?.balance) {
+      aug.walletBalance = formatMoney(walletQuery.data.balance) ?? aug.walletBalance;
+    }
+    return aug;
+  }, [params.customer, customerQuery.data, walletQuery.data]);
 
   const navigate = (screen: CustomersRoute | CustomersExternalRoute, nextParams?: CustomersRouteParams) => {
-    // Carry the customer in focus forward unless the caller names another.
-    const merged: CustomersRouteParams = { customer, ...nextParams };
+    const merged: CustomersRouteParams = { customerId, customer: resolvedCustomer, ...nextParams };
     if (isExternal(screen) && !(renderExternalScreen && inlineExternalRoutes.includes(screen))) {
       onOpenExternal?.(screen, merged);
       return;
     }
     setStack((prev) => [...prev, { screen, params: merged }]);
   };
+
   const back = () => {
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
   };
 
-  // Hardware back pops this flow's stack; at its root the host's listener handles it.
   useFlowBack(() => {
     if (stack.length <= 1) return false;
     back();
@@ -170,7 +182,7 @@ export function CustomersFlow({
           warehouseOptions={effectiveWarehouseOptions}
           customers={customerList.items}
           onNavigateToSearch={() => navigate('CustomerSearch')}
-          onSelectCustomer={(selected) => navigate('CustomerDetails', { customer: selected })}
+          onSelectCustomer={(selected) => navigate('CustomerDetails', { customerId: selected.id, customer: selected })}
           onNavigateToNotifications={onNavigateToNotifications}
           onOpenFilters={() => navigate('CustomerFilters')}
         />
@@ -199,7 +211,7 @@ export function CustomersFlow({
           {...common}
           customers={customerList.items}
           onSelectCustomer={(name: string, id?: string) =>
-            navigate('CustomerDetails', { customer: { name, id, code: id } })
+            navigate('CustomerDetails', { customerId: id, customer: { name, id, code: id } })
           }
         />
       );
@@ -207,7 +219,7 @@ export function CustomersFlow({
       return (
         <CustomerDetailsScreen
           {...common}
-          customer={customer}
+          customer={resolvedCustomer}
           onNavigateToOrders={() => navigate('CustomerOrders')}
           onNavigateToPurchases={() => navigate('PurchaseHistory')}
           onNavigateToWallet={() => navigate('CustomerWallet')}
@@ -221,12 +233,13 @@ export function CustomersFlow({
       return (
         <CustomerOrdersScreen
           {...common}
-          customer={customer}
+          customer={resolvedCustomer}
           warehouseOptions={effectiveWarehouseOptions}
           appliedFilters={orderFilters}
           defaultFilter={params.defaultFilter}
           onOpenFilters={() => navigate('OrderFilters')}
-          onOpenOrder={(order) => navigate('OrderDetail', { order, orderNo: order.orderNo })}
+          onOpenOrder={(order) => navigate('OrderDetail', { order, orderId: order.id, orderNo: order.orderNo })}
+          orders={ordersHook.items}
         />
       );
     case 'OrderFilters':
@@ -235,7 +248,7 @@ export function CustomersFlow({
           {...common}
           config="order"
           variant="customer"
-          customerName={customer?.name}
+          customerName={resolvedCustomer?.name}
           warehouseOptions={effectiveWarehouseOptions}
           initialFilters={orderFilters}
           onApplyFilters={(next) => {
@@ -248,10 +261,13 @@ export function CustomersFlow({
       return (
         <PurchaseHistoryScreen
           {...common}
-          customer={customer}
+          customer={resolvedCustomer}
           appliedFilters={purchaseFilters}
           onOpenFilters={() => navigate('PurchaseFilters')}
-          onSelectPurchase={(purchase) => navigate('OrderDetail', { orderNo: purchase.orderNo ?? purchase.invoiceNo })}
+          onSelectPurchase={(purchase: PurchaseRecord) =>
+            navigate('OrderDetail', { orderId: purchase.orderId, orderNo: purchase.orderNo ?? purchase.invoiceNo })
+          }
+          purchases={purchasesHook.items}
         />
       );
     case 'PurchaseFilters':
@@ -271,29 +287,31 @@ export function CustomersFlow({
       return (
         <CustomerIssuesScreen
           {...common}
-          customer={customer}
+          customer={resolvedCustomer}
           onSelectIssue={(issue) => navigate('CustomerIssueDetail', { issue })}
+          issues={issuesHook.items}
         />
       );
     case 'CustomerIssueDetail':
       return (
         <CustomerIssueDetailScreen
           {...common}
-          customer={customer}
+          customer={resolvedCustomer}
           issue={params.issue}
-          onViewRma={(issue) => navigate('RmaDetail', { issue })}
+          onViewRma={(issue) => navigate('RmaDetail', { returnId: issue.id, issue })}
         />
       );
     case 'SupportHistory':
       return (
         <SupportHistoryScreen
           {...common}
-          customer={customer}
-          onSelectTicket={(ticket) => navigate('SupportDetail', { ticket })}
+          customer={resolvedCustomer}
+          onSelectTicket={(ticket: SupportTicketRecord) => navigate('SupportDetail', { ticket })}
+          tickets={supportHook.items}
         />
       );
     case 'SupportDetail':
-      return <CustomerSupportDetailScreen {...common} customer={customer} ticket={params.ticket} />;
+      return <CustomerSupportDetailScreen {...common} customer={resolvedCustomer} ticket={params.ticket} />;
     default:
       return null;
   }

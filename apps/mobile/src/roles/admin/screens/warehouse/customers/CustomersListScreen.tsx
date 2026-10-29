@@ -29,7 +29,6 @@ import {
   StatTiles,
   StatusBadge,
 } from './CustomersParts';
-import { CUSTOMER_WAREHOUSES } from './fixtures';
 import { CustomerFiltersScreen, type CustomerFilterStatus, type CustomerFilterValues } from './CustomerFiltersScreen';
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
@@ -56,7 +55,7 @@ export function CustomersListScreen({
   onNavigateToSearch,
   onNavigateToNotifications,
   onOpenFilters,
-  warehouseOptions = CUSTOMER_WAREHOUSES,
+  warehouseOptions = [],
   customers = [],
 }: CustomersListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');

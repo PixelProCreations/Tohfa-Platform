@@ -12,13 +12,14 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { DEFAULT_ORDER_FILTERS, DEFAULT_PURCHASE_FILTERS } from './fixtures';
-import type {
-  OrderFiltersVariant,
-  OrderFilterState,
-  PurchaseFilterState,
-  WarehouseScope,
-  WarehouseScreenBaseProps,
+import {
+  DEFAULT_ORDER_FILTERS,
+  DEFAULT_PURCHASE_FILTERS,
+  type OrderFiltersVariant,
+  type OrderFilterState,
+  type PurchaseFilterState,
+  type WarehouseScope,
+  type WarehouseScreenBaseProps,
 } from './types';
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {

@@ -27,7 +27,6 @@ import {
   SearchField,
   StatusBadge,
 } from './CustomersParts';
-import { CUSTOMER_WAREHOUSES } from './fixtures';
 import type { CustomerOrderRecord, CustomerRef, OrderFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 export interface CustomerOrdersScreenProps extends WarehouseScreenBaseProps {
@@ -77,7 +76,7 @@ export function CustomerOrdersScreen({
   defaultFilter,
   onOpenFilters,
   onOpenOrder,
-  warehouseOptions = CUSTOMER_WAREHOUSES,
+  warehouseOptions = [],
   orders = [],
 }: CustomerOrdersScreenProps) {
   const [selectedTab, setSelectedTab] = useState<OrderTab>('All');
