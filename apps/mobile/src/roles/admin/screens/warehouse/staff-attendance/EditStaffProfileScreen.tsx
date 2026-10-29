@@ -31,7 +31,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { ChevronDownIcon, SaveIcon } from './StaffParts';
-import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
+import { canManageStaff, STAFF_MANAGE_CODE } from './staffAccess';
 import { useUpdateStaff } from './useStaffData';
 import type { UpdateStaffBody } from '../../../api/staff';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
@@ -60,10 +60,10 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
 
   const { update: updateStaffMutation, isSaving: updating } = useUpdateStaff();
 
-  if (!hasStaffRosterAccess(can, scope)) {
+  if (!canManageStaff(can)) {
     return (
       <WalletScreen title={titleText} onBack={onBack}>
-        <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />
+        <EmptyState title="Staff manage not available" subtitle="Your role cannot manage warehouse staff." />
       </WalletScreen>
     );
   }

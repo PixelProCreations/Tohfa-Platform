@@ -28,20 +28,14 @@ import { AttendanceHistoryScreen } from './AttendanceHistoryScreen';
 import { AttendanceScreen } from './AttendanceScreen';
 import { EditStaffProfileScreen } from './EditStaffProfileScreen';
 import { StaffDetailScreen } from './StaffDetailScreen';
-import { hasStaffRosterAccess, STAFF_ROSTER_CODE, StaffScreen } from './StaffScreen';
+import { StaffScreen } from './StaffScreen';
+import { canOpenStaffRoute } from './staffAccess';
+export { canOpenStaffRoute } from './staffAccess';
 import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StaffStackEntry {
   screen: StaffRoute;
   params?: StaffRouteParams | undefined;
-}
-
-/** Routes that show the warehouse roster and need staff roster access. */
-const ROSTER_ROUTES: readonly StaffRoute[] = ['Staff', 'StaffDetail', 'EditStaffProfile'];
-
-/** True when `can` / `scope` allows opening `route` (roster routes need staff roster access). */
-export function canOpenStaffRoute(route: StaffRoute, can: PermissionCheck, scope?: WarehouseScope): boolean {
-  return !ROSTER_ROUTES.includes(route) || hasStaffRosterAccess(can, scope);
 }
 
 export interface StaffFlowProps {
@@ -79,7 +73,7 @@ export function StaffFlow({
   const params: StaffRouteParams = current.params ?? {};
 
   const navigate = (screen: StaffRoute, nextParams?: StaffRouteParams) => {
-    if (!canOpenStaffRoute(screen, can, scope)) return;
+    if (!canOpenStaffRoute(screen, can)) return;
     setStack((prev) => [...prev, { screen, params: nextParams }]);
   };
   const back = () => {

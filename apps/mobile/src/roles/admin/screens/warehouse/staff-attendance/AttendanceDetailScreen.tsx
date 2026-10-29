@@ -17,8 +17,9 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 
-import { InfoCard, InfoNote, isAllWarehouses, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
+import { EmptyState, InfoCard, InfoNote, isAllWarehouses, SectionTitle, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { ProhibitedIcon, RingTimeline } from './StaffParts';
+import { hasAttendanceAccess } from './staffAccess';
 import type { AttendanceRecord, WarehouseScreenBaseProps } from './types';
 
 const FALLBACK_ATTENDANCE_RECORD: AttendanceRecord = {
@@ -33,7 +34,15 @@ export interface AttendanceDetailScreenProps extends WarehouseScreenBaseProps {
   record?: AttendanceRecord | undefined;
 }
 
-export function AttendanceDetailScreen({ scope, onBack, record }: AttendanceDetailScreenProps) {
+export function AttendanceDetailScreen({ scope, can, onBack, record }: AttendanceDetailScreenProps) {
+  if (!hasAttendanceAccess(can)) {
+    return (
+      <WalletScreen title="Attendance Detail" onBack={onBack}>
+        <EmptyState title="Attendance not available" subtitle="Your role does not include warehouse attendance." />
+      </WalletScreen>
+    );
+  }
+
   const rec = record ?? FALLBACK_ATTENDANCE_RECORD;
   const dateText = rec.dateText ?? '—';
 

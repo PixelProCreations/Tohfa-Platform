@@ -36,7 +36,7 @@ import {
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import { ProhibitedIcon, RingTimeline, StaffAvatar } from './StaffParts';
-import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './StaffScreen';
+import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './staffAccess';
 import { useAttendanceSummary, useStaffDetail } from './useStaffData';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
@@ -94,7 +94,7 @@ export function StaffDetailScreen({
   const { totals: attTotals } = useAttendanceSummary(scope, undefined, {}, member.id, true);
   const summary = attTotals ?? { present: 0, absent: 0, leave: 0 };
 
-  if (!hasStaffRosterAccess(can, scope)) {
+  if (!hasStaffRosterAccess(can)) {
     return (
       <WalletScreen title="Staff Detail" onBack={onBack}>
         <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />

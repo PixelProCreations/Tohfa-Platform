@@ -37,6 +37,7 @@ import { AttendanceStatusText, ChevronRightIcon, ListCard, ListRow } from './Sta
 import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useAttendanceHistoryList, useAttendanceSummary } from './useStaffData';
+import { hasAttendanceAccess } from './staffAccess';
 import { historyRangeDates } from './attendanceDates';
 import { istDay } from '../../../utils/datetime';
 import type { AttendanceHistoryEntry, StaffMonthSummary, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -66,6 +67,7 @@ export interface AttendanceHistoryScreenProps extends WarehouseScreenBaseProps {
 
 export function AttendanceHistoryScreen({
   scope,
+  can,
   onBack,
   onTabChange,
   onNavigateToToday,
@@ -74,6 +76,14 @@ export function AttendanceHistoryScreen({
   entries: customEntries,
   monthSummaries: customMonthSummaries,
 }: AttendanceHistoryScreenProps) {
+  if (!hasAttendanceAccess(can)) {
+    return (
+      <WalletScreen title="Attendance History" onBack={onBack}>
+        <EmptyState title="Attendance not available" subtitle="Your role does not include warehouse attendance." />
+      </WalletScreen>
+    );
+  }
+
   const isMain = isAllWarehouses(scope);
   const [range, setRange] = useState<HistoryRange>('This Month');
   const [groupBy, setGroupBy] = useState<GroupBy>('Date');

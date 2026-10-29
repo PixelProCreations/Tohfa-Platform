@@ -44,32 +44,8 @@ import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useRollCall, useStaffList } from './useStaffData';
 import type { PermissionCheck, StaffMember, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
-/** rbac code for the warehouse roster: admin.staff.list_view (MAIN_WH_ADMIN). */
-export const STAFF_ROSTER_CODE = 'admin.staff.list_view';
-export const LEGACY_STAFF_ROSTER_CODE = 'warehouse.staff.list_view';
-
-/**
- * Access check for the warehouse workforce roster.
- *
- * MAIN_WH_ADMIN holds `admin.staff.list_view` (all warehouses).
- * SUB_WH_ADMIN is scope-locked to its assigned warehouse (`warehouse.own.view`).
- * In addition, legacy/custom tokens holding `warehouse.staff.list_view` or
- * any warehouse-level admin scope are permitted to view the roster.
- */
-export function hasStaffRosterAccess(can: PermissionCheck, scope?: WarehouseScope): boolean {
-  if (can(STAFF_ROSTER_CODE) || can(LEGACY_STAFF_ROSTER_CODE) || can('warehouse.staff.view')) {
-    return true;
-  }
-  // Sub Warehouse Admin holding own-warehouse view or activity view
-  if (can('warehouse.own.view') || can('warehouse.activity.view')) {
-    return true;
-  }
-  // Scope with warehouse assignment (Sub Warehouse scope)
-  if (scope?.warehouseId !== undefined) {
-    return true;
-  }
-  return false;
-}
+import { hasStaffRosterAccess, STAFF_ROSTER_CODE } from './staffAccess';
+export { hasStaffRosterAccess, STAFF_ROSTER_CODE };
 
 type RosterFilter = 'All' | 'Warehouse Staff' | 'Drivers';
 const FILTERS: readonly RosterFilter[] = ['All', 'Warehouse Staff', 'Drivers'];
@@ -193,7 +169,7 @@ export function StaffScreen({
     </WalletScreen>
   );
 
-  if (!hasStaffRosterAccess(can, scope)) {
+  if (!hasStaffRosterAccess(can)) {
     return frame(
       <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />,
     );

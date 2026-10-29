@@ -59,6 +59,7 @@ import {
 import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useRollCall } from './useStaffData';
+import { hasAttendanceAccess } from './staffAccess';
 import type { AttendanceFilter, AttendanceRecord, AttendanceStatus, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 const FILTERS: readonly AttendanceFilter[] = ['All', 'Present', 'Absent', 'On Leave'];
@@ -78,6 +79,7 @@ export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
 
 export function AttendanceScreen({
   scope,
+  can,
   onBack,
   onTabChange,
   initialFilter = 'All',
@@ -87,6 +89,14 @@ export function AttendanceScreen({
   warehouseOptions: customWarehouseOptions,
   records: customRecords,
 }: AttendanceScreenProps) {
+  if (!hasAttendanceAccess(can)) {
+    return (
+      <WalletScreen title="Attendance" onBack={onBack}>
+        <EmptyState title="Attendance not available" subtitle="Your role does not include warehouse attendance." />
+      </WalletScreen>
+    );
+  }
+
   const isMain = isAllWarehouses(scope);
   const [filter, setFilter] = useState<AttendanceFilter>(initialFilter);
   const [searchQuery, setSearchQuery] = useState('');
