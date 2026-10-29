@@ -84,12 +84,18 @@ export function NotificationsFlow({
   onOpenAlertRecord,
 }: NotificationsFlowProps) {
   const [stack, setStack] = useState<NotificationsStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
-  const [localItems, setLocalItems] = useState<readonly NotificationItem[]>([]);
 
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
   const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
-  const { items: liveItems, markOneRead: apiMarkRead, markAllRead: apiMarkAllRead } = useNotificationsList();
+  const {
+    items: liveItems,
+    loading,
+    error,
+    refetch,
+    markOneRead: apiMarkRead,
+    markAllRead: apiMarkAllRead,
+  } = useNotificationsList();
 
   // A host that re-targets the open module restarts the stack, as the other
   // area flows do. Params are compared by value (hosts build them inline).
@@ -100,13 +106,12 @@ export function NotificationsFlow({
   }, [initialScreen, paramsKey]);
 
   const controlled = notifications !== undefined;
-  const items = notifications ?? (liveItems.length > 0 ? liveItems : localItems);
+  const items = notifications ?? liveItems;
   const markAsRead = (id: string) => {
     if (controlled) {
       onMarkAsRead?.(id);
     } else {
       void apiMarkRead(id);
-      setLocalItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     }
   };
   const markAllAsRead = () => {
@@ -114,10 +119,9 @@ export function NotificationsFlow({
       onMarkAllAsRead?.();
     } else {
       void apiMarkAllRead();
-      setLocalItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
     }
   };
-  const clearAll = controlled ? onClearAll : () => setLocalItems([]);
+  const clearAll = controlled ? onClearAll : undefined;
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: NotificationsRouteParams = current.params ?? {};
@@ -146,6 +150,9 @@ export function NotificationsFlow({
           {...common}
           notifications={items}
           initialFilter={params.filter}
+          isLoading={loading}
+          error={error}
+          onRetry={refetch}
           onMarkAsRead={markAsRead}
           onMarkAllAsRead={markAllAsRead}
           onClearAll={clearAll}

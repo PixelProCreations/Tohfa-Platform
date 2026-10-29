@@ -51,23 +51,10 @@ export function inferNotificationCategory(
   body: string,
   data?: Record<string, unknown>,
 ): NotificationCategory {
-  if (data?.category && typeof data.category === 'string') {
-    const cat = data.category.toLowerCase();
-    const valid: NotificationCategory[] = [
-      'shipment',
-      'received',
-      'quality',
-      'mismatch',
-      'inventory',
-      'order',
-      'wallet',
-      'returns',
-      'system',
-      'message',
-    ];
-    if (valid.includes(cat as NotificationCategory)) {
-      return cat as NotificationCategory;
-    }
+  if (data) {
+    if (data.orderId !== undefined || data.orderNumber !== undefined) return 'order';
+    if (data.grnNumber !== undefined) return 'received';
+    if (data.amount !== undefined || data.balance !== undefined) return 'wallet';
   }
 
   const text = `${title ?? ''} ${body}`.toLowerCase();
@@ -107,6 +94,13 @@ export function mapNotificationDtoToItem(dto: NotificationDto): NotificationItem
   const title = dto.title ?? 'Notification';
   const category = inferNotificationCategory(dto.title, dto.body, dto.data);
 
+  let reference: string | undefined = undefined;
+  if (dto.data) {
+    if (typeof dto.data.orderNumber === 'string') reference = dto.data.orderNumber;
+    else if (typeof dto.data.grnNumber === 'string') reference = dto.data.grnNumber;
+    else if (typeof dto.data.reference === 'string') reference = dto.data.reference;
+  }
+
   return {
     id: dto.id,
     source: 'notification' as const,
@@ -115,9 +109,9 @@ export function mapNotificationDtoToItem(dto: NotificationDto): NotificationItem
     message: dto.body,
     timestamp: formatRelativeTimeOrDate(dto.createdAt),
     isRead,
-    tag: typeof dto.data?.tag === 'string' ? dto.data.tag : undefined,
-    reference: typeof dto.data?.reference === 'string' ? dto.data.reference : undefined,
-    target: typeof dto.data?.target === 'string' ? (dto.data.target as NotificationTarget) : undefined,
+    tag: undefined,
+    reference,
+    target: undefined,
     date: formatIstDate(dto.createdAt),
   };
 }

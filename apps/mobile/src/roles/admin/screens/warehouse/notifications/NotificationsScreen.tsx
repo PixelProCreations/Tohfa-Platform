@@ -21,6 +21,7 @@ import {
   matchesFilter,
 } from './NotificationParts';
 import { WarehouseSelector } from '../inventory';
+import { AdminLoadingState, AdminErrorState } from '../shared/AsyncStates';
 import type {
   NotificationFilter,
   NotificationItem,
@@ -63,6 +64,9 @@ export interface NotificationsScreenProps extends WarehouseScreenBaseProps {
   onOpenProfile?: (() => void) | undefined;
   /** Open notification settings preferences */
   onOpenSettings?: (() => void) | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown | undefined;
+  onRetry?: (() => void) | undefined;
 }
 
 export function NotificationsScreen({
@@ -76,6 +80,9 @@ export function NotificationsScreen({
   onOpenTarget,
   initialFilter = 'All',
   onOpenSettings,
+  isLoading,
+  error,
+  onRetry,
 }: NotificationsScreenProps) {
   const [filter, setFilter] = useState<NotificationFilter>(initialFilter);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
@@ -166,6 +173,9 @@ export function NotificationsScreen({
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       >
+        {isLoading ? <AdminLoadingState /> : null}
+        {error ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
+
         {/* Unread banner row */}
         <View style={styles.subHeaderRow}>
           <Text style={styles.unreadCountText}>
