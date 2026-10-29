@@ -3,11 +3,21 @@ import type { OrderSummaryDto } from '../../../api/orders';
 import type { BatchDto } from '../../../api/inventory';
 import type { GoodsReceiptDto } from '../../../api/receiving';
 import type { AdminCustomerListItemDto } from '../../../api/customers';
-// CashTopupSummaryDto has no API definition; use a local shape
-interface CashTopupSummaryDto { id: string; customerId: string; warehouseId: string; amount: unknown; notes?: string | null; collectedAt?: string; }
 import type { ExpenseDto } from '../../../api/finance';
 import type { ReturnSummaryDto } from '../../../api/returns';
+import { formatMoney } from '../orders/mappers';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { adminColors } from '../../../theme';
+
+// CashTopupSummaryDto has no API definition; use a local shape
+interface CashTopupSummaryDto {
+  id: string;
+  customerId: string;
+  warehouseId: string;
+  amount: unknown;
+  notes?: string | null;
+  collectedAt?: string;
+}
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
@@ -35,33 +45,25 @@ export function getIstDateRange(
   return { from: `${year}-${month}-01`, to };
 }
 
-export function formatInr(amount: number | string): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (!Number.isFinite(num)) return '₹0';
-  return `₹${Math.round(num).toLocaleString('en-IN')}`;
-}
+export { formatMoney, formatKg };
 
-export function formatKg(kg: number | string): string {
-  const num = typeof kg === 'string' ? parseFloat(kg) : kg;
-  if (!Number.isFinite(num)) return '0 kg';
-  return `${num.toLocaleString('en-IN')} kg`;
+export function formatInr(amount: number | string | null | undefined): string {
+  if (amount == null) return '—';
+  return formatMoney(String(amount));
 }
 
 export function mapSalesReportToSummary(dto: SalesReportDto) {
-  const totalNum = typeof dto.total === 'string' ? parseFloat(dto.total) : Number(dto.total);
-  const avgNum = typeof dto.averageOrderValue === 'string' ? parseFloat(dto.averageOrderValue) : Number(dto.averageOrderValue);
   return {
-    totalSales: formatInr(totalNum || 0),
-    totalSalesNum: totalNum || 0,
+    totalSales: formatMoney(dto.total),
+    totalSalesNum: Number(dto.total) || 0,
     ordersCount: dto.count,
-    avgOrder: formatInr(avgNum || 0),
-    avgOrderNum: avgNum || 0,
-    itemsSold: dto.count * 3, // derived approximation when item breakdown not provided
+    avgOrder: formatMoney(dto.averageOrderValue),
+    avgOrderNum: Number(dto.averageOrderValue) || 0,
   };
 }
 
 export function mapOrderToReportRow(order: OrderSummaryDto) {
-  const totalNum = typeof order.totalAmount === 'string' ? parseFloat(order.totalAmount) : Number(order.totalAmount);
+  const totalNum = Number(order.totalAmount) || 0;
   const channelMap: Record<string, string> = {
     ONLINE: 'Online',
     MARKET: 'Market',
@@ -69,65 +71,65 @@ export function mapOrderToReportRow(order: OrderSummaryDto) {
     B2B: 'B2B',
     DIRECT: 'Direct',
   };
-  const channel = (order.channel && channelMap[order.channel]) || 'Online';
+  const channel = (order.channel && channelMap[order.channel]) || '—';
 
   return {
     orderId: order.orderNumber,
     date: order.placedAt ? new Date(order.placedAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' }) : '—',
     channel: channel as 'Online' | 'Market' | 'HORECA' | 'B2B',
-    customerRef: `Order #${order.orderNumber.slice(-5)}`,
-    warehouse: order.warehouseId || 'Warehouse',
+    customerRef: `Order #${order.orderNumber}`,
+    warehouse: order.warehouseId || '—',
     warehouseId: order.warehouseId || '',
-    product: 'Assorted Produce',
-    grade: 'Grade 1',
-    quantity: `${order.itemCount || 1} items`,
-    unitPrice: formatInr(totalNum / (order.itemCount || 1)),
-    amount: formatInr(totalNum),
+    product: '—',
+    grade: '—',
+    quantity: order.itemCount ? `${order.itemCount} items` : '—',
+    unitPrice: '—',
+    amount: formatMoney(order.totalAmount),
     amountNum: totalNum,
-    items: order.itemCount || 1,
-    paymentMethod: 'Wallet',
-    paymentStatus: order.paymentStatus === 'PAID' ? 'Completed' : 'Pending',
+    items: order.itemCount || 0,
+    paymentMethod: '—',
+    paymentStatus: order.paymentStatus ? (order.paymentStatus === 'PAID' ? 'Completed' : 'Pending') : '—',
     txnRef: order.id.slice(0, 8).toUpperCase(),
-    invoiceNumber: `INV-${order.orderNumber}`,
-    invoiceStatus: 'Generated',
+    invoiceNumber: '—',
+    invoiceStatus: '—',
     status: order.status === 'DELIVERED' || order.status === 'CONFIRMED' ? 'Completed' : order.status,
   };
 }
 
 export function mapBatchToInventoryReportRow(batch: BatchDto) {
-  const avail = parseFloat(batch.qtyAvailableKg || '0');
-  const res = parseFloat(batch.qtyReservedKg || '0');
+  const availG = parseKgToGrams(batch.qtyAvailableKg || '0') ?? 0;
+  const resG = parseKgToGrams(batch.qtyReservedKg || '0') ?? 0;
   return {
-    productName: batch.cropName || 'Produce',
+    productName: batch.cropName || '—',
     productCode: batch.cropId || batch.id.slice(0, 6).toUpperCase(),
-    crop: batch.cropName || 'Produce',
-    grade: batch.grade === 'GRADE_1' ? 'Grade 1' : batch.grade === 'GRADE_2' ? 'Grade 2' : 'Grade 3',
+    crop: batch.cropName || '—',
+    grade: batch.grade === 'GRADE_1' ? 'Grade 1' : batch.grade === 'GRADE_2' ? 'Grade 2' : batch.grade === 'GRADE_3' ? 'Grade 3' : '—',
     warehouse: batch.warehouseId,
     warehouseId: batch.warehouseId,
-    availableQty: formatKg(avail),
-    reservedQty: formatKg(res),
+    availableQty: formatKg(availG),
+    reservedQty: formatKg(resG),
     allocatedQty: '0 kg',
     consumedQty: '—',
     batchCode: batch.batchCode,
     receivedDate: batch.receivedOn || '—',
     storageLocation: batch.storageLocation || '—',
-    status: (avail > 0 ? 'Available' : 'Out of Stock') as 'Available' | 'Out of Stock' | 'Low Stock',
-    movementReceived: formatKg(avail + res),
-    movementAvailable: formatKg(avail),
-    movementReserved: formatKg(res),
+    status: (availG > 0 ? 'Available' : 'Out of Stock') as 'Available' | 'Out of Stock' | 'Low Stock',
+    movementReceived: formatKg(availG + resG),
+    movementAvailable: formatKg(availG),
+    movementReserved: formatKg(resG),
     movementSold: '0 kg',
     lastVerification: '—',
-    verifiedQty: formatKg(avail),
+    verifiedQty: formatKg(availG),
     difference: '0 kg',
     verificationStatus: 'Reconciled',
   };
 }
 
 export function mapGoodsReceiptToReceivingReportRow(gr: GoodsReceiptDto) {
-  const received = parseFloat(String(gr.grossQtyKg || '0'));
-  const accepted = parseFloat(String(gr.acceptedQtyKg || '0'));
-  const rejected = parseFloat(String(gr.rejectedQtyKg || '0'));
-  const partial = Math.max(0, received - accepted - rejected);
+  const receivedG = parseKgToGrams(String(gr.grossQtyKg || '0')) ?? 0;
+  const acceptedG = parseKgToGrams(String(gr.acceptedQtyKg || '0')) ?? 0;
+  const rejectedG = parseKgToGrams(String(gr.rejectedQtyKg || '0')) ?? 0;
+  const partialG = Math.max(0, receivedG - acceptedG - rejectedG);
 
   return {
     receiptId: gr.grnNumber,
@@ -135,18 +137,18 @@ export function mapGoodsReceiptToReceivingReportRow(gr: GoodsReceiptDto) {
     warehouse: gr.warehouseId,
     warehouseId: gr.warehouseId,
     sourceRef: gr.purchaseOrderId ? `PO #${gr.purchaseOrderId.slice(-6)}` : 'PO',
-    product: gr.cropName || 'Crop',
-    grade: gr.grade === 'GRADE_1' ? 'Grade 1' : gr.grade === 'GRADE_2' ? 'Grade 2' : 'Grade 3',
-    qtyReceived: formatKg(received),
-    qtyNum: received,
-    acceptedNum: accepted,
-    rejectedNum: rejected,
-    partialNum: partial,
+    product: gr.cropName || '—',
+    grade: gr.grade === 'GRADE_1' ? 'Grade 1' : gr.grade === 'GRADE_2' ? 'Grade 2' : gr.grade === 'GRADE_3' ? 'Grade 3' : '—',
+    qtyReceived: formatKg(receivedG),
+    qtyNum: receivedG / 1000,
+    acceptedNum: acceptedG / 1000,
+    rejectedNum: rejectedG / 1000,
+    partialNum: partialG / 1000,
     qualityStatus: (gr.status === 'ACCEPTED' ? 'Accepted' : gr.status === 'REJECTED' ? 'Rejected' : 'Partial') as 'Accepted' | 'Partial' | 'Rejected',
-    acceptedQty: formatKg(accepted),
-    partialQty: formatKg(partial),
-    rejectedQty: formatKg(rejected),
-    qcNotes: gr.rejectionReason || 'QC check completed.',
+    acceptedQty: formatKg(acceptedG),
+    partialQty: formatKg(partialG),
+    rejectedQty: formatKg(rejectedG),
+    qcNotes: gr.rejectionReason || '—',
     timeline: [
       { title: 'Goods Received', time: gr.receivedAt ? new Date(gr.receivedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }) : '—' },
       { title: 'QC Completed', time: '—' },
@@ -157,37 +159,38 @@ export function mapGoodsReceiptToReceivingReportRow(gr: GoodsReceiptDto) {
 export function mapCustomerToReportRow(cust: AdminCustomerListItemDto) {
   return {
     id: cust.id,
-    name: cust.name || 'Customer',
-    channel: 'Online',
-    warehouse: 'Warehouse',
-    warehouseId: '',
-    orders: 1,
-    completedOrders: 1,
+    name: cust.name || '—',
+    channel: '—',
+    warehouse: '—',
+    warehouseId: cust.preferredWarehouseId || '',
+    orders: cust.totalOrders || 0,
+    completedOrders: cust.totalOrders || 0,
     cancelledOrders: 0,
-    lastOrder: cust.createdAt ? new Date(cust.createdAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+    lastOrder: cust.lastActivityAt ? new Date(cust.lastActivityAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     totalSpent: '—',
-    mobile: cust.mobile || cust.mobileMasked || '—',
-    frequency: 'Regular',
+    mobile: cust.mobileMasked || cust.mobile || '—',
+    frequency: '—',
     orderHistory: [],
   };
 }
 
 export function mapCashTopupToReportRow(topup: CashTopupSummaryDto) {
-  const amt = typeof topup.amount === 'string' ? parseFloat(topup.amount) : Number(topup.amount);
+  const amtStr = String(topup.amount ?? '0');
+  const amtNum = Number(topup.amount) || 0;
   return {
     id: topup.id,
     customerId: topup.customerId,
     customer: `Customer ${topup.customerId} · Cash`,
     warehouse: topup.warehouseId,
     warehouseId: topup.warehouseId,
-    amount: formatInr(amt),
-    amountNum: amt,
+    amount: formatMoney(amtStr),
+    amountNum: amtNum,
     paymentMethod: 'Cash',
-    auth: 'SWA',
-    processedBy: 'SWA',
+    auth: '—',
+    processedBy: '—',
     status: 'Completed',
     referenceId: topup.id.slice(0, 10),
-    cashTagFiscalRef: topup.notes || 'FT-CASH-TOPUP',
+    cashTagFiscalRef: topup.notes || '—',
     time: topup.collectedAt ? new Date(topup.collectedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }) : '—',
     dateTime: topup.collectedAt ? new Date(topup.collectedAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—',
     period: 'Today',
@@ -195,19 +198,20 @@ export function mapCashTopupToReportRow(topup: CashTopupSummaryDto) {
 }
 
 export function mapExpenseToReportRow(exp: ExpenseDto) {
-  const amt = Number(exp.amount);
+  const amtStr = String(exp.amount ?? '0');
+  const amtNum = Number(exp.amount) || 0;
   return {
     id: exp.id,
     category: exp.category || 'General',
     voucher: `VCH-${exp.id.slice(-6)}`,
-    amount: formatInr(amt),
-    amountNum: amt,
+    amount: formatMoney(amtStr),
+    amountNum: amtNum,
     status: (exp.status === 'RECORDED' ? 'Recorded' : exp.status) as string,
     date: exp.expenseDate,
     paymentMethod: exp.paymentMethod === 'CASH' ? 'Cash' : exp.paymentMethod === 'UPI' ? 'UPI' : 'Bank',
     vendorPayee: exp.vendor || '—',
     description: exp.description || '—',
-    createdBy: exp.recordedBy || 'Admin',
+    createdBy: exp.recordedBy || '—',
     warehouse: exp.warehouseId,
     warehouseId: exp.warehouseId,
     timeline: [
@@ -223,15 +227,15 @@ export function mapReturnToReportRow(ret: ReturnSummaryDto) {
     orderId: ret.orderId,
     order: `Order ${ret.orderId}`,
     customer: ret.customerId,
-    product: 'Produce',
-    affectedQty: '1',
-    affectedQuantity: '1 KG',
-    category: 'Damaged',
+    product: '—',
+    affectedQty: '—',
+    affectedQuantity: '—',
+    category: '—',
     customerPhotos: '0',
-    issueDescription: ret.reason,
+    issueDescription: ret.reason || '—',
     inspectionStatus: ret.status === 'PENDING' ? 'Pending' : 'Completed',
     inspectionResult: ret.status === 'REJECTED' ? 'Rejected' : 'Confirmed',
-    inspectionNotes: ret.note || 'Inspected return request',
+    inspectionNotes: ret.note || '—',
     decision: ret.status === 'APPROVED' || ret.status === 'REFUNDED' ? 'Approved' : ret.status,
     refundStatus: ret.status === 'REFUNDED' ? 'Completed' : 'Pending',
     refundMethod: 'TOHFA Wallet',

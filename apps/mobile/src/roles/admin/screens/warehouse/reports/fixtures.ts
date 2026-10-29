@@ -6,7 +6,6 @@
  * screens hold no data.
  */
 import type { PermissionCheck, WarehouseScope } from '../finance-expenses';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup/fixtures';
 import type { ReportCard, ReportSection } from './types';
 
 /**
@@ -22,11 +21,9 @@ export const REPORT_CODES = {
   returns: 'rma.request.process',
   customers: 'customer.list.view',
   inventory: 'inventory.batch.view',
+  receiving: 'inventory.goods_receipt.record',
   export: 'report.export.file',
 } as const;
-
-/** The four warehouses (seed 001) offered by the Main all-warehouses selector. */
-export const REPORT_WAREHOUSES: readonly WarehouseScope[] = WALLET_WAREHOUSES;
 
 /**
  * The hub's report cards. Receiving is gated like the receiving history view
@@ -49,7 +46,7 @@ export const REPORT_SECTIONS: readonly ReportSection[] = [
   {
     category: 'WAREHOUSE',
     reports: [
-      { title: 'Receiving Report', code: 'RECEIVING_REPORT', subtitle: 'Goods receipts, QC status & quantities', permission: REPORT_CODES.inventory },
+      { title: 'Receiving Report', code: 'RECEIVING_REPORT', subtitle: 'Goods receipts, QC status & quantities', permission: REPORT_CODES.receiving },
     ],
   },
   {

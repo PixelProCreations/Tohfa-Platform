@@ -44,6 +44,8 @@ import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { AdminEmptyState } from '../shared/AsyncStates';
+import { formatMoney, formatKg } from './mappers';
 import {
   useHubKpis,
   useSalesReport,
@@ -52,6 +54,8 @@ import {
   useReturnsReport,
   useCustomersReport,
   useCashTopupsReport,
+  useRevenueReportData,
+  useExpenseReportData,
 } from './useReportsData';
 import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, reportVisible } from './fixtures';
 import type { ReportCode, ReportScreenType } from './types';
@@ -250,8 +254,10 @@ export function ReportsScreen({
   const { items: inventoryRows } = useInventoryReport(scope, effectiveWarehouseId);
   const { items: receivingRows } = useReceivingReport(scope, effectiveWarehouseId);
   const { items: customerRows } = useCustomersReport(scope, effectiveWarehouseId);
-  const { items: topupRows } = useCashTopupsReport(scope, effectiveWarehouseId);
-  const { items: returnRows } = useReturnsReport(scope, effectiveWarehouseId);
+  const { items: topupRows, report: topupReport } = useCashTopupsReport(scope, effectiveWarehouseId, topupPeriod);
+  const { items: returnRows, report: returnReport } = useReturnsReport(scope, effectiveWarehouseId, timeFilter);
+  const { items: revenueRows } = useRevenueReportData(scope, effectiveWarehouseId, timeFilter);
+  const { items: expenseRows } = useExpenseReportData(scope, effectiveWarehouseId, timeFilter);
 
   const openFilterModal = () => {
     setTempReportWarehouseId(reportWarehouseId);
@@ -267,161 +273,28 @@ export function ReportsScreen({
   };
 
   // Selected Order for Sales Report Details
-  const [selectedOrder, setSelectedOrder] = useState({
-    orderId: 'ORD-10284',
-    date: '25 Sep, 11:20 AM',
-    channel: 'Online',
-    customerRef: 'C1024',
-    warehouse: rowWarehouse,
-    product: 'Tomato',
-    grade: 'Grade 1',
-    quantity: '4 KG',
-    unitPrice: '₹100',
-    amount: '₹1,240',
-    paymentMethod: 'Wallet',
-    paymentStatus: 'Completed',
-    txnRef: 'TXN-882145',
-    invoiceNumber: 'INV-2026-010284',
-    invoiceStatus: 'Generated',
-  });
+  const [selectedOrder, setSelectedOrder] = useState<any | undefined>(undefined);
 
   // Selected Inventory Item Details
-  const [selectedInventoryItem, setSelectedInventoryItem] = useState({
-    productName: 'Carrot',
-    productCode: 'CRT-001',
-    crop: 'Carrot',
-    grade: 'Grade 1',
-    availableQty: '420 kg',
-    reservedQty: '35 kg',
-    allocatedQty: '20 kg',
-    consumedQty: '—',
-    batchCode: 'BAT-CR-0245',
-    receivedDate: '23 Sep 2026',
-    storageLocation: 'Cold Storage A',
-    status: 'Available',
-    movementReceived: '475 kg',
-    movementAvailable: '420 kg',
-    movementReserved: '35 kg',
-    movementSold: '20 kg',
-    lastVerification: '20 Sep 2026',
-    verifiedQty: '418 kg',
-    difference: '-2 kg',
-    verificationStatus: 'Reconciled',
-  });
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<any | undefined>(undefined);
 
   // Selected Receiving Item Details
-  const [selectedReceivingItem, setSelectedReceivingItem] = useState({
-    receiptId: 'GR-00245',
-    dateTime: '25 Sep, 10:20 AM',
-    warehouse: rowWarehouse,
-    sourceRef: 'Farmer #FRM-0842',
-    product: 'Carrot',
-    grade: 'Grade 1',
-    qtyReceived: '420 kg',
-    qualityStatus: 'Accepted',
-    acceptedQty: '400 kg',
-    partialQty: '15 kg',
-    rejectedQty: '5 kg',
-    qcNotes: 'Minor surface blemish on rejected portion.',
-    timeline: [
-      { title: 'Goods Received', time: '10:20 AM' },
-      { title: 'QC Started', time: '10:25 AM' },
-      { title: 'QC Completed', time: '10:40 AM' },
-    ],
-  });
+  const [selectedReceivingItem, setSelectedReceivingItem] = useState<any | undefined>(undefined);
 
   // Selected Customer Item Details
-  const [selectedCustomerItem, setSelectedCustomerItem] = useState({
-    customerId: 'CUS-10284',
-    name: 'Customer #10284',
-    contact: '+91 XXXXX XXXXX',
-    category: 'Online',
-    totalOrders: '12',
-    completedOrders: '11',
-    cancelledOrders: '1',
-    totalPurchaseValue: '₹8,450',
-    orderHistory: [
-      { orderId: 'ORD-1001', amount: '₹850', status: 'Completed' },
-      { orderId: 'ORD-1008', amount: '₹1,240', status: 'Completed' },
-    ],
-    orderFrequency: '~2/month',
-    purchaseAmount: '₹8,450',
-    lastActivity: '24 Sep 2026',
-  });
+  const [selectedCustomerItem, setSelectedCustomerItem] = useState<any | undefined>(undefined);
 
   // Selected Revenue Item Details
-  const [selectedRevenueItem, setSelectedRevenueItem] = useState({
-    revenueId: 'REV-000845',
-    orderId: 'ORD-10284',
-    invoice: 'INV-2026-000845',
-    channel: 'Market Sale',
-    product: 'Tomato',
-    quantity: '3 KG',
-    amount: '₹3,450',
-    paymentMethod: 'Wallet',
-    status: 'Completed',
-    dateTime: '25 Sep, 11:20 AM',
-    warehouse: rowWarehouse,
-  });
+  const [selectedRevenueItem, setSelectedRevenueItem] = useState<any | undefined>(undefined);
 
   // Selected Cash Top-Up Details
-  const [selectedCashTopupItem, setSelectedCashTopupItem] = useState({
-    topupId: 'TOP-002845',
-    customerId: 'CUS-1024',
-    amount: '₹2,000',
-    paymentMethod: 'Cash',
-    dateTime: '25 Sep, 10:24 AM',
-    processedBy: 'SWA – Suresh',
-    status: 'Completed',
-    referenceId: 'TOP-002845',
-    cashTagFiscalRef: 'FT-2026-004512',
-  });
+  const [selectedCashTopupItem, setSelectedCashTopupItem] = useState<any | undefined>(undefined);
 
   // Selected Expense Details
-  const [selectedExpenseItem, setSelectedExpenseItem] = useState({
-    expenseId: 'EXP-001245',
-    category: 'Transport',
-    amount: '₹2,400',
-    date: '25 Sep 2026',
-    paymentMethod: 'Cash',
-    vendorPayee: 'Local Transport Co.',
-    voucher: 'VCH-000821',
-    status: 'Recorded',
-    description: 'Transport from the collection point to the warehouse',
-    createdBy: 'SWA – Suresh',
-    timeline: [
-      { title: 'Expense Created' },
-      { title: 'Recorded' },
-    ],
-  });
+  const [selectedExpenseItem, setSelectedExpenseItem] = useState<any | undefined>(undefined);
 
   // Selected Return Item Details
-  const [selectedReturnItem, setSelectedReturnItem] = useState({
-    rmaId: 'RMA-00245',
-    orderId: 'ORD-10284',
-    customer: 'Ravi Kumar',
-    product: 'Tomato',
-    affectedQuantity: '2 KG',
-    issueCategory: 'Damaged',
-    customerPhotos: '2',
-    issueDescription: 'Customer reported damaged produce after pickup.',
-    inspectionStatus: 'Completed',
-    inspectionResult: 'Confirmed',
-    inspectionNotes: '2 KG received, 0.5 KG visibly damaged.',
-    decision: 'Approved',
-    refundStatus: 'Completed',
-    refundMethod: 'TOHFA Wallet',
-    refundAmount: '₹200',
-    resolutionDate: '25 Sep 2026',
-    timeline: [
-      { title: 'Issue Raised' },
-      { title: 'RMA Created' },
-      { title: 'Inspection' },
-      { title: 'Decision' },
-      { title: 'Refund / Resolution' },
-      { title: 'Completed' },
-    ],
-  });
+  const [selectedReturnItem, setSelectedReturnItem] = useState<any | undefined>(undefined);
 
 
   const handleReportClick = (code: ReportCode) => {
@@ -461,11 +334,7 @@ export function ReportsScreen({
       setCurrentScreen('returns_report');
       setSearchQuery('');
     } else {
-      if (onSelectReport) {
-        onSelectReport(code);
-      } else {
-        Alert.alert('Report', `Opening report ${code} for ${warehouseLabel}...`);
-      }
+      onSelectReport?.(code);
     }
   };
 
@@ -778,23 +647,17 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL SALES</Text>
               <Text style={styles.kpiValue}>
-                {`₹${totalSalesAmount.toLocaleString('en-IN')}`}
+                {salesData?.summary?.totalSales ?? formatMoney(String(totalSalesAmount))}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ORDERS</Text>
-              <Text style={styles.kpiValue}>{totalOrdersCount}</Text>
-            </View>
-            <View style={styles.kpiCard}>
-              <Text style={styles.kpiLabel}>ITEMS SOLD</Text>
-              <Text style={styles.kpiValue}>{totalItemsCount}</Text>
+              <Text style={styles.kpiValue}>{salesData?.summary?.ordersCount ?? totalOrdersCount}</Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG ORDER</Text>
               <Text style={styles.kpiValue}>
-                {filteredSales.length > 0
-                  ? `₹${Math.round(totalSalesAmount / filteredSales.length).toLocaleString('en-IN')}`
-                  : '₹0'}
+                {salesData?.summary?.avgOrder ?? (filteredSales.length > 0 ? formatMoney(String(Math.round(totalSalesAmount / filteredSales.length))) : '—')}
               </Text>
             </View>
           </View>
@@ -924,6 +787,26 @@ export function ReportsScreen({
   // SCREEN: SALES ORDER DETAILS (M12-S02-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'sales_order_detail') {
+    if (!selectedOrder) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('sales_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>{isMain ? 'Sales Order Detail' : 'Sales detail'}</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No order selected" subtitle="Select an order from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1100,7 +983,7 @@ export function ReportsScreen({
       <InvoiceDetailScreen
         scope={scope}
         can={can}
-        invoiceId={selectedOrder.invoiceNumber || 'INV-2026-010284'}
+        invoiceId={selectedOrder?.invoiceNumber || ''}
         onBack={() => setCurrentScreen('sales_order_detail')}
       />
     );
@@ -1110,128 +993,12 @@ export function ReportsScreen({
   // SCREEN: ORDERS LIST (M12-S02-ORDERS)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'orders_list') {
-    const ordersData = [
-      {
-        orderId: 'ORD-1024',
-        customerName: 'Arun Kumar',
-        itemsCount: '3 Items',
-        amount: '₹850',
-        type: 'Pickup',
-        time: 'Today · 10:32 AM',
-        status: 'Confirmed',
-        statusBg: adminColors.warning.bg,
-        statusColor: adminColors.warning.text,
-        channel: 'Market',
-        customerRef: 'C1024',
-        warehouse: rowWarehouse,
-        product: 'Tomato',
-        grade: 'Grade 1',
-        quantity: '3 KG',
-        unitPrice: '₹100',
-        paymentMethod: 'Wallet',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882145',
-        invoiceNumber: 'INV-2026-01024',
-        invoiceStatus: 'Generated',
-      },
-      {
-        orderId: 'ORD-1023',
-        customerName: 'Priya',
-        itemsCount: '5 Items',
-        amount: '₹1,240',
-        type: 'Pickup',
-        time: 'Today · 09:45 AM',
-        status: 'Ready for Pickup',
-        statusBg: adminColors.success.bg,
-        statusColor: adminColors.success.text,
-        channel: 'Online',
-        customerRef: 'C1023',
-        warehouse: rowWarehouse,
-        product: 'Capsicum & Beans',
-        grade: 'Grade 1',
-        quantity: '5 KG',
-        unitPrice: '₹120',
-        paymentMethod: 'Wallet',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882144',
-        invoiceNumber: 'INV-2026-01023',
-        invoiceStatus: 'Generated',
-      },
-      {
-        orderId: 'ORD-1022',
-        customerName: 'Ganesh K.',
-        itemsCount: '2 Items',
-        amount: '₹420',
-        type: 'Pickup',
-        time: 'Today · 09:10 AM',
-        status: 'Packing',
-        statusBg: adminColors.warning.bg,
-        statusColor: adminColors.warning.text,
-        channel: 'Market',
-        customerRef: 'C1022',
-        warehouse: rowWarehouse,
-        product: 'Potato',
-        grade: 'Grade 1',
-        quantity: '2 KG',
-        unitPrice: '₹210',
-        paymentMethod: 'Cash',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882143',
-        invoiceNumber: 'INV-2026-01022',
-        invoiceStatus: 'Generated',
-      },
-      {
-        orderId: 'ORD-1021',
-        customerName: 'Divya R.',
-        itemsCount: '4 Items',
-        amount: '₹960',
-        type: 'Delivery',
-        time: 'Today · 08:55 AM',
-        status: 'Confirmed',
-        statusBg: adminColors.warning.bg,
-        statusColor: adminColors.warning.text,
-        channel: 'Online',
-        customerRef: 'C1021',
-        warehouse: rowWarehouse,
-        product: 'Onion & Garlic',
-        grade: 'Grade 1',
-        quantity: '4 KG',
-        unitPrice: '₹240',
-        paymentMethod: 'Wallet',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882142',
-        invoiceNumber: 'INV-2026-01021',
-        invoiceStatus: 'Generated',
-      },
-      {
-        orderId: 'ORD-1018',
-        customerName: 'Meena S.',
-        itemsCount: '2 Items',
-        amount: '₹310',
-        type: 'Pickup',
-        time: 'Yesterday · 4:20 PM',
-        status: 'Quantity Issue',
-        statusBg: adminColors.danger.bg,
-        statusColor: adminColors.danger.text,
-        channel: 'Market',
-        customerRef: 'C1018',
-        warehouse: rowWarehouse,
-        product: 'Carrot',
-        grade: 'Grade 2',
-        quantity: '2 KG',
-        unitPrice: '₹155',
-        paymentMethod: 'Wallet',
-        paymentStatus: 'Completed',
-        txnRef: 'TXN-882141',
-        invoiceNumber: 'INV-2026-01018',
-        invoiceStatus: 'Generated',
-      },
-    ];
+    const ordersData = salesData?.orders ?? [];
 
     const filteredOrders = ordersData.filter((o) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
-      return o.orderId.toLowerCase().includes(q) || o.customerName.toLowerCase().includes(q);
+      return o.orderId.toLowerCase().includes(q) || (o.customerRef && o.customerRef.toLowerCase().includes(q));
     });
 
     return (
@@ -1244,27 +1011,19 @@ export function ReportsScreen({
             <View style={styles.headerLeftGroup}>
               <TouchableOpacity
                 style={styles.backButton}
-                onPress={() => setCurrentScreen('sales_order_detail')}
+                onPress={() => setCurrentScreen('sales_report')}
                 activeOpacity={0.75}
               >
                 <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <Text style={styles.headerTitleText}>Orders</Text>
             </View>
-
-            <TouchableOpacity
-              style={styles.headerBellBtn}
-              onPress={() => Alert.alert('Filter', 'Filter order list')}
-              activeOpacity={0.8}
-            >
-              <FilterIcon size={18} color={adminColors.onBrand} />
-            </TouchableOpacity>
           </View>
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Orders Count */}
-          <Text style={styles.ordersCountText}>24 Orders</Text>
+          <Text style={styles.ordersCountText}>{filteredOrders.length} Orders</Text>
 
           {/* Search Bar */}
           <View style={styles.searchBarWrap}>
@@ -1287,50 +1046,30 @@ export function ReportsScreen({
                 style={styles.orderListCard}
                 activeOpacity={0.75}
                 onPress={() => {
-                  setSelectedOrder({
-                    orderId: ord.orderId,
-                    date: ord.time,
-                    channel: ord.channel,
-                    customerRef: ord.customerRef,
-                    warehouse: ord.warehouse,
-                    product: ord.product,
-                    grade: ord.grade,
-                    quantity: ord.quantity,
-                    unitPrice: ord.unitPrice,
-                    amount: ord.amount,
-                    paymentMethod: ord.paymentMethod,
-                    paymentStatus: ord.paymentStatus,
-                    txnRef: ord.txnRef,
-                    invoiceNumber: ord.invoiceNumber,
-                    invoiceStatus: ord.invoiceStatus,
-                  });
+                  setSelectedOrder(ord);
                   setCurrentScreen('sales_order_detail');
                 }}
               >
                 <View style={styles.orderCardTopRow}>
                   <Text style={styles.orderCardId}>{ord.orderId}</Text>
-                  <View style={[styles.orderStatusBadge, { backgroundColor: ord.statusBg }]}>
-                    <Text style={[styles.orderStatusText, { color: ord.statusColor }]}>{ord.status}</Text>
+                  <View style={[styles.orderStatusBadge, { backgroundColor: adminColors.brandTint }]}>
+                    <Text style={[styles.orderStatusText, { color: adminColors.brandDeep }]}>{ord.status}</Text>
                   </View>
                 </View>
 
-                <Text style={styles.orderCustomerName}>{ord.customerName}</Text>
+                <Text style={styles.orderCustomerName}>{ord.customerRef || '—'}</Text>
 
                 <View style={styles.orderItemsPriceRow}>
-                  <Text style={styles.orderItemsCount}>{ord.itemsCount}</Text>
+                  <Text style={styles.orderItemsCount}>{ord.quantity}</Text>
                   <Text style={styles.orderAmountBold}>{ord.amount}</Text>
                 </View>
 
                 <View style={styles.orderMetaRow}>
                   <View style={styles.orderTypeGroup}>
-                    {ord.type === 'Pickup' ? (
-                      <StorePickupIcon size={14} color={adminColors.muted} />
-                    ) : (
-                      <DeliveryTruckIcon size={14} color={adminColors.muted} />
-                    )}
-                    <Text style={styles.orderTypeText}>{ord.type}</Text>
+                    <StorePickupIcon size={14} color={adminColors.muted} />
+                    <Text style={styles.orderTypeText}>{ord.channel}</Text>
                   </View>
-                  <Text style={styles.orderTimeText}>{ord.time}</Text>
+                  <Text style={styles.orderTimeText}>{ord.date}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -1514,6 +1253,26 @@ export function ReportsScreen({
   // SCREEN: INVENTORY ITEM DETAILS (M12-S03-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'inventory_item_detail') {
+    if (!selectedInventoryItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('inventory_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Inventory Item Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No inventory item selected" subtitle="Select an item from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1850,6 +1609,26 @@ export function ReportsScreen({
   // SCREEN: RECEIVING ITEM DETAILS (M12-S04-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'receiving_item_detail') {
+    if (!selectedReceivingItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('receiving_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Receiving Item Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No receiving item selected" subtitle="Select an item from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -1951,7 +1730,7 @@ export function ReportsScreen({
           <Text style={styles.detailSectionTitle}>Timeline</Text>
           <View style={styles.detailCard}>
             <View style={styles.timelineList}>
-              {selectedReceivingItem.timeline.map((step, idx) => (
+              {selectedReceivingItem.timeline?.map((step: any, idx: number) => (
                 <View key={step.title} style={styles.timelineItem}>
                   <View style={styles.timelineLeftCol}>
                     <TimelineDotIcon />
@@ -2130,6 +1909,26 @@ export function ReportsScreen({
   // SCREEN: CUSTOMER ITEM DETAILS (M12-S05-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'customer_item_detail') {
+    if (!selectedCustomerItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('customer_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Customer Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No customer selected" subtitle="Select a customer from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -2206,7 +2005,7 @@ export function ReportsScreen({
           {/* Order History Section */}
           <Text style={styles.detailSectionTitle}>Order History</Text>
           <View style={styles.detailCard}>
-            {selectedCustomerItem.orderHistory.map((item, idx) => (
+            {selectedCustomerItem.orderHistory.map((item: any, idx: number) => (
               <React.Fragment key={item.orderId}>
                 <View style={styles.historyRow}>
                   <Text style={styles.historyOrderId}>{item.orderId}</Text>
@@ -2295,26 +2094,26 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TODAY'S TOP-UPS</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${topupsSum.toLocaleString('en-IN')}` : '₹18,500'}
+                {topupReport ? formatMoney(topupReport.total) : formatMoney(String(topupsSum))}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TRANSACTIONS</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? filteredTopups.length : 26}
+                {topupReport ? topupReport.count : filteredTopups.length}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG TOP-UP</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId && filteredTopups.length > 0
-                  ? `₹${Math.round(topupsSum / filteredTopups.length).toLocaleString('en-IN')}`
-                  : '₹712'}
+                {filteredTopups.length > 0
+                  ? formatMoney(String(Math.round(topupsSum / filteredTopups.length)))
+                  : (topupReport && topupReport.count > 0 ? formatMoney(String(Math.round(Number(topupReport.total) / topupReport.count))) : '—')}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>THIS MONTH</Text>
-              <Text style={styles.kpiValue}>₹2,84,500</Text>
+              <Text style={styles.kpiValue}>{topupReport ? formatMoney(topupReport.total) : '—'}</Text>
             </View>
           </View>
 
@@ -2407,6 +2206,26 @@ export function ReportsScreen({
   // SCREEN: CASH TOP-UP ITEM DETAILS (M12-S06-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'cash_topup_item_detail') {
+    if (!selectedCashTopupItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('cash_topup_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Top-Up Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No top-up selected" subtitle="Select a top-up from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -2493,8 +2312,7 @@ export function ReportsScreen({
   // SCREEN 6: REVENUE REPORT (M12-S08)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'revenue_report') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const REVENUE_DATA: any[] = [];
+    const REVENUE_DATA = revenueRows;
 
     const filteredRevenue = REVENUE_DATA.filter((item) => {
       if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
@@ -2512,9 +2330,11 @@ export function ReportsScreen({
 
     const revSum = filteredRevenue.reduce((sum, item) => sum + item.amountNum, 0);
 
+    const onlineSum = filteredRevenue.filter((i) => i.type === 'Online Order').reduce((s, i) => s + i.amountNum, 0);
+    const marketSum = filteredRevenue.filter((i) => i.type === 'Market Sale').reduce((s, i) => s + i.amountNum, 0);
     const REVENUE_SOURCES = [
-      { channel: 'Online Orders', value: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredRevenue.filter((i) => i.type === 'Online Order').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹2,80,000' },
-      { channel: 'Market Sales', value: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredRevenue.filter((i) => i.type === 'Market Sale').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹2,40,000' },
+      { channel: 'Online Orders', value: formatMoney(String(onlineSum)) },
+      { channel: 'Market Sales', value: formatMoney(String(marketSum)) },
       { channel: 'HORECA', value: '—' },
       { channel: 'B2B', value: '—' },
     ];
@@ -2545,27 +2365,27 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL REVENUE</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${revSum.toLocaleString('en-IN')}` : '₹5,84,200'}
+                {formatMoney(String(revSum))}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TODAY</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${revSum.toLocaleString('en-IN')}` : '₹24,850'}
+                {formatMoney(String(revSum))}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>ORDERS</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? filteredRevenue.length : 284}
+                {filteredRevenue.length}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG SALE</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId && filteredRevenue.length > 0
-                  ? `₹${Math.round(revSum / filteredRevenue.length).toLocaleString('en-IN')}`
-                  : '₹2,057'}
+                {filteredRevenue.length > 0
+                  ? formatMoney(String(Math.round(revSum / filteredRevenue.length)))
+                  : '—'}
               </Text>
             </View>
           </View>
@@ -2681,6 +2501,26 @@ export function ReportsScreen({
   // SCREEN: REVENUE ITEM DETAILS (M12-S08-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'revenue_item_detail') {
+    if (!selectedRevenueItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('revenue_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Revenue Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No revenue item selected" subtitle="Select a revenue record from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -2781,11 +2621,10 @@ export function ReportsScreen({
   // SCREEN 7: EXPENSE REPORT (M12-S07)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'expense_report') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const EXPENSE_DATA: any[] = [];
+    const EXPENSE_DATA = expenseRows;
 
     const filteredExpenses = EXPENSE_DATA.filter((item) => {
-      if (!matchWarehouse(item.warehouse, item.warehouseId)) return false;
+      if (!matchWarehouse(item.warehouse ?? undefined, item.warehouseId ?? undefined)) return false;
       if (expenseCategory !== 'All' && item.category !== expenseCategory) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
@@ -2794,18 +2633,18 @@ export function ReportsScreen({
         item.voucher.toLowerCase().includes(q) ||
         item.category.toLowerCase().includes(q) ||
         item.vendorPayee.toLowerCase().includes(q) ||
-        item.warehouse.toLowerCase().includes(q)
+        (item.warehouse ?? '').toLowerCase().includes(q)
       );
     });
 
     const expSum = filteredExpenses.reduce((sum, item) => sum + item.amountNum, 0);
 
     const BREAKDOWN_CATEGORIES = [
-      { name: 'Transport', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Transport').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹42,500' },
-      { name: 'Loading', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Loading').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹18,400' },
-      { name: 'Unloading', amount: '₹12,600' },
-      { name: 'Maintenance', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Maintenance').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹21,800' },
-      { name: 'Other', amount: isSpecificWarehouseChosen || reportWarehouseId ? `₹${filteredExpenses.filter((i) => i.category === 'Other').reduce((s, i) => s + i.amountNum, 0).toLocaleString('en-IN')}` : '₹53,300' },
+      { name: 'Transport', amount: formatMoney(String(filteredExpenses.filter((i) => i.category === 'Transport').reduce((s, i) => s + i.amountNum, 0))) },
+      { name: 'Loading', amount: formatMoney(String(filteredExpenses.filter((i) => i.category === 'Loading').reduce((s, i) => s + i.amountNum, 0))) },
+      { name: 'Unloading', amount: formatMoney(String(filteredExpenses.filter((i) => i.category === 'Unloading').reduce((s, i) => s + i.amountNum, 0))) },
+      { name: 'Maintenance', amount: formatMoney(String(filteredExpenses.filter((i) => i.category === 'Maintenance').reduce((s, i) => s + i.amountNum, 0))) },
+      { name: 'Other', amount: formatMoney(String(filteredExpenses.filter((i) => i.category === 'Other').reduce((s, i) => s + i.amountNum, 0))) },
     ];
 
     return (
@@ -2834,29 +2673,27 @@ export function ReportsScreen({
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL EXPENSES</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? `₹${expSum.toLocaleString('en-IN')}` : '₹1,48,600'}
+                {formatMoney(String(expSum))}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TRANSACTIONS</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId ? filteredExpenses.length : 82}
+                {filteredExpenses.length}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>AVG EXPENSE</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId && filteredExpenses.length > 0
-                  ? `₹${Math.round(expSum / filteredExpenses.length).toLocaleString('en-IN')}`
-                  : '₹1,812'}
+                {filteredExpenses.length > 0
+                  ? formatMoney(String(Math.round(expSum / filteredExpenses.length)))
+                  : '—'}
               </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>PENDING</Text>
               <Text style={styles.kpiValue}>
-                {isSpecificWarehouseChosen || reportWarehouseId
-                  ? filteredExpenses.filter((i) => i.status === 'Pending').length
-                  : 8}
+                {filteredExpenses.filter((i) => i.status === 'Pending').length}
               </Text>
             </View>
           </View>
@@ -2969,6 +2806,26 @@ export function ReportsScreen({
   // SCREEN: EXPENSE ITEM DETAILS (M12-S07-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'expense_item_detail') {
+    if (!selectedExpenseItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('expense_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Expense Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No expense selected" subtitle="Select an expense from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -3052,7 +2909,7 @@ export function ReportsScreen({
           <Text style={styles.detailSectionTitle}>Timeline</Text>
           <View style={[styles.detailCard, { paddingVertical: 14 }]}>
             <View style={styles.timelineList}>
-              {selectedExpenseItem.timeline.map((step, idx) => (
+              {selectedExpenseItem.timeline.map((step: any, idx: number) => (
                 <View key={step.title} style={[styles.timelineItem, idx === selectedExpenseItem.timeline.length - 1 ? { minHeight: 28 } : null]}>
                   <View style={styles.timelineLeftCol}>
                     <TimelineDotIcon />
@@ -3598,17 +3455,12 @@ export function ReportsScreen({
                   <View style={styles.detailCard}>
                     <View style={styles.previewMetricRow}>
                       <Text style={styles.previewMetricLabel}>Total Sales</Text>
-                      <Text style={styles.previewMetricVal}>₹5,84,200</Text>
+                      <Text style={styles.previewMetricVal}>{salesData?.summary?.totalSales ?? '—'}</Text>
                     </View>
                     <View style={styles.exportRowDivider} />
                     <View style={styles.previewMetricRow}>
                       <Text style={styles.previewMetricLabel}>Orders</Text>
-                      <Text style={styles.previewMetricVal}>842</Text>
-                    </View>
-                    <View style={styles.exportRowDivider} />
-                    <View style={styles.previewMetricRow}>
-                      <Text style={styles.previewMetricLabel}>Items</Text>
-                      <Text style={styles.previewMetricVal}>4,850</Text>
+                      <Text style={styles.previewMetricVal}>{salesData?.summary?.ordersCount !== undefined ? String(salesData.summary.ordersCount) : '—'}</Text>
                     </View>
                   </View>
 
@@ -3673,6 +3525,8 @@ export function ReportsScreen({
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'summary_report') {
     const isDaily = summaryMode === 'Daily';
+    const summaryRevSum = revenueRows.reduce((sum, item) => sum + (Number(item.amountNum) || 0), 0);
+    const summaryExpSum = expenseRows.reduce((sum, item) => sum + (Number(item.amountNum) || 0), 0);
 
     return (
       <SafeAreaView style={styles.root}>
@@ -3738,17 +3592,11 @@ export function ReportsScreen({
             <View style={styles.summaryCardRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>Orders</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '84' : '1,840'}</Text>
+                <Text style={styles.summaryItemValue}>{salesData?.summary?.ordersCount !== undefined ? String(salesData.summary.ordersCount) : '—'}</Text>
               </View>
               <View style={styles.summaryColRight}>
                 <Text style={styles.summaryItemLabel}>Sales</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '₹24,850' : '₹5,48,200'}</Text>
-              </View>
-            </View>
-            <View style={[styles.summaryCardRow, { marginTop: 12 }]}>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryItemLabel}>Items Sold</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '420' : '9,250'}</Text>
+                <Text style={styles.summaryItemValue}>{salesData?.summary?.totalSales ?? '—'}</Text>
               </View>
             </View>
           </View>
@@ -3759,11 +3607,13 @@ export function ReportsScreen({
             <View style={styles.summaryCardRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>Receipts</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '12' : '280'}</Text>
+                <Text style={styles.summaryItemValue}>{receivingRows.length}</Text>
               </View>
               <View style={styles.summaryColRight}>
                 <Text style={styles.summaryItemLabel}>Quantity Received</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '2,850 kg' : '64,800 kg'}</Text>
+                <Text style={styles.summaryItemValue}>
+                  {formatKg(receivingRows.reduce((s, r) => s + (r.acceptedNum + r.rejectedNum) * 1000, 0))}
+                </Text>
               </View>
             </View>
           </View>
@@ -3774,11 +3624,13 @@ export function ReportsScreen({
             <View style={styles.summaryCardRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>Available Stock</Text>
-                <Text style={styles.summaryItemValue}>12,480 kg</Text>
+                <Text style={styles.summaryItemValue}>
+                  {formatKg(inventoryRows.reduce((s, r) => s + (parseFloat(r.availableQty) || 0) * 1000, 0))}
+                </Text>
               </View>
               <View style={styles.summaryColRight}>
                 <Text style={styles.summaryItemLabel}>Low Stock</Text>
-                <Text style={styles.summaryItemValue}>12</Text>
+                <Text style={styles.summaryItemValue}>{inventoryRows.filter((r) => r.status === 'Low Stock').length}</Text>
               </View>
             </View>
           </View>
@@ -3789,11 +3641,11 @@ export function ReportsScreen({
             <View style={styles.summaryCardRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>Customers Served</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '126' : '1,248'}</Text>
+                <Text style={styles.summaryItemValue}>{customerRows.length}</Text>
               </View>
               <View style={styles.summaryColRight}>
                 <Text style={styles.summaryItemLabel}>New Customers</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '8' : '42'}</Text>
+                <Text style={styles.summaryItemValue}>{customerRows.filter((r: any) => r.isNew).length}</Text>
               </View>
             </View>
           </View>
@@ -3804,11 +3656,11 @@ export function ReportsScreen({
             <View style={styles.summaryCardRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>Cash Top-Ups</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '₹18,500' : '₹2,84,500'}</Text>
+                <Text style={styles.summaryItemValue}>{topupReport ? formatMoney(topupReport.total) : '—'}</Text>
               </View>
               <View style={styles.summaryColRight}>
                 <Text style={styles.summaryItemLabel}>Transactions</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '26' : '384'}</Text>
+                <Text style={styles.summaryItemValue}>{topupReport?.count ?? topupRows.length}</Text>
               </View>
             </View>
           </View>
@@ -3818,17 +3670,17 @@ export function ReportsScreen({
           <View style={styles.summaryCard}>
             <View style={styles.financeRow}>
               <Text style={styles.financeLabel}>Revenue</Text>
-              <Text style={styles.financeVal}>{isDaily ? '₹24,850' : '₹5,48,200'}</Text>
+              <Text style={styles.financeVal}>{formatMoney(String(summaryRevSum))}</Text>
             </View>
             <View style={styles.breakdownDivider} />
             <View style={styles.financeRow}>
               <Text style={styles.financeLabel}>Expenses</Text>
-              <Text style={styles.financeVal}>{isDaily ? '₹6,420' : '₹1,48,600'}</Text>
+              <Text style={styles.financeVal}>{formatMoney(String(summaryExpSum))}</Text>
             </View>
             <View style={styles.breakdownDivider} />
             <View style={styles.financeRow}>
               <Text style={styles.financeNetLabel}>Net</Text>
-              <Text style={styles.financeNetVal}>{isDaily ? '₹18,430' : '₹3,99,600'}</Text>
+              <Text style={styles.financeNetVal}>{formatMoney(String(summaryRevSum - summaryExpSum))}</Text>
             </View>
           </View>
 
@@ -3838,17 +3690,21 @@ export function ReportsScreen({
             <View style={styles.summaryCardRow}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>New Returns</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '8' : '46'}</Text>
+                <Text style={styles.summaryItemValue}>{returnRows.length}</Text>
               </View>
               <View style={styles.summaryColRight}>
                 <Text style={styles.summaryItemLabel}>Resolved</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '5' : '38'}</Text>
+                <Text style={styles.summaryItemValue}>
+                  {returnRows.filter((r) => r.status === 'Approved' || r.status === 'Resolved').length}
+                </Text>
               </View>
             </View>
             <View style={[styles.summaryCardRow, { marginTop: 12 }]}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryItemLabel}>Pending</Text>
-                <Text style={styles.summaryItemValue}>{isDaily ? '3' : '8'}</Text>
+                <Text style={styles.summaryItemValue}>
+                  {returnRows.filter((r) => r.status === 'Pending').length}
+                </Text>
               </View>
             </View>
           </View>
@@ -3871,34 +3727,7 @@ export function ReportsScreen({
           </View>
 
           <View style={styles.chartContainerCard}>
-            <View style={styles.barGraphArea}>
-              <View style={styles.barColumn}>
-                <Text style={styles.barValueText}>₹18k</Text>
-                <View style={[styles.barVisual, { height: 60 }]} />
-                <Text style={styles.barDayText}>Mon</Text>
-              </View>
-              <View style={styles.barColumn}>
-                <Text style={styles.barValueText}>₹22k</Text>
-                <View style={[styles.barVisual, { height: 74 }]} />
-                <Text style={styles.barDayText}>Tue</Text>
-              </View>
-              <View style={styles.barColumn}>
-                <Text style={styles.barValueText}>₹20k</Text>
-                <View style={[styles.barVisual, { height: 68 }]} />
-                <Text style={styles.barDayText}>Wed</Text>
-              </View>
-              <View style={styles.barColumn}>
-                <Text style={styles.barValueText}>₹26k</Text>
-                <View style={[styles.barVisual, { height: 86 }]} />
-                <Text style={styles.barDayText}>Thu</Text>
-              </View>
-              <View style={styles.barColumn}>
-                <Text style={styles.barValueText}>₹24.8k</Text>
-                <View style={[styles.barVisual, { height: 80 }]} />
-                <Text style={styles.barDayText}>Fri</Text>
-              </View>
-            </View>
-            <Text style={styles.chartDescText}>Daily trend — Mon Tue Wed Thu Fri bars</Text>
+            <Text style={styles.chartDescText}>Summary breakdown for {summaryMetric}</Text>
           </View>
 
           {isMain && !isDaily ? (
@@ -3960,19 +3789,33 @@ export function ReportsScreen({
           <View style={styles.kpiGrid}>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>TOTAL RETURNS</Text>
-              <Text style={styles.kpiValue}>42</Text>
+              <Text style={styles.kpiValue}>
+                {returnReport ? returnReport.byStatus.reduce((s, r) => s + r.count, 0) : filteredReturns.length}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>PENDING</Text>
-              <Text style={styles.kpiValue}>8</Text>
+              <Text style={styles.kpiValue}>
+                {returnReport
+                  ? (returnReport.byStatus.find((r) => r.status === 'PENDING')?.count ?? 0)
+                  : filteredReturns.filter((r) => r.status === 'Pending').length}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>APPROVED</Text>
-              <Text style={styles.kpiValue}>26</Text>
+              <Text style={styles.kpiValue}>
+                {returnReport
+                  ? (returnReport.byStatus.find((r) => r.status === 'APPROVED')?.count ?? 0)
+                  : filteredReturns.filter((r) => r.status === 'Approved').length}
+              </Text>
             </View>
             <View style={styles.kpiCard}>
               <Text style={styles.kpiLabel}>REJECTED</Text>
-              <Text style={styles.kpiValue}>8</Text>
+              <Text style={styles.kpiValue}>
+                {returnReport
+                  ? (returnReport.byStatus.find((r) => r.status === 'REJECTED')?.count ?? 0)
+                  : filteredReturns.filter((r) => r.status === 'Rejected').length}
+              </Text>
             </View>
           </View>
 
@@ -4097,6 +3940,26 @@ export function ReportsScreen({
   // SCREEN: RETURNS ITEM DETAILS (M12-S09-DETAIL)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'returns_item_detail') {
+    if (!selectedReturnItem) {
+      return (
+        <SafeAreaView style={styles.root}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.headerBanner}>
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity style={styles.backButton} onPress={() => setCurrentScreen('returns_report')} activeOpacity={0.75}>
+                  <ArrowBackIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.headerTitleText}>Return Detail</Text>
+              </View>
+            </View>
+          </View>
+          <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+            <AdminEmptyState title="No return item selected" subtitle="Select a return from the list." />
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -4224,7 +4087,7 @@ export function ReportsScreen({
           <Text style={styles.detailSectionTitle}>Timeline</Text>
           <View style={[styles.detailCard, { paddingVertical: 14 }]}>
             <View style={styles.timelineList}>
-              {selectedReturnItem.timeline.map((step, idx) => (
+              {selectedReturnItem.timeline.map((step: any, idx: number) => (
                 <View key={step.title} style={[styles.timelineItem, idx === selectedReturnItem.timeline.length - 1 ? { minHeight: 28 } : null]}>
                   <View style={styles.timelineLeftCol}>
                     <TimelineDotIcon />
@@ -4295,11 +4158,7 @@ export function ReportsScreen({
           <TouchableOpacity
             style={styles.headerBellBtn}
             onPress={() => {
-              if (onNavigateToNotifications) {
-                onNavigateToNotifications();
-              } else {
-                Alert.alert('Notifications', 'You have 3 unread warehouse notifications.');
-              }
+              onNavigateToNotifications?.();
             }}
             activeOpacity={0.8}
           >
