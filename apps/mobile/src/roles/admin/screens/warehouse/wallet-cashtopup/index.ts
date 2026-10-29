@@ -31,5 +31,5 @@ export type {
   WalletRouteParams,
   WalletTransactionRecord,
 } from './types';
-export { moneyToWholeRupees, useCustomerLookup, useCustomerWallet, useCashTopupsReport, useDailyCashData, useCreateCashTopup } from './useWalletData';
+export { useCustomerLookup, useCustomerWallet, useCashTopupsReport, useDailyCashData, useCreateCashTopup } from './useWalletData';
 export { formatWalletMoney, formatIstDate, formatIstTime, mapWalletTransactionDtoToRecord, mapWalletTransactionDtoToHistoryRow } from './mappers';

@@ -63,7 +63,7 @@ function QrScanIcon({ size = 20, color = adminColors.muted }: { size?: number; c
 }
 
 export interface CashTopUpScreenProps extends WarehouseScreenBaseProps {
-  /** Customer being topped up (demo customer when omitted). */
+  /** Customer being topped up (fallback customer when omitted). */
   customer?: WalletCustomer | undefined;
   /** Display name of the admin processing the top-up. */
   processedBy?: string | undefined;

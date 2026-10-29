@@ -24,7 +24,7 @@ import {
 } from './WalletParts';
 
 export interface TopUpSuccessScreenProps extends WarehouseScreenBaseProps {
-  /** The confirmed top-up (demo values fill the gaps). */
+  /** The confirmed top-up. */
   transaction?: WalletTransactionRecord | undefined;
   onDone: () => void;
   onViewTransaction: (transaction: WalletTransactionRecord) => void;

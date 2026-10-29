@@ -176,12 +176,22 @@ export interface SystemCashFiguresDto {
   expectedClosing: Money | string;
 }
 
+export interface CashFiguresTotalDto {
+  warehouseCount: number;
+  openingCash: Money | string;
+  cashSales: Money | string;
+  cashTopUps: Money | string;
+  cashExpenses: Money | string;
+  expectedClosing: Money | string;
+}
+
 /** docs/openapi.yaml `DailyCashSummary`: the figures live under `system`. */
 export interface DailyCashSummaryDto {
   warehouseId: string;
   date: string;
   system: SystemCashFiguresDto;
   closed: CashCloseDto | null;
+  totalAcrossWarehouses?: CashFiguresTotalDto | undefined;
 }
 
 export interface DailyCashSummaryParams {

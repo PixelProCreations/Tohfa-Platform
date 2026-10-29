@@ -14,6 +14,10 @@ import {
 } from '../../../api/customers';
 import { getCashTopupsReport, type CashTopupsReportDto } from '../../../api/reports';
 import { getDailyCashSummary, type DailyCashSummaryDto } from '../../../api/finance';
+import { useAdminMutation, useAdminQuery, useIdempotencyKey } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { newIdempotencyKey } from '../../../../../shell/api/idempotency';
 import {
   mapCustomerLookupMatchToWalletCustomer,
   mapWalletTransactionDtoToRecord,
@@ -26,20 +30,6 @@ import type {
   WalletTransactionRecord,
   WarehouseScope,
 } from './types';
-
-export function moneyToWholeRupees(val: Money | string | null | undefined): number {
-  if (!val) return 0;
-  try {
-    return Math.floor(toPaise(parseMoney(String(val))) / 100);
-  } catch {
-    return 0;
-  }
-}
-
-/** Generates a simple UUID-v4-like idempotency key. */
-function generateIdempotencyKey(): string {
-  return 'idem-' + Math.random().toString(36).substring(2, 15) + '-' + Date.now();
-}
 
 /** Formats today's date in YYYY-MM-DD for IST. */
 function getTodayIstString(): string {
@@ -54,7 +44,7 @@ function getTodayIstString(): string {
     }).format(d);
     return parts;
   } catch {
-    return new Date().toISOString().split('T')[0] ?? '';
+    return new Date().toISOString().slice(0, 10);
   }
 }
 
@@ -153,84 +143,85 @@ export function useCashTopupsReport(scope: WarehouseScope, selectedWarehouseId?:
 }
 
 export function useDailyCashData(scope: WarehouseScope, selectedWarehouseId?: string) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<{
-    openingCash: number;
-    directSales: number;
-    cashTopUps: number;
-    expenses: number;
-    expectedClosing: number;
-    cashInEntries: CashLedgerEntry[];
-    cashOutEntries: CashLedgerEntry[];
-  }>({
-    openingCash: 0,
-    directSales: 0,
-    cashTopUps: 0,
-    expenses: 0,
-    expectedClosing: 0,
-    cashInEntries: [],
-    cashOutEntries: [],
-  });
-
   const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const isAll = !effectiveWarehouseId;
+  const { options } = useWarehouseOptions({ enabled: isAll });
+  const fallbackWarehouseId = options[0]?.warehouseId;
+  const requestWarehouseId = effectiveWarehouseId ?? fallbackWarehouseId;
   const today = getTodayIstString();
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const query = useAdminQuery(
+    adminKeys.scoped('finance', effectiveWarehouseId ?? 'all', { resource: 'daily-cash', date: today }),
+    (signal) => getDailyCashSummary({ date: today, warehouseId: requestWarehouseId }, signal),
+    { enabled: Boolean(requestWarehouseId) },
+  );
+
+  const summary = query.data;
+  const figures = isAll && summary?.totalAcrossWarehouses ? summary.totalAcrossWarehouses : summary?.system;
+
+  const toPaiseSafe = (val: string | Money | null | undefined): number => {
+    if (!val) return 0;
     try {
-      const summaryRes = await getDailyCashSummary({
-        date: today,
-        warehouseId: effectiveWarehouseId,
-      });
-      const sys = summaryRes.system;
-
-      setData({
-        openingCash: moneyToWholeRupees(sys.openingCash),
-        directSales: moneyToWholeRupees(sys.cashSales),
-        cashTopUps: moneyToWholeRupees(sys.cashTopUps),
-        expenses: moneyToWholeRupees(sys.cashExpenses),
-        expectedClosing: moneyToWholeRupees(sys.expectedClosing),
-        cashInEntries: [],
-        cashOutEntries: [],
-      });
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load daily cash data');
-    } finally {
-      setLoading(false);
+      return toPaise(parseMoney(String(val)));
+    } catch {
+      return 0;
     }
-  }, [effectiveWarehouseId, today]);
+  };
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  const openingPaise = toPaiseSafe(figures?.openingCash);
+  const directSalesPaise = toPaiseSafe(figures?.cashSales);
+  const cashTopUpsPaise = toPaiseSafe(figures?.cashTopUps);
+  const expensesPaise = toPaiseSafe(figures?.cashExpenses);
+  const expectedClosingPaise = toPaiseSafe(figures?.expectedClosing);
+  const warehouseCount = isAll && summary?.totalAcrossWarehouses ? summary.totalAcrossWarehouses.warehouseCount : undefined;
 
-  return { ...data, loading, error, reload: load };
+  return {
+    openingPaise,
+    directSalesPaise,
+    cashTopUpsPaise,
+    expensesPaise,
+    expectedClosingPaise,
+    warehouseCount,
+    closed: summary?.closed ?? null,
+    summary,
+    isLoading: isAll && !fallbackWarehouseId ? true : query.isLoading,
+    error: query.error,
+    refresh: () => {
+      void query.refetch();
+    },
+    // Backward compatibility for existing properties:
+    openingCash: openingPaise,
+    directSales: directSalesPaise,
+    cashTopUps: cashTopUpsPaise,
+    expenses: expensesPaise,
+    expectedClosing: expectedClosingPaise,
+    cashInEntries: [] as CashLedgerEntry[],
+    cashOutEntries: [] as CashLedgerEntry[],
+    loading: isAll && !fallbackWarehouseId ? true : query.isLoading,
+    reload: () => {
+      void query.refetch();
+    },
+  };
 }
 
 export function useCreateCashTopup() {
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const keyCache = useIdempotencyKey();
+  const mutation = useAdminMutation({
+    mutationFn: ({ customerId, body, idempotencyKey }: { customerId: string; body: CashTopupCreate; idempotencyKey?: string | undefined }): Promise<WalletTransactionDto> => {
+      const key = idempotencyKey ?? keyCache.keyFor({ customerId, ...body });
+      return createCashTopup(customerId, body, key);
+    },
+    invalidates: [adminKeys.module('wallets'), adminKeys.module('finance')],
+  });
 
   const submit = useCallback(
     async (customerId: string, body: CashTopupCreate, idempotencyKey?: string): Promise<WalletTransactionRecord> => {
-      setSubmitting(true);
-      setError(null);
-      const key = idempotencyKey || generateIdempotencyKey();
-      try {
-        const res = await createCashTopup(customerId, body, key);
-        return mapWalletTransactionDtoToRecord(res);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'Cash top-up failed';
-        setError(msg);
-        throw err;
-      } finally {
-        setSubmitting(false);
-      }
+      const res = await mutation.mutateAsync({ customerId, body, idempotencyKey });
+      keyCache.reset();
+      return mapWalletTransactionDtoToRecord(res);
     },
-    [],
+    [mutation, keyCache],
   );
 
-  return { submit, submitting, error };
+  return { submit, submitting: mutation.isPending, error: mutation.error };
 }

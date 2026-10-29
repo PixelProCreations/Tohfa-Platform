@@ -32,7 +32,7 @@ import {
 } from './WalletParts';
 
 export interface FiscalTagScreenProps extends WarehouseScreenBaseProps {
-  /** The top-up so far (demo values fill the gaps). */
+  /** The top-up so far. */
   draft?: Partial<CashTopUpDraft> | undefined;
   /** Continue to the confirm step with the tag attached. */
   onReviewTopUp: (draft: CashTopUpDraft) => void;

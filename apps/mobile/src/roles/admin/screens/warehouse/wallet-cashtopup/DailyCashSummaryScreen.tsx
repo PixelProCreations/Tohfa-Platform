@@ -19,8 +19,14 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { moneyToWholeRupees, useCashTopupsReport, useDailyCashData } from './useWalletData';
+import { useCashTopupsReport, useDailyCashData } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { useIdempotencyKey } from '../../../api/hooks';
+import { formatPaise, parseRupeesToPaise, fromPaise } from '../../../money/paise';
+import { createCashClose, type CashCloseDto } from '../../../api/finance';
+import { moneyToPaise } from './mappers';
+import { AdminLoadingState, AdminErrorState } from '../shared/AsyncStates';
+import type { Money } from '@tohfa/shared-types';
 import type { TopUpHistoryRow, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -38,7 +44,6 @@ import {
   WalletButton,
   WarehouseTabBar,
   WalletScreen,
-  formatRupees,
   inScope,
   walletLayout,
 } from './WalletParts';
@@ -70,36 +75,69 @@ export function DailyCashSummaryScreen({
   const effectiveWarehouseOptions =
     warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
   const { report } = useCashTopupsReport(scope, selectedWarehouseId);
-  const { directSales, cashTopUps, expenses, openingCash, expectedClosing } = useDailyCashData(scope, selectedWarehouseId);
+  const dailyCash = useDailyCashData(scope, selectedWarehouseId);
+
+  const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+  const isMainAll = !effectiveWarehouseId;
+  const isClosed = dailyCash.closed !== null;
+
+  const [reconcileResult, setReconcileResult] = useState<CashCloseDto | null>(null);
+  const [reconcileError, setReconcileError] = useState<unknown>(null);
+  const [isReconciling, setIsReconciling] = useState(false);
+  const keyCache = useIdempotencyKey();
 
   const cashBreakdown = [
-    { label: 'Opening Cash', amount: formatRupees(openingCash) },
-    { label: 'Direct Cash Sales', amount: formatRupees(directSales) },
-    { label: 'Cash Top-Ups', amount: formatRupees(cashTopUps) },
-    { label: 'Cash Expenses', amount: formatRupees(expenses) },
-    { label: 'Expected Closing', amount: formatRupees(expectedClosing) },
+    { label: 'Opening Cash', amount: formatPaise(dailyCash.openingPaise) },
+    { label: 'Direct Cash Sales', amount: formatPaise(dailyCash.directSalesPaise) },
+    { label: 'Cash Top-Ups', amount: formatPaise(dailyCash.cashTopUpsPaise) },
+    { label: 'Cash Expenses', amount: formatPaise(dailyCash.expensesPaise) },
+    { label: 'Expected Closing', amount: formatPaise(dailyCash.expectedClosingPaise) },
   ];
 
-  // Money is integer paise — convert via moneyToWholeRupees, never parseFloat
-  const systemCash = report?.total != null ? moneyToWholeRupees(report.total) : null;
+  const systemCashPaise = dailyCash.expectedClosingPaise;
   const liveCount = report?.count ?? null;
 
-  const [physicalCount, setPhysicalCount] = useState(systemCash != null ? String(systemCash) : '');
-  const allWarehouses = isAllWarehouses(scope);
+  const [physicalCount, setPhysicalCount] = useState('');
   const canTopUps = can('wallet.cash_topup.process');
+  const canManageClose = can('finance.cash_close.manage');
 
-  const parsedPhysical = parseInt(physicalCount.replace(/[^0-9]/g, '') || '0', 10);
-  const variance = systemCash != null ? parsedPhysical - systemCash : null;
+  const parsedPhysicalPaise = parseRupeesToPaise(physicalCount);
+  const currentVariance = reconcileResult
+    ? (moneyToPaise(reconcileResult.difference) ?? 0)
+    : parsedPhysicalPaise !== null
+      ? parsedPhysicalPaise - systemCashPaise
+      : null;
+
+  const canReconcile = !isMainAll && !isClosed && canManageClose && parsedPhysicalPaise !== null && !isReconciling;
+
   const todaysTopUps = rows.filter(
     (row) => row.date === date && inScope(scope, row.warehouseId, selectedWarehouseId),
   );
 
-  const handleReconcile = () => {
-    Alert.alert(
-      'Reconciliation Submitted',
-      `Physical Cash: ${formatRupees(parsedPhysical)}\nVariance: ${variance == null ? 'N/A' : variance === 0 ? '₹0 (Balanced)' : `${variance > 0 ? '+' : '-'}${formatRupees(Math.abs(variance))}`}`,
-      [{ text: 'OK' }],
-    );
+  const handleReconcile = async () => {
+    if (!canReconcile || parsedPhysicalPaise === null || !effectiveWarehouseId) return;
+    setIsReconciling(true);
+    setReconcileError(null);
+    const today = date ?? new Date().toISOString().slice(0, 10);
+    const body = {
+      date: today,
+      warehouseId: effectiveWarehouseId,
+      countedCash: fromPaise(parsedPhysicalPaise) as Money,
+    };
+    try {
+      const res = await createCashClose(body, keyCache.keyFor(body));
+      keyCache.reset();
+      setReconcileResult(res);
+      dailyCash.refresh();
+      Alert.alert(
+        'Reconciliation Recorded',
+        `Physical Cash: ${formatPaise(parsedPhysicalPaise)}\nVariance: ${res.difference}`,
+      );
+    } catch (err) {
+      setReconcileError(err);
+    } finally {
+      setIsReconciling(false);
+    }
   };
 
   return (
@@ -116,6 +154,16 @@ export function DailyCashSummaryScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {dailyCash.isLoading ? <AdminLoadingState /> : null}
+        {dailyCash.error ? <AdminErrorState error={dailyCash.error} onRetry={dailyCash.refresh} /> : null}
+        {reconcileError ? <AdminErrorState error={reconcileError} onRetry={handleReconcile} /> : null}
+
+        {dailyCash.warehouseCount !== undefined ? (
+          <Text style={styles.selectedNote}>
+            {dailyCash.warehouseCount} Warehouses Combined
+          </Text>
+        ) : null}
+
         {date ? (
           <TouchableOpacity
             style={styles.dateCard}
@@ -139,12 +187,10 @@ export function DailyCashSummaryScreen({
                 ]}
               />
             ) : null}
-            {systemCash != null ? (
-              <Card centered>
-                <Text style={styles.totalLabel}>Total Cash Received</Text>
-                <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
-              </Card>
-            ) : null}
+            <Card centered>
+              <Text style={styles.totalLabel}>Total Expected Cash</Text>
+              <Text style={styles.bigValue}>{formatPaise(systemCashPaise)}</Text>
+            </Card>
           </>
         ) : null}
 
@@ -155,25 +201,21 @@ export function DailyCashSummaryScreen({
           ))}
         </Card>
 
-        {systemCash != null ? (
-          <>
-            <SectionTitle>System vs. Physical Cash</SectionTitle>
-            <Card centered>
-              <Text style={styles.bigValue}>{formatRupees(systemCash)}</Text>
-              <Text style={styles.stackLabel}>SYSTEM RECORDED</Text>
+        <SectionTitle>System vs. Physical Cash</SectionTitle>
+        <Card centered>
+          <Text style={styles.bigValue}>{formatPaise(systemCashPaise)}</Text>
+          <Text style={styles.stackLabel}>SYSTEM RECORDED</Text>
+          <View style={styles.arrow}><ArrowDownIcon /></View>
+          <Text style={styles.bigValue}>{parsedPhysicalPaise !== null ? formatPaise(parsedPhysicalPaise) : '—'}</Text>
+          <Text style={styles.stackLabel}>PHYSICAL COUNTED</Text>
+          {currentVariance != null ? (
+            <>
               <View style={styles.arrow}><ArrowDownIcon /></View>
-              <Text style={styles.bigValue}>{formatRupees(parsedPhysical)}</Text>
-              <Text style={styles.stackLabel}>PHYSICAL COUNTED</Text>
-              {variance != null ? (
-                <>
-                  <View style={styles.arrow}><ArrowDownIcon /></View>
-                  <Text style={[styles.bigValue, variance === 0 ? styles.ok : styles.off]}>{formatRupees(Math.abs(variance))}</Text>
-                  <Text style={styles.stackLabel}>VARIANCE</Text>
-                </>
-              ) : null}
-            </Card>
-          </>
-        ) : null}
+              <Text style={[styles.bigValue, currentVariance === 0 ? styles.ok : styles.off]}>{formatPaise(Math.abs(currentVariance))}</Text>
+              <Text style={styles.stackLabel}>VARIANCE</Text>
+            </>
+          ) : null}
+        </Card>
 
         <SectionTitle right={<SectionHint>If supported</SectionHint>}>Physical Cash Counted</SectionTitle>
         <View style={styles.physicalBox}>
@@ -186,19 +228,20 @@ export function DailyCashSummaryScreen({
             accessibilityLabel="Physical cash counted"
           />
         </View>
-        {allWarehouses ? (
-          <InfoNote tone="info">
-            A variance never automatically modifies the wallet ledger or cash records — it always surfaces as Review
-            Required instead.
-          </InfoNote>
-        ) : null}
-        {allWarehouses ? (
-          <View style={styles.actionWrap}>
-            <WalletButton label="Reconcile Cash" onPress={handleReconcile} />
-          </View>
-        ) : null}
+        <InfoNote tone="info">
+          A variance never automatically modifies the wallet ledger or cash records — it always surfaces as Review
+          Required instead.
+        </InfoNote>
 
-        {variance != null ? (
+        <View style={styles.actionWrap}>
+          <WalletButton
+            label={isClosed ? 'Reconciliation Closed' : isReconciling ? 'Submitting…' : 'Reconcile Cash'}
+            onPress={handleReconcile}
+            disabled={!canReconcile}
+          />
+        </View>
+
+        {currentVariance != null || isClosed ? (
           <>
             <SectionTitle>Reconciliation Status</SectionTitle>
             <TouchableOpacity
@@ -208,7 +251,10 @@ export function DailyCashSummaryScreen({
               accessibilityRole="button"
               accessibilityLabel="Open daily cash ledger"
             >
-              <StatusBadge label={variance === 0 ? 'Reconciled' : 'Review Required'} tone={variance === 0 ? 'success' : 'warning'} />
+              <StatusBadge
+                label={isClosed ? 'Reconciled' : currentVariance === 0 ? 'Reconciled' : 'Review Required'}
+                tone={isClosed || currentVariance === 0 ? 'success' : 'warning'}
+              />
             </TouchableOpacity>
           </>
         ) : null}
@@ -260,6 +306,7 @@ export function DailyCashSummaryScreen({
 }
 
 const styles = StyleSheet.create({
+  selectedNote: { ...adminType.rowMeta, color: adminColors.muted, marginVertical: adminSpacing.xs },
   dateCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

@@ -244,9 +244,9 @@ export function submitCashTopup(
  * server returns that credit instead of making a second one.
  */
 export function cashTopupErrorKey(err: unknown): TranslationKey {
-  if (err instanceof NetworkError) return 'wallet.topup.error.outcomeUnknown';
+  if (err instanceof NetworkError) return 'wallet.topup.error.noAnswer';
   if (err instanceof ApiError) {
-    if (err.problem.status >= 500) return 'wallet.topup.error.outcomeUnknown';
+    if (err.problem.status >= 500) return 'wallet.topup.error.noAnswer';
     if (err.is('CONFLICT')) return 'wallet.topup.error.tagUsed';
   }
   return adminErrorKey(err);

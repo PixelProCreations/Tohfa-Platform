@@ -27,19 +27,17 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-nati
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { useDailyCashData } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { formatPaise, parseRupeesToPaise } from '../../../money/paise';
+import { AdminLoadingState, AdminErrorState } from '../shared/AsyncStates';
 import type { CashLedgerEntry, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
   Card,
-  CashIcon,
-  ChipGroup,
   EmptyState,
   ScopeHeader,
   SectionTitle,
-  StoreIcon,
   WalletButton,
   WalletScreen,
-  formatRupees,
   inScope,
   isAllWarehouses,
   walletLayout,
@@ -54,17 +52,11 @@ export interface DailyCashScreenProps extends WarehouseScreenBaseProps {
   hideWarehouseFilter?: boolean | undefined;
 }
 
-const EMPTY_ENTRIES: readonly CashLedgerEntry[] = [];
-
-type Breakdown = 'Cash In' | 'Cash Out';
-const BREAKDOWNS: readonly Breakdown[] = ['Cash In', 'Cash Out'];
-
 export function DailyCashScreen({
   scope,
   can,
   onBack,
   date,
-  entries = EMPTY_ENTRIES,
   warehouseOptions,
   initialWarehouseId,
   hideWarehouseFilter = false,
@@ -72,18 +64,17 @@ export function DailyCashScreen({
   const displayDate = date ?? new Date().toISOString().slice(0, 10);
   const [actualCash, setActualCash] = useState('');
   const [differenceReason, setDifferenceReason] = useState('');
-  const [breakdown, setBreakdown] = useState<Breakdown>('Cash In');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
   const { options: fetchedWarehouses } = useWarehouseOptions();
   const effectiveWarehouseOptions =
     warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
 
   const liveCash = useDailyCashData(scope, selectedWarehouseId);
-  const effectiveOpening = liveCash.openingCash;
-  const effectiveDirectSales = liveCash.directSales;
-  const effectiveTopUps = liveCash.cashTopUps;
-  const effectiveExpenses = liveCash.expenses;
-  const effectiveClosing = liveCash.expectedClosing;
+  const effectiveOpening = liveCash.openingPaise;
+  const effectiveDirectSales = liveCash.directSalesPaise;
+  const effectiveTopUps = liveCash.cashTopUpsPaise;
+  const effectiveExpenses = liveCash.expensesPaise;
+  const effectiveClosing = liveCash.expectedClosingPaise;
 
   // NO CODE for the daily cash ledger yet (SPEC_GAPS W4i-3): show it only to
   // admins who can see the finance data it is built from.
@@ -96,16 +87,8 @@ export function DailyCashScreen({
     );
   }
 
-  const parsedActual = Number(actualCash.replace(/[^0-9]/g, '')) || 0;
+  const parsedActual = parseRupeesToPaise(actualCash) ?? 0;
   const difference = parsedActual - effectiveClosing;
-  const rows =
-    breakdown === 'Cash In'
-      ? liveCash.cashInEntries.length > 0
-        ? liveCash.cashInEntries
-        : entries.filter((e) => e.type === 'Cash In' && inScope(scope, e.warehouseId, selectedWarehouseId))
-      : liveCash.cashOutEntries.length > 0
-        ? liveCash.cashOutEntries
-        : entries.filter((e) => e.type === 'Cash Out' && inScope(scope, e.warehouseId, selectedWarehouseId));
   const headerLabel = isAllWarehouses(scope)
     ? undefined
     : `${scope.warehouseName ?? scope.warehouseId} · ${displayDate}`;
@@ -114,7 +97,7 @@ export function DailyCashScreen({
     // No rbac code covers reconciliation (SPEC_GAPS W4i-3); the server must own it.
     Alert.alert(
       'Reconciliation Submitted',
-      `Daily Cash Reconciliation for ${displayDate} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatRupees(Math.abs(difference))}`,
+      `Daily Cash Reconciliation for ${displayDate} submitted.\nActual Cash: ₹${actualCash}\nDifference: ${difference >= 0 ? '+' : '-'}${formatPaise(Math.abs(difference))}`,
       [{ text: 'OK', onPress: onBack }],
     );
   };
@@ -137,6 +120,9 @@ export function DailyCashScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
+        {liveCash.isLoading ? <AdminLoadingState /> : null}
+        {liveCash.error ? <AdminErrorState error={liveCash.error} onRetry={liveCash.refresh} /> : null}
+
         {isAllWarehouses(scope) && selectedWarehouseId !== undefined ? (
           <Text style={styles.selectedNote}>
             Showing {effectiveWarehouseOptions.find((w) => w.warehouseId === selectedWarehouseId)?.warehouseName ?? selectedWarehouseId}
@@ -146,31 +132,31 @@ export function DailyCashScreen({
         <SectionTitle>Opening Balance</SectionTitle>
         <Card>
           <Text style={styles.cardLabel}>Opening Cash</Text>
-          <Text style={styles.cardBigValue}>{formatRupees(effectiveOpening)}</Text>
+          <Text style={styles.cardBigValue}>{formatPaise(effectiveOpening)}</Text>
         </Card>
 
         <SectionTitle>Cash In</SectionTitle>
         <Card>
-          <AmountRow label="Direct Sales" value={formatRupees(effectiveDirectSales)} />
-          <AmountRow divider label="Cash Top-Ups" value={formatRupees(effectiveTopUps)} />
-          <AmountRow divider label="Total Cash In" value={formatRupees(effectiveDirectSales + effectiveTopUps)} emphasis="total" />
+          <AmountRow label="Direct Sales" value={formatPaise(effectiveDirectSales)} />
+          <AmountRow divider label="Cash Top-Ups" value={formatPaise(effectiveTopUps)} />
+          <AmountRow divider label="Total Cash In" value={formatPaise(effectiveDirectSales + effectiveTopUps)} emphasis="total" />
         </Card>
 
         <SectionTitle>Cash Out</SectionTitle>
         <Card>
-          <AmountRow label="Expenses" value={formatRupees(effectiveExpenses)} />
-          <AmountRow divider label="Total Cash Out" value={formatRupees(effectiveExpenses)} emphasis="total" />
+          <AmountRow label="Expenses" value={formatPaise(effectiveExpenses)} />
+          <AmountRow divider label="Total Cash Out" value={formatPaise(effectiveExpenses)} emphasis="total" />
         </Card>
 
         <SectionTitle>Closing Balance</SectionTitle>
         <Card>
           <Text style={styles.cardLabel}>Expected Closing Cash</Text>
-          <Text style={styles.cardBigValue}>{formatRupees(effectiveClosing)}</Text>
+          <Text style={styles.cardBigValue}>{formatPaise(effectiveClosing)}</Text>
         </Card>
 
         <SectionTitle>Cash Reconciliation</SectionTitle>
         <Card>
-          <AmountRow label="Expected Cash" value={formatRupees(effectiveClosing)} />
+          <AmountRow label="Expected Cash" value={formatPaise(effectiveClosing)} />
           <View style={styles.actualInputWrap}>
             <Text style={styles.currencySymbol}>₹</Text>
             <TextInput
@@ -185,7 +171,7 @@ export function DailyCashScreen({
           </View>
           <AmountRow
             label="Difference"
-            value={`${difference < 0 ? '-' : '+'}${formatRupees(Math.abs(difference))}`}
+            value={`${difference < 0 ? '-' : '+'}${formatPaise(Math.abs(difference))}`}
             emphasis={difference < 0 ? 'debit' : 'credit'}
           />
         </Card>
@@ -209,41 +195,6 @@ export function DailyCashScreen({
         />
         <View style={styles.submitWrap}>
           <WalletButton label="Submit Reconciliation" onPress={handleSubmit} />
-        </View>
-
-        <SectionTitle>Transaction Breakdown</SectionTitle>
-        <ChipGroup options={BREAKDOWNS} value={breakdown} onChange={setBreakdown} />
-        <View style={styles.breakdownCard}>
-          <Card>
-            {rows.length === 0 ? (
-              <EmptyState title={`No ${breakdown.toLowerCase()}`} />
-            ) : (
-              rows.map((tx, index) => {
-                const cashIn = tx.type === 'Cash In';
-                return (
-                  <React.Fragment key={tx.id}>
-                    {index > 0 ? <View style={styles.divider} /> : null}
-                    <View style={styles.txRow}>
-                      <View style={styles.txIcon}>
-                        {cashIn ? <StoreIcon /> : <CashIcon size={18} color={adminColors.brandDeep} />}
-                      </View>
-                      <View style={styles.txInfo}>
-                        <Text style={styles.txTitle}>{tx.title}</Text>
-                        <Text style={styles.txMeta}>{tx.ref}</Text>
-                      </View>
-                      <View style={styles.txAmountCol}>
-                        <Text style={[styles.txAmount, cashIn ? styles.credit : styles.debit]}>
-                          {cashIn ? '+' : '-'}
-                          {formatRupees(tx.amount)}
-                        </Text>
-                        <Text style={styles.txMeta}>{tx.time}</Text>
-                      </View>
-                    </View>
-                  </React.Fragment>
-                );
-              })
-            )}
-          </Card>
         </View>
       </ScrollView>
     </WalletScreen>

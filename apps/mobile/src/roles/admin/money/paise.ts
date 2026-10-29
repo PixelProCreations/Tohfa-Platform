@@ -9,6 +9,8 @@
  */
 import { format, fromPaise, MoneyError, parseMoney, toPaise, type Paise } from '@tohfa/shared-types';
 
+export { fromPaise };
+
 // Digits with optional Indian/western grouping commas, then at most 2 decimals.
 // No sign, no bare ".5" / "5.": a cashier typing those is more likely mistyping.
 const RUPEE_INPUT_RE = /^\d+(\.\d{1,2})?$/;
