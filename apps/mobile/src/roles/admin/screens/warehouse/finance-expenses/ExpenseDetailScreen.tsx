@@ -394,9 +394,6 @@ export function ExpenseDetailScreen({
               <Text style={styles.secondaryPrintBtnText}>Print / Share</Text>
             </TouchableOpacity>
           </View>
-
-          {/* Screen Footer Code */}
-          <Text style={styles.screenFooterCode}>M11-S05-R · Expense Receipt</Text>
           <View style={{ height: adminSpacing.lg }} />
         </ScrollView>
       </SafeAreaView>
@@ -631,9 +628,6 @@ export function ExpenseDetailScreen({
             </View>
           </>
         )}
-
-        {/* Screen Footer Code */}
-        <Text style={styles.screenFooterCode}>M11-S05 · Expense Detail</Text>
 
         <View style={{ height: adminSpacing.lg }} />
       </ScrollView>

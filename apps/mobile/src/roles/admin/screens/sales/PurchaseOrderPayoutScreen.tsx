@@ -348,10 +348,6 @@ export function PurchaseOrderPayoutScreen({
                 <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.modalSheetFooterCode}>
-              M8-S02b · Payout details (Initiate Payout)
-            </Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -421,10 +417,6 @@ export function PurchaseOrderPayoutScreen({
                 <Text style={styles.modalSecondaryBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-
-            <Text style={styles.modalSheetFooterCode}>
-              M8-S02b · Payout details (Reject Payout)
-            </Text>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>

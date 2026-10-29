@@ -635,7 +635,6 @@ export function AdminOperationsOverviewScreen({
             <TouchableOpacity style={styles.exportButton} onPress={handleExport} activeOpacity={0.8}>
               <Text style={styles.exportButtonText}>Export reports</Text>
             </TouchableOpacity>
-            <Text style={styles.footerCaption}>M1-S04 · Operations Overview</Text>
           </View>
 
           <View style={{ height: adminSpacing.xxxl }} />
