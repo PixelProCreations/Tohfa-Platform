@@ -70,6 +70,8 @@ export type NotificationTagTone = AdminTone;
 /** One notification of the signed-in admin. */
 export interface NotificationItem {
   id: string;
+  /** Which API endpoint backs mark-read: 'notification' for /notifications/{id}/read, 'systemMessage' for system messages. */
+  source?: 'notification' | 'systemMessage';
   category: NotificationCategory;
   title: string;
   message: string;

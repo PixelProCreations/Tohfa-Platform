@@ -8,7 +8,7 @@
  */
 // Design id: M5S17 (M5S17_CancelOrder)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import {
@@ -20,6 +20,10 @@ import {
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
 import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder } from '../../../api/orders';
+import { formatMoney } from './mappers';
 import type { OrderScreenBaseProps } from './types';
 
 /** CancelOrderScreen steps: reason form, confirmation, cancelled result. */
@@ -40,10 +44,6 @@ const REASONS = [
   'Customer Unreachable',
   'Other Operational Reason',
 ];
-
-// Mock data until the order API is wired.
-const MOCK_CUSTOMER = 'Arun Kumar';
-const MOCK_TOTAL = '₹850';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -163,13 +163,35 @@ export function CancelOrderScreen({
   scope,
   onBack,
   onNavigate,
-  orderId = 'ORD-1024',
+  orderId,
   initialStep = 'form',
 }: CancelOrderScreenProps) {
   const isMain = isAllWarehouses(scope);
   const [step, setStep] = useState<CancelOrderStep>(initialStep);
   const [reason, setReason] = useState(REASON_PLACEHOLDER);
   const [showReasonPicker, setShowReasonPicker] = useState(false);
+
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  const customerName = orderQuery.data?.buyer?.name ?? '—';
+  const totalAmount = formatMoney(orderQuery.data?.totals.total);
+
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <Header title="Cancel Order" onBack={onBack} />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ─── STEP 3: Order Cancelled ─────────────────────────────────────────────
   if (step === 'cancelled') {
@@ -272,11 +294,11 @@ export function CancelOrderScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Customer</Text>
-                <Text style={styles.fieldValue}>{MOCK_CUSTOMER}</Text>
+                <Text style={styles.fieldValue}>{customerName}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Total</Text>
-                <Text style={styles.fieldValue}>{MOCK_TOTAL}</Text>
+                <Text style={styles.fieldValue}>{totalAmount}</Text>
               </View>
             </View>
           </View>

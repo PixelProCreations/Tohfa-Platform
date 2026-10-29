@@ -11,18 +11,19 @@
  */
 // Design id: M5S04 (M5S04_OrderDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar, ActivityIndicator } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder } from '../../../api/orders';
+import { formatMoney, formatOrderTime, gradeDisplayLabel, orderStatusLabel, paymentStatusLabel, toOrderDetailLines } from './mappers';
 import type { OrderScreenBaseProps } from './types';
 
 export interface OrderDetailScreenProps extends OrderScreenBaseProps {
   customerName?: string | undefined;
 }
-
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_CUSTOMER = 'Arun Kumar';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -87,45 +88,106 @@ function ChecklistIcon() {
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function OrderDetailScreen({
-  orderId = SAMPLE_ORDER_ID,
-  customerName = SAMPLE_CUSTOMER,
+  orderId,
+  customerName,
   scope,
   onBack,
   onNavigate,
 }: OrderDetailScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
 
-  // Mock data keyed off two demo invoice ids, as in the old M5S04, until orders are wired.
-  const isInv251 = orderId === 'INV-00251' || orderId === 'ORD-00251';
-  const isInv238 = orderId === 'INV-00238' || orderId === 'ORD-00238';
-
-  const displayDate = isInv251 ? '24 Sep, 10:42 AM' : isInv238 ? '20 Sep, 11:15 AM' : '24 Sep, 10:32 AM';
-  const displayCustomer = customerName || (isInv251 || isInv238 ? 'Rajesh Kumar' : SAMPLE_CUSTOMER);
-  const displayStatus = isInv251 || isInv238 ? 'Paid · Completed' : 'Confirmed';
-  // The order's warehouse comes from the viewer's scope; no warehouse name is hard-coded.
-  const warehouseName = scope.warehouseName ?? '—';
-
-  const orderItemsList = isInv251
-    ? [{ name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' }]
-    : isInv238
-      ? [
-          { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
-          { name: 'Carrot', grade: 'Grade 1', qtyDetail: '1 KG × ₹150', price: '₹150' },
-          { name: 'Beans', grade: 'Grade 1', qtyDetail: '2 KG × ₹150', price: '₹300' },
-        ]
-      : [
-          { name: 'Tomato', grade: 'Grade 1', qtyDetail: '2 KG × ₹100', price: '₹200' },
-          { name: 'Carrot', grade: 'Grade 1', qtyDetail: '3 KG × ₹120', price: '₹360' },
-        ];
-
-  const subtotal = isInv251 ? '₹200' : isInv238 ? '₹650' : '₹560';
-  const gst = isInv251 || isInv238 ? '₹0' : '₹28';
-  const total = isInv251 ? '₹200' : isInv238 ? '₹650' : '₹588';
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
 
   const openFromMenu = (screen: string) => {
     setShowMenu(false);
     onNavigate?.(screen, { orderId });
   };
+
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Order Detail</Text>
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{orderId}</Text>
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+          <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: adminSpacing.md }}>
+            Loading order details...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const order = orderQuery.data;
+
+  if (orderQuery.error || !order) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{orderId}</Text>
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }]}>
+          <Text style={{ ...adminType.body, color: adminColors.muted, marginBottom: adminSpacing.md }}>
+            Failed to load order details
+          </Text>
+          <TouchableOpacity
+            style={styles.primaryCheckBtn}
+            activeOpacity={0.8}
+            onPress={() => orderQuery.refetch()}
+          >
+            <Text style={styles.primaryCheckBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const displayId = order.orderNumber;
+  const displayDate = formatOrderTime(order.placedAt);
+  const displayCustomer = order.buyer?.name || customerName || '—';
+  const displayPhone = order.buyer?.mobileMasked || '—';
+  const displayStatus = orderStatusLabel(order.status);
+  const warehouseName = order.warehouse?.name ?? scope.warehouseName ?? '—';
+  const orderItemsList = toOrderDetailLines(order.items);
+  const subtotal = formatMoney(order.totals.subtotal);
+  const discount = formatMoney(order.totals.discount);
+  const gst = formatMoney(order.totals.gst);
+  const deliveryFee = formatMoney(order.totals.deliveryFee);
+  const total = formatMoney(order.totals.total);
+  const displayPaymentStatus = paymentStatusLabel(order.paymentStatus);
+  const displayPaymentMethod = order.paymentMethod;
+  const fulfillmentLabel = order.fulfilmentType === 'PICKUP' ? 'Warehouse Pickup' : 'Home Delivery';
+  const otpStatus = order.fulfilment.otpRequired ? 'Verification required' : 'Not required';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -137,7 +199,7 @@ export function OrderDetailScreen({
               <BackArrowIcon />
             </TouchableOpacity>
             <View>
-              <Text style={styles.headerTitle}>{orderId}</Text>
+              <Text style={styles.headerTitle}>{displayId}</Text>
               <View style={styles.headerStatusRow}>
                 <View style={styles.statusDot} />
                 <Text style={styles.headerStatusText}>{displayStatus}</Text>
@@ -156,7 +218,7 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order ID</Text>
-                <Text style={styles.colValue}>{orderId}</Text>
+                <Text style={styles.colValue}>{displayId}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order Date</Text>
@@ -185,7 +247,7 @@ export function OrderDetailScreen({
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Phone</Text>
-                <Text style={styles.colValue}>+91 98765 43210</Text>
+                <Text style={styles.colValue}>{displayPhone}</Text>
               </View>
             </View>
           </View>
@@ -195,7 +257,7 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Fulfillment</Text>
-                <Text style={styles.colValue}>Warehouse Pickup</Text>
+                <Text style={styles.colValue}>{fulfillmentLabel}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Pickup Warehouse</Text>
@@ -206,17 +268,21 @@ export function OrderDetailScreen({
 
           <Text style={styles.sectionHeader}>Order Items ({orderItemsList.length})</Text>
           <View style={styles.card}>
-            {orderItemsList.map((item, idx) => (
-              <View key={item.name}>
-                <View style={styles.orderItemHeaderRow}>
-                  <Text style={styles.orderItemName}>{item.name}</Text>
-                  <Text style={styles.orderItemPrice}>{item.price}</Text>
+            {orderItemsList.length === 0 ? (
+              <Text style={{ ...adminType.body, color: adminColors.muted }}>No items</Text>
+            ) : (
+              orderItemsList.map((item, idx) => (
+                <View key={`${item.name}-${idx}`}>
+                  <View style={styles.orderItemHeaderRow}>
+                    <Text style={styles.orderItemName}>{item.name}</Text>
+                    <Text style={styles.orderItemPrice}>{item.price}</Text>
+                  </View>
+                  <Text style={styles.orderItemSub}>{item.grade}</Text>
+                  <Text style={styles.orderItemSub}>{item.qtyDetail}</Text>
+                  {idx < orderItemsList.length - 1 && <View style={styles.divider} />}
                 </View>
-                <Text style={styles.orderItemSub}>{item.grade}</Text>
-                <Text style={styles.orderItemSub}>{item.qtyDetail}</Text>
-                {idx < orderItemsList.length - 1 && <View style={styles.divider} />}
-              </View>
-            ))}
+              ))
+            )}
           </View>
 
           <Text style={styles.sectionHeader}>Amount</Text>
@@ -227,7 +293,7 @@ export function OrderDetailScreen({
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Discount</Text>
-              <Text style={styles.amountValue}>₹0</Text>
+              <Text style={styles.amountValue}>{discount}</Text>
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>GST</Text>
@@ -235,7 +301,7 @@ export function OrderDetailScreen({
             </View>
             <View style={styles.amountRow}>
               <Text style={styles.amountLabel}>Delivery Fee</Text>
-              <Text style={styles.amountValue}>₹0</Text>
+              <Text style={styles.amountValue}>{deliveryFee}</Text>
             </View>
 
             <View style={styles.amountDivider} />
@@ -251,11 +317,11 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Payment Status</Text>
-                <Text style={styles.colValue}>Paid</Text>
+                <Text style={styles.colValue}>{displayPaymentStatus}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Payment Method</Text>
-                <Text style={styles.colValue}>Wallet</Text>
+                <Text style={styles.colValue}>{displayPaymentMethod}</Text>
               </View>
             </View>
           </View>
@@ -265,24 +331,19 @@ export function OrderDetailScreen({
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Pickup Status</Text>
-                <Text style={styles.colValue}>Pending</Text>
+                <Text style={styles.colValue}>{displayStatus}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Pickup OTP</Text>
-                <Text style={styles.colValue}>Verification required</Text>
+                <Text style={styles.colValue}>{otpStatus}</Text>
               </View>
             </View>
             <View style={[styles.twoColRow, styles.rowGap]}>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Order Pickup Type</Text>
-                <Text style={styles.colValue}>Direct Pickup</Text>
+                <Text style={styles.colValue}>{fulfillmentLabel}</Text>
               </View>
             </View>
-          </View>
-
-          <Text style={styles.sectionHeader}>Notes</Text>
-          <View style={styles.card}>
-            <Text style={styles.notesText}>Please pack tomatoes separately if possible.</Text>
           </View>
 
           <View style={styles.timelineHeaderRow}>
@@ -293,49 +354,57 @@ export function OrderDetailScreen({
           </View>
 
           <View style={styles.timelineCard}>
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineIndicatorCol}>
-                <TimelineCheckDot />
-                <View style={styles.timelineDoneLine} />
-              </View>
-              <View style={styles.timelineTextCol}>
-                <Text style={styles.timelineTitle}>Order Placed</Text>
-                <Text style={styles.timelineTime}>10:32 AM</Text>
-              </View>
-            </View>
-
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineIndicatorCol}>
-                <TimelineCheckDot />
-                <View style={styles.timelinePendingLine} />
-              </View>
-              <View style={styles.timelineTextCol}>
-                <Text style={styles.timelineTitle}>Order Confirmed</Text>
-                <Text style={styles.timelineTime}>10:34 AM</Text>
-              </View>
-            </View>
-
-            <View style={styles.timelineRow}>
-              <View style={styles.timelineIndicatorCol}>
-                <TimelinePendingDot />
-              </View>
-              <View style={styles.timelineTextCol}>
-                <Text style={styles.timelineTitlePending}>Stock Checked</Text>
-                <Text style={styles.timelineTime}>—</Text>
-              </View>
-            </View>
+            {order.timeline.length === 0 ? (
+              <Text style={{ ...adminType.body, color: adminColors.muted }}>No timeline events</Text>
+            ) : (
+              order.timeline.map((evt, idx) => {
+                const isLast = idx === order.timeline.length - 1;
+                return (
+                  <View key={idx} style={styles.timelineRow}>
+                    <View style={styles.timelineIndicatorCol}>
+                      <TimelineCheckDot />
+                      {!isLast && <View style={styles.timelineDoneLine} />}
+                    </View>
+                    <View style={styles.timelineTextCol}>
+                      <Text style={styles.timelineTitle}>{orderStatusLabel(evt.toStatus)}</Text>
+                      <Text style={styles.timelineTime}>{formatOrderTime(evt.at)}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
           </View>
         </ScrollView>
 
         <View style={styles.bottomBar}>
-          <TouchableOpacity
-            style={styles.primaryCheckBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S05', { orderId })}
-          >
-            <ChecklistIcon />
-            <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
-          </TouchableOpacity>
+          {order.status === 'CONFIRMED' ? (
+            <TouchableOpacity
+              style={styles.primaryCheckBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S05', { orderId })}
+            >
+              <ChecklistIcon />
+              <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
+            </TouchableOpacity>
+          ) : order.status === 'PACKED' ? (
+            <TouchableOpacity
+              style={styles.primaryCheckBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S07', { orderId, step: 'confirm' })}
+            >
+              <ChecklistIcon />
+              <Text style={styles.primaryCheckBtnText}>Ready for Pickup</Text>
+            </TouchableOpacity>
+          ) : order.status === 'READY_FOR_PICKUP' ? (
+            <TouchableOpacity
+              style={styles.primaryCheckBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S11', { orderId, step: 'verify' })}
+            >
+              <ChecklistIcon />
+              <Text style={styles.primaryCheckBtnText}>Verify Pickup</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <TouchableOpacity
             style={styles.outlineActionBtn}

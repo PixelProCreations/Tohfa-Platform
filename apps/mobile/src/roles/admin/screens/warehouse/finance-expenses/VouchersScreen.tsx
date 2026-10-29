@@ -167,7 +167,7 @@ export function VouchersScreen({
     id: `VCH-${e.id.replace('EXP-', '')}`,
     type: 'Expense',
     title: `Expense Voucher · ${e.categoryRef.split('·')[0]?.trim() || 'Expense'}`,
-    amount: e.amount,
+    amountPaise: e.amountPaise,
     referenceId: e.id,
     date: e.timestamp,
     status: e.status === 'Approved' ? 'Completed' : e.status === 'Pending' ? 'Pending' : 'Recorded',
@@ -179,7 +179,7 @@ export function VouchersScreen({
     id: `VCH-${r.id.replace('REV-', '').replace('ORD-', '')}`,
     type: 'Revenue',
     title: `Revenue Voucher · ${r.orderRef}`,
-    amount: r.amount,
+    amountPaise: r.amountPaise,
     referenceId: r.id,
     date: r.timestamp,
     status: r.status === 'Completed' ? 'Completed' : 'Pending',
@@ -361,7 +361,7 @@ export function VouchersScreen({
                 </View>
                 <Text style={styles.title}>{item.title}</Text>
                 <View style={styles.detailsRow}>
-                  <Text style={styles.amount}>{rupees(item.amount)}</Text>
+                  <Text style={styles.amount}>{rupees(item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100) : 0)}</Text>
                   <Text style={styles.meta}>{item.referenceId}</Text>
                 </View>
                 <Text style={styles.meta}>

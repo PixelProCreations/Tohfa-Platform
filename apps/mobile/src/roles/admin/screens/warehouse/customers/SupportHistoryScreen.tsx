@@ -14,7 +14,6 @@ import { Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { cardStyles, CustomersScreen, EmptyState, SearchField, StatTiles, StatusBadge } from './CustomersParts';
-import { DEFAULT_CUSTOMER, INITIAL_SUPPORT_TICKETS, SUPPORT_KPIS } from './fixtures';
 import type { CustomerRef, SupportTicketRecord, WarehouseScreenBaseProps } from './types';
 
 export interface SupportHistoryScreenProps extends WarehouseScreenBaseProps {
@@ -27,10 +26,20 @@ export function SupportHistoryScreen({
   onBack,
   customer,
   onSelectTicket,
-  tickets = INITIAL_SUPPORT_TICKETS,
+  tickets = [],
 }: SupportHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const customerName = customer?.name ?? '—';
+
+  const total = tickets.length;
+  const open = tickets.filter((t) => t.status === 'Open').length;
+  const resolved = tickets.filter((t) => t.status === 'Resolved').length;
+  const supportKpis = [
+    { label: 'TOTAL TICKETS', value: String(total) },
+    { label: 'OPEN', value: String(open) },
+    { label: 'RESOLVED', value: String(resolved) },
+  ];
+
   const query = searchQuery.trim().toLowerCase();
   const rows = tickets.filter(
     (t) =>
@@ -42,7 +51,7 @@ export function SupportHistoryScreen({
 
   return (
     <CustomersScreen title="Support History" subtitle={customerName} onBack={onBack}>
-      <StatTiles items={SUPPORT_KPIS} />
+      <StatTiles items={supportKpis} />
       <SearchField value={searchQuery} onChangeText={setSearchQuery} placeholder="Search ticket ID, subject or order" />
 
       {rows.length === 0 ? (

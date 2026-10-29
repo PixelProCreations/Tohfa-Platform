@@ -19,8 +19,8 @@ import type { RmaRecord, PermissionCheck, WarehouseScope } from './types';
 
 export { RmaRecord };
 
-/** RBAC code that gates the returns list. */
-export const RETURN_LIST_VIEW_CODE = 'return.list.view';
+/** RBAC code that gates the returns list (docs/rbac.json, BR-61). */
+export const RETURN_LIST_VIEW_CODE = 'rma.request.process';
 
 /**
  * Live cursor-paginated returns list for the current scope.

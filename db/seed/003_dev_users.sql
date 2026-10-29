@@ -167,7 +167,7 @@ VALUES
         'FARMER',
         NULL
     )
-ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
+ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(zone_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
 DO NOTHING;
 
 -- Seed approved farmer profiles for dev admin users so mobile app operates smoothly

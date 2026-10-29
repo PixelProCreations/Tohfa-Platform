@@ -532,8 +532,6 @@ function qualityCheckOf(qc: QualityCheckDto): LiveQualityCheck {
     rejectionReasonLabel: code === undefined ? undefined : rejectionReasonLabel(code),
     actualCropName: text(qc.actualCropName),
     cropMismatchGrams: grams(qc.cropMismatchQtyKg),
-    moisturePct: typeof qc.moisturePct === 'number' ? qc.moisturePct : undefined,
-    visualScore: typeof qc.visualScore === 'number' ? qc.visualScore : undefined,
     defectNotes: text(qc.defectNotes),
   };
 }
@@ -750,10 +748,6 @@ export interface QcDraft {
   grossGrams: number | null;
   acceptedGrams: number | null;
   points: Record<QcCriterionId, QcPointDraft>;
-  /** Typed percentage, '' when not measured. */
-  moisturePct: string;
-  /** Typed whole number 0-10, '' when not scored. */
-  visualScore: string;
   defectNotes: string;
   /** BR-120: parts of the rejected weight. */
   damagedGrams?: number | null | undefined;
@@ -761,42 +755,19 @@ export interface QcDraft {
   rejectionReasonCode?: QcRejectionReasonCode | undefined;
   /** Free-text note on the rejection. */
   rejectionNote?: string | undefined;
-  /** BR-106: the storage location's code, copied onto the batch. */
+  /** BR-106: the storage location's code, copied onto the batch as its label. */
   storageLocationCode?: string | undefined;
+  /** BR-125: the storage location's id; the API links the batch only by this. */
+  storageLocationId?: string | undefined;
 }
 
-export type QcDraftProblem = 'quantities' | 'breakdown' | 'moisture' | 'visualScore' | 'rejectionReasonRequired';
+export type QcDraftProblem = 'quantities' | 'breakdown' | 'rejectionReasonRequired';
 
 export const QC_DRAFT_PROBLEM_MESSAGE: Record<QcDraftProblem, TranslationKey> = {
   quantities: 'receiving.qc.problem.quantities',
   breakdown: 'receiving.qc.problem.breakdown',
-  moisture: 'receiving.qc.problem.moisture',
-  visualScore: 'receiving.qc.problem.visualScore',
   rejectionReasonRequired: 'receiving.qc.problem.defectNotesRequired',
 };
-
-const MOISTURE_RE = /^\d{1,3}(\.\d{1,2})?$/;
-const SCORE_RE = /^\d{1,2}$/;
-/** docs/openapi.yaml bounds: moisturePct 0-100, visualScore 0-10 (the API's own schema, not business thresholds). */
-const MOISTURE_MAX = 100;
-const SCORE_MAX = 10;
-
-function moistureOf(input: string): number | null | undefined {
-  const value = input.trim();
-  if (value === '') return undefined;
-  if (!MOISTURE_RE.test(value)) return null;
-  // A measured percentage, not money or weight: a number is what the API takes.
-  const pct = Number(value);
-  return pct >= 0 && pct <= MOISTURE_MAX ? pct : null;
-}
-
-function scoreOf(input: string): number | null | undefined {
-  const value = input.trim();
-  if (value === '') return undefined;
-  if (!SCORE_RE.test(value)) return null;
-  const score = Number(value);
-  return score >= 0 && score <= SCORE_MAX ? score : null;
-}
 
 function rejectedOf(draft: QcDraft): number | null {
   return draft.grossGrams === null || draft.acceptedGrams === null ? null : draft.grossGrams - draft.acceptedGrams;
@@ -811,8 +782,6 @@ export function qcDraftProblem(draft: QcDraft): QcDraftProblem | null {
   const rejected = rejectedOf(draft);
   if (!receiptQuantitiesValid(draft.grossGrams, draft.acceptedGrams, rejected)) return 'quantities';
   if (part(draft.damagedGrams) + part(draft.spoiledGrams) > (rejected ?? 0)) return 'breakdown';
-  if (moistureOf(draft.moisturePct) === null) return 'moisture';
-  if (scoreOf(draft.visualScore) === null) return 'visualScore';
   // The server refuses a rejected quantity without a code, a note or defect notes.
   if (
     (rejected ?? 0) > 0 &&
@@ -842,11 +811,10 @@ export function buildQualityCheckBody(draft: QcDraft): QualityCheckCreate {
   if (problem !== null) throw new RangeError(`quality check draft is not valid: ${problem}`);
   const accepted = draft.acceptedGrams ?? 0;
   const rejected = rejectedOf(draft) ?? 0;
-  const moisture = moistureOf(draft.moisturePct);
-  const score = scoreOf(draft.visualScore);
   const notes = text(draft.defectNotes);
   const note = text(draft.rejectionNote);
   const location = text(draft.storageLocationCode);
+  const locationId = text(draft.storageLocationId);
   const damaged = part(draft.damagedGrams);
   const spoiled = part(draft.spoiledGrams);
   return {
@@ -858,10 +826,9 @@ export function buildQualityCheckBody(draft: QcDraft): QualityCheckCreate {
     ...(rejected > 0 && note !== undefined ? { rejectionReason: note } : {}),
     ...(damaged > 0 ? { damagedQtyKg: gramsToKgString(damaged) } : {}),
     ...(spoiled > 0 ? { spoiledQtyKg: gramsToKgString(spoiled) } : {}),
-    ...(typeof moisture === 'number' ? { moisturePct: moisture } : {}),
-    ...(typeof score === 'number' ? { visualScore: score } : {}),
     ...(notes === undefined ? {} : { defectNotes: notes }),
     ...(location === undefined ? {} : { storageLocation: location }),
+    ...(locationId === undefined ? {} : { storageLocationId: locationId }),
     items: QC_ORDER.map((id) => itemOf(id, draft.points[id])),
   };
 }

@@ -109,6 +109,7 @@ export function mapNotificationDtoToItem(dto: NotificationDto): NotificationItem
 
   return {
     id: dto.id,
+    source: 'notification' as const,
     category,
     title,
     message: dto.body,
@@ -127,6 +128,7 @@ export function mapSystemMessageDtoToItem(dto: SystemMessageDto): NotificationIt
 
   return {
     id: dto.id,
+    source: 'systemMessage' as const,
     category: 'system',
     title: dto.title,
     message: dto.body,

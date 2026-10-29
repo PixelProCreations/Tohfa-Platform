@@ -3,13 +3,15 @@ import request from 'supertest';
 import { parseMoney } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { pool } from '../../db/pool.js';
+import { pool, type Executor } from '../../db/pool.js';
 import {
   aScope,
   databaseReady,
   describeIfDatabase,
   newId,
 } from '../../test/factories.js';
+import { randomUUID } from 'node:crypto';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { createFulfilmentService } from './fulfilment.service.js';
 import type { FulfilmentRepo } from './fulfilment.repo.js';
 
@@ -49,9 +51,14 @@ describe('Fulfilment Unit Tests (State Machine & Logic)', () => {
       }),
     };
 
-    const s = createFulfilmentService({ repo: mockRepo as unknown as FulfilmentRepo });
+    const fakeTx = { query: async () => ({ rows: [], rowCount: 0 }) } as unknown as Executor;
+    const s = createFulfilmentService({
+      repo: mockRepo as unknown as FulfilmentRepo,
+      runTx: async (fn) => fn(fakeTx),
+      idempotency: createInMemoryIdempotencyStore(),
+    });
     await expect(
-      s.packOrder(actor, aScope(), newId(), {}),
+      s.packOrder(actor, aScope(), newId(), {}, newId()),
     ).rejects.toMatchObject({
       code: 'INVALID_STATE_TRANSITION',
       status: 409,
@@ -290,6 +297,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     const packCrossRes = await request(app)
       .post(`/v1/admin/orders/${orderWh2}/pack`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`)
+      .set('Idempotency-Key', randomUUID())
       .send({});
 
     expect(packCrossRes.status).toBe(404);
@@ -346,6 +354,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     const packRes = await request(app)
       .post(`/v1/admin/orders/${orderId}/pack`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`)
+      .set('Idempotency-Key', randomUUID())
       .send({});
 
     expect(packRes.status).toBe(200);
@@ -355,6 +364,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     const dispatchRes = await request(app)
       .post(`/v1/admin/orders/${orderId}/dispatch`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`)
+      .set('Idempotency-Key', randomUUID())
       .send({});
 
     expect(dispatchRes.status).toBe(200);
@@ -389,6 +399,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     const wrongRes = await request(app)
       .post(`/v1/admin/orders/${orderId}/verify-otp`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ otp: '9999' });
 
     expect(wrongRes.status).toBe(422);
@@ -418,6 +429,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     const verifyRes = await request(app)
       .post(`/v1/admin/orders/${orderId}/verify-otp`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ otp: '8899' });
 
     expect(verifyRes.status).toBe(200);
@@ -450,6 +462,7 @@ describeIfDatabase('Fulfilment Integration Tests (BR-20, BR-21, BR-30, BR-35)', 
     const lockRes = await request(app)
       .post(`/v1/admin/orders/${orderId}/verify-otp`)
       .set('Authorization', `Bearer ${subWhAdminToken1}`)
+      .set('Idempotency-Key', randomUUID())
       .send({ otp: '1122' });
 
     expect(lockRes.status).toBe(429);

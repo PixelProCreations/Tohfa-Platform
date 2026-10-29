@@ -29,7 +29,7 @@ import {
   StatTiles,
   StatusBadge,
 } from './CustomersParts';
-import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
+import { CUSTOMER_WAREHOUSES } from './fixtures';
 import { CustomerFiltersScreen, type CustomerFilterStatus, type CustomerFilterValues } from './CustomerFiltersScreen';
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
@@ -57,7 +57,7 @@ export function CustomersListScreen({
   onNavigateToNotifications,
   onOpenFilters,
   warehouseOptions = CUSTOMER_WAREHOUSES,
-  customers = INITIAL_CUSTOMERS,
+  customers = [],
 }: CustomersListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<CustomerFilterStatus>('All');
@@ -132,6 +132,11 @@ export function CustomersListScreen({
     </HeaderIconButton>
   );
 
+  const totalCount = customers.length;
+  const activeCount = customers.filter((c) => c.status === 'Active').length;
+  const withOrdersCount = customers.filter((c) => c.ordersCount > 0).length;
+  const withIssuesCount = customers.filter((c) => (c.openIssues ?? 0) > 0).length;
+
   return (
     <CustomersScreen
       title="Customers"
@@ -150,28 +155,27 @@ export function CustomersListScreen({
       }
     >
       {allWarehouses ? (
-        // Main Warehouse 4 KPI Cards (2x2 Grid) - Static
         <View style={styles.mainKpiGrid}>
           <OverviewDashboardCard
-            value="1,248"
+            value={totalCount.toLocaleString('en-IN')}
             title="Total Customers"
             subtitle="All registered"
             icon="pickup"
           />
           <OverviewDashboardCard
-            value="1,102"
+            value={activeCount.toLocaleString('en-IN')}
             title="Active"
             subtitle="Regular buyers"
             icon="orders"
           />
           <OverviewDashboardCard
-            value="864"
+            value={withOrdersCount.toLocaleString('en-IN')}
             title="With Orders"
             subtitle="Active orders"
             icon="sales"
           />
           <OverviewDashboardCard
-            value="23"
+            value={withIssuesCount.toLocaleString('en-IN')}
             title="With Issues"
             subtitle="Needs attention"
             icon="alert"
@@ -180,15 +184,18 @@ export function CustomersListScreen({
         </View>
       ) : (
         <View style={styles.mainKpiGrid}>
-          {SUB_CUSTOMER_KPIS.map((item) => (
-            <OverviewDashboardCard
-              key={item.label}
-              value={item.value}
-              title={item.label}
-              subtitle="Registered"
-              icon={item.label.toLowerCase().includes('active') ? 'pickup' : 'orders'}
-            />
-          ))}
+          <OverviewDashboardCard
+            value={totalCount.toLocaleString('en-IN')}
+            title="Total Customers"
+            subtitle="Registered"
+            icon="orders"
+          />
+          <OverviewDashboardCard
+            value={activeCount.toLocaleString('en-IN')}
+            title="Active Customers"
+            subtitle="Registered"
+            icon="pickup"
+          />
         </View>
       )}
 

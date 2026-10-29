@@ -1,9 +1,10 @@
-import { GenericProblemCode, RoleCode } from '@tohfa/shared-types';
+import { GenericProblemCode, ScopeLevel } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { loadRbac } from '../../rbac/loadRbac.js';
 import {
   inventoryRepo,
   toBatchView,
@@ -21,6 +22,7 @@ import type {
   ListStockLedgerQuery,
   ProduceGrade,
   RecordMovementInput,
+  StockLedgerEntryAdminView,
   StockLedgerEntryView,
 } from './inventory.schema.js';
 import { allocationsService } from '../allocations/allocations.service.js';
@@ -99,16 +101,21 @@ export class InventoryService {
    * The append-only ledger insert is the only mechanism that changes available stock.
    */
   async recordMovement(
-    actor: Actor,
+    actor: Pick<Actor, 'userId'>,
     scope: ResolvedScope,
     input: RecordMovementInput,
     tx?: Executor,
   ): Promise<StockLedgerEntryView> {
-    // BR-37: SUB_WH_ADMIN cannot approve adjustments
+    // BR-37: an ADJUSTMENT movement written under the approve permission must come from a role
+    // that actually holds that grant. Who holds it is a fact in docs/rbac.json (a Sub Warehouse
+    // Admin holds `none`), so it is read from there rather than naming a role here (CLAUDE.md 2.1).
+    // requirePermission already stops such a scope at the route; this is the in-service backstop
+    // for callers that build a scope by hand (jobs, scripts, tests).
     if (
       input.movementType === 'ADJUSTMENT' &&
-      scope.roleCode === RoleCode.SUB_WH_ADMIN &&
-      scope.permission === 'inventory.stock_adjustment.approve'
+      scope.permission === 'inventory.stock_adjustment.approve' &&
+      (loadRbac().permission('inventory.stock_adjustment.approve').grants[scope.roleCode] ?? ScopeLevel.NONE) ===
+        ScopeLevel.NONE
     ) {
       throw new AppError('SELF_APPROVAL_FORBIDDEN', {
         detail: 'Sub Warehouse Admin cannot approve stock adjustments (BR-37).',
@@ -169,6 +176,21 @@ export class InventoryService {
     db: Executor = pool,
   ): Promise<ListStockLedgerResult> {
     return this.repo.listStockLedger(db, scope, filters);
+  }
+
+  /**
+   * BR-130: one ledger row, read-only, in the list item's shape. The repo applies the list's scope
+   * filter, so a row outside the scope comes back null exactly like an unknown id: both are the same
+   * 404 with the same detail (BR-30; a 403 would confirm the row exists).
+   */
+  async getStockLedgerEntry(scope: ResolvedScope, id: string, db: Executor = pool): Promise<StockLedgerEntryAdminView> {
+    const entry = await this.repo.getStockLedgerEntryById(db, scope, id);
+    if (entry === null) {
+      throw new AppError(GenericProblemCode.NOT_FOUND, {
+        detail: `No stock ledger entry with id ${id} is visible to you.`,
+      });
+    }
+    return entry;
   }
 
   /**

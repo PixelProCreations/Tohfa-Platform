@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -14,11 +15,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { listSalesHoreca, listSalesB2b, type ChannelOrderListItemDto } from '../../../api/sales';
+import { toChannelOrderItem } from './mappers';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import { ChannelOrderDetailScreen } from './ChannelOrderDetailScreen';
-import { CHANNEL_COPY, CHANNEL_KPIS, CHANNEL_ORDERS } from './fixtures';
+import { CHANNEL_COPY } from './fixtures';
 import { SALE_WAREHOUSES, isAllWarehouses } from './SalesParts';
 import { WarehouseSelector } from '../inventory';
 import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
@@ -203,102 +207,33 @@ export function ChannelSalesScreen({
   const orderTotalAmount = orderItems.reduce((acc, it) => acc + it.lineTotal, 0);
 
   const copy = CHANNEL_COPY[channel];
-  const kpis = CHANNEL_KPIS[channel];
+
+  const channelQuery = useAdminQuery(
+    adminKeys.scoped('sales', scope.warehouseId ?? 'all', { resource: `channel-${channel.toLowerCase()}` }),
+    (signal: AbortSignal) => (channel === 'HORECA' ? listSalesHoreca({}, signal) : listSalesB2b({}, signal)),
+  );
+
+  const rawList: ChannelOrderItem[] = useMemo(() => {
+    if (!channelQuery.data?.items) return [];
+    return channelQuery.data.items.map((dto: ChannelOrderListItemDto) =>
+      toChannelOrderItem(dto, scope.warehouseName ?? 'Warehouse')
+    );
+  }, [channelQuery.data, scope.warehouseName]);
+
+  const liveKpis = useMemo(() => {
+    return {
+      orders: rawList.length,
+      pending: rawList.filter((o) => o.status === 'Pending').length,
+      processing: rawList.filter((o) => o.status === 'Processing').length,
+      completed: rawList.filter((o) => o.status === 'Completed' || o.status === 'Paid').length,
+      salesValue: rawList.reduce((acc, o) => acc + o.amount, 0),
+    };
+  }, [rawList]);
+
+  const kpis = liveKpis;
 
   const pickedWarehouseObj = WAREHOUSE_OPTIONS.find((w) => w.id === pickedWarehouse);
   const pickedWarehouseName = pickedWarehouseObj?.name ?? 'All Warehouses';
-
-  // Main-specific sample orders matching M6-11 and M6-12 screenshots
-  const mainOrders: ChannelOrderItem[] =
-    channel === 'HORECA'
-      ? [
-          {
-            id: 'HORECA-0021',
-            channel: 'HORECA',
-            businessName: 'Hilltop Resort & Restaurant',
-            customerCode: 'CUS-H0021',
-            status: 'Paid',
-            itemCountText: '4 items · Coonoor',
-            dateText: '24 Sep 2026',
-            amount: 1250,
-            warehouseName: 'Coonoor',
-            items: [
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00231', qtyText: '2 KG @ ₹100', pricePerUnit: 100, lineTotal: 200 },
-              { name: 'Carrot Grade 1', grade: 'Grade 1', batch: 'BTH-00189', qtyText: '1 KG @ ₹120', pricePerUnit: 120, lineTotal: 120 },
-              { name: 'Beans Grade 1', grade: 'Grade 1', batch: 'BTH-00155', qtyText: '5 KG @ ₹90', pricePerUnit: 90, lineTotal: 450 },
-              { name: 'Potato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹48', pricePerUnit: 48, lineTotal: 480 },
-            ],
-          },
-          {
-            id: 'HORECA-0020',
-            channel: 'HORECA',
-            businessName: 'Highland Residency Hotel',
-            customerCode: 'CUS-H0020',
-            status: 'Paid',
-            itemCountText: '18 items · Ooty',
-            dateText: '24 Sep 2026',
-            amount: 2100,
-            warehouseName: 'Ooty',
-            items: [],
-          },
-          {
-            id: 'HORECA-0019',
-            channel: 'HORECA',
-            businessName: 'Nilgiri Tea & Dine',
-            customerCode: 'CUS-H0019',
-            status: 'Paid',
-            itemCountText: '8 items · Kotagiri',
-            dateText: '23 Sep 2026',
-            amount: 1450,
-            warehouseName: 'Kotagiri',
-            items: [],
-          },
-        ]
-      : [
-          {
-            id: 'B2B-0041',
-            channel: 'B2B',
-            businessName: 'Green Valley Retail Pvt Ltd',
-            customerCode: 'CUS-B0041',
-            status: 'Paid',
-            itemCountText: '12 items · Ooty',
-            dateText: '22 Sep 2026',
-            amount: 4400,
-            warehouseName: 'Ooty',
-            items: [
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-            ],
-          },
-          {
-            id: 'B2B-0040',
-            channel: 'B2B',
-            businessName: 'Nilgiris Fresh Stores',
-            customerCode: 'CUS-B0040',
-            status: 'Paid',
-            itemCountText: '8 items · Coonoor',
-            dateText: '22 Sep 2026',
-            amount: 2800,
-            warehouseName: 'Coonoor',
-            items: [],
-          },
-          {
-            id: 'B2B-0039',
-            channel: 'B2B',
-            businessName: 'Apex Grocers Wholesalers',
-            customerCode: 'CUS-B0039',
-            status: 'Paid',
-            itemCountText: '15 items · Kotagiri',
-            dateText: '21 Sep 2026',
-            amount: 3600,
-            warehouseName: 'Kotagiri',
-            items: [],
-          },
-        ];
-
-  const rawList = isMain ? mainOrders : CHANNEL_ORDERS[channel];
 
   const filteredOrders = rawList.filter((order) => {
     if (isMain && pickedWarehouse) {
@@ -416,7 +351,7 @@ export function ChannelSalesScreen({
                   id: channel === 'B2B' ? 'B2B-0042' : 'HORECA-0022',
                   channel,
                   businessName,
-                  customerCode: 'CUS-0099',
+                  customerCode: '—',
                   status: 'Pending',
                   itemCountText: `${orderItems.length} items · ${fulfillingWarehouse}`,
                   dateText: 'Today · Just now',
@@ -425,7 +360,7 @@ export function ChannelSalesScreen({
                   items: orderItems.map((it) => ({
                     name: `${it.name} ${it.grade}`,
                     grade: it.grade,
-                    batch: 'BTH-001',
+                    batch: '—',
                     qtyText: `${it.qty} KG @ ₹${it.unitPrice}`,
                     pricePerUnit: it.unitPrice,
                     lineTotal: it.lineTotal,
@@ -1026,6 +961,25 @@ export function ChannelSalesScreen({
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            channelQuery.isLoading ? (
+              <View style={styles.stateContainer}>
+                <ActivityIndicator size="small" color={adminColors.brand} />
+                <Text style={styles.stateText}>Loading channel orders...</Text>
+              </View>
+            ) : channelQuery.error ? (
+              <View style={styles.stateContainer}>
+                <Text style={styles.stateText}>Failed to load orders.</Text>
+                <TouchableOpacity onPress={() => channelQuery.refetch()} style={styles.retryButton}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.stateContainer}>
+                <Text style={styles.stateText}>No orders found</Text>
+              </View>
+            )
+          }
           renderItem={({ item }) => {
             const isConfirmed = item.status === 'Confirmed';
             const isProcessing = item.status === 'Processing';
@@ -1813,6 +1767,28 @@ const styles = StyleSheet.create({
   modalItemTextSelected: {
     color: adminColors.brandDeep,
     fontWeight: '700',
+  },
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 8,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });
 

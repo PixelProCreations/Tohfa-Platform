@@ -12,11 +12,16 @@
  */
 // Design id: M5S05 (Stock Check), absorbs M5S06 (Stock Shortage)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { isAllWarehouses } from '../wallet-cashtopup/WalletParts';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder } from '../../../api/orders';
+import { listBatches } from '../../../api/inventory';
+import { computeStockCheckRows, type StockCheckRow } from './mappers';
 import type { OrderScreenBaseProps, StockCheckStep, WarehouseNavigate } from './types';
 
 export interface StockCheckScreenProps extends OrderScreenBaseProps {
@@ -24,44 +29,7 @@ export interface StockCheckScreenProps extends OrderScreenBaseProps {
   initialStep?: StockCheckStep | undefined;
 }
 
-/** Mock order id used until orders are wired to the API. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
-
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-interface StockItem {
-  name: string;
-  status: 'Available' | 'Insufficient';
-  ordered: string;
-  available: string;
-  required: string;
-  shortage?: string;
-}
-
-/** Mock stock lines per sample order, as the design showed them. */
-function mockStockItems(orderId: string): StockItem[] {
-  if (orderId === 'INV-00251' || orderId === 'ORD-00251') {
-    return [{ name: 'Tomato · Grade 1', status: 'Available', ordered: '2 KG', available: '25 KG', required: '2 KG' }];
-  }
-  if (orderId === 'INV-00238' || orderId === 'ORD-00238') {
-    return [
-      { name: 'Tomato · Grade 1', status: 'Available', ordered: '2 KG', available: '25 KG', required: '2 KG' },
-      { name: 'Carrot · Grade 1', status: 'Available', ordered: '1 KG', available: '18 KG', required: '1 KG' },
-      { name: 'Beans · Grade 1', status: 'Available', ordered: '2 KG', available: '12 KG', required: '2 KG' },
-    ];
-  }
-  return [
-    { name: 'Tomato · Grade 1', status: 'Available', ordered: '20 KG', available: '25 KG', required: '20 KG' },
-    {
-      name: 'Carrot · Grade 1',
-      status: 'Insufficient',
-      ordered: '10 KG',
-      available: '6 KG',
-      required: '10 KG',
-      shortage: '4 KG',
-    },
-  ];
-}
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -163,6 +131,7 @@ function DocumentIcon() {
 
 interface CheckStepViewProps {
   orderId: string;
+  stockItems: StockCheckRow[];
   canMarkPacked: boolean;
   onBack: () => void;
   onReviewShortage: () => void;
@@ -170,9 +139,9 @@ interface CheckStepViewProps {
   isMain?: boolean | undefined;
 }
 
-function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNavigate, isMain }: CheckStepViewProps) {
-  const stockItems = mockStockItems(orderId);
+function CheckStepView({ orderId, stockItems, canMarkPacked, onBack, onReviewShortage, onNavigate, isMain }: CheckStepViewProps) {
   const hasShortage = stockItems.some((it) => it.status === 'Insufficient');
+  const shortageCount = stockItems.filter((it) => it.status === 'Insufficient').length;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -226,7 +195,11 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
             hasShortage ? (
               <View style={styles.statusBox}>
                 <WarningTriangleIcon />
-                <Text style={styles.statusText}>Stock Shortage — 1 item requires attention</Text>
+                <Text style={styles.statusText}>
+                  {shortageCount === 1
+                    ? 'Stock Shortage — 1 item requires attention'
+                    : `Stock Shortage — ${shortageCount} items require attention`}
+                </Text>
               </View>
             ) : (
               <View style={[styles.statusBox, styles.statusBoxSuccess]}>
@@ -267,11 +240,19 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
 
 interface ShortageStepViewProps {
   orderId: string;
+  stockItems: StockCheckRow[];
   onBack: () => void;
   onNavigate?: WarehouseNavigate | undefined;
 }
 
-function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps) {
+function ShortageStepView({ orderId, stockItems, onBack, onNavigate }: ShortageStepViewProps) {
+  const shortageItem = stockItems.find((it) => it.status === 'Insufficient') ?? stockItems[0];
+  const shortageText = shortageItem?.shortage ?? '0 KG';
+  const cropText = (shortageItem?.name ?? '').toUpperCase();
+  const orderedText = shortageItem?.ordered ?? '0 KG';
+  const availableText = shortageItem?.available ?? '0 KG';
+  const reservedText = `${shortageItem?.reservedKg ?? 0} KG`;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -286,21 +267,21 @@ function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps
           <Text style={styles.orderRefLabel}>{orderId}</Text>
 
           <View style={styles.shortageHeroCard}>
-            <Text style={styles.shortageNumberText}>4 KG Short</Text>
-            <Text style={styles.shortageCropText}>CARROT · GRADE 1</Text>
+            <Text style={styles.shortageNumberText}>{shortageText} Short</Text>
+            <Text style={styles.shortageCropText}>{cropText}</Text>
           </View>
 
           <View style={styles.summaryCardsRow}>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValText}>10 KG</Text>
+              <Text style={styles.summaryValText}>{orderedText}</Text>
               <Text style={styles.summaryLblText}>ORDERED</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={styles.summaryValText}>6 KG</Text>
+              <Text style={styles.summaryValText}>{availableText}</Text>
               <Text style={styles.summaryLblText}>AVAILABLE</Text>
             </View>
             <View style={styles.summaryCard}>
-              <Text style={[styles.summaryValText, styles.dangerText]}>4 KG</Text>
+              <Text style={[styles.summaryValText, styles.dangerText]}>{shortageText}</Text>
               <Text style={[styles.summaryLblText, styles.dangerText]}>SHORT</Text>
             </View>
           </View>
@@ -310,11 +291,11 @@ function ShortageStepView({ orderId, onBack, onNavigate }: ShortageStepViewProps
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.relatedLabel}>Available Stock</Text>
-                <Text style={styles.relatedValue}>6 KG</Text>
+                <Text style={styles.relatedValue}>{availableText}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.relatedLabel}>Reserved</Text>
-                <Text style={styles.relatedValue}>0 KG</Text>
+                <Text style={styles.relatedValue}>{reservedText}</Text>
               </View>
             </View>
           </View>
@@ -352,19 +333,99 @@ export function StockCheckScreen({
   can,
   onBack,
   onNavigate,
-  orderId = SAMPLE_ORDER_ID,
+  orderId,
   initialStep = 'check',
 }: StockCheckScreenProps) {
   const [step, setStep] = useState<StockCheckStep>(initialStep);
   const canMarkPacked = can('order.mark_packed');
 
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  const batchesQuery = useAdminQuery(
+    adminKeys.scoped('inventory', scope.warehouseId, { resource: 'batches', status: 'ACTIVE' }),
+    (signal) => listBatches({ warehouseId: scope.warehouseId, status: 'ACTIVE', limit: 100 }, signal),
+  );
+
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Stock Check</Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading || batchesQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Stock Check</Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.error || !orderQuery.data || batchesQuery.error) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Stock Check</Text>
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }}>
+          <Text style={{ ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.sm }}>
+            Failed to load stock data
+          </Text>
+          <TouchableOpacity
+            style={styles.primaryBtn}
+            onPress={() => {
+              orderQuery.refetch();
+              batchesQuery.refetch();
+            }}
+          >
+            <Text style={styles.primaryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const stockItems = computeStockCheckRows(orderQuery.data.items, batchesQuery.data?.items ?? []);
+
   if (step === 'shortage') {
-    return <ShortageStepView orderId={orderId} onBack={() => setStep('check')} onNavigate={onNavigate} />;
+    return (
+      <ShortageStepView
+        orderId={orderId}
+        stockItems={stockItems}
+        onBack={() => setStep('check')}
+        onNavigate={onNavigate}
+      />
+    );
   }
 
   return (
     <CheckStepView
       orderId={orderId}
+      stockItems={stockItems}
       canMarkPacked={canMarkPacked}
       onBack={onBack}
       onReviewShortage={() => setStep('shortage')}

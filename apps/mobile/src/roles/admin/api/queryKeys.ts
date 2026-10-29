@@ -11,6 +11,7 @@ export type AdminQueryParams = Readonly<Record<string, unknown>>;
 export const adminKeys = {
   all: ['admin'] as const,
   module: (module: string) => ['admin', module] as const,
+  detail: (module: string, id: string) => ['admin', module, 'detail', id] as const,
   scoped: (module: string, warehouseId: string | undefined, params: AdminQueryParams = {}) =>
     ['admin', module, warehouseId ?? 'all', params] as const,
 };

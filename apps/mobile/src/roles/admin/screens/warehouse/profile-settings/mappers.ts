@@ -1,6 +1,7 @@
 import type { CurrentUserDto, HelpArticleDto, MySessionDto } from '../../../api/profile';
-import type { StorageLocationDto, WarehouseDto } from '../../../api/warehouses';
+import type { StorageLocationDto, WarehouseCapacityDto, WarehouseDto } from '../../../api/warehouses';
 import type { WarehouseDocumentDto, WarehouseDocumentType } from '../../../api/warehouseDocuments';
+import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import type {
   AdminAccountProfile,
   CurrentSessionInfo,
@@ -70,9 +71,13 @@ export function mapCurrentUserDtoToProfile(dto: CurrentUserDto, scope?: Warehous
   };
 }
 
-export function mapWarehouseDtoToProfileInfo(dto: WarehouseDto): WarehouseProfileInfo {
+export function mapWarehouseDtoToProfileInfo(dto: WarehouseDto, capacity?: WarehouseCapacityDto | null): WarehouseProfileInfo {
   const coordinates = dto.latitude && dto.longitude ? `${dto.latitude}° N, ${dto.longitude}° E` : '—';
-  const currentStock = dto.capacityKg ? `${Math.round(parseFloat(dto.capacityKg))} KG total capacity` : '—';
+  let currentStock = '—';
+  if (capacity) {
+    const grams = parseKgToGrams(capacity.usedKg);
+    currentStock = grams !== null ? formatKg(grams) : '—';
+  }
 
   return {
     warehouseId: dto.id,

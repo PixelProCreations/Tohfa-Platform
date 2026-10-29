@@ -38,7 +38,7 @@ export interface WarehouseScopeFilter {
  * The role dimension is always there.
  * The id checks stay as a belt-and-braces second condition.
  */
-function isWarehouseConfinable(scope: ResolvedScope): boolean {
+export function isWarehouseConfinable(scope: ResolvedScope): boolean {
   if (scope.farmerId !== undefined || scope.customerId !== undefined) return false;
   const role = loadRbac().rolesByCode.get(scope.roleCode);
   if (role === undefined) return false;

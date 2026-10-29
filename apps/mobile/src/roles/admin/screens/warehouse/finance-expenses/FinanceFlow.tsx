@@ -78,7 +78,7 @@ function draftOf(params: FinanceRouteParams): ExpenseDraft | undefined {
   const method = e.paymentMethod;
   return {
     expenseId: e.expenseId,
-    amount: String(e.amount ?? '').replace(/[^0-9.]/g, ''),
+    amount: e.amountPaise !== null && e.amountPaise !== undefined ? String(Math.round(e.amountPaise / 100)) : '',
     category: e.category ?? '',
     date: e.date ?? '',
     description: e.description ?? '',
@@ -193,30 +193,19 @@ export function FinanceFlow({
           {...common}
           warehouseOptions={warehouseOptions}
           initialWarehouseId={isSpecificWarehouseChosen ? hubWarehouseId : undefined}
-          initialExpense={params.expenseDraft}
+          initialExpense={undefined}
           onSaveSuccess={(savedRecord) =>
             replace('ExpenseDetail', {
               expense: savedRecord
                 ? {
                     expenseId: savedRecord.id,
-                    amount: savedRecord.amount,
+                    amountPaise: savedRecord.amountPaise,
                     category: savedRecord.categoryRef.split('·')[0]?.trim(),
                     date: savedRecord.timestamp.split('-')[0]?.trim() || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                     description: savedRecord.categoryRef,
                     paymentMethod: 'Cash',
-                    vendorPayee: params.expenseDraft?.vendorPayee || 'Transport & Logistics Payee',
+                    vendorPayee: 'Transport & Logistics Payee',
                     warehouse: savedRecord.warehouseName,
-                    status: 'Recorded',
-                  }
-                : params.expenseDraft
-                ? {
-                    expenseId: params.expenseDraft.expenseId,
-                    amount: params.expenseDraft.amount,
-                    category: params.expenseDraft.category,
-                    date: params.expenseDraft.date,
-                    description: params.expenseDraft.description,
-                    paymentMethod: params.expenseDraft.paymentMethod,
-                    vendorPayee: params.expenseDraft.vendorPayee,
                     status: 'Recorded',
                   }
                 : undefined,
@@ -232,7 +221,7 @@ export function FinanceFlow({
           isShortVersion={params.isShortVersion}
           isReceiptView={params.isReceiptView}
           onEdit={
-            can(FINANCE_CODES.expenseLog) ? () => navigate('AddExpense', { expenseDraft: draftOf(params) }) : undefined
+            can(FINANCE_CODES.expenseLog) ? () => navigate('AddExpense') : undefined
           }
           onViewReceipt={() => navigate('ExpenseDetail', { ...params, isReceiptView: true })}
           onViewVouchers={canOpenFinanceRoute(can, 'Vouchers') ? () => navigate('Vouchers') : undefined}
@@ -265,7 +254,7 @@ export function FinanceFlow({
                 isShortVersion: isMain,
                 revenue: {
                   revenueId: item.id,
-                  finalAmount: item.amount.toLocaleString('en-IN'),
+                  finalAmount: item.amountPaise !== null && item.amountPaise !== undefined ? `₹${Math.round(item.amountPaise / 100).toLocaleString('en-IN')}` : '—',
                   salesChannel: item.title,
                   transactionDate: item.time,
                 },
@@ -273,7 +262,7 @@ export function FinanceFlow({
             } else {
               navigate('ExpenseDetail', {
                 isShortVersion: isMain,
-                expense: { expenseId: item.id, amount: item.amount, category: item.title, date: item.time },
+                expense: { expenseId: item.id, amountPaise: item.amountPaise, category: item.title, date: item.time },
               });
             }
           }}

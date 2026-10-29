@@ -9,19 +9,19 @@
  *     invoice that already exists, and generation is a separate permission.
  */
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder } from '../../../api/orders';
+import { formatMoney, formatOrderTime, channelLabel, paymentStatusLabel, toOrderDetailLines } from './mappers';
 import type { OrderScreenBaseProps } from './types';
 
 export type OrderInvoiceScreenProps = OrderScreenBaseProps;
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-/** Mock order / invoice the design hard-coded; callers pass the real order once invoices are wired. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const MOCK_INVOICE_NO = 'INV-2026-001024';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -62,16 +62,92 @@ function InfoCircleIcon() {
   );
 }
 
-export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: OrderInvoiceScreenProps) {
+export function OrderInvoiceScreen({ can, onBack, orderId }: OrderInvoiceScreenProps) {
   const canViewInvoice = can('invoice.view_own');
 
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  const order = orderQuery.data;
+  const invoiceNumber = order?.invoice?.invoiceNumber ?? (order ? `INV-${order.orderNumber}` : '—');
+
   const handleDownload = () => {
-    Alert.alert('Invoice Downloaded', `Invoice ${MOCK_INVOICE_NO} downloaded successfully.`);
+    Alert.alert('Invoice Downloaded', `Invoice ${invoiceNumber} downloaded successfully.`);
   };
 
   const handleShare = () => {
-    Alert.alert('Share Invoice', 'Invoice link ready to share.');
+    Alert.alert('Share Invoice', `Invoice link for ${invoiceNumber} ready to share.`);
   };
+
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Invoice</Text>
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Invoice</Text>
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+          <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: adminSpacing.md }}>
+            Loading invoice...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.error || !order) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+            <BackArrowIcon />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Invoice</Text>
+        </View>
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }]}>
+          <Text style={{ ...adminType.body, color: adminColors.muted, marginBottom: adminSpacing.md }}>
+            Failed to load invoice
+          </Text>
+          <TouchableOpacity
+            style={styles.downloadBtn}
+            activeOpacity={0.8}
+            onPress={() => orderQuery.refetch()}
+          >
+            <Text style={styles.downloadBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const items = toOrderDetailLines(order.items);
+  const subtotal = formatMoney(order.totals.subtotal);
+  const discount = formatMoney(order.totals.discount);
+  const gst = formatMoney(order.totals.gst);
+  const total = formatMoney(order.totals.total);
+  const paymentStatus = paymentStatusLabel(order.paymentStatus);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -84,7 +160,7 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
         </View>
 
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>{MOCK_INVOICE_NO}</Text>
+          <Text style={styles.subtitleText}>{invoiceNumber}</Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -92,7 +168,7 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
             <View style={styles.brandHeader}>
               <Text style={styles.brandTitle}>TOHFA</Text>
               <Text style={styles.brandSub}>Nilgiris Horticulture Organic Farmers Association</Text>
-              <Text style={styles.invoiceCode}>{MOCK_INVOICE_NO}</Text>
+              <Text style={styles.invoiceCode}>{invoiceNumber}</Text>
             </View>
 
             <View style={styles.divider} />
@@ -100,76 +176,74 @@ export function OrderInvoiceScreen({ can, onBack, orderId = SAMPLE_ORDER_ID }: O
             <View style={styles.twoColRow}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Order Number</Text>
-                <Text style={styles.fieldValue}>{orderId}</Text>
+                <Text style={styles.fieldValue}>{order.orderNumber}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Date</Text>
-                <Text style={styles.fieldValue}>24 Sep 2026</Text>
+                <Text style={styles.fieldValue}>{formatOrderTime(order.placedAt)}</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, styles.rowGap]}>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Customer</Text>
-                <Text style={styles.fieldValue}>Arun Kumar</Text>
+                <Text style={styles.fieldValue}>{order.buyer?.name ?? '—'}</Text>
               </View>
               <View style={styles.col}>
                 <Text style={styles.fieldLabel}>Sales Channel</Text>
-                <Text style={styles.fieldValue}>Online</Text>
+                <Text style={styles.fieldValue}>{channelLabel(order.channel)}</Text>
               </View>
             </View>
           </View>
 
           <Text style={styles.sectionTitle}>Items</Text>
           <View style={styles.itemsCard}>
-            <View style={styles.itemRow}>
-              <View>
-                <Text style={styles.itemName}>Tomato</Text>
-                <Text style={styles.itemMeta}>Grade 1</Text>
-                <Text style={styles.itemMeta}>2 KG × ₹100</Text>
-              </View>
-              <Text style={styles.itemTotal}>₹200</Text>
-            </View>
-
-            <View style={styles.itemDivider} />
-
-            <View style={styles.itemRow}>
-              <View>
-                <Text style={styles.itemName}>Carrot</Text>
-                <Text style={styles.itemMeta}>Grade 1</Text>
-                <Text style={styles.itemMeta}>3 KG × ₹120</Text>
-              </View>
-              <Text style={styles.itemTotal}>₹360</Text>
-            </View>
+            {items.length === 0 ? (
+              <Text style={{ ...adminType.body, color: adminColors.muted }}>No items</Text>
+            ) : (
+              items.map((item, idx) => (
+                <React.Fragment key={`${item.name}-${idx}`}>
+                  {idx > 0 && <View style={styles.itemDivider} />}
+                  <View style={styles.itemRow}>
+                    <View>
+                      <Text style={styles.itemName}>{item.name}</Text>
+                      <Text style={styles.itemMeta}>{item.grade}</Text>
+                      <Text style={styles.itemMeta}>{item.qtyDetail}</Text>
+                    </View>
+                    <Text style={styles.itemTotal}>{item.price}</Text>
+                  </View>
+                </React.Fragment>
+              ))
+            )}
           </View>
 
           <Text style={styles.sectionTitle}>Totals</Text>
           <View style={styles.totalsCard}>
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLabel}>Subtotal</Text>
-              <Text style={styles.totalsValue}>₹560</Text>
+              <Text style={styles.totalsValue}>{subtotal}</Text>
             </View>
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLabel}>Discount</Text>
-              <Text style={styles.totalsValue}>₹0</Text>
+              <Text style={styles.totalsValue}>{discount}</Text>
             </View>
             <View style={styles.totalsRow}>
               <Text style={styles.totalsLabel}>GST</Text>
-              <Text style={styles.totalsValue}>₹28</Text>
+              <Text style={styles.totalsValue}>{gst}</Text>
             </View>
 
             <View style={styles.totalsDivider} />
 
             <View style={styles.totalFinalRow}>
               <Text style={styles.totalFinal}>Total</Text>
-              <Text style={styles.totalFinal}>₹588</Text>
+              <Text style={styles.totalFinal}>{total}</Text>
             </View>
           </View>
 
           <View style={styles.paymentStatusCard}>
             <Text style={styles.paymentStatusLabel}>Payment Status</Text>
             <View style={styles.paymentStatusBadge}>
-              <Text style={styles.paymentStatusValue}>Paid</Text>
+              <Text style={styles.paymentStatusValue}>{paymentStatus}</Text>
             </View>
           </View>
 

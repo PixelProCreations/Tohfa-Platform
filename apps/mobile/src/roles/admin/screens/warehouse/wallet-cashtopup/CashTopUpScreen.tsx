@@ -164,11 +164,10 @@ export function CashTopUpScreen({
       customerName: custName,
       customerCode: custCode,
       customerId: activeCustomer?.customerId,
-      currentBalance: baseBalance,
-      topUpAmount: amount,
+      currentBalancePaise: baseBalance * 100,
+      topUpAmountPaise: amount * 100,
       warehouseId,
       warehouseName,
-      processedBy: processor,
       channel: 'Cash',
     });
   };

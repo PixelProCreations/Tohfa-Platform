@@ -1,310 +1,187 @@
-import { useCallback, useEffect, useState } from 'react';
+/**
+ * Live data for the staff & attendance screens. Thin wrappers over the admin
+ * hooks (../../../api/hooks.ts); every decision lives in ./mappers.ts,
+ * ./attendanceDates.ts or ./staffAccess.ts, which are tested.
+ *
+ * Errors are passed through untouched (`error: unknown`) so a screen renders
+ * them with AdminErrorState, which maps the problem code to its i18n message
+ * (adminErrorKey). The hand-rolled `err.message` strings this file used to keep
+ * dropped the code and showed the server's developer `detail`.
+ *
+ * The roster and the attendance list walk the cursor to the end (collectPages)
+ * instead of stopping at the first 100 rows. The page cap is a guard against a
+ * looping cursor, not a business limit; when it trips the result says
+ * `complete: false` and the screen says the list may be partial.
+ *
+ * Every hook takes `enabled`, so a screen the viewer's role cannot use (see
+ * ./staffAccess.ts) sends no request instead of collecting a 403.
+ */
+import { useMemo } from 'react';
 import {
-  type AttendanceCounts,
-  type AttendanceHistoryDto,
-  type AttendanceStatusCode,
-  type MarkAttendanceBody,
-  type RollCallDto,
-  getAttendanceHistory,
   getAttendanceSummary,
   getRollCall,
   listAttendance,
-  markAttendance,
+  type AttendanceSummaryDto,
+  type RollCallDto,
 } from '../../../api/attendance';
-import {
-  type CreateStaffBody,
-  type StaffDto,
-  type StaffStatus,
-  type UpdateStaffBody,
-  createStaff,
-  deactivateStaff,
-  getStaff,
-  listStaff,
-  updateStaff,
-} from '../../../api/staff';
+import { useAdminMutation, useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getStaff, listStaff, STAFF_LIST_MAX_LIMIT, updateStaff, type StaffDto, type UpdateStaffBody } from '../../../api/staff';
+import { collectPages } from '../../../../../shell/api/pagination';
+import { istMonth } from './attendanceDates';
 import {
   mapAttendanceDtoToHistoryEntry,
   mapRollCallItemDtoToRecord,
   mapStaffAttendanceCountsToMonthSummary,
   mapStaffDtoToMember,
+  rollCallStatusByStaffId,
 } from './mappers';
-import type {
-  AttendanceHistoryEntry,
-  AttendanceRecord,
-  StaffMember,
-  StaffMonthSummary,
-  WarehouseScope,
-} from './types';
+import type { AttendanceHistoryEntry, AttendanceRecord, AttendanceStatus, StaffMember, StaffMonthSummary, WarehouseScope } from './types';
 
-export function useStaffList(
-  scope: WarehouseScope,
-  selectedWarehouseId?: string,
-  status?: StaffStatus,
-  searchQuery?: string,
-) {
-  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+const STAFF = 'warehouse-staff';
+const ATTENDANCE = 'staff-attendance';
+/** Guard against a server cursor that never ends; not a business limit. */
+const WALK_MAX_PAGES = 50;
+const NO_ATTENDANCE: ReadonlyMap<string, AttendanceStatus> = new Map();
 
-  const fetchStaff = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const page = await listStaff({
-        warehouseId: targetWarehouseId,
-        status,
-        q: searchQuery,
-        limit: 100,
-      });
-      setStaff(page.items.map(mapStaffDtoToMember));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch staff');
-    } finally {
-      setLoading(false);
-    }
-  }, [targetWarehouseId, status, searchQuery]);
-
-  useEffect(() => {
-    fetchStaff();
-  }, [fetchStaff]);
-
-  return { staff, loading, error, refresh: fetchStaff };
+export interface StaffQueryState {
+  isLoading: boolean;
+  error: unknown;
+  refresh: () => void;
 }
 
-export function useRollCall(
-  scope: WarehouseScope,
-  selectedWarehouseId?: string,
-  date?: string,
-) {
-  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [summary, setSummary] = useState<RollCallDto['summary'] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchRollCall = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await getRollCall({
-        warehouseId: targetWarehouseId,
-        date,
-      });
-      setSummary(res.summary);
-      setRecords(res.items.map(mapRollCallItemDtoToRecord));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch roll call');
-    } finally {
-      setLoading(false);
-    }
-  }, [targetWarehouseId, date]);
-
-  useEffect(() => {
-    fetchRollCall();
-  }, [fetchRollCall]);
-
+function queryState(query: { isPending: boolean; error: unknown; refetch: () => unknown }, enabled: boolean): StaffQueryState {
   return {
-    records,
-    summary,
-    // Negative rule: derive staffCount from attendance roll-call summary total
-    staffCount: summary?.total ?? 0,
-    loading,
-    error,
-    refresh: fetchRollCall,
+    isLoading: enabled && query.isPending,
+    error: query.error,
+    refresh: () => {
+      void query.refetch();
+    },
   };
 }
 
-export function useStaffDetail(staffId?: string) {
-  const [staff, setStaff] = useState<StaffMember | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+/** A Sub scope is always its own warehouse; Main sends the selector's choice (undefined = all). */
+function targetWarehouse(scope: WarehouseScope, selectedWarehouseId: string | undefined): string | undefined {
+  return scope.warehouseId ?? selectedWarehouseId;
+}
 
-  const fetchDetail = useCallback(async () => {
-    if (!staffId) {
-      setStaff(null);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const dto = await getStaff(staffId);
-      setStaff(mapStaffDtoToMember(dto));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch staff details');
-    } finally {
-      setLoading(false);
-    }
-  }, [staffId]);
+/**
+ * The whole roster of the warehouse(s) in scope, each card carrying today's
+ * roll-call status from `attendanceByStaffId` (BR-84k).
+ */
+export function useStaffList(
+  scope: WarehouseScope,
+  selectedWarehouseId: string | undefined,
+  attendanceByStaffId: ReadonlyMap<string, AttendanceStatus> | undefined,
+  enabled: boolean,
+): StaffQueryState & { staff: StaffMember[]; complete: boolean } {
+  const warehouseId = targetWarehouse(scope, selectedWarehouseId);
+  const query = useAdminQuery(
+    adminKeys.scoped(STAFF, warehouseId, { walk: 'all' }),
+    (signal) => collectPages((cursor) => listStaff({ warehouseId, cursor, limit: STAFF_LIST_MAX_LIMIT }, signal), WALK_MAX_PAGES),
+    { enabled },
+  );
+  const byStaff = attendanceByStaffId ?? NO_ATTENDANCE;
+  const staff = useMemo(() => (query.data?.items ?? []).map((dto: StaffDto) => mapStaffDtoToMember(dto, byStaff)), [query.data, byStaff]);
+  return { ...queryState(query, enabled), staff, complete: query.data?.complete ?? true };
+}
 
-  useEffect(() => {
-    fetchDetail();
-  }, [fetchDetail]);
+/** One day's roll call (default: today in IST, decided by the server). */
+export function useRollCall(
+  scope: WarehouseScope,
+  selectedWarehouseId: string | undefined,
+  date: string | undefined,
+  enabled: boolean,
+): StaffQueryState & {
+  records: AttendanceRecord[];
+  summary: RollCallDto['summary'] | null;
+  byStaffId: ReadonlyMap<string, AttendanceStatus> | undefined;
+} {
+  const warehouseId = targetWarehouse(scope, selectedWarehouseId);
+  const query = useAdminQuery(
+    adminKeys.scoped(ATTENDANCE, warehouseId, { resource: 'roll-call', date: date ?? 'today' }),
+    (signal) => getRollCall({ warehouseId, date }, signal),
+    { enabled },
+  );
+  const records = useMemo(() => (query.data?.items ?? []).map(mapRollCallItemDtoToRecord), [query.data]);
+  const byStaffId = useMemo(() => (query.data ? rollCallStatusByStaffId(query.data.items) : undefined), [query.data]);
+  return { ...queryState(query, enabled), records, summary: query.data?.summary ?? null, byStaffId };
+}
 
-  return { staff, loading, error, refresh: fetchDetail };
+export function useStaffDetail(staffId: string | undefined, enabled: boolean): StaffQueryState & { staff: StaffMember | null } {
+  const on = enabled && staffId !== undefined && staffId !== '';
+  const query = useAdminQuery(adminKeys.detail(STAFF, staffId ?? ''), (signal) => getStaff(staffId ?? '', signal), { enabled: on });
+  const staff = useMemo(() => (query.data ? mapStaffDtoToMember(query.data) : null), [query.data]);
+  return { ...queryState(query, on), staff };
+}
+
+/** `month` (YYYY-MM) or a from/to span; neither = the current IST month. */
+export interface AttendanceSpan {
+  month?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
 }
 
 export function useAttendanceSummary(
   scope: WarehouseScope,
-  selectedWarehouseId?: string,
-  month?: string,
-  staffId?: string,
-) {
-  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
-  const [summaries, setSummaries] = useState<StaffMonthSummary[]>([]);
-  const [totals, setTotals] = useState<AttendanceCounts | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchSummary = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const effectiveMonth = month ?? new Date().toISOString().slice(0, 7);
-      const res = await getAttendanceSummary({
-        warehouseId: targetWarehouseId,
-        month: effectiveMonth,
-        staffId,
-      });
-      setTotals(res.totals);
-      setSummaries(
-        res.byStaff.map((s) => mapStaffAttendanceCountsToMonthSummary(s, effectiveMonth)),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch attendance summary');
-    } finally {
-      setLoading(false);
-    }
-  }, [targetWarehouseId, month, staffId]);
-
-  useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
-
-  return { summaries, totals, loading, error, refresh: fetchSummary };
+  selectedWarehouseId: string | undefined,
+  span: AttendanceSpan,
+  staffId: string | undefined,
+  enabled: boolean,
+): StaffQueryState & { summaries: StaffMonthSummary[]; totals: AttendanceSummaryDto['totals'] | null } {
+  const warehouseId = targetWarehouse(scope, selectedWarehouseId);
+  const byRange = span.from !== undefined && span.to !== undefined;
+  // The IST month, never toISOString(): that is the UTC month until 05:30 IST on the 1st.
+  const month = byRange ? undefined : (span.month ?? istMonth(new Date()));
+  const params = { staffId, warehouseId, month, from: byRange ? span.from : undefined, to: byRange ? span.to : undefined };
+  const query = useAdminQuery(
+    adminKeys.scoped(ATTENDANCE, warehouseId, { resource: 'summary', staffId, month, from: params.from, to: params.to }),
+    (signal) => getAttendanceSummary(params, signal),
+    { enabled },
+  );
+  const label = month ?? `${params.from ?? ''} – ${params.to ?? ''}`;
+  const summaries = useMemo(
+    () => (query.data?.byStaff ?? []).map((s) => mapStaffAttendanceCountsToMonthSummary(s, label)),
+    [query.data, label],
+  );
+  return { ...queryState(query, enabled), summaries, totals: query.data?.totals ?? null };
 }
 
-export function useAttendanceHistory(
+/** Every attendance row from `from` to `to` (inclusive), newest day first. */
+export function useAttendanceHistoryList(
   scope: WarehouseScope,
-  staffId?: string,
-  date?: string,
-) {
-  const [history, setHistory] = useState<AttendanceHistoryEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchHistory = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      if (staffId && date) {
-        // Individual day history
-        const dto: AttendanceHistoryDto = await getAttendanceHistory(staffId, date);
-        // Map individual history items if available, or list attendance for that day
-        const res = await listAttendance({
-          staffId,
-          warehouseId: scope.warehouseId,
-          from: date,
-          to: date,
-        });
-        setHistory(res.items.map(mapAttendanceDtoToHistoryEntry));
-      } else {
-        const res = await listAttendance({
-          staffId,
-          warehouseId: scope.warehouseId,
-          limit: 100,
-        });
-        setHistory(res.items.map(mapAttendanceDtoToHistoryEntry));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch attendance history');
-    } finally {
-      setLoading(false);
-    }
-  }, [scope.warehouseId, staffId, date]);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
-  return { history, loading, error, refresh: fetchHistory };
+  selectedWarehouseId: string | undefined,
+  from: string,
+  to: string,
+  enabled: boolean,
+): StaffQueryState & { entries: AttendanceHistoryEntry[]; complete: boolean } {
+  const warehouseId = targetWarehouse(scope, selectedWarehouseId);
+  const query = useAdminQuery(
+    adminKeys.scoped(ATTENDANCE, warehouseId, { resource: 'list', from, to, walk: 'all' }),
+    (signal) =>
+      collectPages(
+        async (cursor) => {
+          const page = await listAttendance({ warehouseId, from, to, cursor, limit: STAFF_LIST_MAX_LIMIT }, signal);
+          return { items: page.items, page: page.page };
+        },
+        WALK_MAX_PAGES,
+      ),
+    { enabled },
+  );
+  const entries = useMemo(() => (query.data?.items ?? []).map(mapAttendanceDtoToHistoryEntry), [query.data]);
+  return { ...queryState(query, enabled), entries, complete: query.data?.complete ?? true };
 }
 
-export function useStaffMutations() {
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const mutateUpdate = async (id: string, body: UpdateStaffBody): Promise<StaffMember> => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const updated = await updateStaff(id, body);
-      return mapStaffDtoToMember(updated);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to update staff';
-      setSaveError(msg);
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const mutateDeactivate = async (id: string): Promise<StaffMember> => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const res = await deactivateStaff(id);
-      return mapStaffDtoToMember(res);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to deactivate staff';
-      setSaveError(msg);
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const mutateMarkAttendance = async (
-    staffId: string,
-    date: string,
-    body: MarkAttendanceBody,
-  ) => {
-    setSaving(true);
-    setSaveError(null);
-    try {
-      return await markAttendance(staffId, date, body);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Failed to mark attendance';
-      setSaveError(msg);
-      throw err;
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return {
-    saving,
-    saveError,
-    updateStaff: mutateUpdate,
-    deactivateStaff: mutateDeactivate,
-    markAttendance: mutateMarkAttendance,
-  };
-}
-
+/** PATCH a staff record (admin.staff.manage); a success refetches every roster and attendance query. */
 export function useUpdateStaff() {
-  const { updateStaff, saving, saveError } = useStaffMutations();
-  return { update: updateStaff, loading: saving, error: saveError };
+  const mutation = useAdminMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateStaffBody }) => updateStaff(id, body),
+    invalidates: [adminKeys.module(STAFF), adminKeys.module(ATTENDANCE)],
+  });
+  return {
+    update: async (id: string, body: UpdateStaffBody): Promise<StaffMember> => mapStaffDtoToMember(await mutation.mutateAsync({ id, body })),
+    isSaving: mutation.isPending,
+    error: mutation.error,
+    reset: mutation.reset,
+  };
 }
-
-export function useMarkAttendance() {
-  const { markAttendance, saving, saveError } = useStaffMutations();
-  return { mark: markAttendance, loading: saving, error: saveError };
-}
-
-export function useAttendanceHistoryList(scope: WarehouseScope, selectedWarehouseId?: string) {
-  const targetWarehouseId = scope.warehouseId ?? selectedWarehouseId;
-  const { history, loading, error, refresh } = useAttendanceHistory({ warehouseId: targetWarehouseId });
-  return { entries: history, loading, error, refresh };
-}
-
-

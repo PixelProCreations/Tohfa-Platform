@@ -23,6 +23,9 @@
  *   - The GST Invoice restricted notice is dropped (invoice.gst.generate is
  *     none/none for both warehouse roles, SPEC_GAPS W4g).
  */
+import type { InvoiceType } from '../../../api/invoices';
+
+export type { InvoiceType };
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -40,6 +43,7 @@ export interface InvoiceTransactionRecord {
   saleType: string;
   /** Warehouse that made the sale. Optional until the API returns it. */
   warehouseId?: string | undefined;
+  date?: string | undefined;
 }
 
 /** The sale the invoice wizard is generating an invoice for. */
@@ -53,74 +57,97 @@ export interface WizardTransactionRecord {
   date: string;
 }
 
-/** Invoice workflow status. */
-export type InvoiceStatus = 'Generated' | 'Pending' | 'Cancelled';
+/**
+ * Invoice status as the screens key it (badge tone, filter chip). One per API
+ * InvoiceStatus: Generated = ISSUED, Pending = DRAFT, Cancelled = CANCELLED,
+ * CreditNoted = CREDIT_NOTED (kept apart from Cancelled: a credit note is not
+ * a cancellation). The text shown comes from `billing.status.*`.
+ */
+export type InvoiceStatus = 'Generated' | 'Pending' | 'Cancelled' | 'CreditNoted';
 
-/** Sale type an invoice derives from its source transaction. */
-export type InvoiceSaleType = 'Retail Sale' | 'Market Sale' | 'B2B Sale';
+/** Display label of an invoice's type (`billing.type.<InvoiceType>`). */
+export type InvoiceSaleType = string;
 
-/** One invoice row (list, history and hub "recent" card). Mock until the invoice API is wired. */
+/**
+ * One invoice row (list, history and hub "recent" card), from GET /invoices.
+ * The list sends no buyer, warehouse or order number, so none is shown here.
+ */
 export interface InvoiceRecord {
+  /** Invoice uuid: navigation and every API call (GET /invoices/{id} 422s anything else, BR-36). */
   id: string;
-  orderNumber: string;
-  customerName: string;
+  /** Display only. */
+  invoiceNumber: string;
+  invoiceType: InvoiceType;
+  /** Label of invoiceType. */
   saleType: InvoiceSaleType;
+  /** The order's uuid, kept as a reference only: the invoice carries no order number. */
+  orderId?: string | undefined;
+  /** Always '' on the list: GET /invoices has no buyer field (BR-128 adds it to the detail only). */
+  customerName: string;
   amount: string;
+  /** Integer paise of the total, for the amount filter and sort; null when the API value is unparseable. */
+  amountPaise: number | null;
+  /** `YYYY-MM-DD` as the API sent it (sort and grouping key). */
+  issueDate: string;
   /** Display date, e.g. '25 Sep 2026' (the history layout groups by it). */
   date: string;
-  /** Display time, e.g. '10:42 AM'. */
-  time: string;
   status: InvoiceStatus;
-  /** Warehouse that issued the invoice. Optional until the API returns it. */
+  statusLabel: string;
+  /** No invoice response carries a warehouse; kept optional for the shared scope helpers. */
   warehouseId?: string | undefined;
 }
 
 /** One product line on an invoice. */
 export interface InvoiceLineItem {
   name: string;
-  grade: string;
-  unit: string;
+  /** 'HSN 0706', or '' when the line has no HSN code. */
+  hsn: string;
+  /** Quantity text as the API sent it, with its unit. */
   quantity: string;
   unitPrice: string;
   lineTotal: string;
 }
 
-/** Everything the invoice detail shows. Optional fields render only when present. */
+/** Everything the invoice detail shows, from GET /invoices/{id}. Optional fields render only when present. */
 export interface InvoiceDetailRecord {
-  invoiceId: string;
-  orderNumber: string;
+  /** Invoice uuid, for the download call (BR-36). */
+  id: string;
+  /** Display only. */
+  invoiceNumber: string;
+  invoiceType: InvoiceType;
+  typeLabel: string;
   date: string;
-  salesChannel: string;
-  invoiceType: string;
   status: InvoiceStatus;
-  warehouseId?: string | undefined;
-  warehouseName?: string | undefined;
+  statusLabel: string;
+  orderId?: string | undefined;
+  /** BR-128 buyer; undefined for a farmer-side invoice (never a farmer name). */
+  buyerName?: string | undefined;
+  buyerGstin?: string | undefined;
+  /** buyerName or '' (the Sub preview reads it). */
   customerName: string;
-  customerId: string;
-  customerPhone: string;
+  placeOfSupply?: string | undefined;
   items: InvoiceLineItem[];
-  subtotal: string;
-  discount: string;
+  taxable: string;
+  cgst: string;
+  sgst: string;
+  igst: string;
+  /** CGST + SGST + IGST, summed in integer paise. */
   gst: string;
   total: string;
-  paymentStatus: string;
-  paymentMethod: string;
-  generatedBy?: string | undefined;
-  generatedAt?: string | undefined;
-  linkedAt?: string | undefined;
-  downloadAvailable?: boolean | undefined;
+  downloadAvailable: boolean;
 }
 
 /** Filter state of the invoice list (both layouts). */
 export interface InvoiceFilterState {
   searchQuery: string;
   status: 'All' | InvoiceStatus;
-  invoiceType: 'All' | InvoiceSaleType;
+  /** Sent to GET /invoices as `type`. */
+  invoiceType: 'All' | InvoiceType;
+  /** Sent to GET /invoices as `fromDate` / `toDate`. */
   datePreset: 'All Time' | 'Today' | 'Last 7 Days' | 'This Month' | 'Custom';
+  /** Custom range, DD/MM/YYYY as typed. */
   startDate: string;
   endDate: string;
-  customer: string;
-  orderId: string;
   minAmount: string;
   maxAmount: string;
   sortBy: 'Newest First' | 'Oldest First' | 'Highest Amount' | 'Lowest Amount';

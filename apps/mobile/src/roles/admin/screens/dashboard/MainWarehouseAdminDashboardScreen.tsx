@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,7 +26,7 @@ import {
 } from '../warehouse/dashboard-home-more';
 import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
-import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
+import { ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
@@ -46,9 +46,7 @@ import { WarehouseAdminFlow, type WarehouseAdminRoute } from '../warehouse/wareh
 import { MainWarehouseAdminScreen } from './MainWarehouseAdminScreen';
 import { ReceivingFlow, receivingRouteFor } from '../warehouse/receiving-qc';
 import {
-  MAIN_NOTIFICATIONS,
   NotificationsFlow,
-  type NotificationItem,
   type NotificationsRoute,
 } from '../warehouse/notifications';
 import { nearFullSignalOf, type CapacityTone } from '../warehouse/warehouse-admin/overviewFigures';
@@ -654,12 +652,6 @@ const MAIN_SALES_ENTRY: Partial<Record<WarehouseSubView, { screen: SalesRoute; p
   direct_sale_new: { screen: 'NewSale' },
 };
 
-/** Seeded warehouse id for a display name like 'Ooty Warehouse' or 'Ooty' (the overview still passes names). */
-function warehouseIdForName(name: string): string | undefined {
-  const key = name.replace(/ Warehouse$/, '').toLowerCase();
-  return PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').toLowerCase().startsWith(key))?.warehouseId;
-}
-
 /**
  * Old transfer sub-views -> shared TransfersFlow entry routes (W4). The detail
  * is only ever opened from the list, which now lives inside the flow.
@@ -835,16 +827,7 @@ export function MainWarehouseAdminDashboardScreen({
   const can = useMemo(() => makeCan(permissions), [permissions]);
   const canAllView = can(HOME_CODES.allView);
   // The Notifications list (not D01-D05) still runs on its own sample list; the Home bell reads the server's unread total.
-  const [whNotifications, setWhNotifications] = useState<readonly NotificationItem[]>(MAIN_NOTIFICATIONS);
 
-
-  const HOME_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = PROFILE_WAREHOUSES;
-
-  // The Inventory tab (another screen set, still on its sample warehouses) keeps reading the seeded id by name.
-  const selectedWHId =
-    selectedWHFilter === 'All Warehouses'
-      ? undefined
-      : PROFILE_WAREHOUSES.find((w) => (w.warehouseName ?? '').replace(/ Warehouse$/, '') === selectedWHFilter)?.warehouseId;
 
   // ─── Live data (D01 Home, D02, D04 Stock & Transfer, D05 Alerts) ─────────────
   // The IST day: the sales summary and receipts count Asia/Kolkata days (BR-96).
@@ -866,7 +849,12 @@ export function MainWarehouseAdminDashboardScreen({
   const access = home.access;
   const listed = home.warehousesQuery.data !== undefined;
   const coveredKey = home.coveredIds.join(',');
+  const selectedWHId = liveWarehouseId;
   const homeSelectorOptions: readonly WarehouseScope[] = useMemo(() => toWarehouseOptions(net.warehouses), [net.warehouses]);
+  const warehouseIdForName = useCallback(
+    (name: string): string | undefined => findWarehouseByName(net.warehouses, name)?.id,
+    [net.warehouses],
+  );
 
   const handleSelectWarehouseScope = (whId: string | undefined) => {
     if (whId === undefined) {
@@ -1131,11 +1119,10 @@ export function MainWarehouseAdminDashboardScreen({
       scope={MAIN_WAREHOUSE_SCOPE}
       can={can}
       initialScreen={initialScreen}
-      notifications={whNotifications}
-      onMarkAsRead={(id) => setWhNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)))}
-      onMarkAllAsRead={() => setWhNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))}
-      onClearAll={() => setWhNotifications([])}
-      onBack={goBackWh}
+      onBack={() => {
+        goBackWh();
+        void unreadQuery.refetch();
+      }}
       onOpenTarget={(target) => {
         if (target === 'ReviewReceiving' || target === 'Receiving') openTab('Receiving');
         else if (target === 'Stock') navigateWh('low_stock_alerts');
@@ -2609,7 +2596,7 @@ export function MainWarehouseAdminDashboardScreen({
               setWhSubView('overview');
             }}
             onInitiateTransfer={() => navigateWh('initiate_new_transfer')}
-            warehouseOptions={HOME_WAREHOUSE_OPTIONS}
+            warehouseOptions={homeSelectorOptions}
             onTabChange={(tab) => {
               setInventoryInitialScreen(undefined);
               setInventoryInitialParams(null);
@@ -2954,7 +2941,7 @@ export function MainWarehouseAdminDashboardScreen({
               initialParams={whSubView === 'stock_ledger' ? { warehouseName: selectedWHName } : null}
               onBack={goBackWh}
               onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
-              warehouseOptions={HOME_WAREHOUSE_OPTIONS}
+              warehouseOptions={homeSelectorOptions}
               onTabChange={(tab) => {
                 setActiveTab(tab);
                 setWhSubView('overview');

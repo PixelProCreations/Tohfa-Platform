@@ -30,8 +30,20 @@ export type ExpensePaymentMethod = 'CASH' | 'UPI' | 'BANK';
 /** Always RECORDED through the API (BR-62: no approval workflow); the others are legacy values. */
 export type ExpenseStatus = 'RECORDED' | 'APPROVED' | 'REJECTED';
 
-/** docs/openapi.yaml FinanceChannelTotal / FinanceRevenueItem channel (orders.channel, BR-15). */
-export type RevenueChannel = 'ONLINE' | 'MARKET' | 'HORECA' | 'B2B';
+/**
+ * A revenue row's channel: orders.channel (BR-15). The finance repo returns the
+ * raw column, which since migration 0059 can also be 'DIRECT' (an at-counter
+ * sale, BR-85), although docs/openapi.yaml FinanceChannelTotal /
+ * FinanceRevenueItem and finance.schema.ts `salesChannels` still list only the
+ * four below (SPEC mismatch, reported). The client accepts DIRECT on reads.
+ */
+export type RevenueChannel = 'ONLINE' | 'MARKET' | 'HORECA' | 'B2B' | 'DIRECT';
+/**
+ * What GET /admin/finance/revenue accepts as `?channel=`: its query schema
+ * (finance.schema.ts listRevenueQuery) still refuses DIRECT with a 422, so the
+ * client can never send it.
+ */
+export type RevenueChannelFilter = Exclude<RevenueChannel, 'DIRECT'>;
 export type RevenuePaymentMethod = 'WALLET' | 'UPI' | 'CARD' | 'NETBANKING' | 'CASH';
 
 /** docs/openapi.yaml `ExpenseCategory`: only ACTIVE categories are listed. */
@@ -142,7 +154,7 @@ export interface ListRevenueResponseDto {
 export interface ListRevenueParams {
   from?: string | undefined;
   to?: string | undefined;
-  channel?: RevenueChannel | undefined;
+  channel?: RevenueChannelFilter | undefined;
   paymentMethod?: RevenuePaymentMethod | undefined;
   cursor?: string | undefined;
   limit?: number | undefined;

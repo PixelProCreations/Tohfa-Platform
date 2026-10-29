@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   SafeAreaView,
   ScrollView,
@@ -10,6 +11,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getSalesMarketDay, type MarketDayAllocationItemDto, type SaleListItemDto } from '../../../api/sales';
+import { toSaleRecord } from './mappers';
 import { WarehouseChips, SALE_WAREHOUSES } from './SalesParts';
 import type { SaleRecord, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
@@ -92,6 +97,19 @@ export function MarketDaySalesScreen({
   // Creating a market-day sale needs sales.channel.manage (FINAL_LIST row 109).
   const canCreateSale = can('sales.channel.manage');
 
+  const marketDayQuery = useAdminQuery(
+    adminKeys.scoped('sales', marketWarehouse.warehouseId ?? 'all', { resource: 'market-day' }),
+    (signal: AbortSignal) => getSalesMarketDay({ warehouseId: marketWarehouse.warehouseId }, signal),
+  );
+
+  const totalSales = marketDayQuery.data?.totals?.revenue ? Number(marketDayQuery.data.totals.revenue) : 0;
+  const txnCount = marketDayQuery.data?.totals?.count ?? 0;
+  const allocation = marketDayQuery.data?.allocation ?? [];
+  const totalQtySold = allocation.reduce((sum, item) => sum + (Number(item.soldQtyKg) || 0), 0);
+  const transactions = marketDayQuery.data?.items ?? [];
+  const cashRevenue = Number(marketDayQuery.data?.byPaymentMethod?.find((m) => m.method === 'CASH')?.revenue ?? 0);
+  const upiRevenue = Number(marketDayQuery.data?.byPaymentMethod?.find((m) => m.method === 'UPI')?.revenue ?? 0);
+
   const handleOpenNewSale = () => {
     if (onNavigateToNewMarketSale) {
       onNavigateToNewMarketSale();
@@ -108,23 +126,12 @@ export function MarketDaySalesScreen({
     }
   };
 
-  const handleTxPress = (txId: string, itemText: string, amount: number) => {
+  const handleTxPress = (tx: SaleListItemDto) => {
+    const saleRec = toSaleRecord(tx, marketWarehouse.warehouseName ?? '');
     if (onSelectTransaction) {
-      onSelectTransaction({
-        id: txId,
-        customerName: 'Walk-in Customer',
-        customerCode: 'CUS-WALKIN',
-        channel: 'Market Sale',
-        dateText: '24 Sep · 3:10 PM',
-        amount,
-        status: 'Completed',
-        invoiceNo: `INV-${txId.replace('SALE-', '')}`,
-        paymentMethod: 'Cash',
-        warehouseId: marketWarehouse.warehouseId,
-        warehouseName: marketWarehouse.warehouseName,
-      });
+      onSelectTransaction(saleRec);
     } else {
-      Alert.alert(txId, `${itemText} · ₹${amount} (Paid)`);
+      Alert.alert(tx.saleNumber, `${tx.buyer.name} · ₹${tx.total} (Paid)`);
     }
   };
 
@@ -173,143 +180,150 @@ export function MarketDaySalesScreen({
           </View>
         </View>
 
-        {/* ─── Market KPIs Row ─── */}
-        <Text style={styles.sectionHeading}>Market KPIs</Text>
-        <View style={styles.kpiRow}>
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>₹7,850</Text>
-            <Text style={styles.kpiLabel}>SALES</Text>
+        {marketDayQuery.isLoading ? (
+          <View style={styles.stateContainer}>
+            <ActivityIndicator size="small" color={adminColors.brand} />
+            <Text style={styles.stateText}>Loading market day sales...</Text>
           </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>42</Text>
-            <Text style={styles.kpiLabel}>TXNS</Text>
-          </View>
-
-          <View style={styles.kpiCard}>
-            <Text style={styles.kpiValue}>186 KG</Text>
-            <Text style={styles.kpiLabel}>QTY SOLD</Text>
-          </View>
-        </View>
-
-        {/* ─── Quick Actions Row ─── */}
-        <Text style={styles.sectionHeading}>Quick Actions</Text>
-        <View style={styles.quickActionsRow}>
-          {canCreateSale && (
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={handleOpenNewSale}
-              activeOpacity={0.78}
-            >
-              <ShoppingCartActionIcon size={24} />
-              <Text style={styles.actionCardLabel}>New Market Sale</Text>
+        ) : marketDayQuery.error ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.stateText}>Failed to load market day data.</Text>
+            <TouchableOpacity onPress={() => marketDayQuery.refetch()} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
-          )}
+          </View>
+        ) : (
+          <>
+            {/* ─── Market KPIs Row ─── */}
+            <Text style={styles.sectionHeading}>Market KPIs</Text>
+            <View style={styles.kpiRow}>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiValue}>₹{totalSales.toLocaleString('en-IN')}</Text>
+                <Text style={styles.kpiLabel}>SALES</Text>
+              </View>
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={handleOpenHistory}
-            activeOpacity={0.78}
-          >
-            <HistoryClockActionIcon size={24} />
-            <Text style={styles.actionCardLabel}>Sales History</Text>
-          </TouchableOpacity>
-        </View>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiValue}>{txnCount}</Text>
+                <Text style={styles.kpiLabel}>TXNS</Text>
+              </View>
 
-        {/* ─── Market Product Availability ─── */}
-        <Text style={styles.sectionHeading}>Market Product Availability</Text>
-        <View style={styles.card}>
-          <View style={styles.productGridRow}>
-            <View style={styles.productGridCol}>
-              <Text style={styles.productName}>Tomato Grade 1</Text>
-              <Text style={styles.productQty}>120 KG</Text>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiValue}>{totalQtySold} KG</Text>
+                <Text style={styles.kpiLabel}>QTY SOLD</Text>
+              </View>
             </View>
 
-            <View style={styles.productGridCol}>
-              <Text style={styles.productName}>Carrot Grade 1</Text>
-              <Text style={styles.productQty}>80 KG</Text>
+            {/* ─── Quick Actions Row ─── */}
+            <Text style={styles.sectionHeading}>Quick Actions</Text>
+            <View style={styles.quickActionsRow}>
+              {canCreateSale && (
+                <TouchableOpacity
+                  style={styles.actionCard}
+                  onPress={handleOpenNewSale}
+                  activeOpacity={0.78}
+                >
+                  <ShoppingCartActionIcon size={24} />
+                  <Text style={styles.actionCardLabel}>New Market Sale</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.actionCard}
+                onPress={handleOpenHistory}
+                activeOpacity={0.78}
+              >
+                <HistoryClockActionIcon size={24} />
+                <Text style={styles.actionCardLabel}>Sales History</Text>
+              </TouchableOpacity>
             </View>
-          </View>
 
-          <View style={[styles.productGridRow, { marginTop: 14 }]}>
-            <View style={styles.productGridCol}>
-              <Text style={styles.productName}>Beans Grade 1</Text>
-              <Text style={styles.productQty}>60 KG</Text>
+            {/* ─── Market Product Availability ─── */}
+            <Text style={styles.sectionHeading}>Market Product Availability</Text>
+            <View style={styles.card}>
+              {allocation.length === 0 ? (
+                <Text style={styles.emptyNoticeText}>No products allocated for this market day.</Text>
+              ) : (
+                allocation.map((item, idx) => (
+                  <View key={`${item.productId}-${item.grade}-${idx}`} style={[styles.productGridRow, idx > 0 && { marginTop: 14 }]}>
+                    <View style={styles.productGridCol}>
+                      <Text style={styles.productName}>{item.name} {item.grade}</Text>
+                      <Text style={styles.productQty}>Allocated: {item.allocatedQtyKg} KG</Text>
+                    </View>
+
+                    <View style={styles.productGridCol}>
+                      <Text style={styles.productName}>Sold: {item.soldQtyKg} KG</Text>
+                      <Text style={styles.productQty}>Remaining: {item.remainingQtyKg} KG</Text>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
-          </View>
-        </View>
 
-        {/* ─── Market Transactions ─── */}
-        <Text style={styles.sectionHeading}>Market Transactions</Text>
-        <TouchableOpacity
-          style={styles.txCard}
-          onPress={() => handleTxPress('SALE-00321', 'Tomato · 2 KG', 200)}
-          activeOpacity={0.82}
-        >
-          <View style={styles.txCardTop}>
-            <Text style={styles.txSaleId}>SALE-00321</Text>
-            <View style={styles.txPaidPill}>
-              <Text style={styles.txPaidText}>Paid</Text>
+            {/* ─── Market Transactions ─── */}
+            <Text style={styles.sectionHeading}>Market Transactions</Text>
+            {transactions.length === 0 ? (
+              <View style={styles.card}>
+                <Text style={styles.emptyNoticeText}>No market transactions recorded yet.</Text>
+              </View>
+            ) : (
+              transactions.map((tx) => (
+                <TouchableOpacity
+                  key={tx.id}
+                  style={styles.txCard}
+                  onPress={() => handleTxPress(tx)}
+                  activeOpacity={0.82}
+                >
+                  <View style={styles.txCardTop}>
+                    <Text style={styles.txSaleId}>{tx.saleNumber}</Text>
+                    <View style={styles.txPaidPill}>
+                      <Text style={styles.txPaidText}>{tx.status === 'PICKED_UP' ? 'Paid' : tx.status}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.txCardBottom}>
+                    <Text style={styles.txSubtitle}>{tx.buyer.name} · {tx.itemCount} {tx.itemCount === 1 ? 'Item' : 'Items'}</Text>
+                    <Text style={styles.txAmount}>₹{Number(tx.total).toLocaleString('en-IN')}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
+
+            {/* ─── Market Summary ─── */}
+            <View style={styles.summaryHeaderRow}>
+              <Text style={styles.sectionHeadingNoMargin}>Market Summary</Text>
+              <TouchableOpacity
+                onPress={() => Alert.alert('Previous Market Days', 'Showing archive of past market schedules.')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.previousDaysLink}>Previous Market Days</Text>
+              </TouchableOpacity>
             </View>
-          </View>
-          <View style={styles.txCardBottom}>
-            <Text style={styles.txSubtitle}>Tomato · 2 KG</Text>
-            <Text style={styles.txAmount}>₹200</Text>
-          </View>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.txCard}
-          onPress={() => handleTxPress('SALE-00322', 'Carrot · 5 KG', 450)}
-          activeOpacity={0.82}
-        >
-          <View style={styles.txCardTop}>
-            <Text style={styles.txSaleId}>SALE-00322</Text>
-            <View style={styles.txPaidPill}>
-              <Text style={styles.txPaidText}>Paid</Text>
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Total Sales</Text>
+                <Text style={styles.summaryValue}>₹{totalSales.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Transactions</Text>
+                <Text style={styles.summaryValue}>{txnCount}</Text>
+              </View>
+              <View style={styles.summaryDivider} />
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Cash</Text>
+                <Text style={styles.summaryValue}>₹{cashRevenue.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.summaryStrongDivider} />
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryStrongLabel}>UPI</Text>
+                <Text style={styles.summaryStrongValue}>₹{upiRevenue.toLocaleString('en-IN')}</Text>
+              </View>
             </View>
-          </View>
-          <View style={styles.txCardBottom}>
-            <Text style={styles.txSubtitle}>Carrot · 5 KG</Text>
-            <Text style={styles.txAmount}>₹450</Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* ─── Market Summary ─── */}
-        <View style={styles.summaryHeaderRow}>
-          <Text style={styles.sectionHeadingNoMargin}>Market Summary</Text>
-          <TouchableOpacity
-            onPress={() => Alert.alert('Previous Market Days', 'Showing archive of past market schedules.')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.previousDaysLink}>Previous Market Days</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Total Sales</Text>
-            <Text style={styles.summaryValue}>₹7,850</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Transactions</Text>
-            <Text style={styles.summaryValue}>42</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Cash</Text>
-            <Text style={styles.summaryValue}>₹3,200</Text>
-          </View>
-          <View style={styles.summaryStrongDivider} />
-
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryStrongLabel}>UPI</Text>
-            <Text style={styles.summaryStrongValue}>₹4,650</Text>
-          </View>
-        </View>
+          </>
+        )}
       </ScrollView>
 
     </SafeAreaView>
@@ -612,5 +626,33 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: adminColors.brand,
     fontWeight: '700',
+  },
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 8,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  emptyNoticeText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

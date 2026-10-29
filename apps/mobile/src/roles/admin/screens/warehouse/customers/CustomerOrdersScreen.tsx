@@ -27,7 +27,7 @@ import {
   SearchField,
   StatusBadge,
 } from './CustomersParts';
-import { CUSTOMER_WAREHOUSES, DEFAULT_CUSTOMER, INITIAL_CUSTOMER_ORDERS } from './fixtures';
+import { CUSTOMER_WAREHOUSES } from './fixtures';
 import type { CustomerOrderRecord, CustomerRef, OrderFilterState, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 export interface CustomerOrdersScreenProps extends WarehouseScreenBaseProps {
@@ -78,7 +78,7 @@ export function CustomerOrdersScreen({
   onOpenFilters,
   onOpenOrder,
   warehouseOptions = CUSTOMER_WAREHOUSES,
-  orders = INITIAL_CUSTOMER_ORDERS,
+  orders = [],
 }: CustomerOrdersScreenProps) {
   const [selectedTab, setSelectedTab] = useState<OrderTab>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -86,7 +86,7 @@ export function CustomerOrdersScreen({
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
     allWarehouses ? appliedFilters?.warehouseId : undefined,
   );
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const customerName = customer?.name ?? '—';
 
   const rows = useMemo(() => {
     const query = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();

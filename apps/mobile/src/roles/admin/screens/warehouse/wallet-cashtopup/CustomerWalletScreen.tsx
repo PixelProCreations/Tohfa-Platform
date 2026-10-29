@@ -20,7 +20,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { useCustomerWallet } from './useWalletData';
-import { rupeesFromMoney } from './mappers';
+import { formatWalletMoney } from './mappers';
 import type { ResolvedWalletCustomer, WalletCustomer, WalletTransactionRecord, WarehouseScreenBaseProps } from './types';
 import {
   AmountRow,
@@ -65,7 +65,7 @@ export function CustomerWalletScreen({
   const { summary, transactions: liveTxns } = useCustomerWallet(customerIdToFetch);
 
   const displayBalance = summary
-    ? rupeesFromMoney(summary.balance)
+    ? formatWalletMoney(summary.balance)
     : (customer?.balance ?? '₹0');
 
   const active: ResolvedWalletCustomer = {
@@ -76,6 +76,7 @@ export function CustomerWalletScreen({
     balance: displayBalance,
     totalCredited: '—',
     totalUsed: '—',
+    balancePaise: null,
   };
   const txList = liveTxns.length > 0 ? liveTxns : transactions;
   const visible = txList.filter((tx) => inScope(scope, tx.warehouseId));

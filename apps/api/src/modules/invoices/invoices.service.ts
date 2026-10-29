@@ -8,14 +8,20 @@ import { fromPaise, toPaise, allocate, RoleCode, ScopeLevel, type Money } from '
 import {
   invoicesRepo,
   type CreateInvoiceInput,
+  type InvoiceSummaryGroup,
   type InvoicesRepo,
   type InvoiceVisibility,
 } from './invoices.repo.js';
-import type {
-  DownloadInvoiceQuery,
-  InvoiceDetailResponse,
-  InvoiceSummaryResponse,
-  ListInvoicesQuery,
+import {
+  invoiceStatuses,
+  invoiceTypes,
+  type DownloadInvoiceQuery,
+  type InvoiceDetailResponse,
+  type InvoiceDetailView,
+  type InvoiceSummary,
+  type InvoiceSummaryQuery,
+  type InvoiceSummaryResponse,
+  type ListInvoicesQuery,
 } from './invoices.schema.js';
 import { renderInvoicePdf } from './pdf/invoice-pdf.js';
 
@@ -55,7 +61,14 @@ export interface InvoicesService {
     actor: Actor,
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }>;
-  getInvoice(actor: Actor, id: string): Promise<InvoiceDetailResponse>;
+  getInvoice(actor: Actor, id: string): Promise<InvoiceDetailView>;
+  /**
+   * GET /invoices/summary (BR-30, BR-36): counts and totals by status and by type over exactly the
+   * invoices `listInvoices` would return `actor` for the same filters. Out of scope is all zeros.
+   */
+  summarizeInvoices(actor: Actor, query: InvoiceSummaryQuery): Promise<InvoiceSummary>;
+  /** Folds the repo's (status, type) groups into the response; every status and type is present. */
+  toInvoiceSummary(groups: InvoiceSummaryGroup[]): InvoiceSummary;
   /** Bearer-token download: the same visibility as the list and the detail. */
   getPdf(actor: Actor, id: string): Promise<Buffer>;
   /** Signed-link download (no bearer token): the HMAC is the authorization. */
@@ -104,6 +117,53 @@ export function invoiceVisibility(actor: Actor): InvoiceVisibility {
   return { kind: 'none' };
 }
 
+/**
+ * Every bucket is summed in integer paise (CLAUDE.md §2.2) and converted to Money once at the end.
+ * Every status and every type gets a bucket, zero when nothing matched, so the tiles have a stable
+ * shape and an empty scope is indistinguishable from an empty warehouse.
+ */
+function toInvoiceSummary(groups: InvoiceSummaryGroup[]): InvoiceSummary {
+  const paise = (text: string): number => {
+    const value = Number(text);
+    // fromPaise() refuses a non-safe integer too; this names the cause if a sum ever overflows.
+    if (!Number.isSafeInteger(value)) throw new Error(`invoice summary paise out of range: ${text}`);
+    return value;
+  };
+  const byStatus = new Map<string, { count: number; paise: number }>(invoiceStatuses.map((s) => [s, { count: 0, paise: 0 }]));
+  const byType = new Map<string, { count: number; paise: number }>(invoiceTypes.map((t) => [t, { count: 0, paise: 0 }]));
+  let count = 0;
+  let totalPaise = 0;
+  for (const group of groups) {
+    const amount = paise(group.totalPaise);
+    count += group.count;
+    totalPaise += amount;
+    const status = byStatus.get(group.status);
+    if (status !== undefined) {
+      status.count += group.count;
+      status.paise += amount;
+    }
+    const type = byType.get(group.invoiceType);
+    if (type !== undefined) {
+      type.count += group.count;
+      type.paise += amount;
+    }
+  }
+  return {
+    count,
+    totalAmount: fromPaise(totalPaise),
+    byStatus: invoiceStatuses.map((status) => ({
+      status,
+      count: byStatus.get(status)!.count,
+      totalAmount: fromPaise(byStatus.get(status)!.paise),
+    })),
+    byType: invoiceTypes.map((type) => ({
+      type,
+      count: byType.get(type)!.count,
+      totalAmount: fromPaise(byType.get(type)!.paise),
+    })),
+  };
+}
+
 function invoiceNotFound(): AppError {
   // One error for "does not exist" and "not yours": a different answer would confirm the id.
   return new AppError('NOT_FOUND', { detail: 'Invoice not found.' });
@@ -114,6 +174,12 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
     async listInvoices(actor, query) {
       return repo.listInvoices(pool, invoiceVisibility(actor), query);
     },
+
+    async summarizeInvoices(actor, query) {
+      return toInvoiceSummary(await repo.summarizeInvoices(pool, invoiceVisibility(actor), query));
+    },
+
+    toInvoiceSummary,
 
     async getInvoice(actor, id) {
       const invoice = await repo.findById(pool, id, invoiceVisibility(actor));

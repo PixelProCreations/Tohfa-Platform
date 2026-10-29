@@ -192,8 +192,8 @@ describe('M2-10 / M2-11 decision', () => {
     expect(draft.rejectionReasonCode).toBe('PHYSICAL_DAMAGE');
     expect(draft.rejectionNote).toBe('  bruised crates ');
     expect(draft.storageLocationCode).toBe('COLD-A-02');
-    expect(draft.moisturePct).toBe('');
-    expect(draft.visualScore).toBe('');
+    expect(draft).not.toHaveProperty('moisturePct');
+    expect(draft).not.toHaveProperty('visualScore');
 
     const full = wizardQcDraft({
       assignedGrade: 'GRADE_1',
@@ -205,6 +205,25 @@ describe('M2-10 / M2-11 decision', () => {
     });
     expect(full.rejectionReasonCode).toBeUndefined();
     expect(full.rejectionNote).toBeUndefined();
+  });
+
+  it('BR-125: carries the chosen location id into the QC draft so the batch is linked to it', () => {
+    const draft = wizardQcDraft({
+      assignedGrade: 'GRADE_1',
+      grossGrams: 480_000,
+      acceptedGrams: 480_000,
+      results: ALL_PASS,
+      storageLocationId: '7d1f3c2a-4b5e-4f60-8a71-92b3c4d5e6f7',
+      storageLocationCode: 'COLD-A-02',
+    });
+    expect(draft.storageLocationId).toBe('7d1f3c2a-4b5e-4f60-8a71-92b3c4d5e6f7');
+    expect(draft.storageLocationCode).toBe('COLD-A-02');
+  });
+
+  it('BR-120: the QC draft has no moisture or visual score (the API accepts both but stores neither)', () => {
+    const draft = wizardQcDraft({ assignedGrade: 'GRADE_1', grossGrams: 480_000, acceptedGrams: 480_000, results: ALL_PASS });
+    expect(draft).not.toHaveProperty('moisturePct');
+    expect(draft).not.toHaveProperty('visualScore');
   });
 
   it('the counter-offer is for the accepted weight once known, else the received weight', () => {

@@ -15,7 +15,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { REFUND_TIMELINE, SAMPLE_REFUND_TRANSACTION_ID } from './fixtures';
+import { REFUND_TIMELINE } from './fixtures';
 import { ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
 import type { RmaScreenBaseProps } from './types';
 
@@ -44,7 +44,7 @@ export function RefundCompletedScreen({
   can,
   rma,
   refundAmount,
-  transactionId = SAMPLE_REFUND_TRANSACTION_ID,
+  transactionId = '—',
   onBack,
   onViewReturnHistory,
 }: RefundCompletedScreenProps) {

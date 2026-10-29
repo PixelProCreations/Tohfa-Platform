@@ -43,7 +43,17 @@ import { adminGet, adminPost } from './http';
 import type { Grade, QuantityKg } from './inventory';
 
 /** docs/openapi.yaml `OrderStatus` (OrderSummary, the list). */
-export type OrderStatus = 'CONFIRMED' | 'PACKED' | 'DISPATCHED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+export type OrderStatus =
+  | 'PENDING_PAYMENT'
+  | 'CONFIRMED'
+  | 'PACKED'
+  | 'DISPATCHED'
+  | 'READY_FOR_PICKUP'
+  | 'OUT_FOR_DELIVERY'
+  | 'DELIVERED'
+  | 'PICKED_UP'
+  | 'CANCELLED'
+  | 'RETURNED';
 
 /** docs/openapi.yaml `AdminOrderDetail.status` (the detail and its timeline). */
 export type AdminOrderStatus =
@@ -61,8 +71,8 @@ export type AdminOrderStatus =
 /** The list's status filter: the spec enum plus READY_FOR_PICKUP, which the server accepts (spec gap). */
 export type OrderListStatusFilter = OrderStatus | 'READY_FOR_PICKUP';
 
-/** docs/openapi.yaml `FulfillmentType` (OrderSummary). */
-export type FulfillmentType = 'HOME_DELIVERY' | 'WAREHOUSE_PICKUP';
+/** docs/openapi.yaml `FulfillmentType` (OrderSummary). Normalized with stored PICKUP/DELIVERY. */
+export type FulfillmentType = 'HOME_DELIVERY' | 'WAREHOUSE_PICKUP' | 'PICKUP' | 'DELIVERY';
 
 /** docs/openapi.yaml `AdminOrderDetail.fulfilmentType`. */
 export type AdminFulfilmentType = 'PICKUP' | 'DELIVERY';
@@ -71,7 +81,7 @@ export type AdminFulfilmentType = 'PICKUP' | 'DELIVERY';
 export type SalesChannel = 'ONLINE' | 'MARKET' | 'HORECA' | 'B2B' | 'DIRECT';
 
 /** docs/openapi.yaml `OrderSummary.paymentStatus` / `AdminOrderDetail.paymentStatus`. */
-export type OrderPaymentStatus = 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'FAILED';
+export type OrderPaymentStatus = 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'REFUND_DUE' | 'FAILED';
 
 /** docs/openapi.yaml `AdminOrderDetail.paymentMethod`. */
 export type AdminPaymentMethod = 'WALLET' | 'UPI' | 'CARD' | 'NETBANKING' | 'CASH';
@@ -82,7 +92,7 @@ export type DeliverySlot = 'MORNING_8_12' | 'AFTERNOON_12_4' | 'EVENING_4_8';
 /** docs/openapi.yaml `AdminOrderDetail.invoice.status`. */
 export type OrderInvoiceStatus = 'DRAFT' | 'ISSUED' | 'CANCELLED' | 'CREDIT_NOTED';
 
-/** docs/openapi.yaml `OrderSummary`: no farm identity and no buyer PII (BR-101). */
+/** docs/openapi.yaml `OrderSummary`: no farm identity (BR-101). */
 export interface OrderSummaryDto {
   id: string;
   orderNumber: string;
@@ -90,6 +100,10 @@ export interface OrderSummaryDto {
   channel?: SalesChannel;
   fulfillmentType?: FulfillmentType;
   warehouseId?: string;
+  customerName?: string | null;
+  customerMobileMasked?: string | null;
+  packedAt?: string | null;
+  readyAt?: string | null;
   itemCount?: number;
   totalAmount: Money;
   paymentStatus?: OrderPaymentStatus;
@@ -188,10 +202,10 @@ export interface PackOrderBody {
 /** docs/openapi.yaml dispatch request body. */
 export interface DispatchOrderBody {
   /** Max 20 characters. */
-  vehicleNumber?: string;
-  deliveryPartnerId?: string;
+  vehicleNumber?: string | undefined;
+  deliveryPartnerId?: string | undefined;
   /** date-time. */
-  expectedArrival?: string;
+  expectedArrival?: string | undefined;
 }
 
 /** docs/openapi.yaml verify-otp request body. */
@@ -211,6 +225,8 @@ export interface ListAdminOrdersParams {
   channel?: SalesChannel | undefined;
   /** date (YYYY-MM-DD). */
   deliveryDate?: string | undefined;
+  /** Substring search on order number or buyer name (BR-127). */
+  q?: string | undefined;
 }
 
 /**
@@ -260,6 +276,7 @@ export function listAdminOrders(params: ListAdminOrdersParams = {}, signal?: Abo
       warehouseId: params.warehouseId,
       channel: params.channel,
       deliveryDate: params.deliveryDate,
+      q: params.q,
     },
     signal,
   );

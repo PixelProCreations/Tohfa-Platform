@@ -18,6 +18,15 @@ export const walletTxnTypes = [
 ] as const;
 export type WalletTxnType = (typeof walletTxnTypes)[number];
 
+/**
+ * BR-129 (owner decision 2026-10-27, option c): the only status a ledger row can have. True by
+ * construction: a row is written only in the transaction that settles the money, so pending and
+ * failed top-ups never reach the ledger. Set by the serializer, never stored. A pending or failed
+ * feed, if ever added, comes from a separate non-ledger source and widens this by a new rule.
+ */
+export const walletTxnStatuses = ['COMPLETED'] as const;
+export type WalletTxnStatus = (typeof walletTxnStatuses)[number];
+
 /** Matches Money string format in OpenAPI. */
 const moneySchema = z.string().regex(/^-?[0-9]{1,10}(\.[0-9]{1,2})?$/);
 
@@ -49,6 +58,7 @@ export const walletTransactionResponse = z
     performedBy: z.string().uuid().nullable(),
     performedAt: z.string(),
     remarks: z.string().nullable(),
+    status: z.enum(walletTxnStatuses),
   })
   .strict();
 export type WalletTransactionResponse = z.infer<typeof walletTransactionResponse>;

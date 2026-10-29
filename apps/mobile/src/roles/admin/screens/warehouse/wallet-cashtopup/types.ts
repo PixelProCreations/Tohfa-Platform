@@ -19,11 +19,12 @@
  * dashboard barrel re-exported all of them with `export *`. They are folded
  * into the few types below, defined once.
  *
- * Amounts in a draft are WHOLE RUPEES (integers: the amount input strips every
- * non-digit), so `* 100` is exact integer paise for BR-19's validator. Display
- * amounts in records are pre-formatted strings from the mock data; nothing here
+ * Amounts in a draft are integer paise. Display amounts in records are strings
+ * formatted from the server's Money (mappers.ts formatWalletMoney); nothing
  * computes money from them (CLAUDE.md 2.2).
  */
+import type { Paise } from '@tohfa/shared-types';
+
 export type {
   PermissionCheck,
   WarehouseNavigate,
@@ -37,37 +38,45 @@ export interface WalletCustomer {
   name?: string | undefined;
   /** Customer code, e.g. CUS-001245. */
   id?: string | undefined;
+  /** The customer uuid (server id); absent when only a code is known. */
   customerId?: string | undefined;
   mobile?: string | undefined;
   /** Display balance, e.g. '₹4,500.00'. */
   balance?: string | undefined;
+  /** The same balance in integer paise when it came from the server. */
+  balancePaise?: Paise | null | undefined;
   totalCredited?: string | undefined;
   totalUsed?: string | undefined;
 }
 
-/** A wallet customer with every field filled (demo fallbacks applied). */
-export type ResolvedWalletCustomer = { [K in keyof WalletCustomer]-?: string };
+/** A wallet customer with every display field filled ('—' where unknown). */
+export type ResolvedWalletCustomer = { [K in Exclude<keyof WalletCustomer, 'balancePaise'>]-?: string } & {
+  balancePaise: Paise | null;
+};
 
 /**
  * A cash top-up as it moves through the wizard: Cash Top-Up -> Fiscal Cash Tag
  * -> Confirm. Replaces CashTopUpData / FiscalTagScreenData / ConfirmTopUpDetails.
+ *
+ * Amounts are integer paise (CLAUDE.md 2.2). There is no client-side cap: BR-19's
+ * cap is system_config.cash_topup_cap, which no endpoint exposes to the app, so
+ * the server's 422 CASH_LIMIT_EXCEEDED is the only check. The ids are the
+ * server's uuids; mappers.ts buildCashTopupRequest refuses to send anything else.
  */
 export interface CashTopUpDraft {
   customerName: string;
+  /** Display code (CUS-...), never a path id. */
   customerCode: string;
+  /** The customer uuid the top-up is posted to. */
   customerId?: string | undefined;
-  /** Whole rupees. */
-  currentBalance: number;
-  /** Whole rupees, at most the BR-19 cap (config/businessThresholds). */
-  topUpAmount: number;
-  /** Warehouse where the cash was collected. */
+  /** Balance as last read from the server; null when unknown. */
+  currentBalancePaise: Paise | null;
+  topUpAmountPaise: Paise;
+  /** Warehouse uuid where the cash was collected. */
   warehouseId?: string | undefined;
   warehouseName: string;
-  processedBy: string;
   channel: 'Cash';
   fiscalCashTag?: string | undefined;
-  dateStr?: string | undefined;
-  timeStr?: string | undefined;
 }
 
 /**

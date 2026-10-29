@@ -103,7 +103,7 @@ export function AttendanceScreen({
 
   const dateText = `${day} ${ATTENDANCE_MONTH_SHORT}`;
   const dateStr = `2026-09-${String(day).padStart(2, '0')}`;
-  const { records: liveRecords, summary: liveSummary, loading } = useRollCall(scope, selectedWarehouseId, dateStr);
+  const { records: liveRecords, summary: liveSummary, isLoading: loading } = useRollCall(scope, selectedWarehouseId, dateStr, !customRecords);
 
   const dayRecords = useMemo(() => {
     if (customRecords) {

@@ -27,12 +27,6 @@ import type { OrderScreenBaseProps } from './types';
 // @typescript-eslint/no-empty-object-type; widen to an interface when props arrive.
 export type DeliveryPreparationScreenProps = OrderScreenBaseProps;
 
-// Mock data until the order API is wired.
-const MOCK_CONFIGURED_ADDRESS = 'Divya K., Ooty Road';
-const MOCK_DELIVERY_DATE = '25 Sep 2026';
-// Slot codes come from configuration/API; this is the mock order's slot.
-const MOCK_DELIVERY_SLOT = 'AFTERNOON_12_4';
-
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -97,10 +91,10 @@ export function DeliveryPreparationScreen({
   can,
   onBack,
   onNavigate,
-  orderId = 'ORD-1021',
+  orderId = '—',
 }: DeliveryPreparationScreenProps) {
   const canDispatch = can('order.dispatch');
-  const [selectedSlot, setSelectedSlot] = useState<string>(MOCK_DELIVERY_SLOT);
+  const [selectedSlot, setSelectedSlot] = useState<string>('AFTERNOON_12_4');
   const [checklist, setChecklist] = useState([
     { id: '1', title: 'Items verified', checked: true },
     { id: '2', title: 'Quantity verified', checked: true },
@@ -128,9 +122,9 @@ export function DeliveryPreparationScreen({
           <Text style={styles.sectionTitleFirst}>Delivery Information</Text>
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Delivery Address</Text>
-            <Text style={styles.fieldValueBold}>Configured address — Divya R., Ooty Road, Coonoor</Text>
+            <Text style={styles.fieldValueBold}>—</Text>
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Delivery Date</Text>
-            <Text style={styles.fieldValueBold}>{MOCK_DELIVERY_DATE}</Text>
+            <Text style={styles.fieldValueBold}>—</Text>
           </View>
 
           <Text style={styles.sectionTitle}>Delivery Slot</Text>

@@ -173,14 +173,17 @@ export interface WizardQcInput {
   rejectionReasonCode?: QcRejectionReasonCode | undefined;
   /** The partial acceptance's free-text note. */
   rejectionNote?: string | undefined;
-  /** BR-106: the chosen storage location's code. */
+  /** BR-106: the chosen storage location's code (the batch's label). */
   storageLocationCode?: string | undefined;
+  /** BR-125: the chosen storage location's id (the batch's link). */
+  storageLocationId?: string | undefined;
 }
 
 /**
  * The wizard's QcDraft (./mappers.ts buildQualityCheckBody / qcDraftProblem).
- * The wizard has no moisture, visual score, defect notes, damaged or spoiled
- * inputs, so those are not sent. A reason travels only with a rejected weight.
+ * The wizard has no defect notes, damaged or spoiled inputs, so those are not
+ * sent. Moisture and visual score are not collected at all: the API accepts
+ * them but stores neither. A reason travels only with a rejected weight.
  */
 export function wizardQcDraft(input: WizardQcInput): QcDraft {
   const rejected = input.grossGrams === null || input.acceptedGrams === null ? null : input.grossGrams - input.acceptedGrams;
@@ -190,12 +193,11 @@ export function wizardQcDraft(input: WizardQcInput): QcDraft {
     grossGrams: input.grossGrams,
     acceptedGrams: input.acceptedGrams,
     points: qcPointsOf(input.results),
-    moisturePct: '',
-    visualScore: '',
     defectNotes: '',
     rejectionReasonCode: rejecting ? input.rejectionReasonCode : undefined,
     rejectionNote: rejecting ? input.rejectionNote : undefined,
     storageLocationCode: input.storageLocationCode,
+    storageLocationId: input.storageLocationId,
   };
 }
 

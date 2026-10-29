@@ -37,6 +37,8 @@ import { AttendanceStatusText, ChevronRightIcon, ListCard, ListRow } from './Sta
 import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import { useAttendanceHistoryList, useAttendanceSummary } from './useStaffData';
+import { historyRangeDates } from './attendanceDates';
+import { istDay } from '../../../utils/datetime';
 import type { AttendanceHistoryEntry, StaffMonthSummary, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
 type HistoryRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
@@ -85,10 +87,11 @@ export function AttendanceHistoryScreen({
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
   const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
-  const { entries: liveEntries } = useAttendanceHistoryList(scope, selectedWarehouseId);
+  const apiDates = historyRangeDates(range, istDay(new Date()));
+  const { entries: liveEntries } = useAttendanceHistoryList(scope, selectedWarehouseId, apiDates.from, apiDates.to, !customEntries);
   const entries = customEntries ?? liveEntries;
 
-  const { summaries: liveSummaries } = useAttendanceSummary(scope, selectedWarehouseId);
+  const { summaries: liveSummaries } = useAttendanceSummary(scope, selectedWarehouseId, {}, undefined, !customMonthSummaries);
   const monthSummaries = customMonthSummaries ?? liveSummaries;
 
   const inRange = (olderThanWeek: boolean | undefined, dateHeader?: string) => {

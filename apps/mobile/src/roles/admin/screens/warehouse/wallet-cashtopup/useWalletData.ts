@@ -18,7 +18,6 @@ import {
   mapCustomerLookupMatchToWalletCustomer,
   mapWalletTransactionDtoToRecord,
   mapWalletTransactionDtoToHistoryRow,
-  rupeesFromMoney,
 } from './mappers';
 import type {
   CashLedgerEntry,

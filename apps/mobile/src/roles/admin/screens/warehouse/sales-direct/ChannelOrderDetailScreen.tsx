@@ -27,7 +27,7 @@ import { InvoiceDetailScreen } from '../billing-invoices';
 import { OrderStatusHistoryScreen } from '../orders';
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
-import { CHANNEL_COPY, CHANNEL_FALLBACK_ORDER, invoiceIdForOrder } from './fixtures';
+import { CHANNEL_COPY, invoiceIdForOrder } from './fixtures';
 import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -111,7 +111,33 @@ export function ChannelOrderDetailScreen({
   const [currentSubView, setCurrentSubView] = useState<'detail' | 'invoice' | 'status'>('detail');
 
   const copy = CHANNEL_COPY[channel];
-  const displayOrder: ChannelOrderItem = order ?? CHANNEL_FALLBACK_ORDER[channel];
+
+  if (!order) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowBackIcon size={24} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{copy.detailTitle}</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: adminSpacing.xl }}>
+          <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>No order selected</Text>
+          <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: adminSpacing.sm }}>
+            Please select an order from the list.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const displayOrder: ChannelOrderItem = order;
   const invoiceId = invoiceIdForOrder(displayOrder);
   const showGstin = channel === 'B2B' && can('customer.gst_details.manage');
   const showInvoice = can('invoice.generate');

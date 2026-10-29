@@ -88,10 +88,10 @@ export function StaffDetailScreen({
     attendance: staff?.attendance ?? 'Present',
     warehouseId: staff?.warehouseId ?? scope.warehouseId,
   };
-  const { staff: fetchedStaff } = useStaffDetail(staff?.id);
+  const { staff: fetchedStaff } = useStaffDetail(staff?.id, true);
   const member = fetchedStaff ?? staff ?? fallbackMember;
 
-  const { totals: attTotals } = useAttendanceSummary(scope, undefined, undefined, member.id);
+  const { totals: attTotals } = useAttendanceSummary(scope, undefined, {}, member.id, true);
   const summary = attTotals ?? { present: 0, absent: 0, leave: 0 };
 
   if (!hasStaffRosterAccess(can, scope)) {

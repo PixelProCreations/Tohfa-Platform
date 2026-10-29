@@ -196,7 +196,7 @@ export function FinanceHistoryScreen({
     id: e.id,
     type: 'Expense',
     title: e.categoryRef.split('·')[0]?.trim() || 'Expense',
-    amount: e.amount,
+    amountPaise: e.amountPaise,
     time: e.timestamp,
     warehouseId: e.warehouseId,
     warehouseName: e.warehouseName,
@@ -206,7 +206,7 @@ export function FinanceHistoryScreen({
     id: r.id,
     type: 'Revenue',
     title: r.orderRef,
-    amount: r.amount,
+    amountPaise: r.amountPaise,
     time: r.timestamp,
     warehouseId: r.warehouseId,
     warehouseName: r.warehouseName,
@@ -386,7 +386,7 @@ export function FinanceHistoryScreen({
                       } else {
                         Alert.alert(
                           item.id,
-                          `Transaction: ${item.id}\nType: ${item.type}\nTitle: ${item.title}\nAmount: ₹${item.amount.toLocaleString()}\nTime: ${item.time}`
+                          `Transaction: ${item.id}\nType: ${item.type}\nTitle: ${item.title}\nAmount: ₹${item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}\nTime: ${item.time}`
                         );
                       }
                     }}
@@ -424,7 +424,7 @@ export function FinanceHistoryScreen({
                             : { color: adminColors.danger.text },
                         ]}
                       >
-                        {item.type === 'Revenue' ? `+₹${item.amount.toLocaleString()}` : `-₹${item.amount.toLocaleString()}`}
+                        {item.type === 'Revenue' ? `+₹${item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}` : `-₹${item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}`}
                       </Text>
                       <Text style={styles.txTime}>
                         {item.time}

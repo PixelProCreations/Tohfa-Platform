@@ -26,7 +26,6 @@ import {
   StatTiles,
   StatusBadge,
 } from './CustomersParts';
-import { DEFAULT_CUSTOMER, INITIAL_PURCHASES, PURCHASE_KPIS } from './fixtures';
 import type { CustomerRef, PurchaseFilterState, PurchaseRecord, WarehouseScreenBaseProps } from './types';
 
 export interface PurchaseHistoryScreenProps extends WarehouseScreenBaseProps {
@@ -60,11 +59,18 @@ export function PurchaseHistoryScreen({
   appliedFilters,
   onOpenFilters,
   onSelectPurchase,
-  purchases = INITIAL_PURCHASES,
+  purchases = [],
 }: PurchaseHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const allWarehouses = scope ? isAllWarehouses(scope) : false;
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const customerName = customer?.name ?? '—';
+
+  const totalPurchasesSum = purchases.reduce((sum, p) => sum + amountOf(p), 0);
+  const kpis = [
+    { label: 'TOTAL PURCHASES', value: `₹${totalPurchasesSum.toLocaleString('en-IN')}` },
+    { label: 'PURCHASES', value: String(purchases.length) },
+    { label: 'LAST PURCHASE', value: purchases[0]?.dateText ?? '—' },
+  ];
 
   const query = (searchQuery || appliedFilters?.searchQuery || '').trim().toLowerCase();
   const crop = appliedFilters?.productCrop.trim().toLowerCase() ?? '';
@@ -103,7 +109,7 @@ export function PurchaseHistoryScreen({
         </HeaderIconButton>
       }
     >
-      <StatTiles items={PURCHASE_KPIS} />
+      <StatTiles items={kpis} />
       <SearchField
         value={searchQuery}
         onChangeText={setSearchQuery}

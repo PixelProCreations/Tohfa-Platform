@@ -1,3 +1,5 @@
+import type { Paise } from '@tohfa/shared-types';
+
 /**
  * Shared types for the warehouse finance/expense screens.
  *
@@ -43,7 +45,8 @@ export interface FinanceHistoryItem {
   id: string;
   type: 'Revenue' | 'Expense';
   title: string;
-  amount: number;
+  /** Exact integer paise (CLAUDE.md 2.2); null when the API value was not a Money string. */
+  amountPaise: Paise | null;
   time: string;
   warehouseId?: string | undefined;
   warehouseName?: string | undefined;
@@ -61,7 +64,8 @@ export interface FinanceReportItem {
 export interface ExpenseRecord {
   id: string;
   categoryRef: string;
-  amount: number;
+  /** Exact integer paise (CLAUDE.md 2.2); null when the API value was not a Money string. */
+  amountPaise: Paise | null;
   timestamp: string;
   status: 'Recorded' | 'Pending' | 'Approved' | 'Rejected';
   warehouseId?: string | undefined;
@@ -78,7 +82,8 @@ export interface RevenueRecord {
   id: string;
   orderRef: string;
   category: 'Orders' | 'Direct Sales' | 'Other';
-  amount: number;
+  /** Exact integer paise (CLAUDE.md 2.2); null when the API value was not a Money string. */
+  amountPaise: Paise | null;
   paymentMethod: string;
   timestamp: string;
   status: 'Completed' | 'Pending' | 'Refunded';
@@ -95,7 +100,7 @@ export interface RevenueDetail {
   salesChannel?: string | undefined;
   quantity?: string | undefined;
   product?: string | undefined;
-  /** Display amount without the rupee sign, e.g. '3,450'. */
+  /** Formatted display amount with the rupee sign, e.g. '₹3,450', or '—' when unknown. */
   finalAmount?: string | undefined;
   paymentMethod?: string | undefined;
   paymentStatus?: string | undefined;
@@ -111,7 +116,8 @@ export interface VoucherRecord {
   id: string;
   type: VoucherType;
   title: string;
-  amount: number;
+  /** Exact integer paise (CLAUDE.md 2.2); null when the API value was not a Money string. */
+  amountPaise: Paise | null;
   referenceId: string;
   date: string;
   status: 'Recorded' | 'Pending' | 'Completed';
@@ -127,13 +133,15 @@ export interface ExpenseCategoryItem {
   id: string;
   name: string;
   status: 'Active' | 'Inactive';
-  usedCount: number;
+  /** Null: the API has no per-category usage count (GET /admin/expense-categories is {id, name}). */
+  usedCount: number | null;
 }
 
 /** Expense fields a host or the history list can hand the expense detail screen. */
 export interface ExpenseDetailParams {
   expenseId?: string | undefined;
-  amount?: number | string | undefined;
+  /** Exact integer paise; the screen prefers the live GET /admin/expenses/{id} value. */
+  amountPaise?: Paise | null | undefined;
   category?: string | undefined;
   date?: string | undefined;
   description?: string | undefined;
@@ -167,15 +175,17 @@ export type FinanceRoute =
 export interface FinanceRouteParams {
   revenue?: RevenueDetail | undefined;
   expense?: ExpenseDetailParams | undefined;
-  /** Prefills the add-expense form (edit mode). Absent = a new expense. */
-  expenseDraft?: ExpenseDraft | undefined;
   voucher?: VoucherRecord | undefined;
   isReceiptView?: boolean | undefined;
   /** Compact detail layout (Main opens details from history this way). */
   isShortVersion?: boolean | undefined;
 }
 
-/** An expense being edited (prefills the add-expense form). */
+/**
+ * No longer used by any screen: there is no expense edit (BR-62: no edit
+ * workflow, no PATCH route), so the form never opens prefilled. Kept only
+ * because screens/warehouse/index.ts re-exports the type name.
+ */
 export interface ExpenseDraft {
   expenseId: string;
   amount: string;

@@ -23,9 +23,11 @@ describe('billing-invoices mappers', () => {
 
   it('maps InvoiceDto to InvoiceRecord and enforces BR-16 (hides buyer name)', () => {
     const record = mapInvoiceDtoToRecord(sampleDto);
-    expect(record.id).toBe('INV-2026-001245');
-    expect(record.orderNumber).toBe('ORD-002154');
-    // BR-16: Buyer name / GSTIN must be hidden
+    // BR-36: id is the uuid for navigation; invoiceNumber is the display label
+    expect(record.id).toBe('inv-uuid-1');
+    expect(record.invoiceNumber).toBe('INV-2026-001245');
+    expect(record.orderId).toBe('ORD-002154');
+    // BR-16: Buyer name / GSTIN must be hidden; the list endpoint sends none
     expect(record.customerName).toBe('');
     expect(record.saleType).toBe('Retail Sale');
     expect(record.status).toBe('Generated');
@@ -39,6 +41,9 @@ describe('billing-invoices mappers', () => {
       placeOfSupply: 'TN',
       cgst: '125.00' as Money,
       sgst: '125.00' as Money,
+      // BR-128: null buyer means no customer (walk-in or farmer-side)
+      buyerName: null,
+      buyerGstin: null,
       lines: [
         {
           description: 'Organic Carrots',
@@ -54,12 +59,14 @@ describe('billing-invoices mappers', () => {
     };
 
     const record = mapInvoiceDetailDtoToRecord(detailDto);
-    expect(record.invoiceId).toBe('INV-2026-001245');
-    expect(record.orderNumber).toBe('ORD-002154');
-    // BR-16: Customer information hidden
+    // BR-36: id is uuid; invoiceNumber is display-only
+    expect(record.id).toBe('inv-uuid-1');
+    expect(record.invoiceNumber).toBe('INV-2026-001245');
+    expect(record.orderId).toBe('ORD-002154');
+    // BR-16: Customer information not fabricated
     expect(record.customerName).toBe('');
-    expect(record.customerId).toBe('');
-    expect(record.customerPhone).toBe('');
+    expect(record).not.toHaveProperty('customerId');
+    expect(record).not.toHaveProperty('customerPhone');
     expect(record.items).toHaveLength(1);
     expect(record.items[0]?.name).toBe('Organic Carrots');
     expect(record.items[0]?.quantity).toContain('10');

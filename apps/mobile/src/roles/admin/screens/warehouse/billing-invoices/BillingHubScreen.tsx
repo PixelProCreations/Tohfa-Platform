@@ -281,7 +281,7 @@ export function BillingHubScreen({
               <View style={styles.mainCardDivider} />
 
               <View style={styles.mainInvoiceBottom}>
-                <Text style={styles.mainOrderId}>Order #{recent.orderNumber}</Text>
+                {recent.orderId ? <Text style={styles.mainOrderId}>Order #{recent.orderId}</Text> : null}
                 <Text style={styles.mainAmount}>{recent.amount}</Text>
               </View>
             </TouchableOpacity>
@@ -377,11 +377,11 @@ export function BillingHubScreen({
               <StatusBadge status={recent.status} />
             </View>
             <Text style={styles.invoiceSub}>
-              {recent.customerName ? `${recent.customerName} · ` : ''}{recent.orderNumber}
+              {recent.customerName || (recent.orderId ? `Order ${recent.orderId}` : recent.invoiceNumber)}
             </Text>
             <View style={[styles.rowBetween, styles.recentBottom]}>
               <Text style={styles.invoiceDate}>
-                {recent.date}, {recent.time}
+                {recent.date}
               </Text>
               <Text style={styles.invoiceAmount}>{recent.amount}</Text>
             </View>

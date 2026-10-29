@@ -30,9 +30,15 @@ adminTopupRouter.get(
   }),
 );
 
+// BR-18e: a cash top-up always carries the fiscal cash tag (BR-18a), and recording it is what
+// triggers the credit, so the caller needs BOTH codes: `wallet.cash_topup.fiscal_tag` ("Mark the
+// fiscal cash tag that triggers the server-side wallet credit") and `wallet.cash_topup.process`.
+// The fiscal-tag gate runs first; the process gate runs last so that `req.scope` is the process
+// scope the service confines the warehouse with.
 adminTopupRouter.post(
   '/wallets/:customerId/cash-topup',
   requireAuth,
+  requirePermission('wallet.cash_topup.fiscal_tag'),
   requirePermission('wallet.cash_topup.process'),
   validate({
     params: customerIdParamSchema,

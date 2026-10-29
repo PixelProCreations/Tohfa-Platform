@@ -165,7 +165,7 @@ export function BillingFlow({
               amount: tx.amount,
               saleType: tx.saleType,
               status: tx.status,
-              date: tx.date,
+              date: tx.date ?? '',
             })
           }
         />

@@ -21,7 +21,6 @@
 // Design id: M9-S03
 import React, { useEffect, useState } from 'react';
 import { Alert, BackHandler, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
@@ -33,7 +32,6 @@ import {
   DownloadIcon,
   HeaderIconButton,
   InfoCard,
-  inScope,
   isAllWarehouses,
   PermissionNote,
   SectionTitle,
@@ -47,22 +45,6 @@ export interface InvoiceDetailScreenProps extends WarehouseScreenBaseProps {
   onDownload?: ((invoiceId: string) => void) | undefined;
   onShare?: ((invoiceId: string) => void) | undefined;
 }
-
-function TimelineCheckIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zM9 12l2 2 4-4"
-        stroke={adminColors.success.text}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-
 
 import { useInvoiceDetail } from './useBillingData';
 
@@ -113,17 +95,7 @@ export function InvoiceDetailScreen({
     );
   }
 
-  const record: InvoiceDetailRecord = { ...invoice, invoiceId };
-
-  if (!inScope(scope, record.warehouseId)) {
-    return (
-      <BillingScreen title="Invoice Detail" onBack={onBack}>
-        <View style={styles.scrollContent}>
-          <PermissionNote>Invoice {invoiceId} was not found.</PermissionNote>
-        </View>
-      </BillingScreen>
-    );
-  }
+  const record = invoice;
 
   const handleDismissToast = React.useCallback(() => {
     setShowToast(false);
@@ -175,7 +147,7 @@ export function InvoiceDetailScreen({
           <Card style={styles.previewCard}>
             <View style={styles.previewHeader}>
               <Text style={styles.previewBrandTitle}>TOHFA</Text>
-              <Text style={styles.previewDocLabel}>Invoice · {record.invoiceId}</Text>
+              <Text style={styles.previewDocLabel}>Invoice · {record.invoiceNumber}</Text>
               <View style={styles.brandDivider} />
             </View>
 
@@ -204,34 +176,24 @@ export function InvoiceDetailScreen({
 
   const infoRows = [
     [
-      { label: 'Invoice Number', value: record.invoiceId },
-      { label: 'Order Number', value: record.orderNumber },
+      { label: 'Invoice Number', value: record.invoiceNumber },
+      { label: 'Order Reference', value: record.orderId ?? '—' },
     ],
     [
       { label: 'Date', value: record.date },
-      { label: 'Sales Channel', value: record.salesChannel },
+      { label: 'Invoice Type', value: record.typeLabel },
     ],
     [
-      { label: 'Invoice Type', value: record.invoiceType },
-      { label: 'Status', value: record.status },
+      { label: 'Status', value: record.statusLabel },
+      { label: 'Download', value: record.downloadAvailable ? 'Available' : 'Unavailable' },
     ],
-    [
-      { label: 'Warehouse', value: record.warehouseName ?? record.warehouseId ?? '—' },
-      ...(record.downloadAvailable !== undefined
-        ? [{ label: 'Download Availability', value: record.downloadAvailable ? 'Available' : 'Unavailable' }]
-        : []),
-    ],
+    ...(record.placeOfSupply ? [[{ label: 'Place of Supply', value: record.placeOfSupply }]] : []),
   ];
-
-  const timeline = [
-    record.generatedAt ? { title: 'Invoice Generated', time: record.generatedAt } : null,
-    record.linkedAt ? { title: 'Invoice Linked to Order', time: record.linkedAt } : null,
-  ].filter((step): step is { title: string; time: string } => step !== null);
 
   return (
     <BillingScreen
       title="Invoice Detail"
-      subtitle={`${record.invoiceId} · ${record.status}`}
+      subtitle={`${record.invoiceNumber} · ${record.statusLabel}`}
       onBack={onBack}
       headerRight={
         canView ? (
@@ -263,20 +225,20 @@ export function InvoiceDetailScreen({
           <Text style={styles.brandTitle}>TOHFA</Text>
           <Text style={styles.brandSubtitle}>Nilgiris Horticulture Organic Farmers Association</Text>
           <View style={styles.brandDivider} />
-          <Text style={styles.invoiceDocLabel}>Invoice · {record.invoiceId}</Text>
+          <Text style={styles.invoiceDocLabel}>Invoice · {record.invoiceNumber}</Text>
         </View>
 
         <SectionTitle>Invoice Information</SectionTitle>
         <InfoCard rows={infoRows} />
 
-        {record.customerName ? (
+        {record.buyerName ? (
           <>
             <SectionTitle>Bill To</SectionTitle>
             <Card>
-              <Text style={styles.billToName}>{record.customerName}</Text>
-              <Text style={styles.billToDetails}>
-                Customer ID: {record.customerId} · Mobile: {record.customerPhone}
-              </Text>
+              <Text style={styles.billToName}>{record.buyerName}</Text>
+              {record.buyerGstin ? (
+                <Text style={styles.billToDetails}>GSTIN: {record.buyerGstin}</Text>
+              ) : null}
             </Card>
           </>
         ) : null}
@@ -289,9 +251,7 @@ export function InvoiceDetailScreen({
               <View style={styles.itemRow}>
                 <View style={styles.itemLeft}>
                   <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemMeta}>
-                    {item.grade} · {item.unit}
-                  </Text>
+                  {item.hsn ? <Text style={styles.itemMeta}>{item.hsn}</Text> : null}
                   <Text style={styles.itemMeta}>
                     {item.quantity} × {item.unitPrice}
                   </Text>
@@ -305,8 +265,10 @@ export function InvoiceDetailScreen({
         <SectionTitle>Amount Summary</SectionTitle>
         <Card>
           {[
-            ['Subtotal', record.subtotal],
-            ['Discount', record.discount],
+            ['Taxable Amount', record.taxable],
+            ['CGST', record.cgst],
+            ['SGST', record.sgst],
+            ['IGST', record.igst],
             ['GST', record.gst],
           ].map(([label, value]) => (
             <View key={label} style={styles.summaryRow}>
@@ -320,42 +282,6 @@ export function InvoiceDetailScreen({
             <Text style={styles.totalValue}>{record.total}</Text>
           </View>
         </Card>
-
-        <SectionTitle>Payment Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Payment Status', value: record.paymentStatus },
-              { label: 'Payment Method', value: record.paymentMethod },
-            ],
-          ]}
-        />
-
-        {timeline.length > 0 ? (
-          <>
-            <SectionTitle>Invoice Timeline</SectionTitle>
-            <Card>
-              {timeline.map((step, index) => (
-                <View key={step.title} style={styles.timelineStep}>
-                  <View style={styles.timelineIconCol}>
-                    <TimelineCheckIcon />
-                    {index < timeline.length - 1 ? <View style={styles.timelineLine} /> : null}
-                  </View>
-                  <View style={styles.timelineContent}>
-                    <Text style={styles.timelineTitle}>{step.title}</Text>
-                    <Text style={styles.timelineTime}>{step.time}</Text>
-                  </View>
-                </View>
-              ))}
-            </Card>
-          </>
-        ) : null}
-
-        {record.generatedBy ? (
-          <View style={styles.generatedBy}>
-            <InfoCard rows={[[{ label: 'Generated By', value: record.generatedBy }]]} />
-          </View>
-        ) : null}
       </ScrollView>
     </BillingScreen>
   );

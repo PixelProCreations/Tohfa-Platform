@@ -297,6 +297,7 @@ const STATUS_TONE: Record<InvoiceStatus | 'Completed' | 'Invoice Exists', 'succe
   Completed: 'success',
   Pending: 'warning',
   Cancelled: 'danger',
+  CreditNoted: 'warning',
   'Invoice Exists': 'danger',
 };
 

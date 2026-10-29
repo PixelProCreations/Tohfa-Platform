@@ -191,7 +191,7 @@ export function ExpenseDetailScreen({
   const [showReceiptScreen, setShowReceiptScreen] = useState(Boolean(isReceiptView));
 
   const { expense: liveExpense, rawDto } = useExpenseDetail(expenseId);
-  const displayAmount = liveExpense ? liveExpense.amount.toLocaleString('en-IN') : (typeof amount === 'number' ? amount.toLocaleString('en-IN') : amount);
+  const displayAmount = liveExpense ? (liveExpense.amountPaise !== null && liveExpense.amountPaise !== undefined ? Math.round(liveExpense.amountPaise / 100).toLocaleString('en-IN') : '—') : (typeof amount === 'number' ? amount.toLocaleString('en-IN') : amount);
   const displayCategory = liveExpense ? (liveExpense.categoryRef.split('·')[0]?.trim() || liveExpense.categoryRef) : category;
   const displayDate = liveExpense ? liveExpense.timestamp : date;
   const displayDescription = rawDto?.description || description;

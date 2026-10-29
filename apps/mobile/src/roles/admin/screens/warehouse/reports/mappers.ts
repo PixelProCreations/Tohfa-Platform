@@ -7,6 +7,7 @@ import type { AdminCustomerListItemDto } from '../../../api/customers';
 interface CashTopupSummaryDto { id: string; customerId: string; warehouseId: string; amount: unknown; notes?: string | null; collectedAt?: string; }
 import type { ExpenseDto } from '../../../api/finance';
 import type { ReturnSummaryDto } from '../../../api/returns';
+import { adminColors } from '../../../theme';
 
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
@@ -238,7 +239,7 @@ export function mapReturnToReportRow(ret: ReturnSummaryDto) {
     resolutionDate: ret.updatedAt ? new Date(ret.updatedAt).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }) : '—',
     status: (ret.status === 'APPROVED' ? 'Approved' : ret.status === 'REFUNDED' ? 'Approved' : ret.status === 'REJECTED' ? 'Rejected' : 'Pending') as string,
     resolution: ret.status === 'REFUNDED' ? 'Refund Completed' : 'Under Review',
-    resolutionColor: '#16A34A',
+    resolutionColor: adminColors.success.text,
     warehouse: ret.warehouseId,
     warehouseId: ret.warehouseId,
     timeline: [

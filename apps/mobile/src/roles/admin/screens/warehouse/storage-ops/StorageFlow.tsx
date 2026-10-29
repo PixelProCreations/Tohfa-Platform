@@ -126,7 +126,7 @@ export interface StorageFlowProps {
 export function StorageFlow({
   scope,
   can,
-  initialScreen = 'MaterialHandling',
+  initialScreen = 'StorageLocations',
   initialParams,
   onBack,
   onTabChange,

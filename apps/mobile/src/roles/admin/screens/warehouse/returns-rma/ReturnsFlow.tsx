@@ -18,7 +18,6 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { ApproveReturnScreen } from './ApproveReturnScreen';
-import { SAMPLE_REFUND_AMOUNT, SAMPLE_RETURN_HISTORY_RECORD, SAMPLE_RMA } from './fixtures';
 import { useReturnList } from './useReturnData';
 import { InspectProductScreen } from './InspectProductScreen';
 import { RefundCompletedScreen } from './RefundCompletedScreen';
@@ -32,7 +31,43 @@ import { ReturnHistoryScreen } from './ReturnHistoryScreen';
 import { ReturnsIssuesScreen } from './ReturnsIssuesScreen';
 import { ReviewReturnRequestScreen } from './ReviewReturnRequestScreen';
 import { RmaDetailScreen } from './RmaDetailScreen';
-import type { PermissionCheck, ReturnsRoute, ReturnsRouteParams, WarehouseScope, WarehouseTab } from './types';
+import type { PermissionCheck, ReturnHistoryRecord, ReturnsRoute, ReturnsRouteParams, RmaRecord, WarehouseScope, WarehouseTab } from './types';
+
+const BLANK_RMA: RmaRecord = {
+  id: '',
+  rmaId: '—',
+  orderId: '—',
+  customerName: '—',
+  customerId: '—',
+  customerPhone: '—',
+  orderDate: '—',
+  salesChannel: '—',
+  paymentStatus: '—',
+  productName: '—',
+  grade: '—',
+  quantityPurchased: '—',
+  unitPrice: '—',
+  lineTotal: '—',
+  issueCategory: 'Quality',
+  reportedDate: '—',
+  timestampText: '—',
+  description: '—',
+  ticketId: '—',
+  requestedQuantity: '—',
+  requestedResolution: 'Refund',
+  status: 'New',
+};
+
+const BLANK_RETURN_HISTORY_RECORD: ReturnHistoryRecord = {
+  rmaId: '—',
+  orderId: '—',
+  customerName: '—',
+  customerId: '—',
+  status: 'Completed',
+  date: '—',
+  reasonTag: '—',
+  warehouseName: '—',
+};
 
 /** One entry of the flow's back stack. */
 export interface ReturnsStackEntry {
@@ -83,7 +118,7 @@ export function ReturnsFlow({
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: ReturnsRouteParams = current.params ?? {};
-  const rma = params.rma ?? SAMPLE_RMA;
+  const rma = params.rma ?? BLANK_RMA;
 
   // Live returns list for the ReturnsIssues screen.
   // The screen has its own warehouse selector for client-side filtering;
@@ -120,7 +155,10 @@ export function ReturnsFlow({
         <ReturnsIssuesScreen
           {...common}
           warehouseOptions={warehouseOptions}
-          items={returnList.items.length > 0 ? returnList.items : undefined}
+          items={returnList.items}
+          isLoading={returnList.isLoading}
+          error={returnList.error}
+          onRetry={returnList.refresh}
           onSelectRma={(selected) => navigate('RmaDetail', { rma: selected })}
           onNavigateToHistory={() => navigate('ReturnHistory')}
           onNavigateToNotifications={onNavigateToNotifications}
@@ -173,7 +211,7 @@ export function ReturnsFlow({
         <RefundStatusScreen
           {...common}
           rma={rma}
-          refundAmount={params.refundAmount ?? SAMPLE_REFUND_AMOUNT}
+          refundAmount={params.refundAmount ?? '—'}
           onConfirmSuccess={(data) =>
             navigate('RefundCompleted', { rma: data.rma, refundAmount: data.refundAmount })
           }
@@ -189,7 +227,7 @@ export function ReturnsFlow({
           {...common}
           onBack={backToList}
           rma={rma}
-          refundAmount={params.refundAmount ?? SAMPLE_REFUND_AMOUNT}
+          refundAmount={params.refundAmount ?? '—'}
           transactionId={params.transactionId}
           onViewReturnHistory={() => navigate('ReturnHistory')}
         />
@@ -203,7 +241,7 @@ export function ReturnsFlow({
         />
       );
     case 'ReturnHistoryDetail':
-      return <ReturnHistoryDetailScreen {...common} record={params.record ?? SAMPLE_RETURN_HISTORY_RECORD} />;
+      return <ReturnHistoryDetailScreen {...common} record={params.record ?? BLANK_RETURN_HISTORY_RECORD} />;
     default:
       return null;
   }

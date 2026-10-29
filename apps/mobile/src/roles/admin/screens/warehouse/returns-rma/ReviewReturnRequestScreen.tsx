@@ -18,7 +18,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { REVIEW_TIMELINE, SAMPLE_INSPECTED_QTY, SAMPLE_INSPECTION_NOTES } from './fixtures';
+import { REVIEW_TIMELINE } from './fixtures';
 import {
   InfoCard,
   isAllWarehouses,
@@ -37,9 +37,9 @@ export interface ReviewReturnRequestScreenProps extends RmaScreenBaseProps {
   onReject: (rma: RmaRecord) => void;
 }
 
-// Mock evidence counts and refund method until RMAs are wired.
-const CUSTOMER_EVIDENCE = '2 Photos';
-const INSPECTION_EVIDENCE = '3 Photos';
+// Evidence counts and refund method
+const CUSTOMER_EVIDENCE = '—';
+const INSPECTION_EVIDENCE = '—';
 const REFUND_METHOD = 'TOHFA Wallet';
 
 function CheckmarkIcon() {
@@ -62,8 +62,8 @@ export function ReviewReturnRequestScreen({
   scope,
   can,
   rma,
-  inspectedQty = SAMPLE_INSPECTED_QTY,
-  inspectionNotes = SAMPLE_INSPECTION_NOTES,
+  inspectedQty = '—',
+  inspectionNotes = '—',
   onBack,
   onApprove,
   onReject,

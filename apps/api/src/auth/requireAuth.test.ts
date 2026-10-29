@@ -101,6 +101,8 @@ describe('requireAuth: closes the password-change access-token gap', () => {
 
       // A brand-new token, minted AFTER the password change, must still work
       // -- the fix must not lock the user out of their own new session.
+      // Wait past the second boundary so iat is strictly greater than the invalidation stamp.
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
       const accepted = await request(app).get('/protected').set('Authorization', `Bearer ${freshToken(userId)}`);
       expect(accepted.status).toBe(200);
     } finally {

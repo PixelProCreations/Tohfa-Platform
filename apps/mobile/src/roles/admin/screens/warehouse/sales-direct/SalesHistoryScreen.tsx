@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   SafeAreaView,
@@ -19,104 +20,7 @@ import type { SalesFilterState } from './SalesFiltersScreen';
 
 export type SaleHistoryItem = SaleRecord;
 
-const INITIAL_SALES_DATA: SaleHistoryItem[] = [
-  {
-    id: 'SALE-00251',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-    customerName: 'Rajesh Kumar',
-    customerCode: 'CUS-00291',
-    itemCountText: '2 Items',
-    channel: 'Direct Sale',
-    dateText: '24 Sep · 6:35 PM',
-    amount: 320,
-    status: 'Paid',
-    invoiceNo: 'INV-00251',
-    paymentMethod: 'UPI',
-    items: [
-      {
-        name: 'Tomato',
-        grade: 'Grade 1',
-        batch: 'BTH-00231',
-        qtyText: '2 KG @ ₹100',
-        pricePerUnit: 100,
-        lineTotal: 200,
-      },
-      {
-        name: 'Carrot',
-        grade: 'Grade 1',
-        batch: 'BTH-00189',
-        qtyText: '1 KG @ ₹120',
-        pricePerUnit: 120,
-        lineTotal: 120,
-      },
-    ],
-  },
-  {
-    id: 'SALE-00248',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor Warehouse',
-    customerName: 'Walk-in',
-    customerCode: 'CUS-00104',
-    itemCountText: '1 Item',
-    channel: 'Market Sale',
-    dateText: '24 Sep · 3:10 PM',
-    amount: 120,
-    status: 'Paid',
-    invoiceNo: 'INV-00248',
-    paymentMethod: 'Cash',
-    items: [
-      {
-        name: 'Carrot',
-        grade: 'Grade 1',
-        batch: 'BTH-00189',
-        qtyText: '1 KG @ ₹120',
-        pricePerUnit: 120,
-        lineTotal: 120,
-      },
-    ],
-  },
-  {
-    id: 'SALE-00240',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-    customerName: 'Ganesh K.',
-    customerCode: 'CUS-00388',
-    itemCountText: '3 Items',
-    channel: 'Direct Sale',
-    dateText: '23 Sep · 5:45 PM',
-    amount: 410,
-    status: 'Pending',
-    invoiceNo: 'INV-00240',
-    paymentMethod: 'Wallet',
-    items: [
-      {
-        name: 'Potato',
-        grade: 'Grade 1',
-        batch: 'BTH-00204',
-        qtyText: '3 KG @ ₹50',
-        pricePerUnit: 50,
-        lineTotal: 150,
-      },
-      {
-        name: 'Tomato',
-        grade: 'Grade 2',
-        batch: 'BTH-00219',
-        qtyText: '2 KG @ ₹80',
-        pricePerUnit: 80,
-        lineTotal: 160,
-      },
-      {
-        name: 'Onion',
-        grade: 'Grade 1',
-        batch: 'BTH-00177',
-        qtyText: '2 KG @ ₹50',
-        pricePerUnit: 50,
-        lineTotal: 100,
-      },
-    ],
-  },
-];
+
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -165,6 +69,9 @@ export interface SalesHistoryScreenProps extends WarehouseScreenBaseProps {
   onOpenFilters?: () => void;
   filters?: SalesFilterState | undefined;
   sales?: readonly SaleHistoryItem[] | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown | undefined;
+  onRetry?: (() => void) | undefined;
 }
 
 export function SalesHistoryScreen({
@@ -173,7 +80,10 @@ export function SalesHistoryScreen({
   onSelectSale,
   onOpenFilters,
   filters,
-  sales = INITIAL_SALES_DATA,
+  sales = [],
+  isLoading,
+  error,
+  onRetry,
 }: SalesHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState(filters?.searchQuery ?? '');
   const showWarehouse = isAllWarehouses(scope);
@@ -260,6 +170,27 @@ export function SalesHistoryScreen({
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            isLoading ? (
+              <View style={styles.stateContainer}>
+                <ActivityIndicator size="small" color={adminColors.brand} />
+                <Text style={styles.stateText}>Loading sales history...</Text>
+              </View>
+            ) : error ? (
+              <View style={styles.stateContainer}>
+                <Text style={styles.stateText}>Failed to load sales.</Text>
+                {onRetry && (
+                  <TouchableOpacity onPress={onRetry} style={styles.retryButton}>
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <View style={styles.stateContainer}>
+                <Text style={styles.stateText}>No sales records found</Text>
+              </View>
+            )
+          }
           renderItem={({ item }) => {
             const isPaid = item.status === 'Paid';
             return (
@@ -470,5 +401,27 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: adminColors.brand,
     fontWeight: '700',
+  },
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 8,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

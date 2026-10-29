@@ -8,15 +8,17 @@
  * allow-list means adding a field to the DTO cannot leak it here.
  * BR-16: No farmerId, farm name or batch GPS is passed through.
  */
+import { parseMoney, toPaise } from '@tohfa/shared-types';
+import { formatPaise } from '../../../money/paise';
 import type {
-  AdminOrderDetailDto,
   AdminOrderLineDto,
   AdminOrderStatus,
   FulfillmentType,
   AdminFulfilmentType,
-  OrderPaymentStatus,
   OrderSummaryDto,
 } from '../../../api/orders';
+import type { BatchDto } from '../../../api/inventory';
+import { t, type TranslationKey } from '../../../i18n';
 
 // ─── Shared display types ─────────────────────────────────────────────────────
 
@@ -33,7 +35,10 @@ export interface OrderDetailLine {
  * Defined here so mappers can be tested without importing from the screen.
  */
 export interface OrderListRow {
+  /** The order uuid: what the screens navigate and call the API with (BR-99). */
   id: string;
+  /** The human code (`ORD-…`), for display and search only. */
+  orderNumber: string;
   warehouseId: string;
   warehouseName: string;
   /** BR-99: the summary carries no buyer name. Always '—'. */
@@ -64,9 +69,11 @@ export function gradeDisplayLabel(grade: string): string {
 /** Format a Money decimal string to "₹N,NNN" display. */
 export function formatMoney(money: string | null | undefined): string {
   if (!money) return '—';
-  const n = parseFloat(money);
-  if (Number.isNaN(n)) return '—';
-  return `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  try {
+    return formatPaise(toPaise(parseMoney(money)));
+  } catch {
+    return '—';
+  }
 }
 
 /** Format an ISO timestamp to a short date-time string for list display. */
@@ -125,6 +132,7 @@ export function paymentStatusLabel(paymentStatus: string): string {
     PAID: 'Paid',
     PARTIALLY_PAID: 'Partial',
     REFUNDED: 'Refunded',
+    REFUND_DUE: 'Refund Due',
     FAILED: 'Failed',
   };
   return MAP[paymentStatus] ?? paymentStatus;
@@ -142,17 +150,34 @@ export function channelLabel(channel: string): string {
   return MAP[channel] ?? channel;
 }
 
+/** Delivery slot display label (i18n); an unknown slot shows its code rather than a guess. */
+export function deliverySlotLabel(slot: string | null | undefined): string {
+  if (!slot) return t('orders.noValue');
+  const MAP: Record<string, TranslationKey> = {
+    MORNING_8_12: 'orders.deliverySlot.MORNING_8_12',
+    AFTERNOON_12_4: 'orders.deliverySlot.AFTERNOON_12_4',
+    EVENING_4_8: 'orders.deliverySlot.EVENING_4_8',
+  };
+  const key = MAP[slot];
+  return key ? t(key) : slot;
+}
+
+/** "1 Item" / "N Items" (i18n). */
+export function itemCountLabel(count: number): string {
+  return count === 1 ? t('orders.items.one') : t('orders.items.many', { count });
+}
+
 /**
  * Normalise fulfillment type from either the list format
- * ('WAREHOUSE_PICKUP'/'HOME_DELIVERY') or the detail format ('PICKUP'/'DELIVERY')
+ * ('WAREHOUSE_PICKUP'/'HOME_DELIVERY'/'PICKUP'/'DELIVERY') or the detail format ('PICKUP'/'DELIVERY')
  * to the screen's 'Pickup' | 'Delivery' value.
  */
 export function fulfillmentTypeOf(
   listType: FulfillmentType | null | undefined,
   detailType: AdminFulfilmentType | null | undefined,
 ): 'Pickup' | 'Delivery' {
-  if (listType === 'WAREHOUSE_PICKUP' || detailType === 'PICKUP') return 'Pickup';
-  if (listType === 'HOME_DELIVERY' || detailType === 'DELIVERY') return 'Delivery';
+  if (listType === 'WAREHOUSE_PICKUP' || listType === 'PICKUP' || detailType === 'PICKUP') return 'Pickup';
+  if (listType === 'HOME_DELIVERY' || listType === 'DELIVERY' || detailType === 'DELIVERY') return 'Delivery';
   // Heuristic: unknown types default to Pickup for Pending orders (most common)
   return 'Pickup';
 }
@@ -200,13 +225,13 @@ export function toOrderRow(dto: OrderSummaryDto, warehouseName: string): OrderLi
   const fulfillment = fulfillmentTypeOf(dto.fulfillmentType ?? null, null);
   const { action, actionScreen, actionStep } = deriveOrderAction(dto.status, fulfillment);
   return {
-    id: dto.orderNumber,
+    id: dto.id,
+    orderNumber: dto.orderNumber,
     warehouseId: dto.warehouseId ?? '',
     warehouseName,
-    // BR-99: OrderSummaryDto has no buyer name; display '—'.
-    customer: '—',
+    customer: dto.customerName ?? '—',
     status: orderStatusLabel(dto.status),
-    items: `${dto.itemCount ?? 0} ${(dto.itemCount ?? 0) === 1 ? 'Item' : 'Items'}`,
+    items: itemCountLabel(dto.itemCount ?? 0),
     amount: formatMoney(dto.totalAmount),
     fulfillment,
     time: formatOrderTime(dto.placedAt),
@@ -229,4 +254,54 @@ export function toOrderDetailLines(items: AdminOrderLineDto[]): OrderDetailLine[
     qtyDetail: `${item.qtyKg} KG × ${formatMoney(item.unitPrice)}`,
     price: formatMoney(item.lineTotal),
   }));
+}
+
+// ─── Stock Check ─────────────────────────────────────────────────────────────
+
+export interface StockCheckRow {
+  name: string;
+  status: 'Available' | 'Insufficient';
+  ordered: string;
+  available: string;
+  required: string;
+  shortage?: string;
+  orderedKg: number;
+  availableKg: number;
+  shortageKg: number;
+  reservedKg: number;
+}
+
+/**
+ * Compare order lines against active batches to determine stock availability.
+ */
+export function computeStockCheckRows(
+  orderItems: AdminOrderLineDto[],
+  batches: BatchDto[],
+): StockCheckRow[] {
+  return orderItems.map((item) => {
+    const matchingBatches = batches.filter(
+      (b) =>
+        (b.cropId === item.productId || (b.cropName && b.cropName.toLowerCase() === item.name.toLowerCase())) &&
+        (b.grade === item.grade || !b.grade),
+    );
+    const availableKg = matchingBatches.reduce((acc, b) => acc + (Number(b.qtyAvailableKg) || 0), 0);
+    const reservedKg = matchingBatches.reduce((acc, b) => acc + (Number(b.qtyReservedKg ?? 0) || 0), 0);
+    const orderedKg = Number(item.qtyKg) || 0;
+    const isShort = availableKg < orderedKg;
+    const shortageKg = isShort ? Math.round((orderedKg - availableKg) * 1000) / 1000 : 0;
+    const displayName = `${item.name} · ${gradeDisplayLabel(item.grade)}`;
+
+    return {
+      name: displayName,
+      status: isShort ? 'Insufficient' : 'Available',
+      ordered: `${orderedKg} KG`,
+      available: `${availableKg} KG`,
+      required: `${orderedKg} KG`,
+      ...(isShort ? { shortage: `${shortageKg} KG` } : {}),
+      orderedKg,
+      availableKg,
+      shortageKg,
+      reservedKg,
+    };
+  });
 }

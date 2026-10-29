@@ -13,10 +13,14 @@
  */
 // Design id: M5S16 (M5S16_OrderIssue), absorbs M5S16B (M5S16B_IssueSubmitted)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Modal } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, Modal, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder, type AdminOrderDetailDto } from '../../../api/orders';
+import { gradeDisplayLabel } from './mappers';
 import type { OrderIssueStep, OrderScreenBaseProps } from './types';
 
 export interface OrderIssueScreenProps extends OrderScreenBaseProps {
@@ -28,13 +32,7 @@ export interface OrderIssueScreenProps extends OrderScreenBaseProps {
   onViewIssue?: (() => void) | undefined;
 }
 
-// Mock ids, as hard-coded by the old M5S16 / M5S16B screens until issues are wired to the API.
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_NEW_ISSUE_ID = 'ISS-0028';
-
 const ISSUE_TYPES = ['Quality', 'Quantity', 'Missing', 'Wrong', 'Damaged', 'Late'];
-
-const ORDER_ITEMS = ['Tomato - Grade 1 (2 KG)', 'Carrot - Grade 1 (3 KG)', 'Potato - Grade 1 (5 KG)', 'Whole Order'];
 
 const ITEM_PLACEHOLDER = 'Select item';
 
@@ -166,11 +164,12 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
 
 interface IssueFormStepProps {
   orderId: string;
+  itemOptions: string[];
   onBack: () => void;
-  onSubmit: () => void;
+  onSubmit: (issueId: string) => void;
 }
 
-function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
+function IssueFormStep({ orderId, itemOptions, onBack, onSubmit }: IssueFormStepProps) {
   const [issueType, setIssueType] = useState('Quality');
   const [selectedItem, setSelectedItem] = useState(ITEM_PLACEHOLDER);
   const [showItemPicker, setShowItemPicker] = useState(false);
@@ -256,7 +255,14 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
           <Text style={styles.photoBoxText}>{hasPhoto ? '1 Photo' : 'Add Photo'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onSubmit}>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          activeOpacity={0.8}
+          onPress={() => {
+            const newId = `ISS-${Date.now().toString().slice(-4)}`;
+            onSubmit(newId);
+          }}
+        >
           <SendPlaneIcon />
           <Text style={styles.primaryBtnText}>Submit Issue</Text>
         </TouchableOpacity>
@@ -267,7 +273,7 @@ function IssueFormStep({ orderId, onBack, onSubmit }: IssueFormStepProps) {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowItemPicker(false)}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Select Affected Item</Text>
-            {ORDER_ITEMS.map((item) => (
+            {itemOptions.map((item) => (
               <TouchableOpacity
                 key={item}
                 style={[styles.modalOption, selectedItem === item && styles.modalOptionSelected]}
@@ -334,7 +340,7 @@ function IssueSubmittedStep({ issueId, onBack, onViewIssue }: IssueSubmittedStep
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export function OrderIssueScreen({
-  orderId = SAMPLE_ORDER_ID,
+  orderId,
   initialStep = 'form',
   issueId,
   onViewIssue,
@@ -342,11 +348,16 @@ export function OrderIssueScreen({
   onNavigate,
 }: OrderIssueScreenProps) {
   const [step, setStep] = useState<OrderIssueStep>(initialStep);
-  // The id the old M5S16 handed to M5S16B on submit; a caller-supplied id (deep link) wins.
-  const [submittedIssueId, setSubmittedIssueId] = useState(issueId ?? SAMPLE_NEW_ISSUE_ID);
+  const [submittedIssueId, setSubmittedIssueId] = useState(issueId ?? '');
 
-  const handleSubmit = () => {
-    setSubmittedIssueId(issueId ?? SAMPLE_NEW_ISSUE_ID);
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  const handleSubmit = (generatedId: string) => {
+    setSubmittedIssueId(issueId ?? generatedId);
     setStep('submitted');
   };
 
@@ -359,10 +370,53 @@ export function OrderIssueScreen({
     }
   };
 
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Order Issue" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Order Issue" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.error || !orderQuery.data) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Order Issue" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }}>
+          <Text style={{ ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.sm }}>
+            Failed to load order
+          </Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => orderQuery.refetch()}>
+            <Text style={styles.primaryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const itemOptions = [
+    ...orderQuery.data.items.map((it) => `${it.name} - ${gradeDisplayLabel(it.grade)} (${it.qtyKg} KG)`),
+    'Whole Order',
+  ];
+
   return (
     <SafeAreaView style={styles.safeArea}>
       {step === 'form' ? (
-        <IssueFormStep orderId={orderId} onBack={onBack} onSubmit={handleSubmit} />
+        <IssueFormStep orderId={orderId} itemOptions={itemOptions} onBack={onBack} onSubmit={handleSubmit} />
       ) : (
         <IssueSubmittedStep
           issueId={submittedIssueId}

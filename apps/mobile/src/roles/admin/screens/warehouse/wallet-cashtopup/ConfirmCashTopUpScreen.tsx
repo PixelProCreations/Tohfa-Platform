@@ -50,13 +50,13 @@ export interface ConfirmCashTopUpScreenProps extends WarehouseScreenBaseProps {
 export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfirmed }: ConfirmCashTopUpScreenProps) {
   const customerName = draft.customerName ?? '';
   const customerCode = draft.customerCode ?? '';
-  const [currentBalance, setCurrentBalance] = useState<number>(draft.currentBalance ?? 0);
-  const topUpAmount = draft.topUpAmount ?? 0;
+  const [currentBalance, setCurrentBalance] = useState<number | null>(draft.currentBalancePaise ?? null);
+  const topUpAmount = draft.topUpAmountPaise ?? 0;
   const warehouseName = draft.warehouseName ?? scope.warehouseName ?? '';
-  const processedBy = draft.processedBy ?? (scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin'));
+  const processedBy = scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin');
   const fiscalCashTag = draft.fiscalCashTag ?? '';
-  const dateStr = draft.dateStr ?? '';
-  const timeStr = draft.timeStr ?? '';
+  const dateStr = '';
+  const timeStr = '';
 
   const [askFinalConfirm, setAskFinalConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,7 +64,7 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
   const idempotencyKeyRef = useRef<string>('idem-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
 
   const canConfirm = can('wallet.cash_topup.process') && can('wallet.cash_topup.fiscal_tag');
-  const newBalance = currentBalance + topUpAmount;
+  const newBalance = (currentBalance ?? 0) + topUpAmount;
 
   const handleConfirmTopUp = async () => {
     if (!canConfirm || isSubmitting) return;
@@ -77,7 +77,7 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
       const liveDto = await createCashTopup(
         customerIdToUse,
         {
-          amount: `${topUpAmount}.00` as Money,
+          amount: `${(topUpAmount / 100).toFixed(2)}` as Money,
           warehouseId: targetWarehouseId,
           fiscalCashTag,
           remarks: 'Counter cash top-up',
@@ -90,15 +90,12 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
         {
           customerName,
           customerCode,
-          currentBalance,
-          topUpAmount,
+          currentBalancePaise: currentBalance,
+          topUpAmountPaise: topUpAmount,
           warehouseId: targetWarehouseId,
           warehouseName,
-          processedBy,
           channel: 'Cash',
           fiscalCashTag,
-          dateStr,
-          timeStr,
         },
         liveTxn,
       );
@@ -113,15 +110,12 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
             onConfirmed({
               customerName,
               customerCode,
-              currentBalance,
-              topUpAmount,
+              currentBalancePaise: currentBalance,
+              topUpAmountPaise: topUpAmount,
               warehouseId: targetWarehouseId,
               warehouseName,
-              processedBy,
               channel: 'Cash',
               fiscalCashTag,
-              dateStr,
-              timeStr,
             });
           },
         },
@@ -163,7 +157,7 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
           <View style={styles.finalConfirm}>
             <Text style={styles.finalConfirmTitle}>Confirm Cash Top-Up?</Text>
             <Text style={styles.finalConfirmText}>
-              {formatRupees(topUpAmount)} will be credited to {customerName}'s wallet.
+              {formatRupees(topUpAmount / 100)} will be credited to {customerName}'s wallet.
             </Text>
             <View style={styles.finalConfirmActions}>
               <WalletButton label="Cancel" variant="neutral" flex onPress={() => setAskFinalConfirm(false)} />
@@ -177,9 +171,9 @@ export function ConfirmCashTopUpScreen({ scope, can, onBack, draft = {}, onConfi
 
         <SectionTitle>Wallet</SectionTitle>
         <Card>
-          <AmountRow label="Current Balance" value={formatRupees(currentBalance, true)} />
-          <AmountRow divider label="Top-Up Amount" value={formatRupees(topUpAmount, true)} emphasis="credit" />
-          <AmountRow divider label="New Balance" value={formatRupees(newBalance, true)} emphasis="total" />
+          <AmountRow label="Current Balance" value={formatRupees((currentBalance ?? 0) / 100, true)} />
+          <AmountRow divider label="Top-Up Amount" value={formatRupees(topUpAmount / 100, true)} emphasis="credit" />
+          <AmountRow divider label="New Balance" value={formatRupees(newBalance / 100, true)} emphasis="total" />
         </Card>
 
         <SectionTitle>Cash Information</SectionTitle>

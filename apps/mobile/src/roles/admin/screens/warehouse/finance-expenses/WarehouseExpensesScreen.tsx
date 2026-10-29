@@ -395,7 +395,7 @@ export function WarehouseExpensesScreen({
         scope={scope}
         can={can}
         expenseId={selectedExpense.id}
-        amount={selectedExpense.amount}
+        amount={selectedExpense.amountPaise !== null && selectedExpense.amountPaise !== undefined ? `₹${Math.round(selectedExpense.amountPaise / 100).toLocaleString('en-IN')}` : undefined}
         category={selectedExpense.categoryRef.split('·')[0]?.trim() || 'Transport'}
         date="25 Sep 2026"
         description="Transport from collection point to warehouse"
@@ -418,7 +418,7 @@ export function WarehouseExpensesScreen({
         scope={scope}
         can={can}
         expenseId={selectedExpense.id}
-        amount={selectedExpense.amount}
+        amount={selectedExpense.amountPaise !== null && selectedExpense.amountPaise !== undefined ? `₹${Math.round(selectedExpense.amountPaise / 100).toLocaleString('en-IN')}` : undefined}
         category={selectedExpense.categoryRef.split('·')[0]?.trim() || 'Transport'}
         date="25 Sep 2026"
         description="Transport from collection point to warehouse"
@@ -462,7 +462,7 @@ export function WarehouseExpensesScreen({
             setSelectedExpense({
               id: 'EXP-001245',
               categoryRef: 'Transport',
-              amount: 2400,
+              amountPaise: 240000,
               timestamp: '25 Sep - 09:30 AM',
               status: 'Recorded',
               warehouseId: 'WH-COON',
@@ -475,15 +475,15 @@ export function WarehouseExpensesScreen({
     );
   }
 
-  const totalFilteredAmount = filteredRecords.reduce((sum, r) => sum + r.amount, 0);
+  const totalFilteredAmount = filteredRecords.reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
   const pendingCount = filteredRecords.filter((r) => r.status === 'Pending').length;
-  const avgExpense = filteredRecords.length > 0 ? Math.round(totalFilteredAmount / filteredRecords.length) : 0;
+  const avgExpense = filteredRecords.length > 0 ? Math.round(totalFilteredAmount / filteredRecords.length / 100) : 0;
   const isSpecificWarehouseFilter = isAllWarehouses && selectedWarehouseId && selectedWarehouseId !== 'All';
 
   // Main view shows portfolio-wide totals when All Warehouses is chosen; single warehouse shows filtered view.
   const kpis = isAllWarehouses
     ? [
-        { label: 'TOTAL EXPENSES', value: isSpecificWarehouseFilter ? `₹${totalFilteredAmount.toLocaleString()}` : '₹1,48,600' },
+        { label: 'TOTAL EXPENSES', value: isSpecificWarehouseFilter ? `₹${Math.round(totalFilteredAmount / 100).toLocaleString()}` : '₹1,48,600' },
         { label: 'TRANSACTIONS', value: isSpecificWarehouseFilter ? `${filteredRecords.length}` : '82' },
         { label: 'AVERAGE', value: isSpecificWarehouseFilter ? `₹${avgExpense.toLocaleString()}` : '₹1,812' },
         { label: 'PENDING', value: isSpecificWarehouseFilter ? `${pendingCount}` : '8' },
@@ -681,7 +681,7 @@ export function WarehouseExpensesScreen({
                     <Text style={styles.recordTimestamp}>
                       {item.timestamp}{isAllWarehouses ? ` · ${item.warehouseName ?? 'Coonoor Warehouse'}` : ''}
                     </Text>
-                    <Text style={styles.recordAmount}>-₹{item.amount.toLocaleString()}</Text>
+                    <Text style={styles.recordAmount}>-₹{item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100).toLocaleString() : '0'}</Text>
                   </View>
                 </TouchableOpacity>
               );

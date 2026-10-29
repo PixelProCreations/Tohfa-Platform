@@ -1580,7 +1580,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: adminRadius.sm,
-    backgroundColor: 'rgba(235, 94, 40, 0.1)',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1632,8 +1632,6 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     ...adminType.sectionHead,
-    fontSize: 16,
-    fontWeight: '700',
     color: adminColors.ink,
   },
   modalCloseText: {

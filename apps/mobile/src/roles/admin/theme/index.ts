@@ -96,12 +96,12 @@ export const adminColors = {
 
   /** Header translucent pill (subwarehouse locked warehouse pill on brand background). */
   headerPill: {
-    bg: 'rgba(255, 255, 255, 0.18)',
-    border: 'rgba(255, 255, 255, 0.35)',
+    bg: hex('adminHeaderPillBg'),
+    border: hex('adminHeaderPillBorder'),
   },
   /** Header translucent icon button (e.g. notifications bell) on brand background. */
   headerIcon: {
-    bg: 'rgba(255, 255, 255, 0.22)',
+    bg: hex('adminHeaderIconBg'),
   },
 } as const;
 

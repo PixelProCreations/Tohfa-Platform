@@ -136,7 +136,10 @@ export function OrdersFlow({
           <OrdersListScreen
             {...common}
             routeParams={params ?? undefined}
-            orders={orderList.items.length > 0 ? orderList.items : undefined}
+            orders={orderList.items}
+            isLoading={orderList.isLoading}
+            error={orderList.error}
+            onRetry={orderList.refresh}
             warehouses={liveWarehouses.options.length > 0 ? liveWarehouses.options.map((o) => ({ id: o.warehouseId, name: o.warehouseName })) : undefined}
           />
         );

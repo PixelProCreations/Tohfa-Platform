@@ -110,7 +110,7 @@ async function runDemoSeed() {
       await client.query(
         `INSERT INTO user_roles (user_id, role_id, role_code)
          VALUES ($1, (SELECT id FROM roles WHERE code = 'FARMER'), 'FARMER')
-         ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
+         ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(zone_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
          DO NOTHING`,
         [uId],
       );
@@ -399,8 +399,8 @@ async function runDemoSeed() {
       await client.query(
         `INSERT INTO inventory_batches
            (id, batch_code, warehouse_id, crop_id, grade, source_farmer_id, qty_received, qty_available, received_on, status)
-         VALUES ($1, $2, $3, $4, 'GRADE_1', $5, 2000.000, 2000.000, CURRENT_DATE - 2, 'ACTIVE')
-         ON CONFLICT (id) DO UPDATE SET qty_available = 2000.000, status = 'ACTIVE'`,
+         VALUES ($1, $2, $3, $4, 'GRADE_1', $5, 2000.000, 0.000, CURRENT_DATE - 2, 'ACTIVE')
+         ON CONFLICT (id) DO UPDATE SET status = 'ACTIVE'`,
         [batchId, batchCode, whId, carrotId, farmerIds[0]],
       );
 

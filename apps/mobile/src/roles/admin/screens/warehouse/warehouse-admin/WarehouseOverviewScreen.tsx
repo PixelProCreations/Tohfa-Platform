@@ -279,8 +279,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   whName: {
-    ...adminType.rowTitle,
-    fontSize: 18,
+    ...adminType.title,
     color: adminColors.ink,
   },
   badge: {
@@ -290,8 +289,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     ...adminType.caption,
-    fontSize: 11,
-    fontWeight: '700',
   },
   track: {
     height: 8,
@@ -313,19 +310,15 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     ...adminType.caption,
-    fontSize: 11,
-    fontWeight: '500',
     color: adminColors.muted,
     marginBottom: 4,
   },
   statValue: {
     ...adminType.rowTitle,
-    fontSize: 15,
     color: adminColors.ink,
   },
   sectionTitle: {
     ...adminType.sectionHead,
-    fontSize: 15,
     color: adminColors.brandDeep,
     marginTop: 8,
     marginBottom: 14,
@@ -351,7 +344,6 @@ const styles = StyleSheet.create({
   },
   tileLabel: {
     ...adminType.rowTitle,
-    fontSize: 13,
     color: adminColors.ink,
     textAlign: 'center',
   },

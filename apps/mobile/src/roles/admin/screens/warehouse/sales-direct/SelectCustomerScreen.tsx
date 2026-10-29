@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,6 +11,9 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { listCustomers, type AdminCustomerListItemDto } from '../../../api/customers';
 import type { SaleCustomer, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
@@ -108,52 +112,24 @@ const WALK_IN_CUSTOMER: CustomerRecord = {
   walletBalance: 0,
 };
 
-const MOCK_CUSTOMERS: CustomerRecord[] = [
-  {
-    id: 'cus-1',
-    code: 'CUS-00291',
-    name: 'Rajesh Kumar',
-    phone: '+91 XXXXX XXXXX',
-    orderCount: 12,
-    walletBalance: 1250,
-  },
-  {
-    id: 'cus-2',
-    code: 'CUS-00152',
-    name: 'Priya Stores',
-    phone: '+91 XXXXX XXXXX',
-    orderCount: 8,
-    walletBalance: 800,
-  },
-  {
-    id: 'cus-3',
-    code: 'CUS-00388',
-    name: 'Kavitha Greens',
-    phone: '+91 XXXXX XXXXX',
-    orderCount: 19,
-    walletBalance: 3400,
-  },
-  {
-    id: 'cus-4',
-    code: 'CUS-00412',
-    name: 'Mani Fresh Mart',
-    phone: '+91 XXXXX XXXXX',
-    orderCount: 5,
-    walletBalance: 450,
-  },
-];
-
 // Design id: M6-S05
 export interface SelectCustomerScreenProps extends WarehouseScreenBaseProps {
   customers?: readonly CustomerRecord[] | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown | undefined;
+  onRetry?: (() => void) | undefined;
   onContinueToPayment: (customer: CustomerRecord) => void;
   /** Button label: 'Continue to Payment' in the sale flow, 'Use Customer' when picking from New Sale. */
   continueLabel?: string | undefined;
 }
 
 export function SelectCustomerScreen({
+  scope,
   can,
-  customers = MOCK_CUSTOMERS,
+  customers: customersProp,
+  isLoading: isLoadingProp,
+  error: errorProp,
+  onRetry: onRetryProp,
   onBack,
   onContinueToPayment,
   continueLabel = 'Continue to Payment',
@@ -162,7 +138,33 @@ export function SelectCustomerScreen({
   // MAIN all, SUB own). Without it the sale goes to a walk-in customer.
   const canListCustomers = can('customer.list.view');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('cus-1');
+
+  const customersQuery = useAdminQuery(
+    adminKeys.scoped('customers', scope.warehouseId ?? 'all', { q: searchQuery }),
+    (signal: AbortSignal) => listCustomers({ q: searchQuery.trim() || undefined, limit: 50 }, signal),
+    { enabled: customersProp === undefined && canListCustomers }
+  );
+
+  const effectiveLoading = isLoadingProp ?? (customersProp === undefined && customersQuery.isLoading);
+  const effectiveError = errorProp ?? (customersProp === undefined ? customersQuery.error : undefined);
+  const effectiveRetry = onRetryProp ?? (customersProp === undefined ? () => customersQuery.refetch() : undefined);
+
+  const customers: readonly CustomerRecord[] = useMemo(() => {
+    if (customersProp !== undefined) return customersProp;
+    if (customersQuery.data?.items) {
+      return customersQuery.data.items.map((dto: AdminCustomerListItemDto) => ({
+        id: dto.id,
+        code: dto.customerCode,
+        name: dto.name,
+        phone: dto.mobile ?? dto.mobileMasked,
+        orderCount: dto.totalOrders,
+        walletBalance: 0,
+      }));
+    }
+    return [];
+  }, [customersProp, customersQuery.data]);
+
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [isDetailView, setIsDetailView] = useState<boolean>(false);
   const [isConfirmedSelected, setIsConfirmedSelected] = useState<boolean>(false);
 
@@ -178,9 +180,14 @@ export function SelectCustomerScreen({
     );
   }, [searchQuery, canListCustomers, customers]);
 
-  const selectedCustomer = canListCustomers
-    ? customers.find((c) => c.id === selectedCustomerId) ?? customers[0] ?? WALK_IN_CUSTOMER
-    : WALK_IN_CUSTOMER;
+  const selectedCustomer = useMemo(() => {
+    if (!canListCustomers) return WALK_IN_CUSTOMER;
+    return (
+      (selectedCustomerId ? customers.find((c) => c.id === selectedCustomerId) : undefined) ??
+      filteredCustomers[0] ??
+      WALK_IN_CUSTOMER
+    );
+  }, [canListCustomers, selectedCustomerId, customers, filteredCustomers]);
 
   const handleSelectCard = (customer: CustomerRecord) => {
     setSelectedCustomerId(customer.id);
@@ -328,31 +335,51 @@ export function SelectCustomerScreen({
         {/* State 1: Customer List (Matching Image 1) */}
         {!isConfirmedSelected && !isDetailView && (
           <>
-            {filteredCustomers.map((customer) => {
-              const isSelected = customer.id === selectedCustomerId;
+            {effectiveLoading ? (
+              <View style={styles.stateContainer}>
+                <ActivityIndicator size="small" color={adminColors.brand} />
+                <Text style={styles.stateText}>Loading customers...</Text>
+              </View>
+            ) : effectiveError ? (
+              <View style={styles.stateContainer}>
+                <Text style={styles.stateText}>Failed to load customers.</Text>
+                {effectiveRetry && (
+                  <TouchableOpacity onPress={effectiveRetry} style={styles.retryButton}>
+                    <Text style={styles.retryButtonText}>Retry</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : filteredCustomers.length === 0 ? (
+              <View style={styles.stateContainer}>
+                <Text style={styles.stateText}>No customers found</Text>
+              </View>
+            ) : (
+              filteredCustomers.map((customer) => {
+                const isSelected = customer.id === selectedCustomerId;
 
-              return (
-                <TouchableOpacity
-                  key={customer.id}
-                  style={[
-                    styles.customerCard,
-                    isSelected && styles.customerCardSelected,
-                  ]}
-                  onPress={() => handleSelectCard(customer)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.customerName}>{customer.name}</Text>
-                  <Text style={styles.customerSubtitle}>
-                    {customer.code} · {customer.phone}
-                  </Text>
+                return (
+                  <TouchableOpacity
+                    key={customer.id}
+                    style={[
+                      styles.customerCard,
+                      isSelected && styles.customerCardSelected,
+                    ]}
+                    onPress={() => handleSelectCard(customer)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.customerName}>{customer.name}</Text>
+                    <Text style={styles.customerSubtitle}>
+                      {customer.code} · {customer.phone}
+                    </Text>
 
-                  <View style={styles.ordersRow}>
-                    <Text style={styles.ordersLabel}>Orders</Text>
-                    <Text style={styles.ordersCount}>{customer.orderCount}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+                    <View style={styles.ordersRow}>
+                      <Text style={styles.ordersLabel}>Orders</Text>
+                      <Text style={styles.ordersCount}>{customer.orderCount}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </>
         )}
 
@@ -611,5 +638,27 @@ const styles = StyleSheet.create({
   continueBtnText: {
     color: adminColors.onBrand,
     ...adminType.title,
+  },
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 8,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

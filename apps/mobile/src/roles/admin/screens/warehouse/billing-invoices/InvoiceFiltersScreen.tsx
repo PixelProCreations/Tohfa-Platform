@@ -130,8 +130,25 @@ function FunnelIcon({ size = 18, color = adminColors.onBrand }: { size?: number;
   );
 }
 
-const STATUS_OPTIONS: readonly InvoiceFilterState['status'][] = ['All', 'Generated', 'Pending', 'Cancelled'];
-const TYPE_OPTIONS: readonly InvoiceFilterState['invoiceType'][] = ['All', 'Retail Sale', 'Market Sale', 'B2B Sale'];
+const STATUS_OPTIONS: readonly InvoiceFilterState['status'][] = ['All', 'Generated', 'Pending', 'Cancelled', 'CreditNoted'];
+
+const TYPE_OPTIONS: readonly InvoiceFilterState['invoiceType'][] = [
+  'All',
+  'SALE_RETAIL',
+  'SALE_B2B',
+  'PURCHASE_FARMER',
+  'PAYOUT',
+  'SUBSCRIPTION',
+];
+
+const TYPE_LABELS: Record<InvoiceFilterState['invoiceType'], string> = {
+  All: 'All',
+  SALE_RETAIL: 'Retail Sale',
+  SALE_B2B: 'B2B Sale',
+  PURCHASE_FARMER: 'Farmer Purchase',
+  PAYOUT: 'Payout',
+  SUBSCRIPTION: 'Subscription',
+};
 const DATE_PRESETS: readonly InvoiceFilterState['datePreset'][] = [
   'All Time',
   'Today',
@@ -250,7 +267,7 @@ export function InvoiceFiltersScreen({
                 onPress={() => set({ invoiceType: item })}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{TYPE_LABELS[item]}</Text>
               </TouchableOpacity>
             );
           })}
@@ -325,34 +342,6 @@ export function InvoiceFiltersScreen({
             </View>
           </>
         )}
-
-        {/* Customer & Order */}
-        <View style={styles.sectionHeadRow}>
-          <UserIcon size={17} color={adminColors.ink} />
-          <Text style={styles.sectionTitle}>Customer & Order</Text>
-        </View>
-        <View style={styles.inputStack}>
-          <View style={styles.inputCol}>
-            <Text style={styles.inputSubLabel}>Customer</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. Ravi Kumar"
-              placeholderTextColor={adminColors.placeholder}
-              value={filters.customer}
-              onChangeText={(customer) => set({ customer })}
-            />
-          </View>
-          <View style={styles.inputCol}>
-            <Text style={styles.inputSubLabel}>Order ID</Text>
-            <TextInput
-              style={styles.textInput}
-              placeholder="e.g. ORD-002154"
-              placeholderTextColor={adminColors.placeholder}
-              value={filters.orderId}
-              onChangeText={(orderId) => set({ orderId })}
-            />
-          </View>
-        </View>
 
         {/* Amount Range */}
         <View style={styles.sectionHeadRow}>
@@ -478,7 +467,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    ...adminType.body,
     color: adminColors.ink,
     paddingVertical: 0,
   },
@@ -545,7 +534,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
-    fontSize: 14,
+    ...adminType.body,
     color: adminColors.ink,
   },
   footer: {

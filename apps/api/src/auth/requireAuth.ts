@@ -62,33 +62,29 @@ function bearerToken(header: string | undefined): string {
 // this: it calls `requireAuth(req, _res, next)` directly rather than through
 // Express's dispatch, and that keeps working unchanged.
 export const requireAuth: RequestHandler = asyncHandler(async (req, _res, next) => {
-  try {
-    const payload = verifyAccessToken(bearerToken(req.header('authorization')));
+  const payload = verifyAccessToken(bearerToken(req.header('authorization')));
 
-    // Password change/reset (auth.service.ts) revokes refresh tokens/sessions
-    // immediately but cannot recall an access token already handed out --
-    // this is the other half of that fix: reject it here if it was minted
-    // before the user's last credential change.
-    if (await isAccessTokenInvalidated(payload.sub, payload.iat)) {
-      throw new AppError('UNAUTHENTICATED', { detail: 'Session has been revoked. Please log in again.' });
-    }
-
-    req.actor = {
-      userId: payload.sub,
-      roles: payload.roles,
-      farmerId: payload.farmerId,
-      customerId: payload.customerId,
-    };
-
-    // Attach the user to the ambient log context so every subsequent line in
-    // this request is attributable.
-    const context = currentContext();
-    if (context !== undefined) context.userId = payload.sub;
-
-    next();
-  } catch (error) {
-    next(error);
+  // Password change/reset (auth.service.ts) revokes refresh tokens/sessions
+  // immediately but cannot recall an access token already handed out --
+  // this is the other half of that fix: reject it here if it was minted
+  // before the user's last credential change.
+  if (await isAccessTokenInvalidated(payload.sub, payload.iat)) {
+    throw new AppError('UNAUTHENTICATED', { detail: 'Session has been revoked. Please log in again.' });
   }
+
+  req.actor = {
+    userId: payload.sub,
+    roles: payload.roles,
+    farmerId: payload.farmerId,
+    customerId: payload.customerId,
+  };
+
+  // Attach the user to the ambient log context so every subsequent line in
+  // this request is attributable.
+  const context = currentContext();
+  if (context !== undefined) context.userId = payload.sub;
+
+  next();
 });
 
 /**

@@ -41,9 +41,9 @@ export interface FiscalTagScreenProps extends WarehouseScreenBaseProps {
 export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp }: FiscalTagScreenProps) {
   const customerName = draft.customerName ?? '';
   const customerCode = draft.customerCode ?? '';
-  const currentBalance = draft.currentBalance ?? 0;
-  const topUpAmount = draft.topUpAmount ?? 0;
-  const expectedNewBalance = currentBalance + topUpAmount;
+  const currentBalance = draft.currentBalancePaise ?? null;
+  const topUpAmount = draft.topUpAmountPaise ?? 0;
+  const expectedNewBalance = (currentBalance ?? 0) + topUpAmount;
 
   const [tag, setTag] = useState<string>(draft.fiscalCashTag ?? '');
   const [error, setError] = useState(false);
@@ -59,11 +59,10 @@ export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp 
     onReviewTopUp({
       customerName,
       customerCode,
-      currentBalance,
-      topUpAmount,
+      currentBalancePaise: currentBalance,
+      topUpAmountPaise: topUpAmount,
       warehouseId: draft.warehouseId ?? scope.warehouseId,
       warehouseName: draft.warehouseName ?? scope.warehouseName ?? '',
-      processedBy: draft.processedBy ?? (scope.warehouseName ?? (scope.warehouseId ? 'Sub Admin' : 'Main Admin')),
       channel: 'Cash',
       fiscalCashTag: tag.trim(),
     });
@@ -89,10 +88,10 @@ export function FiscalTagScreen({ scope, can, onBack, draft = {}, onReviewTopUp 
               { label: 'Customer ID', value: customerCode },
             ],
             [
-              { label: 'Current Balance', value: formatRupees(currentBalance) },
-              { label: 'Top-Up Amount', value: formatRupees(topUpAmount) },
+              { label: 'Current Balance', value: formatRupees((currentBalance ?? 0) / 100) },
+              { label: 'Top-Up Amount', value: formatRupees(topUpAmount / 100) },
             ],
-            [{ label: 'Expected New Balance', value: formatRupees(expectedNewBalance) }],
+            [{ label: 'Expected New Balance', value: formatRupees(expectedNewBalance / 100) }],
           ]}
         />
 

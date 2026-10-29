@@ -64,7 +64,7 @@ export function useSalesList(
   return useCursorList<SaleListItemDto, SaleRecord, ListSalesResponseDto>(
     adminKeys.scoped('sales', effectiveWarehouseId, { resource: 'list' }),
     (cursor, signal) =>
-      listSales({ cursor, warehouseId: effectiveWarehouseId }, signal),
+      listSales({ cursor }, signal),
     map,
     { enabled: can(SALE_LIST_VIEW_CODE) },
   );

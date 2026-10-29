@@ -19,7 +19,6 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
-import { INITIAL_RETURN_HISTORY } from './fixtures';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
 import type { ReturnHistoryRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
@@ -27,7 +26,7 @@ export interface ReturnHistoryScreenProps extends WarehouseScreenBaseProps {
   onSelectRecord: (record: ReturnHistoryRecord) => void;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** History rows; defaults to the mock set until the RMA API is wired. */
+  /** History rows. */
   records?: readonly ReturnHistoryRecord[] | undefined;
 }
 
@@ -63,7 +62,7 @@ export function ReturnHistoryScreen({
   onTabChange,
   onSelectRecord,
   warehouseOptions,
-  records = INITIAL_RETURN_HISTORY,
+  records = [],
 }: ReturnHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('All');

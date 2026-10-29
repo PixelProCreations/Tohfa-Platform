@@ -22,7 +22,7 @@ import { adminColors, adminRadius, adminSpacing, adminType } from '../../../them
 import { OverviewDashboardCard } from '../../../components';
 import { SWABottomNav } from '../../swa/components';
 import { WarehouseSelector } from '../inventory';
-import { INITIAL_RMA_ITEMS, RMA_CATEGORY_COUNTS, RMA_STATUS_COUNTS } from './fixtures';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import {
   ReturnsFiltersScreen,
   type RmaFilterDate,
@@ -40,8 +40,10 @@ export interface ReturnsIssuesScreenProps extends WarehouseScreenBaseProps {
   onNavigateToNotifications?: (() => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** RMAs to list; defaults to the mock set until the RMA API is wired. */
   items?: readonly RmaRecord[] | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown;
+  onRetry?: (() => void) | undefined;
 }
 
 function BellIcon() {
@@ -120,21 +122,6 @@ function FilterSlidersIcon({ size = 18, color = adminColors.muted }: { size?: nu
   );
 }
 
-interface MetricTile {
-  key: string;
-  label: string;
-  value: number;
-  icon: 'check' | 'pending';
-  alert?: boolean;
-}
-
-const METRICS: MetricTile[] = [
-  { key: 'new', label: 'New Requests', value: RMA_STATUS_COUNTS.newRequests, icon: 'check' },
-  { key: 'review', label: 'Under Review', value: RMA_STATUS_COUNTS.underReview, icon: 'pending' },
-  { key: 'approved', label: 'Approved', value: RMA_STATUS_COUNTS.approved, icon: 'check' },
-  { key: 'pending', label: 'Pending Resolution', value: RMA_STATUS_COUNTS.pendingResolution, icon: 'pending', alert: true },
-];
-
 export function ReturnsIssuesScreen({
   scope,
   onBack,
@@ -143,13 +130,25 @@ export function ReturnsIssuesScreen({
   onNavigateToHistory,
   onNavigateToNotifications,
   warehouseOptions,
-  items = INITIAL_RMA_ITEMS,
+  items = [],
+  isLoading,
+  error,
+  onRetry,
 }: ReturnsIssuesScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  // Main only: which warehouse the selector shows (undefined = all). Rows are
-  // mock and carry no warehouse yet, so this narrows nothing until wired.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const allWarehouses = isAllWarehouses(scope);
+
+  const pendingCount = items.filter((i) => i.status === 'New').length;
+  const underReviewCount = items.filter((i) => i.status === 'Under Review').length;
+  const approvedCount = items.filter((i) => i.status === 'Approved').length;
+  const refundPendingCount = items.filter((i) => i.status === 'Pending Resolution').length;
+
+  const categories = ['QUALITY', 'QUANTITY', 'MISSING', 'WRONG', 'DAMAGED', 'LATE'] as const;
+  const categoryCounts = categories.map((label) => ({
+    label,
+    count: items.filter((i) => (i.issueCategory ?? '').toUpperCase().includes(label)).length,
+  }));
 
   const visibleItems = items.filter((item) => {
     const matchesScope = allWarehouses
@@ -422,40 +421,45 @@ export function ReturnsIssuesScreen({
       }
       headerExtra={headerExtra}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.metricsGrid}>
-          <OverviewDashboardCard
-            value="05"
-            title="Pending"
-            subtitle="Awaiting review"
-            icon="orders"
-            tone="warning"
-          />
-          <OverviewDashboardCard
-            value="03"
-            title="Under Review"
-            subtitle="Inspection in progress"
-            icon="pickup"
-          />
-          <OverviewDashboardCard
-            value="12"
-            title="Approved"
-            subtitle="Ready for resolution"
-            icon="receiving"
-            tone="success"
-          />
-          <OverviewDashboardCard
-            value="02"
-            title="Refund Pending"
-            subtitle="Needs refund action"
-            icon="alert"
-            tone="danger"
-          />
-        </View>
+      {isLoading ? (
+        <AdminLoadingState />
+      ) : error ? (
+        <AdminErrorState error={error} onRetry={onRetry} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <View style={styles.metricsGrid}>
+            <OverviewDashboardCard
+              value={String(pendingCount).padStart(2, '0')}
+              title="Pending"
+              subtitle="Awaiting review"
+              icon="orders"
+              tone="warning"
+            />
+            <OverviewDashboardCard
+              value={String(underReviewCount).padStart(2, '0')}
+              title="Under Review"
+              subtitle="Inspection in progress"
+              icon="pickup"
+            />
+            <OverviewDashboardCard
+              value={String(approvedCount).padStart(2, '0')}
+              title="Approved"
+              subtitle="Ready for resolution"
+              icon="receiving"
+              tone="success"
+            />
+            <OverviewDashboardCard
+              value={String(refundPendingCount).padStart(2, '0')}
+              title="Refund Pending"
+              subtitle="Needs refund action"
+              icon="alert"
+              tone="danger"
+            />
+          </View>
 
-        <Text style={styles.sectionTitle}>Issue Category Summary</Text>
-        <View style={styles.categoryGrid}>
-          {RMA_CATEGORY_COUNTS.map((cat) => {
+          <Text style={styles.sectionTitle}>Issue Category Summary</Text>
+          <View style={styles.categoryGrid}>
+            {categoryCounts.map((cat) => {
             const isSelected = selectedCategory === cat.label;
             return (
               <TouchableOpacity
@@ -517,6 +521,7 @@ export function ReturnsIssuesScreen({
           ) : null}
         </View>
       </ScrollView>
+      )}
     </ReturnsScreen>
   );
 }

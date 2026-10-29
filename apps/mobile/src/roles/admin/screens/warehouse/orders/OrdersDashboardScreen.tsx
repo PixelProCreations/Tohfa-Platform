@@ -14,12 +14,18 @@
  * navigation and stays ungated, as it was in the design.
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
 import { WarehouseSelector } from '../inventory';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { listAdminOrders } from '../../../api/orders';
+import { countOrdersWithStatus } from '../../../api/dashboardFeeds';
+import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import { formatMoney, orderStatusLabel } from './mappers';
 import type { OrderScreenBaseProps } from './types';
 
 interface WarehouseOption {
@@ -42,81 +48,6 @@ const DEFAULT_WAREHOUSES: WarehouseOption[] = [
   { id: 'WH-KOTA', name: 'Kotagiri' },
   { id: 'WH-GUDA', name: 'Gudalur' },
 ];
-
-/** Mock per-warehouse order summary */
-const WAREHOUSE_SUMMARY = [
-  { id: 'WH-COON', name: 'Coonoor', orders: 16 },
-  { id: 'WH-OOTY', name: 'Ooty', orders: 12 },
-];
-
-interface RecentOrderItem {
-  id: string;
-  warehouseId: string;
-  warehouseName: string;
-  customer: string;
-  status: string;
-  items: string;
-  amount: string;
-}
-
-const RECENT_ORDERS_BY_WH: RecentOrderItem[] = [
-  {
-    id: 'ORD-1024',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Arun Kumar',
-    status: 'Confirmed',
-    items: '4 items',
-    amount: '₹850',
-  },
-  {
-    id: 'ORD-1021',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Divya R.',
-    status: 'Confirmed',
-    items: '4 items',
-    amount: '₹960',
-  },
-  {
-    id: 'ORD-1019',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Kavitha M.',
-    status: 'Packing',
-    items: '3 items',
-    amount: '₹720',
-  },
-  {
-    id: 'ORD-1022',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty',
-    customer: 'Ganesh K.',
-    status: 'Packing',
-    items: '2 items',
-    amount: '₹420',
-  },
-  {
-    id: 'ORD-1018',
-    warehouseId: 'WH-KOTA',
-    warehouseName: 'Kotagiri',
-    customer: 'Meena S.',
-    status: 'Quantity Issue',
-    items: '2 items',
-    amount: '₹310',
-  },
-  {
-    id: 'ORD-1016',
-    warehouseId: 'WH-GUDA',
-    warehouseName: 'Gudalur',
-    customer: 'Ravi P.',
-    status: 'Confirmed',
-    items: '3 items',
-    amount: '₹640',
-  },
-];
-
-
 
 const FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed', 'Issues'];
 
@@ -348,10 +279,6 @@ export function OrdersDashboardScreen({
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
     typeof routeParams?.warehouseId === 'string' ? routeParams.warehouseId : undefined,
   );
-  const warehouseOptions = React.useMemo(
-    () => warehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name })),
-    [warehouses]
-  );
 
   useEffect(() => {
     if (typeof routeParams?.warehouseId === 'string') {
@@ -360,17 +287,100 @@ export function OrdersDashboardScreen({
   }, [routeParams?.warehouseId]);
 
   const isAllWarehouses = scope.warehouseId === undefined;
+  const effectiveWarehouseId = scope.warehouseId ?? selectedWarehouseId;
+
+  // Live warehouse options for Main warehouse
+  const liveWarehouses = useWarehouseOptions({
+    enabled: isAllWarehouses,
+    activeOnly: true,
+  });
+
+  const displayWarehouses = liveWarehouses.options.length > 0
+    ? liveWarehouses.options.map((w) => ({ id: w.warehouseId, name: w.warehouseName }))
+    : warehouses;
+
+  const warehouseOptions = React.useMemo(
+    () => displayWarehouses.map((w) => ({ warehouseId: w.id, warehouseName: w.name })),
+    [displayWarehouses],
+  );
+
+  const warehouseMap = React.useMemo(() => {
+    const map = new Map<string, string>();
+    for (const w of displayWarehouses) map.set(w.id, w.name);
+    if (scope.warehouseId && scope.warehouseName) map.set(scope.warehouseId, scope.warehouseName);
+    return map;
+  }, [displayWarehouses, scope.warehouseId, scope.warehouseName]);
+
+  // Live queries:
+  const recentOrdersQuery = useAdminQuery(
+    adminKeys.scoped('orders', effectiveWarehouseId, { resource: 'recent', limit: 10 }),
+    (signal) => listAdminOrders({ warehouseId: effectiveWarehouseId, limit: 10 }, signal),
+  );
+
+  const confirmedCountQuery = useAdminQuery(
+    adminKeys.scoped('orders', effectiveWarehouseId, { resource: 'count', status: 'CONFIRMED' }),
+    (signal) => countOrdersWithStatus('CONFIRMED', effectiveWarehouseId, signal),
+  );
+  const packedCountQuery = useAdminQuery(
+    adminKeys.scoped('orders', effectiveWarehouseId, { resource: 'count', status: 'PACKED' }),
+    (signal) => countOrdersWithStatus('PACKED', effectiveWarehouseId, signal),
+  );
+  const readyCountQuery = useAdminQuery(
+    adminKeys.scoped('orders', effectiveWarehouseId, { resource: 'count', status: 'READY_FOR_PICKUP' }),
+    (signal) => countOrdersWithStatus('READY_FOR_PICKUP', effectiveWarehouseId, signal),
+  );
+  const cancelledCountQuery = useAdminQuery(
+    adminKeys.scoped('orders', effectiveWarehouseId, { resource: 'count', status: 'CANCELLED' }),
+    (signal) => countOrdersWithStatus('CANCELLED', effectiveWarehouseId, signal),
+  );
+  const completedCountQuery = useAdminQuery(
+    adminKeys.scoped('orders', effectiveWarehouseId, { resource: 'count', status: 'DELIVERED' }),
+    (signal) => countOrdersWithStatus('DELIVERED', effectiveWarehouseId, signal),
+  );
+
+  const confirmedCount = confirmedCountQuery.data?.count ?? 0;
+  const packedCount = packedCountQuery.data?.count ?? 0;
+  const readyCount = readyCountQuery.data?.count ?? 0;
+  const cancelledCount = cancelledCountQuery.data?.count ?? 0;
+  const completedCount = completedCountQuery.data?.count ?? 0;
+
+  // Pending Orders = CONFIRMED + PACKED + READY_FOR_PICKUP
+  const pendingOrdersCount = confirmedCount + packedCount + readyCount;
+  const totalOrdersCount = pendingOrdersCount + completedCount + cancelledCount;
+  const countsLoading = confirmedCountQuery.isLoading || packedCountQuery.isLoading || readyCountQuery.isLoading;
+
+  const recentOrders = (recentOrdersQuery.data?.items ?? []).map((o) => ({
+    id: o.orderNumber,
+    warehouseId: o.warehouseId ?? '',
+    warehouseName: warehouseMap.get(o.warehouseId ?? '') ?? (o.warehouseId ?? '—'),
+    customer: o.customerName ?? '—',
+    status: orderStatusLabel(o.status),
+    rawStatus: o.status,
+    items: `${o.itemCount ?? 0} ${(o.itemCount ?? 0) === 1 ? 'item' : 'items'}`,
+    amount: formatMoney(o.totalAmount),
+  }));
+
+  const visibleRecentOrders = React.useMemo(() => {
+    let list = recentOrders;
+    if (activeFilterPill !== 'All') {
+      list = list.filter((o) => {
+        if (activeFilterPill === 'Confirmed') return o.rawStatus === 'CONFIRMED';
+        if (activeFilterPill === 'Packing') return o.rawStatus === 'PACKED';
+        if (activeFilterPill === 'Ready') return o.rawStatus === 'READY_FOR_PICKUP';
+        if (activeFilterPill === 'Completed') return o.rawStatus === 'DELIVERED' || o.rawStatus === 'PICKED_UP';
+        if (activeFilterPill === 'Issues') return o.rawStatus === 'CANCELLED';
+        return true;
+      });
+    }
+    return list;
+  }, [recentOrders, activeFilterPill]);
+
+  const firstConfirmed = recentOrders.find((o) => o.rawStatus === 'CONFIRMED');
+  const firstReady = recentOrders.find((o) => o.rawStatus === 'READY_FOR_PICKUP');
+  const firstIssue = recentOrders.find((o) => o.rawStatus === 'CANCELLED');
 
   const listParams = (extra?: Record<string, unknown>): Record<string, unknown> =>
     isAllWarehouses && selectedWarehouseId !== undefined ? { ...extra, warehouseId: selectedWarehouseId } : { ...extra };
-
-  const visibleWarehouseSummary = selectedWarehouseId
-    ? WAREHOUSE_SUMMARY.filter((w) => w.id === selectedWarehouseId)
-    : WAREHOUSE_SUMMARY;
-
-  const visibleRecentOrders = selectedWarehouseId
-    ? RECENT_ORDERS_BY_WH.filter((o) => o.warehouseId === selectedWarehouseId)
-    : RECENT_ORDERS_BY_WH;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -431,25 +441,25 @@ export function OrdersDashboardScreen({
             {/* 4 KPI Cards (2x2 Grid) */}
             <View style={styles.mainKpiGrid}>
               <OverviewDashboardCard
-                value="48"
+                value={countsLoading ? '—' : String(totalOrdersCount)}
                 title="Total Orders"
                 subtitle="All active orders"
                 icon="orders"
               />
               <OverviewDashboardCard
-                value="8"
+                value={confirmedCountQuery.isLoading ? '—' : String(confirmedCount)}
                 title="New Orders"
                 subtitle="Awaiting processing"
                 icon="receiving"
               />
               <OverviewDashboardCard
-                value="9"
+                value={readyCountQuery.isLoading ? '—' : String(readyCount)}
                 title="Ready Pickup"
                 subtitle="Ready for handover"
                 icon="pickup"
               />
               <OverviewDashboardCard
-                value="2"
+                value={cancelledCountQuery.isLoading ? '—' : String(cancelledCount)}
                 title="Issues"
                 subtitle="Needs attention"
                 icon="alert"
@@ -465,7 +475,7 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
             <View style={styles.whSummaryList}>
-              {visibleWarehouseSummary.map((item) => (
+              {displayWarehouses.map((item) => (
                 <TouchableOpacity
                   key={item.id}
                   style={styles.whSummaryCard}
@@ -474,7 +484,7 @@ export function OrdersDashboardScreen({
                 >
                   <Text style={styles.whSummaryName}>{item.name}</Text>
                   <View style={styles.orderCountBadge}>
-                    <Text style={styles.orderCountBadgeText}>{item.orders} Orders</Text>
+                    <Text style={styles.orderCountBadgeText}>View Orders →</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -485,25 +495,31 @@ export function OrdersDashboardScreen({
               <Text style={styles.mainSectionTitle}>Needs Attention</Text>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => onNavigate?.('M5S05', { orderId: 'ORD-1024', step: 'shortage' })}
+                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Confirmed' }))}
               >
                 <Text style={styles.mainViewLinkText}>View →</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.needsAttentionCard}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S05', { orderId: 'ORD-1024', step: 'shortage' })}
-            >
-              <View style={styles.needsAttentionAccent} />
-              <View style={styles.needsAttentionInner}>
-                <WarningTriangleAccentIcon />
-                <View style={styles.needsAttentionTextWrap}>
-                  <Text style={styles.needsAttentionTitle}>Stock Shortage — 1 order</Text>
-                  <Text style={styles.needsAttentionSubtitle}>Requires review before packing</Text>
+            {firstConfirmed ? (
+              <TouchableOpacity
+                style={styles.needsAttentionCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S05', { orderId: firstConfirmed.id, step: 'shortage' })}
+              >
+                <View style={styles.needsAttentionAccent} />
+                <View style={styles.needsAttentionInner}>
+                  <WarningTriangleAccentIcon />
+                  <View style={styles.needsAttentionTextWrap}>
+                    <Text style={styles.needsAttentionTitle}>Order #{firstConfirmed.id}</Text>
+                    <Text style={styles.needsAttentionSubtitle}>Stock verification required before packing</Text>
+                  </View>
                 </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.needsAttentionCard, { paddingVertical: 14, paddingHorizontal: 16 }]}>
+                <Text style={{ ...adminType.body, color: adminColors.muted }}>No orders requiring immediate attention</Text>
               </View>
-            </TouchableOpacity>
+            )}
 
             {/* Quick Actions */}
             <Text style={styles.mainSectionTitleStandalone}>Quick Actions</Text>
@@ -533,32 +549,42 @@ export function OrdersDashboardScreen({
 
             {/* Recent Orders */}
             <Text style={styles.mainSectionTitleStandalone}>Recent Orders</Text>
-            {visibleRecentOrders.map((order) => (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.recentOrderCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S04', { orderId: order.id, customerName: order.customer })}
-              >
-                <View style={styles.recentOrderTopRow}>
-                  <Text style={styles.recentOrderId}>{order.id}</Text>
-                  <View style={styles.confirmedBadge}>
-                    <Text style={styles.confirmedBadgeText}>{order.status}</Text>
+            {recentOrdersQuery.isLoading ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={adminColors.brand} />
+              </View>
+            ) : visibleRecentOrders.length === 0 ? (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <Text style={{ ...adminType.body, color: adminColors.muted }}>No recent orders</Text>
+              </View>
+            ) : (
+              visibleRecentOrders.map((order) => (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.recentOrderCard}
+                  activeOpacity={0.75}
+                  onPress={() => onNavigate?.('M5S04', { orderId: order.id, customerName: order.customer })}
+                >
+                  <View style={styles.recentOrderTopRow}>
+                    <Text style={styles.recentOrderId}>{order.id}</Text>
+                    <View style={styles.confirmedBadge}>
+                      <Text style={styles.confirmedBadgeText}>{order.status}</Text>
+                    </View>
                   </View>
-                </View>
-                <Text style={styles.recentOrderCustomer}>{order.customer}</Text>
-                <View style={styles.recentOrderDivider} />
-                <View style={styles.recentOrderBottomRow}>
-                  <Text style={styles.recentOrderMeta}>{order.warehouseName} · {order.items}</Text>
-                  <Text style={styles.recentOrderAmount}>{order.amount}</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+                  <Text style={styles.recentOrderCustomer}>{order.customer}</Text>
+                  <View style={styles.recentOrderDivider} />
+                  <View style={styles.recentOrderBottomRow}>
+                    <Text style={styles.recentOrderMeta}>{order.warehouseName} · {order.items}</Text>
+                    <Text style={styles.recentOrderAmount}>{order.amount}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            )}
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
         ) : (
-          // Sub Warehouse Content (existing, untouched)
+          // Sub Warehouse Content
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeaderInline}>Order Status</Text>
@@ -569,25 +595,25 @@ export function OrdersDashboardScreen({
 
             <View style={styles.mainKpiGrid}>
               <OverviewDashboardCard
-                value="48"
+                value={countsLoading ? '—' : String(totalOrdersCount)}
                 title="Total Orders"
                 subtitle="All active orders"
                 icon="orders"
               />
               <OverviewDashboardCard
-                value="8"
+                value={confirmedCountQuery.isLoading ? '—' : String(confirmedCount)}
                 title="New Orders"
                 subtitle="Awaiting processing"
                 icon="receiving"
               />
               <OverviewDashboardCard
-                value="9"
+                value={readyCountQuery.isLoading ? '—' : String(readyCount)}
                 title="Ready Pickup"
                 subtitle="Ready for handover"
                 icon="pickup"
               />
               <OverviewDashboardCard
-                value="2"
+                value={cancelledCountQuery.isLoading ? '—' : String(cancelledCount)}
                 title="Issues"
                 subtitle="Needs attention"
                 icon="alert"
@@ -621,70 +647,69 @@ export function OrdersDashboardScreen({
               <Text style={styles.attentionSectionTitle}>Needs Attention</Text>
             </View>
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S05')}
-            >
-              <AttentionChecklistIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1024</Text>
-                <Text style={styles.attentionDesc}>Stock verification required</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
+            {firstConfirmed && (
+              <TouchableOpacity
+                style={[styles.attentionCard, styles.brandLeftBorder]}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S05', { orderId: firstConfirmed.id })}
+              >
+                <AttentionChecklistIcon />
+                <View style={styles.attentionContent}>
+                  <Text style={styles.attentionTitle}>Order #{firstConfirmed.id}</Text>
+                  <Text style={styles.attentionDesc}>Stock verification required</Text>
+                </View>
+                <ChevronRightIcon />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S09')}
-            >
-              <AttentionPersonIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1020</Text>
-                <Text style={styles.attentionDesc}>Ready for pickup</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
+            {firstReady && (
+              <TouchableOpacity
+                style={[styles.attentionCard, styles.brandLeftBorder]}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S09')}
+              >
+                <AttentionPersonIcon />
+                <View style={styles.attentionContent}>
+                  <Text style={styles.attentionTitle}>Order #{firstReady.id}</Text>
+                  <Text style={styles.attentionDesc}>Ready for pickup</Text>
+                </View>
+                <ChevronRightIcon />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S13', { orderId: 'ORD-1021' })}
-            >
-              <DeliveryTruckIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1021</Text>
-                <Text style={styles.attentionDesc}>Prepare for delivery</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
+            {firstIssue && (
+              <TouchableOpacity
+                style={[styles.attentionCard, styles.dangerLeftBorder]}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S04', { orderId: firstIssue.id })}
+              >
+                <ErrorExclamationIcon />
+                <View style={styles.attentionContent}>
+                  <Text style={styles.attentionTitle}>Order #{firstIssue.id}</Text>
+                  <Text style={styles.attentionDesc}>Cancelled order</Text>
+                </View>
+                <ChevronRightIcon />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={[styles.attentionCard, styles.dangerLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S16')}
-            >
-              <ErrorExclamationIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1018</Text>
-                <Text style={styles.attentionDesc}>Quantity issue</Text>
+            {!firstConfirmed && !firstReady && !firstIssue && (
+              <View style={[styles.attentionCard, { paddingVertical: 14, paddingHorizontal: 16 }]}>
+                <Text style={{ ...adminType.body, color: adminColors.muted }}>No orders requiring attention</Text>
               </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
+            )}
 
             <Text style={styles.sectionHeader}>Today's Summary</Text>
             <View style={styles.summaryRow}>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>24</Text>
+                <Text style={styles.summaryValue}>{countsLoading ? '—' : String(totalOrdersCount)}</Text>
                 <Text style={styles.summaryLabel}>TODAY'S ORDERS</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>16</Text>
+                <Text style={styles.summaryValue}>{completedCountQuery.isLoading ? '—' : String(completedCount)}</Text>
                 <Text style={styles.summaryLabel}>COMPLETED</Text>
               </View>
               <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>8</Text>
+                <Text style={styles.summaryValue}>{countsLoading ? '—' : String(pendingOrdersCount)}</Text>
                 <Text style={styles.summaryLabel}>PENDING</Text>
               </View>
             </View>

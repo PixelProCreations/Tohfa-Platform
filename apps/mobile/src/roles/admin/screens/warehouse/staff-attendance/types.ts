@@ -7,14 +7,9 @@
  * check that only decides what to render; the server enforces every action
  * again, CLAUDE.md 2.1).
  *
- * Permissions (rbac 1.2.0, FINAL_LIST 119-124):
- *   - The roster (Staff list, Staff Detail, Edit Staff Profile) needs
- *     `warehouse.staff.list_view`: MAIN_WH_ADMIN all, SUB_WH_ADMIN own. It is
- *     NOT `admin.staff.list_view` (the admin-account list). The code is
- *     read-only: there is no code for editing a roster member or assigning a
- *     delivery (SPEC_GAPS W4t).
- *   - Attendance (overview, detail, history) has no code at all: ungated,
- *     scope-locked only.
+ * Permissions: see ./staffAccess.ts (admin.staff.list_view / admin.staff.manage /
+ * admin.staff.attendance.view, the codes the API routes require; a Sub
+ * Warehouse Admin holds none of them).
  *
  * The Sub screens used to declare their own StaffMember, two different
  * AttendanceRecord shapes (Attendance and Today's Attendance) and
@@ -38,7 +33,7 @@ export type AttendanceStatus = 'Present' | 'Absent' | 'On Leave' | 'Not Checked 
 /** Filter chips of the Attendance overview (folded Today's Attendance). */
 export type AttendanceFilter = 'All' | 'Present' | 'Absent' | 'On Leave';
 
-/** One warehouse workforce roster member (mock data today; the roster API returns the same shape). */
+/** One warehouse workforce roster member (docs/openapi.yaml WarehouseStaff, mapped in ./mappers.ts). */
 export interface StaffMember {
   id: string;
   name: string;
@@ -47,7 +42,9 @@ export interface StaffMember {
   type: StaffType;
   role: string;
   status: 'Active' | 'Inactive';
-  attendance: 'Present' | 'Absent' | 'On Leave';
+  /** Today's roll-call status; undefined when the roll call has no row for the member (shown as '—'). */
+  attendance?: AttendanceStatus | undefined;
+  /** No API carries delivery figures for a staff member; always undefined (shown as '—'). */
   deliveriesToday?: number | undefined;
   phone?: string | undefined;
   email?: string | undefined;

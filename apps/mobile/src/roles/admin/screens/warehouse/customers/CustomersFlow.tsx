@@ -168,7 +168,7 @@ export function CustomersFlow({
         <CustomersListScreen
           {...common}
           warehouseOptions={effectiveWarehouseOptions}
-          customers={customerList.items.length > 0 ? customerList.items : undefined}
+          customers={customerList.items}
           onNavigateToSearch={() => navigate('CustomerSearch')}
           onSelectCustomer={(selected) => navigate('CustomerDetails', { customer: selected })}
           onNavigateToNotifications={onNavigateToNotifications}
@@ -197,6 +197,7 @@ export function CustomersFlow({
       return (
         <CustomerSearchScreen
           {...common}
+          customers={customerList.items}
           onSelectCustomer={(name: string, id?: string) =>
             navigate('CustomerDetails', { customer: { name, id, code: id } })
           }

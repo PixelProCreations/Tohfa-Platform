@@ -109,8 +109,6 @@ function draft(overrides: Partial<QcDraft> = {}): QcDraft {
       damage: { result: 'pass' },
       freshness: { result: 'pass' },
     },
-    moisturePct: '',
-    visualScore: '',
     defectNotes: '',
     ...overrides,
   };
@@ -360,8 +358,6 @@ describe('toReceiptDetail (BR-120: the quality-check block)', () => {
       cropMismatchQtyKg: null,
       checkedByName: 'Anitha',
       checkedAt: '2026-10-12T05:30:00Z',
-      moisturePct: 12.4,
-      visualScore: 7,
       defectNotes: 'Bruising',
       items: [
         { parameter: 'FRESHNESS', passed: true, condition: 'GOOD', score: 8 },
@@ -387,9 +383,10 @@ describe('toReceiptDetail (BR-120: the quality-check block)', () => {
       spoiledGrams: 8_000,
       rejectionReasonCode: 'PHYSICAL_DAMAGE',
       cropMismatchGrams: null,
-      moisturePct: 12.4,
-      visualScore: 7,
     });
+    // BR-120: the API never stores or returns moisture / visual score, so the check carries neither.
+    expect(qc).not.toHaveProperty('moisturePct');
+    expect(qc).not.toHaveProperty('visualScore');
     expect(qc?.rejectionReasonLabel).toBe(t('receiving.rejectionReason.PHYSICAL_DAMAGE'));
     expect(qc?.points.map((p) => p.criterionId)).toEqual(['appearance', 'size', 'moisture', 'damage', 'freshness']);
     expect(qc?.points[3]).toMatchObject({ result: 'fail', condition: 'POOR', remarks: 'Top layer bruised' });
@@ -545,8 +542,6 @@ describe('qualityOutcomeOf / buildQualityCheckBody (BR-106, BR-120)', () => {
         spoiledGrams: 8_000,
         rejectionReasonCode: 'PHYSICAL_DAMAGE',
         storageLocationCode: 'CS-A01',
-        moisturePct: '12.4',
-        visualScore: '7',
       }),
     );
     expect(full).toMatchObject({
@@ -554,9 +549,9 @@ describe('qualityOutcomeOf / buildQualityCheckBody (BR-106, BR-120)', () => {
       spoiledQtyKg: '8.000',
       rejectionReasonCode: 'PHYSICAL_DAMAGE',
       storageLocation: 'CS-A01',
-      moisturePct: 12.4,
-      visualScore: 7,
     });
+    expect(full).not.toHaveProperty('moisturePct');
+    expect(full).not.toHaveProperty('visualScore');
   });
 
   it('drops a reason code when nothing is rejected (the server needs a non-zero rejection for it)', () => {
@@ -576,9 +571,12 @@ describe('qcDraftProblem', () => {
   it('flags a breakdown above the rejected quantity', () => {
     expect(qcDraftProblem(draft({ acceptedGrams: 240_000, damagedGrams: 6_000, spoiledGrams: 5_000, defectNotes: 'x' }))).toBe('breakdown');
   });
-  it('flags moisture and visual score out of range', () => {
-    expect(qcDraftProblem(draft({ moisturePct: '101' }))).toBe('moisture');
-    expect(qcDraftProblem(draft({ visualScore: '7.5' }))).toBe('visualScore');
+  it('BR-120: never sends moisture or visual score, even from a stale draft that still carries them (the API stores neither)', () => {
+    const stale = { ...draft(), moisturePct: '101', visualScore: '7.5' } as unknown as QcDraft;
+    expect(qcDraftProblem(stale)).toBeNull();
+    const body = buildQualityCheckBody(stale);
+    expect(body).not.toHaveProperty('moisturePct');
+    expect(body).not.toHaveProperty('visualScore');
   });
   it('a rejection needs a reason code, a note or defect notes', () => {
     expect(qcDraftProblem(draft({ acceptedGrams: 200_000 }))).toBe('rejectionReasonRequired');
@@ -597,6 +595,21 @@ describe('buildCounterOfferBody', () => {
     expect(buildCounterOfferBody({ priceInput: '0', quantityGrams: 1, message: '' })).toBeNull();
     expect(buildCounterOfferBody({ priceInput: '4.555', quantityGrams: 1, message: '' })).toBeNull();
     expect(buildCounterOfferBody({ priceInput: '4', quantityGrams: 0, message: '' })).toBeNull();
+  });
+});
+
+describe('BR-125: the quality check links the batch to the chosen storage location', () => {
+  const LOCATION_ID = '7d1f3c2a-4b5e-4f60-8a71-92b3c4d5e6f7';
+
+  it('BR-125: sends storageLocationId, the uuid the API links inventory_batches.storage_location_id by', () => {
+    const body = buildQualityCheckBody(draft({ storageLocationId: LOCATION_ID, storageLocationCode: 'CS-A01' }));
+    expect(body.storageLocationId).toBe(LOCATION_ID);
+    // The documented free-text label travels with it (the server would default it to the code anyway).
+    expect(body.storageLocation).toBe('CS-A01');
+  });
+
+  it('BR-125: no location chosen sends no storageLocationId', () => {
+    expect(buildQualityCheckBody(draft())).not.toHaveProperty('storageLocationId');
   });
 });
 

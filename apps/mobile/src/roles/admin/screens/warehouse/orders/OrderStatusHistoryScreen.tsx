@@ -9,10 +9,14 @@
  */
 // Design id: M5S15 (M5S15_OrderStatusHistory), absorbs M5S15B (M5S15B_EventDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder } from '../../../api/orders';
+import { orderStatusLabel } from './mappers';
 import type { OrderScreenBaseProps } from './types';
 
 export type OrderStatusHistoryScreenProps = OrderScreenBaseProps;
@@ -24,23 +28,6 @@ interface StatusEvent {
   date: string;
   performedBy: string;
 }
-
-// Mock timeline, as hard-coded by the old M5S15 screen. The old M5S15B received
-// date and performer as fixed values for every event; they are kept per event here.
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const SAMPLE_EVENT_DATE = '24 Sep 2026';
-const SAMPLE_PERFORMER = 'Warehouse Admin';
-
-const STATUS_EVENTS: StatusEvent[] = [
-  { id: '1', title: 'Order Placed', time: '24 Sep · 10:32 AM' },
-  { id: '2', title: 'Order Confirmed', time: '10:34 AM' },
-  { id: '3', title: 'Stock Checked', time: '10:40 AM' },
-  { id: '4', title: 'Packed', time: '11:15 AM' },
-  { id: '5', title: 'Ready for Pickup', time: '11:20 AM' },
-  { id: '6', title: 'Customer Arrived', time: '12:18 PM' },
-  { id: '7', title: 'OTP Verified', time: '12:19 PM' },
-  { id: '8', title: 'Picked Up', time: '12:20 PM' },
-].map((e) => ({ ...e, date: SAMPLE_EVENT_DATE, performedBy: SAMPLE_PERFORMER }));
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -120,9 +107,117 @@ function EventDetailCard({ event, orderId }: { event: StatusEvent; orderId: stri
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
-export function OrderStatusHistoryScreen({ orderId = SAMPLE_ORDER_ID, onBack }: OrderStatusHistoryScreenProps) {
+export function OrderStatusHistoryScreen({ orderId, onBack }: OrderStatusHistoryScreenProps) {
   // One event open at a time keeps the timeline scannable.
   const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  if (!orderId) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <SafeAreaView style={styles.topSafeArea} />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+              <BackArrowIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Order Status History</Text>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <SafeAreaView style={styles.topSafeArea} />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+              <BackArrowIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Order Status History</Text>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={adminColors.brand} />
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  if (orderQuery.error || !orderQuery.data) {
+    return (
+      <View style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <SafeAreaView style={styles.topSafeArea} />
+        <SafeAreaView style={styles.safeArea}>
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
+              <BackArrowIcon />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Order Status History</Text>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }}>
+            <Text style={{ ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.sm }}>
+              Failed to load order history
+            </Text>
+            <TouchableOpacity
+              style={{
+                backgroundColor: adminColors.brand,
+                paddingHorizontal: adminSpacing.lg,
+                paddingVertical: adminSpacing.md,
+                borderRadius: adminRadius.md,
+              }}
+              onPress={() => orderQuery.refetch()}
+            >
+              <Text style={{ ...adminType.sectionHead, color: adminColors.onBrand }}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
+
+  const order = orderQuery.data;
+  const events: StatusEvent[] =
+    order.timeline && order.timeline.length > 0
+      ? order.timeline.map((t, idx) => {
+          const d = new Date(t.at);
+          const timeStr = Number.isNaN(d.getTime())
+            ? '—'
+            : d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+          const dateStr = Number.isNaN(d.getTime())
+            ? '—'
+            : d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+          return {
+            id: String(idx),
+            title: orderStatusLabel(t.toStatus),
+            time: timeStr,
+            date: dateStr,
+            performedBy: order.warehouse?.name ?? 'Warehouse Staff',
+          };
+        })
+      : [
+          {
+            id: '1',
+            title: orderStatusLabel(order.status),
+            time: '—',
+            date: '—',
+            performedBy: order.warehouse?.name ?? 'Warehouse Staff',
+          },
+        ];
 
   return (
     <View style={styles.root}>
@@ -140,8 +235,8 @@ export function OrderStatusHistoryScreen({ orderId = SAMPLE_ORDER_ID, onBack }: 
           <Text style={styles.orderRefLabel}>{orderId}</Text>
 
           <View style={styles.timelineContainer}>
-            {STATUS_EVENTS.map((event, index) => {
-              const isLast = index === STATUS_EVENTS.length - 1;
+            {events.map((event, index) => {
+              const isLast = index === events.length - 1;
               const isOpen = expandedId === event.id;
               return (
                 <View key={event.id} style={styles.stepRow}>

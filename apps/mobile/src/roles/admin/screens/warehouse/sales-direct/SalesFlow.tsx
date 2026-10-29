@@ -146,6 +146,7 @@ export function SalesFlow({
       return (
         <SalesScreen
           {...common}
+          recentSales={salesList.items}
           onNavigateToNotifications={onNavigateToNotifications}
           onNavigateToNewSale={startNewSale}
           onNavigateToSalesHistory={() => navigate('SalesHistory')}
@@ -178,7 +179,7 @@ export function SalesFlow({
           onContinue={(items) => {
             setCart(items);
             const sum = items.reduce((acc, it) => acc + (it.pricePerKg * (it.selectedQty ?? 1)), 0);
-            setTotal(sum || 320);
+            setTotal(sum);
             navigate('SaleSummary');
           }}
         />
@@ -258,7 +259,10 @@ export function SalesFlow({
         <SalesHistoryScreen
           {...common}
           filters={salesFilters}
-          sales={salesList.items.length > 0 ? salesList.items : undefined}
+          sales={salesList.items}
+          isLoading={salesList.isLoading}
+          error={salesList.error}
+          onRetry={salesList.refresh}
           onOpenFilters={() => navigate('SalesFilters')}
           onSelectSale={(sale) => navigate('SaleDetail', { sale })}
         />
@@ -282,7 +286,7 @@ export function SalesFlow({
           onViewInvoice={() =>
             push({
               screen: 'Invoice',
-              invoice: { mode: 'detail', params: { invoiceId: params.sale?.invoiceNo ?? 'INV-00251' } },
+              invoice: { mode: 'detail', params: { invoiceId: params.sale?.invoiceNo ?? '' } },
             })
           }
         />

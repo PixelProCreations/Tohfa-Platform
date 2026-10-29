@@ -79,7 +79,7 @@ export interface RevenueScreenProps extends WarehouseScreenBaseProps {
 export function revenueDetailOf(record: RevenueRecord) {
   return {
     revenueId: record.id,
-    finalAmount: record.amount.toLocaleString('en-IN'),
+    finalAmount: record.amountPaise !== null && record.amountPaise !== undefined ? `₹${Math.round(record.amountPaise / 100).toLocaleString('en-IN')}` : '—',
     paymentMethod: record.paymentMethod,
     paymentStatus: record.status,
     salesChannel: record.orderRef.split('·')[0]?.trim(),
@@ -170,14 +170,14 @@ export function RevenueScreen({
   };
 
   // Aggregated KPIs when All Warehouses is active, or calculated for filtered warehouse
-  const totalAmount = visible.reduce((sum, r) => sum + r.amount, 0);
-  const onlineOrderAmount = visible.filter((r) => r.category === 'Orders').reduce((sum, r) => sum + r.amount, 0);
-  const marketSalesAmount = visible.filter((r) => r.category === 'Direct Sales').reduce((sum, r) => sum + r.amount, 0);
+  const totalAmount = visible.reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
+  const onlineOrderAmount = visible.filter((r) => r.category === 'Orders').reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
+  const marketSalesAmount = visible.filter((r) => r.category === 'Direct Sales').reduce((sum, r) => sum + (r.amountPaise ?? 0), 0);
 
-  const displayTotalRevenue = isMain && !selectedWarehouseId ? '₹1,84,500' : rupees(totalAmount);
-  const displayTodayRevenue = isMain && !selectedWarehouseId ? '₹24,850' : rupees(totalAmount);
-  const displayOnlineOrder = isMain && !selectedWarehouseId ? '₹12,400' : rupees(onlineOrderAmount);
-  const displayMarketSales = isMain && !selectedWarehouseId ? '₹9,850' : rupees(marketSalesAmount);
+  const displayTotalRevenue = isMain && !selectedWarehouseId ? '₹1,84,500' : rupees(Math.round(totalAmount / 100));
+  const displayTodayRevenue = isMain && !selectedWarehouseId ? '₹24,850' : rupees(Math.round(totalAmount / 100));
+  const displayOnlineOrder = isMain && !selectedWarehouseId ? '₹12,400' : rupees(Math.round(onlineOrderAmount / 100));
+  const displayMarketSales = isMain && !selectedWarehouseId ? '₹9,850' : rupees(Math.round(marketSalesAmount / 100));
 
 
   const hasActiveFilters =
@@ -283,7 +283,7 @@ export function RevenueScreen({
                 </View>
                 <Text style={styles.orderRef}>{item.orderRef}</Text>
                 <View style={styles.amountRow}>
-                  <Text style={styles.amount}>{rupees(item.amount)}</Text>
+                  <Text style={styles.amount}>{rupees(item.amountPaise !== null && item.amountPaise !== undefined ? Math.round(item.amountPaise / 100) : 0)}</Text>
                   <Text style={styles.meta}>{item.paymentMethod}</Text>
                 </View>
                 <Text style={styles.meta}>

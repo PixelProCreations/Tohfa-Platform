@@ -19,8 +19,7 @@ import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { CASH_BREAKDOWN } from './fixtures';
-import { moneyToWholeRupees, useCashTopupsReport } from './useWalletData';
+import { moneyToWholeRupees, useCashTopupsReport, useDailyCashData } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import type { TopUpHistoryRow, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
@@ -71,6 +70,15 @@ export function DailyCashSummaryScreen({
   const effectiveWarehouseOptions =
     warehouseOptions && warehouseOptions.length > 0 ? warehouseOptions : fetchedWarehouses;
   const { report } = useCashTopupsReport(scope, selectedWarehouseId);
+  const { directSales, cashTopUps, expenses, openingCash, expectedClosing } = useDailyCashData(scope, selectedWarehouseId);
+
+  const cashBreakdown = [
+    { label: 'Opening Cash', amount: formatRupees(openingCash) },
+    { label: 'Direct Cash Sales', amount: formatRupees(directSales) },
+    { label: 'Cash Top-Ups', amount: formatRupees(cashTopUps) },
+    { label: 'Cash Expenses', amount: formatRupees(expenses) },
+    { label: 'Expected Closing', amount: formatRupees(expectedClosing) },
+  ];
 
   // Money is integer paise — convert via moneyToWholeRupees, never parseFloat
   const systemCash = report?.total != null ? moneyToWholeRupees(report.total) : null;
@@ -142,7 +150,7 @@ export function DailyCashSummaryScreen({
 
         <SectionTitle right={<SectionHint>Where recorded</SectionHint>}>Cash Breakdown</SectionTitle>
         <Card>
-          {CASH_BREAKDOWN.map((line, index) => (
+          {cashBreakdown.map((line, index) => (
             <AmountRow key={line.label} divider={index > 0} label={line.label} value={line.amount} />
           ))}
         </Card>

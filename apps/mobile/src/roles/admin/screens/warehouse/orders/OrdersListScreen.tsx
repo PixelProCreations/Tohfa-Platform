@@ -15,7 +15,7 @@
  * nothing here is gated.
  */
 import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
@@ -40,8 +40,11 @@ export interface OrdersListScreenProps extends OrderScreenBaseProps {
   routeParams?: OrdersListRouteParams | undefined;
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
   warehouses?: WarehouseOption[] | undefined;
-  /** Live order rows; if undefined the screen renders its built-in sample set. */
+  /** Live order rows. */
   orders?: readonly OrderRow[] | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown | undefined;
+  onRetry?: (() => void) | undefined;
 }
 
 /** Neutral placeholder until the host passes the real warehouse list (same ids as the mock orders). */
@@ -73,130 +76,6 @@ export interface OrderRow {
   /** Step inside `actionScreen`, for actions that land on a folded step. */
   actionStep?: string;
 }
-
-const ORDERS: OrderRow[] = [
-  {
-    id: 'ORD-1024',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Arun Kumar',
-    status: 'Confirmed',
-    items: '4 Items',
-    amount: '₹850',
-    fulfillment: 'Pickup',
-    time: 'Today · 10:32 AM',
-    action: 'Check Stock',
-    actionScreen: 'M5S05',
-  },
-  {
-    id: 'ORD-1023',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Priya',
-    status: 'Ready for Pickup',
-    items: '5 Items',
-    amount: '₹1,240',
-    fulfillment: 'Pickup',
-    time: 'Today · 09:45 AM',
-    action: 'Verify Pickup',
-    // Was M5S10, now the 'verify' step of the pickup wizard.
-    actionScreen: 'M5S11',
-    actionStep: 'verify',
-  },
-  {
-    id: 'ORD-1022',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty',
-    customer: 'Ganesh K.',
-    status: 'Packing',
-    items: '2 Items',
-    amount: '₹420',
-    fulfillment: 'Pickup',
-    time: 'Today · 09:10 AM',
-    action: 'Pack',
-    actionScreen: 'M5S07',
-  },
-  {
-    id: 'ORD-1021',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Divya R.',
-    status: 'Confirmed',
-    items: '4 Items',
-    amount: '₹960',
-    fulfillment: 'Delivery',
-    time: 'Today · 08:55 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1019',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
-    customer: 'Kavitha M.',
-    status: 'Packing',
-    items: '3 Items',
-    amount: '₹720',
-    fulfillment: 'Delivery',
-    time: 'Today · 08:30 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1015',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
-    customer: 'Suresh R.',
-    status: 'Confirmed',
-    items: '5 Items',
-    amount: '₹1,450',
-    fulfillment: 'Delivery',
-    time: 'Today · 08:15 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1012',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Warehouse 1',
-    customer: 'Ananya S.',
-    status: 'Confirmed',
-    items: '2 Items',
-    amount: '₹580',
-    fulfillment: 'Delivery',
-    time: 'Today · 07:45 AM',
-    action: 'Prepare Delivery',
-    actionScreen: 'M5S13',
-  },
-  {
-    id: 'ORD-1018',
-    warehouseId: 'WH-3',
-    warehouseName: 'Kotagiri',
-    customer: 'Meena S.',
-    status: 'Quantity Issue',
-    items: '2 Items',
-    amount: '₹310',
-    fulfillment: 'Pickup',
-    time: 'Yesterday · 4:20 PM',
-    action: 'Review Shortage',
-    // Was M5S06, now the 'shortage' step of the stock check.
-    actionScreen: 'M5S05',
-    actionStep: 'shortage',
-  },
-  {
-    id: 'ORD-1010',
-    warehouseId: 'WH-COON',
-    warehouseName: 'Coonoor',
-    customer: 'Rahul Kumar',
-    status: 'Completed',
-    items: '3 Items',
-    amount: '₹850',
-    fulfillment: 'Pickup',
-    time: 'Yesterday · 2:10 PM',
-    action: 'View Invoice',
-    actionScreen: 'M5S18',
-  },
-];
 
 const STATUS_TONE: Record<string, { bg: string; text: string }> = {
   Confirmed: adminColors.warning,
@@ -279,7 +158,17 @@ function BuildingWarehouseIcon({ color }: { color: string }) {
 
 // ─── Screen ─────────────────────────────────────────────────────────────────
 
-export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, warehouses = DEFAULT_WAREHOUSES, orders: liveOrders }: OrdersListScreenProps) {
+export function OrdersListScreen({
+  scope,
+  onBack,
+  onNavigate,
+  routeParams,
+  warehouses = DEFAULT_WAREHOUSES,
+  orders: liveOrders,
+  isLoading,
+  error,
+  onRetry,
+}: OrdersListScreenProps) {
   const isAllWarehouses = scope.warehouseId === undefined;
   const [searchQuery, setSearchQuery] = useState('');
   const [fulfillmentFilter, setFulfillmentFilter] = useState<'All' | 'Delivery' | 'Pickup'>(
@@ -306,7 +195,7 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
   const warehouseFilter = isAllWarehouses ? selectedWarehouseId : scope.warehouseId;
   const query = searchQuery.toLowerCase();
 
-  const filteredOrders = (liveOrders ?? ORDERS).filter((order) => {
+  const filteredOrders = (liveOrders ?? []).filter((order) => {
     if (warehouseFilter !== undefined && order.warehouseId !== warehouseFilter) {
       return false;
     }
@@ -381,48 +270,68 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
             />
           </View>
 
-          {filteredOrders.map((order) => {
-            // STATUS_TONE is Record<string, ...>: always defined; unknown statuses fall back to warning tone.
-            const toneEntry = STATUS_TONE[order.status];
-            const tone: { bg: string; text: string } = toneEntry ?? adminColors.warning;
-            return (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.orderCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S04', { orderId: order.id })}
-              >
-                <View style={styles.cardTopRow}>
-                  <Text style={styles.orderIdText}>{order.id}</Text>
-                  <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: tone.text }]}>{order.status}</Text>
+          {isLoading ? (
+            <View style={styles.stateContainer}>
+              <ActivityIndicator size="small" color={adminColors.brand} />
+              <Text style={styles.stateText}>Loading orders...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.stateContainer}>
+              <Text style={styles.stateText}>Failed to load orders</Text>
+              {onRetry && (
+                <TouchableOpacity onPress={onRetry} style={styles.retryBtn} activeOpacity={0.8}>
+                  <Text style={styles.retryBtnText}>Retry</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : filteredOrders.length === 0 ? (
+            <View style={styles.stateContainer}>
+              <Text style={styles.stateText}>No orders found</Text>
+            </View>
+          ) : (
+            filteredOrders.map((order) => {
+              // STATUS_TONE is Record<string, ...>: always defined; unknown statuses fall back to warning tone.
+              const toneEntry = STATUS_TONE[order.status];
+              const tone: { bg: string; text: string } = toneEntry ?? adminColors.warning;
+              return (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.orderCard}
+                  activeOpacity={0.75}
+                  onPress={() => onNavigate?.('M5S04', { orderId: order.id })}
+                >
+                  <View style={styles.cardTopRow}>
+                    <Text style={styles.orderIdText}>{order.id}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: tone.bg }]}>
+                      <Text style={[styles.statusBadgeText, { color: tone.text }]}>{order.status}</Text>
+                    </View>
                   </View>
-                </View>
 
-                <Text style={styles.customerNameText}>{order.customer}</Text>
+                  <Text style={styles.customerNameText}>{order.customer}</Text>
 
-                {isAllWarehouses ? (
-                  <View style={styles.warehouseRow}>
-                    <BuildingWarehouseIcon color={adminColors.muted} />
-                    <Text style={styles.warehouseText}>{warehouseNameOf(order)}</Text>
+                  {isAllWarehouses ? (
+                    <View style={styles.warehouseRow}>
+                      <BuildingWarehouseIcon color={adminColors.muted} />
+                      <Text style={styles.warehouseText}>{warehouseNameOf(order)}</Text>
+                    </View>
+                  ) : null}
+
+                  <View style={styles.itemsPriceRow}>
+                    <Text style={styles.itemsCountText}>{order.items}</Text>
+                    <Text style={styles.amountText}>{order.amount}</Text>
                   </View>
-                ) : null}
 
-                <View style={styles.itemsPriceRow}>
-                  <Text style={styles.itemsCountText}>{order.items}</Text>
-                  <Text style={styles.amountText}>{order.amount}</Text>
-                </View>
-
-                <View style={styles.fulfillmentRow}>
-                  <View style={styles.fulfillmentLeft}>
-                    {order.fulfillment === 'Pickup' ? <StorefrontIcon /> : <DeliveryTruckSmallIcon />}
-                    <Text style={styles.fulfillmentText}>{order.fulfillment}</Text>
+                  <View style={styles.fulfillmentRow}>
+                    <View style={styles.fulfillmentLeft}>
+                      {order.fulfillment === 'Pickup' ? <StorefrontIcon /> : <DeliveryTruckSmallIcon />}
+                      <Text style={styles.fulfillmentText}>{order.fulfillment}</Text>
+                    </View>
+                    <Text style={styles.timeText}>{order.time}</Text>
                   </View>
-                  <Text style={styles.timeText}>{order.time}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+                </TouchableOpacity>
+              );
+            })
+          )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -622,5 +531,27 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: adminSpacing.lg,
+  },
+  stateContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: adminSpacing.sm,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  retryBtn: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.sm,
+    marginTop: adminSpacing.xs,
+  },
+  retryBtnText: {
+    ...adminType.caption,
+    color: adminColors.brandDeep,
+    fontWeight: '700',
   },
 });

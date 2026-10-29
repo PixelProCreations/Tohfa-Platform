@@ -16,7 +16,6 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminSpacing } from '../../../theme';
 import { cardStyles, ChipRow, CustomersScreen, EmptyState, StatTiles, StatusBadge } from './CustomersParts';
-import { CUSTOMER_ISSUE_KPIS, DEFAULT_CUSTOMER, INITIAL_CUSTOMER_ISSUES } from './fixtures';
 import type { CustomerIssueRecord, CustomerRef, WarehouseScreenBaseProps } from './types';
 
 export interface CustomerIssuesScreenProps extends WarehouseScreenBaseProps {
@@ -32,15 +31,24 @@ export function CustomerIssuesScreen({
   onBack,
   customer,
   onSelectIssue,
-  issues = INITIAL_CUSTOMER_ISSUES,
+  issues = [],
 }: CustomerIssuesScreenProps) {
   const [category, setCategory] = useState<CategoryTab>('All');
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const customerName = customer?.name ?? '—';
   const rows = issues.filter((issue) => category === 'All' || issue.category.toLowerCase() === category.toLowerCase());
+
+  const openCount = issues.filter((i) => i.status === 'Open').length;
+  const inReviewCount = issues.filter((i) => i.status === 'In Review').length;
+  const resolvedCount = issues.filter((i) => i.status === 'Resolved').length;
+  const issueKpis = [
+    { label: 'OPEN', value: String(openCount) },
+    { label: 'IN REVIEW', value: String(inReviewCount) },
+    { label: 'RESOLVED', value: String(resolvedCount) },
+  ];
 
   return (
     <CustomersScreen title="Customer Issues" subtitle={customerName} onBack={onBack}>
-      <StatTiles items={CUSTOMER_ISSUE_KPIS} />
+      <StatTiles items={issueKpis} />
       <ChipRow options={CATEGORY_TABS} selected={category} onSelect={setCategory} />
 
       {rows.length === 0 ? (

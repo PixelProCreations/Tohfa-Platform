@@ -40,6 +40,7 @@ export const SAMPLE_WALLET_CUSTOMER: ResolvedWalletCustomer = {
   balance: '₹4,500.00',
   totalCredited: '₹25,000',
   totalUsed: '₹20,500',
+  balancePaise: null,
 };
 
 /** Pre-filled fiscal cash tag of the demo top-up. */

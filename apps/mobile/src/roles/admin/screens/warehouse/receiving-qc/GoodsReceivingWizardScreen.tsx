@@ -273,10 +273,16 @@ function positiveCount(input: string): number | undefined {
   return n >= 1 ? n : undefined;
 }
 
+/** The storage location a quality check places the batch in: the id links it (BR-125), the code labels it. */
+interface QcLocation {
+  id: string;
+  code: string;
+}
+
 /** A write that failed, and how its Retry replays it (the held body makes the replay safe, BR-118). */
 type RetryAction =
   | { kind: 'create'; next: ReceivingWizardStep; packages?: { count: number; unit: GoodsReceiptPackageUnit } | undefined }
-  | { kind: 'qc'; place: 'storage' | 'summary' | 'review'; locationCode?: string | undefined }
+  | { kind: 'qc'; place: 'storage' | 'summary' | 'review'; location?: QcLocation | undefined }
   | { kind: 'record'; next: ReceivingWizardStep; packages?: { count: number; unit: GoodsReceiptPackageUnit } | undefined }
   | { kind: 'reports'; next: ReceivingWizardStep; bodies: readonly GoodsReceiptDiscrepancyCreate[] };
 
@@ -896,8 +902,8 @@ export function GoodsReceivingWizardScreen({
    * goods as a batch AND copies the storage location onto it; there is no
    * batch or location write after it.
    */
-  const runQc = async (where: 'storage' | 'summary' | 'review', locationCode?: string) => {
-    const retry: RetryAction = { kind: 'qc', place: where, locationCode };
+  const runQc = async (where: 'storage' | 'summary' | 'review', location?: QcLocation) => {
+    const retry: RetryAction = { kind: 'qc', place: where, location };
     if (assignedGrade === undefined) {
       Alert.alert(t('receiving.wizard.gradeRequired'));
       return;
@@ -910,7 +916,9 @@ export function GoodsReceivingWizardScreen({
       results: where === 'review' ? reviewQcResults(inspection) : qcStatusMap,
       rejectionReasonCode,
       rejectionNote: partialNotes,
-      storageLocationCode: locationCode,
+      // BR-125: the id links the batch to the location; the code is only its label.
+      storageLocationCode: location?.code,
+      storageLocationId: location?.id,
     });
     const problem = qcDraftProblem(draft);
     if (problem !== null && submissionRef.current.heldQc === null && !submissionRef.current.qcDone) {
@@ -984,7 +992,7 @@ export function GoodsReceivingWizardScreen({
       } else if (retry.kind === 'record') {
         await recordOnly(retry.next, retry.packages);
       } else if (retry.kind === 'qc') {
-        await runQc(retry.place, retry.locationCode);
+        await runQc(retry.place, retry.location);
       } else if (await persistReports(pendingBodies(retry.bodies, persistedReports), retry.next)) {
         advance(retry.next);
       }
@@ -2762,7 +2770,7 @@ export function GoodsReceivingWizardScreen({
       );
       const storageView = queryViewState({ isLoading: storage.isLoading, error: storage.error, itemCount: storage.options.length });
       const confirmLocation = () => {
-        void withBusy(() => runQc('storage', selectedLocation?.code));
+        void withBusy(() => runQc('storage', selectedLocation));
       };
 
       if (batchSubView === 'confirm') {
@@ -3420,8 +3428,8 @@ export function GoodsReceivingWizardScreen({
           warehouseName: destinationName,
           confirming: busy,
           onConfirm: (locationId) => {
-            const code = storage.options.find(o => o.id === locationId)?.code;
-            void withBusy(() => runQc('storage', code));
+            const location = storage.options.find(o => o.id === locationId);
+            void withBusy(() => runQc('storage', location));
           },
         }}
       />
@@ -4488,7 +4496,7 @@ export function GoodsReceivingWizardScreen({
     const reviewLocation = storage.options.find(o => o.id === selectedLocationId);
     /** Records the receipt (gross + crates, BR-123) and, with the QC permission, its check accepting the full weight. */
     const acceptReview = () => {
-      void withBusy(() => (canQc ? runQc('review', reviewLocation?.code) : recordOnly('receipt_confirmation', reviewPackages)));
+      void withBusy(() => (canQc ? runQc('review', reviewLocation) : recordOnly('receipt_confirmation', reviewPackages)));
     };
     const reviewResult = result !== null && result.variant !== 'awaiting' ? result : null;
     return (
@@ -5113,9 +5121,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   criteriaTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.ink,
     marginTop: 2,
     letterSpacing: -0.2,
@@ -5136,7 +5142,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   choiceBtnText: {
-    fontSize: 13,
+    ...adminType.body,
     fontWeight: '600',
     color: adminColors.muted,
     letterSpacing: -0.1,
@@ -5645,10 +5651,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryCtaText: {
-    fontSize: 15,
-    lineHeight: 20,
+    ...adminType.rowTitle,
     color: adminColors.onBrand,
-    fontWeight: '800',
     letterSpacing: 0.1,
   },
 

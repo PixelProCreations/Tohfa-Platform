@@ -180,8 +180,6 @@ export interface LiveQualityCheck {
   rejectionReasonLabel?: string | undefined;
   actualCropName?: string | undefined;
   cropMismatchGrams: number | null;
-  moisturePct?: number | undefined;
-  visualScore?: number | undefined;
   defectNotes?: string | undefined;
 }
 

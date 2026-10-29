@@ -2,7 +2,8 @@
  * Invoices as the warehouse admin reads them (docs/openapi.yaml tag
  * "Payouts & Invoices"):
  *   GET /invoices                  invoice.view_own (BR-16, BR-30, BR-36)
- *   GET /invoices/{id}             invoice.view_own (BR-16, BR-30, BR-36)
+ *   GET /invoices/summary          invoice.view_own (BR-30, BR-36)
+ *   GET /invoices/{id}             invoice.view_own (BR-16, BR-30, BR-36, BR-128)
  *   GET /invoices/{id}/download    invoice.view_own (BR-16, BR-30, BR-36)
  *
  * Scope is the server's: a Sub Warehouse Admin (`own`) sees the invoices of
@@ -44,6 +45,8 @@ export interface InvoiceDto {
   invoiceType: InvoiceType;
   orderId?: string | null;
   purchaseOrderId?: string | null;
+  /** Sent by the API (invoices.schema.ts InvoiceSummaryResponse); not yet in docs/openapi.yaml Invoice. */
+  payoutId?: string | null;
   /** A calendar date, `YYYY-MM-DD`. */
   issueDate: string;
   taxableAmount?: Money;
@@ -63,7 +66,7 @@ export interface InvoiceLineDto {
    * `parseFloat(qty)`, a JSON number, today (spec gap); the mapper reads either
    * through its text.
    */
-  qty: string;
+  qty: string | number;
   unitPrice: Money;
   gstRate: number;
   taxable: Money;
@@ -78,8 +81,26 @@ export interface InvoiceDetailDto extends InvoiceDto {
   sgst?: Money;
   igst?: Money;
   gstInclusive?: boolean;
+  /**
+   * BR-128: the customer's name, else the walk-in name on the order; null for a
+   * farmer-side invoice (purchase or payout). Required by docs/openapi.yaml.
+   */
+  buyerName: string | null;
+  /** BR-128: the customer's GSTIN as stored; null when none, for a walk-in, and farmer-side. */
+  buyerGstin: string | null;
   lines: InvoiceLineDto[];
 }
+
+/** docs/openapi.yaml InvoiceSummary: counts and paise-summed totals, zero-filled per status and type. */
+export interface InvoiceSummaryDto {
+  count: number;
+  totalAmount: Money;
+  byStatus: { status: InvoiceStatus; count: number; totalAmount: Money }[];
+  byType: { type: InvoiceType; count: number; totalAmount: Money }[];
+}
+
+/** The list's filters without paging (docs/openapi.yaml summarizeInvoices). */
+export type InvoiceSummaryParams = Pick<ListInvoicesParams, 'type' | 'fromDate' | 'toDate'>;
 
 export interface ListInvoicesParams {
   cursor?: string | undefined;
@@ -119,7 +140,22 @@ export function listInvoices(params: ListInvoicesParams = {}, signal?: AbortSign
   );
 }
 
-/** One invoice with its lines; 404 outside the caller's scope (BR-36). */
+/**
+ * KPI counts over exactly the invoices the list returns this caller (BR-30):
+ * a scope with none gets zeros, never 403.
+ */
+export function getInvoiceSummary(params: InvoiceSummaryParams = {}, signal?: AbortSignal): Promise<InvoiceSummaryDto> {
+  return adminGet<InvoiceSummaryDto>(
+    '/invoices/summary',
+    { type: params.type, fromDate: params.fromDate, toDate: params.toDate },
+    signal,
+  );
+}
+
+/**
+ * One invoice with its lines; 404 outside the caller's scope (BR-36). `id` is
+ * the invoice uuid: the route 422s an invoice number.
+ */
 export function getInvoice(id: string, signal?: AbortSignal): Promise<InvoiceDetailDto> {
   return adminGet<InvoiceDetailDto>(invoicePath(id), undefined, signal);
 }

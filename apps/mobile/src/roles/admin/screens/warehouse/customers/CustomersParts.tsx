@@ -23,10 +23,28 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
-import { DEFAULT_CUSTOMER } from './fixtures';
 import type { CustomerRecord, CustomerRef, WarehouseScope } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
+
+const BLANK_CUSTOMER: CustomerRecord = {
+  id: '',
+  name: '—',
+  code: '—',
+  phone: '—',
+  email: undefined,
+  status: 'Active',
+  warehouseId: undefined,
+  warehouseName: undefined,
+  ordersCount: 0,
+  lastPurchase: '—',
+  totalPurchases: undefined,
+  walletBalance: undefined,
+  openIssues: undefined,
+  completedOrders: undefined,
+  cancelledOrders: undefined,
+  regDate: '—',
+};
 
 /** Main Warehouse view: no warehouseId means every warehouse. */
 export function isAllWarehouses(scope: WarehouseScope): boolean {
@@ -49,7 +67,7 @@ export function inScope(scope: WarehouseScope, warehouseId: string | undefined):
  */
 export function resolveCustomer(ref?: CustomerRef): CustomerRecord {
   const known = Object.fromEntries(Object.entries(ref ?? {}).filter(([, value]) => value !== undefined));
-  return { ...DEFAULT_CUSTOMER, ...known };
+  return { ...BLANK_CUSTOMER, ...known };
 }
 
 // ─── Icons ──────────────────────────────────────────────────────────────────

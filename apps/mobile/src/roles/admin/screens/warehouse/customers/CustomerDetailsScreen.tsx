@@ -33,7 +33,6 @@ import {
   StatusBadge,
   type InfoField,
 } from './CustomersParts';
-import { DEFAULT_CUSTOMER } from './fixtures';
 import type { CustomerRef, WarehouseScreenBaseProps } from './types';
 
 export interface CustomerDetailsScreenProps extends WarehouseScreenBaseProps {
@@ -154,7 +153,7 @@ export function CustomerDetailsScreen({
   const allWarehouses = isAllWarehouses(scope);
 
   const c = resolveCustomer(customer);
-  const code = customer?.code ?? customer?.id ?? DEFAULT_CUSTOMER.code;
+  const code = customer?.code ?? customer?.id ?? '—';
   const purchases = c.totalPurchases ?? '₹0';
   const wallet = c.walletBalance ?? '₹0';
   const openIssues = c.openIssues ?? 0;
@@ -253,9 +252,7 @@ export function CustomerDetailsScreen({
         <>
           <SectionHeading>Recent Orders</SectionHeading>
           <RecentCard
-            code="ORD-00251"
-            badge={<StatusBadge label="Ready for Pickup" tone="success" />}
-            lines={['3 Items', '₹850']}
+            lines={['No recent orders']}
             onPress={onNavigateToOrders}
             linkLabel="View All Orders →"
           />
@@ -266,9 +263,7 @@ export function CustomerDetailsScreen({
         <>
           <SectionHeading>Recent Purchases</SectionHeading>
           <RecentCard
-            code="INV-00251"
-            badge={<StatusBadge label="Paid" tone="success" />}
-            lines={['Tomato Grade 1 · 2 KG', '₹200']}
+            lines={['No recent purchases']}
             onPress={onNavigateToPurchases}
             linkLabel="View Purchase History →"
           />
@@ -286,9 +281,7 @@ export function CustomerDetailsScreen({
         <>
           <SectionHeading>Recent Issues</SectionHeading>
           <RecentCard
-            code="ISSUE-00231"
-            badge={<StatusBadge label="In Review" tone="warning" />}
-            lines={['Quality · Tomato Grade 1', '24 Sep 2026']}
+            lines={['No recent issues']}
             onPress={onNavigateToIssues}
             linkLabel="View All Issues →"
           />
@@ -299,9 +292,7 @@ export function CustomerDetailsScreen({
         <>
           <SectionHeading>Recent Support</SectionHeading>
           <RecentCard
-            code="TKT-00104"
-            badge={<StatusBadge label="Open" tone="info" />}
-            lines={['Order Assistance & Support', '24 Sep 2026']}
+            lines={['No recent support tickets']}
             onPress={onNavigateToSupport}
             linkLabel="View All Support Tickets →"
           />

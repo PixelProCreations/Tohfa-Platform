@@ -20,12 +20,12 @@ import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
 import { MainWarehouseAddScreen, type AddedWarehouseData } from './MainWarehouseAddScreen';
 import { MainWarehouseManageSWAsScreen } from './MainWarehouseManageSWAsScreen';
 import { NotificationsScreen } from '../warehouse/notifications/NotificationsScreen';
+import { useNotificationsList } from '../warehouse/notifications/useNotificationsData';
 import { NotificationSettingsScreen } from '../warehouse/profile-settings/NotificationSettingsScreen';
-import { defaultNotifications } from '../warehouse/notifications/fixtures';
 import { WarehouseSelector } from '../warehouse/inventory';
 import { WarehouseEditProfileScreen } from '../warehouse/profile-settings/WarehouseEditProfileScreen';
 import { WarehouseAdminFlow } from '../warehouse/warehouse-admin/WarehouseAdminFlow';
-import type { NotificationItem, WarehouseScope } from '../warehouse/notifications/types';
+import type { WarehouseScope } from '../warehouse/notifications/types';
 
 const MAIN_SCOPE: WarehouseScope = {
   warehouseId: undefined,
@@ -218,7 +218,7 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
   const [manageSWAAdminId, setManageSWAAdminId] = useState<string | undefined>(undefined);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [notificationsList, setNotificationsList] = useState<readonly NotificationItem[]>(() => defaultNotifications(MAIN_SCOPE));
+  const notificationsData = useNotificationsList();
   const [selectedWarehouse, setSelectedWarehouse] = useState<string | null>(null);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const [warehouses, setWarehouses] = useState<WarehouseListItem[]>(INITIAL_WAREHOUSES);
@@ -271,13 +271,9 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
         scope={MAIN_SCOPE}
         can={() => true}
         onBack={() => setShowNotifications(false)}
-        notifications={notificationsList}
-        onMarkAsRead={(id) => {
-          setNotificationsList((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-        }}
-        onMarkAllAsRead={() => {
-          setNotificationsList((prev) => prev.map((n) => ({ ...n, isRead: true })));
-        }}
+        notifications={notificationsData.items}
+        onMarkAsRead={(id) => void notificationsData.markOneRead(id)}
+        onMarkAllAsRead={() => void notificationsData.markAllRead()}
         onSelectNotification={() => {}}
       />
     );

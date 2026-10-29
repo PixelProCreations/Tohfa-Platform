@@ -12,7 +12,6 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing } from '../../../theme';
 import { cardStyles, CustomersScreen, InfoGrid, PrimaryButton, SectionHeading, Timeline } from './CustomersParts';
-import { DEFAULT_CUSTOMER, INITIAL_CUSTOMER_ISSUES } from './fixtures';
 import type { CustomerIssueRecord, CustomerRef, Loose, WarehouseScreenBaseProps } from './types';
 
 export interface CustomerIssueDetailScreenProps extends WarehouseScreenBaseProps {
@@ -21,6 +20,16 @@ export interface CustomerIssueDetailScreenProps extends WarehouseScreenBaseProps
   /** Opens the RMA for this issue; rendered only with can('rma.request.process'). */
   onViewRma?: ((issue: CustomerIssueRecord) => void) | undefined;
 }
+
+const BLANK_ISSUE: CustomerIssueRecord = {
+  id: '',
+  issueNo: '—',
+  category: '—',
+  orderNo: '—',
+  dateText: '—',
+  status: 'Open',
+  description: '—',
+};
 
 const TIMELINE = [
   { title: 'Issue Reported', completed: true },
@@ -59,10 +68,9 @@ function RmaIcon() {
 }
 
 export function CustomerIssueDetailScreen({ can, onBack, customer, issue, onViewRma }: CustomerIssueDetailScreenProps) {
-  const fallback = INITIAL_CUSTOMER_ISSUES[0] as CustomerIssueRecord;
   const known = Object.fromEntries(Object.entries(issue ?? {}).filter(([, value]) => value !== undefined));
-  const current: CustomerIssueRecord = { ...fallback, ...known };
-  const customerName = customer?.name ?? DEFAULT_CUSTOMER.name;
+  const current: CustomerIssueRecord = { ...BLANK_ISSUE, ...known };
+  const customerName = customer?.name ?? '—';
 
   return (
     <CustomersScreen title="Issue Detail" subtitle={customerName} onBack={onBack}>

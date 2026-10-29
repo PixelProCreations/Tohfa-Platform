@@ -107,10 +107,9 @@ export function StaffScreen({
   const { scopes: fetchedWarehouseOptions } = useWarehouseOptions();
   const warehouseOptions = customWarehouseOptions ?? fetchedWarehouseOptions;
 
-  const { staff: liveMembers, loading: membersLoading } = useStaffList(scope, selectedWarehouseId);
+  const { summary: rollCallSummary, byStaffId, isLoading: rollCallLoading } = useRollCall(scope, selectedWarehouseId, undefined, true);
+  const { staff: liveMembers, isLoading: membersLoading } = useStaffList(scope, selectedWarehouseId, byStaffId, true);
   const members = customMembers ?? liveMembers;
-
-  const { summary: rollCallSummary, loading: rollCallLoading } = useRollCall(scope, selectedWarehouseId);
 
   const scoped = useMemo(
     () => members.filter((m) => inScope(scope, m.warehouseId, selectedWarehouseId)),
@@ -226,7 +225,7 @@ export function StaffScreen({
           {isMain ? (
             <View style={styles.badgeRow}>
               <StatusBadge label={staff.status} tone={staff.status === 'Active' ? 'success' : 'danger'} />
-              <StatusBadge label={staff.attendance} tone={attendanceTone(staff.attendance)} />
+              <StatusBadge label={staff.attendance ?? 'Not Checked In'} tone={attendanceTone(staff.attendance ?? 'Not Checked In')} />
             </View>
           ) : null}
         </View>

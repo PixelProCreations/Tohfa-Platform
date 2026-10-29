@@ -10,6 +10,7 @@ import {
   mapWarehouseDocumentDtoToItem,
   mapWarehouseDtoToProfileInfo,
 } from '../screens/warehouse/profile-settings/mappers';
+import { t } from '../i18n';
 
 describe('profile-settings mappers', () => {
   it('maps CurrentUserDto to AdminAccountProfile', () => {
@@ -126,6 +127,48 @@ describe('profile-settings mappers', () => {
     expect(info.browser).toBe('TOHFA Android App');
     expect(info.location).toBe('192.168.1.1');
     expect(info.sessionId).toContain('sess-123');
+  });
+
+  it('RBAC: each role gets its own label; a Super Admin is never shown as a Sub Warehouse admin', () => {
+    const base: CurrentUserDto = { id: 'usr-9', fullName: 'Asha', userType: 'admin' };
+    const superAdmin = mapCurrentUserDtoToProfile({ ...base, roles: [{ code: 'SUPER_ADMIN' }] });
+    const sub = mapCurrentUserDtoToProfile({ ...base, roles: [{ code: 'SUB_WH_ADMIN', warehouseId: 'w1', warehouseName: 'Coonoor Warehouse' }] });
+    const main = mapCurrentUserDtoToProfile({ ...base, roles: [{ code: 'MAIN_WH_ADMIN' }] });
+    expect(superAdmin.roleLabel).toBe(t('profile.role.SUPER_ADMIN'));
+    expect(superAdmin.accessLevel).toBe(t('profile.accessLevel.SUPER_ADMIN'));
+    expect(superAdmin.roleLabel).not.toBe(sub.roleLabel);
+    expect(superAdmin.accessLevel).not.toBe(sub.accessLevel);
+    expect(main.roleLabel).toBe(t('profile.role.MAIN_WH_ADMIN'));
+    expect(sub.roleLabel).toBe(t('profile.role.SUB_WH_ADMIN'));
+    expect(sub.warehouseLabel).toBe('Coonoor Warehouse');
+    expect(main.warehouseLabel).toBe(t('profile.scope.allWarehouses'));
+    expect(mapCurrentUserDtoToProfile(base).roleLabel).toBe(t('profile.role.unknown'));
+  });
+
+  it('warehouse profile: no invented region / admin, and current stock is the used kg from /capacity', () => {
+    const whDto: WarehouseDto = {
+      id: 'w1',
+      code: 'WH-COO-001',
+      name: 'Coonoor Warehouse',
+      type: 'SUB',
+      city: null,
+      capacityKg: '50000.000',
+      isActive: true,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const none = t('profile.noValue');
+    const withoutCapacity = mapWarehouseDtoToProfileInfo(whDto);
+    expect(withoutCapacity.region).toBe(none);
+    expect(withoutCapacity.assignedAdmin).toBe(none);
+    expect(withoutCapacity.currentStock).toBe(none);
+    const withCapacity = mapWarehouseDtoToProfileInfo(whDto, {
+      warehouseId: 'w1',
+      capacityKg: '50000.000',
+      usedKg: '12480.500',
+      availableKg: '37519.500',
+      utilizationPercent: 24.96,
+    });
+    expect(withCapacity.currentStock).toBe(t('unit.kg', { value: '12,480.5' }));
   });
 
   it('maps HelpArticleDto to FaqItem', () => {

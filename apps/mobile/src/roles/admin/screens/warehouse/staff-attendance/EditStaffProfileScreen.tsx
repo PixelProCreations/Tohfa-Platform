@@ -58,7 +58,7 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
   const [vehicleDetails, setVehicleDetails] = useState(staff?.vehicleDetails ?? '');
   const [statusOpen, setStatusOpen] = useState(false);
 
-  const { update: updateStaffMutation, loading: updating } = useUpdateStaff();
+  const { update: updateStaffMutation, isSaving: updating } = useUpdateStaff();
 
   if (!hasStaffRosterAccess(can, scope)) {
     return (

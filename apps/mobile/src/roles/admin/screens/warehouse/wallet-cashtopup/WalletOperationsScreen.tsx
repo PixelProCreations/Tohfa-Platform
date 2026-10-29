@@ -10,7 +10,7 @@ import { WarehouseTabBar } from './WalletParts';
 import { WarehouseSelector } from '../inventory';
 import { useCashTopupsReport } from './useWalletData';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
-import { rupeesFromMoney } from './mappers';
+import { formatWalletMoney } from './mappers';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -263,7 +263,7 @@ export function WalletOperationsScreen({
 
   const liveTopUpsCount = report ? report.count : (todayTopUpsCount ?? 0);
   const liveCashCollected = report
-    ? rupeesFromMoney(report.total)
+    ? formatWalletMoney(report.total)
     : cashCollectedTotal !== undefined
       ? `₹${cashCollectedTotal.toLocaleString('en-IN')}`
       : '₹0';
@@ -472,7 +472,7 @@ export function WalletOperationsScreen({
                 ))
               ) : (
                 <View style={[styles.whSummaryCard, { alignItems: 'center', justifyContent: 'center' }]}>
-                  <Text style={{ color: adminColors.muted, fontSize: 13 }}>No warehouses available</Text>
+                  <Text style={{ ...adminType.body, color: adminColors.muted }}>No warehouses available</Text>
                 </View>
               )}
             </View>
@@ -639,7 +639,7 @@ export function WalletOperationsScreen({
             </TouchableOpacity>
           ) : (
             <View style={[styles.recentTopUpCard, { alignItems: 'center', paddingVertical: 16 }]}>
-              <Text style={{ color: adminColors.muted, fontSize: 13 }}>No recent top-ups</Text>
+              <Text style={{ ...adminType.body, color: adminColors.muted }}>No recent top-ups</Text>
             </View>
           )}
 

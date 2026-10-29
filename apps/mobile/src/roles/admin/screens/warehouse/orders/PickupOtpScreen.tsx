@@ -16,11 +16,15 @@
  *   - "Continue to OTP", "View Order", "View Invoice" have no code of their own
  *     and stay ungated, as before.
  */
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder, verifyPickupOtp, isPickupOtp, type AdminOrderDetailDto } from '../../../api/orders';
+import { formatMoney, paymentStatusLabel, formatOrderTime } from './mappers';
 import type { OrderScreenBaseProps, PickupStep } from './types';
 
 export interface PickupOtpScreenProps extends OrderScreenBaseProps {
@@ -32,10 +36,6 @@ export interface PickupOtpScreenProps extends OrderScreenBaseProps {
 
 const STEP_ORDER: readonly PickupStep[] = ['verify', 'otp', 'handover'];
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
-
-/** Mock order the designs hard-coded; callers pass the real order once pickups are wired. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
-const MOCK_CUSTOMER = 'Arun Kumar';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -177,11 +177,24 @@ interface StepProps {
 }
 
 function VerifyStep({
+  order,
   orderId,
   warehouseName,
   onBack,
   onContinue,
-}: StepProps & { warehouseName: string; onContinue: () => void }) {
+}: {
+  order: AdminOrderDetailDto;
+  orderId: string;
+  warehouseName: string;
+  onBack: () => void;
+  onContinue: () => void;
+}) {
+  const customerName = order.buyer?.name || '—';
+  const phone = order.buyer?.mobileMasked || '—';
+  const itemsText = `${order.items.length} ${order.items.length === 1 ? 'Item' : 'Items'}`;
+  const totalText = formatMoney(order.totals.total);
+  const pickupWarehouse = order.warehouse?.name ?? warehouseName;
+
   return (
     <>
       <Header title="Pickup Verification" subtitle={orderId} onBack={onBack} />
@@ -190,19 +203,19 @@ function VerifyStep({
         <Text style={styles.sectionTitle}>Customer</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Customer" value={MOCK_CUSTOMER} />
-            <Field label="Phone" value="+91 XXXXX XXXXX" />
+            <Field label="Customer" value={customerName} />
+            <Field label="Phone" value={phone} />
           </View>
         </View>
 
         <Text style={styles.sectionTitle}>Order Summary</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Items" value="4 Items" />
-            <Field label="Total" value="₹850" />
+            <Field label="Items" value={itemsText} />
+            <Field label="Total" value={totalText} />
           </View>
           <View style={styles.rowGap}>
-            <Field label="Pickup Warehouse" value={warehouseName} />
+            <Field label="Pickup Warehouse" value={pickupWarehouse} />
           </View>
         </View>
 
@@ -211,7 +224,7 @@ function VerifyStep({
         <View style={[styles.card, styles.cardAfterInfo]}>
           <View style={styles.twoColRow}>
             <Field label="Order ID" value={orderId} />
-            <Field label="Customer Name" value={MOCK_CUSTOMER} />
+            <Field label="Customer Name" value={customerName} />
           </View>
         </View>
 
@@ -230,9 +243,44 @@ function VerifyStep({
 
 // ─── Step: otp (the original M5S11) ──────────────────────────────────────────
 
-function OtpStep({ orderId, onBack, onConfirm }: StepProps & { onConfirm: (() => void) | undefined }) {
-  const [otp] = useState(['4', '8', '2', '1']);
-  const [isVerified] = useState(true);
+function OtpStep({
+  orderId,
+  onBack,
+  onVerified,
+  canVerify,
+}: {
+  orderId: string;
+  onBack: () => void;
+  onVerified: () => void;
+  canVerify: boolean;
+}) {
+  const [otp, setOtp] = useState<string>('');
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState<boolean>(false);
+  const textInputRef = useRef<TextInput>(null);
+
+  const digits = [otp[0] ?? '', otp[1] ?? '', otp[2] ?? '', otp[3] ?? ''];
+
+  const handleVerify = async () => {
+    if (!isPickupOtp(otp)) {
+      setErrorMessage('A pickup OTP is exactly 4 digits.');
+      return;
+    }
+    setIsVerifying(true);
+    setErrorMessage(null);
+    try {
+      await verifyPickupOtp(orderId, { otp }, crypto.randomUUID());
+      setIsVerified(true);
+      setTimeout(() => {
+        onVerified();
+      }, 400);
+    } catch (err: any) {
+      setErrorMessage(err?.message || 'Incorrect OTP — please verify');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   return (
     <>
@@ -241,41 +289,60 @@ function OtpStep({ orderId, onBack, onConfirm }: StepProps & { onConfirm: (() =>
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <Text style={styles.promptTitle}>Enter 4-digit pickup OTP</Text>
 
-        <View style={styles.otpRow}>
-          {otp.map((digit, index) => (
-            <View key={index} style={styles.otpBox}>
-              <Text style={styles.otpDigit}>{digit}</Text>
-            </View>
-          ))}
-        </View>
+        <TouchableOpacity activeOpacity={1} onPress={() => textInputRef.current?.focus()}>
+          <View style={styles.otpRow}>
+            {digits.map((digit, index) => (
+              <View key={index} style={styles.otpBox}>
+                <Text style={styles.otpDigit}>{digit}</Text>
+              </View>
+            ))}
+          </View>
+        </TouchableOpacity>
+
+        <TextInput
+          ref={textInputRef}
+          value={otp}
+          onChangeText={(val) => {
+            const cleaned = val.replace(/[^0-9]/g, '').slice(0, 4);
+            setOtp(cleaned);
+            setErrorMessage(null);
+          }}
+          keyboardType="number-pad"
+          maxLength={4}
+          style={{ position: 'absolute', opacity: 0, width: 1, height: 1 }}
+          autoFocus
+        />
 
         {isVerified ? (
           <View style={styles.verifiedBox}>
             <CheckmarkCircleIcon />
             <Text style={styles.verifiedText}>✓ OTP Verified</Text>
           </View>
-        ) : (
+        ) : errorMessage ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>Incorrect OTP — please verify</Text>
+            <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
-        )}
-
-
+        ) : null}
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      {/* Hidden, not disabled, without order.pickup_otp.verify. */}
-      {onConfirm ? (
+      {canVerify ? (
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={[styles.primaryBtn, !isVerified && styles.primaryBtnDisabled]}
+            style={[styles.primaryBtn, (otp.length !== 4 || isVerifying) && styles.primaryBtnDisabled]}
             activeOpacity={0.8}
-            disabled={!isVerified}
-            onPress={onConfirm}
+            disabled={otp.length !== 4 || isVerifying}
+            onPress={handleVerify}
           >
-            <ArrowRightIcon />
-            <Text style={styles.primaryBtnText}>Confirm Handover</Text>
+            {isVerifying ? (
+              <ActivityIndicator size="small" color={adminColors.onBrand} />
+            ) : (
+              <>
+                <ArrowRightIcon />
+                <Text style={styles.primaryBtnText}>Confirm Handover</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
       ) : null}
@@ -286,21 +353,30 @@ function OtpStep({ orderId, onBack, onConfirm }: StepProps & { onConfirm: (() =>
 // ─── Step: handover (was M5S12) ──────────────────────────────────────────────
 
 function HandoverStep({
+  order,
   orderId,
   warehouseName,
   initialCompleted,
   onBack,
   canComplete,
   onNavigate,
-}: StepProps & {
+}: {
+  order: AdminOrderDetailDto;
+  orderId: string;
   warehouseName: string;
   initialCompleted: boolean;
+  onBack: () => void;
   canComplete: boolean;
   onNavigate: OrderScreenBaseProps['onNavigate'];
 }) {
-  // M5S12 had two states: confirm, then "Pickup Completed". Kept as a sub-state
-  // because the completed view's back arrow returns to the confirm view.
   const [completed, setCompleted] = useState(initialCompleted);
+  const customerName = order.buyer?.name || '—';
+  const itemsText = String(order.items.length);
+  const paymentText = paymentStatusLabel(order.paymentStatus);
+  const pickupWarehouse = order.warehouse?.name ?? warehouseName;
+  const completedTime = order.timeline[order.timeline.length - 1]?.at
+    ? formatOrderTime(order.timeline[order.timeline.length - 1]!.at)
+    : '—';
 
   if (completed) {
     return (
@@ -318,19 +394,19 @@ function HandoverStep({
           <View style={styles.card}>
             <View style={styles.twoColRow}>
               <Field label="Order" value={orderId} />
-              <Field label="Completed" value="24 Sep · 12:20 PM" />
+              <Field label="Completed" value={completedTime} />
             </View>
           </View>
 
           <Text style={styles.sectionTitle}>Final Information</Text>
           <View style={styles.card}>
             <View style={styles.twoColRow}>
-              <Field label="Customer" value={MOCK_CUSTOMER} />
-              <Field label="Items" value="4" />
+              <Field label="Customer" value={customerName} />
+              <Field label="Items" value={itemsText} />
             </View>
             <View style={[styles.twoColRow, styles.rowGap]}>
-              <Field label="Payment" value="Paid" />
-              <Field label="Warehouse" value={warehouseName} />
+              <Field label="Payment" value={paymentText} />
+              <Field label="Warehouse" value={pickupWarehouse} />
             </View>
           </View>
 
@@ -367,10 +443,10 @@ function HandoverStep({
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <Field label="Order" value={orderId} />
-            <Field label="Customer" value={MOCK_CUSTOMER} />
+            <Field label="Customer" value={customerName} />
           </View>
           <View style={[styles.twoColRow, styles.rowGap]}>
-            <Field label="Items" value="4" />
+            <Field label="Items" value={itemsText} />
             <Field label="OTP" value="Verified ✓" />
           </View>
         </View>
@@ -378,7 +454,6 @@ function HandoverStep({
 
       <View style={styles.flexSpacer} />
 
-      {/* The handover itself; hidden, not disabled, without order.pickup_otp.verify. */}
       {canComplete ? (
         <View style={styles.bottomBarPlain}>
           <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={() => setCompleted(true)}>
@@ -398,7 +473,7 @@ export function PickupOtpScreen({
   can,
   onBack,
   onNavigate,
-  orderId = SAMPLE_ORDER_ID,
+  orderId,
   initialStep = 'otp',
   initialHandoverCompleted = false,
 }: PickupOtpScreenProps) {
@@ -406,9 +481,12 @@ export function PickupOtpScreen({
   const canVerify = can('order.pickup_otp.verify');
   const warehouseName = scope.warehouseName ?? '—';
 
-  // Back walks to the previous step, but only as far as the step the wizard
-  // was opened on: before that there is nothing on screen to return to, so the
-  // host navigator's back takes over (as it did when these were separate routes).
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
   const goBack = () => {
     const index = STEP_ORDER.indexOf(step);
     if (index > STEP_ORDER.indexOf(initialStep)) {
@@ -418,17 +496,58 @@ export function PickupOtpScreen({
     }
   };
 
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Verify Pickup" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Verify Pickup" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.error || !orderQuery.data) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Verify Pickup" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }}>
+          <Text style={{ ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.sm }}>
+            Failed to load order
+          </Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => orderQuery.refetch()}>
+            <Text style={styles.primaryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const order = orderQuery.data;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {step === 'verify' ? (
-          <VerifyStep orderId={orderId} warehouseName={warehouseName} onBack={goBack} onContinue={() => setStep('otp')} />
+          <VerifyStep order={order} orderId={orderId} warehouseName={warehouseName} onBack={goBack} onContinue={() => setStep('otp')} />
         ) : null}
         {step === 'otp' ? (
-          <OtpStep orderId={orderId} onBack={goBack} onConfirm={canVerify ? () => setStep('handover') : undefined} />
+          <OtpStep orderId={orderId} onBack={goBack} onVerified={() => setStep('handover')} canVerify={canVerify} />
         ) : null}
         {step === 'handover' ? (
           <HandoverStep
+            order={order}
             orderId={orderId}
             warehouseName={warehouseName}
             initialCompleted={initialHandoverCompleted}

@@ -11,6 +11,11 @@
  *   GET  /admin/sales/horeca                       sales.horeca.view (BR-85h, BR-13; read-only)
  *   GET  /admin/sales/b2b                          sales.b2b.view (BR-85h, BR-13; read-only)
  *   POST /admin/sales/{saleId}/payments/upi/confirm payment.record (BR-94, BR-88g; Idempotency-Key)
+ *   POST /admin/sales/{saleId}/cancel              sales.sale.cancel (BR-94i, BR-94m; Idempotency-Key)
+ *
+ * GET /admin/sales takes no `warehouseId` (its query schema is strict, so sending one is a 422):
+ * the server confines the list to the caller's scope. Its days default to TODAY on the server,
+ * so a caller that wants more sends `from` / `to`.
  *
  * Money and quantities stay as the API's decimal strings (`Money`, `Quantity`);
  * the screens' mappers turn them into integer paise and grams.
@@ -23,11 +28,20 @@ import { adminGet, adminPost } from './http';
 
 export type Quantity = string;
 
-export type Grade = 'Grade 1' | 'Grade 2' | 'Grade 3';
+/** docs/openapi.yaml `Grade` (sales.schema.ts GRADES). */
+export type Grade = 'GRADE_1' | 'GRADE_2' | 'GRADE_3' | 'REJECT';
 export type SalePaymentMethod = 'CASH' | 'UPI' | 'WALLET' | 'CARD';
 export type SaleStatus = 'PENDING_PAYMENT' | 'PICKED_UP' | 'CANCELLED';
-export type SalePaymentStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
-export type SaleChannel = 'ONLINE' | 'DIRECT' | 'MARKET' | 'HORECA' | 'B2B';
+/**
+ * docs/openapi.yaml `SalePaymentStatus` (the order's payment_status), plus REFUND_DUE which the
+ * write side's Sale response can carry after a UPI stock-conflict cancel (sales.schema.ts).
+ */
+export type SalePaymentStatus = 'PENDING' | 'PAID' | 'PARTIALLY_PAID' | 'REFUNDED' | 'FAILED' | 'REFUND_DUE';
+/** The `sale_payments` row's own status (SalePayment.status). */
+export type SalePaymentRowStatus = 'PENDING' | 'CONFIRMED' | 'FAILED' | 'REFUND_DUE' | 'REFUNDED';
+/** docs/openapi.yaml `SaleChannel`: the counter channels. HORECA and B2B have their own read-only lists. */
+export type SaleChannel = 'DIRECT' | 'MARKET';
+/** The API also accepts HORECA / B2B here but answers 501 (BR-85e); the app never sends them. */
 export type SaleCreateChannel = 'DIRECT' | 'MARKET';
 
 /** docs/openapi.yaml `SaleProduct`. */
@@ -45,13 +59,22 @@ export interface SaleProductDto {
   storageLocation: string | null;
 }
 
-/** docs/openapi.yaml `SaleCustomerMatch`. */
+export interface ListSaleProductsResponseDto {
+  items: SaleProductDto[];
+  page: PageMeta;
+}
+
+/** docs/openapi.yaml `SaleCustomerMatch`. The mobile is always masked (BR-92g). */
 export interface SaleCustomerMatchDto {
   customerId: string;
   customerCode: string;
   name: string;
-  mobileMasked: string | null;
+  mobileMasked: string;
   walletBalance: Money | string;
+}
+
+export interface SaleCustomerLookupResponseDto {
+  items: SaleCustomerMatchDto[];
 }
 
 /** docs/openapi.yaml `SaleItemRequest`. */
@@ -107,7 +130,7 @@ export interface SaleBuyerDto {
 /** docs/openapi.yaml `SalePayment`. */
 export interface SalePaymentDto {
   method: SalePaymentMethod;
-  status: 'PENDING' | 'CONFIRMED' | 'FAILED';
+  status: SalePaymentRowStatus;
   amount: Money | string;
   amountReceived: Money | string | null;
   cardRef: string | null;
@@ -219,6 +242,10 @@ export interface SaleUpiConfirmDto {
   upiTxnRef: string;
 }
 
+export interface SaleCancelDto {
+  reason?: string | undefined;
+}
+
 export interface SaleCreateDto {
   channel: SaleCreateChannel;
   warehouseId?: string | undefined;
@@ -233,15 +260,35 @@ export interface SaleCreateDto {
   };
 }
 
+/** sales-read.schema.ts `listSalesQuery` (strict: no warehouseId, the server applies the scope). */
 export interface ListSalesParams {
   channel?: SaleChannel | undefined;
   status?: SaleStatus | undefined;
+  paymentStatus?: Exclude<SalePaymentStatus, 'REFUND_DUE'> | undefined;
+  paymentMethod?: SalePaymentMethod | undefined;
+  /** Asia/Kolkata calendar days; both default to today on the server. */
   from?: string | undefined;
   to?: string | undefined;
-  warehouseId?: string | undefined;
+  customerId?: string | undefined;
+  q?: string | undefined;
   cursor?: string | undefined;
   limit?: number | undefined;
 }
+
+/** sales.schema.ts `listSaleProductsQuery`: `channel` is required (BR-95: each channel sells its own stock). */
+export interface ListSaleProductsParams {
+  channel: SaleCreateChannel;
+  warehouseId?: string | undefined;
+  q?: string | undefined;
+  cursor?: string | undefined;
+  limit?: number | undefined;
+}
+
+/** sales.schema.ts `customerLookupQuery`: exactly one of mobile, code or q. */
+export type SaleCustomerLookupParams =
+  | { mobile: string; code?: undefined; q?: undefined }
+  | { code: string; mobile?: undefined; q?: undefined }
+  | { q: string; mobile?: undefined; code?: undefined };
 
 export interface SalesSummaryParams {
   from: string;
@@ -270,23 +317,30 @@ export const ERROR_CODES: readonly (GenericProblemCode | ErrorCode)[] = [
 ];
 
 export function listSaleProducts(
-  params: { warehouseId?: string | undefined } = {},
+  params: ListSaleProductsParams,
   signal?: AbortSignal,
-): Promise<{ items: SaleProductDto[] }> {
-  return adminGet<{ items: SaleProductDto[] }>(
+): Promise<ListSaleProductsResponseDto> {
+  return adminGet<ListSaleProductsResponseDto>(
     '/admin/sales/products',
-    { warehouseId: params.warehouseId },
+    {
+      channel: params.channel,
+      warehouseId: params.warehouseId,
+      q: params.q,
+      cursor: params.cursor,
+      limit: params.limit,
+    },
     signal,
   );
 }
 
+/** No match is an empty `items`, never 403 (BR-92g). */
 export function lookupSaleCustomer(
-  params: { phone: string; warehouseId?: string | undefined },
+  params: SaleCustomerLookupParams,
   signal?: AbortSignal,
-): Promise<{ customer: SaleCustomerMatchDto | null }> {
-  return adminGet<{ customer: SaleCustomerMatchDto | null }>(
+): Promise<SaleCustomerLookupResponseDto> {
+  return adminGet<SaleCustomerLookupResponseDto>(
     '/admin/sales/customers/lookup',
-    { phone: params.phone, warehouseId: params.warehouseId },
+    { mobile: params.mobile, code: params.code, q: params.q },
     signal,
   );
 }
@@ -315,9 +369,12 @@ export function listSales(
     {
       channel: params.channel,
       status: params.status,
+      paymentStatus: params.paymentStatus,
+      paymentMethod: params.paymentMethod,
       from: params.from,
       to: params.to,
-      warehouseId: params.warehouseId,
+      customerId: params.customerId,
+      q: params.q,
       cursor: params.cursor,
       limit: params.limit,
     },
@@ -393,6 +450,20 @@ export function confirmSaleUpiPayment(
 ): Promise<SaleDto> {
   return adminPost<SaleDto>(
     `/admin/sales/${encodeURIComponent(saleId)}/payments/upi/confirm`,
+    body,
+    { idempotencyKey, signal },
+  );
+}
+
+/** Cancels a pending UPI sale and releases its stock hold; 409 once it is paid or cancelled. */
+export function cancelSale(
+  saleId: string,
+  body: SaleCancelDto,
+  idempotencyKey: string,
+  signal?: AbortSignal,
+): Promise<SaleDto> {
+  return adminPost<SaleDto>(
+    `/admin/sales/${encodeURIComponent(saleId)}/cancel`,
     body,
     { idempotencyKey, signal },
   );

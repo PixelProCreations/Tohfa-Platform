@@ -90,12 +90,12 @@ export interface SaleConfirmationScreenProps extends WarehouseScreenBaseProps {
 }
 
 export function SaleConfirmationScreen({
-  saleId = 'SALE-00251',
-  customerName = 'Rajesh Kumar',
-  customerCode = 'CUS-00291',
-  paymentMethod = 'Cash',
-  totalAmount = 320,
-  itemsCount = 2,
+  saleId = '—',
+  customerName = '—',
+  customerCode = '—',
+  paymentMethod = '—',
+  totalAmount = 0,
+  itemsCount = 0,
   saleWarehouse,
   onBack,
   onViewInvoice,

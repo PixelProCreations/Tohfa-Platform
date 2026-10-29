@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,6 +11,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { listSaleProducts, type SaleProductDto } from '../../../api/sales';
+import { toSaleProduct } from './mappers';
 import type { SaleProduct, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 
@@ -121,119 +126,71 @@ function CancelCrossIcon({ size = 18, color = adminColors.brandDeep }: { size?: 
 
 type ProductItem = SaleProduct;
 
-const MOCK_PRODUCTS: ProductItem[] = [
-  {
-    id: 'prod-2',
-    name: 'Carrot',
-    grade: 'Grade 1',
-    pricePerKg: 120,
-    availableKg: 32,
-    status: 'Available',
-    batch: 'BTH-00232',
-    location: 'Cold Storage · B01',
-  },
-  {
-    id: 'prod-3',
-    name: 'Beans',
-    grade: 'Grade 1',
-    pricePerKg: 140,
-    availableKg: 6,
-    status: 'Low Stock',
-    batch: 'BTH-00233',
-    location: 'Dry Rack · C03',
-  },
-  {
-    id: 'prod-1',
-    name: 'Tomato',
-    grade: 'Grade 1',
-    pricePerKg: 100,
-    availableKg: 48,
-    status: 'Available',
-    batch: 'BTH-00231',
-    location: 'Cold Storage · A02',
-  },
-  {
-    id: 'prod-4',
-    name: 'Potato',
-    grade: 'Grade 1',
-    pricePerKg: 45,
-    availableKg: 60,
-    status: 'Available',
-    batch: 'BTH-00234',
-    location: 'Storage · D01',
-  },
-  {
-    id: 'prod-5',
-    name: 'Cabbage',
-    grade: 'Grade 2',
-    pricePerKg: 35,
-    availableKg: 25,
-    status: 'Available',
-    batch: 'BTH-00235',
-    location: 'Storage · D02',
-  },
-];
-
-type FilterType = 'All' | 'Grade 1' | 'Available' | 'Low Stock';
+type FilterType = 'All' | 'GRADE_1' | 'Available' | 'Low Stock';
 
 // Design id: M6-S03
 export interface SelectProductsScreenProps extends WarehouseScreenBaseProps {
   /** Warehouse the sale is made from: only its stock is offered. Defaults to scope.warehouseId. */
   saleWarehouseId?: string | undefined;
   products?: readonly SaleProduct[] | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown | undefined;
+  onRetry?: (() => void) | undefined;
   onContinue: (selectedItems: SaleProduct[]) => void;
 }
 
 export function SelectProductsScreen({
   scope,
   saleWarehouseId,
-  products = MOCK_PRODUCTS,
+  products: productsProp,
+  isLoading: isLoadingProp,
+  error: errorProp,
+  onRetry: onRetryProp,
   onBack,
   onContinue,
 }: SelectProductsScreenProps) {
   // Products are limited to the sale warehouse's stock (FINAL_LIST row 118).
-  // Batches without a warehouseId are the (mock) stock of the viewer's own warehouse.
   const stockWarehouse = saleWarehouseId ?? scope.warehouseId;
+  const productsQuery = useAdminQuery(
+    adminKeys.scoped('sales', stockWarehouse ?? 'all', { resource: 'products' }),
+    (signal: AbortSignal) => listSaleProducts({ channel: 'DIRECT', warehouseId: stockWarehouse }, signal),
+    { enabled: productsProp === undefined }
+  );
+
+  const effectiveLoading = isLoadingProp ?? (productsProp === undefined && productsQuery.isLoading);
+  const effectiveError = errorProp ?? (productsProp === undefined ? productsQuery.error : undefined);
+  const effectiveRetry = onRetryProp ?? (productsProp === undefined ? () => productsQuery.refetch() : undefined);
+
+  const rawProducts: readonly SaleProduct[] = useMemo(() => {
+    if (productsProp !== undefined) return productsProp;
+    if (productsQuery.data?.items) {
+      return productsQuery.data.items.map((dto: SaleProductDto) => toSaleProduct(dto, stockWarehouse));
+    }
+    return [];
+  }, [productsProp, productsQuery.data, stockWarehouse]);
+
   const warehouseStock = useMemo(
-    () => products.filter((p) => p.warehouseId === undefined || stockWarehouse === undefined || p.warehouseId === stockWarehouse),
-    [products, stockWarehouse],
+    () => rawProducts.filter((p) => p.warehouseId === undefined || stockWarehouse === undefined || p.warehouseId === stockWarehouse),
+    [rawProducts, stockWarehouse],
   );
   const [screenStep, setScreenStep] = useState<'initial' | 'confirm_add' | 'summary'>('initial');
   const [pendingProduct, setPendingProduct] = useState<ProductItem | null>(null);
   const [activeFilter, setActiveFilter] = useState<FilterType>('All');
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>(['prod-1', 'prod-2']);
-  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({
-    'prod-1': 2,
-    'prod-2': 1,
-  });
-  const [expandedProductId, setExpandedProductId] = useState<string | null>('prod-1');
-  const [configuringQuantity, setConfiguringQuantity] = useState<number>(2);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [configuringQuantity, setConfiguringQuantity] = useState<number>(1);
 
   const displayProducts = useMemo(() => {
-    const list = [...warehouseStock];
-    if (screenStep === 'initial') {
-      return list.sort((a, b) => {
-        const order = ['prod-2', 'prod-3', 'prod-1', 'prod-4', 'prod-5'];
-        const ai = order.indexOf(a.id);
-        const bi = order.indexOf(b.id);
-        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-      });
-    } else {
-      return list.sort((a, b) => {
-        const order = ['prod-1', 'prod-2', 'prod-3', 'prod-4', 'prod-5'];
-        const ai = order.indexOf(a.id);
-        const bi = order.indexOf(b.id);
-        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-      });
-    }
-  }, [warehouseStock, screenStep]);
+    return [...warehouseStock].sort((a, b) => a.name.localeCompare(b.name));
+  }, [warehouseStock]);
 
   const visibleProducts = useMemo(() => {
     if (screenStep !== 'summary') {
       return displayProducts;
     }
     return displayProducts.filter((item) => {
-      if (activeFilter === 'Grade 1' && item.grade !== 'Grade 1') return false;
+      if (activeFilter === 'GRADE_1' && item.grade !== 'GRADE_1') return false;
       if (activeFilter === 'Available' && item.status !== 'Available') return false;
       if (activeFilter === 'Low Stock' && item.status !== 'Low Stock') return false;
       return true;
@@ -245,7 +202,7 @@ export function SelectProductsScreen({
       setExpandedProductId(null);
     } else {
       setExpandedProductId(product.id);
-      setConfiguringQuantity(selectedQuantities[product.id] || 2);
+      setConfiguringQuantity(selectedQuantities[product.id] || 1);
     }
   };
 
@@ -276,13 +233,13 @@ export function SelectProductsScreen({
 
   const handleCancelAddProduct = () => {
     setScreenStep('initial');
-    setExpandedProductId(pendingProduct?.id || 'prod-1');
+    setExpandedProductId(pendingProduct?.id ?? null);
   };
 
   const handleContinuePress = () => {
     const selected = warehouseStock.filter((p) => selectedProductIds.includes(p.id)).map((p) => ({
       ...p,
-      selectedQty: selectedQuantities[p.id] || 2,
+      selectedQty: selectedQuantities[p.id] || 1,
     }));
     onContinue(selected);
   };
@@ -318,7 +275,7 @@ export function SelectProductsScreen({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filterPillsRow}
           >
-            {(['All', 'Grade 1', 'Available', 'Low Stock'] as FilterType[]).map((filter) => {
+            {(['All', 'GRADE_1', 'Available', 'Low Stock'] as FilterType[]).map((filter) => {
               const isSelected = activeFilter === filter;
               return (
                 <TouchableOpacity
@@ -344,147 +301,167 @@ export function SelectProductsScreen({
           </ScrollView>
         )}
 
-        {visibleProducts.map((product) => {
-          const isExpanded = screenStep === 'initial' && expandedProductId === product.id;
-          const isAdded = selectedProductIds.includes(product.id);
-          const isAvailable = product.status === 'Available';
+        {effectiveLoading ? (
+          <View style={styles.stateContainer}>
+            <ActivityIndicator size="small" color={adminColors.brand} />
+            <Text style={styles.stateText}>Loading products...</Text>
+          </View>
+        ) : effectiveError ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.stateText}>Failed to load products.</Text>
+            {effectiveRetry && (
+              <TouchableOpacity onPress={effectiveRetry} style={styles.retryButton}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : visibleProducts.length === 0 ? (
+          <View style={styles.stateContainer}>
+            <Text style={styles.stateText}>No products available</Text>
+          </View>
+        ) : (
+          visibleProducts.map((product) => {
+            const isExpanded = screenStep === 'initial' && expandedProductId === product.id;
+            const isAdded = selectedProductIds.includes(product.id);
+            const isAvailable = product.status === 'Available';
 
-          if (isExpanded) {
+            if (isExpanded) {
+              return (
+                <View key={product.id} style={styles.expandedProductCard}>
+                  {/* Header with Produce Icon & Title */}
+                  <TouchableOpacity
+                    style={styles.expandedTitleRow}
+                    activeOpacity={0.7}
+                    onPress={() => setExpandedProductId(null)}
+                  >
+                    <ProduceIcon size={18} color={adminColors.warning.text} />
+                    <Text style={styles.expandedTitleText}>
+                      {product.name} · {product.grade}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* 2-Column Details: Selling Price & Available */}
+                  <View style={styles.expandedGridRow}>
+                    <View style={styles.expandedGridCol}>
+                      <Text style={styles.expandedGridLabel}>Selling Price</Text>
+                      <Text style={styles.expandedGridValuePrice}>₹{product.pricePerKg} / KG</Text>
+                    </View>
+                    <View style={styles.expandedGridCol}>
+                      <Text style={styles.expandedGridLabel}>Available</Text>
+                      <Text style={styles.expandedGridValueAvail}>{product.availableKg} KG</Text>
+                    </View>
+                  </View>
+
+                  {/* 2-Column Details: Batch & Location */}
+                  <View style={[styles.expandedGridRow, { marginTop: 12 }]}>
+                    <View style={styles.expandedGridCol}>
+                      <Text style={styles.expandedGridLabel}>Batch</Text>
+                      <Text style={styles.expandedGridValueBatch}>
+                        {product.batch || '—'}
+                      </Text>
+                    </View>
+                    <View style={styles.expandedGridCol}>
+                      <Text style={styles.expandedGridLabel}>Location</Text>
+                      <Text style={styles.expandedGridValueLoc}>
+                        {product.location || '—'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Internal Traceability Alert Banner */}
+                  <View style={styles.traceabilityBanner}>
+                    <InfoCircleBlueIcon size={16} />
+                    <Text style={styles.traceabilityText}>
+                      Internal traceability (batch/location) is visible to SWA; farmer identity is never shown in this customer-facing flow.
+                    </Text>
+                  </View>
+
+                  {/* Quantity Section */}
+                  <Text style={styles.quantitySectionHeader}>Quantity</Text>
+                  <View style={styles.quantityStepperRow}>
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      activeOpacity={0.7}
+                      onPress={handleDecrementQuantity}
+                    >
+                      <Text style={styles.stepperBtnText}>−</Text>
+                    </TouchableOpacity>
+
+                    <Text style={styles.stepperValueText}>{configuringQuantity} KG</Text>
+
+                    <TouchableOpacity
+                      style={styles.stepperBtn}
+                      activeOpacity={0.7}
+                      onPress={() => handleIncrementQuantity(product.availableKg)}
+                    >
+                      <Text style={styles.stepperBtnText}>+</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* + Add to Sale CTA Button */}
+                  <TouchableOpacity
+                    style={styles.addToSaleBtn}
+                    activeOpacity={0.85}
+                    onPress={() => handleAddToSalePress(product)}
+                  >
+                    <Text style={styles.addToSaleBtnText}>+ Add to Sale</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            }
+
             return (
-              <View key={product.id} style={styles.expandedProductCard}>
-                {/* Header with Produce Icon & Title */}
-                <TouchableOpacity
-                  style={styles.expandedTitleRow}
-                  activeOpacity={0.7}
-                  onPress={() => setExpandedProductId(null)}
-                >
-                  <ProduceIcon size={18} color={adminColors.warning.text} />
-                  <Text style={styles.expandedTitleText}>
-                    {product.name} · {product.grade}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* 2-Column Details: Selling Price & Available */}
-                <View style={styles.expandedGridRow}>
-                  <View style={styles.expandedGridCol}>
-                    <Text style={styles.expandedGridLabel}>Selling Price</Text>
-                    <Text style={styles.expandedGridValuePrice}>₹{product.pricePerKg} / KG</Text>
-                  </View>
-                  <View style={styles.expandedGridCol}>
-                    <Text style={styles.expandedGridLabel}>Available</Text>
-                    <Text style={styles.expandedGridValueAvail}>{product.availableKg} KG</Text>
-                  </View>
-                </View>
-
-                {/* 2-Column Details: Batch & Location */}
-                <View style={[styles.expandedGridRow, { marginTop: 12 }]}>
-                  <View style={styles.expandedGridCol}>
-                    <Text style={styles.expandedGridLabel}>Batch</Text>
-                    <Text style={styles.expandedGridValueBatch}>
-                      {product.batch || 'BTH-00231'}
+              <TouchableOpacity
+                key={product.id}
+                style={styles.productCard}
+                onPress={() => handleOpenAddProduct(product)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.cardTopRow}>
+                  <View>
+                    <Text style={styles.productName}>{product.name}</Text>
+                    <Text style={styles.productGradePrice}>
+                      {product.grade} · ₹{product.pricePerKg} / KG
                     </Text>
                   </View>
-                  <View style={styles.expandedGridCol}>
-                    <Text style={styles.expandedGridLabel}>Location</Text>
-                    <Text style={styles.expandedGridValueLoc}>
-                      {product.location || 'Cold Storage · A02'}
-                    </Text>
-                  </View>
-                </View>
 
-                {/* Internal Traceability Alert Banner */}
-                <View style={styles.traceabilityBanner}>
-                  <InfoCircleBlueIcon size={16} />
-                  <Text style={styles.traceabilityText}>
-                    Internal traceability (batch/location) is visible to SWA; farmer identity is never shown in this customer-facing flow.
-                  </Text>
-                </View>
-
-                {/* Quantity Section */}
-                <Text style={styles.quantitySectionHeader}>Quantity</Text>
-                <View style={styles.quantityStepperRow}>
-                  <TouchableOpacity
-                    style={styles.stepperBtn}
-                    activeOpacity={0.7}
-                    onPress={handleDecrementQuantity}
-                  >
-                    <Text style={styles.stepperBtnText}>−</Text>
-                  </TouchableOpacity>
-
-                  <Text style={styles.stepperValueText}>{configuringQuantity} KG</Text>
-
-                  <TouchableOpacity
-                    style={styles.stepperBtn}
-                    activeOpacity={0.7}
-                    onPress={() => handleIncrementQuantity(product.availableKg)}
-                  >
-                    <Text style={styles.stepperBtnText}>+</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* + Add to Sale CTA Button */}
-                <TouchableOpacity
-                  style={styles.addToSaleBtn}
-                  activeOpacity={0.85}
-                  onPress={() => handleAddToSalePress(product)}
-                >
-                  <Text style={styles.addToSaleBtnText}>+ Add to Sale</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
-
-          return (
-            <TouchableOpacity
-              key={product.id}
-              style={styles.productCard}
-              onPress={() => handleOpenAddProduct(product)}
-              activeOpacity={0.8}
-            >
-              <View style={styles.cardTopRow}>
-                <View>
-                  <Text style={styles.productName}>{product.name}</Text>
-                  <Text style={styles.productGradePrice}>
-                    {product.grade} · ₹{product.pricePerKg} / KG
-                  </Text>
-                </View>
-
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isAvailable ? styles.statusBadgeAvailable : styles.statusBadgeLowStock,
-                  ]}
-                >
-                  <Text
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      isAvailable ? styles.statusBadgeTextAvailable : styles.statusBadgeTextLowStock,
+                      styles.statusBadge,
+                      isAvailable ? styles.statusBadgeAvailable : styles.statusBadgeLowStock,
                     ]}
                   >
-                    {product.status}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isAvailable ? styles.statusBadgeTextAvailable : styles.statusBadgeTextLowStock,
+                      ]}
+                    >
+                      {product.status}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              <View style={styles.cardBottomRow}>
-                <View>
-                  <Text style={styles.availableLabel}>Available</Text>
-                  <Text style={styles.availableValue}>{product.availableKg} KG</Text>
+                <View style={styles.cardBottomRow}>
+                  <View>
+                    <Text style={styles.availableLabel}>Available</Text>
+                    <Text style={styles.availableValue}>{product.availableKg} KG</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.addBtn, isAdded && styles.addBtnSelected]}
+                    onPress={() => handleOpenAddProduct(product)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.addBtnText, isAdded && styles.addBtnTextSelected]}>
+                      {isAdded ? `Added (${selectedQuantities[product.id] || 1} KG) ✓` : 'Add +'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity
-                  style={[styles.addBtn, isAdded && styles.addBtnSelected]}
-                  onPress={() => handleOpenAddProduct(product)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={[styles.addBtnText, isAdded && styles.addBtnTextSelected]}>
-                    {isAdded ? `Added (${selectedQuantities[product.id] || 2} KG) ✓` : 'Add +'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+              </TouchableOpacity>
+            );
+          })
+        )}
 
         {/* ─── Add Product? Confirmation Card (Image 2) ─── */}
         {screenStep === 'confirm_add' && (
@@ -496,10 +473,10 @@ export function SelectProductsScreen({
 
             <View style={styles.confirmAddSubBox}>
               <Text style={styles.confirmAddProdName}>
-                {pendingProduct?.name || 'Tomato'} · {pendingProduct?.grade || 'Grade 1'}
+                {pendingProduct?.name || '—'} · {pendingProduct?.grade || '—'}
               </Text>
               <Text style={styles.confirmAddCalculation}>
-                {configuringQuantity} KG × ₹{pendingProduct?.pricePerKg || 100} = ₹{configuringQuantity * (pendingProduct?.pricePerKg || 100)}
+                {configuringQuantity} KG × ₹{pendingProduct?.pricePerKg || 0} = ₹{configuringQuantity * (pendingProduct?.pricePerKg || 0)}
               </Text>
             </View>
 
@@ -524,31 +501,34 @@ export function SelectProductsScreen({
         )}
 
         {/* ─── Sale Summary Card (Image 3) ─── */}
-        {screenStep === 'summary' && (
-          <View style={styles.summaryCardBox}>
-            <View style={styles.summaryHeaderRow}>
-              <Text style={styles.summaryTitleText}>2 Products</Text>
-              <Text style={styles.summarySubText}>in this sale</Text>
-            </View>
+        {screenStep === 'summary' && selectedProductIds.length > 0 && (() => {
+          const selectedItems = warehouseStock.filter((p) => selectedProductIds.includes(p.id));
+          const totalAmount = selectedItems.reduce((acc, p) => acc + (selectedQuantities[p.id] || 0) * p.pricePerKg, 0);
+          return (
+            <View style={styles.summaryCardBox}>
+              <View style={styles.summaryHeaderRow}>
+                <Text style={styles.summaryTitleText}>
+                  {selectedItems.length} {selectedItems.length === 1 ? 'Product' : 'Products'}
+                </Text>
+                <Text style={styles.summarySubText}>in this sale</Text>
+              </View>
 
-            <View style={styles.summaryItemRow}>
-              <Text style={styles.summaryItemName}>Tomato</Text>
-              <Text style={styles.summaryItemQty}>2 KG</Text>
-            </View>
+              {selectedItems.map((p) => (
+                <View key={p.id} style={styles.summaryItemRow}>
+                  <Text style={styles.summaryItemName}>{p.name}</Text>
+                  <Text style={styles.summaryItemQty}>{selectedQuantities[p.id] || 0} KG</Text>
+                </View>
+              ))}
 
-            <View style={styles.summaryItemRow}>
-              <Text style={styles.summaryItemName}>Carrot</Text>
-              <Text style={styles.summaryItemQty}>1 KG</Text>
-            </View>
+              <View style={styles.summaryDivider} />
 
-            <View style={styles.summaryDivider} />
-
-            <View style={styles.summaryTotalRow}>
-              <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>₹320</Text>
+              <View style={styles.summaryTotalRow}>
+                <Text style={styles.summaryTotalLabel}>Total</Text>
+                <Text style={styles.summaryTotalValue}>₹{totalAmount}</Text>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        })()}
 
         <View style={{ height: 20 }} />
       </ScrollView>
@@ -980,5 +960,27 @@ const styles = StyleSheet.create({
   summaryTotalValue: {
     ...adminType.title,
     color: adminColors.brandDeep,
+  },
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 8,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

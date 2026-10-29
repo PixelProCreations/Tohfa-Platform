@@ -23,6 +23,7 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
@@ -34,6 +35,10 @@ import {
   adminShadow,
   ADMIN_BUTTON_HEIGHT,
 } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder, dispatchOrder, type AdminOrderDetailDto } from '../../../api/orders';
+import { deliverySlotLabel } from './mappers';
 import type { DispatchStep, OrderScreenBaseProps } from './types';
 
 export interface DispatchScreenProps extends OrderScreenBaseProps {
@@ -43,7 +48,6 @@ export interface DispatchScreenProps extends OrderScreenBaseProps {
 
 const PARTNER_PLACEHOLDER = 'Select delivery person';
 
-// Mock data until the order API is wired.
 const DELIVERY_PARTNERS = [
   PARTNER_PLACEHOLDER,
   'Ramesh Kumar (Van #04)',
@@ -51,11 +55,6 @@ const DELIVERY_PARTNERS = [
   'Anand P. (Runner #02)',
   'Karthik S. (Van #08)',
 ];
-const MOCK_CUSTOMER = 'Divya R.';
-const MOCK_ITEM_COUNT = 4;
-const MOCK_DELIVERY_ADDRESS = 'Ooty Road';
-// Slot codes come from configuration/API; this is the mock order's slot.
-const MOCK_DELIVERY_SLOT = 'AFTERNOON_12_4';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -167,10 +166,25 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PrimaryButton({ label, icon, onPress }: { label: string; icon: React.ReactNode; onPress: () => void }) {
+function PrimaryButton({
+  label,
+  icon,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
     <View style={styles.bottomBar}>
-      <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onPress}>
+      <TouchableOpacity
+        style={[styles.primaryBtn, disabled && { opacity: 0.6 }]}
+        activeOpacity={0.8}
+        onPress={onPress}
+        disabled={disabled}
+      >
         {icon}
         <Text style={styles.primaryBtnText}>{label}</Text>
       </TouchableOpacity>
@@ -182,14 +196,33 @@ function PrimaryButton({ label, icon, onPress }: { label: string; icon: React.Re
 
 interface DispatchDetailsStepProps {
   orderId: string;
+  order: AdminOrderDetailDto;
   canDispatch: boolean;
+  selectedPartner: string;
+  setSelectedPartner: (partner: string) => void;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: DispatchDetailsStepProps) {
-  const [selectedPartner, setSelectedPartner] = useState<string>(PARTNER_PLACEHOLDER);
+function DispatchDetailsStep({
+  orderId,
+  order,
+  canDispatch,
+  selectedPartner,
+  setSelectedPartner,
+  onBack,
+  onConfirm,
+}: DispatchDetailsStepProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+  const customerName = order.buyer?.name || order.buyer?.mobileMasked || '—';
+  const itemCount = String(order.items?.length ?? 0);
+  const destination =
+    order.fulfilmentType === 'PICKUP'
+      ? 'Warehouse Pickup'
+      : order.warehouse?.name
+      ? `Delivery (${order.warehouse.name})`
+      : '—';
+  const deliverySlot = deliverySlotLabel(order.fulfilment?.deliverySlot);
 
   return (
     <>
@@ -204,17 +237,17 @@ function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: Dispat
         <View style={styles.card}>
           <View style={styles.twoColRow}>
             <View style={styles.col}>
-              <Field label="Customer" value={MOCK_CUSTOMER} />
+              <Field label="Customer" value={customerName} />
             </View>
             <View style={styles.col}>
-              <Field label="Items" value={String(MOCK_ITEM_COUNT)} />
+              <Field label="Items" value={itemCount} />
             </View>
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Address" value={MOCK_DELIVERY_ADDRESS} />
+            <Field label="Delivery Address" value={destination} />
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Slot" value={MOCK_DELIVERY_SLOT} />
+            <Field label="Delivery Slot" value={deliverySlot} />
           </View>
         </View>
 
@@ -273,12 +306,31 @@ function DispatchDetailsStep({ orderId, canDispatch, onBack, onConfirm }: Dispat
 
 interface ConfirmStepProps {
   orderId: string;
+  order: AdminOrderDetailDto;
   canDispatch: boolean;
+  isDispatching: boolean;
+  dispatchError: string | null;
   onBack: () => void;
   onDispatch: () => void;
 }
 
-function ConfirmStep({ orderId, canDispatch, onBack, onDispatch }: ConfirmStepProps) {
+function ConfirmStep({
+  orderId,
+  order,
+  canDispatch,
+  isDispatching,
+  dispatchError,
+  onBack,
+  onDispatch,
+}: ConfirmStepProps) {
+  const destination =
+    order.fulfilmentType === 'PICKUP'
+      ? 'Warehouse Pickup'
+      : order.warehouse?.name
+      ? `Delivery (${order.warehouse.name})`
+      : '—';
+  const deliverySlot = deliverySlotLabel(order.fulfilment?.deliverySlot);
+
   return (
     <>
       <Header title="Confirm Dispatch" onBack={onBack} />
@@ -295,19 +347,30 @@ function ConfirmStep({ orderId, canDispatch, onBack, onDispatch }: ConfirmStepPr
               <Field label="Order" value={orderId} />
             </View>
             <View style={styles.col}>
-              <Field label="Destination" value={MOCK_DELIVERY_ADDRESS} />
+              <Field label="Destination" value={destination} />
             </View>
           </View>
           <View style={styles.rowGap}>
-            <Field label="Delivery Slot" value={MOCK_DELIVERY_SLOT} />
+            <Field label="Delivery Slot" value={deliverySlot} />
           </View>
         </View>
+
+        {dispatchError ? (
+          <View style={[styles.confirmPromptBox, { backgroundColor: adminColors.danger.bg, marginTop: adminSpacing.md }]}>
+            <Text style={[styles.confirmPromptText, { color: adminColors.danger.text }]}>{dispatchError}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.scrollTail} />
       </ScrollView>
 
       {canDispatch ? (
-        <PrimaryButton label="Confirm Dispatch" icon={<CheckmarkIcon />} onPress={onDispatch} />
+        <PrimaryButton
+          label={isDispatching ? 'Dispatching...' : 'Confirm Dispatch'}
+          icon={isDispatching ? <ActivityIndicator size="small" color={adminColors.onBrand} /> : <CheckmarkIcon />}
+          onPress={onDispatch}
+          disabled={isDispatching}
+        />
       ) : null}
     </>
   );
@@ -357,11 +420,80 @@ export function DispatchScreen({
   can,
   onBack,
   onNavigate,
-  orderId = 'ORD-1021',
+  orderId,
   initialStep = 'dispatch',
 }: DispatchScreenProps) {
   const [step, setStep] = useState<DispatchStep>(initialStep);
+  const [selectedPartner, setSelectedPartner] = useState<string>(PARTNER_PLACEHOLDER);
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
   const canDispatch = can('order.dispatch');
+
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  const handleDispatch = async () => {
+    if (!orderId) return;
+    setIsDispatching(true);
+    setDispatchError(null);
+    try {
+      await dispatchOrder(
+        orderId,
+        {
+          vehicleNumber: selectedPartner !== PARTNER_PLACEHOLDER ? selectedPartner : undefined,
+        },
+        crypto.randomUUID(),
+      );
+      setStep('dispatched');
+    } catch (err: any) {
+      setDispatchError(err?.message || 'Failed to dispatch order');
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Dispatch" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Dispatch" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.error || !orderQuery.data) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Dispatch" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }}>
+          <Text style={{ ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.sm }}>
+            Failed to load order
+          </Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => orderQuery.refetch()}>
+            <Text style={styles.primaryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const order = orderQuery.data;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -370,7 +502,10 @@ export function DispatchScreen({
         {step === 'dispatch' ? (
           <DispatchDetailsStep
             orderId={orderId}
+            order={order}
             canDispatch={canDispatch}
+            selectedPartner={selectedPartner}
+            setSelectedPartner={setSelectedPartner}
             onBack={onBack}
             onConfirm={() => setStep('confirm')}
           />
@@ -378,9 +513,12 @@ export function DispatchScreen({
         {step === 'confirm' ? (
           <ConfirmStep
             orderId={orderId}
+            order={order}
             canDispatch={canDispatch}
+            isDispatching={isDispatching}
+            dispatchError={dispatchError}
             onBack={() => setStep('dispatch')}
-            onDispatch={() => setStep('dispatched')}
+            onDispatch={handleDispatch}
           />
         ) : null}
         {step === 'dispatched' ? (

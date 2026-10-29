@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,6 +10,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getSale } from '../../../api/sales';
+import { toSaleRecordFromDto } from './mappers';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { SaleRecord, WarehouseScreenBaseProps } from './types';
@@ -59,32 +64,20 @@ function TimelineCheckIcon({ size = 18 }: { size?: number }) {
 // Design id: M6-S09
 export interface SaleDetailScreenProps extends WarehouseScreenBaseProps {
   sale?: SaleRecord | undefined;
+  saleId?: string | undefined;
+  isLoading?: boolean | undefined;
+  error?: unknown | undefined;
+  onRetry?: (() => void) | undefined;
   /** Open the invoice in the host; without it the shared invoice detail opens inline. */
   onViewInvoice?: (() => void) | undefined;
 }
 
 export function SaleDetailScreen({
-  sale = {
-    id: 'SALE-00251',
-    customerName: 'Rajesh Kumar',
-    customerCode: 'CUS-00291',
-    channel: 'Direct Sale',
-    dateText: '24 Sep, 6:35 PM',
-    amount: 320,
-    status: 'Completed',
-    invoiceNo: 'INV-00251',
-    paymentMethod: 'UPI',
-    items: [
-      {
-        name: 'Tomato',
-        grade: 'Grade 1',
-        batch: 'BTH-00231',
-        qtyText: '2 KG @ ₹100',
-        pricePerUnit: 100,
-        lineTotal: 200,
-      },
-    ],
-  },
+  sale: saleProp,
+  saleId: saleIdProp,
+  isLoading: isLoadingProp,
+  error: errorProp,
+  onRetry: onRetryProp,
   onBack,
   onViewInvoice,
   scope,
@@ -96,6 +89,25 @@ export function SaleDetailScreen({
   const canShowInvoice = can('invoice.view_own');
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
 
+  const effectiveSaleId = saleProp?.id ?? saleIdProp;
+  const saleQuery = useAdminQuery(
+    adminKeys.detail('sales', effectiveSaleId ?? ''),
+    (signal: AbortSignal) => getSale(effectiveSaleId!, signal),
+    { enabled: saleProp === undefined && !!effectiveSaleId }
+  );
+
+  const effectiveLoading = isLoadingProp ?? (saleProp === undefined && !!effectiveSaleId && saleQuery.isLoading);
+  const effectiveError = errorProp ?? (saleProp === undefined && !!effectiveSaleId ? saleQuery.error : undefined);
+  const effectiveRetry = onRetryProp ?? (saleProp === undefined && !!effectiveSaleId ? () => saleQuery.refetch() : undefined);
+
+  const sale: SaleRecord | undefined = useMemo(() => {
+    if (saleProp !== undefined) return saleProp;
+    if (saleQuery.data) {
+      return toSaleRecordFromDto(saleQuery.data, scope.warehouseName);
+    }
+    return undefined;
+  }, [saleProp, saleQuery.data, scope.warehouseName]);
+
   const handleViewInvoice = () => {
     if (onViewInvoice) {
       onViewInvoice();
@@ -104,12 +116,56 @@ export function SaleDetailScreen({
     }
   };
 
+  if (effectiveLoading) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.headerBanner}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+              <ArrowBackIcon size={24} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Sale Details</Text>
+          </View>
+        </View>
+        <View style={styles.stateContainer}>
+          <ActivityIndicator size="small" color={adminColors.brand} />
+          <Text style={styles.stateText}>Loading sale details...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (effectiveError) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.headerBanner}>
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
+              <ArrowBackIcon size={24} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Sale Details</Text>
+          </View>
+        </View>
+        <View style={styles.stateContainer}>
+          <Text style={styles.stateText}>Failed to load sale.</Text>
+          {effectiveRetry && (
+            <TouchableOpacity onPress={effectiveRetry} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   // A Sub admin sees only its own warehouse's sales. A record from another
   // warehouse renders as not found (empty), never as a 403 that would confirm
   // the sale exists (root CLAUDE.md 2.1).
   const outOfScope =
-    scope.warehouseId !== undefined && sale.warehouseId !== undefined && sale.warehouseId !== scope.warehouseId;
-  if (outOfScope) {
+    sale && scope.warehouseId !== undefined && sale.warehouseId !== undefined && sale.warehouseId !== scope.warehouseId;
+  if (!sale || outOfScope) {
     return (
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -133,39 +189,20 @@ export function SaleDetailScreen({
       <InvoiceDetailScreen
         scope={scope}
         can={can}
-        invoiceId={sale.invoiceNo || 'INV-00251'}
+        invoiceId={sale.invoiceNo || ''}
         onBack={() => setShowInvoiceScreen(false)}
       />
     );
   }
 
-  const defaultItems = [
-    {
-      name: 'Tomato',
-      grade: 'Grade 1',
-      batch: 'BTH-00231',
-      qtyText: '2 KG @ ₹100',
-      pricePerUnit: 100,
-      lineTotal: 200,
-    },
-    {
-      name: 'Carrot',
-      grade: 'Grade 1',
-      batch: 'BTH-00189',
-      qtyText: '1 KG @ ₹120',
-      pricePerUnit: 120,
-      lineTotal: 120,
-    },
-  ];
-
-  const saleItems = sale.items && sale.items.length > 0 ? sale.items : defaultItems;
+  const saleItems = sale.items ?? [];
   const itemsTotal = saleItems.reduce((acc, it) => acc + (it.lineTotal ?? 0), 0);
-  const totalAmount = sale.amount || itemsTotal || 320;
+  const totalAmount = sale.amount || itemsTotal || 0;
 
   const warehouseDisplayName =
     sale.warehouseName?.replace(/ Warehouse$/, '') ??
     scope.warehouseName?.replace(/ Warehouse$/, '') ??
-    'Coonoor';
+    '—';
 
   const timelineSteps = [
     { title: 'Sale Created' },
@@ -193,9 +230,9 @@ export function SaleDetailScreen({
         </View>
 
         <View style={styles.headerSubRow}>
-          <Text style={styles.headerSaleId}>{sale.id || 'SALE-00251'} · </Text>
+          <Text style={styles.headerSaleId}>{sale.id || '—'} · </Text>
           <View style={styles.paidBadge}>
-            <Text style={styles.paidBadgeText}>Paid</Text>
+            <Text style={styles.paidBadgeText}>{sale.status || 'Paid'}</Text>
           </View>
         </View>
       </View>
@@ -212,18 +249,18 @@ export function SaleDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Sale ID</Text>
-              <Text style={styles.fieldValueBold}>{sale.id || 'SALE-00251'}</Text>
+              <Text style={styles.fieldValueBold}>{sale.id || '—'}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Date</Text>
-              <Text style={styles.fieldValueBold}>24 Sep 2026</Text>
+              <Text style={styles.fieldValueBold}>{sale.dateText || '—'}</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Time</Text>
-              <Text style={styles.fieldValueBold}>10:42 AM</Text>
+              <Text style={styles.fieldValueBold}>—</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Warehouse</Text>
@@ -234,7 +271,7 @@ export function SaleDetailScreen({
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Sales Channel</Text>
-              <Text style={styles.fieldValueBold}>Direct</Text>
+              <Text style={styles.fieldValueBold}>{sale.channel || 'Direct'}</Text>
             </View>
           </View>
         </View>
@@ -245,11 +282,11 @@ export function SaleDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Customer</Text>
-              <Text style={styles.fieldValueBold}>{sale.customerName || 'Arun Kumar'}</Text>
+              <Text style={styles.fieldValueBold}>{sale.customerName || '—'}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Customer ID</Text>
-              <Text style={styles.fieldValueBold}>{sale.customerCode || 'CUS-00251'}</Text>
+              <Text style={styles.fieldValueBold}>{sale.customerCode || '—'}</Text>
             </View>
           </View>
         </View>
@@ -302,7 +339,7 @@ export function SaleDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Method</Text>
-              <Text style={styles.fieldValueBold}>{sale.paymentMethod || 'UPI'}</Text>
+              <Text style={styles.fieldValueBold}>{sale.paymentMethod || '—'}</Text>
             </View>
 
             <View style={styles.gridCol}>
@@ -656,5 +693,27 @@ const styles = StyleSheet.create({
   navLabelActive: {
     color: adminColors.brand,
     fontWeight: '700',
+  },
+  stateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    gap: 8,
+  },
+  stateText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
   },
 });

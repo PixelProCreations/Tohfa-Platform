@@ -14,7 +14,6 @@ import { ScrollView, StyleSheet } from 'react-native';
 
 import { adminSpacing } from '../../../theme';
 import { InfoCard, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
-import { INITIAL_RMA_ITEMS } from './fixtures';
 import type { ReturnHistoryRecord, WarehouseScreenBaseProps } from './types';
 
 export interface ReturnHistoryDetailScreenProps extends WarehouseScreenBaseProps {
@@ -26,24 +25,20 @@ const NOT_AVAILABLE = '—';
 export function ReturnHistoryDetailScreen({ scope, record, onBack }: ReturnHistoryDetailScreenProps) {
   const isRejected = record.status === 'Rejected';
   const decision = record.decision ?? (isRejected ? 'Rejected' : 'Approved');
-  const matchedRma = INITIAL_RMA_ITEMS.find(
-    (item) => item.rmaId === record.rmaId || item.orderId === record.orderId,
-  );
 
-  const customerName = record.customerName || matchedRma?.customerName || 'Ravi Kumar';
-  const customerId = record.customerId || matchedRma?.customerId || 'CUS-001245';
-  const orderId = record.orderId || matchedRma?.orderId || 'ORD-002145';
-  const orderDate = record.orderDate || matchedRma?.orderDate || '24 Sep 2026';
+  const customerName = record.customerName || NOT_AVAILABLE;
+  const customerId = record.customerId || NOT_AVAILABLE;
+  const orderId = record.orderId || NOT_AVAILABLE;
+  const orderDate = record.orderDate || NOT_AVAILABLE;
   const warehouse =
     record.warehouseName ||
-    (scope.warehouseName ? scope.warehouseName.replace(/ Sub-Warehouse| Warehouse/, '') : 'Coonoor');
-  const salesChannel = record.salesChannel || matchedRma?.salesChannel || 'Online Order';
-  const ticketId = record.ticketId || matchedRma?.ticketId || 'TKT-2026-00125';
-  const issueCategory = record.issueCategory || record.reasonTag || matchedRma?.issueCategory || 'Damaged';
-  const reportedDate = record.reportedDate || matchedRma?.reportedDate || record.date || '25 Sep 2026';
-  const description =
-    record.description || matchedRma?.description || 'Customer reported damaged produce after pickup.';
-  const processedBy = record.processedBy ? record.processedBy.replace('Warehouse Admin', 'SWA') : 'SWA – Suresh';
+    (scope.warehouseName ? scope.warehouseName.replace(/ Sub-Warehouse| Warehouse/, '') : NOT_AVAILABLE);
+  const salesChannel = record.salesChannel || NOT_AVAILABLE;
+  const ticketId = record.ticketId || NOT_AVAILABLE;
+  const issueCategory = record.issueCategory || record.reasonTag || NOT_AVAILABLE;
+  const reportedDate = record.reportedDate || record.date || NOT_AVAILABLE;
+  const description = record.description || NOT_AVAILABLE;
+  const processedBy = record.processedBy ? record.processedBy.replace('Warehouse Admin', 'SWA') : NOT_AVAILABLE;
 
   return (
     <ReturnsScreen title="Return History Detail" onBack={onBack}>

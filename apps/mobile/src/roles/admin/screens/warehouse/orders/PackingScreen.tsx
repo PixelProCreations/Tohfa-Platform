@@ -13,7 +13,7 @@
  *     the packed confirmation have no code assigned yet and stay ungated.
  */
 // Design id: M5S07 (Packing), absorbs M5S08 (Confirm Packing)
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,19 +23,21 @@ import {
   StyleSheet,
   SafeAreaView,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getAdminOrder, packOrder, type AdminOrderDetailDto, type AdminOrderLineDto } from '../../../api/orders';
+import { gradeDisplayLabel } from './mappers';
 import type { OrderScreenBaseProps, PackingStep, WarehouseNavigate } from './types';
 
 export interface PackingScreenProps extends OrderScreenBaseProps {
   /** Which step to open on; the host passes `params.step` (old M5S08 links use 'confirm'). */
   initialStep?: PackingStep | undefined;
 }
-
-/** Mock order id used until orders are wired to the API. */
-const SAMPLE_ORDER_ID = 'ORD-1024';
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -197,19 +199,27 @@ interface ChecklistItem {
  * The packing form's state lives in the parent so that stepping back from the
  * confirmation does not wipe what the packer already ticked and typed.
  */
-function usePackingForm() {
-  const [checklist, setChecklist] = useState<ChecklistItem[]>([
-    { id: '1', name: 'Tomato · 2 KG', checked: true },
-    { id: '2', name: 'Carrot · 3 KG', checked: true },
-    { id: '3', name: 'Beans · 1 KG', checked: false },
-    { id: '4', name: 'Cabbage · 2 KG', checked: false },
-  ]);
+function usePackingForm(items: AdminOrderLineDto[]) {
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [packedQty, setPackedQty] = useState('');
   const [packageType, setPackageType] = useState('Select');
   const [showPackagePicker, setShowPackagePicker] = useState(false);
-  const [packageCount, setPackageCount] = useState('2');
+  const [packageCount, setPackageCount] = useState('1');
   const [notes, setNotes] = useState('');
   const [hasPhoto, setHasPhoto] = useState(false);
+
+  useEffect(() => {
+    if (items.length > 0) {
+      setChecklist(
+        items.map((item, idx) => ({
+          id: item.productId || String(idx),
+          name: `${item.name} · ${item.qtyKg} KG`,
+          checked: true,
+        })),
+      );
+      setPackedQty(String(items[0]?.qtyKg ?? ''));
+    }
+  }, [items]);
 
   const toggleCheck = (id: string) => {
     setChecklist((prev) => prev.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item)));
@@ -239,15 +249,17 @@ type PackingForm = ReturnType<typeof usePackingForm>;
 
 interface PackingStepViewProps {
   orderId: string;
+  order: AdminOrderDetailDto;
   form: PackingForm;
   canMarkPacked: boolean;
   onBack: () => void;
   onConfirm: () => void;
 }
 
-function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: PackingStepViewProps) {
+function PackingStepView({ orderId, order, form, canMarkPacked, onBack, onConfirm }: PackingStepViewProps) {
   const { checklist } = form;
   const checkedCount = checklist.filter((c) => c.checked).length;
+  const firstItem = order.items[0];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -280,23 +292,23 @@ function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: Pa
           <View style={styles.itemDetailCard}>
             <View style={styles.twoColRow}>
               <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Tomato</Text>
-                <Text style={styles.detailValue}>Grade 1</Text>
+                <Text style={styles.detailLabel}>{firstItem?.name ?? '—'}</Text>
+                <Text style={styles.detailValue}>{firstItem?.grade ? gradeDisplayLabel(firstItem.grade) : '—'}</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Location</Text>
-                <Text style={styles.detailValue}>Cold Storage · Rack 02</Text>
+                <Text style={styles.detailValue}>Cold Storage</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, styles.twoColRowSpaced]}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Required</Text>
-                <Text style={styles.detailValue}>2 KG</Text>
+                <Text style={styles.detailValue}>{firstItem?.qtyKg ?? 0} KG</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Packed</Text>
-                <Text style={styles.detailValue}>2 KG</Text>
+                <Text style={styles.detailValue}>{form.packedQty || (firstItem?.qtyKg ?? 0)} KG</Text>
               </View>
             </View>
           </View>
@@ -413,15 +425,36 @@ function PackingStepView({ orderId, form, canMarkPacked, onBack, onConfirm }: Pa
 
 interface ConfirmStepViewProps {
   orderId: string;
+  order: AdminOrderDetailDto;
   canMarkPacked: boolean;
   onBack: () => void;
   onNavigate?: WarehouseNavigate | undefined;
 }
 
-function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: ConfirmStepViewProps) {
-  // M5S08 showed its "Order Packed" result in place after confirming; that
-  // stays a sub-state of this step rather than becoming a third step.
+function ConfirmStepView({ orderId, order, canMarkPacked, onBack, onNavigate }: ConfirmStepViewProps) {
   const [isPacked, setIsPacked] = useState(false);
+  const [isPacking, setIsPacking] = useState(false);
+  const [packError, setPackError] = useState<string | null>(null);
+  const [packedAtTime, setPackedAtTime] = useState<string>('Just now');
+
+  const customerName = order.buyer?.name || '—';
+  const totalQtyKg = order.items.reduce((acc, it) => acc + (Number(it.qtyKg) || 0), 0);
+  const isPickup = order.fulfilmentType === 'PICKUP';
+
+  const handleConfirmPacking = async () => {
+    setIsPacking(true);
+    setPackError(null);
+    try {
+      await packOrder(orderId, {}, crypto.randomUUID());
+      const now = new Date();
+      setPackedAtTime(now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }));
+      setIsPacked(true);
+    } catch (err: any) {
+      setPackError(err?.message || 'Failed to confirm packing');
+    } finally {
+      setIsPacking(false);
+    }
+  };
 
   if (isPacked) {
     return (
@@ -444,28 +477,31 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Packed at</Text>
-                <Text style={styles.detailValue}>11:15 AM</Text>
+                <Text style={styles.detailValue}>{packedAtTime}</Text>
               </View>
             </View>
           </View>
 
           <View style={styles.bottomBarPacked}>
-            <TouchableOpacity
-              style={[styles.primaryBtn, styles.stackedBtnGap]}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S09', { orderId })}
-            >
-              <PersonCheckIcon />
-              <Text style={styles.primaryBtnText}>Mark Ready for Pickup</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.outlineBtn}
-              activeOpacity={0.8}
-              onPress={() => onNavigate?.('M5S13', { orderId })}
-            >
-              <Text style={styles.outlineBtnText}>Prepare for Dispatch (Delivery)</Text>
-            </TouchableOpacity>
+            {isPickup ? (
+              <TouchableOpacity
+                style={[styles.primaryBtn, styles.stackedBtnGap]}
+                activeOpacity={0.8}
+                onPress={() => onNavigate?.('M5S09', { orderId })}
+              >
+                <PersonCheckIcon />
+                <Text style={styles.primaryBtnText}>Mark Ready for Pickup</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.primaryBtn, styles.stackedBtnGap]}
+                activeOpacity={0.8}
+                onPress={() => onNavigate?.('M5S13', { orderId })}
+              >
+                <PersonCheckIcon />
+                <Text style={styles.primaryBtnText}>Prepare for Dispatch (Delivery)</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </SafeAreaView>
@@ -491,18 +527,18 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Items</Text>
-                <Text style={styles.detailValue}>4 / 4</Text>
+                <Text style={styles.detailValue}>{order.items.length} / {order.items.length}</Text>
               </View>
             </View>
 
             <View style={[styles.twoColRow, styles.twoColRowSpaced]}>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Total Quantity</Text>
-                <Text style={styles.detailValue}>8 KG</Text>
+                <Text style={styles.detailValue}>{totalQtyKg} KG</Text>
               </View>
               <View style={styles.detailCol}>
                 <Text style={styles.detailLabel}>Customer</Text>
-                <Text style={styles.detailValue}>Arun Kumar</Text>
+                <Text style={styles.detailValue}>{customerName}</Text>
               </View>
             </View>
           </View>
@@ -515,14 +551,31 @@ function ConfirmStepView({ orderId, canMarkPacked, onBack, onNavigate }: Confirm
             </View>
           ))}
 
+          {packError ? (
+            <View style={[styles.confirmPromptBox, { backgroundColor: adminColors.danger.bg, marginTop: adminSpacing.md }]}>
+              <Text style={[styles.confirmPromptText, { color: adminColors.danger.text }]}>{packError}</Text>
+            </View>
+          ) : null}
+
           <View style={styles.scrollSpacer} />
         </ScrollView>
 
         {canMarkPacked ? (
           <View style={styles.bottomBar}>
-            <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={() => setIsPacked(true)}>
-              <CheckmarkIcon />
-              <Text style={styles.primaryBtnText}>Yes, Confirm Packing</Text>
+            <TouchableOpacity
+              style={[styles.primaryBtn, isPacking && { opacity: 0.6 }]}
+              activeOpacity={0.8}
+              disabled={isPacking}
+              onPress={handleConfirmPacking}
+            >
+              {isPacking ? (
+                <ActivityIndicator size="small" color={adminColors.onBrand} />
+              ) : (
+                <>
+                  <CheckmarkIcon />
+                  <Text style={styles.primaryBtnText}>Yes, Confirm Packing</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         ) : null}
@@ -537,17 +590,64 @@ export function PackingScreen({
   can,
   onBack,
   onNavigate,
-  orderId = SAMPLE_ORDER_ID,
+  orderId,
   initialStep = 'packing',
 }: PackingScreenProps) {
   const [step, setStep] = useState<PackingStep>(initialStep);
-  const form = usePackingForm();
   const canMarkPacked = can('order.mark_packed');
+
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: !!orderId },
+  );
+
+  const order = orderQuery.data;
+  const form = usePackingForm(order?.items ?? []);
+
+  if (!orderId) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Packing" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>No order selected</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.isLoading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Packing" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={adminColors.brand} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (orderQuery.error || !order) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <Header title="Packing" onBack={onBack} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: adminSpacing.lg }}>
+          <Text style={{ ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.sm }}>
+            Failed to load order
+          </Text>
+          <TouchableOpacity style={styles.primaryBtn} onPress={() => orderQuery.refetch()}>
+            <Text style={styles.primaryBtnText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (step === 'confirm') {
     return (
       <ConfirmStepView
         orderId={orderId}
+        order={order}
         canMarkPacked={canMarkPacked}
         onBack={() => setStep('packing')}
         onNavigate={onNavigate}
@@ -558,6 +658,7 @@ export function PackingScreen({
   return (
     <PackingStepView
       orderId={orderId}
+      order={order}
       form={form}
       canMarkPacked={canMarkPacked}
       onBack={onBack}

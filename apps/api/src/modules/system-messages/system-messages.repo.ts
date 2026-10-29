@@ -2,7 +2,7 @@ import { ScopeLevel, type RoleCode } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseScopeFilter } from '../../rbac/warehouseScope.js';
-import type { ListSystemMessagesQuery } from './system-messages.schema.js';
+import type { ListSystemMessagesQuery, SystemMessageType } from './system-messages.schema.js';
 
 /** Who is asking: the visibility rule needs the user, every role they hold and their warehouses. */
 export interface SystemMessageViewer {
@@ -15,6 +15,8 @@ export interface SystemMessageRow {
   id: string;
   /** Never ZONE: the visibility clause does not match zone announcements. */
   scope: 'SYSTEM_WIDE' | 'WAREHOUSE' | 'ROLE';
+  /** BR-134: never null; the column defaults to GENERAL and a CHECK keeps it inside the set. */
+  type: SystemMessageType;
   title: string;
   body: string;
   locale: 'en' | 'ta';
@@ -55,7 +57,7 @@ interface Row extends SystemMessageRow {
   starts_at_cursor: string;
 }
 
-const COLUMNS = `a.id, a.scope, a.title, a.body, a.locale, a.starts_at, a.ends_at, a.created_at,
+const COLUMNS = `a.id, a.scope, a.type, a.title, a.body, a.locale, a.starts_at, a.ends_at, a.created_at,
        ar.read_at,
        to_char(a.starts_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS starts_at_cursor`;
 
@@ -101,6 +103,7 @@ function toRow(row: Row): SystemMessageRow {
   return {
     id: row.id,
     scope: row.scope,
+    type: row.type,
     title: row.title,
     body: row.body,
     locale: row.locale,

@@ -17,7 +17,8 @@ import { OverviewDashboardCard } from '../../../components';
 
 import { SALE_WAREHOUSES, WarehouseChips, isAllWarehouses } from './SalesParts';
 import { WarehouseSelector } from '../inventory';
-import type { SalesChannel, WarehouseScreenBaseProps } from './types';
+import type { SaleRecord, SalesChannel, WarehouseScreenBaseProps } from './types';
+import { formatPaise } from '../../../money/paise';
 import { BellRingIcon, HeaderIconButton, WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 
 
@@ -312,6 +313,7 @@ const WAREHOUSE_OPTIONS = [
 
 // Design id: M6-S01 & M6-01 Sales Dashboard
 export interface SalesScreenProps extends WarehouseScreenBaseProps {
+  recentSales?: readonly SaleRecord[] | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToNewSale: () => void;
   onNavigateToSalesHistory: () => void;
@@ -324,6 +326,7 @@ export interface SalesScreenProps extends WarehouseScreenBaseProps {
 
 export function SalesScreen({
   scope,
+  recentSales,
   onBack,
   onTabChange,
   onNavigateToNotifications,
@@ -347,13 +350,15 @@ export function SalesScreen({
     SALE_WAREHOUSES.find((w) => w.warehouseId === pickedWarehouse)?.warehouseName ??
     'All warehouses';
 
+  const recentSale = recentSales?.[0];
+
   const handleOpenNewSale = () => onNavigateToNewSale();
   const handleOpenSalesHistory = () => onNavigateToSalesHistory();
   const handleOpenMarketDaySales = () => onNavigateToMarketDaySales();
   const handleOpenHorecaSales = () => onNavigateToChannelSales('HORECA');
   const handleOpenB2BSales = () => onNavigateToChannelSales('B2B');
   const handleOpenNeedsAttention = (cat: AttentionCategory = 'all') => onNavigateToNeedsAttention?.(cat);
-  const handleOpenSaleDetail = (saleId: string = 'SALE-00251') => onNavigateToSaleDetail(saleId);
+  const handleOpenSaleDetail = (saleId?: string) => onNavigateToSaleDetail(saleId);
 
   // Static KPI data for New Direct Sale / Sales dashboard
   const kpiData = {
@@ -600,24 +605,34 @@ export function SalesScreen({
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.mainRecentSaleCard}
-              onPress={() => handleOpenSaleDetail('SALE-00251')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.mainRecentTopRow}>
-                <Text style={styles.mainRecentId}>SALE-00251</Text>
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>Paid</Text>
+            {recentSale ? (
+              <TouchableOpacity
+                style={styles.mainRecentSaleCard}
+                onPress={() => handleOpenSaleDetail(recentSale.id)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.mainRecentTopRow}>
+                  <Text style={styles.mainRecentId}>{recentSale.id}</Text>
+                  <View style={styles.paidBadge}>
+                    <Text style={styles.paidBadgeText}>{recentSale.status}</Text>
+                  </View>
                 </View>
+                <Text style={styles.mainRecentItems}>
+                  {recentSale.customerName}{recentSale.itemCountText ? ` · ${recentSale.itemCountText}` : ''}
+                </Text>
+                <View style={styles.mainRecentDivider} />
+                <View style={styles.mainRecentBottomRow}>
+                  <Text style={styles.mainRecentWarehouse}>
+                    {recentSale.channel}{recentSale.warehouseName ? ` · ${recentSale.warehouseName}` : ''}
+                  </Text>
+                  <Text style={styles.mainRecentAmount}>{formatPaise(recentSale.amount)}</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.mainRecentSaleCard}>
+                <Text style={styles.mainRecentItems}>No recent sales</Text>
               </View>
-              <Text style={styles.mainRecentItems}>Tomato · 2 KG</Text>
-              <View style={styles.mainRecentDivider} />
-              <View style={styles.mainRecentBottomRow}>
-                <Text style={styles.mainRecentWarehouse}>Direct · Coonoor</Text>
-                <Text style={styles.mainRecentAmount}>₹200</Text>
-              </View>
-            </TouchableOpacity>
+            )}
           </>
         ) : (
           /* ═══════════════════════════════════════════════════════════════════════
@@ -782,26 +797,34 @@ export function SalesScreen({
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.recentSaleCard}
-              onPress={() => handleOpenSaleDetail('SALE-00251')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.recentSaleTopRow}>
-                <Text style={styles.recentSaleId}>SALE-00251</Text>
-                <View style={styles.paidBadge}>
-                  <Text style={styles.paidBadgeText}>Paid</Text>
+            {recentSale ? (
+              <TouchableOpacity
+                style={styles.recentSaleCard}
+                onPress={() => handleOpenSaleDetail(recentSale.id)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.recentSaleTopRow}>
+                  <Text style={styles.recentSaleId}>{recentSale.id}</Text>
+                  <View style={styles.paidBadge}>
+                    <Text style={styles.paidBadgeText}>{recentSale.status}</Text>
+                  </View>
                 </View>
-              </View>
-              <Text style={styles.recentSaleCustomer}>Rajesh Kumar · 2 Items</Text>
-              <View style={styles.recentSaleBottomRow}>
-                <Text style={styles.recentSaleType}>Direct Sale</Text>
-                <View style={styles.recentSaleRight}>
-                  <Text style={styles.recentSaleTime}>Today · 6:35 PM</Text>
-                  <Text style={styles.recentSaleAmount}>₹500</Text>
+                <Text style={styles.recentSaleCustomer}>
+                  {recentSale.customerName}{recentSale.itemCountText ? ` · ${recentSale.itemCountText}` : ''}
+                </Text>
+                <View style={styles.recentSaleBottomRow}>
+                  <Text style={styles.recentSaleType}>{recentSale.channel}</Text>
+                  <View style={styles.recentSaleRight}>
+                    <Text style={styles.recentSaleTime}>{recentSale.dateText}</Text>
+                    <Text style={styles.recentSaleAmount}>{formatPaise(recentSale.amount)}</Text>
+                  </View>
                 </View>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.recentSaleCard}>
+                <Text style={styles.recentSaleCustomer}>No recent sales</Text>
               </View>
-            </TouchableOpacity>
+            )}
 
             {/* 5. Needs Attention */}
             <View style={styles.needsAttentionHeader}>

@@ -11,10 +11,14 @@
  * old M5S10 route was folded into it.
  */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { listAdminOrders } from '../../../api/orders';
+import { formatMoney } from './mappers';
 import type { OrderScreenBaseProps } from './types';
 
 export type ReadyForPickupScreenProps = OrderScreenBaseProps;
@@ -75,25 +79,6 @@ interface ReadyOrder {
   packed: string;
 }
 
-const READY_ORDERS: ReadyOrder[] = [
-  {
-    id: 'ORD-1024',
-    customer: 'Arun Kumar',
-    items: '4 Items',
-    amount: '₹850',
-    time: 'Ready for 2h 15m',
-    packed: 'Packed 11:15 AM',
-  },
-  {
-    id: 'ORD-1023',
-    customer: 'Priya',
-    items: '5 Items',
-    amount: '₹1,240',
-    time: 'Ready for 3h 40m',
-    packed: 'Packed 09:45 AM',
-  },
-];
-
 function OrderCardBody({ order }: { order: ReadyOrder }) {
   return (
     <>
@@ -121,11 +106,39 @@ function OrderCardBody({ order }: { order: ReadyOrder }) {
   );
 }
 
-export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickupScreenProps) {
+export function ReadyForPickupScreen({ scope, can, onBack, onNavigate }: ReadyForPickupScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const canVerify = can('order.pickup_otp.verify');
 
-  const filteredOrders = READY_ORDERS.filter(
+  const ordersQuery = useAdminQuery(
+    adminKeys.scoped('orders', scope.warehouseId, { resource: 'ready-for-pickup' }),
+    (signal) => listAdminOrders({ warehouseId: scope.warehouseId, status: 'READY_FOR_PICKUP' }, signal),
+  );
+
+  const readyOrders: ReadyOrder[] = (ordersQuery.data?.items ?? []).map((o) => {
+    let readyText = 'Ready';
+    if (o.readyAt) {
+      const diffMs = Date.now() - new Date(o.readyAt).getTime();
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      readyText = hours > 0 ? `Ready for ${hours}h ${mins}m` : `Ready for ${mins}m`;
+    }
+    let packedText = 'Packed';
+    if (o.packedAt) {
+      const d = new Date(o.packedAt);
+      packedText = `Packed ${d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+    }
+    return {
+      id: o.orderNumber,
+      customer: o.customerName ?? '—',
+      items: `${o.itemCount ?? 0} ${(o.itemCount ?? 0) === 1 ? 'Item' : 'Items'}`,
+      amount: formatMoney(o.totalAmount),
+      time: readyText,
+      packed: packedText,
+    };
+  });
+
+  const filteredOrders = readyOrders.filter(
     (order) =>
       order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customer.toLowerCase().includes(searchQuery.toLowerCase())
@@ -142,7 +155,9 @@ export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickup
         </View>
 
         <View style={styles.subtitleRow}>
-          <Text style={styles.subtitleText}>7 Orders</Text>
+          <Text style={styles.subtitleText}>
+            {ordersQuery.isLoading ? '—' : `${readyOrders.length} ${readyOrders.length === 1 ? 'Order' : 'Orders'}`}
+          </Text>
         </View>
 
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
@@ -157,20 +172,49 @@ export function ReadyForPickupScreen({ can, onBack, onNavigate }: ReadyForPickup
             />
           </View>
 
-          {filteredOrders.map((order) =>
-            canVerify ? (
+          {ordersQuery.isLoading ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <ActivityIndicator size="small" color={adminColors.brand} />
+              <Text style={{ ...adminType.body, color: adminColors.muted, marginTop: adminSpacing.sm }}>
+                Loading orders...
+              </Text>
+            </View>
+          ) : ordersQuery.error ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <Text style={{ ...adminType.body, color: adminColors.muted }}>Failed to load orders</Text>
               <TouchableOpacity
-                key={order.id}
-                style={styles.orderCard}
-                activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S11', { orderId: order.id, step: 'verify' })}
+                onPress={() => ordersQuery.refetch()}
+                style={{
+                  paddingHorizontal: adminSpacing.md,
+                  paddingVertical: adminSpacing.xs,
+                  backgroundColor: adminColors.brandTint,
+                  borderRadius: adminRadius.sm,
+                  marginTop: adminSpacing.sm,
+                }}
               >
-                <OrderCardBody order={order} />
+                <Text style={{ ...adminType.caption, color: adminColors.brandDeep, fontWeight: '700' }}>Retry</Text>
               </TouchableOpacity>
-            ) : (
-              <View key={order.id} style={styles.orderCard}>
-                <OrderCardBody order={order} />
-              </View>
+            </View>
+          ) : filteredOrders.length === 0 ? (
+            <View style={{ paddingVertical: 40, alignItems: 'center' }}>
+              <Text style={{ ...adminType.body, color: adminColors.muted }}>No orders ready for pickup</Text>
+            </View>
+          ) : (
+            filteredOrders.map((order) =>
+              canVerify ? (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.orderCard}
+                  activeOpacity={0.75}
+                  onPress={() => onNavigate?.('M5S11', { orderId: order.id, step: 'verify' })}
+                >
+                  <OrderCardBody order={order} />
+                </TouchableOpacity>
+              ) : (
+                <View key={order.id} style={styles.orderCard}>
+                  <OrderCardBody order={order} />
+                </View>
+              )
             )
           )}
 

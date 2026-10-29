@@ -32,4 +32,4 @@ export type {
   WalletTransactionRecord,
 } from './types';
 export { moneyToWholeRupees, useCustomerLookup, useCustomerWallet, useCashTopupsReport, useDailyCashData, useCreateCashTopup } from './useWalletData';
-export { rupeesFromMoney, formatIstDate, formatIstTime, mapWalletTransactionDtoToRecord, mapWalletTransactionDtoToHistoryRow } from './mappers';
+export { formatWalletMoney, formatIstDate, formatIstTime, mapWalletTransactionDtoToRecord, mapWalletTransactionDtoToHistoryRow } from './mappers';

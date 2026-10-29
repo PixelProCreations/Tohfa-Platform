@@ -67,8 +67,6 @@ function hasActiveFilters(f: InvoiceFilterState | undefined): boolean {
       f.invoiceType !== 'All' ||
       f.datePreset !== 'All Time' ||
       f.sortBy !== 'Newest First' ||
-      f.customer ||
-      f.orderId ||
       f.minAmount ||
       f.maxAmount ||
       f.searchQuery ||
@@ -79,9 +77,7 @@ function hasActiveFilters(f: InvoiceFilterState | undefined): boolean {
 function matchesFilters(item: InvoiceRecord, f: InvoiceFilterState | undefined): boolean {
   if (!f) return true;
   if (f.status !== 'All' && item.status !== f.status) return false;
-  if (f.invoiceType !== 'All' && item.saleType !== f.invoiceType) return false;
-  if (f.customer && !item.customerName.toLowerCase().includes(f.customer.toLowerCase())) return false;
-  if (f.orderId && !item.orderNumber.toLowerCase().includes(f.orderId.toLowerCase())) return false;
+  if (f.invoiceType !== 'All' && item.invoiceType !== f.invoiceType) return false;
   const amount = rupeesOf(item.amount);
   if (f.minAmount && amount < rupeesOf(f.minAmount)) return false;
   if (f.maxAmount && amount > rupeesOf(f.maxAmount)) return false;
@@ -90,10 +86,10 @@ function matchesFilters(item: InvoiceRecord, f: InvoiceFilterState | undefined):
 
 function compareBy(sort: InvoiceFilterState['sortBy']) {
   return (a: InvoiceRecord, b: InvoiceRecord): number => {
-    if (sort === 'Oldest First') return a.id.localeCompare(b.id);
+    if (sort === 'Oldest First') return a.issueDate.localeCompare(b.issueDate);
     if (sort === 'Highest Amount') return rupeesOf(b.amount) - rupeesOf(a.amount);
     if (sort === 'Lowest Amount') return rupeesOf(a.amount) - rupeesOf(b.amount);
-    return b.id.localeCompare(a.id);
+    return b.issueDate.localeCompare(a.issueDate);
   };
 }
 
@@ -131,8 +127,8 @@ export function InvoiceListScreen({
       .filter(
         (item) =>
           !q ||
-          item.id.toLowerCase().includes(q) ||
-          item.orderNumber.toLowerCase().includes(q) ||
+          item.invoiceNumber.toLowerCase().includes(q) ||
+          (item.orderId ?? '').toLowerCase().includes(q) ||
           item.customerName.toLowerCase().includes(q),
       )
       .filter((item) => matchesFilters(item, appliedFilters))
@@ -165,19 +161,17 @@ export function InvoiceListScreen({
         activeOpacity={0.88}
       >
         <View style={styles.rowBetween}>
-          <Text style={styles.invoiceId}>{inv.id}</Text>
+          <Text style={styles.invoiceId}>{inv.invoiceNumber}</Text>
           <StatusBadge status={inv.status} />
         </View>
         <Text style={styles.metaText}>
-          {inv.customerName ? `${inv.customerName} · ` : ''}Order #{inv.orderNumber}
+          {inv.customerName ? `${inv.customerName} · ` : ''}{inv.orderId ? `Order ${inv.orderId}` : inv.saleType}
         </Text>
         <View style={[styles.rowBetween, styles.cardMidRow]}>
           <Text style={styles.metaText}>{inv.saleType}</Text>
           <Text style={styles.amountText}>{inv.amount}</Text>
         </View>
-        <Text style={styles.metaText}>
-          {inv.date} · {inv.time}
-        </Text>
+        <Text style={styles.metaText}>{inv.date}</Text>
         {expanded && canView ? (
           <View style={styles.actionRow}>
             <BillingButton label="View" variant="tint" compact flex onPress={() => onNavigateToInvoiceDetail(inv.id)} />
@@ -203,12 +197,12 @@ export function InvoiceListScreen({
       activeOpacity={0.75}
     >
       <View style={styles.rowBetween}>
-        <Text style={styles.invoiceId}>{inv.id}</Text>
+        <Text style={styles.invoiceId}>{inv.invoiceNumber}</Text>
         <StatusBadge status={inv.status} />
       </View>
       {inv.customerName ? <Text style={styles.metaText}>{inv.customerName}</Text> : null}
       <View style={[styles.rowBetween, styles.cardMidRow]}>
-        <Text style={styles.metaText}>{inv.time}</Text>
+        <Text style={styles.metaText}>{inv.date}</Text>
         <Text style={styles.amountText}>{inv.amount}</Text>
       </View>
     </TouchableOpacity>

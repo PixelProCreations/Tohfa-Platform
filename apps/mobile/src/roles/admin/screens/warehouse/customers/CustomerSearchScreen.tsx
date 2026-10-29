@@ -23,7 +23,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
-import type { CustomerSearchItem } from './types';
+import type { CustomerRecord, CustomerSearchItem } from './types';
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -85,25 +85,19 @@ function InfoNoticeIcon({ size = 18, color = adminColors.brandDeep }: { size?: n
   );
 }
 
+const RECENT_SEARCHES: readonly string[] = [];
+
 export interface CustomerSearchScreenProps extends WarehouseScreenBaseProps {
+  customers?: readonly CustomerRecord[] | undefined;
   onSelectCustomer?: ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);
   onNavigateToWallet?: (customer: CustomerSearchItem) => void;
   onNavigateToCashTopUp?: ((customer?: CustomerSearchItem) => void) | undefined;
 }
 
-const RECENT_SEARCHES = ['Rajesh Kumar', 'CUS-00192', 'XXXXX12345'];
-
-const SEARCH_DATABASE: CustomerSearchItem[] = [
-  { name: 'Rajesh Kumar', code: 'CUS-00291', id: 'CUS-00291', phone: '+91 98765 43210', balance: '₹4,500', status: 'Active' },
-  { name: 'Priya Stores', code: 'CUS-00152', id: 'CUS-00152', phone: '+91 98451 12345', balance: '₹2,100', status: 'Active' },
-  { name: 'Ganesh K.', code: 'CUS-00087', id: 'CUS-00087', phone: '+91 99887 76655', balance: '₹620', status: 'Inactive' },
-  { name: 'Ramesh Patel', code: 'CUS-00192', id: 'CUS-00192', phone: '+91 98111 12345', balance: '₹1,250', status: 'Active' },
-  { name: 'Anand Kumar', code: 'CUS-00188', id: 'CUS-00188', phone: '+91 97123 67890', balance: '₹850', status: 'Active' },
-];
-
 export function CustomerSearchScreen({
   scope,
   can,
+  customers = [],
   onBack,
   onSelectCustomer,
   onNavigateToWallet,
@@ -112,6 +106,19 @@ export function CustomerSearchScreen({
   // Hooks stay unconditional and before every early return.
   const [query, setQuery] = useState('');
   const [selectedCustomerForWallet, setSelectedCustomerForWallet] = useState<CustomerSearchItem | null>(null);
+
+  const searchDatabase: CustomerSearchItem[] = React.useMemo(
+    () =>
+      customers.map((c) => ({
+        name: c.name,
+        code: c.code ?? c.id,
+        id: c.id ?? c.code,
+        phone: c.phone ?? '—',
+        balance: c.walletBalance ?? '₹0',
+        status: c.status ?? 'Active',
+      })),
+    [customers],
+  );
 
   // Declared before the internal-wallet branch below, which calls it.
   const handleCustomerPress = (c: CustomerSearchItem) => {
@@ -141,8 +148,8 @@ export function CustomerSearchScreen({
           balance: selectedCustomerForWallet.balance.includes('.00')
             ? selectedCustomerForWallet.balance
             : `${selectedCustomerForWallet.balance}.00`,
-          totalCredited: '₹25,000',
-          totalUsed: '₹20,500',
+          totalCredited: '—',
+          totalUsed: '—',
         }}
         onBack={() => setSelectedCustomerForWallet(null)}
         onCashTopUp={() => {
@@ -184,13 +191,13 @@ export function CustomerSearchScreen({
 
   const trimmed = query.trim().toLowerCase();
   const searchResults = trimmed
-    ? SEARCH_DATABASE.filter(
+    ? searchDatabase.filter(
         (c) =>
           c.name.toLowerCase().includes(trimmed) ||
           c.code.toLowerCase().includes(trimmed) ||
           c.phone.toLowerCase().includes(trimmed)
       )
-    : SEARCH_DATABASE;
+    : searchDatabase;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -278,7 +285,7 @@ export function CustomerSearchScreen({
         </View>
 
         {/* ─── Quick Recent Tags (when not typing) ─── */}
-        {!trimmed && (
+        {!trimmed && RECENT_SEARCHES.length > 0 && (
           <View style={[styles.sectionWrap, { marginTop: adminSpacing.md }]}>
             <Text style={styles.resultsHeader}>Recent Searches</Text>
             <View style={styles.recentTagsWrap}>

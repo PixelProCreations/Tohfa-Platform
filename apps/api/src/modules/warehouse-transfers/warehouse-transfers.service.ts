@@ -343,12 +343,48 @@ export function createWarehouseTransfersService(deps: Partial<WarehouseTransfers
             errors[`body.lines.${index}.qtyReceivedKg`] = [`More than the ${line.qtySentKg} kg sent.`];
           } else {
             received.set(l.itemId, l.qtyReceivedKg);
+            // BR-126 (the BR-120 guard): damaged and spoiled are parts of the shortfall, never in
+            // addition to what is received, so the destination is credited qtyReceivedKg exactly as
+            // before. Integer grams, never floats.
+            const shortfall = kgToGrams(line.qtySentKg) - kgToGrams(l.qtyReceivedKg);
+            const broken = kgToGrams(l.damagedQtyKg ?? '0') + kgToGrams(l.spoiledQtyKg ?? '0');
+            if (broken > shortfall) {
+              errors[`body.lines.${index}.damagedQtyKg`] = [
+                'damagedQtyKg + spoiledQtyKg cannot exceed the shortfall (qtySentKg - qtyReceivedKg): they are parts of what was not received.',
+              ];
+            }
           }
         });
         if (current.lines.some((l) => !body.lines.some((b) => b.itemId === l.id))) {
           errors['body.lines'] = ['Every line of the transfer must be received exactly once (0 for nothing arrived).'];
         }
+
+        // BR-126: an actual product must be a live crop; it is stored only (the destination batch
+        // keeps the source crop and grade, UNCONFIRMED).
+        const productIds = [...new Set(body.lines.flatMap((l) => (l.actualProductId === undefined ? [] : [l.actualProductId])))];
+        const liveProducts = new Set(await repo.findLiveCropIds(tx, productIds));
+        // BR-126 / BR-125: a location must be a live, ACTIVE location of the DESTINATION; it is
+        // share-locked until this transaction ends so it cannot be switched off under the new batch.
+        const locationCodes = new Map<string, string>();
+        for (const [index, l] of body.lines.entries()) {
+          if (l.actualProductId !== undefined && !liveProducts.has(l.actualProductId)) {
+            errors[`body.lines.${index}.actualProductId`] = ['Unknown product.'];
+          }
+          if (l.storageLocationId !== undefined) {
+            const location = await repo.findPlaceableLocation(tx, current.toWarehouseId, l.storageLocationId);
+            if (location === null) {
+              errors[`body.lines.${index}.storageLocationId`] = ['No storage location with that id in the destination warehouse.'];
+            } else if (!location.isActive) {
+              errors[`body.lines.${index}.storageLocationId`] = ['The storage location is not active.'];
+            } else {
+              locationCodes.set(location.id, location.code);
+            }
+          }
+        }
         if (Object.keys(errors).length > 0) throw validationFailed('The receipt does not match the transfer.', errors);
+        const details = new Map(body.lines.map((l) => [l.itemId, l]));
+        const storageLabel = (l: ReceiveTransferBody['lines'][number]): string | null =>
+          l.storageLocation ?? (l.storageLocationId === undefined ? null : locationCodes.get(l.storageLocationId) ?? null);
 
         const hasDiscrepancy = current.lines.some((l) => kgToGrams(received.get(l.id)!) < kgToGrams(l.qtySentKg));
         if (hasDiscrepancy && body.receiptNote === undefined) {
@@ -359,8 +395,18 @@ export function createWarehouseTransfersService(deps: Partial<WarehouseTransfers
 
         for (const line of current.lines) {
           const qtyKg = received.get(line.id)!;
+          const given = details.get(line.id)!;
+          const recorded = {
+            damagedQtyKg: given.damagedQtyKg ?? '0',
+            spoiledQtyKg: given.spoiledQtyKg ?? '0',
+            condition: given.condition ?? null,
+            actualGrade: given.actualGrade ?? null,
+            actualCropId: given.actualProductId ?? null,
+            storageLocationId: given.storageLocationId ?? null,
+            storageLocation: storageLabel(given),
+          };
           if (kgToGrams(qtyKg) === 0) {
-            await repo.markItemReceived(tx, line.id, { qtyKg, destBatchId: null, inLedgerId: null });
+            await repo.markItemReceived(tx, line.id, { qtyKg, destBatchId: null, inLedgerId: null, ...recorded });
             continue;
           }
           const destBatchId = await repo.insertDestBatch(tx, {
@@ -368,6 +414,8 @@ export function createWarehouseTransfersService(deps: Partial<WarehouseTransfers
             warehouseId: current.toWarehouseId,
             qtyKg,
             transferNumber: current.transferNumber,
+            storageLocationId: recorded.storageLocationId,
+            storageLocation: recorded.storageLocation,
           });
           const inLedgerId = await repo.insertLedger(tx, {
             batchId: destBatchId,
@@ -378,7 +426,7 @@ export function createWarehouseTransfersService(deps: Partial<WarehouseTransfers
             transferNumber: current.transferNumber,
             actorId: scope.userId,
           });
-          await repo.markItemReceived(tx, line.id, { qtyKg, destBatchId, inLedgerId });
+          await repo.markItemReceived(tx, line.id, { qtyKg, destBatchId, inLedgerId, ...recorded });
         }
         await repo.markReceived(tx, id, { receivedBy: scope.userId, hasDiscrepancy, receiptNote: body.receiptNote ?? null });
 
@@ -391,7 +439,23 @@ export function createWarehouseTransfersService(deps: Partial<WarehouseTransfers
           entityId: id,
           warehouseId: transfer.toWarehouseId,
           before: image(current),
-          after: image(transfer),
+          // BR-126: the receipt number and the per-line details, never the note or the location text.
+          after: {
+            ...image(transfer),
+            receiptNumber: transfer.receiptNumber,
+            lines: transfer.lines.map((l) => ({
+              itemId: l.id,
+              qtySentKg: l.qtySentKg,
+              qtyReceivedKg: l.qtyReceivedKg,
+              damagedQtyKg: l.damagedQtyKg,
+              spoiledQtyKg: l.spoiledQtyKg,
+              condition: l.condition,
+              actualGrade: l.actualGrade,
+              actualProductId: l.actualProductId,
+              storageLocationId: l.storageLocationId,
+              destBatchId: l.destBatchId,
+            })),
+          },
           changedFields: hasDiscrepancy
             ? ['status', 'receivedBy', 'receivedAt', 'hasDiscrepancy', 'receiptNote']
             : ['status', 'receivedBy', 'receivedAt', ...(body.receiptNote === undefined ? [] : ['receiptNote'])],

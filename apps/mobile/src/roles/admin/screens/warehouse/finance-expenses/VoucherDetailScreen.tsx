@@ -106,7 +106,7 @@ export function VoucherDetailScreen({ scope, can, onBack, voucher, onViewReferen
   }
 
   const warehouse = effectiveVoucher.warehouseName ?? scopeLabel(scope);
-  const amount = rupees(effectiveVoucher.amount);
+  const amount = rupees(effectiveVoucher.amountPaise !== null && effectiveVoucher.amountPaise !== undefined ? Math.round(effectiveVoucher.amountPaise / 100) : 0);
   const tone = effectiveVoucher.status === 'Completed' ? 'success' : effectiveVoucher.status === 'Pending' ? 'warning' : 'brandSoft';
   const settled = effectiveVoucher.status === 'Completed';
 

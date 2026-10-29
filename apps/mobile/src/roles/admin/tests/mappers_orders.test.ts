@@ -15,7 +15,10 @@ import {
   toOrderDetailLines,
   orderCategoryOf,
   channelLabel,
+  deliverySlotLabel,
+  computeStockCheckRows,
 } from '../screens/warehouse/orders/mappers';
+import type { BatchDto } from '../api/inventory';
 
 // ─── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -141,6 +144,14 @@ describe('fulfillmentTypeOf', () => {
     expect(fulfillmentTypeOf('HOME_DELIVERY', undefined)).toBe('Delivery');
   });
 
+  it('maps raw PICKUP (summary) to "Pickup"', () => {
+    expect(fulfillmentTypeOf('PICKUP', undefined)).toBe('Pickup');
+  });
+
+  it('maps raw DELIVERY (summary) to "Delivery"', () => {
+    expect(fulfillmentTypeOf('DELIVERY', undefined)).toBe('Delivery');
+  });
+
   it('maps PICKUP (detail) to "Pickup"', () => {
     expect(fulfillmentTypeOf(undefined, 'PICKUP')).toBe('Pickup');
   });
@@ -183,6 +194,10 @@ describe('paymentStatusLabel', () => {
   it('maps REFUNDED to "Refunded"', () => {
     expect(paymentStatusLabel('REFUNDED')).toBe('Refunded');
   });
+
+  it('maps REFUND_DUE to "Refund Due"', () => {
+    expect(paymentStatusLabel('REFUND_DUE')).toBe('Refund Due');
+  });
 });
 
 // ─── channelLabel ─────────────────────────────────────────────────────────────
@@ -204,9 +219,20 @@ describe('channelLabel', () => {
 // ─── toOrderRow ───────────────────────────────────────────────────────────────
 
 describe('toOrderRow', () => {
-  it('maps orderNumber correctly', () => {
+  // This used to assert `r.id === 'ORD-1024'`, which locked in a bug: the row id is what the
+  // screens navigate and call the API with, and GET /admin/orders/{orderId}, pack, dispatch and
+  // verify-otp take the uuid (fulfilment.schema.ts), so every one of them answered 422.
+  it('maps the uuid to id and the human code to orderNumber', () => {
     const r = toOrderRow(SUMMARY, 'Coonoor');
-    expect(r.id).toBe('ORD-1024');
+    expect(r.id).toBe('ord-001');
+    expect(r.orderNumber).toBe('ORD-1024');
+  });
+
+  it('BR-99: a list row is addressed by the order uuid, never by its order number', () => {
+    const r = toOrderRow({ ...SUMMARY, id: '6f1c2a9e-1111-4c4c-8888-000000000001', orderNumber: 'ORD-2001' }, 'Coonoor');
+    expect(r.id).toBe('6f1c2a9e-1111-4c4c-8888-000000000001');
+    expect(r.id).not.toBe(r.orderNumber);
+    expect(r.orderNumber).toBe('ORD-2001');
   });
 
   it('maps CONFIRMED status and sets actionScreen M5S05 (stock check)', () => {
@@ -226,10 +252,15 @@ describe('toOrderRow', () => {
     expect(r.actionScreen).toBe('M5S05');
   });
 
-  it('BR-16: customer name is masked (buyer is anonymous in summary)', () => {
+  it('BR-16: customer name is masked (buyer is anonymous in summary when null)', () => {
     const r = toOrderRow(SUMMARY, 'Coonoor');
-    // No buyer name in OrderSummaryDto — should be '—' or 'Customer'
-    expect(typeof r.customer).toBe('string');
+    // No buyer name in OrderSummaryDto — should be '—'
+    expect(r.customer).toBe('—');
+  });
+
+  it('BR-101: displays buyer name when customerName is present in OrderSummaryDto', () => {
+    const r = toOrderRow({ ...SUMMARY, customerName: 'Arun Kumar' }, 'Coonoor');
+    expect(r.customer).toBe('Arun Kumar');
   });
 
   it('formats fulfillment as "Pickup" for WAREHOUSE_PICKUP', () => {
@@ -260,5 +291,66 @@ describe('toOrderDetailLines', () => {
       expect(Object.keys(l)).not.toContain('farmerId');
       expect(Object.keys(l)).not.toContain('batchId');
     });
+  });
+});
+
+describe('deliverySlotLabel', () => {
+  it('maps known slots to descriptive labels', () => {
+    expect(deliverySlotLabel('MORNING_8_12')).toBe('Morning (8:00 AM – 12:00 PM)');
+    expect(deliverySlotLabel('AFTERNOON_12_4')).toBe('Afternoon (12:00 PM – 4:00 PM)');
+    expect(deliverySlotLabel('EVENING_4_8')).toBe('Evening (4:00 PM – 8:00 PM)');
+  });
+
+  it('handles null or unknown slot', () => {
+    expect(deliverySlotLabel(null)).toBe('—');
+    expect(deliverySlotLabel(undefined)).toBe('—');
+    expect(deliverySlotLabel('CUSTOM')).toBe('CUSTOM');
+  });
+});
+
+describe('computeStockCheckRows', () => {
+  const BATCHES: BatchDto[] = [
+    {
+      id: 'b-01',
+      batchCode: 'BAT-01',
+      warehouseId: 'wh-01',
+      cropId: 'prod-001',
+      cropName: 'Tomato',
+      grade: 'GRADE_1',
+      qtyAvailableKg: '15.000' as any,
+      qtyReservedKg: '2.000' as any,
+      status: 'ACTIVE',
+    },
+    {
+      id: 'b-02',
+      batchCode: 'BAT-02',
+      warehouseId: 'wh-01',
+      cropId: 'prod-001',
+      cropName: 'Tomato',
+      grade: 'GRADE_1',
+      qtyAvailableKg: '10.000' as any,
+      status: 'ACTIVE',
+    },
+  ];
+
+  it('marks item Available when batches have sufficient quantity', () => {
+    const rows = computeStockCheckRows(DETAIL.items, BATCHES);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.name).toBe('Tomato · Grade 1');
+    expect(rows[0]?.status).toBe('Available');
+    expect(rows[0]?.ordered).toBe('2 KG');
+    expect(rows[0]?.available).toBe('25 KG');
+  });
+
+  it('marks item Insufficient when stock is lower than ordered quantity', () => {
+    const items = [
+      {
+        ...DETAIL.items[0]!,
+        qtyKg: '30.000' as any,
+      },
+    ];
+    const rows = computeStockCheckRows(items, BATCHES);
+    expect(rows[0]?.status).toBe('Insufficient');
+    expect(rows[0]?.shortage).toBe('5 KG');
   });
 });

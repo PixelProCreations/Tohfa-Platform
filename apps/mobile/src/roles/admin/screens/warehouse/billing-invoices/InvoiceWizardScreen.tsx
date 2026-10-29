@@ -114,6 +114,27 @@ export function InvoiceWizardScreen({
     total: transaction.amount,
   };
 
+  const detail = {
+    warehouseName: scope.warehouseName ?? '—',
+    paymentStatus: transaction.status || 'Paid',
+    items: [
+      {
+        name: transaction.saleType || 'Sale Item',
+        grade: '—',
+        unit: 'KG',
+        quantity: '—',
+        unitPrice: transaction.amount,
+        lineTotal: transaction.amount,
+      },
+    ],
+    subtotal: transaction.amount,
+    discount: '₹0',
+    total: transaction.amount,
+    invoiceType: transaction.saleType || 'Direct Sale',
+    customerId: transaction.id,
+    customerPhone: '—',
+  };
+
   const handleBack = () => {
     if (stepIndex > 0 && !(enteredAtReview && step === 'review')) setStepIndex(stepIndex - 1);
     else onBack();

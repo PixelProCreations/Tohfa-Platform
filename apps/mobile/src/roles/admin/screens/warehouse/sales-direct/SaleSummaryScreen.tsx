@@ -78,26 +78,9 @@ interface CartItem {
   pricePerKg: number;
 }
 
-const SAMPLE_CART: CartItem[] = [
-  {
-    id: 'tomato-1',
-    name: 'Tomato',
-    grade: 'Grade 1',
-    quantityKg: 2,
-    pricePerKg: 100,
-  },
-  {
-    id: 'carrot-1',
-    name: 'Carrot',
-    grade: 'Grade 1',
-    quantityKg: 1,
-    pricePerKg: 120,
-  },
-];
-
 /** Cart lines from the products picked on Select Products (Main's Sale Summary slice, M6-S04). */
 function cartFromProducts(products: readonly SaleProduct[] | undefined): CartItem[] {
-  if (!products || products.length === 0) return SAMPLE_CART;
+  if (!products || products.length === 0) return [];
   return products.map((p) => ({
     id: p.id,
     name: p.name,
@@ -141,9 +124,12 @@ export function SaleSummaryScreen({
   const warehouseDisplayName =
     saleWarehouse?.warehouseName?.replace(/ Warehouse$/, '') ??
     scope.warehouseName?.replace(/ Warehouse$/, '') ??
-    'Coonoor';
+    '—';
 
-  const handleContinue = () => onContinueToCustomer(total, cartItems.length);
+  const handleContinue = () => {
+    if (cartItems.length === 0) return;
+    onContinueToCustomer(total, cartItems.length);
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -245,8 +231,9 @@ export function SaleSummaryScreen({
 
         {/* ─── Bottom Action Button ─── */}
         <TouchableOpacity
-          style={styles.continueBtn}
+          style={[styles.continueBtn, cartItems.length === 0 && { opacity: 0.5 }]}
           onPress={handleContinue}
+          disabled={cartItems.length === 0}
           activeOpacity={0.85}
         >
           <UserIcon size={20} color={adminColors.onBrand} />

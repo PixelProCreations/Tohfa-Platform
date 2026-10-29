@@ -155,8 +155,9 @@ export interface QualityCheckDto {
   outcome: QualityOutcome;
   acceptedQtyKg?: QuantityKg;
   rejectedQtyKg?: QuantityKg;
-  moisturePct?: number | null;
-  visualScore?: number | null;
+  // moisturePct / visualScore are in the openapi schema but the API never stores or returns
+  // them (goods-receipts.repo.ts insertQualityCheckWithItems has no column for either), so the
+  // app neither reads nor sends them.
   defectNotes?: string | null;
   photos?: string[];
   priceAdjustment?: Money;
@@ -217,15 +218,14 @@ export interface QualityCheckCreate {
   spoiledQtyKg?: QuantityKg;
   actualCropId?: string;
   cropMismatchQtyKg?: QuantityKg;
-  moisturePct?: number;
-  /** Whole number 0-10. */
-  visualScore?: number;
   defectNotes?: string;
   photos?: string[];
   /** Signed per-kg adjustment when the assigned grade differs from the listed one. */
   priceAdjustment?: Money;
   /** Free text (max 40), copied to the batch (BR-106); the app sends a storage location's code. */
   storageLocation?: string;
+  /** BR-125: a live, ACTIVE storage location of the receipt's warehouse; the batch is linked to it. */
+  storageLocationId?: string;
   /** date (YYYY-MM-DD). */
   expiryOn?: string;
   /** Exactly one item per parameter. */

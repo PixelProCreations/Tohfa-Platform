@@ -171,17 +171,17 @@ export function FinanceHubScreen({
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
   // Live calculations
-  const totalRevPaise = revenues.reduce((sum: number, r: RevenueRecord) => sum + r.amount * 100, 0);
-  const totalExpPaise = expenses.reduce((sum: number, e: ExpenseRecord) => sum + e.amount * 100, 0);
+  const totalRevPaise = revenues.reduce((sum: number, r: RevenueRecord) => sum + (r.amountPaise ?? 0), 0);
+  const totalExpPaise = expenses.reduce((sum: number, e: ExpenseRecord) => sum + (e.amountPaise ?? 0), 0);
   const netPaise = totalRevPaise - totalExpPaise;
 
   const revDisplay = `₹${Math.round(totalRevPaise / 100).toLocaleString('en-IN')}`;
   const expDisplay = `₹${Math.round(totalExpPaise / 100).toLocaleString('en-IN')}`;
   const netDisplay = `${netPaise < 0 ? '-' : ''}₹${Math.abs(Math.round(netPaise / 100)).toLocaleString('en-IN')}`;
 
-  const directSalesPaise = revenues.filter((r: RevenueRecord) => r.category === 'Direct Sales').reduce((s: number, r: RevenueRecord) => s + r.amount * 100, 0);
-  const ordersPaise = revenues.filter((r: RevenueRecord) => r.category === 'Orders').reduce((s: number, r: RevenueRecord) => s + r.amount * 100, 0);
-  const otherPaise = revenues.filter((r: RevenueRecord) => r.category === 'Other').reduce((s: number, r: RevenueRecord) => s + r.amount * 100, 0);
+  const directSalesPaise = revenues.filter((r: RevenueRecord) => r.category === 'Direct Sales').reduce((s: number, r: RevenueRecord) => s + (r.amountPaise ?? 0), 0);
+  const ordersPaise = revenues.filter((r: RevenueRecord) => r.category === 'Orders').reduce((s: number, r: RevenueRecord) => s + (r.amountPaise ?? 0), 0);
+  const otherPaise = revenues.filter((r: RevenueRecord) => r.category === 'Other').reduce((s: number, r: RevenueRecord) => s + (r.amountPaise ?? 0), 0);
 
   const revenueBreakdown = revenues.length > 0
     ? {
@@ -195,11 +195,11 @@ export function FinanceHubScreen({
   const categoryMap: Record<string, number> = {};
   for (const e of expenses) {
     const cat = e.categoryRef.split('·')[0]?.trim() || 'General';
-    categoryMap[cat] = (categoryMap[cat] || 0) + e.amount;
+    categoryMap[cat] = (categoryMap[cat] || 0) + (e.amountPaise ?? 0);
   }
   const liveExpenseRows = Object.entries(categoryMap).map(([label, val]) => ({
     label,
-    value: `₹${val.toLocaleString('en-IN')}`,
+    value: `₹${Math.round(val / 100).toLocaleString('en-IN')}`,
   }));
   const expenseRows = expenses.length > 0
     ? liveExpenseRows
@@ -403,7 +403,7 @@ export function FinanceHubScreen({
                   </View>
                   <View style={styles.activityRight}>
                     <Text style={[styles.activityAmount, styles.amountCredit]}>
-                      {latestRevenue ? `+₹${latestRevenue.amount.toLocaleString('en-IN')}` : '+₹3,450'}
+                      {latestRevenue ? `+₹${latestRevenue.amountPaise !== null && latestRevenue.amountPaise !== undefined ? Math.round(latestRevenue.amountPaise / 100).toLocaleString('en-IN') : '0'}` : '+₹3,450'}
                     </Text>
                     <Text style={styles.activityMeta}>{latestRevenue?.timestamp ?? 'Today, 11:20 AM'}</Text>
                   </View>
@@ -420,7 +420,7 @@ export function FinanceHubScreen({
                   </View>
                   <View style={styles.activityRight}>
                     <Text style={[styles.activityAmount, styles.amountDebit]}>
-                      {latestExpense ? `-₹${latestExpense.amount.toLocaleString('en-IN')}` : '-₹1,200'}
+                      {latestExpense ? `-₹${latestExpense.amountPaise !== null && latestExpense.amountPaise !== undefined ? Math.round(latestExpense.amountPaise / 100).toLocaleString('en-IN') : '0'}` : '-₹1,200'}
                     </Text>
                     <Text style={styles.activityMeta}>{latestExpense?.timestamp ?? 'Today, 10:42 AM'}</Text>
                   </View>

@@ -21,6 +21,7 @@
  * 17. Farmer Payout Dues & Dual Approval Gate (BR-31, BR-35)
  * 18. Farm-Anonymity Leak Test across all customer surfaces (BR-16)
  */
+import { randomUUID } from 'node:crypto';
 import type { Express } from 'express';
 import request from 'supertest';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -710,6 +711,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const packRes = await request(app)
         .post(`/v1/admin/orders/${createdOrderId}/pack`)
         .set('Authorization', `Bearer ${subWhOotyToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(packRes.status).toBe(200);
       expect(packRes.body.status).toBe('PACKED');
@@ -718,6 +720,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const dispatchRes = await request(app)
         .post(`/v1/admin/orders/${createdOrderId}/dispatch`)
         .set('Authorization', `Bearer ${subWhOotyToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({});
       expect(dispatchRes.status).toBe(200);
       expect(['READY_FOR_PICKUP', 'DISPATCHED']).toContain(dispatchRes.body.status);
@@ -726,6 +729,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const wrongOtpRes = await request(app)
         .post(`/v1/admin/orders/${createdOrderId}/verify-otp`)
         .set('Authorization', `Bearer ${subWhOotyToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ otp: '0000' });
       expect([422, 400]).toContain(wrongOtpRes.status);
 
@@ -733,6 +737,7 @@ describeIfDatabase('S-39 — Golden Thread Full Lifecycle E2E Suite', () => {
       const correctOtpRes = await request(app)
         .post(`/v1/admin/orders/${createdOrderId}/verify-otp`)
         .set('Authorization', `Bearer ${subWhOotyToken}`)
+        .set('Idempotency-Key', randomUUID())
         .send({ otp: deliveryOtp });
       expect(correctOtpRes.status).toBe(200);
       expect(['PICKED_UP', 'DELIVERED']).toContain(correctOtpRes.body.status);

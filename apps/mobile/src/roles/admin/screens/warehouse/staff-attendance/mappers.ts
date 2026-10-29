@@ -1,5 +1,6 @@
 import type { AttendanceDto, RollCallItemDto, StaffAttendanceCounts } from '../../../api/attendance';
 import type { StaffDto } from '../../../api/staff';
+import { t } from '../../../i18n';
 import type {
   AttendanceHistoryEntry,
   AttendanceRecord,
@@ -53,7 +54,30 @@ function mapStatusToAttendanceStatus(statusCode?: string | null): AttendanceStat
   }
 }
 
-export function mapStaffDtoToMember(dto: StaffDto): StaffMember {
+/**
+ * Today's status per staff id from the roll call (BR-84k): a marked day maps
+ * its status, an unmarked active member is 'Not Checked In'. The staff record
+ * itself carries no attendance, so this is the only source for the roster card.
+ */
+export function rollCallStatusByStaffId(items: readonly RollCallItemDto[]): ReadonlyMap<string, AttendanceStatus> {
+  const out = new Map<string, AttendanceStatus>();
+  for (const item of items) {
+    out.set(item.staffId, item.attendance ? mapStatusToAttendanceStatus(item.attendance.status) : 'Not Checked In');
+  }
+  return out;
+}
+
+/** A roster card's attendance text: '—' when the roll call has no row for the member. */
+export function attendanceLabel(status: AttendanceStatus | undefined): string {
+  return status ?? t('staff.noValue');
+}
+
+/**
+ * `attendanceByStaffId` is the roll call joined by staff id; a member without
+ * a row (inactive, or the roll call not loaded / not permitted) has no
+ * attendance rather than an assumed 'Present'.
+ */
+export function mapStaffDtoToMember(dto: StaffDto, attendanceByStaffId?: ReadonlyMap<string, AttendanceStatus>): StaffMember {
   return {
     id: dto.id,
     name: dto.fullName,
@@ -61,7 +85,7 @@ export function mapStaffDtoToMember(dto: StaffDto): StaffMember {
     type: determineStaffType(dto.designation),
     role: dto.designation,
     status: dto.status === 'ACTIVE' ? 'Active' : 'Inactive',
-    attendance: 'Present',
+    attendance: attendanceByStaffId?.get(dto.id),
     phone: dto.phone ?? undefined,
     warehouseId: dto.warehouseId,
   };
