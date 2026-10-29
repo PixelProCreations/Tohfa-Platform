@@ -1720,7 +1720,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   const userName = user?.fullName?.split(' ')[0] ?? '';
   // Home is locked to the assigned warehouse (scope), never a written-in name.
-  const warehouseLabel = scope.warehouseName ?? scope.warehouseId ?? '';
+  const warehouseLabel = scope.warehouseName ?? '';
   const warehouseShort = warehouseLabel.replace(/ Warehouse$/, '');
 
   const receivingKpi = useMemo(
