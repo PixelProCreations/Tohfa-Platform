@@ -2215,9 +2215,9 @@
   "inventory.allocation.fcfsNote": "Online stock is first come, first served: a customer's cart holds stock from the Online bucket when they add it, and an order larger than the Online bucket's available stock is refused rather than taken from Reserve. Channel percentages are set by the Super Admin; this screen does not change them.",
   "stockShared.field.warehouse": "Warehouse",
 
-  "orders.deliverySlot.MORNING_8_12": "Morning (8 AM – 12 PM)",
-  "orders.deliverySlot.AFTERNOON_12_4": "Afternoon (12 PM – 4 PM)",
-  "orders.deliverySlot.EVENING_4_8": "Evening (4 PM – 8 PM)",
+  "orders.deliverySlot.MORNING_8_12": "Morning (8:00 AM – 12:00 PM)",
+  "orders.deliverySlot.AFTERNOON_12_4": "Afternoon (12:00 PM – 4:00 PM)",
+  "orders.deliverySlot.EVENING_4_8": "Evening (4:00 PM – 8:00 PM)",
   "orders.pickup.formatError": "Enter exactly four digits.",
 
   "salesDirect.grade.GRADE_1": "Grade 1",

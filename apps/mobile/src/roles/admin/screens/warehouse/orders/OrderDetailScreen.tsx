@@ -405,22 +405,6 @@ export function OrderDetailScreen({
               <Text style={styles.primaryCheckBtnText}>Verify Pickup</Text>
             </TouchableOpacity>
           ) : null}
-
-          <TouchableOpacity
-            style={styles.outlineActionBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S16', { orderId })}
-          >
-            <Text style={styles.outlineActionBtnText}>Report Issue</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelOrderBtn}
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('M5S17', { orderId })}
-          >
-            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
-          </TouchableOpacity>
         </View>
 
         <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
@@ -433,13 +417,8 @@ export function OrderDetailScreen({
                 <Text style={styles.modalOptionText}>View Invoice</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.modalOption} onPress={() => openFromMenu('M5S15')}>
+              <TouchableOpacity style={[styles.modalOption, styles.modalOptionLast]} onPress={() => openFromMenu('M5S15')}>
                 <Text style={styles.modalOptionText}>Status History</Text>
-              </TouchableOpacity>
-
-              {/* Ungated: docs/rbac.json has no order-cancel permission (spec gap). */}
-              <TouchableOpacity style={[styles.modalOption, styles.modalOptionLast]} onPress={() => openFromMenu('M5S17')}>
-                <Text style={[styles.modalOptionText, styles.modalOptionDanger]}>Cancel Order</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
