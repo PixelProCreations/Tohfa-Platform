@@ -7198,6 +7198,26 @@ export function TohfaAdminDashboardScreen({
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
   const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | null>(null);
+  const [operationsReturnTab, setOperationsReturnTab] = useState<'Home' | 'Inventory' | 'Operations' | null>(null);
+  const [workforceReturnTab, setWorkforceReturnTab] = useState<'Home' | 'Workforce' | 'More' | null>(null);
+  const [financeReturnTab, setFinanceReturnTab] = useState<'Home' | 'Finance' | null>(null);
+  const [inputsPestReturnTab, setInputsPestReturnTab] = useState<'Home' | 'More' | null>(null);
+
+  const handleOperationsBack = () => {
+    setOperationsSubScreen(null);
+    if (operationsReturnTab) {
+      setActiveTab(operationsReturnTab);
+      setOperationsReturnTab(null);
+    }
+  };
+
+  const handleFinanceBack = () => {
+    setFinanceSubScreen(null);
+    if (financeReturnTab) {
+      setActiveTab(financeReturnTab);
+      setFinanceReturnTab(null);
+    }
+  };
 
   // Workforce & Staff State (Screenshots M14-S01, M14-S02, M14-S04, M14-S02b)
   const [workforceActive, setWorkforceActive] = useState(false);
@@ -7694,10 +7714,16 @@ export function TohfaAdminDashboardScreen({
     setDashboardSubScreen('listingApproval');
   };
 
-  const handleOpenScheduleAudit = (fromTab?: 'Home' | 'More' | 'WorkQueue') => {
-    setAuditReturnTab(
-      fromTab ?? (activeTab === 'More' ? 'More' : activeTab === 'WorkQueue' ? 'WorkQueue' : 'Home')
-    );
+  const handleOpenScheduleAudit = (fromTab?: unknown) => {
+    const validReturnTab: 'Home' | 'More' | 'WorkQueue' =
+      fromTab === 'More' || fromTab === 'WorkQueue' || fromTab === 'Home'
+        ? fromTab
+        : activeTab === 'More'
+        ? 'More'
+        : activeTab === 'WorkQueue'
+        ? 'WorkQueue'
+        : 'Home';
+    setAuditReturnTab(validReturnTab);
     setDashboardSubScreen('scheduleAudit');
   };
 
@@ -7890,13 +7916,17 @@ export function TohfaAdminDashboardScreen({
       id: 'qa_farmers',
       label: 'Review farmer applications',
       icon: <QuickUserSearchIcon size={26} />,
-      action: handleOpenPendingApplications,
+      action: () => {
+        setFarmersReturnTab('Home');
+        handleOpenPendingApplications();
+      },
     },
     {
       id: 'qa_add_warehouse',
       label: 'Add Warehouse',
       icon: <QuickWarehouseActionIcon size={26} />,
       action: () => {
+        setOperationsReturnTab('Home');
         setOperationsSubScreen('addWarehouse');
         setActiveTab('Inventory');
       },
@@ -7905,13 +7935,14 @@ export function TohfaAdminDashboardScreen({
       id: 'qa_audit',
       label: 'Open audit calendar',
       icon: <QuickCalendarActionIcon size={26} />,
-      action: handleOpenScheduleAudit,
+      action: () => handleOpenScheduleAudit('Home'),
     },
     {
       id: 'qa_create_staff',
       label: 'Create Staff',
       icon: <QuickGroupUsersIcon size={26} />,
       action: () => {
+        setWorkforceReturnTab('Home');
         setWorkforceSubScreen('create');
         setActiveTab('Workforce');
       },
@@ -7921,6 +7952,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Receive Goods',
       icon: <QuickReceiveGoodsIcon size={26} />,
       action: () => {
+        setOperationsReturnTab('Home');
         setOperationsSubScreen('stockVerification');
         setActiveTab('Inventory');
       },
@@ -7930,6 +7962,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Produce list',
       icon: <QuickProduceListIcon size={26} />,
       action: () => {
+        setActiveTab('Home');
         setDashboardSubScreen('listingApproval');
       },
     },
@@ -7938,6 +7971,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Transfer Stock',
       icon: <QuickTransferStockIcon size={26} />,
       action: () => {
+        setOperationsReturnTab('Home');
         setOperationsSubScreen('transfers');
         setActiveTab('Inventory');
       },
@@ -7956,6 +7990,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Cash Top-Up',
       icon: <QuickCashTopUpIcon size={26} />,
       action: () => {
+        setFinanceReturnTab('Home');
         setFinanceSubScreen('customerWallet');
         setActiveTab('Finance');
       },
@@ -7965,6 +8000,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Purchases and payouts',
       icon: <QuickReceiptIcon size={26} />,
       action: () => {
+        setFinanceReturnTab('Home');
         setFinanceSubScreen('duesPayouts');
         setActiveTab('Finance');
       },
@@ -7974,6 +8010,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Sales and invoices',
       icon: <QuickBagIcon size={26} />,
       action: () => {
+        setFinanceReturnTab('Home');
         setFinanceSubScreen('invoicesGst');
         setActiveTab('Finance');
       },
@@ -7982,13 +8019,17 @@ export function TohfaAdminDashboardScreen({
       id: 'qa_support',
       label: 'Customer support and refunds',
       icon: <QuickSupportIcon size={26} />,
-      action: handleOpenSupport,
+      action: () => {
+        setActiveTab('Home');
+        setDashboardSubScreen('support');
+      },
     },
     {
       id: 'qa_finance',
       label: 'Review finance and payouts',
       icon: <QuickWalletIcon size={26} />,
       action: () => {
+        setFinanceReturnTab('Home');
         setFinanceSubScreen(null);
         setActiveTab('Finance');
       },
@@ -7998,6 +8039,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Manage inputs and pest',
       icon: <QuickLeafIcon size={26} />,
       action: () => {
+        setInputsPestReturnTab('Home');
         setInputsPestScreen('home');
         setActiveTab('More');
       },
@@ -8007,6 +8049,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Open operational reports',
       icon: <QuickDocIcon size={26} />,
       action: () => {
+        setReportsSubScreen(null);
         setActiveTab('Reports');
       },
     },
@@ -8015,6 +8058,7 @@ export function TohfaAdminDashboardScreen({
       label: 'Manage staff and salary',
       icon: <QuickBadgeStaffIcon size={26} />,
       action: () => {
+        setWorkforceReturnTab('Home');
         setWorkforceSubScreen('dashboard');
         setActiveTab('Workforce');
       },
@@ -8257,7 +8301,17 @@ export function TohfaAdminDashboardScreen({
           <View style={styles.workforceHeaderTitleRow}>
             <TouchableOpacity
               style={styles.workforceBackBtn}
-              onPress={() => setWorkforceActive(false)}
+              onPress={() => {
+                if (workforceReturnTab) {
+                  setActiveTab(workforceReturnTab);
+                  setWorkforceReturnTab(null);
+                  setWorkforceSubScreen('dashboard');
+                  setWorkforceActive(false);
+                } else {
+                  setWorkforceActive(false);
+                  setActiveTab('Home');
+                }
+              }}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
@@ -8270,7 +8324,7 @@ export function TohfaAdminDashboardScreen({
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* 6 KPI Metric Cards Grid (using reusable OverviewDashboardCard) */}
-          <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+          <OverviewCardsGrid style={styles.workforceOverviewGrid}>
             <OverviewDashboardCard
               value="11"
               title="Admin Staff"
@@ -8330,7 +8384,7 @@ export function TohfaAdminDashboardScreen({
               </View>
               <Text style={styles.workforceBarCount}>7</Text>
             </View>
-            <View style={styles.workforceBarRow}>
+            <View style={styles.workforceBarRowLast}>
               <Text style={styles.workforceBarLabel}>Admin accounts</Text>
               <View style={styles.workforceBarTrack}>
                 <View style={[styles.workforceBarFillOrange, { width: '78%' }]} />
@@ -8349,7 +8403,7 @@ export function TohfaAdminDashboardScreen({
               </View>
               <Text style={styles.workforceBarCount}>22</Text>
             </View>
-            <View style={styles.workforceBarRow}>
+            <View style={styles.workforceBarRowLast}>
               <Text style={styles.workforceBarLabel}>Absent</Text>
               <View style={styles.workforceBarTrack}>
                 <View style={[styles.workforceBarFillRed, { width: '19%' }]} />
@@ -8458,9 +8512,7 @@ export function TohfaAdminDashboardScreen({
             </View>
           </View>
 
-          {/* Footer Code */}
-          <Text style={styles.screenFooterCode}>M14-S01 · Dashboard & Directory</Text>
-          <View style={{ height: 32 }} />
+          <View style={{ height: 24 }} />
         </ScrollView>
 
         {/* Filter Modal */}
@@ -8713,7 +8765,15 @@ export function TohfaAdminDashboardScreen({
           <View style={styles.workforceHeaderTitleRow}>
             <TouchableOpacity
               style={styles.workforceBackBtn}
-              onPress={() => setWorkforceSubScreen('management')}
+              onPress={() => {
+                if (workforceReturnTab) {
+                  setActiveTab(workforceReturnTab);
+                  setWorkforceReturnTab(null);
+                  setWorkforceSubScreen('dashboard');
+                } else {
+                  setWorkforceSubScreen('management');
+                }
+              }}
               activeOpacity={0.7}
             >
               <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
@@ -10122,13 +10182,20 @@ export function TohfaAdminDashboardScreen({
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.workforceCreateCancelBtn}
-              onPress={() => setWorkforceSubScreen('management')}
+              onPress={() => {
+                if (workforceReturnTab) {
+                  setActiveTab(workforceReturnTab);
+                  setWorkforceReturnTab(null);
+                  setWorkforceSubScreen('dashboard');
+                } else {
+                  setWorkforceSubScreen('management');
+                }
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.workforceCreateCancelBtnText}>Cancel</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.workforceFooterCaption}>M14-S02a· Create staff account</Text>
         </View>
       </View>
     );
@@ -10240,9 +10307,7 @@ export function TohfaAdminDashboardScreen({
               </TouchableOpacity>
             ))}
           </View>
-
-          {/* Footer Code */}
-          <Text style={styles.screenFooterCode}>M14-S04 · Attendance & History</Text>
+          <View style={{ height: 24 }} />
         </ScrollView>
       </View>
     );
@@ -10550,9 +10615,7 @@ export function TohfaAdminDashboardScreen({
           <Text style={styles.workforceDisclaimerText}>
             All records shown are sample data for demonstration only. Sensitive fields stay masked and visibility follows the existing RBAC configuration.
           </Text>
-
-          {/* Footer Code */}
-          <Text style={styles.screenFooterCode}>M14-S02b · View Staff Details</Text>
+          <View style={{ height: 24 }} />
         </ScrollView>
       </View>
     );
@@ -10746,8 +10809,6 @@ export function TohfaAdminDashboardScreen({
                   <Text style={styles.workforceModalCancelBtnText}>Close</Text>
                 </TouchableOpacity>
               </View>
-
-              <Text style={styles.workforceModalFooterCaption}>M14-S02b · Staff profile Active popup</Text>
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -11624,8 +11685,6 @@ export function TohfaAdminDashboardScreen({
                     ))}
                 </View>
 
-                {/* Screen footer code */}
-                <Text style={styles.screenFooterCode}>M1-S03 · Work Queue</Text>
                 <View style={{ height: adminSpacing.xxl }} />
               </ScrollView>
             )}
@@ -11636,20 +11695,20 @@ export function TohfaAdminDashboardScreen({
             {(activeTab === 'Inventory' || activeTab === 'Operations') && (
               operationsSubScreen === 'stockLedger' ? (
                 <StockLedgerBatchesScreen
-                  onBack={() => setOperationsSubScreen(null)}
+                  onBack={handleOperationsBack}
                 />
               ) : operationsSubScreen === 'stockVerification' ? (
                 <StockVerificationScreen
-                  onBack={() => setOperationsSubScreen(null)}
+                  onBack={handleOperationsBack}
                 />
               ) : operationsSubScreen === 'transfers' ? (
                 <InterWarehouseTransfersScreen
-                  onBack={() => setOperationsSubScreen(null)}
+                  onBack={handleOperationsBack}
                 />
               ) : operationsSubScreen === 'addWarehouse' ? (
                 <AddWarehouseProfileScreen
-                  onBack={() => setOperationsSubScreen(null)}
-                  onSuccess={() => setOperationsSubScreen(null)}
+                  onBack={handleOperationsBack}
+                  onSuccess={handleOperationsBack}
                 />
               ) : (
                 <AdminOperationsOverviewScreen
@@ -11738,39 +11797,39 @@ export function TohfaAdminDashboardScreen({
         {activeTab === 'Finance' && (
           financeSubScreen === 'purchaseSales' ? (
             <PurchaseSalesOrdersScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'duesPayouts' ? (
             <PurchaseDuesPayoutsScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'salesIncome' ? (
             <SalesIncomeRevenueScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'expenses' ? (
             <ExpenseManagementScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'invoicesGst' ? (
             <InvoicesGstBillingScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'reviewReturns' ? (
             <ReturnsRmaRefundsScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'transactionHistory' ? (
             <TransactionHistoryScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'customerWallet' ? (
             <CustomerWalletOverviewScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : financeSubScreen === 'reportExport' ? (
             <ReportsExportScreen
-              onBack={() => setFinanceSubScreen(null)}
+              onBack={handleFinanceBack}
             />
           ) : (
             <ScrollView
@@ -11784,7 +11843,10 @@ export function TohfaAdminDashboardScreen({
                   <View style={styles.accountsFinanceHeaderTitleGroup}>
                     <TouchableOpacity
                       style={styles.accountsFinanceBackBtn}
-                      onPress={() => setActiveTab('Home')}
+                      onPress={() => {
+                        setActiveTab(financeReturnTab || 'Home');
+                        setFinanceReturnTab(null);
+                      }}
                       activeOpacity={0.8}
                       accessibilityRole="button"
                       accessibilityLabel="Go back to Home"
@@ -11834,51 +11896,46 @@ export function TohfaAdminDashboardScreen({
               {/* 3. 8 KPI Cards (Reusing OverviewDashboardCard component strictly as requested) */}
               <OverviewCardsGrid style={{ paddingHorizontal: adminSpacing.md, rowGap: 10 }}>
                 <OverviewDashboardCard
-                  title="SALES"
+                  title="Sales"
                   value="₹2,14,600.00"
-                  titlePosition="top"
+                  icon="sales"
                 />
                 <OverviewDashboardCard
-                  title="FARMER PURCHASE VALUE"
+                  title="Farmer Purchase Value"
                   value="₹1,38,900.00"
-                  titlePosition="top"
+                  icon="truck"
                 />
                 <OverviewDashboardCard
-                  title="OUTSTANDING DUES"
+                  title="Outstanding Dues"
                   value="₹32,450.00"
-                  titlePosition="top"
+                  icon="orders"
                 />
                 <OverviewDashboardCard
-                  title="EXPENSES"
+                  title="Expenses"
                   value="₹18,200.00"
-                  titlePosition="top"
+                  icon="cash"
                 />
                 <OverviewDashboardCard
-                  title="WALLET LIABILITY"
+                  title="Wallet Liability"
                   value="₹9,340.00"
-                  titlePosition="top"
+                  icon="wallet"
                 />
                 <OverviewDashboardCard
-                  title="PENDING PAYOUTS"
+                  title="Pending Payouts"
                   value="6"
-                  titlePosition="top"
+                  icon="pickup"
                 />
                 <OverviewDashboardCard
-                  title="REFUNDS"
+                  title="Refunds"
                   value="₹1,840.00"
-                  titlePosition="top"
+                  icon="alert"
                 />
                 <OverviewDashboardCard
-                  title="NET FINANCIAL SUMMARY"
+                  title="Net Financial Summary"
                   value="Not defined"
-                  titlePosition="top"
+                  icon="clipboard"
                 />
               </OverviewCardsGrid>
-
-              {/* 4. Disclaimer Note */}
-              <Text style={styles.financeDisclaimerText}>
-                No profit figure is calculated: expenses can't simply be subtracted from sales until the formula is finance-owner approved.
-              </Text>
 
               {/* 5. Revenue, expense & purchase (daily) */}
               <View style={styles.financeSectionBlock}>
@@ -12242,7 +12299,13 @@ export function TohfaAdminDashboardScreen({
             />
           ) : inputsPestScreen === 'home' ? (
             <InputsPestHomeScreen
-              onBack={() => setInputsPestScreen(null)}
+              onBack={() => {
+                setInputsPestScreen(null);
+                if (inputsPestReturnTab) {
+                  setActiveTab(inputsPestReturnTab);
+                  setInputsPestReturnTab(null);
+                }
+              }}
               onNavigateApprovedInputs={() => setInputsPestScreen('catalog')}
               onNavigatePestLibrary={() => setInputsPestScreen('pest_library')}
               onNavigateApplicationGuides={() => Alert.alert('Application Guides', 'Create Application Guide module.')}
@@ -12660,6 +12723,10 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.navTabItem}
               onPress={() => {
+                setOperationsReturnTab(null);
+                setWorkforceReturnTab(null);
+                setFinanceReturnTab(null);
+                setInputsPestReturnTab(null);
                 setDashboardSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
@@ -12691,6 +12758,10 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.navTabItem}
               onPress={() => {
+                setOperationsReturnTab(null);
+                setWorkforceReturnTab(null);
+                setFinanceReturnTab(null);
+                setInputsPestReturnTab(null);
                 setDashboardSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
@@ -12718,6 +12789,10 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.navTabItem}
               onPress={() => {
+                setOperationsReturnTab(null);
+                setWorkforceReturnTab(null);
+                setFinanceReturnTab(null);
+                setInputsPestReturnTab(null);
                 setDashboardSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
@@ -12749,6 +12824,10 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.navTabItem}
               onPress={() => {
+                setOperationsReturnTab(null);
+                setWorkforceReturnTab(null);
+                setFinanceReturnTab(null);
+                setInputsPestReturnTab(null);
                 setDashboardSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
@@ -12780,6 +12859,10 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.navTabItem}
               onPress={() => {
+                setOperationsReturnTab(null);
+                setWorkforceReturnTab(null);
+                setFinanceReturnTab(null);
+                setInputsPestReturnTab(null);
                 setDashboardSubScreen(null);
                 setProduceControlScreen(null);
                 setInputsPestScreen(null);
@@ -12794,7 +12877,7 @@ export function TohfaAdminDashboardScreen({
                   activeTab === 'More' ||
                     activeTab === 'Farmers' ||
                     activeTab === 'Reports' ||
-                    activeTab === 'Profile' ||
+                    (activeTab as string) === 'Profile' ||
                     activeTab === 'Workforce'
                     ? adminColors.brand
                     : adminColors.muted
@@ -12806,7 +12889,7 @@ export function TohfaAdminDashboardScreen({
                   (activeTab === 'More' ||
                     activeTab === 'Farmers' ||
                     activeTab === 'Reports' ||
-                    activeTab === 'Profile' ||
+                    (activeTab as string) === 'Profile' ||
                     activeTab === 'Workforce') &&
                   styles.navTabLabelActive,
                 ]}
@@ -14142,6 +14225,13 @@ const styles = StyleSheet.create({
     padding: 4,
     marginRight: 6,
   },
+  workforceOverviewGrid: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    rowGap: 12,
+    columnGap: 10,
+    marginBottom: 0,
+  },
   workforceKpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -14198,7 +14288,7 @@ const styles = StyleSheet.create({
   },
   workforceSectionTitle: {
     ...adminType.sectionHead,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
     color: adminColors.brandDeep,
     marginBottom: 12,
@@ -14207,6 +14297,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+  },
+  workforceBarRowLast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 0,
   },
   workforceBarLabel: {
     ...adminType.body,
@@ -14248,7 +14343,7 @@ const styles = StyleSheet.create({
   },
   workforceSearchWrapper: {
     paddingHorizontal: 16,
-    marginTop: 16,
+    marginTop: 20,
   },
   workforceSearchBox: {
     flexDirection: 'row',
@@ -14273,7 +14368,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: adminColors.brandDeep,
-    marginTop: 8,
+    marginTop: 10,
   },
   workforceCard: {
     backgroundColor: adminColors.card,

@@ -1576,9 +1576,6 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
                 <Text style={styles.modalResetButtonText}>Reset</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Screen footer code (matching M8-S01a in user screenshot) */}
-            <Text style={styles.modalSheetFooterCode}>M8-S01a · Filters popup</Text>
           </TouchableOpacity>
         </TouchableOpacity>
 

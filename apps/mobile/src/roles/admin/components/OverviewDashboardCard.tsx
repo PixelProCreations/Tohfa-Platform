@@ -38,6 +38,9 @@ export interface OverviewDashboardCardProps {
     | 'wallet'
     | 'users'
     | 'clipboard'
+    | 'categories'
+    | 'history'
+    | 'clock'
     | React.ReactNode;
   /** Optional custom icon tint or defaults to warm brown/tan from admin theme */
   iconColor?: string;
@@ -163,6 +166,22 @@ function renderBuiltinIcon(type: string, color: string) {
           <Path d="M8.5 13l2.5 2.5 5-5" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       );
+    case 'categories':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M12 3.5l4.5 7.5h-9L12 3.5z" stroke={color} strokeWidth="1.9" strokeLinejoin="round" />
+          <Rect x="3.5" y="14" width="6.5" height="6.5" rx="1" stroke={color} strokeWidth="1.9" />
+          <Circle cx="17" cy="17.2" r="3.3" stroke={color} strokeWidth="1.9" />
+        </Svg>
+      );
+    case 'history':
+    case 'clock':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.9" />
+          <Path d="M12 7v5l3 2" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
     case 'alert':
       return (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -270,6 +289,7 @@ export function OverviewDashboardCard({
 
   const valStr = String(value);
   const isCurrency = valStr.includes('₹') || valStr.length > 5;
+  const isLong = valStr.length > 9;
   const isMutedVal = valStr === 'Not defined';
   const effectiveValColor = isMutedVal ? adminColors.muted : toneValueColor;
   const displayTitle = preserveCase ? title : toSentenceCase(title);
@@ -301,11 +321,13 @@ export function OverviewDashboardCard({
               styles.value,
               styles.valueTop,
               isCurrency && styles.currencyValue,
+              isLong && styles.longValue,
               { color: effectiveValColor },
               valueStyle,
             ]}
             numberOfLines={1}
             adjustsFontSizeToFit
+            minimumFontScale={0.65}
           >
             {valStr}
           </Text>
@@ -324,11 +346,13 @@ export function OverviewDashboardCard({
               style={[
                 styles.value,
                 isCurrency && styles.currencyValue,
+                isLong && styles.longValue,
                 { color: effectiveValColor },
                 valueStyle,
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
+              minimumFontScale={0.65}
             >
               {valStr}
             </Text>
@@ -452,8 +476,12 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   currencyValue: {
-    fontSize: 21,
-    lineHeight: 26,
+    fontSize: 20,
+    lineHeight: 25,
+  },
+  longValue: {
+    fontSize: 16.5,
+    lineHeight: 22,
   },
   iconBadge: {
     width: 36,

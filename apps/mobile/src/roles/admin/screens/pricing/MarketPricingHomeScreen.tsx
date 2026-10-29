@@ -189,44 +189,45 @@ export function MarketPricingHomeScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── 6 KPI Cards in 2-Column Grid Matching Image 1 ── */}
+        {/* ── 6 KPI Cards in 2-Column Grid Matching Reference Image ── */}
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
           <OverviewDashboardCard
             value="6"
             title="Total Products"
-            titlePosition="bottom"
+            icon="box"
+            onPress={onNavigateOverview}
           />
           <OverviewDashboardCard
             value="5"
             title="With Retail Prices"
-            titlePosition="bottom"
+            icon="sales"
+            onPress={onNavigateToRetailPricing}
           />
           <OverviewDashboardCard
             value="Not used"
             title="Pending Price Updates"
-            titlePosition="bottom"
+            icon="orders"
+            onPress={onNavigateOverview}
           />
           <OverviewDashboardCard
             value="10 / 11"
             title="Ceiling Compliance"
-            titlePosition="bottom"
+            icon="clipboard"
+            onPress={onNavigateToFairPrice}
           />
           <OverviewDashboardCard
             value="2 / 4"
             title="Categories & Grades"
-            titlePosition="bottom"
+            icon="categories"
+            onPress={onNavigateToCategories}
           />
           <OverviewDashboardCard
             value="3"
             title="Recent Changes (7d)"
-            titlePosition="bottom"
+            icon="history"
+            onPress={onNavigateToPriceHistory}
           />
         </OverviewCardsGrid>
-
-        {/* ── Subtitle Disclaimer below KPIs Matching Image 1 ── */}
-        <Text style={styles.disclaimerSubtext}>
-          Pending Price Updates has no review workflow configured, so it&apos;s shown as Not used; 2 scheduled changes exist regardless. Ceiling Compliance counts comparable records only.
-        </Text>
 
         {/* ── Alerts Section Matching Image 1 (Static display) ── */}
         <Text style={styles.sectionHeading}>Alerts</Text>
