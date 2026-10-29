@@ -5,10 +5,6 @@
  * the Main view (scope.warehouseId undefined). A Sub admin sees its own
  * warehouse's history only.
  *
- * Absorbs MainWarehouseReturnHistoryScreen (pair M10-S06): its single
- * hard-coded "Refunded" card is covered by the Sub list. Neither twin's
- * header filter button had a handler, so it is not ported.
- *
  * Gates: none (read-only list).
  */
 // Design id: M10-S06
@@ -19,6 +15,9 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import type { ReturnStatus } from '../../../api/returns';
+import { useReturnList } from './useReturnData';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
 import type { ReturnHistoryRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
@@ -42,34 +41,50 @@ function SearchIcon() {
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 export function ReturnHistoryScreen({
   scope,
+  can,
   onBack,
   onTabChange,
   onSelectRecord,
   warehouseOptions,
-  records = [],
+  records: passedRecords,
 }: ReturnHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<HistoryFilter>('All');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
   const allWarehouses = isAllWarehouses(scope);
 
-  const filteredItems = records.filter((item) => {
+  const statusParam: ReturnStatus | undefined =
+    activeFilter === 'Completed'
+      ? 'REFUNDED'
+      : activeFilter === 'Rejected'
+        ? 'REJECTED'
+        : activeFilter === 'Approved'
+          ? 'APPROVED'
+          : undefined;
+
+  const returnList = useReturnList(scope, can, selectedWarehouseId, statusParam);
+
+  const effectiveRecords: readonly ReturnHistoryRecord[] =
+    passedRecords ??
+    returnList.items.map((r) => {
+      const status: 'Completed' | 'Rejected' | 'Approved' =
+        r.status === 'Approved' ? 'Approved' : 'Completed';
+      return {
+        id: r.id,
+        rmaId: r.rmaId,
+        orderId: r.orderId,
+        customerName: r.customerName,
+        reasonTag: r.description,
+        status,
+        date: r.reportedDate,
+        customerId: r.customerId,
+        warehouseId: r.warehouseId,
+      };
+    });
+
+  const filteredItems = effectiveRecords.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
       !q ||
@@ -87,17 +102,6 @@ export function ReturnHistoryScreen({
     <ReturnsScreen
       title="Return History"
       onBack={onBack}
-      headerRight={
-        <TouchableOpacity
-          style={styles.headerFilterBtn}
-          onPress={() => {}}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Filter returns"
-        >
-          <FilterSlidersIcon size={20} color={adminColors.onBrand} />
-        </TouchableOpacity>
-      }
       headerExtra={
         allWarehouses ? (
           <WarehouseSelector
@@ -119,7 +123,7 @@ export function ReturnHistoryScreen({
           <SearchIcon />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search RMA, Ticket, Order or Customer"
+            placeholder="Search RMA, Order or Customer"
             placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -144,37 +148,38 @@ export function ReturnHistoryScreen({
           })}
         </View>
 
+        {passedRecords === undefined && returnList.isLoading ? <AdminLoadingState /> : null}
+        {passedRecords === undefined && returnList.error ? (
+          <AdminErrorState error={returnList.error} onRetry={returnList.refresh} />
+        ) : null}
+
         <View style={styles.cardsList}>
           {filteredItems.map((item) => {
             const isRejected = item.status === 'Rejected';
             return (
               <TouchableOpacity
-                key={item.rmaId}
-                style={styles.rmaCard}
+                key={item.id ?? item.rmaId}
+                style={styles.historyCard}
                 onPress={() => onSelectRecord(item)}
-                activeOpacity={0.85}
+                activeOpacity={0.8}
+                accessibilityRole="button"
               >
-                <View style={styles.cardHeaderRow}>
+                <View style={styles.cardHeader}>
                   <Text style={styles.rmaIdText}>{item.rmaId}</Text>
-                  <View style={[styles.statusBadge, isRejected && styles.statusBadgeRejected]}>
-                    <Text style={[styles.statusBadgeText, isRejected && styles.statusBadgeTextRejected]}>
+                  <View style={[styles.statusBadge, isRejected ? styles.badgeRejected : styles.badgeCompleted]}>
+                    <Text style={[styles.statusText, isRejected ? styles.statusTextRejected : styles.statusTextCompleted]}>
                       {item.status}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.customerName}>{item.customerName}</Text>
-                <Text style={styles.orderId}>{item.orderId}</Text>
-                <View style={styles.tagAmountRow}>
-                  <View style={styles.reasonTag}>
-                    <Text style={styles.reasonTagText}>{item.reasonTag}</Text>
-                  </View>
-                  {item.refundAmount ? <Text style={styles.refundText}>Refund {item.refundAmount}</Text> : null}
+                <Text style={styles.customerLine}>{item.customerName} · Order #{item.orderId}</Text>
+                <View style={styles.cardFooter}>
+                  <Text style={styles.reasonText}>{item.reasonTag}</Text>
+                  <Text style={styles.dateText}>{item.date}</Text>
                 </View>
-                <Text style={styles.dateText}>{item.date}</Text>
               </TouchableOpacity>
             );
           })}
-          {filteredItems.length === 0 ? <Text style={styles.emptyText}>No returns found</Text> : null}
         </View>
       </ScrollView>
     </ReturnsScreen>
@@ -182,15 +187,7 @@ export function ReturnHistoryScreen({
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: adminSpacing.xl },
-  headerFilterBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xl },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -199,64 +196,42 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.md,
-    height: 48,
-    gap: adminSpacing.sm,
+    height: 44,
     marginBottom: adminSpacing.md,
+    gap: adminSpacing.sm,
   },
-  searchInput: { ...adminType.body, flex: 1, color: adminColors.ink, paddingVertical: 0 },
-  chipsRow: { flexDirection: 'row', gap: adminSpacing.sm, marginBottom: adminSpacing.lg },
+  searchInput: { flex: 1, ...adminType.body, color: adminColors.ink, padding: 0 },
+  chipsRow: { flexDirection: 'row', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
   chipBtn: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.sm,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,
     backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
   },
-  chipBtnActive: { borderColor: adminColors.brandDeep, backgroundColor: adminColors.brandTint },
+  chipBtnActive: { backgroundColor: adminColors.brandTint, borderColor: adminColors.brand },
   chipText: { ...adminType.rowMeta, color: adminColors.muted },
-  chipTextActive: { ...adminType.rowMeta, fontWeight: '700', color: adminColors.brandDeep },
+  chipTextActive: { color: adminColors.brandDeep, fontWeight: '600' },
   cardsList: { gap: adminSpacing.md },
-  rmaCard: {
+  historyCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.lg,
+    padding: adminSpacing.md,
     ...adminShadow.sm,
   },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: adminSpacing.xs,
-  },
-  rmaIdText: { ...adminType.rowTitle, color: adminColors.brandDeep },
-  statusBadge: {
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.success.bg,
-  },
-  statusBadgeRejected: { backgroundColor: adminColors.danger.bg },
-  statusBadgeText: { ...adminType.caption, fontWeight: '700', color: adminColors.success.text },
-  statusBadgeTextRejected: { color: adminColors.danger.text },
-  customerName: { ...adminType.rowTitle, color: adminColors.ink, marginTop: adminSpacing.xs, marginBottom: 2 },
-  orderId: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.sm },
-  tagAmountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: adminSpacing.xs,
-  },
-  reasonTag: {
-    backgroundColor: adminColors.brandTint,
-    paddingHorizontal: adminSpacing.sm,
-    paddingVertical: 3,
-    borderRadius: adminRadius.sm,
-  },
-  reasonTagText: { ...adminType.caption, fontWeight: '700', color: adminColors.brandDeep },
-  refundText: { ...adminType.rowTitle, color: adminColors.success.text },
-  dateText: { ...adminType.caption, color: adminColors.muted },
-  emptyText: { ...adminType.body, color: adminColors.muted, textAlign: 'center', padding: adminSpacing.xl },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: adminSpacing.xs },
+  rmaIdText: { ...adminType.kpiValue, color: adminColors.ink },
+  statusBadge: { paddingHorizontal: adminSpacing.sm, paddingVertical: 2, borderRadius: adminRadius.sm },
+  badgeCompleted: { backgroundColor: adminColors.success.bg },
+  badgeRejected: { backgroundColor: adminColors.danger.bg },
+  statusText: { ...adminType.rowMeta, fontWeight: '600' },
+  statusTextCompleted: { color: adminColors.success.text },
+  statusTextRejected: { color: adminColors.danger.text },
+  customerLine: { ...adminType.body, color: adminColors.ink, marginBottom: adminSpacing.xs },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reasonText: { ...adminType.rowMeta, color: adminColors.muted, flex: 1 },
+  dateText: { ...adminType.rowMeta, color: adminColors.muted },
 });

@@ -4,13 +4,6 @@
  *
  * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1):
  *   - Approve and Reject only with `rma.request.process` (FINAL_LIST row 104).
- *     Approving additionally needs `rma.refund.approve`, which the confirm step
- *     (ApproveReturnScreen) checks.
- *
- * Absorbs MainWarehouseReviewReturnRequestScreen (pair M10-S04). The Main twin
- * bundled confirm + reject + refund in one file; those are the separate
- * ApproveReturn / RejectReturnRequest / RefundStatus routes of ReturnsFlow. Its
- * "Refund Summary" card (amount + method) is rendered for the Main view.
  */
 // Design id: M10-S04
 import React from 'react';
@@ -18,7 +11,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
-import { REVIEW_TIMELINE } from './fixtures';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { toReturnTimeline, toRmaRecord } from './mappers';
+import { useReturn, useReturnHistory } from './useReturnData';
 import {
   InfoCard,
   isAllWarehouses,
@@ -37,7 +32,6 @@ export interface ReviewReturnRequestScreenProps extends RmaScreenBaseProps {
   onReject: (rma: RmaRecord) => void;
 }
 
-// Evidence counts and refund method
 const CUSTOMER_EVIDENCE = '—';
 const INSPECTION_EVIDENCE = '—';
 const REFUND_METHOD = 'TOHFA Wallet';
@@ -61,14 +55,46 @@ function CloseCrossIcon() {
 export function ReviewReturnRequestScreen({
   scope,
   can,
-  rma,
+  returnId,
+  rma: initialRma,
   inspectedQty = '—',
   inspectionNotes = '—',
   onBack,
   onApprove,
   onReject,
 }: ReviewReturnRequestScreenProps) {
+  const effectiveId = returnId ?? initialRma?.id;
+  const returnQuery = useReturn(effectiveId);
+  const rma = returnQuery.data ? toRmaRecord(returnQuery.data) : initialRma;
+
+  const historyQuery = useReturnHistory(effectiveId);
+  const timelineItems = historyQuery.data ? toReturnTimeline(historyQuery.data.items) : [];
+
   const canProcess = can('rma.request.process');
+
+  if (returnQuery.isLoading && !rma) {
+    return (
+      <ReturnsScreen title="Review Return Request" onBack={onBack}>
+        <AdminLoadingState />
+      </ReturnsScreen>
+    );
+  }
+
+  if (returnQuery.isError && !rma) {
+    return (
+      <ReturnsScreen title="Review Return Request" onBack={onBack}>
+        <AdminErrorState error={returnQuery.error} onRetry={() => returnQuery.refetch()} />
+      </ReturnsScreen>
+    );
+  }
+
+  if (!rma) {
+    return (
+      <ReturnsScreen title="Review Return Request" onBack={onBack}>
+        <AdminErrorState error={new Error('Return not found')} onRetry={onBack} />
+      </ReturnsScreen>
+    );
+  }
 
   return (
     <ReturnsScreen title="Review Return Request" subtitle={rma.rmaId} onBack={onBack}>
@@ -81,10 +107,9 @@ export function ReviewReturnRequestScreen({
               { label: 'Order', value: rma.orderId },
             ],
             [
-              { label: 'Issue', value: rma.issueCategory },
               { label: 'Requested Quantity', value: rma.requestedQuantity },
+              { label: 'Inspected Quantity', value: inspectedQty },
             ],
-            [{ label: 'Inspected Quantity', value: inspectedQty }],
           ]}
         />
 
@@ -114,7 +139,7 @@ export function ReviewReturnRequestScreen({
         ) : null}
 
         <SectionTitle>Review Timeline</SectionTitle>
-        <ReturnsTimeline items={REVIEW_TIMELINE} />
+        <ReturnsTimeline items={timelineItems} />
 
         <SectionTitle>Decision</SectionTitle>
         {canProcess ? (
@@ -135,7 +160,7 @@ export function ReviewReturnRequestScreen({
             />
           </View>
         ) : (
-          <PermissionNote>Deciding on a return needs the RMA processing permission.</PermissionNote>
+          <PermissionNote>Deciding an RMA needs the RMA processing permission.</PermissionNote>
         )}
       </ScrollView>
     </ReturnsScreen>
@@ -143,7 +168,7 @@ export function ReviewReturnRequestScreen({
 }
 
 const styles = StyleSheet.create({
-  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xxl },
+  scrollContent: { paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.sm, paddingBottom: adminSpacing.xl },
   notesText: { ...adminType.body, color: adminColors.ink },
-  decisionRow: { flexDirection: 'row', gap: 14, marginTop: 4, marginBottom: 24 },
+  decisionRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.xs, marginBottom: adminSpacing.lg },
 });

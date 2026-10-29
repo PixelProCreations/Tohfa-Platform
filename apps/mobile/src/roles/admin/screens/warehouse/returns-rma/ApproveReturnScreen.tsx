@@ -2,18 +2,17 @@
  * Approve Return? — confirmation before an RMA moves to the refund stage.
  *
  * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1), FINAL_LIST row 93:
- *   - "Approve" is enabled only with `rma.request.process` AND
- *     `rma.refund.approve`.
- *   - A Sub scope may approve only RMAs of its own warehouse
- *     (rma.refund.approve SUB grant `own`). Mock RMAs carry no warehouse yet,
- *     so this narrows nothing until the API returns one; the server must apply
- *     the same filter (cross-warehouse = empty result, not 403).
+ *   - "Approve" is enabled only with `rma.request.process` AND `rma.refund.approve`.
+ *   - A Sub scope may approve only RMAs of its own warehouse.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { AdminErrorState } from '../shared/AsyncStates';
+import { toRmaRecord } from './mappers';
+import { useApproveReturn, useReturn } from './useReturnData';
 import { inScope, PermissionNote, ReturnsButton, ReturnsScreen } from './ReturnsParts';
 import type { RmaRecord, RmaScreenBaseProps } from './types';
 
@@ -51,13 +50,49 @@ function CloseCrossIcon() {
   );
 }
 
-export function ApproveReturnScreen({ scope, can, rma, onBack, onConfirmApprove }: ApproveReturnScreenProps) {
+export function ApproveReturnScreen({ scope, can, returnId, rma: initialRma, onBack, onConfirmApprove }: ApproveReturnScreenProps) {
+  const effectiveId = returnId ?? initialRma?.id;
+  const returnQuery = useReturn(effectiveId);
+  const rma = returnQuery.data ? toRmaRecord(returnQuery.data) : initialRma;
+
+  const approveMutation = useApproveReturn();
+  const [submitError, setSubmitError] = useState<unknown>(null);
+
   const canApprove =
-    can('rma.request.process') && can('rma.refund.approve') && inScope(scope, rma.warehouseId);
+    can('rma.request.process') &&
+    can('rma.refund.approve') &&
+    inScope(scope, rma?.warehouseId);
+
+  const handleApprove = async () => {
+    if (!effectiveId || !canApprove) return;
+    setSubmitError(null);
+    try {
+      const updated = await approveMutation.mutateAsync(effectiveId);
+      onConfirmApprove(toRmaRecord(updated));
+    } catch (err) {
+      setSubmitError(err);
+    }
+  };
+
+  if (!rma) {
+    return (
+      <ReturnsScreen title="Review Return Request" onBack={onBack}>
+        <View style={styles.content}>
+          <Text style={{ ...adminType.body, color: adminColors.muted }}>Return not found</Text>
+        </View>
+      </ReturnsScreen>
+    );
+  }
 
   return (
     <ReturnsScreen title="Review Return Request" subtitle={rma.rmaId} onBack={onBack}>
       <View style={styles.content}>
+        {submitError ? (
+          <View style={{ marginBottom: adminSpacing.md }}>
+            <AdminErrorState error={submitError} onRetry={handleApprove} />
+          </View>
+        ) : null}
+
         <View style={styles.confirmCard}>
           <View style={styles.cardHeaderRow}>
             <QuestionCircleIcon />
@@ -71,12 +106,18 @@ export function ApproveReturnScreen({ scope, can, rma, onBack, onConfirmApprove 
           <View style={styles.actions}>
             <ReturnsButton
               variant="successOutline"
-              label="Approve"
+              label={approveMutation.isPending ? 'Approving...' : 'Approve'}
               icon={<CheckmarkIcon />}
-              disabled={!canApprove}
-              onPress={() => onConfirmApprove(rma)}
+              disabled={!canApprove || approveMutation.isPending}
+              onPress={handleApprove}
             />
-            <ReturnsButton variant="neutralOutline" label="Cancel" icon={<CloseCrossIcon />} onPress={onBack} />
+            <ReturnsButton
+              variant="neutralOutline"
+              label="Cancel"
+              icon={<CloseCrossIcon />}
+              disabled={approveMutation.isPending}
+              onPress={onBack}
+            />
             {canApprove ? null : (
               <PermissionNote>Approving needs both the RMA processing and refund approval permissions.</PermissionNote>
             )}
@@ -98,13 +139,13 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
-  cardHeaderTitle: { ...adminType.sectionHead, color: adminColors.success.text },
+  cardHeaderTitle: { ...adminType.title, color: adminColors.ink },
   noteBox: {
     backgroundColor: adminColors.canvas,
     borderRadius: adminRadius.md,
     padding: adminSpacing.md,
-    marginBottom: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
-  noteText: { ...adminType.body, color: adminColors.ink },
-  actions: { gap: adminSpacing.sm },
+  noteText: { ...adminType.body, color: adminColors.muted },
+  actions: { gap: adminSpacing.md },
 });

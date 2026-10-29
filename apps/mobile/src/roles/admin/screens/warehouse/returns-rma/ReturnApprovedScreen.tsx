@@ -48,14 +48,15 @@ function CashIcon() {
 
 export function ReturnApprovedScreen({ can, rma, onBack, onGoToRefundStatus }: ReturnApprovedScreenProps) {
   const canSeeRefund = can('rma.refund.approve');
+  const rmaId = rma?.rmaId ?? '—';
 
   return (
     <ReturnsScreen
       title="Return Approved"
-      subtitle={rma.rmaId}
+      subtitle={rmaId}
       onBack={onBack}
       footer={
-        canSeeRefund ? (
+        canSeeRefund && rma ? (
           <ReturnsFooter>
             <ReturnsButton label="Refund Status" icon={<CashIcon />} onPress={() => onGoToRefundStatus(rma)} />
           </ReturnsFooter>
@@ -63,7 +64,7 @@ export function ReturnApprovedScreen({ can, rma, onBack, onGoToRefundStatus }: R
       }
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <ResultHero tone="success" icon={<CheckmarkCircleIcon />} title="Return Approved" subtitle={rma.rmaId} />
+        <ResultHero tone="success" icon={<CheckmarkCircleIcon />} title="Return Approved" subtitle={rmaId} />
       </ScrollView>
     </ReturnsScreen>
   );

@@ -2,19 +2,20 @@
  * Refund Failed — the wallet refund could not be confirmed.
  *
  * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1), FINAL_LIST row 96:
- *   - No blind retry. The only way forward is "Check Refund Status", which
- *     returns to RefundStatusScreen (where the wallet-refund action is itself
- *     gated), and it is offered only with `rma.refund.wallet_process`.
+ *   - "Check Refund Status", returns to RefundStatusScreen to retry.
  */
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminSpacing } from '../../../theme';
+import { adminErrorKey } from '../../../api/errors';
+import { t } from '../../../i18n';
 import { ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen } from './ReturnsParts';
 import type { RmaRecord, RmaScreenBaseProps } from './types';
 
 export interface RefundFailedScreenProps extends RmaScreenBaseProps {
+  error?: unknown;
   /** Back to the refund status to check it before any retry. */
   onCheckRefundStatus?: ((rma: RmaRecord) => void) | undefined;
 }
@@ -28,16 +29,17 @@ function ExclamationCircleIcon() {
   );
 }
 
-export function RefundFailedScreen({ can, rma, onBack, onCheckRefundStatus }: RefundFailedScreenProps) {
+export function RefundFailedScreen({ can, rma, error, onBack, onCheckRefundStatus }: RefundFailedScreenProps) {
   const canRetry = can('rma.refund.wallet_process') && onCheckRefundStatus !== undefined;
+  const errorMsg = error ? t(adminErrorKey(error)) : 'The wallet has not been confirmed as credited. Check refund status before retrying — do not blindly retry.';
 
   return (
     <ReturnsScreen
       title="Refund Failed"
-      subtitle={rma.rmaId}
+      subtitle={rma?.rmaId}
       onBack={onBack}
       footer={
-        canRetry ? (
+        canRetry && rma ? (
           <ReturnsFooter>
             <ReturnsButton variant="neutralOutline" label="Check Refund Status" onPress={() => onCheckRefundStatus?.(rma)} />
           </ReturnsFooter>
@@ -49,7 +51,7 @@ export function RefundFailedScreen({ can, rma, onBack, onCheckRefundStatus }: Re
           tone="danger"
           icon={<ExclamationCircleIcon />}
           title="Refund Could Not Be Completed"
-          subtitle="The wallet has not been confirmed as credited. Check refund status before retrying — do not blindly retry."
+          subtitle={errorMsg}
         />
       </ScrollView>
     </ReturnsScreen>

@@ -21,11 +21,17 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { RMA_DETAIL_TIMELINE } from './fixtures';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getCustomer } from '../../../api/customers';
+import { getAdminOrder } from '../../../api/orders';
+import { formatMoney } from '../orders/mappers';
+import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { toReturnTimeline, toRmaRecord } from './mappers';
+import { useReturn, useReturnHistory } from './useReturnData';
 import {
   InfoCard,
   isAllWarehouses,
-  IssueTag,
   PermissionNote,
   ReturnsButton,
   ReturnsFooter,
@@ -89,9 +95,72 @@ function InspectClipboardIcon() {
 /** Mock refund method shown on the Main "Refund Information" card (ported from the Main twin). */
 const REFUND_METHOD = 'TOHFA Wallet';
 
-export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: RmaDetailScreenProps) {
+export function RmaDetailScreen({ scope, can, returnId, rma: initialRma, onBack, onInspectProduct }: RmaDetailScreenProps) {
+  const effectiveId = returnId ?? initialRma?.id;
+  const returnQuery = useReturn(effectiveId);
+  const rma = returnQuery.data ? toRmaRecord(returnQuery.data) : initialRma;
+
   const canProcess = can('rma.request.process');
-  const warehouseLabel = scope.warehouseName ?? rma.warehouseName ?? 'Coonoor Warehouse';
+  const warehouseLabel = scope.warehouseName ?? rma?.warehouseName ?? '';
+
+  const customerId = rma?.customerId;
+  const customerQuery = useAdminQuery(
+    adminKeys.detail('customers', customerId ?? ''),
+    (signal) => getCustomer(customerId!, signal),
+    { enabled: can('customer.detail.view') && Boolean(customerId && customerId !== '—') },
+  );
+
+  const orderId = rma?.orderId;
+  const orderQuery = useAdminQuery(
+    adminKeys.detail('orders', orderId ?? ''),
+    (signal) => getAdminOrder(orderId!, signal),
+    { enabled: Boolean(orderId && orderId !== '—') },
+  );
+
+  const historyQuery = useReturnHistory(effectiveId);
+  const timelineItems = historyQuery.data ? toReturnTimeline(historyQuery.data.items) : [];
+
+  if (returnQuery.isLoading && !rma) {
+    return (
+      <ReturnsScreen title="RMA Detail" onBack={onBack}>
+        <AdminLoadingState />
+      </ReturnsScreen>
+    );
+  }
+
+  if (returnQuery.isError && !rma) {
+    return (
+      <ReturnsScreen title="RMA Detail" onBack={onBack}>
+        <AdminErrorState error={returnQuery.error} onRetry={() => returnQuery.refetch()} />
+      </ReturnsScreen>
+    );
+  }
+
+  if (!rma) {
+    return (
+      <ReturnsScreen title="RMA Detail" onBack={onBack}>
+        <AdminErrorState error={new Error('Return not found')} onRetry={onBack} />
+      </ReturnsScreen>
+    );
+  }
+
+  const customerData = customerQuery.data;
+  const customerName = customerData?.name ?? rma.customerName;
+  const customerCode = customerData?.customerCode ?? rma.customerId;
+  const customerPhone = customerData
+    ? (customerData.mobile ?? customerData.mobileMasked)
+    : rma.customerPhone;
+
+  const orderData = orderQuery.data;
+  const matchedOrderItem = orderData?.items[0];
+
+  const salesChannel = orderData?.channel ?? rma.salesChannel;
+  const paymentStatus = orderData?.paymentStatus ?? rma.paymentStatus;
+  const productName = matchedOrderItem?.name ?? rma.productName;
+  const productGrade = matchedOrderItem?.grade ?? rma.grade;
+  const quantityPurchased = matchedOrderItem ? `${matchedOrderItem.qtyKg} KG` : rma.quantityPurchased;
+  const unitPrice = matchedOrderItem ? formatMoney(matchedOrderItem.unitPrice) : rma.unitPrice;
+  const lineTotal = matchedOrderItem ? formatMoney(matchedOrderItem.lineTotal) : rma.lineTotal;
 
   return (
     <ReturnsScreen
@@ -116,8 +185,8 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
 
         <SectionTitle>Customer</SectionTitle>
         <View style={styles.customerCard}>
-          <Text style={styles.customerNameText}>{rma.customerName}</Text>
-          <Text style={styles.customerContactText}>{`${rma.customerId} · ${rma.customerPhone}`}</Text>
+          <Text style={styles.customerNameText}>{customerName}</Text>
+          <Text style={styles.customerContactText}>{`${customerCode} · ${customerPhone}`}</Text>
         </View>
 
         <SectionTitle>Order</SectionTitle>
@@ -128,10 +197,10 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
               { label: 'Order Date', value: rma.orderDate },
             ],
             [
-              { label: 'Warehouse', value: warehouseLabel },
-              { label: 'Sales Channel', value: rma.salesChannel },
+              { label: 'Warehouse', value: warehouseLabel || '—' },
+              { label: 'Sales Channel', value: salesChannel },
             ],
-            [{ label: 'Payment Status', value: rma.paymentStatus }],
+            [{ label: 'Payment Status', value: paymentStatus }],
           ]}
         />
 
@@ -139,14 +208,14 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
         <InfoCard
           rows={[
             [
-              { label: 'Product', value: rma.productName },
-              { label: 'Grade', value: rma.grade },
+              { label: 'Product', value: productName },
+              { label: 'Grade', value: productGrade },
             ],
             [
-              { label: 'Quantity Purchased', value: rma.quantityPurchased },
-              { label: 'Unit Price', value: rma.unitPrice },
+              { label: 'Quantity Purchased', value: quantityPurchased },
+              { label: 'Unit Price', value: unitPrice },
             ],
-            [{ label: 'Line Total', value: rma.lineTotal }],
+            [{ label: 'Line Total', value: lineTotal }],
           ]}
         />
 
@@ -154,7 +223,6 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
         <InfoCard
           rows={[
             [
-              { label: 'Issue Category', value: <IssueTag label={rma.issueCategory} /> },
               { label: 'Reported Date', value: rma.reportedDate },
             ],
             [{ label: 'Description', value: <Text style={styles.descriptionText}>{rma.description}</Text> }],
@@ -172,21 +240,8 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
           </View>
         </View>
 
-        <SectionTitle>Ticket Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Issue Ticket', value: rma.ticketId },
-              { label: 'RMA ID', value: rma.rmaId },
-            ],
-          ]}
-        />
-
         <SectionTitle>Return Quantity</SectionTitle>
         <InfoCard rows={[[{ label: 'Requested Return Quantity', value: rma.requestedQuantity }]]} />
-
-        <SectionTitle>Requested Resolution</SectionTitle>
-        <InfoCard rows={[[{ label: 'Resolution', value: rma.requestedResolution }]]} />
 
         {isAllWarehouses(scope) ? (
           <>
@@ -194,7 +249,7 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
             <InfoCard
               rows={[
                 [
-                  { label: 'Refund Amount', value: rma.lineTotal },
+                  { label: 'Refund Amount', value: lineTotal },
                   { label: 'Refund Method', value: REFUND_METHOD },
                 ],
               ]}
@@ -203,7 +258,7 @@ export function RmaDetailScreen({ scope, can, rma, onBack, onInspectProduct }: R
         ) : null}
 
         <SectionTitle>Timeline</SectionTitle>
-        <ReturnsTimeline items={RMA_DETAIL_TIMELINE} />
+        <ReturnsTimeline items={timelineItems} />
       </ScrollView>
     </ReturnsScreen>
   );
@@ -221,40 +276,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.success.border,
     borderRadius: adminRadius.md,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
-    marginBottom: 4,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
+    gap: adminSpacing.sm,
   },
-  eligibleBannerText: { ...adminType.caption, fontWeight: '700', color: adminColors.success.text, flex: 1 },
+  eligibleBannerText: { ...adminType.rowMeta, color: adminColors.success.text, flex: 1 },
   customerCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: 16,
-    marginBottom: 4,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
   },
-  customerNameText: {
-    ...adminType.caption,
-    fontWeight: '500',
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  customerContactText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
+  customerNameText: { ...adminType.kpiValue, color: adminColors.ink, marginBottom: adminSpacing.xs },
+  customerContactText: { ...adminType.rowMeta, color: adminColors.muted },
   descriptionText: { ...adminType.body, color: adminColors.ink },
-  evidenceRow: { flexDirection: 'row', gap: adminSpacing.md },
+  evidenceRow: { flexDirection: 'row', gap: adminSpacing.md, marginBottom: adminSpacing.md },
   evidenceBox: {
     width: EVIDENCE_SIZE,
     height: EVIDENCE_SIZE,
-    borderRadius: adminRadius.lg,
-    backgroundColor: adminColors.brandTint,
-    borderWidth: 1,
-    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
 });

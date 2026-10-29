@@ -75,6 +75,7 @@ export interface ReturnTimelineItem {
 
 /** A closed RMA in the return history. */
 export interface ReturnHistoryRecord {
+  id?: string | undefined;
   rmaId: string;
   orderId: string;
   customerName: string;
@@ -120,7 +121,8 @@ export type InspectStep = 'form' | 'saved';
 
 /** Props every RMA screen that works on one request takes. */
 export interface RmaScreenBaseProps extends WarehouseScreenBaseProps {
-  rma: RmaRecord;
+  returnId?: string | undefined;
+  rma?: RmaRecord | undefined;
 }
 
 /**
@@ -144,6 +146,7 @@ export type ReturnsRoute =
 
 /** Params carried between ReturnsFlow routes. All optional: a deep link may carry none. */
 export interface ReturnsRouteParams {
+  returnId?: string | undefined;
   rma?: RmaRecord | undefined;
   record?: ReturnHistoryRecord | undefined;
   inspectedQty?: string | undefined;

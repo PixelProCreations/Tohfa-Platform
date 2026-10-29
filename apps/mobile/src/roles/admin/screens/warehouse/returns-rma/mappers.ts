@@ -142,6 +142,7 @@ export function toReturnHistoryRecord(dto: ReturnSummaryDto): ReturnHistoryRecor
   };
 
   return {
+    id: dto.id,
     rmaId: deriveRmaId(dto.id),
     orderId: dto.orderId,
     customerName: '—', // BR-92: not in returns API
@@ -149,6 +150,7 @@ export function toReturnHistoryRecord(dto: ReturnSummaryDto): ReturnHistoryRecor
     status: historyStatus(),
     date: formatRmaDate(dto.createdAt),
     customerId: dto.customerId,
+    warehouseId: dto.warehouseId ?? undefined,
   };
 }
 

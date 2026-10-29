@@ -169,7 +169,7 @@ export function ReturnsIssuesScreen({
     <View style={styles.warehousePill}>
       <LockIcon />
       <Text style={styles.warehousePillText}>
-        {`${(scope.warehouseName ?? 'Coonoor Warehouse').includes('Warehouse') ? (scope.warehouseName ?? 'Coonoor Warehouse') : `${scope.warehouseName} Warehouse`} · Assigned Warehouse`}
+        {`${scope.warehouseName ?? ''} · Assigned Warehouse`}
       </Text>
     </View>
   );
@@ -194,10 +194,6 @@ export function ReturnsIssuesScreen({
       name: w.warehouseName || 'All Warehouses',
     })) ?? [
       { id: 'ALL', name: 'All Warehouses' },
-      { id: 'wh-ooty', name: 'Ooty Warehouse' },
-      { id: 'wh-coonoor', name: 'Coonoor Warehouse' },
-      { id: 'wh-kotagiri', name: 'Kotagiri Warehouse' },
-      { id: 'wh-gudalur', name: 'Gudalur Market Warehouse' },
     ];
 
     return (

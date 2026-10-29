@@ -2,12 +2,7 @@
  * Refund Completed — result screen after the wallet refund was confirmed.
  *
  * Gates (docs/rbac.json; the server re-checks, CLAUDE.md 2.1):
- *   - none for the result itself; the "View Return History" link is offered
- *     only with `rma.request.process` (FINAL_LIST row 95).
- *
- * Absorbs MainWarehouseRefundCompletedScreen (pair M10-S05C): its "View
- * Return History" footer button is ported behind the gate above; its
- * row-style timeline is covered by the Sub timeline.
+ *   - "View Return History" is offered only with `rma.request.process` (FINAL_LIST row 95).
  */
 // Design id: M10-S05C
 import React from 'react';
@@ -15,7 +10,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { REFUND_TIMELINE } from './fixtures';
+import { toReturnTimeline } from './mappers';
+import { useReturnHistory } from './useReturnData';
 import { ResultHero, ReturnsButton, ReturnsFooter, ReturnsScreen, ReturnsTimeline, SectionTitle } from './ReturnsParts';
 import type { RmaScreenBaseProps } from './types';
 
@@ -42,19 +38,24 @@ function SuccessCheckmarkIcon() {
 
 export function RefundCompletedScreen({
   can,
+  returnId,
   rma,
   refundAmount,
   transactionId = '—',
   onBack,
   onViewReturnHistory,
 }: RefundCompletedScreenProps) {
+  const effectiveId = returnId ?? rma?.id;
+  const historyQuery = useReturnHistory(effectiveId);
+  const timelineItems = historyQuery.data ? toReturnTimeline(historyQuery.data.items) : [];
+
   const showHistoryLink = can('rma.request.process') && onViewReturnHistory !== undefined;
-  const cleanAmount = refundAmount.replace('.00', '');
+  const cleanAmount = refundAmount ? refundAmount.replace('.00', '') : '—';
 
   return (
     <ReturnsScreen
       title="Refund Completed"
-      subtitle={rma.rmaId}
+      subtitle={rma?.rmaId}
       onBack={onBack}
       footer={
         showHistoryLink ? (
@@ -78,7 +79,7 @@ export function RefundCompletedScreen({
         </View>
 
         <SectionTitle>Refund Timeline</SectionTitle>
-        <ReturnsTimeline items={REFUND_TIMELINE} />
+        <ReturnsTimeline items={timelineItems} />
       </ScrollView>
     </ReturnsScreen>
   );

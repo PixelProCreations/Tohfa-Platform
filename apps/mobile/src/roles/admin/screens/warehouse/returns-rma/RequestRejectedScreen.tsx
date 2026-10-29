@@ -53,10 +53,12 @@ function CheckmarkIcon() {
 }
 
 export function RequestRejectedScreen({ rma, onDone }: RequestRejectedScreenProps) {
+  const rmaId = rma?.rmaId ?? '—';
+
   return (
     <ReturnsScreen
       title="Request Rejected"
-      subtitle={rma.rmaId}
+      subtitle={rmaId}
       onBack={onDone}
       footer={
         <ReturnsFooter>
@@ -65,7 +67,7 @@ export function RequestRejectedScreen({ rma, onDone }: RequestRejectedScreenProp
       }
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <ResultHero tone="danger" icon={<CloseCircleIcon />} title="Return Request Rejected" subtitle={rma.rmaId} />
+        <ResultHero tone="danger" icon={<CloseCircleIcon />} title="Return Request Rejected" subtitle={rmaId} />
         <View style={styles.infoBox}>
           <BellOutlineIcon />
           <Text style={styles.infoText}>

@@ -1,18 +1,8 @@
 /**
  * In-module navigator for the returns (RMA) screens (design module M10).
  *
- * The RMA flow (list -> detail -> inspect -> review -> approve / reject ->
- * refund status -> refund completed / failed, plus history) used to be
- * stitched twice: as fourteen `if (xxxRma)` state branches in the Sub shell and
- * fourteen App.tsx route keys, while the Main shell nested its own copies
- * (MainWarehouseReturnsIssuesScreen -> RmaDetail -> ...) through local state.
- * It now lives next to the screens and takes `scope` + `can`, so both shells
- * render the same flow: the Sub shell / App.tsx with the Sub warehouse scope,
- * the Main shell with MAIN_WAREHOUSE_SCOPE (all warehouses).
- *
  * Route keys are the old App.tsx keys without the 'SubWarehouse' prefix
- * (ReturnsRoute). The image viewer route ('SubWarehouseImageViewer') was
- * dropped with its screen (FINAL_LIST row 106).
+ * (ReturnsRoute).
  */
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
@@ -33,42 +23,6 @@ import { ReviewReturnRequestScreen } from './ReviewReturnRequestScreen';
 import { RmaDetailScreen } from './RmaDetailScreen';
 import type { PermissionCheck, ReturnHistoryRecord, ReturnsRoute, ReturnsRouteParams, RmaRecord, WarehouseScope, WarehouseTab } from './types';
 
-const BLANK_RMA: RmaRecord = {
-  id: '',
-  rmaId: '—',
-  orderId: '—',
-  customerName: '—',
-  customerId: '—',
-  customerPhone: '—',
-  orderDate: '—',
-  salesChannel: '—',
-  paymentStatus: '—',
-  productName: '—',
-  grade: '—',
-  quantityPurchased: '—',
-  unitPrice: '—',
-  lineTotal: '—',
-  issueCategory: 'Quality',
-  reportedDate: '—',
-  timestampText: '—',
-  description: '—',
-  ticketId: '—',
-  requestedQuantity: '—',
-  requestedResolution: 'Refund',
-  status: 'New',
-};
-
-const BLANK_RETURN_HISTORY_RECORD: ReturnHistoryRecord = {
-  rmaId: '—',
-  orderId: '—',
-  customerName: '—',
-  customerId: '—',
-  status: 'Completed',
-  date: '—',
-  reasonTag: '—',
-  warehouseName: '—',
-};
-
 /** One entry of the flow's back stack. */
 export interface ReturnsStackEntry {
   screen: ReturnsRoute;
@@ -80,16 +34,10 @@ export interface ReturnsFlowProps {
   can: PermissionCheck;
   initialScreen?: ReturnsRoute | undefined;
   initialParams?: ReturnsRouteParams | undefined;
-  /**
-   * Screens under the initial one, so back from it lands somewhere inside the
-   * flow (e.g. a customer issue opens RmaDetail with the RMA list beneath).
-   */
   initialBackStack?: readonly ReturnsStackEntry[] | undefined;
-  /** Leave the returns module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
 }
 
@@ -109,20 +57,15 @@ export function ReturnsFlow({
     { screen: initialScreen, params: initialParams },
   ]);
 
-  // A host that re-targets the open module (new initial screen / params)
-  // restarts the stack, as the inventory and orders flows do. Hosts keep these
-  // props referentially stable (state, not inline literals).
   useEffect(() => {
     setStack([...(initialBackStack ?? []), { screen: initialScreen, params: initialParams }]);
   }, [initialScreen, initialParams, initialBackStack]);
 
   const current = stack[stack.length - 1] ?? { screen: initialScreen, params: initialParams };
   const params: ReturnsRouteParams = current.params ?? {};
-  const rma = params.rma ?? BLANK_RMA;
+  const returnId = params.returnId ?? params.rma?.id;
+  const rma = params.rma;
 
-  // Live returns list for the ReturnsIssues screen.
-  // The screen has its own warehouse selector for client-side filtering;
-  // here we load all returns for the scope (sub = own warehouse, main = all).
   const returnList = useReturnList(scope, can, undefined);
 
   const navigate = (screen: ReturnsRoute, nextParams?: ReturnsRouteParams) => {
@@ -137,14 +80,12 @@ export function ReturnsFlow({
     }
   };
 
-  // Hardware back pops this flow's stack; at its root the host's listener handles it.
   useFlowBack(() => {
     if (stack.length <= 1) return false;
     back();
     return true;
   });
 
-  /** Finish a review: back to the RMA list with a fresh stack (the old shells did the same). */
   const backToList = () => setStack([{ screen: 'ReturnsIssues' }]);
 
   const common = { scope, can, onBack: back, onTabChange };
@@ -159,21 +100,30 @@ export function ReturnsFlow({
           isLoading={returnList.isLoading}
           error={returnList.error}
           onRetry={returnList.refresh}
-          onSelectRma={(selected) => navigate('RmaDetail', { rma: selected })}
+          onSelectRma={(selected) => navigate('RmaDetail', { returnId: selected.id, rma: selected })}
           onNavigateToHistory={() => navigate('ReturnHistory')}
           onNavigateToNotifications={onNavigateToNotifications}
         />
       );
     case 'RmaDetail':
-      return <RmaDetailScreen {...common} rma={rma} onInspectProduct={(r) => navigate('InspectProduct', { rma: r })} />;
+      return (
+        <RmaDetailScreen
+          {...common}
+          returnId={returnId}
+          rma={rma}
+          onInspectProduct={(r) => navigate('InspectProduct', { returnId: r.id, rma: r })}
+        />
+      );
     case 'InspectProduct':
       return (
         <InspectProductScreen
           {...common}
+          returnId={returnId}
           rma={rma}
           initialStep={params.step}
           onContinueToReview={(inspection) =>
             navigate('ReviewReturnRequest', {
+              returnId: inspection.rma.id,
               rma: inspection.rma,
               inspectedQty: inspection.receivedQty,
               notes: inspection.notes,
@@ -185,47 +135,63 @@ export function ReturnsFlow({
       return (
         <ReviewReturnRequestScreen
           {...common}
+          returnId={returnId}
           rma={rma}
           inspectedQty={params.inspectedQty}
           inspectionNotes={params.notes}
-          onApprove={(r) => navigate('ApproveReturn', { rma: r })}
-          onReject={(r) => navigate('RejectReturnRequest', { rma: r })}
+          onApprove={(r) => navigate('ApproveReturn', { returnId: r.id, rma: r })}
+          onReject={(r) => navigate('RejectReturnRequest', { returnId: r.id, rma: r })}
         />
       );
     case 'ApproveReturn':
-      return <ApproveReturnScreen {...common} rma={rma} onConfirmApprove={(r) => navigate('ReturnApproved', { rma: r })} />;
+      return (
+        <ApproveReturnScreen
+          {...common}
+          returnId={returnId}
+          rma={rma}
+          onConfirmApprove={(r) => navigate('ReturnApproved', { returnId: r.id, rma: r })}
+        />
+      );
     case 'RejectReturnRequest':
       return (
         <RejectReturnRequestScreen
           {...common}
+          returnId={returnId}
           rma={rma}
-          onRejectSuccess={(data) => navigate('RequestRejected', { rma: data.rma, reason: data.reason })}
+          onRejectSuccess={(data) => navigate('RequestRejected', { returnId: data.rma.id, rma: data.rma, reason: data.reason })}
         />
       );
     case 'RequestRejected':
-      return <RequestRejectedScreen {...common} rma={rma} onDone={backToList} />;
+      return <RequestRejectedScreen {...common} rma={rma ?? ({} as RmaRecord)} onDone={backToList} />;
     case 'ReturnApproved':
-      return <ReturnApprovedScreen {...common} rma={rma} onGoToRefundStatus={(r) => navigate('RefundStatus', { rma: r })} />;
+      return <ReturnApprovedScreen {...common} rma={rma ?? ({} as RmaRecord)} onGoToRefundStatus={(r) => navigate('RefundStatus', { returnId: r.id, rma: r })} />;
     case 'RefundStatus':
       return (
         <RefundStatusScreen
           {...common}
+          returnId={returnId}
           rma={rma}
           refundAmount={params.refundAmount ?? '—'}
           onConfirmSuccess={(data) =>
-            navigate('RefundCompleted', { rma: data.rma, refundAmount: data.refundAmount })
+            navigate('RefundCompleted', { returnId: data.rma.id, rma: data.rma, refundAmount: data.refundAmount, transactionId: data.transactionId })
           }
         />
       );
     case 'RefundFailed':
       return (
-        <RefundFailedScreen {...common} rma={rma} onCheckRefundStatus={(r) => navigate('RefundStatus', { rma: r })} />
+        <RefundFailedScreen
+          {...common}
+          returnId={returnId}
+          rma={rma}
+          onCheckRefundStatus={(r) => navigate('RefundStatus', { returnId: r.id, rma: r })}
+        />
       );
     case 'RefundCompleted':
       return (
         <RefundCompletedScreen
           {...common}
           onBack={backToList}
+          returnId={returnId}
           rma={rma}
           refundAmount={params.refundAmount ?? '—'}
           transactionId={params.transactionId}
@@ -237,11 +203,17 @@ export function ReturnsFlow({
         <ReturnHistoryScreen
           {...common}
           warehouseOptions={warehouseOptions}
-          onSelectRecord={(record) => navigate('ReturnHistoryDetail', { record })}
+          onSelectRecord={(record) => navigate('ReturnHistoryDetail', { returnId: record.id, record })}
         />
       );
     case 'ReturnHistoryDetail':
-      return <ReturnHistoryDetailScreen {...common} record={params.record ?? BLANK_RETURN_HISTORY_RECORD} />;
+      return (
+        <ReturnHistoryDetailScreen
+          {...common}
+          returnId={returnId}
+          record={params.record ?? ({ id: returnId, rmaId: '—', orderId: '—', customerName: '—', status: 'Completed', date: '—', reasonTag: '—' } as ReturnHistoryRecord)}
+        />
+      );
     default:
       return null;
   }

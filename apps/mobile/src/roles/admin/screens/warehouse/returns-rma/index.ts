@@ -15,7 +15,6 @@ export { ReturnsFiltersScreen, type ReturnsFiltersScreenProps, type RmaFilterVal
 export { ReviewReturnRequestScreen, type ReviewReturnRequestScreenProps } from './ReviewReturnRequestScreen';
 export { RmaDetailScreen, type RmaDetailScreenProps } from './RmaDetailScreen';
 export { ReturnsFlow, type ReturnsFlowProps, type ReturnsStackEntry } from './ReturnsFlow';
-export { INITIAL_RETURN_HISTORY, INITIAL_RMA_ITEMS } from './fixtures';
 export type {
   InspectionCondition,
   InspectionResultData,
