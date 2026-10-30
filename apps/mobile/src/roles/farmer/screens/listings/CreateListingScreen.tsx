@@ -4,7 +4,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { getLocale, t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
-import { listCropMaster, type CropMasterResponse } from '../../api/crops';
+import { listCropMaster, listAllActiveFarmCrops, type CropMasterResponse } from '../../api/crops';
 import { type ListingCropChoice } from '../../api/listings';
 import { cropPhotoFor } from './cropImages';
 
@@ -78,8 +78,21 @@ export function CreateListingScreen({
     controllerRef.current = controller;
     setState({ kind: 'loading' });
     try {
-      const crops = await listCropMaster(controller.signal);
+      const [cropMasterList, activeCropsResult] = await Promise.all([
+        listCropMaster(controller.signal),
+        listAllActiveFarmCrops(controller.signal).catch(() => ({ items: [], plots: [], complete: true })),
+      ]);
       if (controller.signal.aborted) return;
+
+      let crops = cropMasterList;
+      if (activeCropsResult.items.length > 0) {
+        const activeCropMasterIds = new Set(activeCropsResult.items.map((i) => i.crop.cropMasterId));
+        const filtered = cropMasterList.filter((c) => activeCropMasterIds.has(c.id));
+        if (filtered.length > 0) {
+          crops = filtered;
+        }
+      }
+
       setState({ kind: 'ready', crops });
     } catch (error) {
       if (controller.signal.aborted) return;

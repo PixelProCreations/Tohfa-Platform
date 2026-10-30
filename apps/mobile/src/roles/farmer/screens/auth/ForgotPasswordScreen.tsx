@@ -16,6 +16,8 @@ import { authPalette as P, typography } from '../../theme';
 
 interface ForgotPasswordScreenProps {
   onNavigate: (screen: 'Login' | 'Otp', params?: Record<string, string | number | undefined>) => void;
+  initialMobile?: string | undefined;
+  mode?: 'forgot' | 'first_time' | undefined;
 }
 
 /**
@@ -27,8 +29,14 @@ interface ForgotPasswordScreenProps {
  */
 
 
-export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNavigate }) => {
-  const [mobile, setMobile] = useState('');
+export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({
+  onNavigate,
+  initialMobile = '',
+  mode = 'forgot',
+}) => {
+  const [mobile, setMobile] = useState(
+    initialMobile ? initialMobile.replace(/^\+91\s*|^\+/, '') : '',
+  );
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -77,8 +85,16 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
         <LockIcon size={28} color={P.primary} />
       </View>
 
-      <Text style={styles.title}>Forgot Password</Text>
-      <Text style={styles.subtitle}>Enter your registered mobile number to receive an OTP</Text>
+      <Text style={styles.title}>
+        {mode === 'first_time'
+          ? t('farmer.auth.setPassword.title')
+          : t('farmer.auth.forgot.title')}
+      </Text>
+      <Text style={styles.subtitle}>
+        {mode === 'first_time'
+          ? t('farmer.auth.setPassword.subtitle')
+          : t('farmer.auth.forgot.subtitle')}
+      </Text>
 
       {errorMsg ? (
         <View style={{ marginTop: 24, paddingHorizontal: 0 }}>

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  BackHandler,
   Modal,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,7 +12,10 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
+import { formatSafeDate } from '../../../polyfills';
+import { listTreePlantings, type TreePlantingResponse } from '../../../api/treePlantings';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -141,60 +146,16 @@ function EditPencilIcon({ size = 14, color = P.twGray600 }: { size?: number; col
 
 // ── Types & Data ─────────────────────────────────────────────────────────────
 
-export type TreeStatus = 'Mature' | 'Young' | 'Fruit-bearing';
-
-export interface TreePlantingItem {
-  id: string;
-  name: string;
-  species?: string | undefined;
-  treeCount?: number | undefined;
-  plantedDate: string;
-  zoneInfo: string;
-  status: TreeStatus;
-  hasPruningAlert?: boolean | undefined;
-  alertText?: string | undefined;
-  ageText?: string | undefined;
-  purposeText?: string | undefined;
-  isFruitBearing?: boolean | undefined;
-}
-
-const INITIAL_PLANTINGS: TreePlantingItem[] = [
-  {
-    id: 't1',
-    name: 'Silver Oak (12 trees)',
-    species: 'Silver Oak',
-    treeCount: 12,
-    plantedDate: 'Planted 14 Jun 2019',
-    zoneInfo: 'Zone A boundary',
-    status: 'Mature',
-    ageText: '≈ 7 years old',
-    purposeText: 'Shade & windbreak',
-  },
-  {
-    id: 't2',
-    name: 'Silver Oak Saplings (8)',
-    species: 'Silver Oak',
-    treeCount: 8,
-    plantedDate: 'Planted 02 Mar 2025',
-    zoneInfo: 'Zone C boundary',
-    status: 'Young',
-    hasPruningAlert: true,
-    alertText: 'Pruning check due in 6 days',
-    purposeText: 'Shade & windbreak',
-  },
-  {
-    id: 't3',
-    name: 'Guava (4 trees)',
-    species: 'Guava',
-    treeCount: 4,
-    plantedDate: 'Planted 20 Aug 2021',
-    zoneInfo: 'Near Zone B',
-    status: 'Fruit-bearing',
-    ageText: '≈ 5 years old',
-    purposeText: 'Seasonal yield',
-    isFruitBearing: true,
-  },
-];
+export {
+  toTreePlantingItem,
+  type TreePlantingItem,
+  type TreeStatus,
+} from '../../../api/treePlantings';
+import {
+  toTreePlantingItem,
+  type TreePlantingItem,
+  type TreeStatus,
+} from '../../../api/treePlantings';
 
 export interface TreesListScreenProps {
   onBack?: (() => void) | undefined;
@@ -209,9 +170,45 @@ export function TreesListScreen({
   onNavigateToPlantingDetail,
   onNavigateToEditPlanting,
 }: TreesListScreenProps): React.JSX.Element {
-  const [plantings] = useState<TreePlantingItem[]>(INITIAL_PLANTINGS);
+  const [plantings, setPlantings] = useState<TreePlantingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<unknown | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'All plantings' | TreeStatus>('All plantings');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+
+  const loadPlantings = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError(null);
+    try {
+      const response = await listTreePlantings({ limit: 100 });
+      setPlantings(response.items.map(toTreePlantingItem));
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPlantings();
+  }, [loadPlantings]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (onBack) {
+        onBack();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [onBack]);
 
   const filterOptions: ('All plantings' | TreeStatus)[] = [
     'All plantings',
@@ -247,7 +244,11 @@ export function TreesListScreen({
 
           <View style={styles.headerTitles}>
             <Text style={styles.headerTitle}>Trees</Text>
-            <Text style={styles.headerSubtitle}>{plantings.length} plantings</Text>
+            <Text style={styles.headerSubtitle}>
+              {loading
+                ? 'Loading...'
+                : `${plantings.length} ${plantings.length === 1 ? 'planting' : 'plantings'}`}
+            </Text>
           </View>
         </View>
 
@@ -255,6 +256,14 @@ export function TreesListScreen({
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void loadPlantings(true)}
+              tintColor={colors.brandGreen}
+              colors={[colors.brandGreen]}
+            />
+          }
         >
           {/* ── Filter Dropdown ── */}
           <TouchableOpacity
@@ -271,105 +280,128 @@ export function TreesListScreen({
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
 
-          {/* ── Plantings List ── */}
-          <View style={styles.plantingsListContainer}>
-            {filteredItems.map((item) => {
-              const isYoung = item.status === 'Young';
-              const isMature = item.status === 'Mature';
-              const isFruit = item.status === 'Fruit-bearing';
+          {/* ── Content: Loading Skeleton, Error State, Empty State, or List ── */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <Skeleton width="100%" height={100} borderRadius={18} />
+              <Skeleton width="100%" height={100} borderRadius={18} />
+              <Skeleton width="100%" height={100} borderRadius={18} />
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <ErrorState error={error} onRetry={() => void loadPlantings()} />
+            </View>
+          ) : filteredItems.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyTitle}>
+                {plantings.length === 0 ? 'No tree plantings yet' : 'No matching plantings'}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {plantings.length === 0
+                  ? 'Add your first tree or perennial planting record to track species, counts, and zones.'
+                  : 'Try selecting a different filter option.'}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.plantingsListContainer}>
+              {filteredItems.map((item) => {
+                const isYoung = item.status === 'Young';
+                const isMature = item.status === 'Mature';
+                const isFruit = item.status === 'Fruit-bearing';
 
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.cardWrapper}
-                  activeOpacity={0.85}
-                  onPress={() => {
-                    if (onNavigateToEditPlanting) {
-                      onNavigateToEditPlanting(item);
-                    } else if (onNavigateToPlantingDetail) {
-                      onNavigateToPlantingDetail(item);
-                    }
-                  }}
-                >
-                  <View
-                    style={[
-                      styles.plantingCard,
-                      item.hasPruningAlert && styles.cardBorderAlert,
-                    ]}
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.cardWrapper}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      if (onNavigateToEditPlanting) {
+                        onNavigateToEditPlanting(item);
+                      } else if (onNavigateToPlantingDetail) {
+                        onNavigateToPlantingDetail(item);
+                      }
+                    }}
                   >
-                    {/* Top Row: Name, Status Badge and Edit Button */}
-                    <View style={styles.cardTopRow}>
-                      <Text style={styles.plantingName}>{item.name}</Text>
+                    <View
+                      style={[
+                        styles.plantingCard,
+                        item.hasPruningAlert && styles.cardBorderAlert,
+                      ]}
+                    >
+                      {/* Top Row: Name, Status Badge and Edit Button */}
+                      <View style={styles.cardTopRow}>
+                        <Text style={styles.plantingName}>{item.name}</Text>
 
-                      <View style={styles.cardTopRowRight}>
-                        {isMature && (
-                          <View style={styles.badgeMature}>
-                            <Text style={styles.badgeTextMature}>Mature</Text>
-                          </View>
-                        )}
+                        <View style={styles.cardTopRowRight}>
+                          {isMature && (
+                            <View style={styles.badgeMature}>
+                              <Text style={styles.badgeTextMature}>Mature</Text>
+                            </View>
+                          )}
 
-                        {isYoung && (
-                          <View style={styles.badgeYoung}>
-                            <Text style={styles.badgeTextYoung}>Young</Text>
-                          </View>
-                        )}
+                          {isYoung && (
+                            <View style={styles.badgeYoung}>
+                              <Text style={styles.badgeTextYoung}>Young</Text>
+                            </View>
+                          )}
 
-                        {isFruit && (
-                          <View style={styles.badgeFruit}>
-                            <Text style={styles.badgeTextFruit}>Fruit-bearing</Text>
-                          </View>
-                        )}
+                          {isFruit && (
+                            <View style={styles.badgeFruit}>
+                              <Text style={styles.badgeTextFruit}>Fruit-bearing</Text>
+                            </View>
+                          )}
 
-                        <TouchableOpacity
-                          style={styles.editIconButton}
-                          onPress={() => onNavigateToEditPlanting?.(item)}
-                          activeOpacity={0.7}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Edit ${item.name}`}
-                        >
-                          <EditPencilIcon size={14} color={P.twGray600} />
-                        </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.editIconButton}
+                            onPress={() => onNavigateToEditPlanting?.(item)}
+                            activeOpacity={0.7}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Edit ${item.name}`}
+                          >
+                            <EditPencilIcon size={14} color={P.twGray600} />
+                          </TouchableOpacity>
+                        </View>
                       </View>
+
+                      {/* Planted Date & Zone */}
+                      <Text style={styles.plantedSubtitle}>
+                        {item.plantedDate} · {item.zoneInfo}
+                      </Text>
+
+                      {/* Alert Line for Young / Pruning check */}
+                      {item.hasPruningAlert && item.alertText ? (
+                        <View style={styles.alertLineRow}>
+                          <PruningDropIcon size={14} color={P.twAmber800} />
+                          <Text style={styles.alertText}>{item.alertText}</Text>
+                        </View>
+                      ) : (
+                        /* Multi-detail metadata row */
+                        <View style={styles.metaDetailsRow}>
+                          {item.ageText && (
+                            <View style={styles.metaChip}>
+                              <AgeMiniIcon size={13} color={P.twGray400} />
+                              <Text style={styles.metaChipText}>{item.ageText}</Text>
+                            </View>
+                          )}
+
+                          {item.purposeText && (
+                            <View style={styles.metaChip}>
+                              {item.isFruitBearing ? (
+                                <FruitYieldMiniIcon size={13} color={P.twGray400} />
+                              ) : (
+                                <WindbreakMiniIcon size={14} color={P.twGray400} />
+                              )}
+                              <Text style={styles.metaChipText}>{item.purposeText}</Text>
+                            </View>
+                          )}
+                        </View>
+                      )}
                     </View>
-
-                    {/* Planted Date & Zone */}
-                    <Text style={styles.plantedSubtitle}>
-                      {item.plantedDate} · {item.zoneInfo}
-                    </Text>
-
-                    {/* Alert Line for Young / Pruning check */}
-                    {item.hasPruningAlert && item.alertText ? (
-                      <View style={styles.alertLineRow}>
-                        <PruningDropIcon size={14} color={P.twAmber800} />
-                        <Text style={styles.alertText}>{item.alertText}</Text>
-                      </View>
-                    ) : (
-                      /* Multi-detail metadata row */
-                      <View style={styles.metaDetailsRow}>
-                        {item.ageText && (
-                          <View style={styles.metaChip}>
-                            <AgeMiniIcon size={13} color={P.twGray400} />
-                            <Text style={styles.metaChipText}>{item.ageText}</Text>
-                          </View>
-                        )}
-
-                        {item.purposeText && (
-                          <View style={styles.metaChip}>
-                            {item.isFruitBearing ? (
-                              <FruitYieldMiniIcon size={13} color={P.twGray400} />
-                            ) : (
-                              <WindbreakMiniIcon size={14} color={P.twGray400} />
-                            )}
-                            <Text style={styles.metaChipText}>{item.purposeText}</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>
 
         {/* ── Bottom Right Floating Action Button ── */}
@@ -524,6 +556,35 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
+  },
+
+  // Loading, Error & Empty States
+  loadingContainer: {
+    paddingTop: 8,
+    gap: 12,
+  },
+  errorContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  emptyContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.nearBlack,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   // Plantings List

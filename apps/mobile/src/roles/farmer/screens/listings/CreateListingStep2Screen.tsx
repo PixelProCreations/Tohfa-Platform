@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
+import {
+  Alert,
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  SafeAreaView,
+  TextInput,
+  Modal,
+} from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
@@ -27,6 +37,12 @@ import { gradeLabel, moneyOrDash, tk } from './listingFormat';
 const ChevronLeft = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path d="M15 18L9 12L15 6" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const ChevronDown = ({ color = colors.brandGreen, size = 12 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M6 9L12 15L18 9" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
   </Svg>
 );
 
@@ -76,6 +92,28 @@ const TagIcon = () => (
   <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
     <Path d="M20.59 13.41L13.42 20.58A2 2 0 0 1 12 21A2 2 0 0 1 10.59 20.58L2 12V2H12L20.59 10.59A2 2 0 0 0 20.59 13.41Z" stroke={P.weatherCloudWhite} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     <Circle cx="7" cy="7" r="1" fill={P.weatherCloudWhite} />
+  </Svg>
+);
+
+const CloseIcon = ({ size = 18, color = P.grey600 }: { size?: number; color?: string }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M18 6L6 18M6 6L18 18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const RadioCircle = ({ selected = false }: { selected?: boolean }) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Circle
+      cx="12"
+      cy="12"
+      r="10"
+      stroke={selected ? colors.brandGreen : P.grey300}
+      strokeWidth={selected ? 2 : 1.5}
+      fill={selected ? colors.brandGreen : 'none'}
+    />
+    {selected ? (
+      <Path d="M8 12L11 15L16 9" stroke={P.weatherCloudWhite} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    ) : null}
   </Svg>
 );
 
@@ -134,6 +172,7 @@ export function CreateListingStep2Screen({
   onBack,
 }: CreateListingStep2ScreenProps): React.JSX.Element {
   const [grade, setGrade] = useState<Grade | null>(null);
+  const [gradePickerVisible, setGradePickerVisible] = useState<boolean>(false);
   const [quantityInput, setQuantityInput] = useState<string>('');
   const [priceInput, setPriceInput] = useState<string>('');
   const [ceiling, setCeiling] = useState<CeilingState>({ status: 'idle' });
@@ -183,13 +222,7 @@ export function CreateListingStep2Screen({
     priceCheck === 'INVALID' || priceCheck === 'ABOVE_CEILING' || (priceOk && ceiling.status === 'none');
 
   const openGradePicker = () => {
-    // Exactly three sellable grades, which fits Android's three-button alert.
-    Alert.alert(
-      t('farmer.listings.create.step2.gradePickerTitle'),
-      t('farmer.listings.create.step2.gradePickerBody'),
-      SELLABLE_GRADES.map((g) => ({ text: gradeLabel(g), onPress: () => setGrade(g) })),
-      { cancelable: true },
-    );
+    setGradePickerVisible(true);
   };
 
   const handleSubmit = async () => {
@@ -313,17 +346,24 @@ export function CreateListingStep2Screen({
           </View>
           <View style={styles.cropTextCol}>
             <View style={styles.cropTitleRow}>
-              <Text style={styles.cropTitle}>{crop.displayName}</Text>
+              <Text style={styles.cropTitle} numberOfLines={1}>
+                {crop.displayName}
+              </Text>
               <TouchableOpacity
-                style={styles.gradeBadge}
+                style={grade === null ? styles.gradeButton : styles.gradeButtonSelected}
                 onPress={openGradePicker}
+                activeOpacity={0.7}
                 accessibilityRole="button"
                 accessibilityLabel={grade === null ? t('farmer.listings.create.selectGrade') : gradeLabel(grade)}
                 accessibilityHint={t('farmer.listings.create.step2.gradeA11yHint')}
               >
-                <Text style={styles.gradeBadgeText}>
+                <Text style={grade === null ? styles.gradeButtonText : styles.gradeButtonSelectedText}>
                   {grade === null ? t('farmer.listings.create.selectGrade') : gradeLabel(grade)}
                 </Text>
+                <ChevronDown
+                  color={grade === null ? P.weatherCloudWhite : colors.brandGreen}
+                  size={12}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -455,6 +495,117 @@ export function CreateListingStep2Screen({
           <Text style={styles.submitBtnText}>{t('farmer.listings.create.step2.submit')}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── Grade Selection Modal ── */}
+      <Modal
+        visible={gradePickerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setGradePickerVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setGradePickerVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.common.close')}
+          />
+          <View style={styles.gradeModalCard}>
+            {/* Header */}
+            <View style={styles.gradeModalHeaderRow}>
+              <Text style={styles.gradeModalTitle}>
+                {t('farmer.listings.create.step2.gradePickerTitle')}
+              </Text>
+              <TouchableOpacity
+                style={styles.modalCloseCircle}
+                onPress={() => setGradePickerVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmer.common.close')}
+                activeOpacity={0.7}
+              >
+                <CloseIcon size={16} color={P.grey600} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Subtitle / explanation */}
+            <Text style={styles.gradeModalSubtitle}>
+              {t('farmer.listings.create.step2.gradePickerBody')}
+            </Text>
+
+            {/* Sellable Grade Options */}
+            <View style={styles.gradeOptionsList}>
+              {SELLABLE_GRADES.map((g) => {
+                const isSelected = grade === g;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.gradeOptionCard,
+                      isSelected && styles.gradeOptionCardSelected,
+                    ]}
+                    onPress={() => {
+                      setGrade(g);
+                      setGradePickerVisible(false);
+                    }}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={gradeLabel(g)}
+                  >
+                    <View style={styles.gradeOptionLeft}>
+                      <View
+                        style={[
+                          styles.gradeOptionBadge,
+                          isSelected && styles.gradeOptionBadgeSelected,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.gradeOptionBadgeText,
+                            isSelected && styles.gradeOptionBadgeTextSelected,
+                          ]}
+                        >
+                          {g === 'GRADE_1' ? 'G1' : g === 'GRADE_2' ? 'G2' : 'G3'}
+                        </Text>
+                      </View>
+                      <View style={styles.gradeOptionTextCol}>
+                        <Text
+                          style={[
+                            styles.gradeOptionLabel,
+                            isSelected && styles.gradeOptionLabelSelected,
+                          ]}
+                        >
+                          {gradeLabel(g)}
+                        </Text>
+                        <Text style={styles.gradeOptionDesc}>
+                          {g === 'GRADE_1'
+                            ? 'Top Quality · Premium Produce'
+                            : g === 'GRADE_2'
+                              ? 'Standard Quality · Good Condition'
+                              : 'Fair Quality · Commercial / Process'}
+                        </Text>
+                      </View>
+                    </View>
+                    <RadioCircle selected={isSelected} />
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Cancel Button */}
+            <TouchableOpacity
+              style={styles.gradeModalCancelBtn}
+              onPress={() => setGradePickerVisible(false)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.common.cancel')}
+            >
+              <Text style={styles.gradeModalCancelText}>{t('farmer.common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -556,13 +707,49 @@ const styles = StyleSheet.create({
   cropTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    justifyContent: 'space-between',
     gap: 8,
   },
   cropTitle: {
     fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.grey900,
+    flexShrink: 1,
+  },
+  gradeButton: {
+    backgroundColor: colors.brandGreen,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    gap: 6,
+    shadowColor: colors.brandGreen,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  gradeButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: P.weatherCloudWhite,
+  },
+  gradeButtonSelected: {
+    backgroundColor: colors.brandGreenLight,
+    borderWidth: 1.5,
+    borderColor: colors.brandGreen,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 6,
+  },
+  gradeButtonSelectedText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.brandGreen,
   },
   gradeBadge: {
     backgroundColor: colors.brandGreenLight,
@@ -774,5 +961,122 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     color: P.grey600,
     textAlign: 'center',
+  },
+  // Grade Selection Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  gradeModalCard: {
+    backgroundColor: P.weatherCloudWhite,
+    borderRadius: 24,
+    width: '100%',
+    maxWidth: 380,
+    padding: 22,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  gradeModalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  gradeModalTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '800',
+    color: P.grey900,
+  },
+  modalCloseCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: P.grey100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gradeModalSubtitle: {
+    fontSize: typography.bodySmall,
+    color: P.grey600,
+    lineHeight: 18,
+    marginBottom: 18,
+  },
+  gradeOptionsList: {
+    gap: 10,
+  },
+  gradeOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: P.borderLight,
+    backgroundColor: P.weatherCloudWhite,
+  },
+  gradeOptionCardSelected: {
+    borderColor: colors.brandGreen,
+    backgroundColor: colors.brandGreenLight,
+  },
+  gradeOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  gradeOptionBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: P.grey100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gradeOptionBadgeSelected: {
+    backgroundColor: colors.brandGreen,
+  },
+  gradeOptionBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: P.grey700,
+  },
+  gradeOptionBadgeTextSelected: {
+    color: P.weatherCloudWhite,
+  },
+  gradeOptionTextCol: {
+    flex: 1,
+  },
+  gradeOptionLabel: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.grey900,
+  },
+  gradeOptionLabelSelected: {
+    color: colors.brandGreen,
+  },
+  gradeOptionDesc: {
+    fontSize: typography.caption,
+    color: P.grey500,
+    marginTop: 2,
+  },
+  gradeModalCancelBtn: {
+    marginTop: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: P.grey100,
+  },
+  gradeModalCancelText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.grey700,
   },
 });

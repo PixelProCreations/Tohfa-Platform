@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
 import { deleteFarmAsset } from './api/farmAssets';
+import { deleteTreePlanting } from './api/treePlantings';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, hasSessionCredentials, logout } from './api/auth';
 import { useWarehousePermissions } from '../admin/permissions/useWarehousePermissions';
@@ -1238,7 +1239,11 @@ export default function App(): React.JSX.Element {
         ) : screen === 'Welcome' ? (
           <WelcomeScreen onNavigate={(s) => navigate(s)} />
         ) : screen === 'Login' ? (
-          <LoginScreen onNavigate={(s, p) => navigate(s, p)} />
+          <LoginScreen
+            onNavigate={(s, p) => navigate(s, p)}
+            initialMobile={typeof params['initialMobile'] === 'string' ? params['initialMobile'] : undefined}
+            initialMode={params['initialMode'] === 'password' ? 'password' : 'otp'}
+          />
         ) : screen === 'RoleSelection' ? (
           <RoleSelectionScreen onNavigate={(s) => navigate(s)} />
         ) : screen === 'Register' ? (
@@ -1264,7 +1269,11 @@ export default function App(): React.JSX.Element {
             onNavigate={(s, p) => navigate(s, p)}
           />
         ) : screen === 'ForgotPassword' ? (
-          <ForgotPasswordScreen onNavigate={(s, p) => navigate(s, p)} />
+          <ForgotPasswordScreen
+            onNavigate={(s, p) => navigate(s, p)}
+            initialMobile={typeof params['mobile'] === 'string' ? params['mobile'] : undefined}
+            mode={params['mode'] === 'first_time' ? 'first_time' : 'forgot'}
+          />
         ) : screen === 'ResetPassword' ? (
           <ResetPasswordScreen
             challengeId={String(params['challengeId'] ?? '')}
@@ -1276,7 +1285,7 @@ export default function App(): React.JSX.Element {
         ) : screen === 'ApplicationStatus' ? (
           <ApplicationStatusScreen
             applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
-            onNavigate={(s) => navigate(s)}
+            onNavigate={(s, p) => navigate(s, p)}
           />
         ) : screen === 'AdminMain' && adminShell !== null ? (
           adminShell === 'TOHFA_ADMIN' ? (
@@ -3052,7 +3061,11 @@ export default function App(): React.JSX.Element {
                 canDeleteAsset(selectedItemForRemove.category)
               ) {
                 try {
-                  await deleteFarmAsset(selectedItemForRemove.id);
+                  if (selectedItemForRemove.category === 'Trees') {
+                    await deleteTreePlanting(selectedItemForRemove.id);
+                  } else {
+                    await deleteFarmAsset(selectedItemForRemove.id);
+                  }
                 } catch {
                   // Ignore error and navigate back to list which refreshes
                 }
@@ -3061,6 +3074,8 @@ export default function App(): React.JSX.Element {
                 navigate('ToolsList');
               } else if (selectedItemForRemove?.category === 'Equipment') {
                 navigate('EquipmentList');
+              } else if (selectedItemForRemove?.category === 'Trees') {
+                navigate('TreesList');
               } else {
                 navigate('MachineryList');
               }

@@ -21,11 +21,16 @@ const AUTH_SCREENS = [
   '../screens/auth/LoginScreen.tsx',
   '../screens/auth/ForgotPasswordScreen.tsx',
   '../screens/auth/ResetPasswordScreen.tsx',
+  '../screens/auth/OtpScreen.tsx',
+  '../screens/auth/ApplicationStatusScreen.tsx',
 ];
 
 // Other screens that use the same shared fallback key.
 const ERROR_GENERIC_USERS = [
-  ...AUTH_SCREENS,
+  '../screens/auth/LoginScreen.tsx',
+  '../screens/auth/ForgotPasswordScreen.tsx',
+  '../screens/auth/ResetPasswordScreen.tsx',
+  '../screens/auth/ApplicationStatusScreen.tsx',
   '../screens/profile/FarmRatingsScreen.tsx',
   '../screens/profile/PersonalDetailsScreen.tsx',
 ];

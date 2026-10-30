@@ -120,16 +120,11 @@ export interface RemoveItemData {
 }
 
 /**
- * Categories with no backend entity to delete against (farm-assets only
- * knows TOOL/EQUIPMENT/MACHINERY — see api/farmAssets.ts). Trees/plantings
- * are a known, separately-tracked spec gap, not something a screen can wire
- * up on its own. This is the single source of truth for that special case —
- * RemoveItemScreen, EditPlantingScreen and App.tsx's confirm handler all read
- * it here instead of each re-encoding "Trees" independently.
+ * Categories with no backend entity to delete against. All current farm inventory
+ * categories (Tools, Equipment, Trees, Machinery) now have backend delete endpoints
+ * (BR-55d for Trees).
  */
-export const CATEGORIES_WITHOUT_DELETE_SUPPORT: ReadonlySet<RemoveCategoryType> = new Set<RemoveCategoryType>([
-  'Trees',
-]);
+export const CATEGORIES_WITHOUT_DELETE_SUPPORT: ReadonlySet<RemoveCategoryType> = new Set<RemoveCategoryType>();
 
 export function canDeleteAsset(category: RemoveCategoryType): boolean {
   return !CATEGORIES_WITHOUT_DELETE_SUPPORT.has(category);

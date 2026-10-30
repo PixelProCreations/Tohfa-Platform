@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -224,9 +225,14 @@ function AuditRow({ item, onPress }: { item: FarmerAuditSummary; onPress: () => 
 export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<AuditTab>('external');
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    setState({ kind: 'loading' });
+  const load = useCallback(async (signal?: AbortSignal, isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setState({ kind: 'loading' });
+    }
     try {
       const items = await listAllMyAudits(signal);
       if (signal?.aborted) return;
@@ -234,6 +240,10 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
     } catch (error) {
       if (signal?.aborted) return;
       setState({ kind: 'error', error });
+    } finally {
+      if (!signal?.aborted && isRefresh) {
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -241,6 +251,10 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
+  }, [load]);
+
+  const onRefresh = useCallback(() => {
+    void load(undefined, true);
   }, [load]);
 
   const overview = useMemo(
@@ -310,10 +324,23 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
       <SafeAreaView style={styles.screen}>
         <StatusBar barStyle="dark-content" backgroundColor={P.white} />
         {header}
-        <View style={styles.centerFill}>
-          <Text style={styles.emptyTitle}>{t('farmer.audits.empty.title')}</Text>
-          <Text style={styles.emptyBody}>{t('farmer.audits.empty.body')}</Text>
-        </View>
+        <ScrollView
+          contentContainerStyle={styles.emptyScrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
+          <View style={styles.centerFill}>
+            <Text style={styles.emptyTitle}>{t('farmer.audits.empty.title')}</Text>
+            <Text style={styles.emptyBody}>{t('farmer.audits.empty.body')}</Text>
+          </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -335,7 +362,18 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
       {/* ── Top Header ── */}
       {header}
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* ── Segmented Control (External / Internal) ── */}
         <View style={styles.tabBar}>
           <TouchableOpacity
@@ -779,5 +817,8 @@ const styles = StyleSheet.create({
   emptyInline: {
     fontSize: typography.body,
     color: P.twGray500,
+  },
+  emptyScrollContent: {
+    flexGrow: 1,
   },
 });

@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
   Image,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,8 +12,17 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import {
+  getNpkContribution,
+  listCropInputs,
+  type CropInputResponse,
+  type CropInputType,
+  type CropInputUnit,
+  type CropNpkContributionResponse,
+} from '../../../api/crops';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -100,7 +110,7 @@ function SproutIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?
 }
 
 // ─────────────────────────────────────────────
-// Types & Sample Data
+// Types & Crop Targets
 // ─────────────────────────────────────────────
 
 interface NutrientMetric {
@@ -112,61 +122,24 @@ interface NutrientMetric {
   statusColor: string;
 }
 
-const NUTRIENT_REQUIREMENTS: NutrientMetric[] = [
-  {
-    name: 'Nitrogen',
-    chemical: 'N',
-    percent: 40,
-    actualKg: 16,
-    targetKg: 40,
-    statusColor: P.twRed600,
-  },
-  {
-    name: 'Phosphorus',
-    chemical: 'P₂O₅',
-    percent: 40,
-    actualKg: 12,
-    targetKg: 30,
-    statusColor: P.twRed600,
-  },
-  {
-    name: 'Potassium',
-    chemical: 'K₂O',
-    percent: 90,
-    actualKg: 45,
-    targetKg: 50,
-    statusColor: P.twGreen700,
-  },
-  {
-    name: 'Magnesium',
-    chemical: 'MgO',
-    percent: 67,
-    actualKg: 8,
-    targetKg: 12,
-    statusColor: P.orange600,
-  },
-  {
-    name: 'Sulphur',
-    chemical: 'SO₃',
-    percent: 87,
-    actualKg: 13,
-    targetKg: 15,
-    statusColor: P.twGreen700,
-  },
-];
+interface CropNutrientTarget {
+  n: number;
+  p: number;
+  k: number;
+}
+
+const CROP_TARGETS: Record<string, CropNutrientTarget> = {
+  carrot: { n: 40, p: 30, k: 50 },
+  tomato: { n: 65, p: 45, k: 70 },
+  cabbage: { n: 55, p: 35, k: 60 },
+};
+
+const DEFAULT_TARGET: CropNutrientTarget = { n: 40, p: 30, k: 50 };
 
 interface CumulativeIntakeItem {
   label: string;
   amount: string;
 }
-
-const CUMULATIVE_INTAKE: CumulativeIntakeItem[] = [
-  { label: 'Nitrogen (N)', amount: '6.4 kg' },
-  { label: 'Phosphorus (P₂O₅)', amount: '4.8 kg' },
-  { label: 'Potassium (K₂O)', amount: '18.0 kg' },
-  { label: 'Magnesium (MgO)', amount: '3.2 kg' },
-  { label: 'Sulphur (SO₃)', amount: '5.2 kg' },
-];
 
 interface ContributingApplication {
   id: string;
@@ -177,32 +150,45 @@ interface ContributingApplication {
   tags: string[];
 }
 
-const CONTRIBUTING_APPLICATIONS: ContributingApplication[] = [
-  {
-    id: 'c1',
-    title: 'Vermicompost',
-    timestamp: '12 Jul',
-    amount: '60 kg',
-    type: 'recycle',
-    tags: ['N', 'P₂O₅', 'K₂O'],
-  },
-  {
-    id: 'c2',
-    title: 'Panchagavya foliar spray',
-    timestamp: '28 Jun',
-    amount: '8 L',
-    type: 'flask',
-    tags: ['K₂O', 'MgO', 'SO₃'],
-  },
-  {
-    id: 'c3',
-    title: 'Bone meal top-dress',
-    timestamp: '10 Jun',
-    amount: '25 kg',
-    type: 'sprout',
-    tags: ['P₂O₅', 'SO₃'],
-  },
-];
+function formatAppliedDate(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const day = parseInt(parts[2] ?? '1', 10);
+    const monthIdx = parseInt(parts[1] ?? '1', 10) - 1;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[monthIdx] ?? '';
+    return `${day} ${month}`;
+  }
+  return dateStr;
+}
+
+function formatQuantityUnit(qty: number, unit: CropInputUnit): string {
+  const unitMap: Record<CropInputUnit, string> = {
+    KG: 'kg',
+    LITRE: 'L',
+    GRAM: 'g',
+    ML: 'ml',
+    BAG: 'bags',
+    TONNE: 't',
+    OTHER: '',
+  };
+  const unitLabel = unitMap[unit] ?? unit.toLowerCase();
+  return unitLabel ? `${qty} ${unitLabel}` : `${qty}`;
+}
+
+function getInputIconType(inputType: CropInputType): 'recycle' | 'flask' | 'sprout' {
+  switch (inputType) {
+    case 'FERTILIZER':
+      return 'flask';
+    case 'BIO_INPUT':
+      return 'sprout';
+    case 'MANURE':
+    case 'PESTICIDE':
+    case 'OTHER':
+    default:
+      return 'recycle';
+  }
+}
 
 const DEFAULT_CARROT_THUMB =
   'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&auto=format&fit=crop&q=85';
@@ -216,6 +202,12 @@ export function CropNPKContributionScreen({
   crop,
   onBack,
 }: CropNPKContributionScreenProps): React.JSX.Element {
+  const [npkData, setNpkData] = useState<CropNpkContributionResponse | null>(null);
+  const [inputs, setInputs] = useState<CropInputResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   // Listen for hardware back on Android
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -228,13 +220,162 @@ export function CropNPKContributionScreen({
     return () => sub.remove();
   }, [onBack]);
 
+  const loadData = useCallback(async () => {
+    if (!crop?.id) {
+      setLoading(false);
+      return;
+    }
+    setError(null);
+    try {
+      const [npk, inputsRes] = await Promise.all([
+        getNpkContribution(crop.id),
+        listCropInputs(crop.id, { limit: 100 }),
+      ]);
+      setNpkData(npk);
+      setInputs(inputsRes.items);
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [crop?.id]);
+
+  useEffect(() => {
+    setLoading(true);
+    void loadData();
+  }, [loadData]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    void loadData();
+  }, [loadData]);
+
   const cropName = crop?.name ?? 'Carrot';
   const variety = crop?.variety ?? 'Nantes';
   const zone = crop?.zoneShort || crop?.zone || 'Zone 1';
   const subtitle = `${cropName} — ${variety} · ${zone}`;
-  const headerDetails = `${crop?.zone ?? 'Zone 1 — Upper Field'} · ${crop?.area ?? '0.4 ha'} · ${crop?.daysOld ?? 88} days old`;
+  const daysText =
+    crop?.daysOld !== null && crop?.daysOld !== undefined ? `${crop.daysOld} days old` : '0 days old';
+  const headerDetails = `${crop?.zone ?? 'Zone 1 — Upper Field'} · ${crop?.area ?? '0.4 ha'} · ${daysText}`;
   const thumbnailUri = crop?.imageUri ?? DEFAULT_CARROT_THUMB;
   const areaLabel = crop?.area?.toUpperCase() ?? '0.4 HA';
+
+  const cropKey = crop?.name ? crop.name.toLowerCase() : 'carrot';
+  const target = CROP_TARGETS[cropKey] ?? DEFAULT_TARGET;
+
+  const actualN = npkData?.totalNitrogenKg ?? 0;
+  const actualP = npkData?.totalPhosphorusKg ?? 0;
+  const actualK = npkData?.totalPotassiumKg ?? 0;
+
+  const pctN = target.n > 0 ? Math.min(100, Math.round((actualN / target.n) * 100)) : 0;
+  const pctP = target.p > 0 ? Math.min(100, Math.round((actualP / target.p) * 100)) : 0;
+  const pctK = target.k > 0 ? Math.min(100, Math.round((actualK / target.k) * 100)) : 0;
+
+  const nutrientRequirements: NutrientMetric[] = [
+    {
+      name: 'Nitrogen',
+      chemical: 'N',
+      percent: pctN,
+      actualKg: actualN,
+      targetKg: target.n,
+      statusColor: pctN < 50 ? P.twRed600 : pctN < 80 ? P.orange600 : P.twGreen700,
+    },
+    {
+      name: 'Phosphorus',
+      chemical: 'P₂O₅',
+      percent: pctP,
+      actualKg: actualP,
+      targetKg: target.p,
+      statusColor: pctP < 50 ? P.twRed600 : pctP < 80 ? P.orange600 : P.twGreen700,
+    },
+    {
+      name: 'Potassium',
+      chemical: 'K₂O',
+      percent: pctK,
+      actualKg: actualK,
+      targetKg: target.k,
+      statusColor: pctK < 50 ? P.twRed600 : pctK < 80 ? P.orange600 : P.twGreen700,
+    },
+  ];
+
+  const lowNutrients = nutrientRequirements.filter((item) => item.percent < 50);
+
+  const cumulativeIntake: CumulativeIntakeItem[] = [
+    { label: 'Nitrogen (N)', amount: `${actualN} kg` },
+    { label: 'Phosphorus (P₂O₅)', amount: `${actualP} kg` },
+    { label: 'Potassium (K₂O)', amount: `${actualK} kg` },
+  ];
+
+  const contributingApplications: ContributingApplication[] = inputs.map((input) => {
+    const tags: string[] = [];
+    if (input.nitrogenPct !== null && input.nitrogenPct > 0) tags.push('N');
+    if (input.phosphorusPct !== null && input.phosphorusPct > 0) tags.push('P₂O₅');
+    if (input.potassiumPct !== null && input.potassiumPct > 0) tags.push('K₂O');
+
+    return {
+      id: input.id,
+      title: input.inputName,
+      timestamp: formatAppliedDate(input.appliedOn),
+      amount: formatQuantityUnit(input.quantity, input.unit),
+      type: getInputIconType(input.inputType),
+      tags,
+    };
+  });
+
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={onBack}
+        activeOpacity={0.7}
+        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
+      >
+        <ArrowBackIcon size={20} color={P.twGray800} />
+      </TouchableOpacity>
+
+      <View style={styles.headerTitleCol}>
+        <Text style={styles.headerTitle}>NPK Contribution</Text>
+        <Text style={styles.headerSubtitle}>{subtitle}</Text>
+      </View>
+    </View>
+  );
+
+  if (loading && !refreshing && crop?.id) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.paleStoneBg} />
+        <View style={styles.container}>
+          {renderHeader()}
+          <View style={styles.loadingContainer}>
+            <Skeleton width="100%" height={80} borderRadius={18} />
+            <View style={styles.skeletonSpacer} />
+            <Skeleton width="100%" height={74} borderRadius={16} />
+            <View style={styles.skeletonSpacer} />
+            <Skeleton width="100%" height={180} borderRadius={20} />
+            <View style={styles.skeletonSpacer} />
+            <Skeleton width="100%" height={140} borderRadius={16} />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && crop?.id) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="dark-content" backgroundColor={P.paleStoneBg} />
+        <View style={styles.container}>
+          {renderHeader()}
+          <View style={styles.errorContainer}>
+            <ErrorState error={error} onRetry={() => void loadData()} />
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -242,28 +383,20 @@ export function CropNPKContributionScreen({
 
       <View style={styles.container}>
         {/* ── Header ── */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.7}
-            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-          >
-            <ArrowBackIcon size={20} color={P.twGray800} />
-          </TouchableOpacity>
-
-          <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>NPK Contribution</Text>
-            <Text style={styles.headerSubtitle}>{subtitle}</Text>
-          </View>
-        </View>
+        {renderHeader()}
 
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[P.brandGreen]}
+              tintColor={P.brandGreen}
+            />
+          }
         >
           {/* ── Top Crop Info Card ── */}
           <View style={styles.cropSummaryCard}>
@@ -274,19 +407,24 @@ export function CropNPKContributionScreen({
             </View>
           </View>
 
-          {/* ── Alert Banner: 2 of 5 nutrients running low ── */}
-          <View style={styles.alertCard}>
-            <View style={styles.alertIconCol}>
-              <AlertTriangleIcon size={22} color={P.twOrange600} />
+          {/* ── Alert Banner: running low nutrients ── */}
+          {lowNutrients.length > 0 ? (
+            <View style={styles.alertCard}>
+              <View style={styles.alertIconCol}>
+                <AlertTriangleIcon size={22} color={P.twOrange600} />
+              </View>
+              <View style={styles.alertTextCol}>
+                <Text style={styles.alertTitle}>
+                  {lowNutrients.length} of {nutrientRequirements.length} nutrients running low
+                </Text>
+                <Text style={styles.alertDescription}>
+                  {lowNutrients.map((n) => n.name).join(' and ')}{' '}
+                  {lowNutrients.length === 1 ? 'is' : 'are'} below 50% of requirement. Schedule a
+                  fertigation before the next growth stage.
+                </Text>
+              </View>
             </View>
-            <View style={styles.alertTextCol}>
-              <Text style={styles.alertTitle}>2 of 5 nutrients running low</Text>
-              <Text style={styles.alertDescription}>
-                Nitrogen and Phosphorus are below 50% of requirement. Schedule a fertigation before
-                the next growth stage.
-              </Text>
-            </View>
-          </View>
+          ) : null}
 
           {/* ── Section: REQUIREMENT MET ── */}
           <View style={styles.sectionHeader}>
@@ -294,8 +432,8 @@ export function CropNPKContributionScreen({
           </View>
 
           <View style={styles.nutrientsCard}>
-            {NUTRIENT_REQUIREMENTS.map((item, index) => {
-              const isLast = index === NUTRIENT_REQUIREMENTS.length - 1;
+            {nutrientRequirements.map((item, index) => {
+              const isLast = index === nutrientRequirements.length - 1;
               return (
                 <View
                   key={item.chemical}
@@ -339,8 +477,8 @@ export function CropNPKContributionScreen({
           </View>
 
           <View style={styles.cumulativeCard}>
-            {CUMULATIVE_INTAKE.map((item, index) => {
-              const isLast = index === CUMULATIVE_INTAKE.length - 1;
+            {cumulativeIntake.map((item, index) => {
+              const isLast = index === cumulativeIntake.length - 1;
               return (
                 <View key={item.label}>
                   <View style={styles.cumulativeRow}>
@@ -359,44 +497,52 @@ export function CropNPKContributionScreen({
           </View>
 
           <View style={styles.applicationsList}>
-            {CONTRIBUTING_APPLICATIONS.map((app) => (
-              <View key={app.id} style={styles.appCard}>
-                {/* Icon Badge */}
-                <View
-                  style={[
-                    styles.appIconBadge,
-                    app.type === 'flask'
-                      ? { backgroundColor: P.twBlue50 }
-                      : { backgroundColor: P.twGreen100 },
-                  ]}
-                >
-                  {app.type === 'recycle' ? (
-                    <RecycleLeafIcon size={18} color={P.twGreen700} />
-                  ) : app.type === 'flask' ? (
-                    <FlaskBeakerIcon size={18} color={P.twBlue600} />
-                  ) : (
-                    <SproutIcon size={18} color={P.twGreen700} />
-                  )}
-                </View>
+            {contributingApplications.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>No contributing applications recorded yet.</Text>
+              </View>
+            ) : (
+              contributingApplications.map((app) => (
+                <View key={app.id} style={styles.appCard}>
+                  {/* Icon Badge */}
+                  <View
+                    style={[
+                      styles.appIconBadge,
+                      app.type === 'flask'
+                        ? { backgroundColor: P.twBlue50 }
+                        : { backgroundColor: P.twGreen100 },
+                    ]}
+                  >
+                    {app.type === 'recycle' ? (
+                      <RecycleLeafIcon size={18} color={P.twGreen700} />
+                    ) : app.type === 'flask' ? (
+                      <FlaskBeakerIcon size={18} color={P.twBlue600} />
+                    ) : (
+                      <SproutIcon size={18} color={P.twGreen700} />
+                    )}
+                  </View>
 
-                {/* Info Column */}
-                <View style={styles.appInfoCol}>
-                  <Text style={styles.appTitle}>{app.title}</Text>
-                  <Text style={styles.appSubtitle}>
-                    {app.timestamp} · {app.amount}
-                  </Text>
+                  {/* Info Column */}
+                  <View style={styles.appInfoCol}>
+                    <Text style={styles.appTitle}>{app.title}</Text>
+                    <Text style={styles.appSubtitle}>
+                      {app.timestamp} · {app.amount}
+                    </Text>
 
-                  {/* Nutrient Pills */}
-                  <View style={styles.pillTagRow}>
-                    {app.tags.map((tag) => (
-                      <View key={tag} style={styles.pillTag}>
-                        <Text style={styles.pillTagText}>{tag}</Text>
+                    {/* Nutrient Pills */}
+                    {app.tags.length > 0 ? (
+                      <View style={styles.pillTagRow}>
+                        {app.tags.map((tag) => (
+                          <View key={tag} style={styles.pillTag}>
+                            <Text style={styles.pillTagText}>{tag}</Text>
+                          </View>
+                        ))}
                       </View>
-                    ))}
+                    ) : null}
                   </View>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
 
           <View style={styles.bottomSpacer} />
@@ -677,5 +823,31 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  emptyCard: {
+    backgroundColor: P.white,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: typography.body,
+    color: P.twGray500,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    padding: 16,
+  },
+  skeletonSpacer: {
+    height: 14,
+  },
+  errorContainer: {
+    flex: 1,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

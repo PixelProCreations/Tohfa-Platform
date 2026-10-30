@@ -471,8 +471,8 @@ ON CONFLICT (key) DO UPDATE SET
 -- Notification Templates — BR-38a: 11 golden-thread transactional events in en & ta
 -- -----------------------------------------------------------------------------
 INSERT INTO notification_templates (code, channel, locale, subject, body_template, is_active) VALUES
-    ('FARMER_APP_APPROVED', 'IN_APP', 'en', 'Application Approved', 'Welcome to TOHFA! Your farmer registration {{applicationId}} has been approved with ID {{tohfaFarmerId}}.', true),
-    ('FARMER_APP_APPROVED', 'IN_APP', 'ta', 'விண்ணப்பம் ஏற்கப்பட்டது', 'தோஹ்பா தளத்திற்கு வரவேற்கிறோம்! உங்கள் பதிவு {{applicationId}} அடையாள எண் {{tohfaFarmerId}} உடன் ஏற்கப்பட்டது.', true),
+    ('FARMER_APP_APPROVED', 'IN_APP', 'en', 'Application Approved', 'Welcome to TOHFA! Your farmer registration {{applicationId}} has been approved with ID {{tohfaFarmerId}}. You can now log in using OTP or set your password.', true),
+    ('FARMER_APP_APPROVED', 'IN_APP', 'ta', 'விண்ணப்பம் ஏற்கப்பட்டது', 'தோஹ்பா தளத்திற்கு வரவேற்கிறோம்! உங்கள் பதிவு {{applicationId}} அடையாள எண் {{tohfaFarmerId}} உடன் ஏற்கப்பட்டது. OTP மூலம் உள்நுழையலாம் அல்லது கடவுச்சொல்லை அமைக்கலாம்.', true),
 
     ('FARMER_APP_REJECTED', 'IN_APP', 'en', 'Application Rejected', 'Your registration application {{applicationId}} was not approved. Reason: {{reason}}.', true),
     ('FARMER_APP_REJECTED', 'IN_APP', 'ta', 'விண்ணப்பம் நிராகரிக்கப்பட்டது', 'உங்கள் பதிவு விண்ணப்பம் {{applicationId}} நிராகரிக்கப்பட்டது. காரணம்: {{reason}}.', true),

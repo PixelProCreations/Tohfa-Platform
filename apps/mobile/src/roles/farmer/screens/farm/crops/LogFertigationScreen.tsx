@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
   Modal,
@@ -16,6 +17,12 @@ import {
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import { useActiveCropItems, type CropItem } from './cropItems';
+import {
+  createCropInput,
+  ApiError,
+  type CropInputType,
+  type CropInputUnit,
+} from '../../../api/crops';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -178,58 +185,79 @@ const CROP_REFERENCES: Record<string, CropReferenceData> = {
 interface ApprovedInput {
   name: string;
   type: string;
+  backendType: CropInputType;
   method: string;
   dosage: string;
   defaultQty: string;
   unit: string;
   pricePerUnit: number;
   phiDays: string;
+  nitrogenPct?: number;
+  phosphorusPct?: number;
+  potassiumPct?: number;
 }
 
 const APPROVED_INPUTS: ApprovedInput[] = [
   {
     name: 'Vermicompost',
     type: 'Organic',
+    backendType: 'MANURE',
     method: 'Drench',
     dosage: '2 kg per plant, worked into the root zone before watering.',
     defaultQty: '60',
     unit: 'kg',
     pricePerUnit: 12,
     phiDays: '0',
+    nitrogenPct: 2.0,
+    phosphorusPct: 1.0,
+    potassiumPct: 1.5,
   },
   {
     name: 'Panchagavya',
     type: 'Organic',
+    backendType: 'BIO_INPUT',
     method: 'Foliar spray',
     dosage: '30 ml per L of water, spray every 15 days.',
     defaultQty: '15',
     unit: 'L',
     pricePerUnit: 42,
     phiDays: '0',
+    nitrogenPct: 1.0,
+    phosphorusPct: 0.5,
+    potassiumPct: 1.0,
   },
   {
     name: 'Jeevamrutha',
     type: 'Organic',
+    backendType: 'BIO_INPUT',
     method: 'Drench',
     dosage: '200 L per acre through irrigation water.',
     defaultQty: '50',
     unit: 'L',
     pricePerUnit: 8,
     phiDays: '0',
+    nitrogenPct: 1.5,
+    phosphorusPct: 0.5,
+    potassiumPct: 1.0,
   },
   {
     name: 'Bone meal',
     type: 'Organic',
+    backendType: 'FERTILIZER',
     method: 'Soil incorporation',
     dosage: '100 g per sq. meter worked into soil.',
     defaultQty: '25',
     unit: 'kg',
     pricePerUnit: 21,
     phiDays: '0',
+    nitrogenPct: 3.5,
+    phosphorusPct: 18.0,
+    potassiumPct: 0,
   },
   {
     name: 'Trichoderma drench',
     type: 'Biological',
+    backendType: 'BIO_INPUT',
     method: 'Root drench',
     dosage: '5 g per L of water around collar region.',
     defaultQty: '5',
@@ -239,16 +267,7 @@ const APPROVED_INPUTS: ApprovedInput[] = [
   },
 ];
 
-const DEFAULT_INPUT: ApprovedInput = {
-  name: 'Vermicompost',
-  type: 'Organic',
-  method: 'Drench',
-  dosage: '2 kg per plant, worked into the root zone before watering.',
-  defaultQty: '60',
-  unit: 'kg',
-  pricePerUnit: 12,
-  phiDays: '0',
-};
+const DEFAULT_INPUT: ApprovedInput = APPROVED_INPUTS[0]!;
 
 const DEFAULT_REF: CropReferenceData = {
   cropName: 'CARROT',
@@ -260,6 +279,29 @@ const DEFAULT_REF: CropReferenceData = {
 
 const METHODS = ['Drench', 'Foliar spray', 'Drip irrigation', 'Soil incorporation', 'Broadcasting'];
 const UNITS = ['kg', 'L', 'g', 'ml'];
+
+/** Asia/Kolkata is a fixed UTC+05:30 with no DST. Server requires calendar date not in future (BR-56b). */
+const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+function todayInKolkata(nowMs: number = Date.now()): string {
+  return new Date(nowMs + IST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function toCropInputUnit(unitStr: string): CropInputUnit {
+  switch (unitStr.toLowerCase()) {
+    case 'kg':
+      return 'KG';
+    case 'l':
+    case 'litre':
+      return 'LITRE';
+    case 'g':
+    case 'gram':
+      return 'GRAM';
+    case 'ml':
+      return 'ML';
+    default:
+      return 'KG';
+  }
+}
 
 export interface LogFertigationScreenProps {
   crop?: CropItem | null | undefined;
@@ -299,6 +341,8 @@ export function LogFertigationScreen({
   const [unit, setUnit] = useState<string>(DEFAULT_INPUT.unit);
   const [phiDays, setPhiDays] = useState<string>(DEFAULT_INPUT.phiDays);
   const [nextDate] = useState<string>('31 Jul 2026');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Modals
   const [showCropModal, setShowCropModal] = useState(false);
@@ -323,38 +367,75 @@ export function LogFertigationScreen({
     setShowInputModal(false);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (!selectedCrop?.id) {
+      Alert.alert('Crop Required', 'Please select an active field/crop first.');
+      return;
+    }
     if (!quantity.trim() || qtyNumber <= 0) {
-      Alert.alert('Invalid Quantity', 'Please enter a valid application quantity.');
+      Alert.alert('Invalid Quantity', 'Please enter a valid application quantity greater than 0.');
       return;
     }
 
-    Alert.alert(
-      'Fertigation Logged',
-      `${selectedInput.name} application for ${selectedCrop?.name ?? 'Carrot'} saved successfully.`,
-      [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (onSave) {
-              onSave({
-                crop: selectedCrop,
-                inputName: selectedInput.name,
-                type: selectedInput.type,
-                method,
-                dosage: selectedInput.dosage,
-                quantity: `${quantity} ${unit}`,
-                phiDays,
-                cost: totalCost,
-                nextDate,
-              });
-            } else if (onBack) {
-              onBack();
-            }
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const appliedOn = todayInKolkata();
+      const costInr = totalCost > 0 ? totalCost.toFixed(2) : undefined;
+      const notes = `Dosage: ${selectedInput.dosage} | PHI: ${phiDays} days | Next application: ${nextDate}`;
+
+      const created = await createCropInput(selectedCrop.id, {
+        inputType: selectedInput.backendType ?? 'MANURE',
+        inputName: selectedInput.name,
+        appliedOn,
+        quantity: qtyNumber,
+        unit: toCropInputUnit(unit),
+        applicationMethod: method ? method.slice(0, 100) : undefined,
+        costInr,
+        nitrogenPct: selectedInput.nitrogenPct,
+        phosphorusPct: selectedInput.phosphorusPct,
+        potassiumPct: selectedInput.potassiumPct,
+        notes,
+      });
+
+      Alert.alert(
+        'Fertigation Logged',
+        `${selectedInput.name} application for ${selectedCrop?.name ?? 'Carrot'} saved successfully.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (onSave) {
+                onSave({
+                  crop: selectedCrop,
+                  inputName: selectedInput.name,
+                  type: selectedInput.type,
+                  method,
+                  dosage: selectedInput.dosage,
+                  quantity: `${quantity} ${unit}`,
+                  phiDays,
+                  cost: totalCost,
+                  nextDate,
+                  createdInput: created,
+                });
+              } else if (onBack) {
+                onBack();
+              }
+            },
           },
-        },
-      ],
-    );
+        ],
+      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof ApiError
+          ? err.problem.detail || err.message
+          : 'Failed to record fertigation application.';
+      setSaveError(message);
+      Alert.alert('Save Failed', message);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -589,16 +670,30 @@ export function LogFertigationScreen({
           </View>
         </View>
 
+        {/* Error Banner */}
+        {saveError ? (
+          <View style={styles.errorBanner} accessibilityRole="alert">
+            <Text style={styles.errorBannerText}>{saveError}</Text>
+          </View>
+        ) : null}
+
         {/* Bottom Button: Save application */}
         <TouchableOpacity
-          style={styles.saveBtn}
+          style={[styles.saveBtn, isSaving && styles.saveBtnDisabled]}
           onPress={handleSave}
+          disabled={isSaving}
           activeOpacity={0.88}
           accessibilityRole="button"
           accessibilityLabel="Save application"
         >
-          <CheckmarkIcon size={18} color={P.white} />
-          <Text style={styles.saveBtnText}>Save application</Text>
+          {isSaving ? (
+            <ActivityIndicator size="small" color={P.white} />
+          ) : (
+            <CheckmarkIcon size={18} color={P.white} />
+          )}
+          <Text style={styles.saveBtnText}>
+            {isSaving ? 'Saving...' : 'Save application'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -1157,10 +1252,26 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  saveBtnDisabled: {
+    opacity: 0.65,
+  },
   saveBtnText: {
     fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.white,
+  },
+  errorBanner: {
+    backgroundColor: P.twRed50,
+    borderWidth: 1,
+    borderColor: P.twRed200,
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 16,
+  },
+  errorBannerText: {
+    color: P.twRed700,
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,

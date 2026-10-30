@@ -4,6 +4,10 @@
   "private": true,
   "description": "TOHFA mobile. One React Native 0.74 codebase, three shipped flavors (farmer, customer, admin) — see docs/react-native-guidelines.md and this app's CLAUDE.md.",
   "scripts": {
+    "build:packages": "tsc -b ../../packages/shared-types ../../packages/design-tokens",
+    "prestart": "pnpm run build:packages",
+    "preandroid": "pnpm run build:packages",
+    "preios": "pnpm run build:packages",
     "start": "react-native start",
     "android": "react-native run-android",
     "ios": "react-native run-ios",

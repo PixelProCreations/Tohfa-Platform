@@ -19,6 +19,7 @@ import {
   toCalendarDateString,
   todayCalendarDateString,
 } from '../toolPurchaseDate';
+import { createTreePlanting, ApiError } from '../../../api/treePlantings';
 
 const CALENDAR_THEME = {
   calendarBackground: colors.white,
@@ -103,6 +104,8 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   const [showCalendar, setShowCalendar] = useState(false);
   const [zone, setZone] = useState('');
   const [purpose, setPurpose] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
   const calendarStartDate = toCalendarDateString(plantedDate ?? new Date());
@@ -111,6 +114,32 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   function handleDateSelected(day: DateData): void {
     setPlantedDate(dateFromCalendarDay(day));
     setShowCalendar(false);
+  }
+
+  async function handleSave(): Promise<void> {
+    const trimmedSpecies = speciesName.trim();
+    const countNum = parseInt(treeCount.trim(), 10);
+    if (!trimmedSpecies || Number.isNaN(countNum) || countNum < 1 || isSaving) {
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await createTreePlanting({
+        speciesName: trimmedSpecies,
+        treeCount: countNum,
+        plantedOn: plantedDate ? toCalendarDateString(plantedDate) : undefined,
+        zoneName: zone.trim() || undefined,
+        purpose: purpose.trim() || undefined,
+      });
+      onSave?.();
+      onNavigateBack();
+    } catch (err: unknown) {
+      const msg = err instanceof ApiError ? err.message : 'Failed to add tree planting';
+      setSaveError(msg);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -218,6 +247,12 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
             Perennial plantings count towards biomass index and organic certification canopy standards.
           </Text>
         </View>
+
+        {saveError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{saveError}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Calendar Modal */}
@@ -264,17 +299,18 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
       {/* Sticky Save Button */}
       <View style={styles.stickyBottom}>
         <TouchableOpacity
-          style={[styles.saveButton, (!speciesName || !treeCount) && styles.saveButtonDisabled]}
+          style={[
+            styles.saveButton,
+            (!speciesName.trim() || !treeCount.trim() || isSaving) && styles.saveButtonDisabled,
+          ]}
           activeOpacity={0.8}
+          disabled={!speciesName.trim() || !treeCount.trim() || isSaving}
           onPress={() => {
-            if (speciesName && treeCount) {
-              onSave?.();
-              onNavigateBack();
-            }
+            void handleSave();
           }}
         >
           <PlusIcon />
-          <Text style={styles.saveButtonText}>Add planting</Text>
+          <Text style={styles.saveButtonText}>{isSaving ? 'Adding...' : 'Add planting'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -483,5 +519,16 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
+  },
+  errorBanner: {
+    backgroundColor: P.twRed100,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+  },
+  errorBannerText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed600,
+    fontWeight: '600',
   },
 });

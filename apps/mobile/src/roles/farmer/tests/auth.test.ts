@@ -393,10 +393,8 @@ describe('User Story 42 (S-42) Auth Tests', () => {
       expect(resolveAppRole([{ code: 'FARMER' }] as never)).toBe('FARMER');
     });
 
-    it('routes a FARMER_ADMIN-only account to the farmer app, not UNSUPPORTED', () => {
-      // /auth/me only synthesizes FARMER when the role list is empty, so the
-      // seeded farmeradmin@tohfa.test account carries FARMER_ADMIN alone.
-      expect(resolveAppRole([{ code: 'FARMER_ADMIN' }] as never)).toBe('FARMER');
+    it('routes a FARMER_ADMIN-only account to the admin shell', () => {
+      expect(resolveAppRole([{ code: 'FARMER_ADMIN' }] as never)).toBe('ADMIN');
     });
 
     it('routes a CUSTOMER-only account to the customer app', () => {
@@ -404,7 +402,7 @@ describe('User Story 42 (S-42) Auth Tests', () => {
     });
 
     it('marks roles with no screens in this app as UNSUPPORTED', () => {
-      expect(resolveAppRole([{ code: 'SUB_WH_ADMIN' }] as never)).toBe('UNSUPPORTED');
+      expect(resolveAppRole([{ code: 'UNKNOWN_ROLE' }] as never)).toBe('UNSUPPORTED');
       expect(resolveAppRole([] as never)).toBe('UNSUPPORTED');
     });
   });

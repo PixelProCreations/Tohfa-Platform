@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -352,6 +354,145 @@ function BroomCleaningIcon({ size = 17, color = colors.brandGreen }: { size?: nu
   );
 }
 
+// ── Add Health Record Modal Icons ───────────────────────────────────────────
+
+function GreenBackArrowIcon({ size = 22, color = P.twGreen700 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M19 12H5M5 12L12 19M5 12L12 5"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function CowAvatarIcon({ size = 44 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 44 44" fill="none">
+      <Circle cx="22" cy="22" r="21" fill={P.paleCreamBg} />
+      {/* Ears */}
+      <Path
+        d="M10 16c-3 0-5 3-4 6 1 3 4 1 5-1l0-4c0-.6-.5-1-1-1z"
+        fill={P.tanBrown}
+      />
+      <Path
+        d="M34 16c3 0 5 3 4 6-1 3-4 1-5-1l0-4c0-.6.5-1 1-1z"
+        fill={P.tanBrown}
+      />
+      {/* Horns */}
+      <Path
+        d="M14 12c-1.5-3-3-3-3-3s0 3 2 4M30 12c1.5-3 3-3 3-3s0 3-2 4"
+        stroke={P.twAmber800}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      {/* Head */}
+      <Circle cx="22" cy="23" r="11" fill={P.white} stroke={P.twGray200} strokeWidth="1" />
+      {/* Brown eye patch */}
+      <Path
+        d="M14 18c2-2 5-1 4 3s-3 3-4 1z"
+        fill={P.tanBrown}
+      />
+      {/* Eyes */}
+      <Circle cx="17" cy="21" r="1.4" fill={P.nearBlack} />
+      <Circle cx="27" cy="21" r="1.4" fill={P.nearBlack} />
+      {/* Muzzle / Snout */}
+      <Rect x="17" y="26" width="10" height="6.5" rx="3.2" fill={P.twRed200} />
+      <Circle cx="20" cy="29" r="1" fill={P.twRed700} />
+      <Circle cx="24" cy="29" r="1" fill={P.twRed700} />
+    </Svg>
+  );
+}
+
+function GenderSymbolIcon({ size = 12, color = P.twGray500 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Circle cx="8" cy="6" r="4" stroke={color} strokeWidth="1.6" />
+      <Line x1="8" y1="10" x2="8" y2="15" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+      <Line x1="5.5" y1="12.5" x2="10.5" y2="12.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function FormCalendarIcon({ size = 18, color = P.twGray500 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="2" />
+      <Line x1="3" y1="9" x2="21" y2="9" stroke={color} strokeWidth="2" />
+      <Line x1="8" y1="2" x2="8" y2="5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="16" y1="2" x2="16" y2="5" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="8" cy="14" r="1" fill={color} />
+      <Circle cx="12" cy="14" r="1" fill={color} />
+      <Circle cx="16" cy="14" r="1" fill={color} />
+    </Svg>
+  );
+}
+
+function FormChevronDownIcon({ size = 18, color = P.twGray500 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 9l6 6 6-6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function FormCloseIcon({ size = 16, color = P.twGray600 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 6L6 18M6 6l12 12"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function FormPlusIcon({ size = 16, color = P.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 5v14M5 12h14"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ReceiptDocIcon({ size = 36 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 36 36" fill="none">
+      <Rect width="36" height="36" rx="8" fill={P.twRed100} />
+      <Path
+        d="M11 9h10l4 4v14H11V9z"
+        fill={P.twRed200}
+        stroke={P.twRed600}
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <Path d="M21 9v4h4" stroke={P.twRed600} strokeWidth="1.2" strokeLinejoin="round" />
+      <Line x1="14" y1="17" x2="22" y2="17" stroke={P.twRed600} strokeWidth="1.2" strokeLinecap="round" />
+      <Line x1="14" y1="20" x2="22" y2="20" stroke={P.twRed600} strokeWidth="1.2" strokeLinecap="round" />
+      <Line x1="14" y1="23" x2="19" y2="23" stroke={P.twRed600} strokeWidth="1.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ── Enum display / API mapping ──────────────────────────────────────────────
 // Explicit switches (not `.toUpperCase() as X`) so a future enum addition on
 // either side fails to compile instead of silently mismatching.
@@ -480,6 +621,96 @@ export function AnimalDetailScreen({
   const [productionLogs, setProductionLogs] = useState<ProductionLogResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown | null>(null);
+
+  // Health Records state & Add Health Record Modal
+  const [isAddHealthModalVisible, setIsAddHealthModalVisible] = useState(false);
+  const [recordType, setRecordType] = useState<'Vaccination' | 'Deworming' | 'Checkup' | 'Treatment'>('Vaccination');
+  const [recordDate, setRecordDate] = useState('12 Jul 2026');
+  const [veterinarian, setVeterinarian] = useState('Dr. Anand');
+  const [isVetDropdownOpen, setIsVetDropdownOpen] = useState(false);
+  const [vaccineName, setVaccineName] = useState('FMD vaccine');
+  const [dose, setDose] = useState('2');
+  const [doseUnit, setDoseUnit] = useState('ml');
+  const [isDoseUnitDropdownOpen, setIsDoseUnitDropdownOpen] = useState(false);
+  const [adminRoute, setAdminRoute] = useState('Injection (IM)');
+  const [isAdminRouteDropdownOpen, setIsAdminRouteDropdownOpen] = useState(false);
+  const [batchNumber, setBatchNumber] = useState('FMD-2026-001');
+  const [nextVaccinationDate, setNextVaccinationDate] = useState('10 Oct 2026');
+  const [notes, setNotes] = useState('Annual FMD vaccination.\nNo side effects observed.');
+  const [attachment, setAttachment] = useState<{ name: string; size: string } | null>({
+    name: 'vaccine_receipt.jpg',
+    size: '240 KB',
+  });
+
+  const [vaccinations, setVaccinations] = useState<Array<{ id: string; name: string; date: string; nextDate?: string | undefined }>>([
+    { id: 'v1', name: 'FMD vaccine', date: 'Given 10 Apr', nextDate: 'Next 10 Oct' },
+    { id: 'v2', name: 'HS vaccine', date: 'Given 02 Feb', nextDate: 'Next 02 Aug' },
+  ]);
+  const [dewormings, setDewormings] = useState<Array<{ id: string; name: string; date: string; nextDate?: string | undefined }>>([
+    { id: 'd1', name: 'Deworming dose', date: 'Given 01 Jul', nextDate: 'Next 01 Oct' },
+  ]);
+  const [checkups, setCheckups] = useState([
+    {
+      id: 'c1',
+      title: 'Checkup · 12 Jul',
+      doctor: 'Dr. Anand',
+      description: 'Sub-clinical mastitis, left quarter. Advised herbal treatment.',
+    },
+  ]);
+
+  const VET_OPTIONS = ['Dr. Anand', 'Dr. Rajesh Kumar', 'Dr. Meena Iyer', 'Self / Farm Worker'];
+  const DOSE_UNIT_OPTIONS = ['ml', 'mg', 'tablet', 'dose', 'g', 'drop'];
+  const ADMIN_ROUTE_OPTIONS = [
+    'Injection (IM)',
+    'Injection (SC)',
+    'Oral',
+    'Topical',
+    'Nasal',
+    'Intra-mammary',
+  ];
+
+  const handleSaveHealthRecord = () => {
+    if (!vaccineName.trim()) {
+      Alert.alert('Required Field', 'Please enter the vaccine / record name.');
+      return;
+    }
+    if (!dose.trim()) {
+      Alert.alert('Required Field', 'Please enter the dose amount.');
+      return;
+    }
+
+    if (recordType === 'Vaccination') {
+      const newVac = {
+        id: `v_${Date.now()}`,
+        name: vaccineName.trim(),
+        date: `Given ${recordDate.trim()}`,
+        ...(nextVaccinationDate.trim() ? { nextDate: `Next ${nextVaccinationDate.trim()}` } : {}),
+      };
+      setVaccinations((prev) => [newVac, ...prev]);
+    } else if (recordType === 'Deworming') {
+      const newDew = {
+        id: `d_${Date.now()}`,
+        name: vaccineName.trim() || 'Deworming dose',
+        date: `Given ${recordDate.trim()}`,
+        ...(nextVaccinationDate.trim() ? { nextDate: `Next ${nextVaccinationDate.trim()}` } : {}),
+      };
+      setDewormings((prev) => [newDew, ...prev]);
+    } else {
+      const newChk = {
+        id: `c_${Date.now()}`,
+        title: `${recordType} · ${recordDate.trim()}`,
+        doctor: veterinarian,
+        description: notes.trim() || `${vaccineName.trim()} (${dose.trim()} ${doseUnit})`,
+      };
+      setCheckups((prev) => [newChk, ...prev]);
+    }
+
+    Alert.alert(
+      'Health Record Added',
+      `Health record for ${displayName} has been saved successfully.`,
+    );
+    setIsAddHealthModalVisible(false);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -764,6 +995,24 @@ export function AnimalDetailScreen({
           {/* ══════════════════════════════════════════════════════════════════ */}
           {activeTab === 'Health' && (
             <View style={styles.tabContentContainer}>
+              {/* Top Bar with Add Button */}
+              <View style={styles.healthTopBar}>
+                <View style={styles.healthTopBarTitleCol}>
+                  <Text style={styles.healthTopBarTitle}>Health Records</Text>
+                  <Text style={styles.healthTopBarSubtitle}>Clinical logs & vaccinations</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.addHealthButton}
+                  onPress={() => setIsAddHealthModalVisible(true)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel="Add Health Record"
+                >
+                  <FormPlusIcon size={15} color={P.white} />
+                  <Text style={styles.addHealthButtonText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* Notice 1: Organic Standard */}
               <View style={styles.organicNoticeCard}>
                 <View style={styles.organicNoticeIconCol}>
@@ -795,69 +1044,69 @@ export function AnimalDetailScreen({
               {/* Section: VACCINATIONS */}
               <Text style={styles.sectionHeaderTitle}>VACCINATIONS</Text>
               <View style={styles.whiteCardContainer}>
-                {/* Vaccine Item 1 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <VaccineVialsIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>FMD vaccine</Text>
-                    <Text style={styles.itemSubtitle}>Given 10 Apr</Text>
-                  </View>
-                  <View style={styles.dueDateBadge}>
-                    <Text style={styles.dueDateBadgeText}>Next 10 Oct</Text>
-                  </View>
-                </View>
-
-                <View style={styles.dividerLine} />
-
-                {/* Vaccine Item 2 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <VaccineVialsIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>HS vaccine</Text>
-                    <Text style={styles.itemSubtitle}>Given 02 Feb</Text>
-                  </View>
-                  <View style={styles.dueDateBadge}>
-                    <Text style={styles.dueDateBadgeText}>Next 02 Aug</Text>
-                  </View>
-                </View>
+                {vaccinations.map((vac, idx) => (
+                  <React.Fragment key={vac.id}>
+                    {idx > 0 && <View style={styles.dividerLine} />}
+                    <View style={styles.itemRow}>
+                      <View style={styles.greenIconSquare}>
+                        <VaccineVialsIcon size={17} color={colors.brandGreen} />
+                      </View>
+                      <View style={styles.itemMainCol}>
+                        <Text style={styles.itemTitle}>{vac.name}</Text>
+                        <Text style={styles.itemSubtitle}>{vac.date}</Text>
+                      </View>
+                      {vac.nextDate ? (
+                        <View style={styles.dueDateBadge}>
+                          <Text style={styles.dueDateBadgeText}>{vac.nextDate}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </React.Fragment>
+                ))}
               </View>
 
               {/* Section: DEWORMING */}
               <Text style={styles.sectionHeaderTitle}>DEWORMING</Text>
               <View style={styles.whiteCardContainer}>
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <DewormingBottleIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Deworming dose</Text>
-                    <Text style={styles.itemSubtitle}>Given 01 Jul</Text>
-                  </View>
-                  <View style={styles.dueDateBadge}>
-                    <Text style={styles.dueDateBadgeText}>Next 01 Oct</Text>
-                  </View>
-                </View>
+                {dewormings.map((dew, idx) => (
+                  <React.Fragment key={dew.id}>
+                    {idx > 0 && <View style={styles.dividerLine} />}
+                    <View style={styles.itemRow}>
+                      <View style={styles.greenIconSquare}>
+                        <DewormingBottleIcon size={17} color={colors.brandGreen} />
+                      </View>
+                      <View style={styles.itemMainCol}>
+                        <Text style={styles.itemTitle}>{dew.name}</Text>
+                        <Text style={styles.itemSubtitle}>{dew.date}</Text>
+                      </View>
+                      {dew.nextDate ? (
+                        <View style={styles.dueDateBadge}>
+                          <Text style={styles.dueDateBadgeText}>{dew.nextDate}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </React.Fragment>
+                ))}
               </View>
 
               {/* Section: CHECKUP & TREATMENT */}
               <Text style={styles.sectionHeaderTitle}>CHECKUP & TREATMENT</Text>
               <View style={styles.whiteCardContainer}>
-                <View style={styles.checkupCardContent}>
-                  <View style={styles.checkupHeaderRow}>
-                    <View style={styles.checkupTitleWithIcon}>
-                      <StethoscopeIcon size={18} color={P.twBlue700} />
-                      <Text style={styles.checkupTitle}>Checkup · 12 Jul</Text>
+                {checkups.map((chk, idx) => (
+                  <React.Fragment key={chk.id}>
+                    {idx > 0 && <View style={styles.dividerLine} />}
+                    <View style={styles.checkupCardContent}>
+                      <View style={styles.checkupHeaderRow}>
+                        <View style={styles.checkupTitleWithIcon}>
+                          <StethoscopeIcon size={18} color={P.twBlue700} />
+                          <Text style={styles.checkupTitle}>{chk.title}</Text>
+                        </View>
+                        <Text style={styles.checkupDoctor}>{chk.doctor}</Text>
+                      </View>
+                      <Text style={styles.checkupDescription}>{chk.description}</Text>
                     </View>
-                    <Text style={styles.checkupDoctor}>Dr. Anand</Text>
-                  </View>
-                  <Text style={styles.checkupDescription}>
-                    Sub-clinical mastitis, left quarter. Advised herbal treatment.
-                  </Text>
-                </View>
+                  </React.Fragment>
+                ))}
               </View>
             </View>
           )}
@@ -1157,6 +1406,416 @@ export function AnimalDetailScreen({
           )}
         </ScrollView>
       </View>
+
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      {/* ADD HEALTH RECORD MODAL (Exact design from spec)                    */}
+      {/* ══════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={isAddHealthModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsAddHealthModalVisible(false)}
+      >
+        <SafeAreaView style={styles.modalSafeArea}>
+          <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+
+          {/* Modal Header */}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              style={styles.modalBackBtn}
+              onPress={() => setIsAddHealthModalVisible(false)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <GreenBackArrowIcon size={24} color={P.twGreen700} />
+            </TouchableOpacity>
+            <Text style={styles.modalHeaderTitle}>Add Health Record</Text>
+          </View>
+
+          <ScrollView
+            style={styles.modalScrollView}
+            contentContainerStyle={styles.modalScrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Animal Summary Card */}
+            <View style={styles.modalAnimalCard}>
+              <View style={styles.modalAvatarContainer}>
+                <CowAvatarIcon size={44} />
+              </View>
+              <View style={styles.modalAnimalInfoCol}>
+                <Text style={styles.modalAnimalName}>{displayName}</Text>
+                <View style={styles.modalAnimalSubtitleRow}>
+                  <Text style={styles.modalAnimalSubtitle}>
+                    {displayCode} · {displaySpecies} · {displayBreed} ·{' '}
+                  </Text>
+                  <GenderSymbolIcon size={12} color={P.twGray500} />
+                  <Text style={styles.modalAnimalSubtitle}> · {displayAge}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Field 1: Record type * */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>
+                Record type <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
+              <View style={styles.recordTypeGrid}>
+                <View style={styles.recordTypeRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.recordTypePill,
+                      recordType === 'Vaccination'
+                        ? styles.recordTypePillActive
+                        : styles.recordTypePillInactive,
+                    ]}
+                    onPress={() => setRecordType('Vaccination')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.recordTypePillText,
+                        recordType === 'Vaccination'
+                          ? styles.recordTypePillTextActive
+                          : styles.recordTypePillTextInactive,
+                      ]}
+                    >
+                      Vaccination
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.recordTypePill,
+                      recordType === 'Deworming'
+                        ? styles.recordTypePillActive
+                        : styles.recordTypePillInactive,
+                    ]}
+                    onPress={() => setRecordType('Deworming')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.recordTypePillText,
+                        recordType === 'Deworming'
+                          ? styles.recordTypePillTextActive
+                          : styles.recordTypePillTextInactive,
+                      ]}
+                    >
+                      Deworming
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.recordTypeRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.recordTypePill,
+                      recordType === 'Checkup'
+                        ? styles.recordTypePillActive
+                        : styles.recordTypePillInactive,
+                    ]}
+                    onPress={() => setRecordType('Checkup')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.recordTypePillText,
+                        recordType === 'Checkup'
+                          ? styles.recordTypePillTextActive
+                          : styles.recordTypePillTextInactive,
+                      ]}
+                    >
+                      Checkup
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.recordTypePill,
+                      recordType === 'Treatment'
+                        ? styles.recordTypePillActive
+                        : styles.recordTypePillInactive,
+                    ]}
+                    onPress={() => setRecordType('Treatment')}
+                    activeOpacity={0.8}
+                  >
+                    <Text
+                      style={[
+                        styles.recordTypePillText,
+                        recordType === 'Treatment'
+                          ? styles.recordTypePillTextActive
+                          : styles.recordTypePillTextInactive,
+                      ]}
+                    >
+                      Treatment
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Field 2: Record date * */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>
+                Record date <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
+              <View style={styles.formInputContainer}>
+                <FormCalendarIcon size={18} color={P.twGray500} />
+                <TextInput
+                  style={styles.formInputWithIcon}
+                  value={recordDate}
+                  onChangeText={setRecordDate}
+                  placeholder="e.g. 12 Jul 2026"
+                  placeholderTextColor={P.twGray400}
+                />
+              </View>
+            </View>
+
+            {/* Field 3: Veterinarian */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Veterinarian</Text>
+              <TouchableOpacity
+                style={styles.formDropdownTrigger}
+                onPress={() => setIsVetDropdownOpen(!isVetDropdownOpen)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.formDropdownSelectedText}>{veterinarian}</Text>
+                <FormChevronDownIcon size={18} color={P.twGray500} />
+              </TouchableOpacity>
+              {isVetDropdownOpen && (
+                <View style={styles.formDropdownMenu}>
+                  {VET_OPTIONS.map((vet) => (
+                    <TouchableOpacity
+                      key={vet}
+                      style={[
+                        styles.formDropdownItem,
+                        veterinarian === vet && styles.formDropdownItemActive,
+                      ]}
+                      onPress={() => {
+                        setVeterinarian(vet);
+                        setIsVetDropdownOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.formDropdownItemText,
+                          veterinarian === vet && styles.formDropdownItemTextActive,
+                        ]}
+                      >
+                        {vet}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Field 4: Vaccine name * */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>
+                Vaccine name <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.formTextInput}
+                value={vaccineName}
+                onChangeText={setVaccineName}
+                placeholder="e.g. FMD vaccine"
+                placeholderTextColor={P.twGray400}
+              />
+            </View>
+
+            {/* Field 5: Dose * */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>
+                Dose <Text style={styles.requiredAsterisk}>*</Text>
+              </Text>
+              <View style={styles.doseRow}>
+                <View style={styles.doseValueContainer}>
+                  <TextInput
+                    style={styles.formTextInput}
+                    value={dose}
+                    onChangeText={setDose}
+                    keyboardType="decimal-pad"
+                    placeholder="e.g. 2"
+                    placeholderTextColor={P.twGray400}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.doseUnitContainer}
+                  onPress={() => setIsDoseUnitDropdownOpen(!isDoseUnitDropdownOpen)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.formDropdownSelectedText}>{doseUnit}</Text>
+                  <FormChevronDownIcon size={18} color={P.twGray500} />
+                </TouchableOpacity>
+              </View>
+              {isDoseUnitDropdownOpen && (
+                <View style={styles.formDropdownMenu}>
+                  {DOSE_UNIT_OPTIONS.map((unit) => (
+                    <TouchableOpacity
+                      key={unit}
+                      style={[
+                        styles.formDropdownItem,
+                        doseUnit === unit && styles.formDropdownItemActive,
+                      ]}
+                      onPress={() => {
+                        setDoseUnit(unit);
+                        setIsDoseUnitDropdownOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.formDropdownItemText,
+                          doseUnit === unit && styles.formDropdownItemTextActive,
+                        ]}
+                      >
+                        {unit}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Field 6: Administration route */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Administration route</Text>
+              <TouchableOpacity
+                style={styles.formDropdownTrigger}
+                onPress={() => setIsAdminRouteDropdownOpen(!isAdminRouteDropdownOpen)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.formDropdownSelectedText}>{adminRoute}</Text>
+                <FormChevronDownIcon size={18} color={P.twGray500} />
+              </TouchableOpacity>
+              {isAdminRouteDropdownOpen && (
+                <View style={styles.formDropdownMenu}>
+                  {ADMIN_ROUTE_OPTIONS.map((route) => (
+                    <TouchableOpacity
+                      key={route}
+                      style={[
+                        styles.formDropdownItem,
+                        adminRoute === route && styles.formDropdownItemActive,
+                      ]}
+                      onPress={() => {
+                        setAdminRoute(route);
+                        setIsAdminRouteDropdownOpen(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.formDropdownItemText,
+                          adminRoute === route && styles.formDropdownItemTextActive,
+                        ]}
+                      >
+                        {route}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
+            {/* Field 7: Batch / Lot number */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Batch / Lot number</Text>
+              <TextInput
+                style={styles.formTextInput}
+                value={batchNumber}
+                onChangeText={setBatchNumber}
+                placeholder="e.g. FMD-2026-001"
+                placeholderTextColor={P.twGray400}
+              />
+            </View>
+
+            {/* Field 8: Next vaccination date */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Next vaccination date</Text>
+              <View style={styles.formInputContainer}>
+                <FormCalendarIcon size={18} color={P.twGray500} />
+                <TextInput
+                  style={[styles.formInputWithIcon, { flex: 1, marginHorizontal: 8 }]}
+                  value={nextVaccinationDate}
+                  onChangeText={setNextVaccinationDate}
+                  placeholder="e.g. 10 Oct 2026"
+                  placeholderTextColor={P.twGray400}
+                />
+                <FormCalendarIcon size={18} color={P.twGray500} />
+              </View>
+            </View>
+
+            {/* Field 9: Notes */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Notes</Text>
+              <TextInput
+                style={styles.formNotesInput}
+                value={notes}
+                onChangeText={setNotes}
+                multiline
+                numberOfLines={3}
+                placeholder="Enter notes or observations..."
+                placeholderTextColor={P.twGray400}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Field 10: Attachment (optional) */}
+            <View style={styles.formGroup}>
+              <Text style={styles.formLabel}>Attachment (optional)</Text>
+              {attachment ? (
+                <View style={styles.attachmentCard}>
+                  <View style={styles.attachmentLeft}>
+                    <ReceiptDocIcon size={36} />
+                    <View style={styles.attachmentMetaCol}>
+                      <Text style={styles.attachmentFilename}>{attachment.name}</Text>
+                      <Text style={styles.attachmentSize}>{attachment.size}</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.attachmentRemoveBtn}
+                    onPress={() => setAttachment(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove Attachment"
+                  >
+                    <FormCloseIcon size={16} color={P.twGray600} />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.attachmentUploadBox}
+                  onPress={() => setAttachment({ name: 'vaccine_receipt.jpg', size: '240 KB' })}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.attachmentUploadText}>
+                    + Attach receipt or prescription (JPG, PNG, PDF)
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Form Bottom Action Buttons */}
+            <View style={styles.modalActionButtonsRow}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setIsAddHealthModalVisible(false)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel"
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={handleSaveHealthRecord}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Save"
+              >
+                <Text style={styles.saveBtnText}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1762,5 +2421,340 @@ const styles = StyleSheet.create({
   welfareNoticeSubtitle: {
     fontSize: typography.bodySmall,
     color: P.twGray500,
+  },
+
+  // ── Health Top Bar ──
+  healthTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    marginBottom: 6,
+  },
+  healthTopBarTitleCol: {
+    flex: 1,
+  },
+  healthTopBarTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: P.nearBlack,
+  },
+  healthTopBarSubtitle: {
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
+    marginTop: 1,
+  },
+  addHealthButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.brandGreen,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    shadowColor: colors.brandGreen,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  addHealthButtonText: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.white,
+  },
+
+  // ── Add Health Record Modal Styles ──
+  modalSafeArea: {
+    flex: 1,
+    backgroundColor: P.white,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: P.twGray100,
+    gap: 12,
+  },
+  modalBackBtn: {
+    padding: 4,
+    marginLeft: -4,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: P.twGray900,
+  },
+  modalScrollView: {
+    flex: 1,
+    backgroundColor: P.white,
+  },
+  modalScrollContent: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 36,
+    gap: 14,
+  },
+  modalAnimalCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    borderRadius: 16,
+    padding: 12,
+    gap: 12,
+  },
+  modalAvatarContainer: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalAnimalInfoCol: {
+    flex: 1,
+  },
+  modalAnimalName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: P.nearBlack,
+    marginBottom: 2,
+  },
+  modalAnimalSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  modalAnimalSubtitle: {
+    fontSize: 12,
+    color: P.twGray500,
+  },
+  formGroup: {
+    gap: 6,
+  },
+  formLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: P.twGray700,
+  },
+  requiredAsterisk: {
+    color: P.twRed600,
+    fontWeight: '700',
+  },
+  recordTypeGrid: {
+    gap: 8,
+  },
+  recordTypeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  recordTypePill: {
+    flex: 1,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordTypePillActive: {
+    backgroundColor: colors.brandGreen,
+  },
+  recordTypePillInactive: {
+    backgroundColor: P.twGray100,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+  },
+  recordTypePillText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  recordTypePillTextActive: {
+    color: P.white,
+    fontWeight: '700',
+  },
+  recordTypePillTextInactive: {
+    color: P.twGray700,
+  },
+  formInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 48,
+    borderWidth: 1,
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: P.white,
+  },
+  formInputWithIcon: {
+    flex: 1,
+    fontSize: 15,
+    color: P.nearBlack,
+    paddingVertical: 0,
+    paddingLeft: 8,
+  },
+  formTextInput: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: P.nearBlack,
+    backgroundColor: P.white,
+  },
+  formDropdownTrigger: {
+    height: 48,
+    borderWidth: 1,
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: P.white,
+  },
+  formDropdownSelectedText: {
+    fontSize: 15,
+    color: P.nearBlack,
+  },
+  formDropdownMenu: {
+    backgroundColor: P.white,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 4,
+    elevation: 3,
+    shadowColor: P.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  formDropdownItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: P.twGray100,
+  },
+  formDropdownItemActive: {
+    backgroundColor: colors.brandGreenLight,
+  },
+  formDropdownItemText: {
+    fontSize: 14,
+    color: P.twGray800,
+  },
+  formDropdownItemTextActive: {
+    color: colors.brandGreen,
+    fontWeight: '700',
+  },
+  doseRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  doseValueContainer: {
+    flex: 1.8,
+  },
+  doseUnitContainer: {
+    flex: 1.2,
+    height: 48,
+    borderWidth: 1,
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: P.white,
+  },
+  formNotesInput: {
+    height: 80,
+    borderWidth: 1,
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 14,
+    color: P.nearBlack,
+    backgroundColor: P.white,
+  },
+  attachmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: P.twGray50,
+    borderWidth: 1,
+    borderColor: P.twGray200,
+    borderRadius: 12,
+    padding: 10,
+  },
+  attachmentLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  attachmentMetaCol: {
+    flex: 1,
+  },
+  attachmentFilename: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: P.nearBlack,
+  },
+  attachmentSize: {
+    fontSize: 12,
+    color: P.twGray500,
+    marginTop: 2,
+  },
+  attachmentRemoveBtn: {
+    padding: 8,
+  },
+  attachmentUploadBox: {
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: P.twGray300,
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.twGray50,
+  },
+  attachmentUploadText: {
+    fontSize: 13,
+    color: colors.brandGreen,
+    fontWeight: '600',
+  },
+  modalActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: colors.brandGreen,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: P.white,
+  },
+  cancelBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.brandGreen,
+  },
+  saveBtn: {
+    flex: 1,
+    height: 48,
+    backgroundColor: colors.brandGreen,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: P.white,
   },
 });

@@ -9,7 +9,7 @@ import { writeAuditLog } from '../../audit/auditLog.js';
 import { config } from '../../config.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
-import { authProfileRepo, authRepo, type AuthRepo, type OAuthIdentityRow } from './auth.repo.js';
+import { authProfileRepo, authRepo, type AuthRepo, type OAuthIdentityRow, type UserRow } from './auth.repo.js';
 import { oauthProviderClient, type OAuthProfile, type OAuthProviderClient } from './oauth.providers.js';
 import { smsTransport } from '../notifications/sms/index.js';
 import type {
@@ -301,6 +301,106 @@ export function createAuthService(
       let user = challenge.user_id !== null ? await repo.findUserById(pool, challenge.user_id) : null;
       if (user === null) {
         user = await repo.findUserByMobile(pool, challenge.mobile);
+      }
+
+      // If user is null on LOGIN verification, check if there is an approved farmer application
+      // for this mobile number that hasn't had its user provisioned or linked yet.
+      if (user === null && challenge.purpose === 'LOGIN') {
+        const approvedAppRes = await pool.query<{
+          id: string;
+          mobile: string;
+          full_name: string;
+          preferred_locale: 'en' | 'ta';
+          user_id: string | null;
+          farmer_id: string | null;
+          step1_personal: Record<string, unknown>;
+          step2_farm_details: Record<string, unknown>;
+        }>(
+          `SELECT id, mobile, full_name, preferred_locale, user_id, farmer_id,
+                  step1_personal, step2_farm_details
+             FROM farmer_applications
+            WHERE mobile = $1 AND status = 'APPROVED' AND deleted_at IS NULL
+            ORDER BY updated_at DESC NULLS LAST, created_at DESC
+            LIMIT 1`,
+          [challenge.mobile],
+        );
+
+        if (approvedAppRes.rows.length > 0) {
+          const app = approvedAppRes.rows[0]!;
+          user = await withTransaction(async (tx) => {
+            const userRes = await tx.query<UserRow>(
+              `INSERT INTO users (mobile, full_name, preferred_locale, user_type, status)
+               VALUES ($1, $2, $3, 'FARMER', 'ACTIVE')
+               ON CONFLICT (mobile) WHERE deleted_at IS NULL DO UPDATE SET
+                 status = 'ACTIVE',
+                 user_type = 'FARMER'
+               RETURNING *`,
+              [app.mobile, app.full_name, app.preferred_locale || 'en'],
+            );
+            const u = userRes.rows[0]!;
+
+            await tx.query(
+              `INSERT INTO user_roles (user_id, role_id)
+               VALUES ($1, (SELECT id FROM roles WHERE code = 'FARMER'))
+               ON CONFLICT DO NOTHING`,
+              [u.id],
+            );
+
+            let fId = app.farmer_id;
+            if (!fId) {
+              const year = new Date().getFullYear();
+              const prefix = `TOHFA-F-${year}-%`;
+              const maxRes = await tx.query<{ next_val: string }>(
+                `SELECT COALESCE(MAX(NULLIF(regexp_replace(tohfa_farmer_id, '^TOHFA-F-\\d{4}-', ''), '')::integer), 0) + 1 AS next_val
+                 FROM farmers
+                 WHERE tohfa_farmer_id LIKE $1`,
+                [prefix],
+              );
+              const nextNumber = Number(maxRes.rows[0]?.next_val ?? '1');
+              const tohfaFarmerId = `TOHFA-F-${year}-${String(nextNumber).padStart(4, '0')}`;
+
+              const personal = (app.step1_personal as Record<string, unknown>) ?? {};
+              const farmDetails = (app.step2_farm_details as Record<string, unknown>) ?? {};
+              const experienceYears = farmDetails['experienceYears'] ?? personal['farmingExperienceYears'] ?? 0;
+
+              const farmerRes = await tx.query<{ id: string }>(
+                `INSERT INTO farmers (
+                   user_id, tohfa_farmer_id, farming_experience_years,
+                   address_line1, village, taluk, district, aadhaar_last4,
+                   kyc_status, application_status, is_market_blocked, market_block_reason
+                 )
+                 VALUES (
+                   $1, $2, $3, $4, $5, $6, $7, $8,
+                   'VERIFIED', 'APPROVED', false, null
+                 )
+                 ON CONFLICT (user_id) DO UPDATE SET
+                   application_status = 'APPROVED',
+                   kyc_status = 'VERIFIED'
+                 RETURNING id`,
+                [
+                  u.id,
+                  tohfaFarmerId,
+                  experienceYears,
+                  personal['addressLine1'] ?? null,
+                  personal['village'] ?? null,
+                  personal['taluk'] ?? null,
+                  personal['district'] ?? 'The Nilgiris',
+                  personal['aadhaarLast4'] ?? null,
+                ],
+              );
+              fId = farmerRes.rows[0]!.id;
+            }
+
+            await tx.query(
+              `UPDATE farmer_applications
+               SET user_id = $1, farmer_id = $2
+               WHERE id = $3`,
+              [u.id, fId, app.id],
+            );
+
+            return u;
+          });
+        }
       }
 
       let oauthProfile: Omit<OAuthProfile, 'subjectId'> | undefined;

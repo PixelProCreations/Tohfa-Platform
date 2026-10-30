@@ -21,6 +21,7 @@ import {
   todayCalendarDateString,
 } from '../toolPurchaseDate';
 import { canDeleteAsset, TREE_REMOVE_UNAVAILABLE_MESSAGE } from '../assets/RemoveItemScreen';
+import { updateTreePlanting, ApiError } from '../../../api/treePlantings';
 
 // ── Calendar theme ───────────────────────────────────────────────────────────
 
@@ -166,6 +167,8 @@ export function EditPlantingScreen({
   const [showCalendar, setShowCalendar] = useState(false);
   const [locationZone, setLocationZone] = useState(planting?.locationZone || 'Zone A boundary');
   const [purpose, setPurpose] = useState(planting?.purpose || 'Shade & windbreak');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
   const calendarStartDate = toCalendarDateString(plantedDate ?? new Date());
@@ -184,11 +187,6 @@ export function EditPlantingScreen({
     setShowCalendar(false);
   }
 
-  // This screen only ever edits a Trees/planting record (see the locked
-  // category banner below), and farm-assets has no backend entity for one
-  // (api/farmAssets.ts only models TOOL/EQUIPMENT/MACHINERY) -- canDeleteAsset
-  // is the single source of truth for that gap (RemoveItemScreen.tsx), so the
-  // button says so honestly instead of handing off to a screen that would.
   const canRemove = canDeleteAsset('Trees');
 
   function handleRemove(): void {
@@ -199,17 +197,35 @@ export function EditPlantingScreen({
     onRemove?.();
   }
 
-  function handleSave(): void {
-    if (!species.trim()) return;
-    onSave?.({
-      id: planting?.id,
-      species: species.trim(),
-      treeCount,
-      plantedDate: plantedDate ? formatSafeDate(plantedDate) : '',
-      locationZone: locationZone.trim() || undefined,
-      purpose: purpose.trim() || undefined,
-    });
-    onNavigateBack();
+  async function handleSave(): Promise<void> {
+    if (!species.trim() || isSaving) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      if (planting?.id) {
+        await updateTreePlanting(planting.id, {
+          speciesName: species.trim(),
+          treeCount,
+          plantedOn: plantedDate ? toCalendarDateString(plantedDate) : null,
+          zoneName: locationZone.trim() || null,
+          purpose: purpose.trim() || null,
+        });
+      }
+      onSave?.({
+        id: planting?.id,
+        species: species.trim(),
+        treeCount,
+        plantedDate: plantedDate ? formatSafeDate(plantedDate) : '',
+        locationZone: locationZone.trim() || undefined,
+        purpose: purpose.trim() || undefined,
+      });
+      onNavigateBack();
+    } catch (err: unknown) {
+      const msg = err instanceof ApiError ? err.message : 'Failed to update tree planting';
+      setSaveError(msg);
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -328,8 +344,7 @@ export function EditPlantingScreen({
           />
         </View>
 
-        {/* Remove Button — muted and honestly labelled when unsupported, rather
-            than handing off to a screen that only says so after the fact. */}
+        {/* Remove Button */}
         <TouchableOpacity
           style={[styles.removeButton, !canRemove && styles.removeButtonDisabled]}
           onPress={handleRemove}
@@ -342,6 +357,12 @@ export function EditPlantingScreen({
             Remove this planting
           </Text>
         </TouchableOpacity>
+
+        {saveError ? (
+          <View style={styles.errorBanner}>
+            <Text style={styles.errorBannerText}>{saveError}</Text>
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Planting Date Calendar Modal */}
@@ -395,12 +416,15 @@ export function EditPlantingScreen({
       {/* Sticky Save Changes Button */}
       <View style={styles.stickyBottom}>
         <TouchableOpacity
-          style={[styles.saveButton, !species.trim() && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (!species.trim() || isSaving) && styles.saveButtonDisabled]}
           activeOpacity={0.8}
-          onPress={handleSave}
+          disabled={!species.trim() || isSaving}
+          onPress={() => {
+            void handleSave();
+          }}
         >
           <CheckIcon size={18} color={P.white} />
-          <Text style={styles.saveButtonText}>Save changes</Text>
+          <Text style={styles.saveButtonText}>{isSaving ? 'Saving...' : 'Save changes'}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -661,5 +685,16 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
+  },
+  errorBanner: {
+    backgroundColor: P.twRed100,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 12,
+  },
+  errorBannerText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed600,
+    fontWeight: '600',
   },
 });

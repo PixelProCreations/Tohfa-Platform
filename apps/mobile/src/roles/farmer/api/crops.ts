@@ -281,3 +281,270 @@ export async function listAllActiveFarmCrops(signal?: AbortSignal): Promise<Acti
   }
   return { plots, items, complete };
 }
+
+// ---------------------------------------------------------------------------
+// Crop Inputs & NPK Contribution (BR-56)
+// ---------------------------------------------------------------------------
+
+export type CropInputType = 'FERTILIZER' | 'MANURE' | 'BIO_INPUT' | 'PESTICIDE' | 'OTHER';
+export type CropInputUnit = 'KG' | 'LITRE' | 'GRAM' | 'ML' | 'BAG' | 'TONNE' | 'OTHER';
+
+export interface CropInputResponse {
+  id: string;
+  farmerId: string;
+  farmCropId: string;
+  inputType: CropInputType;
+  inputName: string;
+  appliedOn: string;
+  quantity: number;
+  unit: CropInputUnit;
+  nitrogenPct: number | null;
+  phosphorusPct: number | null;
+  potassiumPct: number | null;
+  applicationMethod: string | null;
+  costInr: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface ListCropInputsQuery {
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ListCropInputsResult {
+  items: CropInputResponse[];
+  page: { nextCursor: string | null; hasMore: boolean };
+}
+
+export interface CropNpkContributionResponse {
+  farmCropId: string;
+  totalInputsCount: number;
+  totalQuantityKg: number;
+  totalNitrogenKg: number;
+  totalPhosphorusKg: number;
+  totalPotassiumKg: number;
+  totalCostInr: string;
+}
+
+/**
+ * GET /farmers/me/crops/:farmCropId/npk-contribution (BR-56f)
+ * Calculates cumulative nitrogen, phosphorus, and potassium nutrient mass (kg)
+ * across all active input applications for a crop.
+ */
+export async function getNpkContribution(
+  farmCropId: string,
+  signal?: AbortSignal,
+): Promise<CropNpkContributionResponse> {
+  return api.get<CropNpkContributionResponse>(
+    `/farmers/me/crops/${farmCropId}/npk-contribution`,
+    signal,
+  );
+}
+
+/**
+ * GET /farmers/me/crops/:farmCropId/inputs (BR-56)
+ * Returns paginated input applications for the specified crop.
+ */
+export async function listCropInputs(
+  farmCropId: string,
+  query: ListCropInputsQuery = {},
+  signal?: AbortSignal,
+): Promise<ListCropInputsResult> {
+  const params = new URLSearchParams();
+  if (query.cursor !== undefined) params.append('cursor', query.cursor);
+  if (query.limit !== undefined) params.append('limit', query.limit.toString());
+
+  const queryStr = params.toString();
+  const path = `/farmers/me/crops/${farmCropId}/inputs${queryStr ? `?${queryStr}` : ''}`;
+  return api.get<ListCropInputsResult>(path, signal);
+}
+
+export interface CreateCropInputRequest {
+  inputType: CropInputType;
+  inputName: string;
+  appliedOn: string;
+  quantity: number;
+  unit: CropInputUnit;
+  nitrogenPct?: number | undefined;
+  phosphorusPct?: number | undefined;
+  potassiumPct?: number | undefined;
+  applicationMethod?: string | undefined;
+  costInr?: string | undefined;
+  notes?: string | undefined;
+}
+
+export interface UpdateCropInputRequest {
+  inputType?: CropInputType | undefined;
+  inputName?: string | undefined;
+  appliedOn?: string | undefined;
+  quantity?: number | undefined;
+  unit?: CropInputUnit | undefined;
+  nitrogenPct?: number | null | undefined;
+  phosphorusPct?: number | null | undefined;
+  potassiumPct?: number | null | undefined;
+  applicationMethod?: string | null | undefined;
+  costInr?: string | null | undefined;
+  notes?: string | null | undefined;
+}
+
+/**
+ * POST /farmers/me/crops/:farmCropId/inputs (BR-56)
+ * Logs a fertilizer, manure, pesticide or bio-input application for an own crop.
+ */
+export async function createCropInput(
+  farmCropId: string,
+  body: CreateCropInputRequest,
+  idempotencyKey?: string,
+): Promise<CropInputResponse> {
+  return api.post<CropInputResponse>(
+    `/farmers/me/crops/${farmCropId}/inputs`,
+    body,
+    idempotencyKey,
+  );
+}
+
+/**
+ * GET /farmers/me/crops/:farmCropId/inputs/:id (BR-56)
+ * Retrieves a single crop input application.
+ */
+export async function getCropInput(
+  farmCropId: string,
+  id: string,
+  signal?: AbortSignal,
+): Promise<CropInputResponse> {
+  return api.get<CropInputResponse>(`/farmers/me/crops/${farmCropId}/inputs/${id}`, signal);
+}
+
+/**
+ * PATCH /farmers/me/crops/:farmCropId/inputs/:id (BR-56)
+ * Updates an existing crop input application.
+ */
+export async function updateCropInput(
+  farmCropId: string,
+  id: string,
+  body: UpdateCropInputRequest,
+): Promise<CropInputResponse> {
+  return api.patch<CropInputResponse>(`/farmers/me/crops/${farmCropId}/inputs/${id}`, body);
+}
+
+/**
+ * DELETE /farmers/me/crops/:farmCropId/inputs/:id (BR-56)
+ * Soft-deletes a crop input application.
+ */
+export async function deleteCropInput(
+  farmCropId: string,
+  id: string,
+): Promise<void> {
+  return api.delete<void>(`/farmers/me/crops/${farmCropId}/inputs/${id}`);
+}
+
+export { ApiError } from '../../../shell/api/client';
+
+// ─────────────────────────────────────────────
+// Crop Milestones (BR-57)
+// ─────────────────────────────────────────────
+
+export type MilestoneStatus = 'PENDING' | 'COMPLETED' | 'SKIPPED';
+
+export interface CropMilestoneResponse {
+  id: string;
+  farmerId: string;
+  farmCropId: string;
+  templateId: string | null;
+  stageCode: string;
+  stageName: string;
+  sequenceOrder: number;
+  status: MilestoneStatus;
+  targetDate: string | null;
+  completedOn: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CropMilestonesListResponse {
+  items: CropMilestoneResponse[];
+  totalCount: number;
+  completedCount: number;
+  progressPct: number;
+}
+
+export interface UpdateCropMilestoneRequest {
+  status?: MilestoneStatus | undefined;
+  completedOn?: string | null | undefined;
+  targetDate?: string | null | undefined;
+  notes?: string | null | undefined;
+}
+
+export interface CropMilestoneTemplateResponse {
+  id: string;
+  cropMasterId: string | null;
+  stageCode: string;
+  stageName: string;
+  description: string | null;
+  sequenceOrder: number;
+  expectedDaysAfterPlanting: number | null;
+}
+
+/**
+ * GET /farmers/me/crops/:farmCropId/milestones (BR-57b)
+ * Returns ordered growth milestones and completion progress for a crop.
+ * Auto-initializes from templates if uninitialized.
+ */
+export async function listCropMilestones(
+  farmCropId: string,
+  signal?: AbortSignal,
+): Promise<CropMilestonesListResponse> {
+  return api.get<CropMilestonesListResponse>(
+    `/farmers/me/crops/${farmCropId}/milestones`,
+    signal,
+  );
+}
+
+/**
+ * PATCH /farmers/me/crops/:farmCropId/milestones/:id (BR-57c)
+ * Marks a milestone as COMPLETED or SKIPPED, recording completion date and notes.
+ */
+export async function updateCropMilestone(
+  farmCropId: string,
+  milestoneId: string,
+  body: UpdateCropMilestoneRequest,
+): Promise<CropMilestoneResponse> {
+  return api.patch<CropMilestoneResponse>(
+    `/farmers/me/crops/${farmCropId}/milestones/${milestoneId}`,
+    body,
+  );
+}
+
+/**
+ * POST /farmers/me/crops/:farmCropId/milestones/initialize (BR-57b, BR-57e)
+ * Explicitly populates growth milestones a crop is missing from reference templates.
+ */
+export async function initializeCropMilestones(
+  farmCropId: string,
+  idempotencyKey?: string,
+): Promise<CropMilestonesListResponse> {
+  return api.post<CropMilestonesListResponse>(
+    `/farmers/me/crops/${farmCropId}/milestones/initialize`,
+    {},
+    idempotencyKey,
+  );
+}
+
+
+/**
+ * GET /farmers/me/crop-milestone-templates (BR-57b)
+ * Returns reference growth milestone templates.
+ */
+export async function listCropMilestoneTemplates(
+  cropMasterId?: string,
+  signal?: AbortSignal,
+): Promise<CropMilestoneTemplateResponse[]> {
+  const path = cropMasterId
+    ? `/farmers/me/crop-milestone-templates?cropMasterId=${encodeURIComponent(cropMasterId)}`
+    : '/farmers/me/crop-milestone-templates';
+  return api.get<CropMilestoneTemplateResponse[]>(path, signal);
+}
+

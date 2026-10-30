@@ -73,13 +73,29 @@ describe('Farmer audits: api client (GET /farmers/me/audits*)', () => {
     expect(url).toContain('limit=50');
   });
 
-  it('listAllMyAudits() handles an empty response as an empty history', async () => {
+  it('BR-36: empty audit history derives isEmpty: true and 0 doneThisYear', async () => {
     global.fetch = vi.fn(async () => jsonResponse({ items: [], page: { nextCursor: null, hasMore: false } })) as typeof fetch;
 
     const items = await listAllMyAudits();
 
     expect(items).toEqual([]);
-    expect(deriveAuditsOverview(items).isEmpty).toBe(true);
+    const overview = deriveAuditsOverview(items);
+    expect(overview.isEmpty).toBe(true);
+    expect(overview.doneThisYear).toBe(0);
+    expect(overview.EXTERNAL.next).toBeNull();
+    expect(overview.INTERNAL.next).toBeNull();
+  });
+
+  it('BR-36 (client): listAllMyAudits() propagates server errors so the screen can show error-with-retry', async () => {
+    global.fetch = vi.fn(async () =>
+      jsonResponse({ type: 'about:blank', title: 'Internal error', status: 500, code: 'INTERNAL' }, 500),
+    ) as typeof fetch;
+
+    const error = await listAllMyAudits().catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).problem.status).toBe(500);
+    expect((error as ApiError).is('INTERNAL')).toBe(true);
   });
 
   it('listAllMyAudits() follows the cursor until hasMore is false', async () => {

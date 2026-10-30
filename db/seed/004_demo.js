@@ -64,6 +64,8 @@ async function runDemoSeed() {
     const carrotId = cropMap.get('carrot') || cropRes.rows[0]?.id;
     const potatoId = cropMap.get('potato') || cropRes.rows[1]?.id || carrotId;
     const beetrootId = cropMap.get('beetroot') || cropRes.rows[2]?.id || carrotId;
+    const avocadoId = cropMap.get('avocado') || carrotId;
+    const leekId = cropMap.get('leek') || potatoId;
 
     const superAdminUserId = '00000000-0000-0000-0000-000000000001';
     const _tohfaAdminUserId = '00000000-0000-0000-0000-000000000002';
@@ -274,7 +276,7 @@ async function runDemoSeed() {
                 totalAreaAcres: 3.5 + f.num * 0.5,
                 organicSince: '2020-01-01',
                 waterSource: 'Rainfed & Borewell',
-                primaryCrops: ['Carrot', 'Potato'],
+                primaryCrops: f.num === 3 ? ['Avocado', 'Leek'] : ['Carrot', 'Potato'],
               },
             ],
           }),
@@ -349,7 +351,10 @@ async function runDemoSeed() {
       listingIds.push(lId);
       const farmerId = farmerIds[(i - 1) % farmerIds.length];
       const status = listingStatuses[i - 1];
-      const cropId = i % 3 === 0 ? beetrootId : i % 2 === 0 ? potatoId : carrotId;
+      const isFarmer3 = farmerId === farmerIds[2];
+      const cropId = isFarmer3
+        ? (i % 2 === 0 ? leekId : avocadoId)
+        : (i % 3 === 0 ? beetrootId : i % 2 === 0 ? potatoId : carrotId);
       const price = (55 + (i % 20)).toFixed(2);
 
       await client.query(

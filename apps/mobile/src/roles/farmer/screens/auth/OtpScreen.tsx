@@ -15,6 +15,7 @@ import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map
@@ -108,11 +109,16 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
       // brand-new OAuth-created account into the farmer registration wizard
       // was left unimplemented rather than guessed. Every verify outcome,
       // linked or not, proceeds through the same existing post-login route.
-      await verifyOtp({
+      const outcome = await verifyOtp({
         challengeId: activeChallengeId,
         code,
         ...(linkToken !== undefined ? { linkToken } : {}),
       });
+
+      if (purpose === 'LOGIN' && (!('accessToken' in outcome) || !outcome.accessToken)) {
+        setErrorMsg(t('farmer.auth.login.noAccountFound'));
+        return;
+      }
 
       const me = await fetchMe();
       const route = resolveRouteAfterAuth(me);

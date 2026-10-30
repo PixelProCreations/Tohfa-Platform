@@ -8,7 +8,10 @@ import { t } from '../../../../i18n/farmer';
 
 interface ApplicationStatusScreenProps {
   applicationId: string;
-  onNavigate: (screen: 'Welcome' | 'MainTabs') => void;
+  onNavigate: (
+    screen: 'Welcome' | 'MainTabs' | 'Login',
+    params?: Record<string, string | number | undefined>,
+  ) => void;
 }
 
 const STEPS = [
@@ -93,19 +96,38 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
         </View>
 
         <Text style={[styles.title, { color: colors.textDark }]}>
-          Application{'\n'}Submitted!
+          {data?.status === 'APPROVED' ? 'Application Approved!' : 'Application\nSubmitted!'}
         </Text>
         
         <Text style={[styles.subtitle, { color: colors.textSubtle }]}>
-          Your farmer application has been received and{'\n'}is now under review.
+          {data?.status === 'APPROVED'
+            ? 'Your farmer registration has been verified and approved.'
+            : 'Your farmer application has been received and\nis now under review.'}
         </Text>
+
+        {/* Celebratory Banner for Approved Farmer */}
+        {data?.status === 'APPROVED' ? (
+          <View style={[styles.approvedBanner, { backgroundColor: colors.brandGreenLight, borderColor: colors.brandGreen }]}>
+            <View style={styles.approvedHeader}>
+              <Icon name="check" size={20} color={colors.brandGreen} />
+              <Text style={[styles.approvedTitle, { color: colors.brandGreen }]}>
+                {t('farmer.auth.status.approvedBannerTitle')}
+              </Text>
+            </View>
+            <Text style={[styles.approvedBody, { color: colors.textDark }]}>
+              {t('farmer.auth.status.approvedBannerBody')}
+            </Text>
+          </View>
+        ) : null}
 
         {/* App ID Card */}
         <View style={[styles.idCard, { borderColor: colors.borderMedium, backgroundColor: colors.white }]}>
           <Text style={[styles.idLabel, { color: colors.textSubtle }]}>APPLICATION ID</Text>
           <Text style={[styles.idValue, { color: colors.brandGreen }]}>{applicationId.toUpperCase()}</Text>
           <Text style={[styles.idExpected, { color: colors.textSubtle }]}>
-            Expected review: <Text style={{ color: colors.textDark, fontWeight: '700' }}>3 to 5 working days</Text>
+            {data?.status === 'APPROVED' ? 'Status: Active Farmer Account' : (
+              <>Expected review: <Text style={{ color: colors.textDark, fontWeight: '700' }}>3 to 5 working days</Text></>
+            )}
           </Text>
         </View>
 
@@ -155,18 +177,47 @@ export const ApplicationStatusScreen: React.FC<ApplicationStatusScreenProps> = (
         </View>
 
         {/* Info Box */}
-        <View style={styles.infoBox}>
-          <Text style={styles.infoBoxText}>
-            <Text style={{ fontWeight: '700' }}>What's next?</Text> A TOHFA representative will call you within 24 hours to confirm your details.
-          </Text>
-        </View>
+        {data?.status !== 'APPROVED' ? (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxText}>
+              <Text style={{ fontWeight: '700' }}>What's next?</Text> A TOHFA representative will call you within 24 hours to confirm your details.
+            </Text>
+          </View>
+        ) : null}
         
       </ScrollView>
 
       {/* FOOTER */}
       <View style={[styles.footer, { borderTopColor: colors.borderDivider, backgroundColor: colors.white }]}>
-        <TouchableOpacity activeOpacity={0.85} style={[styles.footerBtn, { backgroundColor: colors.brandGreen }]} onPress={handleBackToHome}>
-          <Text style={[styles.footerBtnText, { color: colors.white }]}>Back to Home</Text>
+        {data?.status === 'APPROVED' ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            style={[styles.footerBtn, { backgroundColor: colors.brandGreen }]}
+            onPress={() => onNavigate('Login', { initialMode: 'otp' })}
+          >
+            <Text style={[styles.footerBtnText, { color: colors.white }]}>
+              {t('farmer.auth.status.proceedToLogin')}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={[
+            styles.footerBtn,
+            data?.status === 'APPROVED'
+              ? [styles.footerBtnOutline, { borderColor: colors.borderMedium }]
+              : { backgroundColor: colors.brandGreen },
+          ]}
+          onPress={handleBackToHome}
+        >
+          <Text
+            style={[
+              styles.footerBtnText,
+              { color: data?.status === 'APPROVED' ? colors.textDark : colors.white },
+            ]}
+          >
+            Back to Home
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -203,5 +254,27 @@ const styles = StyleSheet.create({
   footer: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 24, borderTopWidth: 1, gap: 12 },
   footerBtn: { width: '100%', height: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   footerBtnOutline: { backgroundColor: 'transparent', borderWidth: 1.5 },
-  footerBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' }
+  footerBtnText: { fontSize: typography.bodyLarge, fontWeight: '700' },
+  approvedBanner: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    padding: 16,
+    marginBottom: 24,
+  },
+  approvedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  approvedTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    flex: 1,
+  },
+  approvedBody: {
+    fontSize: typography.body,
+    lineHeight: 20,
+  },
 });
