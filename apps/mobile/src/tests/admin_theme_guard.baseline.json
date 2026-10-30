@@ -27,8 +27,6 @@
     "screens/config/SystemConfigScreen.tsx": 30,
     "screens/dashboard/FarmerDisputeDetailScreen.tsx": 1,
     "screens/dashboard/FarmerInspectionFindingsScreen.tsx": 12,
-    "screens/dashboard/MainWarehouseAdminScreen.tsx": 2,
-    "screens/dashboard/MainWarehouseListScreen.tsx": 1,
     "screens/dashboard/SuperAdminDashboardScreen.tsx": 29,
     "screens/farmers/AdminFarmMapScreen.tsx": 6,
     "screens/finance/AddExpenseScreen.tsx": 14,

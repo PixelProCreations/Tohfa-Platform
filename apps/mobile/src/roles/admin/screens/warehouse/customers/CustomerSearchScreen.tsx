@@ -26,6 +26,13 @@ import { adminColors, adminType, adminRadius, adminSpacing } from '../../../them
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import type { CustomerRecord, CustomerSearchItem } from './types';
 
+type SelectCustomerHandler = ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);
+
+/** Narrows the two accepted `onSelectCustomer` shapes by arity, so the call site needs no cast. */
+function isNameIdHandler(fn: SelectCustomerHandler): fn is (name: string, id?: string) => void {
+  return fn.length >= 2;
+}
+
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -90,7 +97,7 @@ const RECENT_SEARCHES: readonly string[] = [];
 
 export interface CustomerSearchScreenProps extends WarehouseScreenBaseProps {
   customers?: readonly CustomerRecord[] | undefined;
-  onSelectCustomer?: ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);
+  onSelectCustomer?: SelectCustomerHandler | undefined;
   onNavigateToWallet?: (customer: CustomerSearchItem) => void;
   onNavigateToCashTopUp?: ((customer?: CustomerSearchItem) => void) | undefined;
 }
@@ -129,10 +136,12 @@ export function CustomerSearchScreen({
     if (onNavigateToWallet) {
       onNavigateToWallet(c);
     } else if (onSelectCustomer) {
-      if ((onSelectCustomer as any).length >= 2) {
-        (onSelectCustomer as any)(c.name, c.code);
+      if (isNameIdHandler(onSelectCustomer)) {
+        // The real UUID, not the human-readable code — every other customer
+        // entry point navigates by id; this one must too.
+        onSelectCustomer(c.name, c.id);
       } else {
-        (onSelectCustomer as any)(c);
+        onSelectCustomer(c);
       }
     } else {
       setSelectedCustomerForWallet(c);

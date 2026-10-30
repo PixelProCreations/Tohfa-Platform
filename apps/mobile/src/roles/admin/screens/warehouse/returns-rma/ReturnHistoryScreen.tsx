@@ -17,6 +17,8 @@ import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 import { WarehouseSelector } from '../inventory';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import type { ReturnStatus } from '../../../api/returns';
+import type { PermissionCheck } from './types';
+import { useCustomer } from '../customers/useCustomerData';
 import { useReturnList } from './useReturnData';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
 import type { ReturnHistoryRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -31,6 +33,48 @@ export interface ReturnHistoryScreenProps extends WarehouseScreenBaseProps {
 
 type HistoryFilter = 'All' | 'Approved' | 'Rejected' | 'Completed';
 const FILTERS: readonly HistoryFilter[] = ['All', 'Approved', 'Rejected', 'Completed'];
+
+/**
+ * One history row. Loads the real customer name itself (BR-92: masked mobile
+ * handled at detail level; the list only needs a name) rather than the
+ * mapper's '—' placeholder — there is no bulk customer-name endpoint, so each
+ * visible row resolves its own name via the cached per-customer query.
+ */
+function ReturnHistoryCard({
+  item,
+  can,
+  onPress,
+}: {
+  item: ReturnHistoryRecord;
+  can: PermissionCheck;
+  onPress: () => void;
+}) {
+  const customerQuery = useCustomer(item.customerId, can);
+  const customerName = customerQuery.data?.name ?? item.customerName;
+  const isRejected = item.status === 'Rejected';
+  return (
+    <TouchableOpacity
+      style={styles.historyCard}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+    >
+      <View style={styles.cardHeader}>
+        <Text style={styles.rmaIdText}>{item.rmaId}</Text>
+        <View style={[styles.statusBadge, isRejected ? styles.badgeRejected : styles.badgeCompleted]}>
+          <Text style={[styles.statusText, isRejected ? styles.statusTextRejected : styles.statusTextCompleted]}>
+            {item.status}
+          </Text>
+        </View>
+      </View>
+      <Text style={styles.customerLine}>{customerName} · Order #{item.orderId}</Text>
+      <View style={styles.cardFooter}>
+        <Text style={styles.reasonText}>{item.reasonTag}</Text>
+        <Text style={styles.dateText}>{item.date}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 function SearchIcon() {
   return (
@@ -86,11 +130,10 @@ export function ReturnHistoryScreen({
 
   const filteredItems = effectiveRecords.filter((item) => {
     const q = searchQuery.toLowerCase().trim();
+    // Customer name is not searchable here: the list has no bulk customer-name
+    // endpoint, each row resolves its own name only once rendered (ReturnHistoryCard).
     const matchesSearch =
-      !q ||
-      item.rmaId.toLowerCase().includes(q) ||
-      item.orderId.toLowerCase().includes(q) ||
-      item.customerName.toLowerCase().includes(q);
+      !q || item.rmaId.toLowerCase().includes(q) || item.orderId.toLowerCase().includes(q);
     const matchesFilter = activeFilter === 'All' || item.status === activeFilter;
     const matchesScope = allWarehouses
       ? selectedWarehouseId === undefined || item.warehouseId === undefined || item.warehouseId === selectedWarehouseId
@@ -154,32 +197,14 @@ export function ReturnHistoryScreen({
         ) : null}
 
         <View style={styles.cardsList}>
-          {filteredItems.map((item) => {
-            const isRejected = item.status === 'Rejected';
-            return (
-              <TouchableOpacity
-                key={item.id ?? item.rmaId}
-                style={styles.historyCard}
-                onPress={() => onSelectRecord(item)}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={styles.rmaIdText}>{item.rmaId}</Text>
-                  <View style={[styles.statusBadge, isRejected ? styles.badgeRejected : styles.badgeCompleted]}>
-                    <Text style={[styles.statusText, isRejected ? styles.statusTextRejected : styles.statusTextCompleted]}>
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.customerLine}>{item.customerName} · Order #{item.orderId}</Text>
-                <View style={styles.cardFooter}>
-                  <Text style={styles.reasonText}>{item.reasonTag}</Text>
-                  <Text style={styles.dateText}>{item.date}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
+          {filteredItems.map((item) => (
+            <ReturnHistoryCard
+              key={item.id ?? item.rmaId}
+              item={item}
+              can={can}
+              onPress={() => onSelectRecord(item)}
+            />
+          ))}
         </View>
       </ScrollView>
     </ReturnsScreen>

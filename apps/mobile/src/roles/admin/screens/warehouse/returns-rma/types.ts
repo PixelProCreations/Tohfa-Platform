@@ -28,8 +28,12 @@ export type {
   WarehouseTab,
 } from '../finance-expenses/types';
 
-/** Issue category a customer picks when reporting a problem. */
-export type RmaIssueCategory = 'Damaged' | 'Quality' | 'Quantity' | 'Missing' | 'Wrong' | 'Late';
+/**
+ * Issue category a customer picks when reporting a problem. The returns API has no structured
+ * category field (only free-text `reason`), so 'Other' is the honest value when the reason text
+ * does not clearly match one of the specific categories — never default to a specific one.
+ */
+export type RmaIssueCategory = 'Damaged' | 'Quality' | 'Quantity' | 'Missing' | 'Wrong' | 'Late' | 'Other';
 
 /** Workflow status of an open RMA. */
 export type RmaStatus = 'New' | 'Under Review' | 'Approved' | 'Pending Resolution';

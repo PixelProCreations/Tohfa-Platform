@@ -31,6 +31,7 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
+  Share,
   StatusBar,
   StyleSheet,
   Text,
@@ -44,8 +45,9 @@ import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
-import { AdminEmptyState } from '../shared/AsyncStates';
-import { formatMoney, formatKg } from './mappers';
+import { AdminEmptyState, AdminErrorState } from '../shared/AsyncStates';
+import { exportReport, type ExportReportCode, type ExportResult } from '../../../api/reportExports';
+import { formatMoney, formatKg, getIstDateRange } from './mappers';
 import {
   useHubKpis,
   useSalesReport,
@@ -58,6 +60,7 @@ import {
   useExpenseReportData,
 } from './useReportsData';
 import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, reportVisible } from './fixtures';
+import { t } from '../../../i18n';
 import type { ReportCode, ReportScreenType } from './types';
 import {
   TimelineDotIcon,
@@ -74,9 +77,7 @@ import {
   InvoiceDocumentIcon,
   StorePickupIcon,
   DeliveryTruckIcon,
-  ExcelFileIcon,
   CsvFileIcon,
-  PdfFileIcon,
   SparklesIcon,
   DownloadIcon,
   ReadyCheckIcon,
@@ -162,16 +163,60 @@ export function ReportsScreen({
   const [exportPeriod, setExportPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('This Month');
   const [exportChannel, setExportChannel] = useState<'All' | 'Online' | 'Market'>('All');
   const [exportStatus, setExportStatus] = useState<'All' | 'Completed' | 'Cancelled'>('All');
-  const [exportFormat, setExportFormat] = useState<'Excel' | 'CSV' | 'PDF'>('Excel');
+  // CSV is the only format the server produces (docs/openapi.yaml; report-exports.schema.ts has
+  // no format field at all) — Excel/PDF were UI-only options with nothing behind them.
+  const exportFormat: 'CSV' = 'CSV';
+  const [exportResult, setExportResult] = useState<ExportResult | null>(null);
+  const [exportError, setExportError] = useState<unknown>(null);
 
-  useEffect(() => {
-    if (exportStep === 'generating') {
-      const timer = setTimeout(() => {
-        setExportStep('ready');
-      }, 1500);
-      return () => clearTimeout(timer);
+  const EXPORT_REPORT_CODE: Partial<Record<string, ExportReportCode>> = {
+    'Sales Report': 'sales',
+    'Inventory Report': 'inventory',
+    'Receiving Report': 'receiving',
+    'Customer Report': 'customers',
+    'Cash Top-Up Report': 'cash-topups',
+    'Expense Report': 'expenses',
+    'Revenue Report': 'finance-revenue',
+    'Returns Report': 'returns',
+    // 'Daily/Monthly Summary' has no matching server export (no 'summary' report code);
+    // Generate is disabled for it below rather than faking a file for it.
+  };
+  const exportReportCode = EXPORT_REPORT_CODE[selectedExportReport];
+  const exportPeriodKey = exportPeriod === 'Today' ? 'Today' : exportPeriod === 'This Week' ? 'Week' : 'Month';
+  const exportDateRange = getIstDateRange(exportPeriodKey);
+
+  const handleGenerateExport = async () => {
+    if (!exportAllowed || exportReportCode === undefined) return;
+    setExportStep('generating');
+    setExportError(null);
+    try {
+      const query: Record<string, string> = { from: exportDateRange.from, to: exportDateRange.to };
+      if (!isMain && scope.warehouseId) query.warehouseId = scope.warehouseId;
+      if (exportReportCode === 'sales' && exportChannel !== 'All') {
+        query.channel = exportChannel === 'Online' ? 'ONLINE' : 'MARKET';
+      }
+      const result = await exportReport(exportReportCode, query);
+      setExportResult(result);
+      setExportStep('ready');
+    } catch (err) {
+      setExportError(err);
+      setExportStep('ready');
     }
-  }, [exportStep]);
+  };
+
+  const handleShareExport = async () => {
+    if (exportResult === null) return;
+    try {
+      await Share.share({ message: exportResult.csv, title: exportResult.filename });
+      setExportStep('downloaded');
+    } catch {
+      // The native share sheet's own cancel/dismiss is not an error; nothing to report.
+    }
+  };
+
+  /** Records in the exported CSV, minus the header row. '—' while nothing has been generated yet. */
+  const exportRecordCount =
+    exportResult === null ? '—' : String(Math.max(0, exportResult.csv.trim().split('\n').length - 1));
 
   // Daily / Monthly Summary filter
   const [summaryMode, setSummaryMode] = useState<'Daily' | 'Monthly'>('Daily');
@@ -2969,7 +3014,7 @@ export function ReportsScreen({
                 <ArrowBackIcon size={22} color={adminColors.onBrand} />
               </TouchableOpacity>
               <View>
-                <Text style={styles.headerTitleText}>Export Report</Text>
+                <Text style={styles.headerTitleText}>{t('warehouseReports.export.title')}</Text>
                 {exportStep === 'downloaded' && (
                   <Text style={{ ...adminType.body, color: adminColors.onBrand, marginTop: 2, fontWeight: '500' }}>
                     Generating your report
@@ -2999,14 +3044,17 @@ export function ReportsScreen({
           >
             <View style={styles.generatingContainer}>
               <ActivityIndicator size="large" color={adminColors.brand} style={{ transform: [{ scale: 1.2 }], marginBottom: 24 }} />
-              <Text style={styles.generatingTitle}>Generating Report...</Text>
-              <Text style={styles.generatingSubtitle}>Preparing 1,284 records. Please wait.</Text>
+              <Text style={styles.generatingTitle}>{t('warehouseReports.export.generatingTitle')}</Text>
+              <Text style={styles.generatingSubtitle}>{t('warehouseReports.export.generatingSubtitle')}</Text>
             </View>
           </ScrollView>
         )}
 
         {/* REPORT READY SCREEN */}
-        {exportStep === 'ready' && (
+        {exportStep === 'ready' && exportError !== null && (
+          <AdminErrorState error={exportError} onRetry={handleGenerateExport} />
+        )}
+        {exportStep === 'ready' && exportError === null && (
           <>
             <ScrollView
               style={styles.scroll}
@@ -3017,9 +3065,9 @@ export function ReportsScreen({
                 <View style={styles.readyBadgeCircle}>
                   <ReadyCheckIcon size={32} color={adminColors.success.text} />
                 </View>
-                <Text style={styles.readyTitle}>Report Ready</Text>
+                <Text style={styles.readyTitle}>{t('warehouseReports.export.readyTitle')}</Text>
                 <Text style={styles.readySubtitle}>
-                  {selectedExportReport} · {warehouseLabel} · 01 Sep – 25 Sep
+                  {selectedExportReport} · {warehouseLabel} · {exportDateRange.from} – {exportDateRange.to}
                 </Text>
               </View>
             </ScrollView>
@@ -3033,111 +3081,24 @@ export function ReportsScreen({
                 accessibilityState={{ disabled: !exportAllowed }}
                 onPress={() => {
                   if (!exportAllowed) return;
-                  setExportStep('downloaded');
+                  void handleShareExport();
                 }}
               >
                 <DownloadIcon size={18} color={adminColors.onBrand} />
-                <Text style={styles.nextActionButtonText}>Download</Text>
+                <Text style={styles.nextActionButtonText}>{t('warehouseReports.export.download')}</Text>
               </TouchableOpacity>
             </View>
           </>
         )}
 
-        {/* DOWNLOADED / PROGRESS & SUMMARY SCREEN */}
+        {/* SHARED / SUMMARY SCREEN */}
         {exportStep === 'downloaded' && (
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={{ paddingHorizontal: adminSpacing.lg, paddingTop: adminSpacing.lg, paddingBottom: adminSpacing.xxl }}
             showsVerticalScrollIndicator={false}
           >
-            {/* Card 1: Preparing report... with donut chart & checklist */}
-            <View
-              style={{
-                backgroundColor: adminColors.card,
-                borderRadius: adminRadius.xl,
-                paddingVertical: adminSpacing.xl,
-                paddingHorizontal: adminSpacing.lg,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: adminColors.border,
-                ...adminShadow.sm,
-              }}
-            >
-              {/* Donut progress ring */}
-              <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
-                <Svg width={120} height={120} viewBox="0 0 120 120">
-                  <Circle
-                    cx="60"
-                    cy="60"
-                    r="48"
-                    stroke={adminColors.border}
-                    strokeWidth="12"
-                    fill="none"
-                  />
-                  <Circle
-                    cx="60"
-                    cy="60"
-                    r="48"
-                    stroke={adminColors.success.text}
-                    strokeWidth="12"
-                    fill="none"
-                    strokeDasharray="196 105.59"
-                    strokeDashoffset="0"
-                    strokeLinecap="round"
-                    transform="rotate(-90 60 60)"
-                  />
-                </Svg>
-                <View style={{ position: 'absolute' }}>
-                  <Text style={{ ...adminType.kpiValue, color: adminColors.ink }}>65%</Text>
-                </View>
-              </View>
-
-              <Text style={{ ...adminType.title, color: adminColors.ink, marginTop: adminSpacing.lg }}>
-                Preparing report...
-              </Text>
-              <Text style={{ ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.xs, lineHeight: 18 }}>
-                {'This may take a few moments.\nPlease do not close this page.'}
-              </Text>
-
-              {/* Checklist */}
-              <View style={{ width: '100%', marginTop: adminSpacing.lg, gap: adminSpacing.md }}>
-                {/* 1. Fetching data */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Circle cx="12" cy="12" r="11" fill={adminColors.success.text} />
-                    <Path d="M7 12.5l3.5 3.5 6.5-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Fetching data</Text>
-                </View>
-
-                {/* 2. Applying filters */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Circle cx="12" cy="12" r="11" fill={adminColors.success.text} />
-                    <Path d="M7 12.5l3.5 3.5 6.5-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Applying filters</Text>
-                </View>
-
-                {/* 3. Generating file */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Circle cx="12" cy="12" r="10" stroke={adminColors.success.text} strokeWidth="2.4" />
-                  </Svg>
-                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>Generating file</Text>
-                </View>
-
-                {/* 4. Finalizing report */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: adminSpacing.md }}>
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Circle cx="12" cy="12" r="10" stroke={adminColors.border} strokeWidth="2" />
-                  </Svg>
-                  <Text style={{ ...adminType.rowTitle, fontWeight: '600', color: adminColors.muted }}>Finalizing report</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Card 2: Export Completed Card */}
+            {/* Export Completed Card */}
             <View
               style={{
                 backgroundColor: adminColors.success.bg,
@@ -3166,10 +3127,10 @@ export function ReportsScreen({
               </View>
 
               <Text style={{ ...adminType.title, color: adminColors.ink, marginTop: adminSpacing.md }}>
-                Export Completed!
+                {t('warehouseReports.export.sharedTitle')}
               </Text>
               <Text style={{ ...adminType.body, color: adminColors.muted, textAlign: 'center', marginTop: adminSpacing.xs }}>
-                Your report has been generated successfully.
+                {t('warehouseReports.export.sharedSubtitle')}
               </Text>
 
               {/* White Summary Table */}
@@ -3186,35 +3147,31 @@ export function ReportsScreen({
                 }}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Report Type</Text>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{t('warehouseReports.export.reportTypeLabel')}</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{selectedExportReport}</Text>
+                </View>
+
+                <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{t('warehouseReports.export.dateRangeLabel')}</Text>
                   <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>
-                    {selectedExportReport || 'Inventory & Stock Report'}
+                    {exportDateRange.from} – {exportDateRange.to}
                   </Text>
                 </View>
 
                 <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Date Range</Text>
-                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>
-                    01 Oct 2026 – 31 Oct 2026
-                  </Text>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{t('warehouseReports.export.formatLabel')}</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{t('warehouseReports.export.formatCsv')}</Text>
                 </View>
 
                 <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Format</Text>
-                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>
-                    {exportFormat === 'Excel' ? 'Excel (.xlsx)' : exportFormat === 'PDF' ? 'PDF (.pdf)' : 'CSV (.csv)'}
-                  </Text>
-                </View>
-
-                <View style={{ height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.md }} />
-
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>Total Records</Text>
-                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>1,248</Text>
+                  <Text style={{ ...adminType.body, color: adminColors.muted, fontWeight: '500' }}>{t('warehouseReports.export.totalRecordsLabel')}</Text>
+                  <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>{exportRecordCount}</Text>
                 </View>
               </View>
             </View>
@@ -3237,7 +3194,7 @@ export function ReportsScreen({
               {/* STEP 1: Select Report */}
               {exportStep === 1 && (
                 <>
-                  <Text style={styles.stepHeaderTitle}>Step 1 — Select Report</Text>
+                  <Text style={styles.stepHeaderTitle}>{t('warehouseReports.export.step1Title')}</Text>
                   <View style={styles.exportCardContainer}>
                     {EXPORT_OPTIONS.map((option, index) => {
                       const isSelected = selectedExportReport === option;
@@ -3264,17 +3221,17 @@ export function ReportsScreen({
               {/* STEP 2: Select Period */}
               {exportStep === 2 && (
                 <>
-                  <Text style={styles.stepHeaderTitle}>Step 2 — Select Period</Text>
+                  <Text style={styles.stepHeaderTitle}>{t('warehouseReports.export.step2Title')}</Text>
 
                   {/* From / To Date Display */}
                   <View style={styles.exportPeriodRow}>
                     <View style={styles.exportPeriodCol}>
                       <Text style={styles.exportPeriodLabel}>From</Text>
-                      <Text style={styles.exportPeriodDateText}>01 Sep 2026</Text>
+                      <Text style={styles.exportPeriodDateText}>{exportDateRange.from}</Text>
                     </View>
                     <View style={styles.exportPeriodCol}>
                       <Text style={styles.exportPeriodLabel}>To</Text>
-                      <Text style={styles.exportPeriodDateText}>25 Sep 2026</Text>
+                      <Text style={styles.exportPeriodDateText}>{exportDateRange.to}</Text>
                     </View>
                   </View>
 
@@ -3313,7 +3270,7 @@ export function ReportsScreen({
               {/* STEP 3: Filters (No extra info box) */}
               {exportStep === 3 && (
                 <>
-                  <Text style={styles.stepHeaderTitle}>Step 3 — Filters</Text>
+                  <Text style={styles.stepHeaderTitle}>{t('warehouseReports.export.step3Title')}</Text>
                   {isMain ? (
                     // Ported from MainWarehouseExportReportScreen (step 3).
                     <View style={styles.blueInfoBox}>
@@ -3388,34 +3345,14 @@ export function ReportsScreen({
               {/* STEP 4: File Format (No extra info box) */}
               {exportStep === 4 && (
                 <>
-                  <Text style={styles.stepHeaderTitle}>Step 4 — File Format</Text>
+                  <Text style={styles.stepHeaderTitle}>{t('warehouseReports.export.step4Title')}</Text>
+                  {/* CSV is the only format the server produces (report-exports.schema.ts has
+                      no format field); Excel/PDF were UI-only options with nothing behind them. */}
                   <View style={styles.exportFormatRow}>
-                    {(['Excel', 'CSV', 'PDF'] as const).map((fmt) => {
-                      const isSelected = exportFormat === fmt;
-                      return (
-                        <TouchableOpacity
-                          key={fmt}
-                          style={[
-                            styles.exportFormatCard,
-                            isSelected && styles.exportFormatCardActive,
-                          ]}
-                          onPress={() => setExportFormat(fmt)}
-                          activeOpacity={0.75}
-                        >
-                          {fmt === 'Excel' && <ExcelFileIcon size={28} color={isSelected ? adminColors.brand : adminColors.brandDeep} />}
-                          {fmt === 'CSV' && <CsvFileIcon size={28} color={isSelected ? adminColors.brand : adminColors.brandDeep} />}
-                          {fmt === 'PDF' && <PdfFileIcon size={28} color={isSelected ? adminColors.brand : adminColors.brandDeep} />}
-                          <Text
-                            style={[
-                              styles.exportFormatName,
-                              isSelected && styles.exportFormatNameActive,
-                            ]}
-                          >
-                            {fmt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                    <View style={[styles.exportFormatCard, styles.exportFormatCardActive]}>
+                      <CsvFileIcon size={28} color={adminColors.brand} />
+                      <Text style={[styles.exportFormatName, styles.exportFormatNameActive]}>CSV</Text>
+                    </View>
                   </View>
                 </>
               )}
@@ -3423,7 +3360,7 @@ export function ReportsScreen({
               {/* STEP 5: Report Preview (No warning box, No simulation buttons) */}
               {exportStep === 5 && (
                 <>
-                  <Text style={styles.stepHeaderTitle}>Step 5 — Report Preview</Text>
+                  <Text style={styles.stepHeaderTitle}>{t('warehouseReports.export.step5Title')}</Text>
 
                   {/* Summary Card */}
                   <View style={styles.detailCard}>
@@ -3440,12 +3377,15 @@ export function ReportsScreen({
 
                     <View style={[styles.detailRowGrid, { marginTop: 14 }]}>
                       <View style={styles.detailCol}>
-                        <Text style={styles.detailLabel}>Period</Text>
-                        <Text style={styles.detailValueBold}>01 Sep – 25 Sep</Text>
+                        <Text style={styles.detailLabel}>{t('warehouseReports.export.periodLabel')}</Text>
+                        <Text style={styles.detailValueBold}>
+                          {exportDateRange.from} – {exportDateRange.to}
+                        </Text>
                       </View>
                       <View style={styles.detailCol}>
-                        <Text style={styles.detailLabel}>Records</Text>
-                        <Text style={styles.detailValueBold}>1,284</Text>
+                        <Text style={styles.detailLabel}>{t('warehouseReports.export.recordsLabel')}</Text>
+                        {/* Not known until the export is actually generated (next step). */}
+                        <Text style={styles.detailValueBold}>—</Text>
                       </View>
                     </View>
                   </View>
@@ -3467,9 +3407,7 @@ export function ReportsScreen({
                   {exportAllowed ? null : (
                     // MAIN holds report.export.file as `view` only (SPEC_GAPS.md #11).
                     <View style={styles.exportViewOnlyBox}>
-                      <Text style={styles.exportViewOnlyText}>
-                        View-only access: your role can preview this export but cannot generate or download it.
-                      </Text>
+                      <Text style={styles.exportViewOnlyText}>{t('warehouseReports.export.viewOnlyNotice')}</Text>
                     </View>
                   )}
                 </>
@@ -3487,22 +3425,22 @@ export function ReportsScreen({
                   onPress={() => setExportStep((prev) => (Number(prev) + 1) as 1 | 2 | 3 | 4 | 5)}
                 >
                   <ArrowRightIcon size={18} color={adminColors.onBrand} />
-                  <Text style={styles.nextActionButtonText}>Next</Text>
+                  <Text style={styles.nextActionButtonText}>{t('warehouseReports.export.next')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.exportBottomBarDual}>
                 <TouchableOpacity
-                  style={[styles.generateReportBtn, !exportAllowed && styles.buttonDisabled]}
+                  style={[styles.generateReportBtn, (!exportAllowed || exportReportCode === undefined) && styles.buttonDisabled]}
                   activeOpacity={0.8}
-                  disabled={!exportAllowed}
-                  accessibilityState={{ disabled: !exportAllowed }}
+                  disabled={!exportAllowed || exportReportCode === undefined}
+                  accessibilityState={{ disabled: !exportAllowed || exportReportCode === undefined }}
                   onPress={() => {
-                    if (exportAllowed) setExportStep('generating');
+                    void handleGenerateExport();
                   }}
                 >
                   <SparklesIcon size={18} color={adminColors.onBrand} />
-                  <Text style={styles.generateReportBtnText}>Generate Report</Text>
+                  <Text style={styles.generateReportBtnText}>{t('warehouseReports.export.generateReport')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -3510,7 +3448,7 @@ export function ReportsScreen({
                   activeOpacity={0.8}
                   onPress={() => setExportStep(4)}
                 >
-                  <Text style={styles.backStepBtnText}>Back</Text>
+                  <Text style={styles.backStepBtnText}>{t('warehouseReports.export.back')}</Text>
                 </TouchableOpacity>
               </View>
             )}

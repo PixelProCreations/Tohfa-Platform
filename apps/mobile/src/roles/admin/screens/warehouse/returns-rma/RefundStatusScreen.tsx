@@ -11,7 +11,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { useIdempotencyKey } from '../../../api/hooks';
+import { useAdminQuery, useIdempotencyKey } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getCustomer } from '../../../api/customers';
 import { formatMoney } from '../orders/mappers';
 import { AdminErrorState } from '../shared/AsyncStates';
 import { toRmaRecord } from './mappers';
@@ -86,6 +88,14 @@ export function RefundStatusScreen({
   const canWalletRefund =
     can('rma.refund.wallet_process') && inScope(scope, rma?.warehouseId);
 
+  const customerId = rma?.customerId;
+  const customerQuery = useAdminQuery(
+    adminKeys.detail('customers', customerId ?? ''),
+    (signal) => getCustomer(customerId!, signal),
+    { enabled: can('customer.detail.view') && Boolean(customerId && customerId !== '—') },
+  );
+  const customerName = customerQuery.data?.name ?? rma?.customerName;
+
   const refundMutation = useRefundReturnToWallet();
   const keyCache = useIdempotencyKey();
 
@@ -141,7 +151,7 @@ export function RefundStatusScreen({
               <InfoCard
                 rows={[
                   [
-                    { label: 'Customer', value: rma.customerName },
+                    { label: 'Customer', value: customerName ?? rma.customerName },
                     { label: 'Refund Amount', value: cleanAmount },
                   ],
                   [{ label: 'Refund Method', value: REFUND_METHOD }],
@@ -171,7 +181,7 @@ export function RefundStatusScreen({
             <InfoCard
               rows={[
                 [
-                  { label: 'Customer', value: rma.customerName },
+                  { label: 'Customer', value: customerName ?? rma.customerName },
                   { label: 'Order', value: rma.orderId },
                 ],
                 [

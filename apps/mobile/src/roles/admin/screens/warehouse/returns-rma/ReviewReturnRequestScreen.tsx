@@ -12,6 +12,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminSpacing, adminType } from '../../../theme';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { useAdminQuery } from '../../../api/hooks';
+import { adminKeys } from '../../../api/queryKeys';
+import { getCustomer } from '../../../api/customers';
 import { toReturnTimeline, toRmaRecord } from './mappers';
 import { useReturn, useReturnHistory } from './useReturnData';
 import {
@@ -72,6 +75,14 @@ export function ReviewReturnRequestScreen({
 
   const canProcess = can('rma.request.process');
 
+  const customerId = rma?.customerId;
+  const customerQuery = useAdminQuery(
+    adminKeys.detail('customers', customerId ?? ''),
+    (signal) => getCustomer(customerId!, signal),
+    { enabled: can('customer.detail.view') && Boolean(customerId && customerId !== '—') },
+  );
+  const customerName = customerQuery.data?.name ?? rma?.customerName;
+
   if (returnQuery.isLoading && !rma) {
     return (
       <ReturnsScreen title="Review Return Request" onBack={onBack}>
@@ -103,7 +114,7 @@ export function ReviewReturnRequestScreen({
         <InfoCard
           rows={[
             [
-              { label: 'Customer', value: rma.customerName },
+              { label: 'Customer', value: customerName ?? rma.customerName },
               { label: 'Order', value: rma.orderId },
             ],
             [

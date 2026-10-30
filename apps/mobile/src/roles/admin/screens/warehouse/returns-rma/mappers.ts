@@ -19,7 +19,7 @@ import type {
   ReturnSummaryDto,
   ReturnStatus,
 } from '../../../api/returns';
-import type { ReturnHistoryRecord, ReturnTimelineItem, RmaRecord } from './types';
+import type { ReturnHistoryRecord, ReturnTimelineItem, RmaIssueCategory, RmaRecord } from './types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -44,6 +44,21 @@ function deriveRmaId(id: string): string {
   // Use the first 8 chars of the uuid for the display code
   const short = id.replace(/-/g, '').substring(0, 8).toUpperCase();
   return `RMA-${short}`;
+}
+
+/**
+ * Best-effort category from the free-text `reason` (the API has no structured category field).
+ * 'Other' when nothing matches — never a fixed specific category for every return.
+ */
+function categoryFromReason(reason: string): RmaIssueCategory {
+  const text = reason.toLowerCase();
+  if (/damag|broken|crush/.test(text)) return 'Damaged';
+  if (/quality|spoil|rotten|stale|bad\b/.test(text)) return 'Quality';
+  if (/quantity|short|less than|fewer/.test(text)) return 'Quantity';
+  if (/missing|not received|didn'?t receive/.test(text)) return 'Missing';
+  if (/wrong|incorrect|different item/.test(text)) return 'Wrong';
+  if (/late|delay/.test(text)) return 'Late';
+  return 'Other';
 }
 
 // ─── Status display ───────────────────────────────────────────────────────────
@@ -94,11 +109,14 @@ export function conditionLabel(condition: ReturnItemCondition | null | undefined
  * Map a `ReturnRequestDto` to the screen's `RmaRecord`.
  *
  * Spec-gap fields (not in returns API) show '—':
- *   customerName, customerPhone  — BR-92, no PII in returns list/detail
+ *   customerName, customerPhone  — BR-92, no PII in this DTO; the screens that show a
+ *     customer load the real (masked, per BR-92) name/phone themselves via getCustomer
  *   productName, grade, unitPrice, lineTotal — come from the linked order items;
  *     they are NOT in ReturnRequestDto (only item ids and quantities)
- *   issueCategory, salesChannel, paymentStatus — not in the returns schema
+ *   salesChannel, paymentStatus — not in the returns schema
  *   requestedResolution — not structured in the API (only reason text)
+ *   issueCategory — not in the returns schema either; best-effort derived from the free-text
+ *     `reason` by categoryFromReason(), 'Other' when nothing matches (never a fixed default)
  */
 export function toRmaRecord(dto: ReturnRequestDto | ReturnSummaryDto): RmaRecord {
   const firstItem = 'items' in dto ? (dto as ReturnRequestDto).items[0] : undefined;
@@ -119,7 +137,7 @@ export function toRmaRecord(dto: ReturnRequestDto | ReturnSummaryDto): RmaRecord
     quantityPurchased: '—',
     unitPrice: '—',
     lineTotal: '—',
-    issueCategory: 'Damaged', // default; no structured category in API
+    issueCategory: categoryFromReason(dto.reason),
     reportedDate: formatRmaDate(dto.createdAt),
     timestampText: formatRmaTimestamp(dto.createdAt),
     description: dto.reason,
