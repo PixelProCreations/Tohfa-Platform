@@ -94,14 +94,19 @@ export const adminColors = {
     icon: hex('adminSuccessOnDark'),
   },
 
+  /** Very light warm orange card/surface tint. */
+  brandTintWarm: hex('adminWarmTint'),
+  /** Deep rust colour for section titles. */
+  rustDeep: hex('adminRustDeep'),
+
   /** Header translucent pill (subwarehouse locked warehouse pill on brand background). */
   headerPill: {
-    bg: 'rgba(255, 255, 255, 0.18)',
-    border: 'rgba(255, 255, 255, 0.35)',
+    bg: hex('adminWhitePillOverlay'),
+    border: hex('adminWhitePillOverlayActive'),
   },
   /** Header translucent icon button (e.g. notifications bell) on brand background. */
   headerIcon: {
-    bg: 'rgba(255, 255, 255, 0.22)',
+    bg: hex('adminWhitePillOverlay'),
   },
 } as const;
 
@@ -202,11 +207,11 @@ export const ADMIN_BUTTON_HEIGHT = tokens.size.adminButtonHeight;
 /** Translucent overlays on brand surfaces (e.g. orange header pills and buttons). */
 export const adminOverlay = {
   /** 22% white pill overlay for search and filter buttons on brand orange headers. */
-  whitePill: 'rgba(255, 255, 255, 0.22)',
+  whitePill: hex('adminWhitePillOverlay'),
   /** 38% white pill overlay active/pressed state on brand orange headers. */
-  whitePillActive: 'rgba(255, 255, 255, 0.38)',
+  whitePillActive: hex('adminWhitePillOverlayActive'),
   /** 45% dark scrim for modal backdrops. */
-  scrim: 'rgba(0, 0, 0, 0.45)',
+  scrim: hex('adminScrim'),
 } as const;
 
 export const adminTheme = {

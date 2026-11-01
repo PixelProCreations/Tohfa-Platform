@@ -15,7 +15,7 @@ import { t } from '../../i18n';
 import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
 import { ReviewProduceListingScreen } from './ReviewProduceListingScreen';
 import { ListingHistoryScreen } from './ListingHistoryScreen';
-import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
+import { AdminFarmerDetailScreen } from '../farmers/AdminFarmerDetailScreen';
 import { ProduceVerificationApprovalScreen } from './ProduceVerificationApprovalScreen';
 
 // ─── Exact SVG Icons ──────────────────────────────────────────────────────────
@@ -276,7 +276,9 @@ export function ProduceListingsScreen({
   if (detailsItem) {
     if (currentSubView === 'farmer') {
       return (
-        <FarmerProfileDetailScreen
+        <AdminFarmerDetailScreen
+          farmerId={detailsItem.farmerId ?? detailsItem.id}
+          farmerName={detailsItem.farmerName ?? 'Farmer'}
           onBack={() => setCurrentSubView('details')}
         />
       );

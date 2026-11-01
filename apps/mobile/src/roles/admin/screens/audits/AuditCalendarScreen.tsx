@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Pressable,
@@ -13,22 +14,31 @@ import Svg, { Path } from 'react-native-svg';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314', // Exact deep rust/terracotta
-  orange:        '#E85226', // Vibrant orange
-  pageBg:        '#FAF8F5', // Warm light cream
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  chipBorder:    '#E8E2D8',
-  dateBadgeBg:   '#FFF2EB', // Soft peach for date box
-  warningBg:     '#FFF5E8', // Soft warm amber
-  warningText:   '#785426',
-  warningIcon:   '#9A6218',
-  auditBadgeBg:  '#EBF5FF',
-  auditBadgeText:'#1D6FB8',
-  btnBorder:     '#E5DDD4',
-  sliderTrack:   '#8C857E',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  dateBadgeBg:   adminColors.brandTint,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
+  greenBg:       adminColors.success.bg,
+  greenText:     adminColors.success.text,
+  redBg:         adminColors.danger.bg,
+  redText:       adminColors.danger.text,
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────

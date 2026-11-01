@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   SafeAreaView,
@@ -15,19 +16,31 @@ import type { AuditReportData } from './AuditReportScreen';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  orangeLight:   '#FFF0EB',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  divider:       '#F5F1EB',
-  warningBg:     '#FFF8EE',
-  warningBorder: '#FFE6C2',
-  warningText:   '#9A6218',
-  scoreBg:       '#F8F5EE',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  dateBadgeBg:   adminColors.brandTint,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
+  greenBg:       adminColors.success.bg,
+  greenText:     adminColors.success.text,
+  redBg:         adminColors.danger.bg,
+  redText:       adminColors.danger.text,
 };
 
 const CARD_SHADOW = {

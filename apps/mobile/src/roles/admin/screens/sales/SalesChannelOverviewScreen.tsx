@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React from 'react';
 import {
   SafeAreaView,
@@ -13,25 +14,16 @@ import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/Overv
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 export const SALES_PALETTE = {
-  primaryOrange: '#F0562A',
-  primaryOrangeLight: '#FFF1EB',
-  primaryOrangeBorder: '#FAD9CC',
-  pageBg: '#FAF7F2',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#1F1714',
-  textSecondary: '#786F68',
-  textMuted: '#9C938C',
-  borderSoft: '#EDE7DE',
-  borderActive: '#F0562A',
-  greenBg: '#E8F8EE',
-  greenText: '#1E824C',
-  blueBg: '#EBF3FA',
-  blueText: '#1D6399',
-  amberBg: '#FEF3C7',
-  amberText: '#B45309',
-  redBg: '#FDE8E8',
-  redText: '#D93838',
+  brand: adminColors.brand,
+  brandRust: adminColors.brandDeep,
+  canvas: adminColors.canvas,
+  card: adminColors.card,
+  ink: adminColors.ink,
+  muted: adminColors.muted,
+  border: adminColors.border,
+  brandTint: adminColors.brandTint,
+  successBg: adminColors.success.bg,
+  successText: adminColors.success.text,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────

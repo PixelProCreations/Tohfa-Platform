@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -13,17 +14,24 @@ import Svg, { Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  orange:        '#E85226',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  chipBorder:    '#E8E2D8',
-  avatarBg:      '#FFF2EB',
-  avatarText:    '#E85226',
-  redOverdue:    '#DC2626',
+  titleRust:      adminColors.brandDeep,
+  brandRust:      adminColors.brandDeep,
+  primary:        adminColors.brand,
+  orange:         adminColors.brand,
+  heroBg:         adminColors.brandDeep,
+  pageBg:         adminColors.canvas,
+  cardBg:         adminColors.card,
+  ink:            adminColors.ink,
+  labelMuted:     adminColors.muted,
+  border:         adminColors.border,
+  chipBorder:     adminColors.border,
+  greenBg:        adminColors.success.bg,
+  greenText:      adminColors.success.text,
+  redBg:          adminColors.danger.bg,
+  redText:        adminColors.danger.text,
+  pillBg:         adminColors.brandTint,
+  tabBorder:      adminColors.border,
+  exportBorder:   adminColors.border,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────

@@ -19,7 +19,19 @@ import {
 
 export interface AdminMoreMenuScreenProps {
   onBack: () => void;
-  onSelectOption: (optionId: string) => void;
+  onSelectOption?: ((optionId: string) => void) | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | undefined;
+  onNavigatePurchases?: (() => void) | undefined;
+  onNavigateInputsPest?: (() => void) | undefined;
+  onNavigateMarketPricing?: (() => void) | undefined;
+  onNavigateProduceListings?: (() => void) | undefined;
+  onNavigateFarmerRatings?: (() => void) | undefined;
+  onNavigateDisputes?: (() => void) | undefined;
+  onNavigateProfile?: (() => void) | undefined;
+  onNavigateSettingsAndProfile?: (() => void) | undefined;
+  onNavigateNotifications?: (() => void) | undefined;
+  onSwitchRole?: (() => void) | undefined;
+  onItemSelect?: ((itemTitle: string) => void) | undefined;
 }
 
 // ─── Menu Icons Matching Exact Design Mockup in Brand Orange ───────────────
@@ -110,22 +122,11 @@ function MarketPricingIcon({ size = 20, color = adminColors.brand }: { size?: nu
   );
 }
 
-
 function CustomersIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function AccountsFinanceIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -180,28 +181,154 @@ function SettingsProfileIcon({ size = 20, color = adminColors.brand }: { size?: 
   );
 }
 
+function ReceiptIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line x1="8" y1="7" x2="16" y2="7" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8" y1="11" x2="16" y2="11" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="8" y1="15" x2="13" y2="15" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function StarIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2.5l2.9 6.2 6.8.9-5 4.8 1.3 6.8-6-3.3-6 3.3 1.3-6.8-5-4.8 6.8-.9L12 2.5z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function GavelIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 13l5 5M6 6l4-4 5 5-4 4-5-5zM2 22l6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SwitchArrowsIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 7h16M16 3l4 4-4 4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M20 17H4M8 13l-4 4 4 4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 // ─── Menu Items Configuration ────────────────────────────────────────────────
 
 interface MenuItemConfig {
   id: string;
   label: string;
   icon: React.ReactNode;
+  onPressAction?: () => void;
 }
 
-const MENU_ITEMS: MenuItemConfig[] = [
-  { id: 'farmers', label: 'Farmers Management', icon: <FarmersManagementIcon /> },
-  { id: 'produce', label: 'Produce Calendar', icon: <ProduceControlIcon /> },
-  { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },
-  { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
-  { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
-  { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
-  { id: 'workforce', label: 'Workforce & Staff', icon: <WorkforceStaffIcon /> },
-  { id: 'notifications', label: 'Notifications & Reports', icon: <NotificationsReportsIcon /> },
-  { id: 'community', label: 'Community & Knowledge Management', icon: <CommunityIcon /> },
-  { id: 'settings', label: 'Settings & Profile', icon: <SettingsProfileIcon /> },
-];
+export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
+  const {
+    onBack,
+    onSelectOption,
+    role = 'TOHFA_ADMIN',
+    onNavigatePurchases,
+    onNavigateInputsPest,
+    onNavigateMarketPricing,
+    onNavigateProduceListings,
+    onNavigateFarmerRatings,
+    onNavigateDisputes,
+    onNavigateProfile,
+    onNavigateSettingsAndProfile,
+    onNavigateNotifications,
+    onSwitchRole,
+    onItemSelect,
+  } = props;
 
-export function AdminMoreMenuScreen({ onBack, onSelectOption }: AdminMoreMenuScreenProps) {
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
+
+  const menuItems: MenuItemConfig[] = isFarmerAdmin
+    ? [
+        {
+          id: 'pricing',
+          label: 'Market & Pricing',
+          icon: <MarketPricingIcon />,
+          onPressAction: () => {
+            if (onNavigateMarketPricing) onNavigateMarketPricing();
+            else onItemSelect?.('Market & Pricing');
+          },
+        },
+        {
+          id: 'disputes',
+          label: 'Disputes',
+          icon: <GavelIcon />,
+          onPressAction: () => {
+            if (onNavigateDisputes) onNavigateDisputes();
+            else onItemSelect?.('Disputes');
+          },
+        },
+        {
+          id: 'settings',
+          label: 'Settings & Profile',
+          icon: <SettingsProfileIcon />,
+          onPressAction: () => {
+            if (onNavigateProfile) onNavigateProfile();
+            else if (onNavigateSettingsAndProfile) onNavigateSettingsAndProfile();
+            else onItemSelect?.('Settings & Profile');
+          },
+        },
+        {
+          id: 'notifications',
+          label: 'Notifications',
+          icon: <NotificationsReportsIcon />,
+          onPressAction: () => {
+            if (onNavigateNotifications) onNavigateNotifications();
+            else onItemSelect?.('Notifications');
+          },
+        },
+        {
+          id: 'switch_role',
+          label: 'Switch Role',
+          icon: <SwitchArrowsIcon />,
+          onPressAction: () => {
+            if (onSwitchRole) onSwitchRole();
+            else onItemSelect?.('Switch Role');
+          },
+        },
+      ]
+    : [
+        { id: 'farmers', label: 'Farmers Management', icon: <FarmersManagementIcon /> },
+        { id: 'produce', label: 'Produce Calendar', icon: <ProduceControlIcon /> },
+        { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },
+        { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
+        { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
+        { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
+        { id: 'workforce', label: 'Workforce & Staff', icon: <WorkforceStaffIcon /> },
+        { id: 'notifications', label: 'Notifications & Reports', icon: <NotificationsReportsIcon /> },
+        { id: 'community', label: 'Community & Knowledge Management', icon: <CommunityIcon /> },
+        { id: 'settings', label: 'Settings & Profile', icon: <SettingsProfileIcon /> },
+      ];
+
+  const handleItemPress = (item: MenuItemConfig) => {
+    if (onSelectOption) {
+      onSelectOption(item.id);
+    }
+    if (item.onPressAction) {
+      item.onPressAction();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -220,11 +347,11 @@ export function AdminMoreMenuScreen({ onBack, onSelectOption }: AdminMoreMenuScr
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.menuContainer}>
-          {MENU_ITEMS.map((item) => (
+          {menuItems.map((item) => (
             <TouchableOpacity
               key={item.id}
               style={styles.menuItemCard}
-              onPress={() => onSelectOption(item.id)}
+              onPress={() => handleItemPress(item)}
               activeOpacity={0.7}
             >
               <View style={styles.menuItemLeft}>

@@ -137,6 +137,7 @@ import {
   SuperAdminDashboardScreen,
   TohfaAdminDashboardScreen,
   FarmerAdminDashboardScreen,
+  UnifiedAdminDashboardScreen,
   MainWarehouseAdminDashboardScreen,
   SubWarehouseAdminDashboardScreen,
   OrdersModule,
@@ -1359,13 +1360,10 @@ export default function App(): React.JSX.Element {
             onNavigate={(s) => navigate(s)}
           />
         ) : screen === 'AdminMain' && adminShell !== null ? (
-          adminShell === 'TOHFA_ADMIN' ? (
-            <TohfaAdminDashboardScreen
-              onSignOut={() => signOutTo('Welcome')}
-              onNavigate={(s) => navigate(s as ScreenName)}
-            />
-          ) : adminShell === 'FARMER_ADMIN' ? (
-            <FarmerAdminDashboardScreen
+          adminShell === 'TOHFA_ADMIN' || adminShell === 'FARMER_ADMIN' ? (
+            <UnifiedAdminDashboardScreen
+              initialRole={adminShell}
+              initialTab={params['initialTab'] as any}
               onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
               onSwitchRole={() => {

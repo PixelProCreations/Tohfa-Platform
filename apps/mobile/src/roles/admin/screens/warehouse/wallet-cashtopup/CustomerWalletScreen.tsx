@@ -42,7 +42,8 @@ import {
   walletLayout,
 } from './WalletParts';
 
-export interface CustomerWalletScreenProps extends Partial<Omit<WarehouseScreenBaseProps, 'scope'>> {
+export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope' | 'can'> {
+  can?: PermissionCheck | undefined;
   onBack: () => void;
   scope?: WarehouseScope | undefined;
   can?: PermissionCheck | undefined;

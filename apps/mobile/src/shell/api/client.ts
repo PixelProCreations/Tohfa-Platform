@@ -292,7 +292,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     headers['Idempotency-Key'] = options.idempotencyKey;
   }
 
-  let response: Response;
+  let response!: Response;
   // Opt-in deadline (timeoutMs) covers the whole attempt, emulator fallback
   // included. Without it, the original behaviour below is unchanged.
   const deadline = options.timeoutMs === undefined ? null : linkedTimeoutSignal(options.signal, options.timeoutMs);

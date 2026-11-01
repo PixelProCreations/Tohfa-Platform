@@ -19,6 +19,7 @@ import {
   adminType,
 } from '../../theme';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
+import { type Can } from '../../permissions/can';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 

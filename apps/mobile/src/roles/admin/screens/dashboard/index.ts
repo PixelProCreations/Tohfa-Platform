@@ -1,16 +1,12 @@
 export * from './SuperAdminDashboardScreen';
 export * from './TohfaAdminDashboardScreen';
 export * from './FarmerAdminDashboardScreen';
-export * from './FarmerProductListingsScreen';
-export * from './FarmerProduceDetailScreen';
-export * from './FarmerCounterOfferScreen';
-export * from './FarmerProduceTabScreen';
+export * from './UnifiedAdminDashboardScreen';
 export * from './ProduceListingsScreen';
 export * from './ProduceListingDetailsScreen';
 export * from './ReviewProduceListingScreen';
 export * from './ListingHistoryScreen';
 export * from './ProduceVerificationApprovalScreen';
-export * from './FarmerPurchasesScreen';
 export * from './PurchaseOrdersScreen';
 export * from './PurchaseOrderDetailScreen';
 export * from './PurchaseHistoryScreen';
@@ -25,30 +21,21 @@ export * from './ProduceFinalEligibilityDecisionScreen';
 export * from './HandoverConfirmationScreen';
 export * from './HandoverHistoryScreen';
 export * from './HandoverDetailsScreen';
-export * from './FarmerAdminActivityScreen';
-export * from './FarmerAdminNotificationsScreen';
-export * from './FarmerAdminMoreScreen';
-export * from './FarmerAdminProfileScreen';
-export * from './FarmerAdminSettingsScreen';
 export * from './FarmerDisputesMediationScreen';
 export * from './FarmerDisputesFilterScreen';
 export * from './FarmerDisputeDetailScreen';
 export * from './FarmerDisputeTimelineScreen';
 export * from './FarmerDisputeResolutionScreen';
-export * from './FarmersDirectoryScreen';
-export * from './SearchFarmersScreen';
-export * from './FarmerProfileDetailScreen';
-export * from './FarmerActivityScreen';
-export * from './FarmerProduceScreen';
 export * from './FarmerRatingsScreen';
 export * from './FarmerIssuesScreen';
-export * from './FarmerHistoryScreen';
 export * from './MainWarehouseAdminDashboardScreen';
 export * from '../../../subwarehouse/screens/SubWarehouseAdminDashboardScreen';
 export * from './AdminProfileScreen';
 
 // Market & Pricing screens
 export * from '../pricing';
+export * from './MarketPricingHomeScreen';
+export * from './MarkupPricingBreakdownScreen';
 export * from './FairPriceCeilingScreen';
 export * from './CategoriesGradesScreen';
 export * from './RetailPricingScreen';
@@ -68,6 +55,7 @@ export * from './AdminActivityLogsScreen';
 export * from './AdminRequestsApprovalScreen';
 export * from './AdminRequestDetailScreen';
 export * from './AdminSupportScreen';
+
 // Module 6: Inputs & Pest Management screens
 export * from './InputsPestHomeScreen';
 export * from './ApprovedInputsScreen';
@@ -78,7 +66,6 @@ export * from './FarmerPestIncidentsScreen';
 export * from './PestIncidentDetailScreen';
 
 // Module 5: Audits screens
-export * from './FarmerAuditsTabScreen';
 export * from './AuditScheduleScreen';
 export * from './FarmerInspectionFindingsScreen';
 export * from './FarmerDocumentsFindingsScreen';
@@ -101,12 +88,7 @@ export * from './ArticleDetailsScreen';
 export * from './ContentItemDetailScreen';
 export * from './ContentPendingReviewScreen';
 export * from './KnowledgeLibraryScreen';
-export * from './FarmerMarketPricingHomeScreen';
-export * from './FarmerFairPriceScreen';
-export * from './FarmerCategoriesGradesScreen';
-export * from './FarmerPriceHistoryScreen';
-export * from './FarmerRetailPricingScreen';
-export * from './FarmerMarkupPricingBreakdownScreen';
+
+// Settings & Notifications screens
 export * from './TohfaAdminSettingsScreen';
-export * from './TohfaAdminProfileScreen';
 export * from './TohfaAdminNotificationsScreen';

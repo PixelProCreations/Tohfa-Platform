@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   SafeAreaView,
@@ -13,16 +14,16 @@ import { Icon } from '@tohfa/mobile-ui';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const A = {
-  orange:      '#E85226',
-  orangeLight: '#FFF4EE',
-  brandRust:   '#7E2E11',
-  pageBg:      '#FAF8F5',
-  cardBg:      '#FFFFFF',
-  ink:         '#1A1412',
-  body:        '#6B6560',
-  muted:       '#8C827A',
-  border:      '#EDE8E0',
-  divider:     '#F3EFEA',
+  orange:      adminColors.brand,
+  orangeLight: adminColors.brandTint,
+  brandRust:   adminColors.brandDeep,
+  pageBg:      adminColors.canvas,
+  cardBg:      adminColors.card,
+  ink:         adminColors.ink,
+  body:        adminColors.muted,
+  muted:       adminColors.muted,
+  border:      adminColors.border,
+  divider:     adminColors.border,
 };
 
 const CARD_SHADOW = {

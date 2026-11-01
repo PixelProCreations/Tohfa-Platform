@@ -114,7 +114,7 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
         e.expenseCode.toLowerCase() === exp.code.toLowerCase().replace('-req', '')
     );
     setSelectedExpense(
-      found || EXPENSES_LIST.find((e) => e.expenseCode === 'EXP-0002') || EXPENSES_LIST[0]
+      found || EXPENSES_LIST.find((e) => e.expenseCode === 'EXP-0002') || EXPENSES_LIST[0] || null
     );
   };
 

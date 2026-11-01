@@ -54,8 +54,8 @@ import {
 import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
-import { TohfaAdminProfileScreen } from './TohfaAdminProfileScreen';
-import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
+
+import { TohfaAdminNotificationsScreen } from './TohfaAdminNotificationsScreen';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
 import {
@@ -204,9 +204,9 @@ export interface WorkforceStaffItem {
 }
 
 export interface TohfaAdminDashboardScreenProps {
-  onSignOut?: () => void;
-  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
-  onSwitchRole?: (role: string) => void;
+  onSignOut?: (() => void) | undefined;
+  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  onSwitchRole?: ((role: string) => void) | undefined;
   /** Tab to open on mount (e.g. 'Profile' from settings) */
   initialTab?: TohfaAdminTab | undefined;
 }
@@ -1719,7 +1719,7 @@ export function ZoneCropBreakdownScreen({
 
 export interface CropRecordDetailScreenProps {
   onBack: () => void;
-  onOpenFarmerProfile?: () => void;
+  onOpenFarmerProfile?: (() => void) | undefined;
 }
 
 export function CropRecordDetailScreen({ onBack, onOpenFarmerProfile }: CropRecordDetailScreenProps) {
@@ -10873,6 +10873,7 @@ export function TohfaAdminDashboardScreen({
            ══════════════════════════════════════════════════════════════════════ */}
         {dashboardSubScreen === 'marketPricingHome' ? (
           <MarketPricingHomeScreen
+            role="TOHFA_ADMIN"
             onBack={() => {
               setDashboardSubScreen(null);
               setActiveTab(pricingReturnTab);
@@ -12623,7 +12624,8 @@ export function TohfaAdminDashboardScreen({
             PROFILE TAB (Exact layout matching Farmer Admin Profile, with TOHFA Admin data)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Profile' && (
-              <TohfaAdminProfileScreen
+              <AdminProfileScreen
+                role="TOHFA_ADMIN"
                 onSignOut={onSignOut ?? (() => onNavigate?.('Welcome'))}
                 onBack={() => setActiveTab(profileReturnTab)}
               />
@@ -12633,7 +12635,8 @@ export function TohfaAdminDashboardScreen({
             NOTIFICATIONS TAB (Redirected to Farmer Admin Notifications Screen)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Notifications' && (
-              <FarmerAdminNotificationsScreen
+              <TohfaAdminNotificationsScreen
+                role="TOHFA_ADMIN"
                 onBack={() => setActiveTab(notificationsReturnTab)}
                 onViewListing={() => {
                   setProduceControlScreen('calendar');

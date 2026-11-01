@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -13,20 +14,24 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314',
-  pageBg:        '#FAF8F5',
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#E8D5C4', // Soft golden-brown border for approval card
-  grayBorder:    '#EDE8E0',
-  peachBadgeBg:  '#FEF3C7',
-  peachBadgeText:'#943818',
-  greenApproved: '#2E7D32',
-  greenBtnBg:    '#EAF5EA',
-  bannerBg:      '#FFF9F0',
-  bannerBorder:  '#F3E0C9',
-  bannerText:    '#78350F',
+  titleRust:      adminColors.brandDeep,
+  brandRust:      adminColors.brandDeep,
+  primary:        adminColors.brand,
+  orange:         adminColors.brand,
+  heroBg:         adminColors.brandDeep,
+  pageBg:         adminColors.canvas,
+  cardBg:         adminColors.card,
+  ink:            adminColors.ink,
+  labelMuted:     adminColors.muted,
+  border:         adminColors.border,
+  chipBorder:     adminColors.border,
+  greenBg:        adminColors.success.bg,
+  greenText:      adminColors.success.text,
+  redBg:          adminColors.danger.bg,
+  redText:        adminColors.danger.text,
+  pillBg:         adminColors.brandTint,
+  tabBorder:      adminColors.border,
+  exportBorder:   adminColors.border,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
