@@ -572,7 +572,7 @@ export function SettingsScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>
@@ -848,7 +848,7 @@ export function SettingsScreen({
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             activeOpacity={1}
             onPress={() => setActiveModal(null)}
           />

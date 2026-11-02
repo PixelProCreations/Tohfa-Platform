@@ -435,7 +435,7 @@ export function InventoryFlow({
 
   return (
     <View style={{ flex: 1, backgroundColor: adminColors.brand }}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <React.Fragment key={stack.length}>{renderScreen()}</React.Fragment>
     </View>
   );

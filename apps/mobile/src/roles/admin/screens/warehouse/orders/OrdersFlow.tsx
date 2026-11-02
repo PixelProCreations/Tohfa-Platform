@@ -448,7 +448,7 @@ export function OrdersFlow({
 
   return (
     <View style={{ flex: 1, backgroundColor: adminColors.brand }}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {/* key = stack depth: a fresh entry remounts, so `initialStep` applies even
           when the same screen is pushed twice (e.g. M5S11 verify, then M5S11 otp). */}
       <React.Fragment key={stack.length}>{renderScreen()}</React.Fragment>

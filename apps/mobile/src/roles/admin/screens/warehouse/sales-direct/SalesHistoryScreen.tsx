@@ -248,7 +248,7 @@ export function SalesHistoryScreen({ scope, can, onBack, onSelectSale }: SalesHi
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
 
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
@@ -376,7 +376,7 @@ export function SalesHistoryScreen({ scope, can, onBack, onSelectSale }: SalesHi
                   <View style={styles.loadMoreWrap}>
                     <AdminStateButton label={t('sales.common.loadMore')} onPress={list.loadMore} variant="secondary" />
                   </View>
-                ) : null
+                ) : undefined
               }
             />
           )}

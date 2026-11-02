@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     backgroundColor: P.deepGreen,
   },
   brand: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -11,6 +11,7 @@ import {
   TextInput,
   Pressable,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
@@ -65,7 +66,7 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
   const [resendLoading, setResendLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   const [resendAvailableAt, setResendAvailableAt] = useState<string | undefined>(initialResendAvailableAt);
   const [attemptsRemaining, setAttemptsRemaining] = useState<number>(initialAttemptsRemaining);

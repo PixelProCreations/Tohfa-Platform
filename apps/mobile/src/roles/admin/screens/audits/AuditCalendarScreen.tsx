@@ -233,7 +233,7 @@ export function AuditCalendarScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ─── Top Nav Bar ─── */}
       <View style={styles.navBar}>

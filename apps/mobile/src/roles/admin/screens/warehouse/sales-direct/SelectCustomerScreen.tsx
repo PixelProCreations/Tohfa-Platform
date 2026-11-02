@@ -179,7 +179,7 @@ export function SelectCustomerScreen({ can, onBack, pickOnly, initialQuery, onPi
   if (!canCreate) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <AdminEmptyState title={t('sales.common.noPermission')} />
       </SafeAreaView>
@@ -193,7 +193,7 @@ export function SelectCustomerScreen({ can, onBack, pickOnly, initialQuery, onPi
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {header}
 
       <View style={styles.modeRow}>

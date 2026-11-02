@@ -97,7 +97,7 @@ export function WeatherRiskAnalyticsScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scrollView}

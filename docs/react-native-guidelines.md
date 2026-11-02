@@ -343,7 +343,7 @@ not yet built — either is defensible, but building further on `App.tsx`'s own 
   (no per-role `src/roles/<role>/components`, cross-role imports confined to the one bridge
   file, `src/shell` never imports `src/roles`, required `mobile-ui` components present) and
   `store_submission.test.ts` / `performance_device_matrix.test.ts` (build-config assertions —
-  Hermes enabled, min SDK 26, iOS 13 floor — read out of `android/build.gradle`, `ios/Podfile`
+  Hermes enabled, min SDK 26, iOS 15.1 floor — read out of `android/build.gradle`, `ios/Podfile`
   etc.) follow this pattern: a structural rule gets a test that reads the filesystem/source and
   asserts on it, so a regression fails CI instead of relying on review. Prefer this pattern over
   a new ESLint rule for anything specific to this repo's structure (see root `eslint.config.js`'s

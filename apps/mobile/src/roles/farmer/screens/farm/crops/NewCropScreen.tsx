@@ -499,7 +499,7 @@ export function NewCropScreen({
   if (loadingOptions) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.optionsLoadingContainer}>
           <Skeleton width="100%" height={56} borderRadius={12} />
           <Skeleton width="100%" height={56} borderRadius={12} />
@@ -512,7 +512,7 @@ export function NewCropScreen({
   if (optionsError) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.optionsErrorContainer}>
           <ErrorState error={optionsError} onRetry={loadOptions} />
         </View>
@@ -523,7 +523,7 @@ export function NewCropScreen({
   if (plots.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.optionsErrorContainer}>
           <Text style={styles.noPlotsText}>{t('farmer.crops.newCrop.noPlotsMessage')}</Text>
         </View>
@@ -533,7 +533,7 @@ export function NewCropScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

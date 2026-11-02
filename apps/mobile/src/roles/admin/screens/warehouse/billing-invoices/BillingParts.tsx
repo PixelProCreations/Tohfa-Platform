@@ -149,7 +149,7 @@ export interface BillingScreenProps {
 export function BillingScreen({ title, subtitle, onBack, headerRight, headerExtra, footer, children }: BillingScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity

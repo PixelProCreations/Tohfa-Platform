@@ -178,7 +178,7 @@ export function CropInputsAppliedScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.paleStoneBg} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.container}>
         {/* ── Header ── */}

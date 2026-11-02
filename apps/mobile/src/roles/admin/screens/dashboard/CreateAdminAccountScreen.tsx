@@ -283,7 +283,7 @@ export function CreateAdminAccountScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}

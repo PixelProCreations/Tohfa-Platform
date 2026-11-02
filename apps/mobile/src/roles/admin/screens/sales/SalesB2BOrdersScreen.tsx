@@ -79,7 +79,7 @@ export interface SalesB2BOrdersScreenProps {
 export function SalesB2BOrdersScreen({ onBack, onOpenInvoice }: SalesB2BOrdersScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

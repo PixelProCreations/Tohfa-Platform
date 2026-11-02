@@ -104,7 +104,7 @@ export function SystemMessagesScreen({
             ) : undefined
           }
           ListEmptyComponent={<AdminEmptyState title={t('systemMessages.empty.title')} subtitle={t('systemMessages.empty.subtitle')} />}
-          ListFooterComponent={hasMore ? <ActivityIndicator style={styles.footerSpinner} color={adminColors.brand} /> : null}
+          ListFooterComponent={hasMore ? <ActivityIndicator style={styles.footerSpinner} color={adminColors.brand} /> : undefined}
         />
       )}
 

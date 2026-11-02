@@ -147,7 +147,7 @@ export function NewSaleScreen({
   if (!canCreate) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <AdminEmptyState title={t('sales.common.noPermission')} />
       </SafeAreaView>
@@ -185,7 +185,7 @@ export function NewSaleScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {header}
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

@@ -657,7 +657,7 @@ function SubWarehouseTodayOverviewView({
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" />
       <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
@@ -2056,7 +2056,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
+      <StatusBar barStyle="light-content" />
 
       <View style={{ flex: 1 }}>
         {activeTab === 'Home' && !showOrdersModule && (

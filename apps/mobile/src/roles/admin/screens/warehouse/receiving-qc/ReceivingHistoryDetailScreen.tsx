@@ -171,7 +171,7 @@ export function ReceivingHistoryDetailScreen({
   if (!canView || rec === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <View style={[styles.container, styles.contentPad]}>
           {!canView ? (
@@ -193,7 +193,7 @@ export function ReceivingHistoryDetailScreen({
     const now = new Date();
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <ScrollView
           style={styles.container}
@@ -252,7 +252,7 @@ export function ReceivingHistoryDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {header}
 
       <ScrollView

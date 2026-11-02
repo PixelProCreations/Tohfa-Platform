@@ -2261,7 +2261,7 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={PALETTE.headerBg} />
+      <StatusBar barStyle="light-content" />
 
       <View style={{ flex: 1 }}>
         {/* ─── Main Dashboard View (Module 1 - Main Dashboard) ─── */}

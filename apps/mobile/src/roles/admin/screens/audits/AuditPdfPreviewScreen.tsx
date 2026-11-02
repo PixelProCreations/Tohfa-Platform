@@ -155,7 +155,7 @@ export function AuditPdfPreviewScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Nav */}
       <View style={styles.navBar}>

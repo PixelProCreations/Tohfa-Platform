@@ -147,7 +147,7 @@ export function AdminRequestDetailScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>

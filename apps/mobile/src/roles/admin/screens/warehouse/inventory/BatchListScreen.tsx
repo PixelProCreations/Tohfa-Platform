@@ -103,7 +103,7 @@ export function BatchListScreen({
               ) : undefined
             }
             ListEmptyComponent={<AdminEmptyState title={t('inventory.empty.batches')} />}
-            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
+            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : undefined}
           />
         )}
       </View>

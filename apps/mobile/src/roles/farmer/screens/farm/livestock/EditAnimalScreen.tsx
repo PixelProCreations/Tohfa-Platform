@@ -406,7 +406,7 @@ export function EditAnimalScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={{ padding: 20, gap: 12 }}>
           <Skeleton width="100%" height={78} borderRadius={39} style={{ alignSelf: 'center', width: 78 }} />
           <Skeleton width="100%" height={48} borderRadius={12} />
@@ -420,7 +420,7 @@ export function EditAnimalScreen({
   if (loadError || !animalId) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
           <ErrorState
             error={loadError}
@@ -434,7 +434,7 @@ export function EditAnimalScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

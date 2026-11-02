@@ -815,7 +815,7 @@ export function ProfileScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <StatusBar barStyle="light-content" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
@@ -1044,7 +1044,7 @@ export function ProfileScreen({
             {farmsLoading ? (
               <Skeleton borderRadius={0} style={styles.fmbMapSkeleton} />
             ) : previewCenter ? (
-              <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 <FarmBoundaryMap
                   // FarmBoundaryMap reads initialCenter/initialPolygon only at mount, so remount
                   // whenever the farm or its saved boundary changes (e.g. after an FMB Sketch save).
@@ -2314,7 +2314,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fmbMapSkeleton: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     height: '100%',
   },
   fmbMapEmpty: {

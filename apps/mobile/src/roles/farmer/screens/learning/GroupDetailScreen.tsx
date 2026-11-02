@@ -246,7 +246,7 @@ export function GroupDetailScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Header Bar ── */}
       <View style={styles.header}>

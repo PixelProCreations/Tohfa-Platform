@@ -416,7 +416,7 @@ export function TreatmentScheduleScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scrollView}
@@ -1089,7 +1089,7 @@ const styles = StyleSheet.create({
 
   // In-Modal Overlay
   inModalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',

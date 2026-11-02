@@ -242,7 +242,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

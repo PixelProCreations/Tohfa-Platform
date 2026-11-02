@@ -158,7 +158,7 @@ export function StockLedgerScreen({
 
   return (
     <View style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.container}>
         <SWAHeader 
           title="Stock Ledger"

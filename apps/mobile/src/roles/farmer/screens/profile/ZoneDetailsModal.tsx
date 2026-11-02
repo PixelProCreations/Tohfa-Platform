@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import { authPalette as P, useTheme, colors, typography, weights, spacing, radius, MIN_TOUCH_TARGET } from '../../theme';
 import { t } from '../../../../i18n/farmer';
 import { EXPOSURE_OPTIONS, IRRIGATION_OPTIONS, SOIL_OPTIONS, type ZoneOption } from './zoneMap';
@@ -31,7 +32,7 @@ interface ZoneDetailsModalProps {
  */
 export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
   const { colors } = useTheme();
-  const areaInputRef = useRef<TextInput>(null);
+  const areaInputRef = useRef<TextInputInstance>(null);
   const { draft, updateDraft, metrics, submitting } = editor;
   const isConfirmStep = editor.detailsIntent === 'confirm';
 
@@ -145,7 +146,7 @@ export function ZoneDetailsModal({ editor }: ZoneDetailsModalProps) {
 const styles = StyleSheet.create({
   modalRoot: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.xl },
   modalScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     // `black` is the token reserved for scrims; dimmed with opacity rather than an rgba literal.
     backgroundColor: P.black,
     opacity: 0.5,

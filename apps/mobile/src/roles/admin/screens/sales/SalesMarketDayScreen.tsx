@@ -140,7 +140,7 @@ export function SalesMarketDayScreen({ onBack }: SalesMarketDayScreenProps) {
 
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+        <StatusBar barStyle="dark-content" />
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -289,7 +289,7 @@ export function SalesMarketDayScreen({ onBack }: SalesMarketDayScreenProps) {
   // ─── FULL SCREEN 1: LIVE MARKET DAY SALES LIST ─────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

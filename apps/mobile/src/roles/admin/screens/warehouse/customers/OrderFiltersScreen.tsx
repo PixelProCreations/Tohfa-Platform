@@ -226,7 +226,7 @@ export function OrderFiltersScreen(props: OrderFiltersScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
 
       {/* Header */}
       <View style={styles.header}>

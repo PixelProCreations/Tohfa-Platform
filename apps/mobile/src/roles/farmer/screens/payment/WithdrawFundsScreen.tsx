@@ -96,7 +96,7 @@ export function WithdrawFundsScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header with Close Button */}
       <View style={styles.header}>
