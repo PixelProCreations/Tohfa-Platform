@@ -88,6 +88,16 @@ ON CONFLICT (id) DO UPDATE
         full_name = EXCLUDED.full_name;
 
 -- Assign Roles
+--
+-- BR-135 (owner rule 2026-11-02): only a Farmer Admin may also be a farmer. The Super Admin,
+-- TOHFA Admin, Main Warehouse Admin and Sub Warehouse Admin accounts hold their one admin role
+-- and are never also FARMER or CUSTOMER, and have no `farmers` row. (They used to get an extra
+-- FARMER role and a farmers row "for mobile access"; the farmerId that put in their token made
+-- the warehouse-scoped endpoints answer 404 for subwarehouseadmin@.) Use a farmer account for
+-- the farmer app: the demo farmers of 004_demo.js (farmer1@tohfa.demo .. farmer12@tohfa.demo,
+-- +919870000001 .. +919870000012, SEED_DEMO=true).
+-- multirole@ (TOHFA_ADMIN + FARMER_ADMIN) is two admin roles, which BR-135 does not restrict;
+-- whether it is allowed is open (docs/rules.md, Open contradictions #33).
 INSERT INTO user_roles (user_id, role_id, role_code, warehouse_id)
 VALUES
     -- Super Admin
@@ -132,79 +142,12 @@ VALUES
         'MAIN_WH_ADMIN',
         NULL
     ),
-    -- Main Warehouse Admin (FARMER role for mobile access)
-    (
-        '00000000-0000-0000-0000-000000000005',
-        (SELECT id FROM roles WHERE code = 'FARMER'),
-        'FARMER',
-        NULL
-    ),
     -- Sub Warehouse Admin (SUB_WH_ADMIN for WH-COON)
     (
         '00000000-0000-0000-0000-000000000006',
         (SELECT id FROM roles WHERE code = 'SUB_WH_ADMIN'),
         'SUB_WH_ADMIN',
         (SELECT id FROM warehouses WHERE code = 'WH-COON')
-    ),
-    -- Sub Warehouse Admin (FARMER role for mobile access)
-    (
-        '00000000-0000-0000-0000-000000000006',
-        (SELECT id FROM roles WHERE code = 'FARMER'),
-        'FARMER',
-        NULL
-    ),
-    -- Super Admin (FARMER role for mobile access)
-    (
-        '00000000-0000-0000-0000-000000000001',
-        (SELECT id FROM roles WHERE code = 'FARMER'),
-        'FARMER',
-        NULL
-    ),
-    -- Tohfa Admin (FARMER role for mobile access)
-    (
-        '00000000-0000-0000-0000-000000000002',
-        (SELECT id FROM roles WHERE code = 'FARMER'),
-        'FARMER',
-        NULL
     )
 ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(zone_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
 DO NOTHING;
-
--- Seed approved farmer profiles for dev admin users so mobile app operates smoothly
-INSERT INTO farmers (
-    id, user_id, tohfa_farmer_id, application_status, kyc_status, is_market_blocked, address_line1, district
-) VALUES
-    (
-        '20000000-0000-0000-0001-000000000005',
-        '00000000-0000-0000-0000-000000000005',
-        'TOHFA-F-0005',
-        'APPROVED',
-        'VERIFIED',
-        false,
-        'Ooty Main Bazaar Road, Udhagamandalam',
-        'The Nilgiris'
-    ),
-    (
-        '20000000-0000-0000-0001-000000000006',
-        '00000000-0000-0000-0000-000000000006',
-        'TOHFA-F-0006',
-        'APPROVED',
-        'VERIFIED',
-        false,
-        'Mount Road, Coonoor',
-        'The Nilgiris'
-    ),
-    (
-        '20000000-0000-0000-0001-000000000002',
-        '00000000-0000-0000-0000-000000000002',
-        'TOHFA-F-0002',
-        'APPROVED',
-        'VERIFIED',
-        false,
-        'Commercial Road, Ooty',
-        'The Nilgiris'
-    )
-ON CONFLICT (user_id) DO UPDATE SET
-    application_status = 'APPROVED',
-    kyc_status = 'VERIFIED';
-
