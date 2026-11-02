@@ -303,7 +303,11 @@ const INITIAL_TOHFA_NOTIFICATIONS: readonly TohfaNotificationItem[] = [
 
 export interface TohfaAdminNotificationsScreenProps {
   onBack: () => void;
-  onTabChange?: (tab: 'Home' | 'WorkQueue' | 'Inventory' | 'Finance' | 'More') => void;
+  onTabChange?: ((tab: any) => void) | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | undefined;
+  onViewListing?: (() => void) | undefined;
+  onViewAudit?: (() => void) | undefined;
+  onViewDispute?: (() => void) | undefined;
 }
 
 export function TohfaAdminNotificationsScreen({
@@ -684,7 +688,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    ...adminType.h3,
+    ...adminType.title,
     color: adminColors.onBrand,
     fontWeight: '700',
   },
@@ -781,7 +785,7 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
-    borderRadius: adminRadius.pill,
+    borderRadius: adminRadius.full,
     backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
@@ -842,23 +846,23 @@ const styles = StyleSheet.create({
   },
   unreadBadge: {
     backgroundColor: adminColors.brandTint,
-    borderRadius: adminRadius.pill,
+    borderRadius: adminRadius.full,
     paddingHorizontal: adminSpacing.sm,
     paddingVertical: 2,
   },
   unreadBadgeText: {
-    ...adminType.micro,
+    ...adminType.caption,
     color: adminColors.brand,
     fontWeight: '700',
   },
   actionRequiredBadge: {
     backgroundColor: adminColors.warning.bg,
-    borderRadius: adminRadius.pill,
+    borderRadius: adminRadius.full,
     paddingHorizontal: adminSpacing.sm,
     paddingVertical: 2,
   },
   actionRequiredBadgeText: {
-    ...adminType.micro,
+    ...adminType.caption,
     color: adminColors.warning.text,
     fontWeight: '700',
   },
@@ -875,7 +879,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   cardMetaText: {
-    ...adminType.micro,
+    ...adminType.caption,
     color: adminColors.muted,
   },
   emptyState: {
@@ -883,7 +887,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    ...adminType.h3,
+    ...adminType.title,
     color: adminColors.ink,
     marginBottom: adminSpacing.xs,
   },
@@ -893,7 +897,7 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: adminOverlay.dark,
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     padding: adminSpacing.xl,
@@ -925,7 +929,7 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   modalMeta: {
-    ...adminType.micro,
+    ...adminType.caption,
     color: adminColors.muted,
     marginTop: adminSpacing.xs,
   },
@@ -977,7 +981,7 @@ const styles = StyleSheet.create({
     paddingVertical: adminSpacing.xs,
   },
   tabLabel: {
-    ...adminType.micro,
+    ...adminType.caption,
     color: adminColors.muted,
     marginTop: 2,
     fontWeight: '500',

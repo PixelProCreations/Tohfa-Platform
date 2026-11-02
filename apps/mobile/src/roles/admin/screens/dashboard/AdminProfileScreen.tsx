@@ -157,12 +157,13 @@ function BuildingWarehouseIcon({ size = 20, color = PALETTE.primary }: { size?: 
 
 // ─── Props & Role Specific Configurations ─────────────────────────────────────
 export interface AdminProfileScreenProps {
-  role?: 'SUPER_ADMIN' | 'TOHFA_ADMIN' | 'FARMER_ADMIN' | 'MAIN_WH_ADMIN' | 'SUB_WH_ADMIN';
-  onBack?: () => void;
-  onSignOut: () => void;
-  onNavigateCustomers?: () => void;
-  onNavigateBillingInvoices?: () => void;
-  onNavigateWarehouseOperations?: () => void;
+  role?: ('SUPER_ADMIN' | 'TOHFA_ADMIN' | 'FARMER_ADMIN' | 'MAIN_WH_ADMIN' | 'SUB_WH_ADMIN') | undefined;
+  onBack?: (() => void) | undefined;
+  onSignOut?: (() => void) | undefined;
+  onSwitchRole?: (() => void) | undefined;
+  onNavigateCustomers?: (() => void) | undefined;
+  onNavigateBillingInvoices?: (() => void) | undefined;
+  onNavigateWarehouseOperations?: (() => void) | undefined;
 }
 
 type InnerScreenView = 'main' | 'edit' | 'permissions' | 'security' | 'preferences' | 'support';

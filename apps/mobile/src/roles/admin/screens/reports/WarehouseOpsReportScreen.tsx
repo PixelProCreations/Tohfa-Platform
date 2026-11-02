@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -14,17 +15,28 @@ import Svg, { Path } from 'react-native-svg';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#6B230B',
-  textPrimary: '#111827',
-  textSecondary: '#6B7280',
-  border: '#F0ECE6',
-  orangePrimary: '#E85226',
-  orangeLight: '#FFF1EB',
-  greenSuccess: '#16A34A',
-  greenBar: '#2E7D32',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
 };
+const COLORS = PALETTE;
 
 export interface WarehouseOpsReportScreenProps {
   onBack: () => void;

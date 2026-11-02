@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React from 'react';
 import {
   SafeAreaView,
@@ -12,15 +13,31 @@ import Svg, { Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:  '#8E3314', // Terracotta/rust
-  orange:     '#E85226', // Vibrant orange
-  pageBg:     '#FAF8F5', // Warm light cream
-  cardBg:     '#FFFFFF',
-  ink:        '#1A1412',
-  labelMuted: '#6D6761',
-  timeline:   '#E5DFD5', // Vertical connecting line
-  greenBg:    '#EAF2E1',
-  greenText:  '#2A572D',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  dateBadgeBg:   adminColors.brandTint,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
+  greenBg:       adminColors.success.bg,
+  greenText:     adminColors.success.text,
+  redBg:         adminColors.danger.bg,
+  redText:       adminColors.danger.text,
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────

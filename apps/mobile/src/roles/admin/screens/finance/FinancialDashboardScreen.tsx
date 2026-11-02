@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React from 'react';
 import {
   SafeAreaView,
@@ -13,18 +14,24 @@ import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/Overv
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  titleRust:     '#8E3314', // Exact deep rust/terracotta for headings
-  orange:        '#E85226', // Vibrant orange
-  heroBg:        '#CE4A1E', // Rich rust-orange for Net Revenue card
-  pageBg:        '#FAF8F5', // Warm light cream
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#6D6761',
-  border:        '#EDE8E0',
-  blueBox:       '#EBF5FF',
-  blueIcon:      '#2563EB',
-  amberBox:      '#FEF5E7',
-  amberIcon:     '#B45309',
+  titleRust:      adminColors.brandDeep,
+  brandRust:      adminColors.brandDeep,
+  primary:        adminColors.brand,
+  orange:         adminColors.brand,
+  heroBg:         adminColors.brandDeep,
+  pageBg:         adminColors.canvas,
+  cardBg:         adminColors.card,
+  ink:            adminColors.ink,
+  labelMuted:     adminColors.muted,
+  border:         adminColors.border,
+  chipBorder:     adminColors.border,
+  greenBg:        adminColors.success.bg,
+  greenText:      adminColors.success.text,
+  redBg:          adminColors.danger.bg,
+  redText:        adminColors.danger.text,
+  pillBg:         adminColors.brandTint,
+  tabBorder:      adminColors.border,
+  exportBorder:   adminColors.border,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────

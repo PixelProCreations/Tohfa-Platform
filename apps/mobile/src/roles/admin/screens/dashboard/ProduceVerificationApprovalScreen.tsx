@@ -19,7 +19,7 @@ import { ProduceDamageInspectionScreen } from './ProduceDamageInspectionScreen';
 import { ProduceFairPriceCheckScreen } from './ProduceFairPriceCheckScreen';
 import { ProduceFinalEligibilityDecisionScreen } from './ProduceFinalEligibilityDecisionScreen';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
-import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
+import { AdminFarmerDetailScreen } from '../farmers/AdminFarmerDetailScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -226,7 +226,9 @@ export function ProduceVerificationApprovalScreen({
 
   if (showFarmerProfile) {
     return (
-      <FarmerProfileDetailScreen
+      <AdminFarmerDetailScreen
+        farmerId={farmerId}
+        farmerName={farmerName}
         farmer={{
           farmerId: 'FR-00241',
           name: farmerName ?? '',

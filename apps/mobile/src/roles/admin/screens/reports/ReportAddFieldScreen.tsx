@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -14,19 +15,28 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  pageBg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  textHeading: '#662208',
-  textPrimary: '#1F2937',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  orangePrimary: '#E85226',
-  orangeLight: '#FFF1EB',
-  borderCard: '#ECE5DC',
-  greenSuccess: '#166534',
-  greenLight: '#EAF7EE',
-  blueLight: '#EFF6FF',
+  titleRust:     adminColors.brandDeep,
+  orange:        adminColors.brand,
+  orangeLight:   adminColors.brandTint,
+  pageBg:        adminColors.canvas,
+  cardBg:        adminColors.card,
+  ink:           adminColors.ink,
+  labelMuted:    adminColors.muted,
+  border:        adminColors.border,
+  chipBorder:    adminColors.border,
+  warningBg:     adminColors.warning.bg,
+  warningText:   adminColors.warning.text,
+  warningIcon:   adminColors.warning.text,
+  auditBadgeBg:  adminColors.info.bg,
+  auditBadgeText:adminColors.info.text,
+  btnBorder:     adminColors.border,
+  sliderTrack:   adminColors.muted,
+  successBg:     adminColors.success.bg,
+  successText:   adminColors.success.text,
+  dangerBg:      adminColors.danger.bg,
+  dangerText:    adminColors.danger.text,
 };
+const COLORS = PALETTE;
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
 function BackChevronIcon() {

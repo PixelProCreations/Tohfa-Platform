@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Alert,
@@ -76,34 +77,44 @@ function CalendarOutlineIcon({
 }
 
 const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#EFE8DE',
-  divider: '#F3EFE9',
-
-  // Exact typography colors from reference image
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  itemTitle: '#374151',
-  itemSubLabel: '#4B5563',
-  itemValue: '#111827',
-  iconColor: '#4B5563',
-
-  // Badges
-  verifiedBg: '#EAF7EE',
-  verifiedText: '#166534',
-  pendingBg: '#FEF3E2',
-  pendingText: '#92400E',
-
-  // Blocked banner & action buttons
-  blockedBg: '#FDF2F0',
-  blockedBorder: '#FADBD8',
-  blockedText: '#991B1B',
-  blockedIcon: '#DC2626',
-  actionGreenBg: '#EAF7EE',
-  actionGreenText: '#166534',
-  actionRedBg: '#FDF2F0',
-  actionRedText: '#DC2626',
+  bg: adminColors.canvas,
+  cardBg: adminColors.card,
+  cardBorder: adminColors.border,
+  ink: adminColors.ink,
+  titleBrown: adminColors.brandDeep,
+  subtitle: adminColors.muted,
+  orange: adminColors.brand,
+  orangeBg: adminColors.brandTint,
+  textSecondary: adminColors.muted,
+  inputBg: adminColors.card,
+  inputBorder: adminColors.border,
+  placeholder: adminColors.placeholder,
+  pillBorder: adminColors.border,
+  pillActiveBg: adminColors.brand,
+  pillActiveText: adminColors.onBrand,
+  pillInactiveBg: adminColors.card,
+  pillInactiveText: adminColors.ink,
+  scrollTrack: adminColors.canvas,
+  scrollBar: adminColors.muted,
+  arrowColor: adminColors.muted,
+  statusGreenBg: adminColors.success.bg,
+  statusGreenText: adminColors.success.text,
+  statusAmberBg: adminColors.warning.bg,
+  statusAmberText: adminColors.warning.text,
+  statusRedBg: adminColors.danger.bg,
+  statusRedText: adminColors.danger.text,
+  dashedBorder: adminColors.border,
+  dotRed: adminColors.brand,
+  badgeBgGreen: adminColors.success.bg,
+  badgeTextGreen: adminColors.success.text,
+  badgeBgOrange: adminColors.brandTint,
+  badgeTextOrange: adminColors.brandDeep,
+  badgeBgRed: adminColors.danger.bg,
+  badgeTextRed: adminColors.danger.text,
+  tagBg: adminColors.brandTint,
+  tagText: adminColors.brandDeep,
+  buttonBg: adminColors.brand,
+  buttonText: adminColors.onBrand,
 };
 
 interface Props {

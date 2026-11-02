@@ -1,3 +1,4 @@
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../theme';
 import React, { useState } from 'react';
 import {
   Modal,
@@ -13,27 +14,24 @@ import Svg, { Path, Rect } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
 const PALETTE = {
-  primary:       '#E85226', // Brand orange
-  brandRust:     '#7E2E11', // Deep rust/terracotta for headings
-  pageBg:        '#FAF8F5', // Warm light cream
-  cardBg:        '#FFFFFF',
-  ink:           '#1A1412',
-  labelMuted:    '#78716C',
-  border:        '#EDE6DD',
-  borderLight:   '#F3EFEA',
-  
-  revenueBg:     '#F0FDF4',
-  revenueBorder: '#DCFCE7',
-  revenueText:   '#15803D',
-  revenuePillBg: '#DCFCE7',
-  
-  expenseBg:     '#FEF2F2',
-  expenseBorder: '#FEE2E2',
-  expenseText:   '#DC2626',
-  expensePillBg: '#FEE2E2',
-  
-  profitCardBg:  '#F4EFEB',
-  profitBorder:  '#E6DDD3',
+  titleRust:      adminColors.brandDeep,
+  brandRust:      adminColors.brandDeep,
+  primary:        adminColors.brand,
+  orange:         adminColors.brand,
+  heroBg:         adminColors.brandDeep,
+  pageBg:         adminColors.canvas,
+  cardBg:         adminColors.card,
+  ink:            adminColors.ink,
+  labelMuted:     adminColors.muted,
+  border:         adminColors.border,
+  chipBorder:     adminColors.border,
+  greenBg:        adminColors.success.bg,
+  greenText:      adminColors.success.text,
+  redBg:          adminColors.danger.bg,
+  redText:        adminColors.danger.text,
+  pillBg:         adminColors.brandTint,
+  tabBorder:      adminColors.border,
+  exportBorder:   adminColors.border,
 };
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────

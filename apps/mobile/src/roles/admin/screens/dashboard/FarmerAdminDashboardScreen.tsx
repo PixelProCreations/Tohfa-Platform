@@ -16,29 +16,29 @@ import Svg, { Circle, Line, Path, Polygon, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOverlay } from '../../theme';
 import { t } from '../../i18n';
-import { FarmerAdminProfileScreen } from './FarmerAdminProfileScreen';
-import { FarmerAdminSettingsScreen } from './FarmerAdminSettingsScreen';
-import { FarmerProductListingsScreen } from './FarmerProductListingsScreen';
-import { FarmerProduceDetailScreen } from './FarmerProduceDetailScreen';
+import { AdminProfileScreen } from './AdminProfileScreen';
+import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
+
+
 import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
 import { ProduceListingsScreen } from './ProduceListingsScreen';
 import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
 import { ListingHistoryScreen } from './ListingHistoryScreen';
-import { FarmerProfileDetailScreen } from './FarmerProfileDetailScreen';
+
 import { AdminAllFarmersScreen, AdminFarmerDetailScreen } from '../farmers';
 import { AdminApplicationDetailScreen } from '../registration';
 import { HandoverHistoryScreen } from './HandoverHistoryScreen';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
 import { HandoverDetailsScreen } from './HandoverDetailsScreen';
-import { FarmerAdminActivityScreen } from './FarmerAdminActivityScreen';
-import { FarmerAdminNotificationsScreen } from './FarmerAdminNotificationsScreen';
-import { FarmerAdminMoreScreen } from './FarmerAdminMoreScreen';
+import { AdminActivityLogsScreen } from './AdminActivityLogsScreen';
+import { TohfaAdminNotificationsScreen } from './TohfaAdminNotificationsScreen';
+import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
 import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
 import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
 import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
 import { FarmerDisputeResolutionScreen } from './FarmerDisputeResolutionScreen';
 import { type DisputeItem, INITIAL_DISPUTES } from './fixtures';
-import { FarmersDirectoryScreen } from './FarmersDirectoryScreen';
+
 import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
 import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
@@ -52,14 +52,14 @@ import { PestLibraryScreen, type PestItem } from './PestLibraryScreen';
 import { ApplicationGuideScreen } from './ApplicationGuideScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem, SAMPLE_INCIDENTS } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
-import { FarmerMarketPricingHomeScreen } from './FarmerMarketPricingHomeScreen';
-import { FarmerFairPriceScreen } from './FarmerFairPriceScreen';
-import { FarmerCategoriesGradesScreen } from './FarmerCategoriesGradesScreen';
-import { FarmerPriceHistoryScreen } from './FarmerPriceHistoryScreen';
-import { FarmerRetailPricingScreen } from './FarmerRetailPricingScreen';
-import { FarmerMarkupPricingBreakdownScreen } from './FarmerMarkupPricingBreakdownScreen';
+import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
+import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
+import { CategoriesGradesScreen } from './CategoriesGradesScreen';
+import { PriceHistoryScreen } from './PriceHistoryScreen';
+import { RetailPricingScreen } from './RetailPricingScreen';
+import { MarkupPricingBreakdownScreen } from './MarkupPricingBreakdownScreen';
 import type { RetailPriceItem } from './RetailPricingScreen';
-import { FarmerAuditsTabScreen } from './FarmerAuditsTabScreen';
+import { AuditManagementScreen } from '../audits';
 import { AuditScheduleScreen } from './AuditScheduleScreen';
 import { FarmerRatingsScreen } from './FarmerRatingsScreen';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
@@ -2146,9 +2146,9 @@ export type AuditScheduleInitialView =
 
 export interface FarmerAdminDashboardScreenProps {
   onSignOut: () => void;
-  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
-  onSwitchRole?: () => void;
-  initialTab?: FarmerAdminTab;
+  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  onSwitchRole?: (() => void) | undefined;
+  initialTab?: FarmerAdminTab | undefined;
 }
 
 export function FarmerAdminDashboardScreen({
@@ -2456,7 +2456,8 @@ export function FarmerAdminDashboardScreen({
   // If currently in S-02 Farmer Product Listings subview, render it with back navigation
   if (subView === 'product_listings') {
     return (
-      <FarmerProductListingsScreen
+      <ProduceListingsScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         completedProduceNames={completedProduceNames}
         onSelectFarmerDetails={(group, item) => {
@@ -2540,7 +2541,8 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Produce Detail subview (e.g. Ramesh Kumar Farm)
   if (subView === 'farmer_produce_detail') {
     return (
-      <FarmerProduceDetailScreen
+      <ProduceListingDetailsScreen
+        role="FARMER_ADMIN"
         farmerName={activeProduceFarmerName}
         farmerId={activeProduceFarmerId}
         zone={activeProduceZone}
@@ -2640,7 +2642,8 @@ export function FarmerAdminDashboardScreen({
   // If currently in Produce Verification & Approval subview, render FarmerProduceDetailScreen
   if (subView === 'verification_approval') {
     return (
-      <FarmerProduceDetailScreen
+      <ProduceListingDetailsScreen
+        role="FARMER_ADMIN"
         farmerName={activeProduceFarmerName}
         farmerId={activeProduceFarmerId}
         zone={activeProduceZone}
@@ -2666,7 +2669,8 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Profile subview (Module 2)
   if (subView === 'farmer_profile') {
     return (
-      <FarmerProfileDetailScreen
+      <AdminFarmerDetailScreen
+        role="FARMER_ADMIN"
         farmer={{
           farmerId: 'FR-00241',
           name: 'Ramesh Kumar',
@@ -2759,7 +2763,8 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Admin Activity subview
   if (subView === 'admin_activity') {
     return (
-      <FarmerAdminActivityScreen
+      <AdminActivityLogsScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         onNavigateToListings={() => pushNavigation({ subView: 'product_listings' })}
       />
@@ -2769,7 +2774,8 @@ export function FarmerAdminDashboardScreen({
   // If currently in Notifications subview
   if (subView === 'notifications') {
     return (
-      <FarmerAdminNotificationsScreen
+      <TohfaAdminNotificationsScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         onViewListing={() => pushNavigation({ subView: 'product_listings' })}
         onViewAudit={() => {
@@ -2796,7 +2802,8 @@ export function FarmerAdminDashboardScreen({
   // Module: Farmer Admin Settings & Profile subview (Screenshot 2)
   if (subView === 'settings') {
     return (
-      <FarmerAdminSettingsScreen
+      <TohfaAdminSettingsScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         onNavigateProfile={() => pushNavigation({ subView: 'profile' })}
         onNavigateHome={() => {
@@ -2813,7 +2820,8 @@ export function FarmerAdminDashboardScreen({
   // Module 1: Admin Profile subview (Screenshot 3)
   if (subView === 'profile') {
     return (
-      <FarmerAdminProfileScreen
+      <AdminProfileScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         onSignOut={onSignOut}
         onSwitchRole={() =>
@@ -3074,7 +3082,8 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'market_pricing') {
     return (
       <View style={{ flex: 1, backgroundColor: adminColors.canvas }}>
-        <FarmerMarketPricingHomeScreen
+        <MarketPricingHomeScreen
+          role="FARMER_ADMIN"
           onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
           onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
           onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}
@@ -3156,7 +3165,8 @@ export function FarmerAdminDashboardScreen({
   // Module 7: Fair Price Ceilings & Filters (Screenshot 2 Left)
   if (subView === 'fair_price') {
     return (
-      <FarmerFairPriceScreen
+      <FairPriceCeilingScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
       />
     );
@@ -3165,7 +3175,8 @@ export function FarmerAdminDashboardScreen({
   // Module 7: Categories & Grades (Screenshot 2 Middle)
   if (subView === 'categories_grades') {
     return (
-      <FarmerCategoriesGradesScreen
+      <CategoriesGradesScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
       />
     );
@@ -3174,7 +3185,8 @@ export function FarmerAdminDashboardScreen({
   // Module 7: Price History & Filters (Screenshot 2 Right)
   if (subView === 'price_history') {
     return (
-      <FarmerPriceHistoryScreen
+      <PriceHistoryScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
       />
     );
@@ -3183,7 +3195,8 @@ export function FarmerAdminDashboardScreen({
   // Module 7: Retail Pricing & Filters (Screenshot 3 Left)
   if (subView === 'retail_pricing') {
     return (
-      <FarmerRetailPricingScreen
+      <RetailPricingScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         onSelectBreakdown={(item: any) => {
           pushNavigation({
@@ -3212,7 +3225,8 @@ export function FarmerAdminDashboardScreen({
   // Module 7: Markup & Pricing Breakdown (Screenshot 3 Right)
   if (subView === 'markup_breakdown') {
     return (
-      <FarmerMarkupPricingBreakdownScreen
+      <MarkupPricingBreakdownScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         cropGradeTitle={
           selectedRetailItem
@@ -3777,7 +3791,8 @@ export function FarmerAdminDashboardScreen({
 
         {/* ─── Farmers Tab (Matching Screenshot 1) ─── */}
         {activeTab === 'Farmers' && (
-          <FarmersDirectoryScreen
+          <AdminAllFarmersScreen
+            role="FARMER_ADMIN"
             onBack={() => goBack('Home')}
             onViewChange={(view) => setFarmersInternalView(view)}
             onNavigateAuditHistory={() => {
@@ -3803,7 +3818,8 @@ export function FarmerAdminDashboardScreen({
 
         {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
         {activeTab === 'Audits' && (
-          <FarmerAuditsTabScreen
+          <AuditManagementScreen
+            role="FARMER_ADMIN"
             onBack={() => goBack('Home')}
             onNavigateSchedule={(preFilter, auditId) => {
               pushNavigation({
@@ -3837,7 +3853,8 @@ export function FarmerAdminDashboardScreen({
 
         {/* ─── More Tab (Screenshot 5) ─── */}
         {activeTab === 'More' && moreSubScreen === 'menu' && (
-          <FarmerAdminMoreScreen
+          <AdminMoreMenuScreen
+            role="FARMER_ADMIN"
             onBack={() => goBack('Home')}
             onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
             onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
