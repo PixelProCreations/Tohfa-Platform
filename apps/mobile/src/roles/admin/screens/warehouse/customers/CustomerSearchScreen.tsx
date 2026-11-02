@@ -203,7 +203,8 @@ export function CustomerSearchScreen({
       onNavigateToWallet(c);
     } else if (onSelectCustomer) {
       if ((onSelectCustomer as any).length >= 2) {
-        (onSelectCustomer as any)(c.name, c.code);
+        // Navigate by uuid, not the human-readable code (CLAUDE.md: UUID-based navigation).
+        (onSelectCustomer as any)(c.name, c.id ?? c.code);
       } else {
         (onSelectCustomer as any)(c);
       }
