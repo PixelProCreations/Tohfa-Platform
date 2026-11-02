@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Button, Icon } from '@tohfa/mobile-ui';
+import { Button, Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getLocale, setLocale, t } from '../../../../i18n/farmer';
 import { GradientOverlay } from './GradientOverlay';
 import { authPalette as P, typography } from '../../theme';
@@ -36,6 +37,9 @@ const WELCOME_GRADIENT_STOPS: ReadonlyArray<{ position: number; opacity: number 
 
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNavigate }) => {
   const [langOpen, setLangOpen] = useState(false);
+  // Full-bleed photo: the photo runs under the system bars, the foreground
+  // is pushed clear of them.
+  const insets = useSafeAreaInsets();
   const [locale, setLocaleState] = useState<LangCode>(getLocale());
 
   const currentLangLabel = LANGUAGE_OPTIONS.find((o) => o.code === locale)?.label ?? 'English';
@@ -48,6 +52,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNavigate }) => {
 
   return (
     <View style={styles.container}>
+      <ScreenStatusBar barStyle="light-content" translucent />
       <ImageBackground
         source={welcomeFarmerVeggies}
         style={StyleSheet.absoluteFill}
@@ -57,7 +62,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNavigate }) => {
         <GradientOverlay stops={WELCOME_GRADIENT_STOPS} bands={150} />
 
         {/* Top bar: wordmark + language pill */}
-        <View style={styles.topBar}>
+        <View style={[styles.topBar, { marginTop: insets.top }]}>
           <View style={styles.wordmarkRow}>
             <View style={styles.logoFrame}>
               <Image source={tohfaLogo} style={styles.logoImage} />
@@ -93,7 +98,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNavigate }) => {
         </View>
 
         {/* Bottom content */}
-        <View style={styles.bottom}>
+        <View style={[styles.bottom, { marginBottom: insets.bottom }]}>
           <Text style={styles.title}>{t('farmer.auth.welcome.title')}</Text>
           <Text style={styles.subtitle}>{t('farmer.auth.welcome.subtitle')}</Text>
 

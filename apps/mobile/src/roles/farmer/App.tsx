@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { BackHandler, Pressable, SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
@@ -15,7 +16,7 @@ import {
 } from './utils/navigationSession';
 import { adminShellForRole } from './utils/adminShell';
 import { endSession } from './utils/signOut';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, NavigationBarInset, StatusBarInset } from '@tohfa/mobile-ui';
 import { t } from '../../i18n/farmer';
 import { ApplicationStatusScreen } from './screens/auth/ApplicationStatusScreen';
 import { ForgotPasswordScreen } from './screens/auth/ForgotPasswordScreen';
@@ -1219,8 +1220,14 @@ export default function App(): React.JSX.Element {
   // (Children left at their old indentation to keep this diff reviewable.)
   return (
     <SessionQueryProvider sessionKey={sessionEpoch}>
-    <SafeAreaView style={[styles.screen, isAuthLanding && styles.screenSplash]}>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+    <View style={[styles.screen, isAuthLanding && styles.screenSplash]}>
       <StatusBar barStyle="light-content" />
+      {/* Android draws edge-to-edge since RN 0.88: reserve the status bar's
+          height here, in the colour the current screen's ScreenStatusBar asks
+          for. The default is the colour this root gave the status bar before
+          0.88. See packages/mobile-ui/src/SystemBars.tsx. */}
+      <StatusBarInset defaultColor={isAuthLanding ? SPLASH_DARK : colors.primaryPressed} />
 
       <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
 
@@ -3263,7 +3270,10 @@ export default function App(): React.JSX.Element {
           </View>
         )}
       </View>
-    </SafeAreaView>
+      {/* Splash and Welcome are full-bleed and pad their own bottom content. */}
+      {!isAuthLanding && <NavigationBarInset backgroundColor={colors.surface} />}
+    </View>
+    </SafeAreaProvider>
     </SessionQueryProvider>
   );
 }
