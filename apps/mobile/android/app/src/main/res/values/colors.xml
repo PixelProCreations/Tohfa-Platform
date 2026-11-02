@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive icon background (see mipmap-anydpi-v26/ic_launcher.xml). White so the
+         TOHFA leaf mark, which has no background of its own, reads cleanly under any
+         launcher mask (circle/squircle/rounded square). -->
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>
