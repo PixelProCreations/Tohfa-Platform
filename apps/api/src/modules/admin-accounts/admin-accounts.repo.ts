@@ -90,13 +90,16 @@ export const adminAccountsRepo: AdminAccountsRepo = {
     if (row === undefined) return null;
     // Lock user_roles alongside the users row so the hierarchy level cannot be
     // changed between this read and the assertPredicate call (TOCTOU fix).
+    // The lock sits in a sub-select and DISTINCT outside it: PostgreSQL rejects a locking clause
+    // combined with DISTINCT at the same query level (0A000), but allows it inside a sub-SELECT.
     const roles = await db.query<AdminRoleRow>(
-      `SELECT DISTINCT r.code, r.hierarchy_level::int AS level
-         FROM user_roles ur
-         JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = $1 AND ${LIVE_ROLE}
-        ORDER BY level, r.code
-        FOR UPDATE OF ur`,
+      `SELECT DISTINCT s.code, s.level
+         FROM (SELECT r.code, r.hierarchy_level::int AS level
+                 FROM user_roles ur
+                 JOIN roles r ON r.id = ur.role_id
+                WHERE ur.user_id = $1 AND ${LIVE_ROLE}
+                  FOR UPDATE OF ur) s
+        ORDER BY s.level, s.code`,
       [userId],
     );
     if (roles.rows.length === 0) return null;
