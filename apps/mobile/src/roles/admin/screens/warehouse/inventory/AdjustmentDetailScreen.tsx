@@ -17,6 +17,10 @@
  *     (stockActionErrorKey), and the adjustment stays PENDING. A decided
  *     adjustment is 409 INVALID_STATE_TRANSITION; a removal the batch can no
  *     longer cover is 409 STOCK_UNAVAILABLE.
+ *
+ * Warehouse is named from the scope (Sub) or GET /warehouses (Main) and hidden
+ * while unknown. Requested By / Approved By are not drawn: the DTO carries
+ * only user uuids, and no endpoint names them.
  */
 import React, { useState } from 'react';
 import { Alert, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -26,6 +30,7 @@ import { REJECT_REASON_MAX } from '../../../api/stockAdjustments';
 import { t } from '../../../i18n';
 import { adminColors } from '../../../theme';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
+import { pairFields } from '../shared/infoFields';
 import {
   EmptyState,
   InfoCard,
@@ -42,6 +47,7 @@ import {
 import { adjustmentActions, rejectReasonOf, stockActionErrorKey, type AdjustmentView } from './adjustmentMappers';
 import { stockStyles } from './StockParts';
 import type { InventoryScreenBaseProps } from './types';
+import { useInventoryWarehouseName } from './useInventoryData';
 import { useAdjustmentDetail, useApproveAdjustmentMutation, useRejectAdjustmentMutation } from './useStockAdjustmentData';
 
 export interface AdjustmentDetailScreenProps extends InventoryScreenBaseProps {
@@ -54,7 +60,7 @@ function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && error.problem.code === 'NOT_FOUND';
 }
 
-function Body({ adjustment }: { adjustment: AdjustmentView }) {
+function Body({ adjustment, warehouseName }: { adjustment: AdjustmentView; warehouseName: string | undefined }) {
   const none = t('inventory.noValue');
   return (
     <>
@@ -62,21 +68,16 @@ function Body({ adjustment }: { adjustment: AdjustmentView }) {
         {t('stockAdj.detail.summary')}
       </SectionTitle>
       <InfoCard
-        rows={[
-          [
-            { label: t('stockShared.field.reference'), value: adjustment.ref },
-            { label: t('stockAdj.detail.type'), value: adjustment.typeLabel },
-          ],
-          [
-            { label: t('stockShared.field.batch'), value: adjustment.batchCode },
-            { label: t('stockShared.field.product'), value: adjustment.productLabel },
-          ],
-          [
-            { label: t('stockAdj.detail.quantity'), value: adjustment.deltaText || none },
-            { label: t('stockAdj.detail.created'), value: adjustment.createdAt },
-          ],
-          [{ label: t('stockAdj.detail.decided'), value: adjustment.decidedAt ?? none }],
-        ]}
+        rows={pairFields([
+          { label: t('stockShared.field.reference'), value: adjustment.ref },
+          { label: t('stockAdj.detail.type'), value: adjustment.typeLabel },
+          warehouseName === undefined ? undefined : { label: t('stockShared.field.warehouse'), value: warehouseName },
+          { label: t('stockShared.field.batch'), value: adjustment.batchCode },
+          { label: t('stockShared.field.product'), value: adjustment.productLabel },
+          { label: t('stockAdj.detail.quantity'), value: adjustment.deltaText || none },
+          { label: t('stockAdj.detail.created'), value: adjustment.createdAt },
+          { label: t('stockAdj.detail.decided'), value: adjustment.decidedAt ?? none },
+        ])}
       />
       <SectionTitle>{t('stockAdj.detail.reason')}</SectionTitle>
       <InfoNote tone="info">{adjustment.reason}</InfoNote>
@@ -97,9 +98,10 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack, warehou
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectText, setRejectText] = useState('');
   const [actionError, setActionError] = useState<unknown>(null);
+  const warehouseName = useInventoryWarehouseName(scope, can, detail.item?.warehouseId);
 
   const adjustment = detail.item;
-  const header = <ScopeHeader scope={scope} />;
+  const header = <ScopeHeader scope={scope} label={warehouseName} />;
 
   if (adjustment === undefined) {
     const notFound = adjustmentId === undefined || isNotFound(detail.error);
@@ -214,7 +216,7 @@ export function AdjustmentDetailScreen({ scope, can, onNavigate, onBack, warehou
             </View>
           </View>
         ) : null}
-        <Body adjustment={adjustment} />
+        <Body adjustment={adjustment} warehouseName={warehouseName} />
         {adjustment.status === 'PENDING' && !actions.approve ? (
           <PermissionNote>{t('stockAdj.detail.noApprovePermission')}</PermissionNote>
         ) : null}

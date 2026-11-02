@@ -18,6 +18,7 @@ import { getSalesSummary } from '../../../api/sales';
 import { listWarehouseActivity } from '../../../api/warehouseActivity';
 import { listWarehouseIssues, type IssueStatusCode } from '../../../api/warehouseIssues';
 import { getWarehousePerformance } from '../../../api/warehouseOps';
+import { receiptsByWarehouse } from '../warehouse-admin/overviewFigures';
 import { sumPerformance } from './mappers_dashboardKpis';
 
 const DASHBOARD = 'dashboardHome';
@@ -28,13 +29,17 @@ function idsKey(ids: readonly string[]): string {
   return [...ids].sort().join(',');
 }
 
-/** Performance summed over `warehouseIds` for one inclusive IST range. */
+/**
+ * Performance summed over `warehouseIds` for one inclusive IST range, plus each
+ * warehouse's own receipt count (the Warehouse Overview cards) from the same
+ * responses, so the per-warehouse figure costs no extra request.
+ */
 export function useWarehousesPerformance(warehouseIds: readonly string[], range: { from: string; to: string }, enabled: boolean) {
   const query = useAdminQuery(
     adminKeys.scoped(DASHBOARD, undefined, { resource: 'performance-sum', ids: idsKey(warehouseIds), from: range.from, to: range.to }),
     async (signal) => {
       const rows = await Promise.all(warehouseIds.map((id) => getWarehousePerformance(id, range, signal)));
-      return sumPerformance(rows);
+      return { ...sumPerformance(rows), receiptsByWarehouse: receiptsByWarehouse(rows) };
     },
     { enabled: enabled && warehouseIds.length > 0 },
   );

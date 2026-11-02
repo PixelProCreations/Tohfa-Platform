@@ -94,6 +94,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   PAYMENT_AMOUNT_INSUFFICIENT: 422,
   SALE_CHANNEL_NOT_SUPPORTED: 501,
   COUNTER_SALE_NOT_REASSIGNABLE: 409,
+  ROLE_NOT_FOUND: 422,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -159,6 +160,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   PAYMENT_AMOUNT_INSUFFICIENT: 'Amount received is less than the total',
   SALE_CHANNEL_NOT_SUPPORTED: 'Sales channel not supported yet',
   COUNTER_SALE_NOT_REASSIGNABLE: 'Counter sales cannot be moved to another warehouse',
+  ROLE_NOT_FOUND: 'Role is not defined',
 };
 
 /**

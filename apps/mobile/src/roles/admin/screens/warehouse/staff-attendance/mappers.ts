@@ -39,6 +39,7 @@ import type {
   AttendanceChange,
   AttendanceFilter,
   AttendanceHistoryEntry,
+  AttendanceRecordRef,
   PermissionCheck,
   RollCallRow,
   StaffAttendanceSummaryRow,
@@ -225,6 +226,58 @@ const RANGE_LABEL: Record<HistoryRange, TranslationKey> = {
 
 export function historyRangeLabel(range: HistoryRange): string {
   return t(RANGE_LABEL[range]);
+}
+
+/** What the history shows: a preset ending today, or the From / To the admin picked. */
+export type HistorySelection = HistoryRange | 'Custom';
+
+export interface DateSpan {
+  from: string;
+  to: string;
+}
+
+export function historySelectionDates(selection: HistorySelection, custom: DateSpan, today: string): DateSpan {
+  return selection === 'Custom' ? custom : historyRangeDates(selection, today);
+}
+
+/**
+ * The span after picking one edge. The other edge follows when needed so the
+ * request always has from <= to (the server answers 422 otherwise, BR-84b), and
+ * a day after today is clamped to today (BR-84f). The longest span is the
+ * server's (staff_attendance_max_range_days, BR-84i): a span over it comes back
+ * as a 422 the screen shows, so no limit is copied here.
+ */
+export function withRangeEdge(span: DateSpan, edge: 'from' | 'to', date: string, today: string): DateSpan {
+  const day = clampToToday(date, today);
+  if (edge === 'from') return { from: day, to: isAfterDate(day, span.to) ? day : span.to };
+  return { from: isAfterDate(span.from, day) ? day : span.from, to: day };
+}
+
+/** A By Date row -> the Attendance Detail it opens (that member, that day). */
+export function historyEntryRecord(entry: AttendanceHistoryEntry): AttendanceRecordRef {
+  return { staffId: entry.staffId, date: entry.date, name: entry.name, designation: entry.designation };
+}
+
+/**
+ * The monthly-totals sheet asks GET /summary for one month of one member. The
+ * month is the one the shown range ends in. A month and a from/to pair are
+ * never sent together (the server refuses both, BR-84b).
+ */
+export function monthSummaryParams(staffId: string, date: string): { staffId: string; month: string } {
+  return { staffId, month: monthOf(date) };
+}
+
+/**
+ * The sheet's counts: the summary totals, which with `staffId` are that
+ * member's exact counts (BR-84h). Undefined until loaded, never zeros.
+ */
+export function toMonthTotals(totals: AttendanceSummaryDto['totals'] | undefined): { present: number; absent: number; leave: number } | undefined {
+  return totals === undefined ? undefined : { present: totals.present, absent: totals.absent, leave: totals.leave };
+}
+
+/** "Sep 2026 — Arun Kumar". */
+export function monthSheetTitle(date: string, name: string): string {
+  return t('staff.history.monthSheet.title', { month: calendarMonthOf(date).label, name });
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────

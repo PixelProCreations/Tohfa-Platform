@@ -43,6 +43,7 @@ function mapMessage(row: SystemMessageRow): SystemMessageResponse {
   return {
     id: row.id,
     scope: row.scope,
+    type: row.type,
     title: row.title,
     body: row.body,
     locale: row.locale,

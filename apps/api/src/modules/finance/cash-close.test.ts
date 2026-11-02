@@ -90,7 +90,7 @@ describe('cash close schemas', () => {
       createdAt: '1950-03-10T10:00:00.000Z',
     };
     expect(cashCloseResponse.safeParse(close).success).toBe(true);
-    expect(dailySummaryResponse.safeParse({ warehouseId: WH, date: DAY, system: { openingCash: '0.00', openingFrom: null, cashSales: '1.00', cashTopUps: '0.00', cashExpenses: '0.00', expectedClosing: '1.00' }, closed: null }).success).toBe(true);
+    expect(dailySummaryResponse.safeParse({ warehouseId: WH, date: DAY, system: { openingCash: '0.00', openingFrom: null, cashSales: '1.00', cashTopUps: '0.00', cashExpenses: '0.00', expectedClosing: '1.00' }, closed: null, totalAcrossWarehouses: { warehouseCount: 1, openingCash: '0.00', cashSales: '1.00', cashTopUps: '0.00', cashExpenses: '0.00', expectedClosing: '1.00' } }).success).toBe(true);
   });
 });
 

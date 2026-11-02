@@ -2,8 +2,8 @@
  * Which warehouse areas the app offers at all. Owner decision (2026-10-14):
  * nothing is hidden for having no server API. The one exception is order
  * delivery, hidden because the business supports warehouse pickup only
- * (BR-21; docs/rules.md open contradiction 3). Material handling was deleted
- * outright (product decision 2026-10-14), so it is no area at all. Invoice
+ * (BR-21; docs/rules.md open contradiction 3). Material Handling was removed
+ * entirely, product decision 2026-10-23. Invoice
  * generation, order cancellation, order issues and the order stock check have
  * no API and are offered like every other area with no API. Areas that now
  * have a live API (issues, activity, documents, transfers, stock counts, stock

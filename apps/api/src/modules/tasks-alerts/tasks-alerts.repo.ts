@@ -295,6 +295,30 @@ async function readConfig(db: Executor, key: string): Promise<unknown> {
 
 const isNonNegativeInteger = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
+/**
+ * BR-116: how many items of each given alert type currently exist inside the scope, in ONE query over
+ * the very same branches the alert list uses, so the inventory overview's badges cannot disagree with
+ * `GET /admin/alerts`. The condition only: no user's dismiss or snooze state is applied. A type whose
+ * threshold is unusable has no branch and is absent from the result, as is a type with no item.
+ */
+export async function countAlertConditions(
+  db: Executor,
+  args: { scope: ResolvedScope; types: readonly AlertType[]; thresholds: AlertThresholds },
+): Promise<Partial<Record<AlertType, number>>> {
+  const params = new Params();
+  const derived = deriveItems(args.types, params, args.thresholds);
+  if (derived === null) return {};
+  const result = await db.query<{ type: AlertType; n: number }>(
+    `${derived}
+     SELECT d.type, count(*)::int AS n
+       FROM d
+      WHERE ${scopeCondition(args.scope, params)}
+      GROUP BY d.type`,
+    params.values,
+  );
+  return Object.fromEntries(result.rows.map((row) => [row.type, row.n]));
+}
+
 export const tasksAlertsRepo: TasksAlertsRepo = {
   async getAlertThresholds(db) {
     const [expiry, capacity, lowStock] = await Promise.all([

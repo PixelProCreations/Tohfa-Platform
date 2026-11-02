@@ -49,6 +49,8 @@ export const TRANSFER_CODES = {
   highValueApprove: 'transfer.high_value.approve',
   /** The warehouse master list (Main pickers and names). SUB none. */
   warehouseList: 'warehouse.all.view',
+  /** One batch (GET /admin/batches/{id}) for a line's product name. MAIN all, SUB own (BR-30). */
+  batchView: 'inventory.batch.view',
 } as const;
 
 // API validation limits (warehouse-transfers.schema.ts), not business thresholds.
@@ -213,6 +215,7 @@ export function toTransferLine(line: WarehouseTransferDto['lines'][number]): Tra
     sentGrams: gramsOf(line.qtySentKg),
     receivedGrams: gramsOrNull(line.qtyReceivedKg),
     varianceGrams: gramsOrNull(line.varianceKg),
+    destBatchId: line.destBatchId,
     lineValuePaise: paiseOf(line.lineValue),
   };
 }
@@ -239,6 +242,7 @@ export function toTransferDetail(dto: WarehouseTransferDto, nameOf: WarehouseNam
     notes: dto.notes,
     receiptNote: dto.receiptNote,
     cancelReason: dto.cancelReason,
+    receivedAt: dto.receivedAt,
     lines,
     sentGrams: lines.reduce((sum, l) => sum + l.sentGrams, 0),
     timeline: transferTimeline(dto),

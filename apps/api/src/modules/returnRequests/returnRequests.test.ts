@@ -283,6 +283,7 @@ function fakeWalletTxn(id: string, amount: Money): WalletTransactionResponse {
     performedBy: null,
     performedAt: new Date().toISOString(),
     remarks: null,
+    status: 'COMPLETED',
   };
 }
 

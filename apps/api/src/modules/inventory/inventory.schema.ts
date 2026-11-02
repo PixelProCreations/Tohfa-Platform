@@ -76,6 +76,8 @@ export const batchSchema = z.object({
   qtyReservedKg: z.string().optional(),
   costPerKg: z.string().nullable().optional(),
   storageLocation: z.string().nullable(),
+  /** BR-125: the linked storage location; optional in the type so older fixtures stay valid, always set by toBatchView. */
+  storageLocationId: z.string().uuid().nullable().optional(),
   receivedOn: z.string(),
   expiryOn: z.string().nullable(),
   status: z.enum(batchStatuses),
@@ -96,6 +98,25 @@ export const stockLedgerEntrySchema = z.object({
   remarks: z.string().nullable(),
 });
 export type StockLedgerEntryView = z.infer<typeof stockLedgerEntrySchema>;
+
+/** GET /v1/admin/stock-ledger/:id */
+export const ledgerEntryIdParams = z
+  .object({
+    id: z.string().uuid('Stock ledger entry id must be a UUID'),
+  })
+  .strict();
+export type LedgerEntryIdParams = z.infer<typeof ledgerEntryIdParams>;
+
+/**
+ * BR-130: a ledger row as the admin reads serve it (list and detail): the row plus the names of
+ * who recorded it and, for a row an approved adjustment inserted, that adjustment's approver.
+ * Internal writers keep returning `StockLedgerEntryView`; only the reads carry the names.
+ */
+export const stockLedgerEntryAdminSchema = stockLedgerEntrySchema.extend({
+  createdByName: z.string().nullable(),
+  approvedByName: z.string().nullable(),
+});
+export type StockLedgerEntryAdminView = z.infer<typeof stockLedgerEntryAdminSchema>;
 
 export interface CreateBatchInput {
   batchCode: string;

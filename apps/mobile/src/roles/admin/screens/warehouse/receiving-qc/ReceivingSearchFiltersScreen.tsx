@@ -1,22 +1,28 @@
 /**
- * Receiving Search & Filters, shared by the Main and Sub warehouse admins.
- * Brings back the facets the wizard never got (SPEC_GAPS W4n-1).
+ * Receiving Search & Filters (design M2-03), shared by the Main and Sub
+ * warehouse admins, opened from Incoming Shipments or Receiving History.
  *
- * Extracted from the Sub shell's inline Receiving "search_filters" sub-view
- * (search, Status, Date, Grade, Source, Product and the locked-warehouse note)
- * and absorbs the Main ReceivingSearchFiltersScreen: the Warehouse, Shipment
- * Type and Receiving Result facets (Main-only, scope.warehouseId undefined),
- * Reset and the note that saved filters are not built.
+ * Reduced to the facets the two list endpoints take, so every choice is
+ * applied by the server as a query parameter:
+ *   Warehouse         `warehouseId` on GET /admin/purchase-orders and
+ *                     /admin/goods-receipts; Main only, options from the real
+ *                     GET /warehouses list (uuids)
+ *   Receiving Result  `status` on GET /admin/goods-receipts, so only when opened
+ *                     from Receiving History (a purchase order has no result)
+ * The design's search box and Date are not drawn: neither list takes a search
+ * text or a date. Shipment Type is a chip row on Incoming Shipments itself
+ * (incomingTransfers.ts), so a Sub admin, who is not offered this screen, has it too.
  *
- * Nothing is fetched or mutated here: Apply hands the facets to the host,
- * which narrows Incoming Shipments (the server applies the real filter, and a
- * Sub scope can never widen past its own warehouse).
+ * Nothing is fetched for the lists or mutated here: Apply hands the facets to
+ * the flow, which sets them on the list's route params (mappers.ts
+ * receivingFilterParams). A Sub scope never gets the warehouse facet and is
+ * pinned to its own warehouse (BR-30).
  * Gate: inventory.batch.view or inventory.goods_receipt.record.
  */
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminSpacing } from '../../../theme';
 import { t } from '../../../i18n';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
@@ -24,26 +30,21 @@ import {
   InfoNote,
   LockIcon,
   ScopeHeader,
-  SearchBar,
   SectionTitle,
   WalletButton,
   WalletFooter,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { EMPTY_RECEIVING_FILTERS, isMainScope } from './mappers';
+import { EMPTY_RECEIVING_FILTERS, HISTORY_FILTERS, historyFilterLabel, isMainScope, receivingFilterFacets } from './mappers';
 import { PermissionNote, canViewReceiving } from './ReceivingParts';
-import type { ReceivingFilters, WarehouseScreenBaseProps } from './types';
+import type { ReceivingFilterTarget, ReceivingFilters, WarehouseScreenBaseProps } from './types';
 
-const STATUS_OPTIONS = ['All', 'Expected', 'Arrived', 'Receiving', 'QC Pending', 'Partially Accepted', 'Accepted', 'Rejected', 'Completed'] as const;
-const DATE_OPTIONS = ['All', 'Today', 'Yesterday', 'Last 7 Days', 'Custom'] as const;
-const GRADE_OPTIONS = ['All', 'Grade 1', 'Grade 2', 'Grade 3'] as const;
-const SOURCE_OPTIONS = ['All', 'Main Warehouse', 'Farmer Admin', 'Purchase Order'] as const;
-const TYPE_OPTIONS = ['All', 'Farmer/Admin', 'Inter-Warehouse Transfer'] as const;
-const RESULT_OPTIONS = ['All', 'Accepted', 'Partial', 'Rejected'] as const;
 const ALL_WAREHOUSES = 'All';
 
 export interface ReceivingSearchFiltersScreenProps extends WarehouseScreenBaseProps {
+  /** The list this screen narrows; it decides which facets apply. */
+  target: ReceivingFilterTarget;
   /** Facets currently applied (the screen opens on them). */
   initialFilters?: ReceivingFilters | undefined;
   onApply: (filters: ReceivingFilters) => void;
@@ -53,12 +54,13 @@ export function ReceivingSearchFiltersScreen({
   scope,
   can,
   onBack,
+  target,
   initialFilters = EMPTY_RECEIVING_FILTERS,
   onApply,
 }: ReceivingSearchFiltersScreenProps) {
   const [f, setF] = useState<ReceivingFilters>(initialFilters);
   const mainView = isMainScope(scope);
-  const set = <K extends keyof ReceivingFilters>(key: K, value: ReceivingFilters[K]) => setF((prev) => ({ ...prev, [key]: value }));
+  const facets = receivingFilterFacets(scope, can, target);
   // Main picks from the real GET /warehouses list (uuids); a Sub scope never
   // gets the facet and is pinned to its own warehouse (BR-30).
   const warehouses = useWarehouseOptions({ enabled: mainView && can('warehouse.all.view') });
@@ -66,7 +68,7 @@ export function ReceivingSearchFiltersScreen({
   const warehouseNameOf = (id: string): string => warehouses.options.find((w) => w.warehouseId === id)?.warehouseName ?? id;
 
   const header = {
-    title: 'Search & Filters',
+    title: t('receiving.filters.title'),
     onBack,
     headerExtra: <ScopeHeader scope={scope} label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId} />,
   };
@@ -75,7 +77,7 @@ export function ReceivingSearchFiltersScreen({
     return (
       <WalletScreen {...header}>
         <View style={walletLayout.scrollContent}>
-          <PermissionNote message="You do not have permission to search goods receiving." />
+          <PermissionNote message={t('receiving.filters.noPermission')} />
         </View>
       </WalletScreen>
     );
@@ -87,91 +89,51 @@ export function ReceivingSearchFiltersScreen({
       footer={
         <WalletFooter>
           <View style={styles.footerRow}>
-            <WalletButton label="Reset" variant="outline" flex onPress={() => setF(EMPTY_RECEIVING_FILTERS)} />
-            <WalletButton label="Apply Filters" flex onPress={() => onApply(mainView ? f : { ...f, warehouseId: undefined })} />
+            <WalletButton label={t('receiving.filters.reset')} variant="outline" flex onPress={() => setF(EMPTY_RECEIVING_FILTERS)} />
+            <WalletButton label={t('receiving.filters.apply')} flex onPress={() => onApply(f)} />
           </View>
         </WalletFooter>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SearchBar
-          value={f.search}
-          onChangeText={(text) => set('search', text)}
-          placeholder={mainView ? 'Shipment ID, source ref, product, warehouse' : 'Search shipment / GR number / product'}
-        />
-
-        {mainView ? (
+        {facets.warehouse ? (
           <>
-            <SectionTitle>Warehouse</SectionTitle>
+            <SectionTitle>{t('receiving.filters.warehouse')}</SectionTitle>
             <ChipGroup
               options={warehouseIds}
               value={f.warehouseId ?? ALL_WAREHOUSES}
-              onChange={(id) => set('warehouseId', id === ALL_WAREHOUSES ? undefined : id)}
+              onChange={(id) => setF((prev) => ({ ...prev, warehouseId: id === ALL_WAREHOUSES ? undefined : id }))}
               labelOf={(id) => (id === ALL_WAREHOUSES ? t('filters.warehouse.all') : warehouseNameOf(id))}
             />
-            <SectionTitle>Shipment Type</SectionTitle>
-            <ChipGroup options={TYPE_OPTIONS} value={f.shipmentType as (typeof TYPE_OPTIONS)[number]} onChange={(v) => set('shipmentType', v)} />
           </>
         ) : null}
 
-        <SectionTitle>Status</SectionTitle>
-        <ChipGroup options={STATUS_OPTIONS} value={f.status as (typeof STATUS_OPTIONS)[number]} onChange={(v) => set('status', v)} />
-
-        <SectionTitle>Date</SectionTitle>
-        <ChipGroup options={DATE_OPTIONS} value={f.date as (typeof DATE_OPTIONS)[number]} onChange={(v) => set('date', v)} />
-
-        <SectionTitle>Grade</SectionTitle>
-        <ChipGroup options={GRADE_OPTIONS} value={f.grade as (typeof GRADE_OPTIONS)[number]} onChange={(v) => set('grade', v)} />
-
-        <SectionTitle>Source</SectionTitle>
-        <ChipGroup options={SOURCE_OPTIONS} value={f.source as (typeof SOURCE_OPTIONS)[number]} onChange={(v) => set('source', v)} />
-
-        {mainView ? (
+        {facets.result ? (
           <>
-            <SectionTitle>Receiving Result</SectionTitle>
-            <ChipGroup options={RESULT_OPTIONS} value={f.result as (typeof RESULT_OPTIONS)[number]} onChange={(v) => set('result', v)} />
+            <SectionTitle>{t('receiving.filters.result')}</SectionTitle>
+            <ChipGroup
+              options={HISTORY_FILTERS}
+              value={f.result}
+              onChange={(result) => setF((prev) => ({ ...prev, result }))}
+              labelOf={historyFilterLabel}
+            />
           </>
         ) : null}
-
-        <SectionTitle>Product</SectionTitle>
-        <TextInput
-          style={styles.input}
-          placeholder="Search crop / product"
-          placeholderTextColor={adminColors.placeholder}
-          value={f.product}
-          onChangeText={(text) => set('product', text)}
-        />
 
         <View style={styles.spacer} />
         {mainView ? (
-          <InfoNote tone="brandSoft">
-            Save Filter is not built here — added only if the product requirement eventually supports saved filters.
-          </InfoNote>
+          <InfoNote tone="brandSoft">{t('receiving.filters.saveNotBuilt')}</InfoNote>
         ) : (
           <InfoNote tone="brandSoft" icon={<LockIcon size={14} color={adminColors.brandDeep} />}>
-            {`No warehouse selector — results always scoped to ${scope.warehouseName ?? scope.warehouseId ?? ''}.`}
+            {t('filters.warehouse.lockedNote', { warehouse: scope.warehouseName ?? scope.warehouseId ?? '' })}
           </InfoNote>
         )}
-        <Text style={styles.hint}>The date facet is applied by the server once shipments are served from the API.</Text>
       </ScrollView>
     </WalletScreen>
   );
 }
 
-const INPUT_HEIGHT = 46;
-
 const styles = StyleSheet.create({
   footerRow: { flexDirection: 'row', gap: adminSpacing.sm },
   spacer: { height: adminSpacing.md },
-  input: {
-    ...adminType.body,
-    height: INPUT_HEIGHT,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: adminSpacing.md,
-    color: adminColors.ink,
-  },
-  hint: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
 });

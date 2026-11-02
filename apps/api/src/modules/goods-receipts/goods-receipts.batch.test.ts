@@ -17,6 +17,7 @@
  * Every service runs on one outer transaction that is rolled back; the services' own transactions
  * become SAVEPOINTs, so a refused request really rolls its writes back and the test can see that.
  */
+import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
@@ -272,6 +273,7 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
         expiryOn: '2026-10-30',
         storageLocation: 'A-04-R2',
       }),
+      randomUUID(),
     );
 
     const rows = await batchesOf(w.tx, lot.goodsReceiptId);
@@ -332,6 +334,7 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
       w.qcScope,
       lot.goodsReceiptId,
       qcBody({ outcome: 'PARTIALLY_ACCEPTED', acceptedQtyKg: '90.000', rejectedQtyKg: '10.000', rejectionReason: 'Bruised on arrival' }),
+      randomUUID(),
     );
     const [row, ...others] = await batchesOf(w.tx, lot.goodsReceiptId);
     expect(others).toHaveLength(0);
@@ -349,6 +352,7 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
       w.qcScope,
       lot.goodsReceiptId,
       qcBody({ outcome: 'REJECTED', acceptedQtyKg: '0.000', rejectedQtyKg: '100.000', rejectionReason: 'Pest damage' }),
+      randomUUID(),
     );
     expect(result.batch).toBeNull();
     expect(await batchesOf(w.tx, lot.goodsReceiptId)).toHaveLength(0);
@@ -358,7 +362,7 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
 
   dbIt('BR-106d: the batch is audited (inventory.batch.assign, same transaction) and allocated across the channels (BR-12)', async (w) => {
     const lot = await w.lot();
-    const result = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({}));
+    const result = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({}), randomUUID());
     const batchId = result.batch!.id;
 
     const audits = await batchAuditRows(w.tx, batchId);
@@ -404,7 +408,7 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
       )).rows[0]!.n;
 
     await expectAppError(
-      w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({})),
+      w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({}), randomUUID()),
       'CONFLICT',
       409,
     );
@@ -416,8 +420,8 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
   dbIt('BR-106f: batch codes come from inventory_batch_number_seq: a later receipt gets a higher number', async (w) => {
     const first = await w.lot();
     const second = await w.lot();
-    const a = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, first.goodsReceiptId, qcBody({}));
-    const b = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, second.goodsReceiptId, qcBody({}));
+    const a = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, first.goodsReceiptId, qcBody({}), randomUUID());
+    const b = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, second.goodsReceiptId, qcBody({}), randomUUID());
     const seqA = Number(BATCH_CODE.exec(a.batch!.batchCode)![2]);
     const seqB = Number(BATCH_CODE.exec(b.batch!.batchCode)![2]);
     expect(seqB).toBeGreaterThan(seqA);
@@ -425,14 +429,14 @@ describeIfDatabase('BR-106: an accepted quality check stocks one inventory batch
 
   dbIt('BR-106g: an ACCEPTED quality check at grade REJECT stocks nothing (a REJECT grade is never sellable)', async (w) => {
     const lot = await w.lot();
-    const result = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({ assignedGrade: 'REJECT' }));
+    const result = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({ assignedGrade: 'REJECT' }), randomUUID());
     expect(result.batch).toBeNull();
     expect(await batchesOf(w.tx, lot.goodsReceiptId)).toHaveLength(0);
   });
 
   dbIt('BR-106h: the receipt read shows the batch it created', async (w) => {
     const lot = await w.lot();
-    const result = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({}));
+    const result = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({}), randomUUID());
     const receipt = await w.goodsReceipts.getById(w.admin, w.qcScope, lot.goodsReceiptId);
     expect(receipt.batchId).toBe(result.batch!.id);
     expect(receipt.batchCode).toBe(result.batch!.batchCode);
@@ -459,8 +463,9 @@ describeIfDatabase('BR-106: a quality counter-offer stocks the batch only when t
         expiryOn: '2026-11-02',
         storageLocation: 'B-01',
       }),
+      randomUUID(),
     );
-    const sent = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.offerScope, lot.goodsReceiptId, offer);
+    const sent = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.offerScope, lot.goodsReceiptId, offer, randomUUID());
     return { lot, offerId: sent.id };
   }
 
@@ -534,11 +539,11 @@ describeIfDatabase('BR-106: a quality counter-offer stocks the batch only when t
 
   dbIt('BR-106n: a lot already stocked by its quality check is not stocked again when a later counter-offer on it is accepted', async (w) => {
     const lot = await w.lot();
-    const qc = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({ acceptedQtyKg: '100.000' }));
+    const qc = await w.goodsReceipts.recordQualityCheck(w.admin, w.qcScope, lot.goodsReceiptId, qcBody({ acceptedQtyKg: '100.000' }), randomUUID());
     const sent = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.offerScope, lot.goodsReceiptId, {
       pricePerKg: '45.00',
       quantityKg: '100.000',
-    });
+    }, randomUUID());
     const farmer = w.farmer(lot);
     await w.counterOffers.respondAccept(farmer.actor, farmer.scope, lot.listingId, sent.id, newId());
     const rows = await batchesOf(w.tx, lot.goodsReceiptId);
@@ -551,7 +556,7 @@ describeIfDatabase('BR-106: a quality counter-offer stocks the batch only when t
     const sent = await w.goodsReceipts.createQualityCounterOffer(w.admin, w.offerScope, lot.goodsReceiptId, {
       pricePerKg: '45.00',
       quantityKg: '100.000',
-    });
+    }, randomUUID());
     const farmer = w.farmer(lot);
     const listing = await w.counterOffers.respondAccept(farmer.actor, farmer.scope, lot.listingId, sent.id, newId());
     expect(listing.status).toBe('ACCEPTED');

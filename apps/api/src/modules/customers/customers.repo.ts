@@ -18,8 +18,8 @@ import {
   toWalletTransactionResponse,
   type WalletTransactionRow,
 } from '../wallet/wallet.repo.js';
-import type { CustomerAccess, NameKey, TimeKey } from './customers.policy.js';
-import type { AdminWalletTransaction, CustomerStatusFilter } from './customers.schema.js';
+import type { CustomerAccess, NameKey, SortKey, TimeKey } from './customers.policy.js';
+import type { AdminWalletTransaction, CustomerSort, CustomerStatusFilter } from './customers.schema.js';
 
 // ---------------------------------------------------------------------------
 // Domain rows handed to the service (unmasked; the service's serializers mask)
@@ -40,6 +40,16 @@ export interface CustomerRow {
   isActive: boolean;
   isNew: boolean;
   createdAt: string;
+}
+
+/** A row of the customer list: the customer plus its BR-115 counts and keyset value. */
+export interface CustomerListRow extends CustomerRow {
+  /** Return requests `/issues` would list for the same access (confined through the order). */
+  issueCount: number;
+  /** Support tickets `/support-tickets` would list (by customer, as that route reads them). */
+  ticketCount: number;
+  /** The row's value of the active sort key, printed for the keyset cursor (BR-115). */
+  sortCursor: string;
 }
 
 export interface AddressRow {
@@ -85,12 +95,24 @@ export interface OrderRow {
   cursorTs: string;
 }
 
+/**
+ * BR-129 (UNCONFIRMED): the ledger types that are the customer USING wallet money: paying for an
+ * order or a subscription. Excluded from "used": an ADJUSTMENT debit (a correction, not a purchase)
+ * and PAYOUT_DEBIT (a farmer withdrawal; never on a customer wallet). Refunds are not netted out:
+ * an ORDER_REFUND is a CREDIT and counts in the credited total.
+ */
+export const WALLET_USAGE_TYPES = ['ORDER_DEBIT', 'SUBSCRIPTION_DEBIT'] as const;
+
 export interface WalletSummaryRow {
   walletId: string;
   status: string;
   currency: string;
   /** Sum of the ledger (credits minus debits), NUMERIC as text. */
   ledgerBalance: string;
+  /** BR-129: SUM of every CREDIT row, integer paise as text (bigint never passes through a float). */
+  totalCreditedPaise: string;
+  /** BR-129: SUM of the usage DEBIT rows (`WALLET_USAGE_TYPES`), integer paise as text. */
+  totalUsedPaise: string;
   transactionCount: number;
   lastTransactionAt: string | null;
 }
@@ -144,7 +166,18 @@ export interface ListCustomersArgs {
   windowDays: number;
   q?: string;
   status?: CustomerStatusFilter;
+  /** BR-115 purchase filters: one qualifying purchase line must match every one given. */
+  crop?: string;
+  grade?: string;
+  /** Inclusive Asia/Kolkata days of `orders.placed_at`. */
+  from?: string;
+  to?: string;
+  /** Default `name`. */
+  sort?: CustomerSort;
+  /** Keyset for the default `name` sort (the pre-BR-115 cursor). */
   after?: NameKey;
+  /** Keyset for every other sort; its `sort` must equal `sort`. */
+  afterSort?: SortKey;
   limit: number;
 }
 
@@ -162,7 +195,7 @@ export interface Fetched<T> {
 export interface CustomersRepo {
   /** `system_config.active_customer_window_days`, or null when missing or not a non-negative integer. */
   readActiveWindowDays(db: Executor): Promise<number | null>;
-  listCustomers(db: Executor, args: ListCustomersArgs): Promise<Fetched<CustomerRow>>;
+  listCustomers(db: Executor, args: ListCustomersArgs): Promise<Fetched<CustomerListRow>>;
   summarize(db: Executor, access: CustomerAccess, windowDays: number): Promise<{ total: number; active: number; new: number }>;
   findCustomer(db: Executor, customerId: string, access: CustomerAccess, windowDays: number): Promise<CustomerRow | null>;
   /** BR-91: is the customer inside the access? Used by every sub-resource before it reads. */
@@ -342,6 +375,38 @@ function classifiedCte(access: CustomerAccess, windowDays: number, add: Add, ext
     )`;
 }
 
+/**
+ * BR-115 sort keys: the ORDER BY expression over `classified`, the cast its cursor value takes, and
+ * how the row prints that value for the cursor. `lifetime_value` is text in the CTE, so it is
+ * compared as numeric (as text "999.99" < "50.00"). Every key is NOT NULL, so a row-value
+ * comparison with the id is a total order.
+ */
+const SORT_SQL: Record<string, { expr: string; cast: string; cursor: string }> = {
+  name: { expr: 'full_name', cast: 'text', cursor: 'full_name' },
+  createdAt: { expr: 'created_at', cast: 'timestamptz', cursor: microTs('created_at') },
+  lifetimeValue: { expr: 'lifetime_value::numeric', cast: 'numeric', cursor: 'lifetime_value' },
+  totalOrders: { expr: 'total_orders', cast: 'int', cursor: 'total_orders::text' },
+};
+
+/**
+ * BR-115: the customer has at least ONE purchase line (an order that is neither PENDING_PAYMENT nor
+ * CANCELLED, the `/purchases` definition) matching every filter given, on the same line, at the
+ * actor's warehouses for `own` (BR-91g). Null when no purchase filter is set.
+ */
+function purchaseFilter(args: ListCustomersArgs, alias: string, add: Add): string | null {
+  if (args.crop === undefined && args.grade === undefined && args.from === undefined && args.to === undefined) return null;
+  const clauses = [
+    `fo.customer_id = ${alias}.id`,
+    `fo.status NOT IN ('PENDING_PAYMENT', 'CANCELLED')`,
+    warehouseConfinement(args.access, 'fo.warehouse_id', add),
+  ];
+  if (args.crop !== undefined) clauses.push(`fi.crop_id = ${add(args.crop)}::uuid`);
+  if (args.grade !== undefined) clauses.push(`fi.grade::text = ${add(args.grade)}::text`);
+  if (args.from !== undefined) clauses.push(`(fo.placed_at AT TIME ZONE 'Asia/Kolkata')::date >= ${add(args.from)}::date`);
+  if (args.to !== undefined) clauses.push(`(fo.placed_at AT TIME ZONE 'Asia/Kolkata')::date <= ${add(args.to)}::date`);
+  return `EXISTS (SELECT 1 FROM orders fo JOIN order_items fi ON fi.order_id = fo.id WHERE ${clauses.join(' AND ')})`;
+}
+
 const CUSTOMER_COLUMNS = `id, customer_code, customer_type, business_name, preferred_warehouse_id, full_name, mobile,
   email, total_orders, lifetime_value, last_order_at, last_activity_at, is_active, is_new, created_at`;
 
@@ -373,25 +438,52 @@ export const customersRepo: CustomersRepo = {
       }
       extra.push(`(${clauses.join(' OR ')})`);
     }
+    const purchase = purchaseFilter(args, 'c', p.add);
+    if (purchase !== null) extra.push(purchase);
     const cte = classifiedCte(args.access, args.windowDays, p.add, extra);
+    const sort = args.sort ?? 'name';
+    const descending = sort.startsWith('-');
+    const key = SORT_SQL[sort.replace(/^-/, '')]!;
     const outer: string[] = [];
     if (args.status === 'ACTIVE') outer.push('is_active');
     if (args.status === 'INACTIVE') outer.push('NOT is_active');
     if (args.status === 'NEW') outer.push('is_new');
-    if (args.after !== undefined) {
+    if (sort === 'name' && args.after !== undefined) {
       outer.push(`(full_name, id) > (${p.add(args.after.name)}::text, ${p.add(args.after.id)}::uuid)`);
+    } else if (args.afterSort !== undefined && args.afterSort.sort === sort) {
+      // The id breaks ties in the same direction, so (value, id) is a total order for the keyset.
+      outer.push(
+        `(${key.expr}, id) ${descending ? '<' : '>'} (${p.add(args.afterSort.value)}::${key.cast}, ${p.add(args.afterSort.id)}::uuid)`,
+      );
     }
+    // BR-115 counts: one statement, a scalar subquery per page row (never a query per row from
+    // the service). Issues are confined to the actor's warehouses through the order, exactly as
+    // `listIssues`; tickets are counted by customer, exactly as `listTickets` reads them.
+    const issueWh = warehouseConfinement(args.access, 'io.warehouse_id', p.add);
     const limit = p.add(args.limit + 1);
-    const res = await db.query<CustomerDbRow>(
+    const direction = descending ? 'DESC' : 'ASC';
+    const res = await db.query<CustomerDbRow & { issue_count: number; ticket_count: number; sort_cursor: string }>(
       `WITH ${cte}
-       SELECT ${CUSTOMER_COLUMNS}
+       SELECT ${CUSTOMER_COLUMNS},
+              (SELECT count(*)::int FROM return_requests ir JOIN orders io ON io.id = ir.order_id
+                WHERE ir.customer_id = classified.id AND ${issueWh}) AS issue_count,
+              (SELECT count(*)::int FROM support_tickets it WHERE it.customer_id = classified.id) AS ticket_count,
+              ${key.cursor} AS sort_cursor
          FROM classified
         WHERE ${outer.length === 0 ? 'TRUE' : outer.join(' AND ')}
-        ORDER BY full_name, id
+        ORDER BY ${key.expr} ${direction}, id ${direction}
         LIMIT ${limit}`,
       p.values,
     );
-    return fetched(res.rows.map(toCustomer), args.limit);
+    return fetched(
+      res.rows.map((row) => ({
+        ...toCustomer(row),
+        issueCount: row.issue_count,
+        ticketCount: row.ticket_count,
+        sortCursor: row.sort_cursor,
+      })),
+      args.limit,
+    );
   },
 
   async summarize(db, access, windowDays) {
@@ -576,13 +668,19 @@ export const customersRepo: CustomersRepo = {
       status: string;
       currency: string;
       ledger_balance: string;
+      credited_paise: string;
+      used_paise: string;
       txn_count: number;
       last_at: Date | null;
     }>(
-      `SELECT w.id, w.status, w.currency, l.ledger_balance, l.txn_count, l.last_at
+      // BR-129: both totals are aggregates over the same append-only ledger rows as the balance, each
+      // row converted to integer paise before it is summed (numeric(12,2) * 100 is exact).
+      `SELECT w.id, w.status, w.currency, l.ledger_balance, l.credited_paise, l.used_paise, l.txn_count, l.last_at
          FROM wallets w
          CROSS JOIN LATERAL (
            SELECT COALESCE(sum(CASE WHEN t.direction = 'CREDIT' THEN t.amount ELSE -t.amount END), 0)::numeric(14,2)::text AS ledger_balance,
+                  COALESCE(sum((t.amount * 100)::bigint) FILTER (WHERE t.direction = 'CREDIT'), 0)::text AS credited_paise,
+                  COALESCE(sum((t.amount * 100)::bigint) FILTER (WHERE t.direction = 'DEBIT' AND t.type::text = ANY($2::text[])), 0)::text AS used_paise,
                   count(*)::int AS txn_count,
                   max(t.created_at) AS last_at
              FROM wallet_transactions t
@@ -590,7 +688,7 @@ export const customersRepo: CustomersRepo = {
          ) l
         WHERE w.customer_id = $1
         LIMIT 1`,
-      [customerId],
+      [customerId, [...WALLET_USAGE_TYPES]],
     );
     const row = res.rows[0];
     if (row === undefined) return null;
@@ -599,6 +697,8 @@ export const customersRepo: CustomersRepo = {
       status: row.status,
       currency: row.currency,
       ledgerBalance: row.ledger_balance,
+      totalCreditedPaise: row.credited_paise,
+      totalUsedPaise: row.used_paise,
       transactionCount: row.txn_count,
       lastTransactionAt: iso(row.last_at),
     };

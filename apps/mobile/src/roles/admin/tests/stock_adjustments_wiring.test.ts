@@ -54,6 +54,14 @@ describe('stock count and adjustment screens are live', () => {
     expect(DETAIL).toMatch(/t\(stockActionErrorKey\(actionError\)\)/);
   });
 
+  it('BR-30: Adjustment Detail names the warehouse from GET /warehouses (Main) or its own scope (Sub), hidden while unknown', () => {
+    // Called before the loading / not-found return, so the hook order never changes.
+    expect(DETAIL).toMatch(/const warehouseName = useInventoryWarehouseName\(scope, can, detail\.item\?\.warehouseId\);\s*\n[\s\S]*if \(adjustment === undefined\)/);
+    expect(DETAIL).toMatch(/warehouseName === undefined \? undefined : \{ label: t\('stockShared\.field\.warehouse'\), value: warehouseName \}/);
+    // Requested By / Approved By stay hidden: the DTO carries only user uuids.
+    expect(DETAIL).not.toMatch(/createdBy|approvedBy/);
+  });
+
   it('BR-107: Raise adjustment is drawn only from canRaiseAdjustment and opens the raised adjustment', () => {
     expect(REVIEW).toMatch(/const offerRaise = canRaiseAdjustment\(can, count\);/);
     expect(REVIEW).toMatch(/\{offerRaise \? \(/);

@@ -138,10 +138,11 @@ export type StockMovementKind =
 /** From the sign of the ledger delta itself (BR-37). */
 export type MovementDirection = 'in' | 'out' | 'none';
 
-/** One stock ledger row. */
+/** One stock ledger row. Also the Movement Detail's route param (there is no per-id ledger read). */
 export interface StockMovementRow {
   id: string;
   batchId: string;
+  warehouseId: string;
   kind: StockMovementKind;
   typeLabel: string;
   direction: MovementDirection;
@@ -157,6 +158,10 @@ export interface StockMovementRow {
   batchCode?: string | undefined;
   productLabel?: string | undefined;
   remarks?: string | undefined;
+  /** What the movement belongs to, as the server recorded it (GOODS_RECEIPT, ORDER, stock_adjustment...). */
+  refType?: string | undefined;
+  /** The uuid of that record; the API carries no human code for it. */
+  refId?: string | undefined;
 }
 
 export type AllocationChannelKey = 'online' | 'liveMarket' | 'reserve' | 'buffer' | 'unknown';

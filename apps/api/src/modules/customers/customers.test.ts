@@ -31,7 +31,7 @@ import {
   maskMobile,
   REDACTED,
 } from './customers.policy.js';
-import type { CustomerRow, CustomersRepo, MessageRow, TicketRow } from './customers.repo.js';
+import type { CustomerListRow, CustomerRow, CustomersRepo, MessageRow, TicketRow } from './customers.repo.js';
 import { createCustomersRouter, customersRouter } from './customers.routes.js';
 import {
   adminCustomerDetailSchema,
@@ -79,6 +79,12 @@ function aCustomerRow(overrides: Partial<CustomerRow> = {}): CustomerRow {
   };
 }
 
+/** A customer-list row: the customer plus the BR-115 counts and keyset value the list repo adds. */
+function aListRow(overrides: Partial<CustomerListRow> = {}): CustomerListRow {
+  const row = aCustomerRow(overrides);
+  return { ...row, issueCount: 0, ticketCount: 0, sortCursor: row.fullName, ...overrides };
+}
+
 const TICKET_ID = '50000000-0000-4000-8000-000000000001';
 
 function aTicketRow(overrides: Partial<TicketRow> = {}): TicketRow {
@@ -123,7 +129,7 @@ const IDENTITY = {
 function stubRepo(overrides: Partial<CustomersRepo> = {}): CustomersRepo {
   return {
     readActiveWindowDays: vi.fn(async () => 90),
-    listCustomers: vi.fn(async () => ({ rows: [aCustomerRow()], hasMore: false })),
+    listCustomers: vi.fn(async () => ({ rows: [aListRow()], hasMore: false })),
     summarize: vi.fn(async () => ({ total: 1, active: 1, new: 0 })),
     findCustomer: vi.fn(async () => aCustomerRow()),
     isVisible: vi.fn(async () => true),
@@ -137,6 +143,9 @@ function stubRepo(overrides: Partial<CustomersRepo> = {}): CustomersRepo {
       status: 'ACTIVE',
       currency: 'INR',
       ledgerBalance: '150',
+      // BR-129: integer paise as text, as the repo's SQL aggregates return them.
+      totalCreditedPaise: '20000',
+      totalUsedPaise: '5000',
       transactionCount: 2,
       lastTransactionAt: '2026-09-01T10:00:00.000Z',
     })),
@@ -334,7 +343,7 @@ describe('customers service: list and detail (BR-91, BR-92, BR-98)', () => {
   });
 
   it('list pagination: hasMore yields an opaque nextCursor naming the last row; the cursor is decoded for the next call', async () => {
-    const rows = [aCustomerRow({ id: newId(), fullName: 'A' }), aCustomerRow({ id: newId(), fullName: 'B' })];
+    const rows = [aListRow({ id: newId(), fullName: 'A' }), aListRow({ id: newId(), fullName: 'B' })];
     const repo = stubRepo({ listCustomers: vi.fn(async () => ({ rows, hasMore: true })) });
     const svc = service(repo);
     const first = await svc.list(superAll(), { limit: 2 });
@@ -495,6 +504,13 @@ describe('customers service: sub-resources (BR-91, BR-90, BR-93)', () => {
     expect(res.balance).toBe('150.00');
     expect(typeof res.balance).toBe('string');
     expect(res.customerId).toBe(IDS.customer);
+  });
+
+  it('BR-129a: the wallet summary renders totalCredited and totalUsed from integer paise as 2-decimal Money strings', async () => {
+    const res = await service(stubRepo()).getWallet(subOoty('customer.wallet.view'), IDS.customer);
+    expect(adminCustomerWalletSummarySchema.parse(res)).toEqual(res);
+    expect(res.totalCredited).toBe('200.00');
+    expect(res.totalUsed).toBe('50.00');
   });
 
   it('BR-93: a visible customer with no wallet is 404, not an invented zero wallet', async () => {

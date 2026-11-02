@@ -8,10 +8,10 @@
  * the whole 'transfers' module (lists, counts, details) and 'inventory' (a
  * dispatch or a receipt moves stock).
  */
-import { useCallback, useMemo } from 'react';
-import { useInfiniteQuery, type InfiniteData, type QueryKey } from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo } from 'react';
+import { useInfiniteQuery, useQueries, type InfiniteData, type QueryKey } from '@tanstack/react-query';
 import { useAdminMutation, useAdminQuery, useCursorList, type CursorList } from '../../../api/hooks';
-import { listBatches, type BatchDto } from '../../../api/inventory';
+import { getBatch, listBatches, type BatchDto } from '../../../api/inventory';
 import { adminKeys } from '../../../api/queryKeys';
 import {
   approveWarehouseTransfer,
@@ -20,6 +20,7 @@ import {
   getWarehouseTransfer,
   listWarehouseTransfers,
   receiveWarehouseTransfer,
+  type ListWarehouseTransfersParams,
   type WarehouseTransferCancel,
   type WarehouseTransferCreate,
   type WarehouseTransferReceive,
@@ -27,6 +28,7 @@ import {
   type WarehouseTransferSummaryDto,
 } from '../../../api/transfers';
 import type { OffsetPage } from '../../../../../shell/api/pagination';
+import { inboundTransferParams } from '../receiving-qc/incomingTransfers';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
 import {
   makeWarehouseNameOf,
@@ -39,6 +41,7 @@ import {
   type TransferBatchOption,
   type WarehouseNameOf,
 } from './mappers';
+import { batchFacts, discrepancyTally, TALLY_MAX_PAGES, type BatchFacts, type DiscrepancyTally } from './receiptViews';
 import type { PermissionCheck, TransferDetailView, TransferListItem, WarehouseScope } from './types';
 
 export const TRANSFERS_MODULE = 'transfers';
@@ -72,26 +75,21 @@ export interface TransferListState {
   loadMore: () => void;
 }
 
-/** One status (or every status) of the scope's transfers, page by page. */
-export function useTransferList(
-  scope: WarehouseScope,
-  status: WarehouseTransferStatus | undefined,
+type TransferPages = InfiniteData<OffsetPage<WarehouseTransferSummaryDto>, number>;
+
+/** One paged GET /warehouse-transfers query, mapped to rows. */
+function useTransferPages(
+  key: QueryKey,
+  params: ListWarehouseTransfersParams,
   nameOf: WarehouseNameOf,
+  enabled = true,
 ): TransferListState {
-  const scopeParams = transferListScopeParams(scope);
-  const key = adminKeys.scoped(TRANSFERS_MODULE, scope.warehouseId, { resource: 'list', status: status ?? 'ALL', ...scopeParams });
-  const query = useInfiniteQuery<
-    OffsetPage<WarehouseTransferSummaryDto>,
-    Error,
-    InfiniteData<OffsetPage<WarehouseTransferSummaryDto>, number>,
-    QueryKey,
-    number
-  >({
+  const query = useInfiniteQuery<OffsetPage<WarehouseTransferSummaryDto>, Error, TransferPages, QueryKey, number>({
     queryKey: key,
-    queryFn: ({ pageParam, signal }) =>
-      listWarehouseTransfers({ ...scopeParams, status, page: pageParam, pageSize: LIST_PAGE_SIZE }, signal),
+    queryFn: ({ pageParam, signal }) => listWarehouseTransfers({ ...params, page: pageParam, pageSize: LIST_PAGE_SIZE }, signal),
     initialPageParam: 1,
     getNextPageParam: nextOffsetPage,
+    enabled,
   });
   const items = useMemo(
     () => (query.data?.pages ?? []).flatMap((page) => page.items.map((dto) => toTransferListItem(dto, nameOf))),
@@ -100,7 +98,7 @@ export function useTransferList(
   return {
     items,
     total: query.data?.pages[0]?.total ?? 0,
-    isLoading: query.isPending,
+    isLoading: enabled && query.isPending,
     error: query.error,
     refresh: () => {
       void query.refetch();
@@ -111,6 +109,28 @@ export function useTransferList(
       if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
     },
   };
+}
+
+/** One status (or every status) of the scope's transfers, page by page. */
+export function useTransferList(
+  scope: WarehouseScope,
+  status: WarehouseTransferStatus | undefined,
+  nameOf: WarehouseNameOf,
+): TransferListState {
+  const scopeParams = transferListScopeParams(scope);
+  const key = adminKeys.scoped(TRANSFERS_MODULE, scope.warehouseId, { resource: 'list', status: status ?? 'ALL', ...scopeParams });
+  return useTransferPages(key, { ...scopeParams, status }, nameOf);
+}
+
+/**
+ * The transfers awaiting receipt at `warehouseId` (undefined = every
+ * warehouse), for Incoming Shipments. The receiving flow passes the warehouse
+ * it already computed, so a Sub scope sends its own uuid (BR-30).
+ */
+export function useInboundTransfers(warehouseId: string | undefined, nameOf: WarehouseNameOf, enabled: boolean): TransferListState {
+  const params = inboundTransferParams(warehouseId);
+  const key = adminKeys.scoped(TRANSFERS_MODULE, warehouseId, { resource: 'inbound', ...params });
+  return useTransferPages(key, params, nameOf, enabled);
 }
 
 /** How many of the scope's transfers are in `status` (the list's `total`, one row fetched). */
@@ -132,6 +152,61 @@ export function useTransferStatusCounts(scope: WarehouseScope): TransferStatusCo
   const received = useTransferCount(scope, 'RECEIVED');
   const cancelled = useTransferCount(scope, 'CANCELLED');
   return { PENDING_APPROVAL: pending, IN_TRANSIT: inTransit, RECEIVED: received, CANCELLED: cancelled };
+}
+
+/** The API maximum page size, so the tally needs as few requests as it can. */
+const TALLY_PAGE_SIZE = 100;
+
+export interface TransferDiscrepancyTallyState {
+  tally: DiscrepancyTally | undefined;
+  isLoading: boolean;
+  error: boolean;
+}
+
+/**
+ * QTY MISMATCH: the scope's RECEIVED transfers flagged hasDiscrepancy. The list
+ * takes no discrepancy filter, so the RECEIVED pages are read until every row
+ * is in, up to TALLY_MAX_PAGES (receiptViews.ts says what the tile shows then).
+ */
+export function useTransferDiscrepancyTally(scope: WarehouseScope): TransferDiscrepancyTallyState {
+  const scopeParams = transferListScopeParams(scope);
+  const query = useInfiniteQuery<OffsetPage<WarehouseTransferSummaryDto>, Error, TransferPages, QueryKey, number>({
+    queryKey: adminKeys.scoped(TRANSFERS_MODULE, scope.warehouseId, { resource: 'discrepancy-tally', ...scopeParams }),
+    queryFn: ({ pageParam, signal }) =>
+      listWarehouseTransfers({ ...scopeParams, status: 'RECEIVED', page: pageParam, pageSize: TALLY_PAGE_SIZE }, signal),
+    initialPageParam: 1,
+    getNextPageParam: nextOffsetPage,
+  });
+  const pageCount = query.data?.pages.length ?? 0;
+  const more = query.hasNextPage && pageCount < TALLY_MAX_PAGES;
+  const { isFetchingNextPage, isError, fetchNextPage } = query;
+  useEffect(() => {
+    if (more && !isFetchingNextPage && !isError) void fetchNextPage();
+  }, [more, isFetchingNextPage, isError, fetchNextPage]);
+  const tally = useMemo(() => (query.data === undefined ? undefined : discrepancyTally(query.data.pages)), [query.data]);
+  return { tally, isLoading: query.isPending || more, error: query.isError };
+}
+
+/**
+ * Code and crop name of the batches the scope may read for a transfer
+ * (receiptViews.ts transferBatchIdsToRead decides which, BR-30), keyed by
+ * batch id. A batch not (yet) read is simply absent: its line keeps the batch
+ * code the transfer carries.
+ */
+export function useTransferBatchFacts(batchIds: readonly string[], warehouseId: string | undefined): ReadonlyMap<string, BatchFacts> {
+  return useQueries({
+    queries: batchIds.map((id) => ({
+      // Its own resource name: other areas cache this batch in other shapes.
+      queryKey: adminKeys.scoped(INVENTORY_MODULE, warehouseId, { resource: 'transfer-line-batch', batchId: id }),
+      queryFn: ({ signal }: { signal: AbortSignal }) => getBatch(id, signal),
+    })),
+    // combine is re-run only when a result changes, so the map stays stable between renders.
+    combine: (results) => {
+      const out = new Map<string, BatchFacts>();
+      for (const r of results) if (r.data !== undefined) out.set(r.data.id, batchFacts(r.data));
+      return out;
+    },
+  });
 }
 
 export interface TransferDetailState {

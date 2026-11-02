@@ -97,7 +97,9 @@ export async function isAccessTokenInvalidated(
     const invalidBeforeSeconds = Number(stamp);
     if (!Number.isFinite(invalidBeforeSeconds)) return false;
 
-    return issuedAtSeconds < invalidBeforeSeconds;
+    // Use <= so a token minted in the same second as the invalidation stamp
+    // (e.g. a refresh that raced a password change) is also rejected.
+    return issuedAtSeconds <= invalidBeforeSeconds;
   } catch (error) {
     logger.warn(
       { err: error, userId },

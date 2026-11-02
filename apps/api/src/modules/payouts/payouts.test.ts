@@ -207,6 +207,83 @@ describe('PayoutsService Unit Tests (BR-31)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Unit Tests — BR-31c threshold comes from system_config, compared in paise
+// ---------------------------------------------------------------------------
+
+describe('PayoutsService dual-approval threshold (BR-31c, system_config, integer paise)', () => {
+  function payoutRow(amount: string): PayoutRow {
+    return {
+      id: newId(), payout_number: 'PO-2026-000010', farmer_id: newId(), farmer_name: 'Test Farmer',
+      amount, mode: 'IMPS', status: 'REQUESTED', requires_dual_approval: false, initiated_by: newId(),
+      released_by: null, released_at: null, gateway_payout_id: null, failure_reason: null, paid_at: null,
+      remarks: null, created_at: new Date(), updated_at: null,
+    } as PayoutRow;
+  }
+
+  /**
+   * A service whose repo reports `thresholdPaise` as the configured threshold
+   * (or nothing, for `null`). Records every status the service writes.
+   */
+  function serviceWithThreshold(thresholdPaise: number | null) {
+    const statuses: string[] = [];
+    let created: PayoutRow | null = null;
+    const getDualApprovalThresholdPaise = vi.fn(async () => thresholdPaise);
+    const createPayout = vi.fn(async (_db: Executor, params: { amount: string }) => {
+      created = payoutRow(params.amount);
+      return { payout: created, approvals: [] };
+    });
+    const svc = createPayoutsService({
+      repo: {
+        getFarmerName: async () => 'Test Farmer',
+        getDualApprovalThresholdPaise,
+        createPayout,
+        updatePayoutStatus: async (_db: Executor, p: { status: string }) => {
+          statuses.push(p.status);
+          if (created) created.status = p.status;
+        },
+        findPayoutById: async () => (created ? { payout: created, approvals: [] } : null),
+        getFarmerUserId: async () => null,
+      } as unknown as PayoutRepo,
+      // writeAuditLog runs a query on the transaction; a no-op executor stands in.
+      runTx: async (fn) => fn({ query: async () => ({ rows: [{ id: 1 }], rowCount: 1 }) } as unknown as Executor),
+      idempotency: createInMemoryIdempotencyStore(),
+    });
+    return { svc, statuses, createPayout, getDualApprovalThresholdPaise };
+  }
+
+  const admin = { userId: newId(), roles: [{ code: 'SUPER_ADMIN' as const }], farmerId: null, customerId: null };
+
+  it('BR-31c: exactly the configured threshold (Rs 10,000.00 = 1000000 paise) follows the single-approval path', async () => {
+    const { svc, statuses, getDualApprovalThresholdPaise } = serviceWithThreshold(1_000_000);
+    const res = await svc.createPayout(admin, aScope({}), { farmerId: newId(), amount: '10000.00', mode: 'IMPS' }, newId());
+    expect(getDualApprovalThresholdPaise).toHaveBeenCalled();
+    expect(statuses).toEqual(['APPROVED']);
+    expect(res.status).toBe('APPROVED');
+  });
+
+  it('BR-31c: one paisa above the configured threshold (Rs 10,000.01) requires dual approval', async () => {
+    const { svc, statuses } = serviceWithThreshold(1_000_000);
+    const res = await svc.createPayout(admin, aScope({}), { farmerId: newId(), amount: '10000.01', mode: 'IMPS' }, newId());
+    expect(statuses).toEqual(['PENDING_APPROVAL']);
+    expect(res.status).toBe('PENDING_APPROVAL');
+  });
+
+  it('BR-31c: the threshold is read from system_config, not a constant — a lowered value is honoured', async () => {
+    const { svc, statuses } = serviceWithThreshold(50_000); // Rs 500.00
+    await svc.createPayout(admin, aScope({}), { farmerId: newId(), amount: '500.01', mode: 'IMPS' }, newId());
+    expect(statuses).toEqual(['PENDING_APPROVAL']);
+  });
+
+  it('BR-31c: a missing or malformed threshold config refuses the payout instead of guessing', async () => {
+    const { svc, createPayout } = serviceWithThreshold(null);
+    await expect(
+      svc.createPayout(admin, aScope({}), { farmerId: newId(), amount: '100.00', mode: 'IMPS' }, newId()),
+    ).rejects.toMatchObject({ code: 'INTERNAL', status: 500 });
+    expect(createPayout).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Integration Tests — require real DB
 // ---------------------------------------------------------------------------
 

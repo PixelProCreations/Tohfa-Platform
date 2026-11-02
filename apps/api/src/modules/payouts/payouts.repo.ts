@@ -1,3 +1,4 @@
+import { parseMoney, toPaise } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type {
   AgeBucket,
@@ -89,6 +90,15 @@ export interface PayoutRepo {
   ): Promise<void>;
 
   getFarmerName(db: Executor, farmerId: string): Promise<string | null>;
+
+  /**
+   * BR-31c: the dual-approval threshold, in integer paise, from
+   * `system_config.payout_dual_approval_threshold` (stored as rupees, e.g.
+   * 10000.00). Read on every request so an admin change takes effect without a
+   * deploy. `null` when the key is missing or not a well-formed, non-negative
+   * money value — the caller refuses the payout rather than guessing a limit.
+   */
+  getDualApprovalThresholdPaise(db: Executor): Promise<number | null>;
 
   /**
    * BR-70: take the farmer row lock, in the same mode and at the same point
@@ -357,6 +367,23 @@ export const payoutsRepo: PayoutRepo = {
       [farmerId],
     );
     return res.rows[0]?.full_name ?? null;
+  },
+
+  async getDualApprovalThresholdPaise(db) {
+    const res = await db.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'payout_dual_approval_threshold' LIMIT 1`,
+    );
+    const raw = res.rows[0]?.value;
+    if (raw === undefined || raw === null) return null;
+    // jsonb 10000.00 arrives as the JS number 10000; parseMoney routes it
+    // straight to integer paise and rejects anything not exact to 2 places.
+    let paise: number;
+    try {
+      paise = toPaise(parseMoney(raw));
+    } catch {
+      return null;
+    }
+    return paise >= 0 ? paise : null;
   },
 
   async lockFarmer(db, farmerId) {

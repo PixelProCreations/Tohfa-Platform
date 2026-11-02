@@ -1,6 +1,6 @@
 import type { Executor } from "../../db/pool.js";
 import type { InvoiceType, InvoiceStatus, Money } from "@tohfa/shared-types";
-import type { InvoiceDetailResponse, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
+import type { InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
 
 export interface InvoiceDbRow {
   id: string;
@@ -118,12 +118,44 @@ export interface InvoicesRepo {
   generateInvoiceNumber(db: Executor, fiscalYear: string, type: InvoiceType): Promise<string>;
   createInvoice(db: Executor, input: CreateInvoiceInput): Promise<InvoiceDetailResponse>;
   /** The invoice when it exists AND `visibility` covers it; otherwise null (one answer for both). */
-  findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailResponse | null>;
+  findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailView | null>;
   listInvoices(
     db: Executor,
     visibility: InvoiceVisibility,
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }>;
+  /**
+   * One row per (status, type) present among the invoices `visibility` covers, after the list's
+   * filters. Same predicate as `listInvoices` (`visibilitySql` + `listFilterSql`), so the summary
+   * counts exactly the rows the list pages through. `totalPaise` is integer paise as text.
+   */
+  summarizeInvoices(db: Executor, visibility: InvoiceVisibility, query: InvoiceSummaryQuery): Promise<InvoiceSummaryGroup[]>;
+}
+
+export interface InvoiceSummaryGroup {
+  status: string;
+  invoiceType: string;
+  count: number;
+  /** SUM(total_amount) in integer paise, as text (bigint never passes through a float). */
+  totalPaise: string;
+}
+
+/** The list's filters (type, issue-date window) as SQL on `invoices`; appends to `values`. */
+function listFilterSql(query: InvoiceSummaryQuery, values: unknown[]): string[] {
+  const conditions: string[] = [];
+  if (query.type) {
+    values.push(query.type);
+    conditions.push("invoice_type = $" + values.length);
+  }
+  if (query.fromDate) {
+    values.push(query.fromDate);
+    conditions.push("issue_date >= $" + values.length);
+  }
+  if (query.toDate) {
+    values.push(query.toDate);
+    conditions.push("issue_date <= $" + values.length);
+  }
+  return conditions;
 }
 
 export const invoicesRepo: InvoicesRepo = {
@@ -248,11 +280,23 @@ export const invoicesRepo: InvoicesRepo = {
     };
   },
 
-  async findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailResponse | null> {
+  async findById(db: Executor, id: string, visibility: InvoiceVisibility): Promise<InvoiceDetailView | null> {
     const values: unknown[] = [id];
     const visible = visibilitySql(visibility, values);
-    const invRes = await db.query<InvoiceDbRow>(
-      "SELECT * FROM invoices WHERE invoices.id = $1 AND " + visible,
+    // BR-128: the buyer, read live (no snapshot column exists on invoices). The invoice's customer
+    // (name and GSTIN as stored), else the walk-in name on its order; a farmer-side invoice (or one
+    // with no buyer recorded) has none. The visibility predicate is unchanged, so a customer only
+    // ever reaches their own name and GSTIN, and every other id is still the same null (404).
+    const invRes = await db.query<InvoiceDbRow & { buyer_name: string | null; buyer_gstin: string | null }>(
+      "SELECT invoices.*, " +
+        "CASE WHEN invoices.customer_id IS NOT NULL THEN bu.full_name " +
+        "WHEN invoices.farmer_id IS NULL THEN bo.walk_in_name END AS buyer_name, " +
+        "CASE WHEN invoices.customer_id IS NOT NULL THEN bc.gstin END AS buyer_gstin " +
+        "FROM invoices " +
+        "LEFT JOIN customers bc ON bc.id = invoices.customer_id " +
+        "LEFT JOIN users bu ON bu.id = bc.user_id " +
+        "LEFT JOIN orders bo ON bo.id = invoices.order_id " +
+        "WHERE invoices.id = $1 AND " + visible,
       values,
     );
     const invoice = invRes.rows[0];
@@ -297,6 +341,8 @@ export const invoicesRepo: InvoicesRepo = {
       igst: invoice.igst as Money,
       gstInclusive: invoice.gst_inclusive,
       lines,
+      buyerName: invoice.buyer_name,
+      buyerGstin: invoice.buyer_gstin,
     };
   },
 
@@ -306,22 +352,7 @@ export const invoicesRepo: InvoicesRepo = {
     query: ListInvoicesQuery,
   ): Promise<{ items: InvoiceSummaryResponse[]; page: { nextCursor: string | null; hasMore: boolean } }> {
     const values: unknown[] = [];
-    const conditions: string[] = [visibilitySql(visibility, values)];
-
-    if (query.type) {
-      values.push(query.type);
-      conditions.push("invoice_type = $" + values.length);
-    }
-
-    if (query.fromDate) {
-      values.push(query.fromDate);
-      conditions.push("issue_date >= $" + values.length);
-    }
-
-    if (query.toDate) {
-      values.push(query.toDate);
-      conditions.push("issue_date <= $" + values.length);
-    }
+    const conditions: string[] = [visibilitySql(visibility, values), ...listFilterSql(query, values)];
 
     if (query.cursor) {
       values.push(query.cursor);
@@ -365,5 +396,21 @@ export const invoicesRepo: InvoicesRepo = {
         hasMore,
       },
     };
+  },
+
+  async summarizeInvoices(db: Executor, visibility: InvoiceVisibility, query: InvoiceSummaryQuery): Promise<InvoiceSummaryGroup[]> {
+    const values: unknown[] = [];
+    const conditions: string[] = [visibilitySql(visibility, values), ...listFilterSql(query, values)];
+    // total_amount is numeric(14,2), so `* 100` is an exact integer: the sum is paise, cast to
+    // bigint text so it never passes through a float on its way to fromPaise().
+    const result = await db.query<{ status: string; invoice_type: string; count: number; total_paise: string }>(
+      "SELECT status::text AS status, invoice_type::text AS invoice_type, count(*)::int AS count, " +
+        "COALESCE(sum(total_amount * 100), 0)::bigint::text AS total_paise " +
+        "FROM invoices WHERE " +
+        conditions.join(" AND ") +
+        " GROUP BY status, invoice_type",
+      values,
+    );
+    return result.rows.map((r) => ({ status: r.status, invoiceType: r.invoice_type, count: r.count, totalPaise: r.total_paise }));
   },
 };

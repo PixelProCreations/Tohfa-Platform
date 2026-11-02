@@ -14,15 +14,23 @@
  * which the client cannot read, so the picker offers every active warehouse
  * and the server's 409 is shown as "this warehouse is full".
  *
+ * The list (design M15-06) filters the fully loaded rows client-side by the
+ * warehouse selector and the search box; see ./subAdminList.ts for why and for
+ * the KPI definitions. Review's Create opens a confirm dialog and only its
+ * Confirm sends the POST (./confirmCreateSubAdmin.ts).
+ *
  * SPEC GAP: there is no update, deactivate or delete endpoint (the server's
  * sub-admins routes say so), so the old edit / status / responsibility items
- * were removed: the detail is read-only. The list carries no mobile.
+ * were removed: the detail is read-only and the design's Responsibility
+ * Summary (M15-07) is not drawn, as no endpoint exposes another role's
+ * permission set. The list carries no mobile.
  */
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import type { CreatedSubAdminDto, SubAdminDto } from '../../../api/subAdmins';
-import { warehouseOptionName } from '../../../api/warehouseList';
+import { warehouseOptionName, type WarehouseOption } from '../../../api/warehouseList';
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { formatAdminDay } from '../../../utils/datetime';
@@ -34,8 +42,8 @@ import {
   EmptyState,
   InfoCard,
   InfoNote,
-  KpiRow,
   ScopeHeader,
+  SearchBar,
   SectionTitle,
   StatusBadge,
   SuccessCircleIcon,
@@ -44,19 +52,24 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
+import { confirmCreateSubAdmin } from './confirmCreateSubAdmin';
 import {
-  countLabel,
   createSubAdminErrorKey,
-  figureLabel,
   hasDraftErrors,
   normalizeMobile,
   subAdminStatusLabel,
   subAdminStatusTone,
   toCreateSubAdminBody,
   validateSubAdminDraft,
-  warehousesWithoutSubAdmin,
   type SubAdminDraft,
 } from './mappers';
+import {
+  filterSubAdmins,
+  filterSubAdminsByWarehouse,
+  filterUnstaffedWarehouses,
+  swaKpiLabels,
+  unstaffedInSelection,
+} from './subAdminList';
 import { useCreateSubAdmin, useSubAdmins } from './useWarehouseAdminData';
 import { AddUserIcon, UserIcon, WAREHOUSE_ADMIN_CODES } from './WarehouseAdminParts';
 import type { WarehouseScreenBaseProps } from './types';
@@ -101,6 +114,9 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
   const [draft, setDraft] = useState<SubAdminDraft>(EMPTY_DRAFT);
   const [showErrors, setShowErrors] = useState(false);
   const [created, setCreated] = useState<CreatedSubAdminDto | undefined>(undefined);
+  /** The list's warehouse selector; undefined is "All Warehouses". */
+  const [warehouseFilter, setWarehouseFilter] = useState<string | undefined>(undefined);
+  const [query, setQuery] = useState('');
 
   const admins = useSubAdmins(true);
   const warehouses = useWarehouseOptions({ enabled: can(WAREHOUSE_ADMIN_CODES.allView) });
@@ -108,9 +124,26 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
   const create = useCreateSubAdmin();
 
   const list = admins.data ?? [];
-  const unstaffed = admins.data === undefined ? [] : warehousesWithoutSubAdmin(warehouses.options, admins.data);
-  const errors = validateSubAdminDraft(draft);
   const nameOf = (warehouseId: string) => warehouseOptionName(warehouses.options, warehouseId) ?? t('warehouseAdmin.figure.unavailable');
+  // Create starts from every warehouse that has no SWA, whatever the list is filtered to.
+  const unstaffed = admins.data === undefined ? [] : unstaffedInSelection(warehouses.options, admins.data, undefined);
+  const errors = validateSubAdminDraft(draft);
+
+  // List view: the selector first, then the search (see ./subAdminList.ts).
+  const adminRows = filterSubAdmins(filterSubAdminsByWarehouse(list, warehouseFilter), query, nameOf);
+  const unstaffedRows = filterUnstaffedWarehouses(unstaffedInSelection(warehouses.options, list, warehouseFilter), query);
+  // A failed warehouse read is a failed figure, never "no warehouse is unassigned".
+  const warehouseSource = {
+    data: warehouses.isLoading || warehouses.error ? undefined : warehouses.options,
+    isLoading: warehouses.isLoading,
+    error: warehouses.error,
+  };
+  const kpi = swaKpiLabels({
+    admins: { data: admins.data, isLoading: admins.isLoading, error: admins.error },
+    warehouses: warehouseSource,
+    warehouseId: warehouseFilter,
+  });
+  const selectorOptions = warehouses.options.map((o: WarehouseOption) => ({ warehouseId: o.warehouseId, warehouseName: o.warehouseName }));
 
   const back = () => {
     const prev = PREVIOUS[step];
@@ -144,6 +177,9 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
       },
     });
   };
+  // Review's Create only opens the confirm; its Confirm is the one caller of submit (BR-25, BR-81).
+  const confirmCreate = () =>
+    confirmCreateSubAdmin({ name: draft.fullName.trim(), warehouse: nameOf(draft.warehouseId) }, submit);
   const fieldError = (field: keyof SubAdminDraft) => {
     const key = errors[field];
     return showErrors && key !== undefined ? <Text style={styles.fieldError}>{t(key)}</Text> : null;
@@ -181,7 +217,7 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
           <WalletFooter>
             <WalletButton
               label={create.isPending ? t('warehouseAdmin.swa.create.submitting') : t('warehouseAdmin.swa.create.submit')}
-              onPress={submit}
+              onPress={confirmCreate}
               disabled={create.isPending}
             />
             <WalletButton label={t('warehouseAdmin.swa.create.back')} variant="neutral" onPress={back} disabled={create.isPending} />
@@ -199,7 +235,20 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
   })();
 
   return (
-    <WalletScreen title={titleOf(step)} onBack={back} headerExtra={<ScopeHeader scope={scope} label={t('warehouseAdmin.scope.all')} />} footer={footer}>
+    <WalletScreen
+      title={titleOf(step)}
+      onBack={back}
+      headerExtra={
+        <ScopeHeader
+          scope={scope}
+          label={t('warehouseAdmin.scope.all')}
+          warehouseOptions={selectorOptions}
+          selectedWarehouseId={warehouseFilter}
+          onSelectWarehouse={step === 'list' && selectorOptions.length > 0 ? setWarehouseFilter : undefined}
+        />
+      }
+      footer={footer}
+    >
       {step === 'list' && admins.data === undefined ? (
         admins.isLoading ? (
           <AdminLoadingState />
@@ -211,20 +260,16 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
         <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           {step === 'list' ? (
             <>
-              <KpiRow
-                items={[
-                  { value: countLabel(list.length), label: t('warehouseAdmin.swa.kpi.total') },
-                  {
-                    value: figureLabel({ data: warehouses.isLoading ? undefined : unstaffed, isLoading: warehouses.isLoading, error: warehouses.error }, (rows) =>
-                      countLabel(rows.length),
-                    ),
-                    label: t('warehouseAdmin.swa.kpi.unassigned'),
-                    tone: 'danger',
-                  },
-                ]}
-              />
+              <OverviewCardsGrid style={styles.kpiGrid}>
+                <OverviewDashboardCard value={kpi.total} title={t('warehouseAdmin.swa.kpi.total')} icon="pickup" />
+                <OverviewDashboardCard value={kpi.active} title={t('warehouseAdmin.swa.kpi.active')} icon="pickup" tone="success" />
+                <OverviewDashboardCard value={kpi.pendingAssignment} title={t('warehouseAdmin.swa.kpi.pendingAssignment')} icon="inventory" tone="warning" />
+                <OverviewDashboardCard value={kpi.attention} title={t('warehouseAdmin.swa.kpi.attention')} icon="alert" tone="danger" />
+              </OverviewCardsGrid>
+              <SearchBar value={query} onChangeText={setQuery} placeholder={t('warehouseAdmin.swa.search.placeholder')} />
               {list.length === 0 ? <EmptyState title={t('warehouseAdmin.swa.empty.title')} subtitle={t('warehouseAdmin.swa.empty.subtitle')} /> : null}
-              {list.map((a) => (
+              {list.length > 0 && adminRows.length === 0 && unstaffedRows.length === 0 ? <EmptyState title={t('warehouseAdmin.swa.search.noMatch')} /> : null}
+              {adminRows.map((a) => (
                 <TouchableOpacity
                   key={`${a.userId}-${a.warehouseId}`}
                   style={styles.row}
@@ -250,7 +295,7 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
                   <StatusBadge label={subAdminStatusLabel(a.status)} tone={subAdminStatusTone(a.status)} />
                 </TouchableOpacity>
               ))}
-              {unstaffed.map((w) => (
+              {unstaffedRows.map((w) => (
                 <View key={w.warehouseId} style={styles.row}>
                   <View style={[styles.avatar, styles.avatarMuted]}>
                     <UserIcon color={adminColors.muted} crossed />
@@ -259,6 +304,7 @@ function ManageSubWarehouseAdminsContent({ scope, can, onBack }: ManageSubWareho
                     <Text style={[styles.rowTitle, styles.mutedText]}>{t('warehouseAdmin.swa.unassigned')}</Text>
                     <Text style={styles.rowMeta}>{t('warehouseAdmin.swa.unassignedMeta', { warehouse: w.warehouseName })}</Text>
                   </View>
+                  <StatusBadge label={t('warehouseAdmin.swa.unassignedBadge')} tone="warning" />
                 </View>
               ))}
               <InfoNote tone="info">{t('warehouseAdmin.swa.noEditNote')}</InfoNote>
@@ -373,6 +419,7 @@ const AVATAR = 44;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  kpiGrid: { marginBottom: adminSpacing.md },
   row: {
     flexDirection: 'row',
     alignItems: 'center',

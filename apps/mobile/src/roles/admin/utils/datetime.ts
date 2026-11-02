@@ -75,6 +75,12 @@ export function formatAdminDay(iso: string | Date): string {
   return ms === null ? '' : dayLabel(istParts(ms));
 }
 
+/** "08:00 PM" in IST, or '' when `iso` is not a date. */
+export function formatAdminTime(iso: string | Date): string {
+  const ms = parseInstant(iso);
+  return ms === null ? '' : timeLabel(istParts(ms));
+}
+
 /**
  * "Today · 08:05 AM", "Yesterday · 04:20 PM" or "20 Sep 2026 · 10:30 AM", by
  * IST calendar day relative to `now`. '' when `iso` is not a date.

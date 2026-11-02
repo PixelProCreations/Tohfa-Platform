@@ -115,6 +115,8 @@ export const ErrorCode = {
   SALE_CHANNEL_NOT_SUPPORTED: 'SALE_CHANNEL_NOT_SUPPORTED',
   /** A DIRECT/MARKET counter sale is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409. */
   COUNTER_SALE_NOT_REASSIGNABLE: 'COUNTER_SALE_NOT_REASSIGNABLE',
+  /** The requested role code is not defined in docs/rbac.json, so it cannot be assigned. HTTP 422. */
+  ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

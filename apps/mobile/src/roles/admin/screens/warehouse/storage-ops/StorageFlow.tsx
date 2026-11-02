@@ -113,8 +113,11 @@ export interface StorageFlowProps {
   onViewProductDetail?: ((product: string) => void) | undefined;
   /** Storage Location Assignment confirmed (inventory.batch.assign); the host finishes receiving. */
   onConfirmAssignment?: ((locationId: string) => void) | undefined;
-  /** Capacity "Manage Capacity Limits" (Warehouse Settings); the screen also needs warehouse.capacity.set. */
-  onManageCapacity?: (() => void) | undefined;
+  /**
+   * Capacity "Manage Capacity Limits" (Warehouse Settings), with the warehouse
+   * the capacity screen shows; the screen also needs warehouse.capacity.set.
+   */
+  onManageCapacity?: ((warehouseId: string | undefined) => void) | undefined;
   /** Operations hub bell. */
   onOpenNotifications?: (() => void) | undefined;
   /** Operations hub (Main) Warehouse Overview "View" link. */

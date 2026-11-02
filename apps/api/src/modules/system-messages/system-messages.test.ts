@@ -3,6 +3,8 @@
  * to them (scope + active window); read state is per user; mark-read is idempotent; anything
  * not visible is 404.
  *
+ * BR-134: every item carries the announcement's type (GENERAL unless one was set).
+ *
  * Part 1 is the service against a mocked repo. Part 2 is the real router + real SQL, because
  * the visibility rule lives in the query and a mocked repo cannot prove it.
  */
@@ -18,7 +20,7 @@ import type {
   SystemMessagesRepo,
   SystemMessageViewer,
 } from './system-messages.repo.js';
-import { listSystemMessagesQuery, systemMessageIdParam } from './system-messages.schema.js';
+import { listSystemMessagesQuery, systemMessageIdParam, systemMessageResponse } from './system-messages.schema.js';
 import { createSystemMessagesService } from './system-messages.service.js';
 
 const DB = {} as Executor;
@@ -28,6 +30,7 @@ function aRow(overrides: Partial<SystemMessageRow> = {}): SystemMessageRow {
   return {
     id: MSG_ID,
     scope: 'SYSTEM_WIDE',
+    type: 'GENERAL',
     title: 'Maintenance',
     body: 'Sunday 2am',
     locale: 'en',
@@ -114,7 +117,7 @@ describe('BR-65: system messages service (mocked repo)', () => {
     expect(calls.list[0]?.options).toEqual({ limit: 20, status: 'all' });
   });
 
-  it('BR-65c: list maps a row to {id, scope, title, body, locale, startsAt, endsAt, createdAt, isRead, readAt} and nothing else', async () => {
+  it('BR-65c: list maps a row to {id, scope, type, title, body, locale, startsAt, endsAt, createdAt, isRead, readAt} and nothing else', async () => {
     const { repo } = mockRepo({
       row: aRow({ ends_at: new Date('2026-12-01T00:00:00.000Z'), read_at: new Date('2026-10-02T05:00:00.000Z') }),
     });
@@ -126,6 +129,7 @@ describe('BR-65: system messages service (mocked repo)', () => {
       {
         id: MSG_ID,
         scope: 'SYSTEM_WIDE',
+        type: 'GENERAL',
         title: 'Maintenance',
         body: 'Sunday 2am',
         locale: 'en',
@@ -186,6 +190,38 @@ describe('BR-65: system messages service (mocked repo)', () => {
     expect(first.readAt).toBe('2026-10-02T00:00:00.000Z');
     expect(replay).toEqual(first);
     expect(calls.markRead).toEqual([MSG_ID, MSG_ID]);
+  });
+});
+
+describe('BR-134: system message type (mocked repo)', () => {
+  it("BR-134a: the service maps the row's type onto the item, on list, get and mark-read", async () => {
+    const state = { row: aRow({ type: 'MAINTENANCE' }) as SystemMessageRow | null };
+    const { repo } = mockRepo(state);
+    const service = createSystemMessagesService(repo, DB);
+
+    expect((await service.list(subAdmin, subScope, { limit: 20, status: 'all' })).items[0]?.type).toBe('MAINTENANCE');
+    expect((await service.get(subAdmin, subScope, MSG_ID)).type).toBe('MAINTENANCE');
+    expect((await service.markRead(subAdmin, subScope, MSG_ID)).type).toBe('MAINTENANCE');
+  });
+
+  it('BR-134a: the response schema requires type and accepts only GENERAL, MAINTENANCE, ALERT or PROMOTION', () => {
+    const item = {
+      id: MSG_ID,
+      scope: 'SYSTEM_WIDE',
+      title: 't',
+      body: 'b',
+      locale: 'en',
+      startsAt: '2026-10-01T00:00:00.000Z',
+      endsAt: null,
+      createdAt: '2026-09-30T00:00:00.000Z',
+      isRead: false,
+      readAt: null,
+    };
+    expect(systemMessageResponse.safeParse(item).success).toBe(false);
+    for (const type of ['GENERAL', 'MAINTENANCE', 'ALERT', 'PROMOTION']) {
+      expect(systemMessageResponse.safeParse({ ...item, type }).success, type).toBe(true);
+    }
+    expect(systemMessageResponse.safeParse({ ...item, type: 'URGENT' }).success).toBe(false);
   });
 });
 
@@ -263,6 +299,7 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
   interface Item {
     id: string;
     scope: string;
+    type: string;
     title: string;
     body: string;
     locale: string;
@@ -368,7 +405,7 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
     const item = (res.body.items as Item[]).find((i) => i.id === msg['whA']);
     expect(item).toBeDefined();
     expect(Object.keys(item!).sort()).toEqual(
-      ['id', 'scope', 'title', 'body', 'locale', 'startsAt', 'endsAt', 'createdAt', 'isRead', 'readAt'].sort(),
+      ['id', 'scope', 'type', 'title', 'body', 'locale', 'startsAt', 'endsAt', 'createdAt', 'isRead', 'readAt'].sort(),
     );
     expect(item).toMatchObject({ scope: 'WAREHOUSE', title: `BR65-whA-${stamp}`, locale: 'en', isRead: false, readAt: null, endsAt: null });
   });
@@ -465,5 +502,36 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
     expect((await request(app).get('/v1/system-messages?cursor=garbage').set('Authorization', as('main'))).status).toBe(422);
     expect((await request(app).get('/v1/system-messages?type=ALERT').set('Authorization', as('main'))).status).toBe(422);
     expect((await request(app).get('/v1/system-messages?limit=101').set('Authorization', as('main'))).status).toBe(422);
+  });
+
+  it('BR-134b: an announcement written without a type reads GENERAL, a MAINTENANCE one reads MAINTENANCE on list and detail, and an unknown type is rejected by the database', async () => {
+    if (!ready) return;
+    const { pool } = await import('../../db/pool.js');
+
+    // `sys` was inserted without naming a type: the column default applies.
+    const sysList = await request(app).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
+    expect((sysList.body.items as Item[]).find((i) => i.id === msg['sys'])?.type).toBe('GENERAL');
+    expect((await request(app).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('customer'))).body.type).toBe('GENERAL');
+
+    // Not registered in `msg`, so the visibility assertions above never see it.
+    const typed = await pool.query<{ id: string }>(
+      `INSERT INTO announcements (scope, type, title, body, created_by)
+       VALUES ('SYSTEM_WIDE', 'MAINTENANCE', $1, 'body', $2)
+       RETURNING id`,
+      [`BR134-maintenance-${stamp}`, users.main],
+    );
+    const typedId = typed.rows[0]!.id;
+    const list = await request(app).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
+    expect((list.body.items as Item[]).find((i) => i.id === typedId)?.type).toBe('MAINTENANCE');
+    const detail = await request(app).get(`/v1/system-messages/${typedId}`).set('Authorization', as('customer'));
+    expect(detail.status).toBe(200);
+    expect(detail.body.type).toBe('MAINTENANCE');
+
+    await expect(
+      pool.query(
+        `INSERT INTO announcements (scope, type, title, body, created_by) VALUES ('SYSTEM_WIDE', 'URGENT', $1, 'body', $2)`,
+        [`BR134-bogus-${stamp}`, users.main],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
   });
 });

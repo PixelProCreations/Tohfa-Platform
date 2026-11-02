@@ -13,7 +13,7 @@ import {
   newId,
 } from '../../test/factories.js';
 import { createTopupService } from './topup.service.js';
-import type { TopupRepo } from './topup.repo.js';
+import { topupRepo, type TopupRepo } from './topup.repo.js';
 import { cashTopupCustomerLookupQuery } from './topup.schema.js';
 import type { WalletService } from '../wallet/wallet.service.js';
 import { MockPaymentGateway } from '../../payments/mock.gateway.js';
@@ -152,6 +152,23 @@ describe('Cash top-up customer lookup (BR-91i, unit)', () => {
     expect(calls).toEqual([[{ kind: 'code', code: 'CUST-FIRST-1' }]]);
   });
 
+  it('BR-91i: the repo lookup never matches a soft-deleted user, by mobile or by code', async () => {
+    const statements: string[] = [];
+    const recording = {
+      async query(sql: string) {
+        statements.push(sql);
+        return { rows: [], rowCount: 0 } as never;
+      },
+    } as unknown as Executor;
+    await topupRepo.lookupCashTopupCustomers(recording, { kind: 'mobile', digits: '9876543210' });
+    await topupRepo.lookupCashTopupCustomers(recording, { kind: 'code', code: 'CUST-FIRST-1' });
+    expect(statements).toHaveLength(2);
+    for (const sql of statements) {
+      // The users join itself excludes a deleted account, so a recycled mobile cannot surface it.
+      expect(sql.replace(/\s+/g, ' ')).toContain('JOIN users u ON u.id = c.user_id AND u.deleted_at IS NULL');
+    }
+  });
+
   it('BR-91i: the top-up lookup takes exactly one of mobile or code; a name/partial search (q) is refused, so it cannot be used to browse customers', () => {
     expect(cashTopupCustomerLookupQuery.safeParse({ mobile: '9876543210' }).success).toBe(true);
     expect(cashTopupCustomerLookupQuery.safeParse({ code: 'CUST-FIRST-1' }).success).toBe(true);
@@ -180,7 +197,7 @@ describe('Cash top-up idempotency (BR-18d, unit)', () => {
    * is UNIQUE (0007_money.sql uq_topups_fiscal_cash_tag), so a second insert with a used tag
    * fails with 23505 exactly as Postgres would.
    */
-  function cashHarness() {
+  function cashHarness(cap: string | null = '10000.00') {
     const usedTags = new Set<string>();
     const topupRows: string[] = [];
     const credits: { idempotencyKey: string; amount: string }[] = [];
@@ -189,7 +206,7 @@ describe('Cash top-up idempotency (BR-18d, unit)', () => {
       query: async () => ({ rows: [{ id: newId() }], rowCount: 1 }),
     } as unknown as Executor;
     const repo = {
-      getCashTopupCap: async () => '10000.00',
+      getCashTopupCap: async () => cap,
       findCustomerWallet: async () => ({ id: WALLET, balance: '0.00' }),
       createCashTopup: async (_db: Executor, params: { fiscalCashTag: string }) => {
         if (usedTags.has(params.fiscalCashTag)) {
@@ -279,6 +296,72 @@ describe('Cash top-up idempotency (BR-18d, unit)', () => {
     });
     expect(topupRows).toHaveLength(1);
     expect(credits).toHaveLength(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // BR-19c / BR-19d: the cap comparison is exact (integer paise), and the cap comes from
+  // system_config only. The comparison used to be `Number(amount) > Number(cap)`.
+  // ---------------------------------------------------------------------------
+  it('BR-19c: an amount one paisa above the cap is refused even where binary floats cannot tell them apart (compared in integer paise, not Number())', async () => {
+    // At this magnitude adjacent doubles are 1/64 rupee apart, so Number() rounds both strings to
+    // the SAME double and `Number(amount) > Number(cap)` is false: the over-cap amount was accepted.
+    // Both values are still exact in integer paise (below Number.MAX_SAFE_INTEGER).
+    const cap = '70368744177664.01';
+    const amount = '70368744177664.02';
+    expect(Number(amount) > Number(cap)).toBe(false); // the float comparison this test replaces
+    const { service, topupRows, credits } = cashHarness(cap);
+    await expect(service.processCashTopup(actor, scope, CUSTOMER, body({ amount }), newId())).rejects.toMatchObject({
+      code: 'CASH_LIMIT_EXCEEDED',
+      status: 422,
+    });
+    expect(topupRows).toHaveLength(0);
+    expect(credits).toHaveLength(0);
+  });
+
+  it('BR-19c: a cap stored as a decimal string or as a bare number compares exactly: equal is accepted, one paisa more is refused', async () => {
+    for (const cap of ['10000.00', '10000', '10000.0']) {
+      const accepted = cashHarness(cap);
+      await accepted.service.processCashTopup(actor, scope, CUSTOMER, body({ amount: '10000.00' }), newId());
+      expect(accepted.credits, cap).toHaveLength(1);
+
+      const refused = cashHarness(cap);
+      await expect(
+        refused.service.processCashTopup(actor, scope, CUSTOMER, body({ amount: '10000.01' }), newId()),
+        cap,
+      ).rejects.toMatchObject({ code: 'CASH_LIMIT_EXCEEDED', status: 422 });
+      expect(refused.credits, cap).toHaveLength(0);
+    }
+  });
+
+  it('BR-19d: a malformed system_config cash_topup_cap fails closed (500 INTERNAL, nothing credited); Number() made it NaN, and every amount passed', async () => {
+    for (const cap of ['10,000.00', 'ten thousand', '10000.005', '']) {
+      const { service, topupRows, credits } = cashHarness(cap);
+      await expect(
+        service.processCashTopup(actor, scope, CUSTOMER, body({ amount: '50000.00' }), newId()),
+        cap,
+      ).rejects.toMatchObject({ code: 'INTERNAL', status: 500 });
+      expect(topupRows, cap).toHaveLength(0);
+      expect(credits, cap).toHaveLength(0);
+    }
+  });
+
+  it('BR-19d: a missing system_config cash_topup_cap fails closed (500 INTERNAL, nothing credited): there is no literal fallback', async () => {
+    const { service, topupRows, credits } = cashHarness(null);
+    await expect(service.processCashTopup(actor, scope, CUSTOMER, body(), newId())).rejects.toMatchObject({
+      code: 'INTERNAL',
+      status: 500,
+    });
+    expect(topupRows).toHaveLength(0);
+    expect(credits).toHaveLength(0);
+  });
+
+  it('BR-19d: the repo reads cash_topup_cap from system_config and reports a missing row as null, never a hard-coded 10000.00', async () => {
+    const { topupRepo } = await import('./topup.repo.js');
+    const executor = (rows: unknown[]): Executor => ({ query: async () => ({ rows, rowCount: rows.length }) }) as unknown as Executor;
+    expect(await topupRepo.getCashTopupCap(executor([]))).toBeNull();
+    expect(await topupRepo.getCashTopupCap(executor([{ value: null }]))).toBeNull();
+    expect(await topupRepo.getCashTopupCap(executor([{ value: 10000 }]))).toBe('10000');
+    expect(await topupRepo.getCashTopupCap(executor([{ value: '7500.50' }]))).toBe('7500.50');
   });
 });
 

@@ -168,6 +168,40 @@ export function openableFileUrl(dto: WarehouseDocumentDetailDto): string | null 
   return typeof dto.fileUrl === 'string' && dto.fileUrl !== '' ? dto.fileUrl : null;
 }
 
+/**
+ * Whether the caller may edit or archive documents in the app at all.
+ *
+ * Owner decision 2026-10-23 (design M15-08: "No Edit, Delete, Replace,
+ * Approve or Verify here"): documents are VIEW-ONLY for the Main admin, i.e.
+ * an all-warehouses scope (no single own warehouse), even though docs/rbac.json
+ * grants it warehouse.document.manage = all and the server still accepts its
+ * writes. This is a UI rule only; the rbac grant is unchanged and flagged for
+ * the owner. A single-warehouse (Sub) scope keeps exactly its code (BR-105;
+ * rbac.json gives SUB none today, so nothing changes for it).
+ */
+export function canManageDocuments(scope: { warehouseId?: string | undefined }, holdsManageCode: boolean): boolean {
+  return scope.warehouseId !== undefined && holdsManageCode;
+}
+
+/** Why the documents are read-only, or null when the caller may manage them. */
+export function documentsReadOnlyNoteKey(
+  scope: { warehouseId?: string | undefined },
+  holdsManageCode: boolean,
+): 'warehouseDocs.viewOnlyNote' | 'warehouseDocs.readOnlyNote' | null {
+  if (scope.warehouseId === undefined) return 'warehouseDocs.viewOnlyNote';
+  return holdsManageCode ? null : 'warehouseDocs.readOnlyNote';
+}
+
+/**
+ * The detail banner (design M15-08: "Document Expiring Soon — contact
+ * authorized administrator for renewal."): only for the status the server
+ * derived as EXPIRING_SOON (its system_config window, BR-105.3), never a date
+ * the app compares itself.
+ */
+export function documentExpiryBannerKey(status: WarehouseDocumentStatus | null): 'warehouseDocs.banner.expiringSoon' | null {
+  return status === 'EXPIRING_SOON' ? 'warehouseDocs.banner.expiringSoon' : null;
+}
+
 /** Edit and archive are offered only with warehouse.document.manage, and never on an archived document (409). */
 export function canManageDocument(view: WarehouseDocumentView, canManage: boolean): boolean {
   return canManage && !view.isArchived;

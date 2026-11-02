@@ -1,6 +1,12 @@
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  requireIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { warehouseVisible } from '../../rbac/warehouseScope.js';
@@ -8,6 +14,7 @@ import { allocationsService, type AllocateBatchInput } from '../allocations/allo
 import type { BatchView } from '../inventory/inventory.schema.js';
 import type { ProduceGrade } from '../purchase-orders/purchase-orders.schema.js';
 import { confineToAssignedWarehouses, warehouseNotFound } from '../warehouse-ops/scope.js';
+import { findPlaceableLocation } from '../warehouse-ops/storage-locations.repo.js';
 import {
   goodsReceiptsRepo,
   type GoodsReceiptsRepo,
@@ -17,7 +24,13 @@ import {
   qcParameters,
   type QcOutcome,
   type CreateGoodsReceiptBody,
+  type GoodsReceiptDetailResponse,
+  type GoodsReceiptDocumentResponse,
+  type GoodsReceiptDiscrepancyCreateBody,
+  type GoodsReceiptDiscrepancyResponse,
   type GoodsReceiptResponse,
+  type ListGoodsReceiptDiscrepanciesQuery,
+  type ListGoodsReceiptDiscrepanciesResponse,
   type ListGoodsReceiptsQuery,
   type ListGoodsReceiptsResponse,
   type QualityCheckCreateBody,
@@ -27,18 +40,22 @@ import {
 } from './goods-receipts.schema.js';
 
 export interface GoodsReceiptsService {
+  /** BR-118: `idempotencyKey` is the required Idempotency-Key header (422 when missing). */
   createGoodsReceipt(
     actor: Actor,
     scope: ResolvedScope,
     input: CreateGoodsReceiptBody,
+    idempotencyKey?: string,
   ): Promise<GoodsReceiptResponse>;
 
+  /** BR-118: `idempotencyKey` is the required Idempotency-Key header (422 when missing). */
   recordQualityCheck(
     actor: Actor,
     scope: ResolvedScope,
     goodsReceiptId: string,
     input: QualityCheckCreateBody,
-  ): Promise<{ qualityCheck: QualityCheckResponse; batch: BatchView | null }>;
+    idempotencyKey?: string,
+  ): Promise<QualityCheckResult>;
 
   /**
    * BR-106 hook: the farmer has just accepted counter-offer `offerId`, on transaction `tx`
@@ -49,27 +66,76 @@ export interface GoodsReceiptsService {
    */
   stockAcceptedQualityCounterOffer(tx: Executor, offerId: string): Promise<BatchView | null>;
 
+  /** BR-118: `idempotencyKey` is the required Idempotency-Key header (422 when missing). */
   createQualityCounterOffer(
     actor: Actor,
     scope: ResolvedScope,
     goodsReceiptId: string,
     input: QualityCounterOfferBody,
+    idempotencyKey?: string,
   ): Promise<QualityCounterOfferResponse>;
 
+  /** BR-119: the receipt with its latest quality check (null before any check). */
   getById(
     actor: Actor,
     scope: ResolvedScope,
     id: string,
-  ): Promise<GoodsReceiptResponse>;
+  ): Promise<GoodsReceiptDetailResponse>;
+
+  /** BR-124: the printable goods receipt note, derived at read time; another warehouse's is 404. */
+  getDocument(
+    actor: Actor,
+    scope: ResolvedScope,
+    id: string,
+  ): Promise<GoodsReceiptDocumentResponse>;
 
   list(
     actor: Actor,
     scope: ResolvedScope,
     query: ListGoodsReceiptsQuery,
   ): Promise<ListGoodsReceiptsResponse>;
+
+  /** BR-121: an OPEN damage / mismatch report on a receipt in scope; Idempotency-Key required. */
+  createDiscrepancy(
+    actor: Actor,
+    scope: ResolvedScope,
+    goodsReceiptId: string,
+    input: GoodsReceiptDiscrepancyCreateBody,
+    idempotencyKey?: string,
+  ): Promise<GoodsReceiptDiscrepancyResponse>;
+
+  /** BR-121: the receipt's reports, newest first; another warehouse's receipt is 404. */
+  listDiscrepancies(
+    actor: Actor,
+    scope: ResolvedScope,
+    goodsReceiptId: string,
+    query: ListGoodsReceiptDiscrepanciesQuery,
+  ): Promise<ListGoodsReceiptDiscrepanciesResponse>;
 }
 
+export type QualityCheckResult = { qualityCheck: QualityCheckResponse; batch: BatchView | null };
+
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
+
+/**
+ * The `operation` recorded on an idempotency_keys claim (BR-118). One per endpoint, so a key used on
+ * one of them and sent to another is 409 IDEMPOTENCY_KEY_REUSED, never a replay of the wrong thing.
+ */
+const OPERATION = {
+  createReceipt: 'inventory.goods_receipt.record',
+  qualityCheck: 'inventory.quality_check.perform',
+  qualityCounterOffer: 'inventory.quality.counter_offer',
+  // Not a permission code: the report shares inventory.quality_check.perform with the quality check,
+  // and a key sent to one must never replay the other.
+  discrepancy: 'inventory.goods_receipt.discrepancy',
+} as const;
+
+/** One 404 for an unknown receipt and another warehouse's (BR-30b): the body never tells them apart. */
+function goodsReceiptNotFound(goodsReceiptId: string): AppError {
+  return new AppError('NOT_FOUND', {
+    detail: `Goods receipt "${goodsReceiptId}" was not found or is outside your warehouse scope (BR-30b).`,
+  });
+}
 
 /** BR-12 channel allocation of a new batch, on the caller's transaction. Injected for unit tests. */
 export type BatchAllocator = (input: AllocateBatchInput, tx: Executor) => Promise<unknown>;
@@ -83,6 +149,14 @@ const allocateNewBatch: BatchAllocator = (input, tx) => allocationsService.alloc
  */
 function qualityCheckStocks(outcome: QcOutcome, grade: ProduceGrade, acceptedQtyKg: number): boolean {
   return (outcome === 'ACCEPTED' || outcome === 'PARTIALLY_ACCEPTED') && grade !== 'REJECT' && acceptedQtyKg > 0;
+}
+
+/**
+ * A Quantity decimal string (at most 3 decimals) as integer grams, so quantity sums are compared
+ * exactly rather than as floats (BR-120). Exact for every value numeric(12,3) can hold.
+ */
+function kgToGrams(kg: string): number {
+  return Math.round(Number(kg) * 1000);
 }
 
 /** uq_inventory_batches_goods_receipt_id (migration 0070) decided a race the row lock did not see. */
@@ -107,6 +181,8 @@ interface StockReceiptInput {
   /** Pass-through of the QC's optional values; NULL when not given (owner decision 4). */
   expiryOn: string | null;
   storageLocation: string | null;
+  /** BR-125: the linked location (already validated against the receipt's warehouse), or null. */
+  storageLocationId: string | null;
   audit:
     | { trigger: 'quality_check'; actorId: string; actorRole: string; qualityCheckId: string }
     | { trigger: 'quality_counter_offer.accepted'; counterOfferId: string };
@@ -132,6 +208,7 @@ export function createGoodsReceiptsService(
   runTx: TransactionRunner = withTransaction,
   db: Executor = pool,
   allocate: BatchAllocator = allocateNewBatch,
+  idempotency: IdempotencyStore = idempotencyStore,
 ): GoodsReceiptsService {
   /**
    * BR-106: stock an accepted receipt as one batch, on the caller's transaction `tx`: the batch
@@ -157,6 +234,7 @@ export function createGoodsReceiptsService(
         qtyReceivedKg: input.qtyKg,
         costPerKg: source.purchasePricePerKg,
         storageLocation: input.storageLocation,
+        storageLocationId: input.storageLocationId,
         expiryOn: input.expiryOn,
       });
     } catch (error) {
@@ -200,6 +278,7 @@ export function createGoodsReceiptsService(
         qtyReceivedKg: batch.qtyReceivedKg,
         expiryOn: batch.expiryOn,
         storageLocation: batch.storageLocation,
+        storageLocationId: batch.storageLocationId ?? null,
         trigger: audit.trigger,
         ...(audit.trigger === 'quality_check'
           ? { qualityCheckId: audit.qualityCheckId }
@@ -215,85 +294,99 @@ export function createGoodsReceiptsService(
       actor: Actor,
       scope: ResolvedScope,
       input: CreateGoodsReceiptBody,
+      idempotencyKey?: string,
     ): Promise<GoodsReceiptResponse> {
-      // 1. Warehouse scope check (BR-30): another warehouse is the same 404 as an unknown one.
-      const confined = confineToAssignedWarehouses(scope);
-      if (!warehouseVisible(confined, input.warehouseId)) {
-        throw warehouseNotFound(input.warehouseId);
-      }
+      // BR-118: docs/openapi.yaml marks the Idempotency-Key required here; without one a retry
+      // cannot be told from a second delivery.
+      const key = requireIdempotencyKey(idempotencyKey);
 
-      // 2. Validate purchase order. One destined for another warehouse is not found (BR-30),
-      // so the mismatch check below can never name a warehouse the caller cannot reach.
-      const po = await repo.findPurchaseOrderForReceipt(db, input.purchaseOrderId, confined);
-      if (po === null) {
-        throw new AppError('NOT_FOUND', {
-          detail: `Purchase order "${input.purchaseOrderId}" was not found.`,
+      // One transaction for the claim, the receipt and its audit row (BR-35): a refused or failed
+      // request leaves no claim and no row, and a replay returns before anything is written.
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<GoodsReceiptResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.createReceipt,
+          request: { body: input },
         });
-      }
+        if (idem.replay) return idem.response;
 
-      if (po.warehouseId !== input.warehouseId) {
-        throw new AppError('VALIDATION_FAILED', {
-          detail: `Purchase order destination warehouse (${po.warehouseId}) does not match intake warehouse (${input.warehouseId}).`,
+        // 1. Warehouse scope check (BR-30): another warehouse is the same 404 as an unknown one.
+        const confined = confineToAssignedWarehouses(scope);
+        if (!warehouseVisible(confined, input.warehouseId)) {
+          throw warehouseNotFound(input.warehouseId);
+        }
+
+        // 2. Validate purchase order. One destined for another warehouse is not found (BR-30),
+        // so the mismatch check below can never name a warehouse the caller cannot reach.
+        const po = await repo.findPurchaseOrderForReceipt(tx, input.purchaseOrderId, confined);
+        if (po === null) {
+          throw new AppError('NOT_FOUND', {
+            detail: `Purchase order "${input.purchaseOrderId}" was not found.`,
+          });
+        }
+
+        if (po.warehouseId !== input.warehouseId) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: `Purchase order destination warehouse (${po.warehouseId}) does not match intake warehouse (${input.warehouseId}).`,
+          });
+        }
+
+        const grossQty = Number(input.grossQtyKg);
+        if (isNaN(grossQty) || grossQty <= 0) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'Gross quantity must be a positive number.',
+          });
+        }
+
+        // 3. Insert goods receipt note
+        const grnRow = await repo.insertGoodsReceipt(tx, {
+          ...input,
+          farmerId: po.farmerId,
+          receivedBy: actor.userId,
         });
-      }
 
-      const grossQty = Number(input.grossQtyKg);
-      if (isNaN(grossQty) || grossQty <= 0) {
-        throw new AppError('VALIDATION_FAILED', {
-          detail: 'Gross quantity must be a positive number.',
+        // 4. Audit log (BR-35), through the shared helper on this transaction. It used to be a raw
+        // INSERT on the pool, outside the receipt's transaction, whose failure was swallowed.
+        await repo.recordAudit(tx, {
+          actorId: actor.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'inventory.goods_receipt.record',
+          entityType: 'goods_receipt',
+          entityId: grnRow.id,
+          warehouseId: input.warehouseId,
+          after: grnRow,
         });
-      }
 
-      // 3. Insert goods receipt note
-      const grnRow = await repo.insertGoodsReceipt(db, {
-        ...input,
-        farmerId: po.farmerId,
-        receivedBy: actor.userId,
+        const response: GoodsReceiptResponse = {
+          id: grnRow.id,
+          grnNumber: grnRow.grn_number,
+          purchaseOrderId: grnRow.purchase_order_id,
+          warehouseId: grnRow.warehouse_id,
+          farmerId: grnRow.farmer_id,
+          grossQtyKg: Number(grnRow.gross_qty_kg).toFixed(3),
+          acceptedQtyKg: Number(grnRow.accepted_qty_kg).toFixed(3),
+          rejectedQtyKg: Number(grnRow.rejected_qty_kg).toFixed(3),
+          rejectionReason: grnRow.rejection_reason,
+          vehicleNumber: grnRow.vehicle_number,
+          photos: grnRow.photo_keys ?? [],
+          status: grnRow.status,
+          receivedBy: grnRow.received_by,
+          receivedByName: grnRow.received_by_name ?? null,
+          receivedAt: grnRow.received_at instanceof Date ? grnRow.received_at.toISOString() : String(grnRow.received_at),
+          poNumber: po.poNumber,
+          cropName: po.cropName,
+          grade: po.grade,
+          // A new receipt awaits its quality check: nothing is stocked yet (BR-106).
+          batchId: null,
+          batchCode: null,
+          // BR-123: as stored; null / null when the request carried none.
+          packageCount: grnRow.package_count ?? null,
+          packageUnit: grnRow.package_unit ?? null,
+        };
+        await idem.complete(response);
+        return response;
       });
-
-      // 4. Audit log (BR-35)
-      try {
-        await db.query(
-          `INSERT INTO audit_log (
-            actor_id, actor_role, action_code, entity_type, entity_id, warehouse_id, outcome, after
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            actor.userId,
-            scope.roleCode,
-            'inventory.goods_receipt.record',
-            'goods_receipt',
-            grnRow.id,
-            input.warehouseId,
-            'ALLOWED',
-            JSON.stringify(grnRow),
-          ],
-        );
-      } catch {
-        // unit test env fallback
-      }
-
-      return {
-        id: grnRow.id,
-        grnNumber: grnRow.grn_number,
-        purchaseOrderId: grnRow.purchase_order_id,
-        warehouseId: grnRow.warehouse_id,
-        farmerId: grnRow.farmer_id,
-        grossQtyKg: Number(grnRow.gross_qty_kg).toFixed(3),
-        acceptedQtyKg: Number(grnRow.accepted_qty_kg).toFixed(3),
-        rejectedQtyKg: Number(grnRow.rejected_qty_kg).toFixed(3),
-        rejectionReason: grnRow.rejection_reason,
-        vehicleNumber: grnRow.vehicle_number,
-        photos: grnRow.photo_keys ?? [],
-        status: grnRow.status,
-        receivedBy: grnRow.received_by,
-        receivedAt: grnRow.received_at instanceof Date ? grnRow.received_at.toISOString() : String(grnRow.received_at),
-        poNumber: po.poNumber,
-        cropName: po.cropName,
-        grade: po.grade,
-        // A new receipt awaits its quality check: nothing is stocked yet (BR-106).
-        batchId: null,
-        batchCode: null,
-      };
     },
 
     async recordQualityCheck(
@@ -301,66 +394,140 @@ export function createGoodsReceiptsService(
       scope: ResolvedScope,
       goodsReceiptId: string,
       input: QualityCheckCreateBody,
-    ): Promise<{ qualityCheck: QualityCheckResponse; batch: BatchView | null }> {
-      // 1. Fetch GRN with warehouse scoping (BR-30b: cross-warehouse is 404)
-      const grn = await repo.findGoodsReceiptById(db, goodsReceiptId, confineToAssignedWarehouses(scope));
-      if (grn === null) {
-        throw new AppError('NOT_FOUND', {
-          detail: `Goods receipt "${goodsReceiptId}" was not found or is outside your warehouse scope (BR-30b).`,
-        });
-      }
+      idempotencyKey?: string,
+    ): Promise<QualityCheckResult> {
+      const key = requireIdempotencyKey(idempotencyKey);
 
-      if (grn.status !== 'AWAITING_QC') {
-        throw new AppError('CONFLICT', {
-          detail: `Goods receipt "${goodsReceiptId}" is already in status "${grn.status}" and cannot undergo quality check.`,
+      // BR-118: the key is claimed FIRST, inside the one transaction that records the check. A
+      // replay must return the original result before the AWAITING_QC check below (the first call
+      // has moved the receipt on, so it would be a spurious 409), and must stock nothing again
+      // (BR-106: one receipt, one batch, one RECEIPT ledger row). The checks read on `tx`.
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<QualityCheckResult>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.qualityCheck,
+          request: { goodsReceiptId, body: input },
         });
-      }
+        if (idem.replay) return idem.response;
 
-      // 2. Validate all 5 parameters of the 5-point quality check (BR-30, mandatory)
-      const parameterSet = new Set(input.items.map((it) => it.parameter));
-      for (const requiredParam of qcParameters) {
-        if (!parameterSet.has(requiredParam)) {
-          throw new AppError('VALIDATION_FAILED', {
-            detail: `5-point quality check is missing parameter: "${requiredParam}". All 5 parameters (APPEARANCE, SIZE_UNIFORMITY, MOISTURE, DAMAGE_PEST, FRESHNESS) are mandatory.`,
+        // 1. Fetch GRN with warehouse scoping (BR-30b: cross-warehouse is 404)
+        const grn = await repo.findGoodsReceiptById(tx, goodsReceiptId, confineToAssignedWarehouses(scope));
+        if (grn === null) {
+          throw new AppError('NOT_FOUND', {
+            detail: `Goods receipt "${goodsReceiptId}" was not found or is outside your warehouse scope (BR-30b).`,
           });
         }
-      }
 
-      if (input.items.length !== 5) {
-        throw new AppError('VALIDATION_FAILED', {
-          detail: '5-point quality check must have exactly 5 items.',
-        });
-      }
+        if (grn.status !== 'AWAITING_QC') {
+          throw new AppError('CONFLICT', {
+            detail: `Goods receipt "${goodsReceiptId}" is already in status "${grn.status}" and cannot undergo quality check.`,
+          });
+        }
 
-      // 3. Validate quantity balance (accepted + rejected <= gross)
-      const acceptedQty = Number(input.acceptedQtyKg);
-      const rejectedQty = Number(input.rejectedQtyKg ?? '0.000');
-      const grossQty = Number(grn.grossQtyKg);
+        // 2. Validate all 5 parameters of the 5-point quality check (BR-30, mandatory)
+        const parameterSet = new Set(input.items.map((it) => it.parameter));
+        for (const requiredParam of qcParameters) {
+          if (!parameterSet.has(requiredParam)) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: `5-point quality check is missing parameter: "${requiredParam}". All 5 parameters (APPEARANCE, SIZE_UNIFORMITY, MOISTURE, DAMAGE_PEST, FRESHNESS) are mandatory.`,
+            });
+          }
+        }
 
-      if (acceptedQty < 0 || rejectedQty < 0) {
-        throw new AppError('VALIDATION_FAILED', {
-          detail: 'Accepted and rejected quantities must be non-negative.',
-        });
-      }
+        if (input.items.length !== 5) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: '5-point quality check must have exactly 5 items.',
+          });
+        }
 
-      if (acceptedQty + rejectedQty > grossQty + 0.0001) {
-        throw new AppError('VALIDATION_FAILED', {
-          detail: `acceptedQtyKg (${acceptedQty}) + rejectedQtyKg (${rejectedQty}) cannot exceed grossQtyKg (${grossQty}).`,
-        });
-      }
+        // 3. Validate quantity balance (accepted + rejected <= gross)
+        const acceptedQty = Number(input.acceptedQtyKg);
+        const rejectedQty = Number(input.rejectedQtyKg ?? '0.000');
+        const grossQty = Number(grn.grossQtyKg);
 
-      if (rejectedQty > 0 && !input.rejectionReason && !input.defectNotes) {
-        throw new AppError('VALIDATION_FAILED', {
-          detail: 'A non-zero rejected quantity requires a rejection reason or defect notes.',
-        });
-      }
+        if (acceptedQty < 0 || rejectedQty < 0) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'Accepted and rejected quantities must be non-negative.',
+          });
+        }
 
-      // 4. Atomic transaction: the quality check & items, the GRN status, the batch the accepted
-      // goods are stocked as (BR-106) and the audit rows commit or roll back together.
-      const acceptedQtyKg = Number(acceptedQty).toFixed(3);
-      return runTx(async (tx) => {
+        if (acceptedQty + rejectedQty > grossQty + 0.0001) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: `acceptedQtyKg (${acceptedQty}) + rejectedQtyKg (${rejectedQty}) cannot exceed grossQtyKg (${grossQty}).`,
+          });
+        }
+
+        if (rejectedQty > 0 && !input.rejectionReason && !input.defectNotes && input.rejectionReasonCode === undefined) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'A non-zero rejected quantity requires a rejection reason, a rejection reason code or defect notes.',
+          });
+        }
+
+        // BR-120: damaged and spoiled are a breakdown OF the rejected quantity, never in addition to
+        // it, so with accepted + rejected <= gross above they can never make the books hold more than
+        // arrived. They never change what is stocked (accepted quantity only, BR-106). Integer grams.
+        const rejectedGrams = kgToGrams(input.rejectedQtyKg ?? '0');
+        const damagedGrams = kgToGrams(input.damagedQtyKg ?? '0');
+        const spoiledGrams = kgToGrams(input.spoiledQtyKg ?? '0');
+        if (damagedGrams + spoiledGrams > rejectedGrams) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: `damagedQtyKg (${input.damagedQtyKg}) + spoiledQtyKg (${input.spoiledQtyKg}) cannot exceed rejectedQtyKg (${input.rejectedQtyKg}): they are parts of the rejected quantity.`,
+          });
+        }
+        if (input.rejectionReasonCode !== undefined && rejectedGrams === 0) {
+          throw new AppError('VALIDATION_FAILED', {
+            detail: 'rejectionReasonCode needs a non-zero rejectedQtyKg.',
+          });
+        }
+
+        // BR-120: a crop mismatch is recorded only (the batch keeps the purchase order's crop), but
+        // it must name a real crop other than the ordered one, for no more than arrived.
+        if (input.actualCropId !== undefined) {
+          const crop = await repo.findCropMismatchContext(tx, goodsReceiptId, input.actualCropId);
+          if (crop === null || !crop.actualCropExists) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: `actualCropId "${input.actualCropId}" is not a known crop.`,
+            });
+          }
+          if (crop.purchaseOrderCropId === input.actualCropId) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: "actualCropId is the purchase order's own crop; omit it when the right crop was delivered.",
+            });
+          }
+          if (kgToGrams(input.cropMismatchQtyKg ?? '0') > kgToGrams(grn.grossQtyKg)) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: `cropMismatchQtyKg (${input.cropMismatchQtyKg}) cannot exceed grossQtyKg (${grn.grossQtyKg}).`,
+            });
+          }
+        }
+
+        // BR-125: a named storage location must be a live, ACTIVE location of the receipt's
+        // warehouse; it is share-locked until this transaction ends so it cannot be deactivated
+        // under the batch. Without text, the batch's label is the location's code. Nothing is
+        // inferred from text alone.
+        let storageLocation = input.storageLocation;
+        if (input.storageLocationId !== undefined) {
+          const location = await findPlaceableLocation(tx, grn.warehouseId, input.storageLocationId);
+          if (location === null || !location.isActive) {
+            throw new AppError('VALIDATION_FAILED', {
+              detail: 'The storage location cannot take stock of this receipt.',
+              errors: {
+                'body.storageLocationId': [
+                  location === null ? "No storage location with that id in the receipt's warehouse." : 'The storage location is not active.',
+                ],
+              },
+            });
+          }
+          storageLocation ??= location.code;
+        }
+
+        // 4. One transaction: the claim, the quality check & items, the GRN status, the batch the
+        // accepted goods are stocked as (BR-106) and the audit rows commit or roll back together.
+        const acceptedQtyKg = Number(acceptedQty).toFixed(3);
         const qc = await repo.insertQualityCheckWithItems(tx, {
           ...input,
+          ...(storageLocation === undefined ? {} : { storageLocation }),
           goodsReceiptId,
           warehouseId: grn.warehouseId,
           listedGrade: (grn as { grade?: ProduceGrade }).grade ?? input.assignedGrade,
@@ -373,7 +540,9 @@ export function createGoodsReceiptsService(
           input.outcome,
           acceptedQtyKg,
           Number(rejectedQty).toFixed(3),
-          input.rejectionReason ?? input.defectNotes,
+          // The free-text note first, as before; a structured code alone also satisfies the
+          // receipt's "rejected needs a reason" CHECK (BR-120).
+          input.rejectionReason ?? input.defectNotes ?? input.rejectionReasonCode,
         );
 
         // Audit log (BR-35), through the shared helper on this transaction. It used to be a raw
@@ -405,12 +574,15 @@ export function createGoodsReceiptsService(
             grade: input.assignedGrade,
             qtyKg: acceptedQtyKg,
             expiryOn: input.expiryOn ?? null,
-            storageLocation: input.storageLocation ?? null,
+            storageLocation: storageLocation ?? null,
+            storageLocationId: input.storageLocationId ?? null,
             audit: { trigger: 'quality_check', actorId: actor.userId, actorRole: scope.roleCode, qualityCheckId: qc.id },
           });
         }
 
-        return { qualityCheck: qc, batch };
+        const result: QualityCheckResult = { qualityCheck: qc, batch };
+        await idem.complete(result);
+        return result;
       });
     },
 
@@ -436,6 +608,7 @@ export function createGoodsReceiptsService(
         qtyKg: offer.quantityKg,
         expiryOn: offer.qualityCheck.expiryOn,
         storageLocation: offer.qualityCheck.storageLocation,
+        storageLocationId: offer.qualityCheck.storageLocationId ?? null,
         audit: { trigger: 'quality_counter_offer.accepted', counterOfferId: offerId },
       });
     },
@@ -445,14 +618,9 @@ export function createGoodsReceiptsService(
       scope: ResolvedScope,
       goodsReceiptId: string,
       input: QualityCounterOfferBody,
+      idempotencyKey?: string,
     ): Promise<QualityCounterOfferResponse> {
-      // 1. Fetch GRN with warehouse scoping (BR-30b: cross-warehouse is 404)
-      const grn = await repo.findGoodsReceiptById(db, goodsReceiptId, confineToAssignedWarehouses(scope));
-      if (grn === null) {
-        throw new AppError('NOT_FOUND', {
-          detail: `Goods receipt "${goodsReceiptId}" was not found or is outside your warehouse scope (BR-30b).`,
-        });
-      }
+      const key = requireIdempotencyKey(idempotencyKey);
 
       /*
        * 2. The offer is a round of the negotiation on the LISTING behind the receipt's purchase
@@ -467,6 +635,25 @@ export function createGoodsReceiptsService(
        *     COUNTER_OFFERED; a reject or a lapse returns it to ACCEPTED (counter-offers.service).
        */
       const outcome = await runTx(async (tx) => {
+        // BR-118: claim first. A replay returns the stored offer before the "one open offer per
+        // listing" check (the first call's offer IS that open offer), opens no second round and
+        // notifies nobody again (the publish below runs only for a fresh offer).
+        const idem = await beginIdempotent<QualityCounterOfferResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.qualityCounterOffer,
+          request: { goodsReceiptId, body: input },
+        });
+        if (idem.replay) return { replayed: true as const, offer: idem.response };
+
+        // 1. Fetch GRN with warehouse scoping (BR-30b: cross-warehouse is 404)
+        const grn = await repo.findGoodsReceiptById(tx, goodsReceiptId, confineToAssignedWarehouses(scope));
+        if (grn === null) {
+          throw new AppError('NOT_FOUND', {
+            detail: `Goods receipt "${goodsReceiptId}" was not found or is outside your warehouse scope (BR-30b).`,
+          });
+        }
+
         const target = await repo.findQualityNegotiationTarget(tx, goodsReceiptId);
         if (target === null) {
           throw new AppError('NOT_FOUND', {
@@ -569,8 +756,10 @@ export function createGoodsReceiptsService(
           changedFields: ['status'],
         });
 
-        return { offer, target };
+        await idem.complete(offer);
+        return { replayed: false as const, offer, target };
       });
+      if (outcome.replayed) return outcome.offer;
 
       // After commit, like the listing counter-offer: a failing subscriber never rolls the offer back.
       await eventBus.publish('counter_offer.received', {
@@ -586,14 +775,70 @@ export function createGoodsReceiptsService(
       _actor: Actor,
       scope: ResolvedScope,
       id: string,
-    ): Promise<GoodsReceiptResponse> {
+    ): Promise<GoodsReceiptDetailResponse> {
       const grn = await repo.findGoodsReceiptById(db, id, confineToAssignedWarehouses(scope));
       if (grn === null) {
         throw new AppError('NOT_FOUND', {
           detail: `Goods receipt "${id}" was not found or is outside your warehouse scope (BR-30b).`,
         });
       }
-      return grn;
+      // BR-119: read only once the receipt itself passed the scope filter above, so the check adds
+      // no path to another warehouse's data.
+      const qualityCheck = await repo.findQualityCheckByGoodsReceiptId(db, id);
+      return { ...grn, qualityCheck };
+    },
+
+    async getDocument(
+      _actor: Actor,
+      scope: ResolvedScope,
+      id: string,
+    ): Promise<GoodsReceiptDocumentResponse> {
+      // BR-124 / BR-30b: the receipt detail's own scoped read; another warehouse's receipt is the
+      // same 404 as an unknown one, and nothing below is read until it passed.
+      const grn = await repo.findGoodsReceiptById(db, id, confineToAssignedWarehouses(scope));
+      if (grn === null) throw goodsReceiptNotFound(id);
+      const context = await repo.findDocumentContext(db, id);
+      if (context === null) throw goodsReceiptNotFound(id);
+      const qc = await repo.findQualityCheckByGoodsReceiptId(db, id);
+
+      // Built field by field (an allow-list): nothing a read model gains later reaches the paper.
+      return {
+        documentType: 'GOODS_RECEIPT_NOTE',
+        goodsReceiptId: grn.id,
+        grnNumber: grn.grnNumber,
+        status: grn.status,
+        purchaseOrder: { id: grn.purchaseOrderId, poNumber: grn.poNumber ?? '' },
+        warehouse: { id: grn.warehouseId, code: context.warehouseCode, name: context.warehouseName },
+        farmer: { id: grn.farmerId, name: context.farmerName },
+        crop: { id: context.cropId, name: grn.cropName ?? null },
+        grade: { listed: grn.grade as ProduceGrade, assigned: qc?.assignedGrade ?? null },
+        quantities: {
+          grossQtyKg: grn.grossQtyKg,
+          acceptedQtyKg: grn.acceptedQtyKg,
+          rejectedQtyKg: grn.rejectedQtyKg,
+          damagedQtyKg: qc?.damagedQtyKg ?? null,
+          spoiledQtyKg: qc?.spoiledQtyKg ?? null,
+        },
+        packages:
+          grn.packageCount != null && grn.packageUnit != null ? { count: grn.packageCount, unit: grn.packageUnit } : null,
+        vehicleNumber: grn.vehicleNumber ?? null,
+        receivedBy: { id: grn.receivedBy, name: grn.receivedByName ?? null },
+        receivedAt: grn.receivedAt,
+        batchCode: grn.batchCode ?? null,
+        qualityCheck:
+          qc === null
+            ? null
+            : {
+                outcome: qc.outcome,
+                assignedGrade: qc.assignedGrade,
+                rejectionReasonCode: qc.rejectionReasonCode ?? null,
+                passedPoints: (qc.items ?? []).filter((item) => item.passed).length,
+                totalPoints: (qc.items ?? []).length,
+                checkedBy: { id: qc.checkedBy, name: qc.checkedByName ?? null },
+                checkedAt: qc.checkedAt,
+              },
+        discrepancyCount: context.discrepancyCount,
+      };
     },
 
     async list(
@@ -617,6 +862,80 @@ export function createGoodsReceiptsService(
           hasMore: res.hasMore,
         },
       };
+    },
+
+    async createDiscrepancy(
+      actor: Actor,
+      scope: ResolvedScope,
+      goodsReceiptId: string,
+      input: GoodsReceiptDiscrepancyCreateBody,
+      idempotencyKey?: string,
+    ): Promise<GoodsReceiptDiscrepancyResponse> {
+      // BR-121.6: every create on this module requires the key (BR-118 convention).
+      const key = requireIdempotencyKey(idempotencyKey);
+
+      // `status` is accepted only as OPEN and every report is created OPEN (BR-121.2), so OPEN sent
+      // and OPEN by default are the same request: it is left out of what the key is bound to.
+      const report = { type: input.type, expected: input.expected, actual: input.actual, note: input.note ?? null };
+
+      // One transaction for the claim, the report and its audit row (BR-35): a refused request
+      // leaves no claim and no row, and a replay returns before anything is written.
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<GoodsReceiptDiscrepancyResponse>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: OPERATION.discrepancy,
+          request: { goodsReceiptId, body: report },
+        });
+        if (idem.replay) return idem.response;
+
+        // BR-30b: another warehouse's receipt is the same 404 as an unknown one, before any write.
+        const grn = await repo.findGoodsReceiptById(tx, goodsReceiptId, confineToAssignedWarehouses(scope));
+        if (grn === null) throw goodsReceiptNotFound(goodsReceiptId);
+
+        // Any receipt status (BR-121.4, UNCONFIRMED): damage is often found after the check. Nothing
+        // but the report and its audit row is written: no receipt, check, batch or ledger change.
+        const created = await repo.insertDiscrepancy(tx, {
+          goodsReceiptId,
+          ...report,
+          createdBy: actor.userId,
+        });
+
+        await repo.recordAudit(tx, {
+          actorId: actor.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'inventory.quality_check.perform',
+          entityType: 'goods_receipt_discrepancy',
+          entityId: created.id,
+          warehouseId: created.warehouseId,
+          after: {
+            goodsReceiptId: created.goodsReceiptId,
+            type: created.type,
+            expected: created.expected,
+            actual: created.actual,
+            status: created.status,
+            note: created.note,
+          },
+        });
+
+        await idem.complete(created);
+        return created;
+      });
+    },
+
+    async listDiscrepancies(
+      _actor: Actor,
+      scope: ResolvedScope,
+      goodsReceiptId: string,
+      query: ListGoodsReceiptDiscrepanciesQuery,
+    ): Promise<ListGoodsReceiptDiscrepanciesResponse> {
+      // A read BY receipt id, so the same 404 as the receipt detail (BR-30b), not an empty page: an
+      // empty page for another warehouse's receipt and a 404 for an unknown one would tell them apart.
+      const grn = await repo.findGoodsReceiptById(db, goodsReceiptId, confineToAssignedWarehouses(scope));
+      if (grn === null) throw goodsReceiptNotFound(goodsReceiptId);
+
+      const res = await repo.listDiscrepancies(db, goodsReceiptId, query);
+      return { items: res.items, page: { nextCursor: res.nextCursor, hasMore: res.hasMore } };
     },
   };
 }

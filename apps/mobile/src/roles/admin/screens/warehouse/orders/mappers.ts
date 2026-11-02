@@ -371,6 +371,81 @@ export function orderInvoiceEntry(order: Pick<OrderDetailView, 'invoiceId'>, can
   return isAreaAvailable('orderInvoices', can) ? order.invoiceId : undefined;
 }
 
+// ─── Counter checklists (display only) ───────────────────────────────────────
+// The packing and pickup designs (061, 064) draw checklists for the person at
+// the counter. They are aids: nothing from them is stored or sent, and no
+// button waits on them. The server's own checks (pack, verify-otp) stand alone.
+
+export interface ChecklistLabel {
+  key: string;
+  label: string;
+}
+
+const PACKING_CHECK_LABEL = {
+  productSelected: 'orders.packing.check.productSelected',
+  quantityVerified: 'orders.packing.check.quantityVerified',
+  gradeVerified: 'orders.packing.check.gradeVerified',
+} as const satisfies Readonly<Record<string, TranslationKey>>;
+
+/**
+ * M5-07: the generic packing checklist, in the design's order. Generic on
+ * purpose: per-item batch ids stay off the packing screen (BR-99), so no check
+ * names one.
+ */
+export function packingChecklist(): ChecklistLabel[] {
+  return (Object.keys(PACKING_CHECK_LABEL) as (keyof typeof PACKING_CHECK_LABEL)[]).map((key) => ({
+    key,
+    label: t(PACKING_CHECK_LABEL[key]),
+  }));
+}
+
+/** True once the order has been packed (PACKED or any later status); cancelled or unknown never is. */
+export function orderIsPacked(status: OrderUiStatus): boolean {
+  return LANDED.pack.includes(status);
+}
+
+export interface PickupCheckItem {
+  key: 'customerIdentified' | 'orderPacked';
+  label: string;
+  checked: boolean;
+  /** Only the clerk's own check can be ticked; the other one reads the order. */
+  tickable: boolean;
+}
+
+/**
+ * M5-10: the verification checklist. "Customer identified" is the clerk's own
+ * tick (held by the screen, never sent); "Order packed" reads the order
+ * status, so it cannot be ticked by hand.
+ */
+export function pickupVerificationChecklist(order: Pick<OrderDetailView, 'status'>, customerIdentified: boolean): PickupCheckItem[] {
+  return [
+    { key: 'customerIdentified', label: t('orders.pickup.check.customerIdentified'), checked: customerIdentified, tickable: true },
+    { key: 'orderPacked', label: t('orders.pickup.check.orderPacked'), checked: orderIsPacked(order.status), tickable: false },
+  ];
+}
+
+export interface OrderSummaryField {
+  key: 'items' | 'total' | 'warehouse' | 'payment';
+  label: string;
+  value: string;
+}
+
+/**
+ * M5-10: the order summary of the pickup verification step. Payment is
+ * AdminOrderDetail.paymentStatus as the server sent it ("no value" for a
+ * status the app does not know). No field carries the buyer's mobile (BR-92).
+ */
+export function pickupSummaryFields(
+  order: Pick<OrderDetailView, 'itemCount' | 'totals' | 'warehouseName' | 'paymentStatusLabel'>,
+): OrderSummaryField[] {
+  return [
+    { key: 'items', label: t('orders.pickup.field.items'), value: itemsLabel(order.itemCount) },
+    { key: 'total', label: t('orders.pickup.field.total'), value: order.totals.totalLabel },
+    { key: 'warehouse', label: t('orders.pickup.field.warehouse'), value: order.warehouseName },
+    { key: 'payment', label: t('orders.pickup.field.payment'), value: order.paymentStatusLabel },
+  ];
+}
+
 // ─── Tasks ───────────────────────────────────────────────────────────────────
 
 function countOf(summary: TaskSummaryDto, type: 'ORDER_PACK' | 'ORDER_DISPATCH' | 'ORDER_PICKUP_OTP'): number {

@@ -35,6 +35,10 @@ export type {
  *   counter_offer       <- new: the rbac code inventory.quality.counter_offer
  *                          had no surface (see SPEC_GAPS W4n-2)
  *   review_receiving    <- SubWarehouseReviewReceivingScreen (one-page review)
+ * and three design sub-views built from what the wizard already holds:
+ *   quantity_detail     <- M2-06 "<product> — Quantity" (expected / received / difference)
+ *   quality_summary     <- M2-07 Quality Summary (the checklist counts)
+ *   batch_review        <- M2-13 / M2-14 Batch Creation & Location Assignment Review
  */
 export type ReceivingWizardStep =
   | 'start_receiving'
@@ -55,7 +59,10 @@ export type ReceivingWizardStep =
   | 'grade_verification'
   | 'batch_assignment'
   | 'counter_offer'
-  | 'review_receiving';
+  | 'review_receiving'
+  | 'quantity_detail'
+  | 'quality_summary'
+  | 'batch_review';
 
 /**
  * One product line of a shipment, for the quantity verification table.
@@ -77,8 +84,10 @@ export interface WizardShipmentData {
   purchaseOrderId: string;
   /** Human code: the poNumber. */
   code: string;
-  /** Crop name, or a neutral label when the API sent none. */
+  /** Crop name, or a neutral label naming the order when the API sent none. */
   produce: string;
+  /** The crop name the API sent; undefined when it sent none (a purchase order carries none). */
+  cropName?: string | undefined;
   /** Grade label ("Grade 1"), '' when the order has no grade. */
   grade: string;
   /** The order's listed grade, the default the QC grade picker starts on. */
@@ -177,8 +186,10 @@ export interface ReceivingRecord {
   rejectedGrams: number | null;
   rejectionReason?: string | undefined;
   vehicleNumber?: string | undefined;
-  /** The batch the receipt created, when the API returns one (it returns none today). */
+  /** BR-106: the batch the receipt was stocked as, when the API returns one (GoodsReceipt.batchId). */
   batchId?: string | undefined;
+  /** That batch's code (GoodsReceipt.batchCode). */
+  batchCode?: string | undefined;
 }
 
 // ─── Receiving list screens (dashboard, shipments, filters, history, QC issues) ───
@@ -207,6 +218,8 @@ export interface IncomingShipment extends WizardShipmentData {
   expectedArrival: string;
   /** "12 Oct 2026", '' when unknown. */
   issuedOn: string;
+  /** The order's issue instant (ISO), for the Shipment Timeline; undefined when unknown. */
+  issuedAt?: string | undefined;
   /** Gross received over the order's receipts; null when the receipts are not known. */
   receivedGrams: number | null;
 }
@@ -214,25 +227,31 @@ export interface IncomingShipment extends WizardShipmentData {
 /** Status pills of the Incoming Shipments list. */
 export type ShipmentFilterTab = 'All' | 'Expected' | 'Receiving' | 'QC Pending' | 'Completed';
 
+/**
+ * The Shipment Type facet of Incoming Shipments (design M2-03): purchase orders
+ * raised to farmers, inbound inter-warehouse transfers, or both.
+ */
+export type ShipmentTypeFilter = 'All' | 'PurchaseOrders' | 'Transfers';
+
 /** Result pills of Receiving History (each is a server-side status filter). */
 export type HistoryFilter = 'All' | 'Awaiting QC' | 'Accepted' | 'Partial' | 'Rejected';
 
 /**
- * Facets of Receiving Search & Filters (SPEC_GAPS W4n-1). 'All' / '' = not
- * filtered. Warehouse, shipment type and result are the Main facets; status,
- * date, grade, source and product the Sub ones.
+ * Facets of Receiving Search & Filters (design M2-03), reduced to what the two
+ * list endpoints take: `warehouseId` (GET /admin/purchase-orders and
+ * /admin/goods-receipts) and the receipt `status` (GET /admin/goods-receipts,
+ * the Receiving History pills). Search text and date have no query parameter,
+ * so they are not facets; the shipment type picks which list is read and lives
+ * on Incoming Shipments (ShipmentTypeFilter below).
  */
 export interface ReceivingFilters {
-  search: string;
-  status: string;
-  date: string;
-  grade: string;
-  source: string;
-  product: string;
+  /** A Main pick from GET /warehouses; undefined = all warehouses. Never set for a Sub scope (BR-30). */
   warehouseId?: string | undefined;
-  shipmentType: string;
-  result: string;
+  result: HistoryFilter;
 }
+
+/** The list a Search & Filters screen narrows. */
+export type ReceivingFilterTarget = 'Shipments' | 'History';
 
 /** What opening a QC issue leads to. */
 export type QualityIssueTarget = 'wizard' | 'shipment' | 'operational_issue';
@@ -264,7 +283,14 @@ export type ReceivingRoute =
   | 'HistoryDetail'
   | 'QualityIssues'
   | 'Wizard'
-  | 'StorageAssignment';
+  | 'StorageAssignment'
+  | 'ReceivingActivity'
+  | 'PendingQueue'
+  | 'ShipmentProduct'
+  | 'ShipmentTimeline'
+  | 'ReceiptActivity'
+  /** An inbound inter-warehouse transfer, received through the transfers area's screen. */
+  | 'TransferInspection';
 
 export interface ReceivingRouteParams {
   /** Purchase order uuid. */
@@ -274,6 +300,14 @@ export interface ReceivingRouteParams {
   statusTab?: ShipmentFilterTab | undefined;
   historyFilter?: HistoryFilter | undefined;
   wizardStep?: ReceivingWizardStep | undefined;
+  /** Main: the warehouse the lists are narrowed to (Search & Filters); ignored for a Sub scope (BR-30). */
+  filterWarehouseId?: string | undefined;
+  /** Search & Filters: the list it was opened from, which its Apply narrows. */
+  filterTarget?: ReceivingFilterTarget | undefined;
+  /** Incoming Shipments: the Shipment Type facet (purchase orders, transfers or both). */
+  shipmentType?: ShipmentTypeFilter | undefined;
+  /** Inter-warehouse transfer uuid (TransferInspection). */
+  transferId?: string | undefined;
 }
 
 /** What an API-backed receiving screen gets from the flow to pick its async state and refresh. */

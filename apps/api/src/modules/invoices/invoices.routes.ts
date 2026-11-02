@@ -18,6 +18,7 @@ import { asyncHandler } from '../../http/asyncHandler.js';
 import {
   listInvoicesQuery,
   invoiceIdParams,
+  invoiceSummaryQuery,
   downloadInvoiceQuery,
 } from './invoices.schema.js';
 import { invoicesService } from './invoices.service.js';
@@ -41,6 +42,20 @@ invoicesRouter.get(
     const query = getValidated(req, 'query', listInvoicesQuery);
     const result = await invoicesService.listInvoices(actor, query);
     res.json(result);
+  }),
+);
+
+// GET /v1/invoices/summary - KPI tiles over the same invoices the list returns (BR-30, BR-36).
+// Registered BEFORE every `/:id` route: otherwise "summary" is captured as an id (422 uuid).
+invoicesRouter.get(
+  '/summary',
+  requireAuth,
+  requirePermission('invoice.view_own'),
+  validate({ query: invoiceSummaryQuery }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const query = getValidated(req, 'query', invoiceSummaryQuery);
+    res.json(await invoicesService.summarizeInvoices(actor, query));
   }),
 );
 

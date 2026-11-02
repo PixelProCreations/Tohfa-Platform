@@ -10,7 +10,7 @@ import type {
   ListStockLedgerResult,
   StockLedgerRow,
 } from './inventory.repo.js';
-import { toBatchView, toStockLedgerEntryView } from './inventory.repo.js';
+import { toBatchView, toStockLedgerEntryAdminView } from './inventory.repo.js';
 import {
   InventoryService,
   type TransactionRunner,
@@ -218,9 +218,18 @@ function createInMemRepo(store: InMemStore): InventoryRepo {
       }
 
       return {
-        items: rows.map(toStockLedgerEntryView),
+        items: rows.map(toStockLedgerEntryAdminView),
         page: { nextCursor: null, hasMore: false },
       };
+    },
+
+    async getStockLedgerEntryById(_db, scope: ResolvedScope, id: string) {
+      const row = store.ledger.get(id);
+      if (!row) return null;
+      if (scope.level === ScopeLevel.OWN && scope.warehouseIds.length > 0 && !scope.warehouseIds.includes(row.warehouse_id)) {
+        return null;
+      }
+      return toStockLedgerEntryAdminView(row);
     },
 
     async getPooledAvailability(_db, warehouseId: string, cropId: string, grade: string): Promise<string> {

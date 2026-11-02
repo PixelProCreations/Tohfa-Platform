@@ -5,13 +5,15 @@
  *     Invoice generation, order cancellation, order issues and the order stock
  *     check have no API yet; their screens are fixture-backed and show sample
  *     data until one exists, and they are offered all the same. The server
- *     refuses what it has no route for.
+ *     refuses what it has no route for. Invoice generation is the exception in
+ *     practice: Generate Invoice was later excluded (2026-10-23, M9-04), and
+ *     BillingFlow refuses its routes through EXCLUDED_BILLING_ROUTES below.
  *   - The only area taken out of the app is order delivery
  *     (AREAS_WITHOUT_API): the business supports warehouse pickup only, not
  *     delivery dispatch (BR-21; docs/rules.md open contradiction 3). Its screens
  *     stay in the code in case delivery is built later -- a hide, not a delete.
- *     Material handling was dropped as a product decision (2026-10-14); it is
- *     deleted, so it is no area at all. Marking a pickup order ready still uses
+ *     Material Handling was removed entirely, product decision 2026-10-23.
+ *     Marking a pickup order ready still uses
  *     POST .../dispatch.
  *   - Areas that now HAVE a live API are offered on the view permission that
  *     API enforces, the same real permission rule as Staff below. That is not a
@@ -146,6 +148,19 @@ const BILLING_ROUTE_AREA: Readonly<Record<string, WarehouseArea>> = {
 
 export function billingRouteArea(route: string): WarehouseArea | undefined {
   return Object.prototype.hasOwnProperty.call(BILLING_ROUTE_AREA, route) ? BILLING_ROUTE_AREA[route] : undefined;
+}
+
+/**
+ * Billing routes BillingFlow never opens, whatever isAreaAvailable says about
+ * 'invoiceGeneration'. Generate Invoice is excluded (2026-10-23 triage, M9-04):
+ * there is no create-invoice route (sales and orders issue invoices), and these
+ * screens only hold sample data, so a deep link to one would show an invoice
+ * that does not exist. The area entry above stays for App.tsx's legacy keys.
+ */
+export const EXCLUDED_BILLING_ROUTES: readonly string[] = ['GenerateInvoice', 'InvoiceWizard', 'InvoiceGenerated'];
+
+export function isBillingRouteExcluded(route: string): boolean {
+  return EXCLUDED_BILLING_ROUTES.includes(route);
 }
 
 /** The area an order route (design id, OrdersFlow) belongs to. */

@@ -8,8 +8,14 @@
  *    carries the code, type, capacity and status but never the free-text name (BR-35); the changed
  *    field names do include `name` so the audit trail still shows that it was edited.
  *  - A change that alters nothing writes nothing and audits nothing.
- *  - Nothing here touches inventory_batches or the stock ledger: `inventory_batches.storage_location`
- *    is free text and deliberately not linked (see db/migrations/0053_storage_locations.sql).
+ *  - Nothing here writes inventory_batches or the stock ledger. Batches are LINKED to a location at
+ *    quality check (BR-125, `inventory_batches.storage_location_id`); this service only reads them, to
+ *    report usage and to refuse deactivating a location that still holds stock.
+ *  - BR-125 tree: a parent is a live, ACTIVE location of the same warehouse, never the location itself
+ *    or one of its descendants, within `system_config.storage_location_max_depth` tiers. Hierarchy
+ *    changes of one warehouse are serialised by an advisory lock (the cycle trigger takes the same
+ *    one), and the parent is share-locked so it cannot be switched off under a new child. Every
+ *    refusal is decided before anything is written.
  */
 import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
@@ -42,14 +48,29 @@ export interface StorageLocationsService {
   update(scope: ResolvedScope, warehouseId: string, id: string, patch: UpdateStorageLocationBody): Promise<StorageLocation>;
 }
 
-/** The masked audit image: no free-text name. */
+/** The masked audit image: no free-text name. `parentId` is the BR-125 tree position. */
 function image(location: StorageLocation): Record<string, unknown> {
   return {
     code: location.code,
     locationType: location.locationType,
     capacityKg: location.capacityKg,
     isActive: location.isActive,
+    parentId: location.parentId,
   };
+}
+
+function parentRefused(message: string): AppError {
+  return new AppError('VALIDATION_FAILED', {
+    status: 422,
+    detail: 'The parent storage location cannot be used.',
+    errors: { 'body.parentId': [message] },
+  });
+}
+
+/** BR-125: the trigger's cycle guard (23514, hint STORAGE_LOCATION_CYCLE) as the field error it means. */
+function isCycle(error: unknown): boolean {
+  const pg = error as { code?: string; hint?: string };
+  return pg.code === '23514' && pg.hint === 'code: STORAGE_LOCATION_CYCLE';
 }
 
 function locationNotFound(id: string): AppError {
@@ -66,6 +87,7 @@ function changedFieldNames(current: StorageLocation, patch: UpdateStorageLocatio
     if (next !== current.capacityKg) changed.push('capacityKg');
   }
   if (patch.isActive !== undefined && patch.isActive !== current.isActive) changed.push('isActive');
+  if (patch.parentId !== undefined && patch.parentId !== current.parentId) changed.push('parentId');
   return changed;
 }
 
@@ -73,6 +95,27 @@ export function createStorageLocationsService(deps: Partial<StorageLocationsServ
   const repo = deps.repo ?? storageLocationsRepo;
   const db = deps.db ?? pool;
   const runTx: TransactionRunner = deps.runTx ?? ((fn) => withTransaction(fn));
+
+  /**
+   * BR-125: refuses a parent that is unknown or of another warehouse (one message for both, BR-30),
+   * inactive, the moved location itself or one of its descendants, or too deep. `movedId` is null for
+   * a new location. Must run inside the caller's transaction, after `lockHierarchy`.
+   */
+  async function checkParent(tx: Executor, warehouseId: string, movedId: string | null, parentId: string): Promise<void> {
+    if (movedId !== null && parentId === movedId) throw parentRefused('A location cannot be its own parent.');
+    const facts = await repo.hierarchyFacts(tx, warehouseId, movedId, parentId);
+    if (facts.parentIsActive === null || facts.parentLevel === null) {
+      throw parentRefused('No storage location with that id in this warehouse.');
+    }
+    if (facts.parentInSubtree) throw parentRefused('A location cannot be placed under one of its own descendants.');
+    if (!facts.parentIsActive) throw parentRefused('The parent location is not active.');
+    const maxDepth = await repo.maxDepth(tx);
+    // Levels run 0 .. maxDepth - 1; the deepest node of the moved subtree lands on
+    // parentLevel + 1 + subtreeHeight.
+    if (facts.parentLevel + 1 + facts.subtreeHeight > maxDepth - 1) {
+      throw parentRefused(`A warehouse's storage locations are at most ${maxDepth} levels deep.`);
+    }
+  }
 
   return {
     async list(scope, warehouseId, query) {
@@ -91,10 +134,15 @@ export function createStorageLocationsService(deps: Partial<StorageLocationsServ
     async create(scope, warehouseId, body) {
       return runTx(async (tx) => {
         await requireReachableWarehouse(tx, scope, warehouseId);
+        if (body.parentId !== undefined) {
+          await repo.lockHierarchy(tx, warehouseId);
+          await checkParent(tx, warehouseId, null, body.parentId);
+        }
         let created: StorageLocation;
         try {
           created = await repo.insert(tx, warehouseId, body);
         } catch (error) {
+          if (isCycle(error)) throw parentRefused('A location cannot be placed under one of its own descendants.');
           if (isCodeTaken(error)) {
             throw new AppError('CONFLICT', {
               detail: 'This warehouse already has a storage location with that code.',
@@ -125,7 +173,38 @@ export function createStorageLocationsService(deps: Partial<StorageLocationsServ
         const changed = changedFieldNames(current, patch);
         if (changed.length === 0) return current;
 
-        const updated = await repo.update(tx, id, patch);
+        // BR-125: validate the new parent (422) before any state check (409).
+        const parentChanges = changed.includes('parentId');
+        if (parentChanges) {
+          await repo.lockHierarchy(tx, warehouseId);
+          if (patch.parentId !== null && patch.parentId !== undefined) {
+            await checkParent(tx, warehouseId, id, patch.parentId);
+          }
+        }
+        if (changed.includes('isActive') && patch.isActive === false) {
+          const usage = await repo.usage(tx, warehouseId, id);
+          if (usage.activeChildCount > 0 || usage.batchCount > 0) {
+            throw new AppError('CONFLICT', {
+              detail: 'A storage location that holds stock or has active locations under it cannot be deactivated.',
+              meta: { activeChildCount: usage.activeChildCount, batchCount: usage.batchCount },
+            });
+          }
+        }
+        if (changed.includes('isActive') && patch.isActive === true && !parentChanges) {
+          if ((await repo.parentIsActive(tx, id)) === false) {
+            throw new AppError('CONFLICT', {
+              detail: 'A storage location cannot be reactivated while its parent location is inactive.',
+            });
+          }
+        }
+
+        let updated: StorageLocation;
+        try {
+          updated = await repo.update(tx, warehouseId, id, patch);
+        } catch (error) {
+          if (isCycle(error)) throw parentRefused('A location cannot be placed under one of its own descendants.');
+          throw error;
+        }
         await writeAuditLog(tx, {
           actorId: scope.userId,
           actorRole: scope.roleCode,

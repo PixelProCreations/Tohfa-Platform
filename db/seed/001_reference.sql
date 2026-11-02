@@ -266,6 +266,10 @@ INSERT INTO system_config (key, value, data_type, description) VALUES
      '10000.00'::jsonb, 'number',
      'BR-31c: payouts STRICTLY ABOVE this need a second, distinct SUPER_ADMIN approval. Exactly 10000.00 follows the single-approval path.'),
 
+    ('idempotency.retention_hours',
+     '24'::jsonb, 'number',
+     'How long idempotency keys are retained. Keys older than this window can be reclaimed by a new request with the same key.'),
+
     ('otp_length',
      '6'::jsonb, 'number',
      'BR-32: authentication OTP digits. The handover OTP (BR-20) is 4 digits and is configured separately.'),

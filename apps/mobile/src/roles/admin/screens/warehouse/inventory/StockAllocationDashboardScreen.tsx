@@ -1,12 +1,20 @@
-// Design id: M3S07
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, RefreshControl } from 'react-native';
+// Design id: M3S07 (design M3-08 Allocation Dashboard)
+//
+// Read-only: the channel percentages are set by the Super Admin
+// (allocation.channel_percentage.set), so nothing here writes. Tapping a
+// bucket opens its detail sheet, built from the same GET /admin/allocations
+// totals the card shows (allocationBucketDetail). The FCFS note is static
+// text worded from BR-12c and BR-22 only.
+import React, { useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { isAreaAvailable } from '../availability';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
+import { InfoCard, InfoNote, WalletButton } from '../wallet-cashtopup/WalletParts';
+import { allocationBucketDetail } from './mappers';
 import type {
   AllocationChannelKey,
   AllocationDashboard,
@@ -113,12 +121,14 @@ export function StockAllocationDashboardScreen({
   const canVerify = isAreaAvailable('stockCounts', can);
   const view = queryViewState({ isLoading, error, itemCount: rowCount });
   const allocations = (dashboard?.channels ?? []).map((summary) => ({ ...summary, ...CHANNEL_COLORS[summary.channel] }));
+  const [selectedChannel, setSelectedChannel] = useState<AllocationChannelKey | undefined>(undefined);
+  const bucket = allocationBucketDetail(dashboard, selectedChannel);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <SWAHeader 
-          title="Stock Allocation"
+          title={t('inventory.allocation.title')}
           onBack={onBack}
           showWarehouse={true}
           warehouseName={scope.warehouseName}
@@ -133,7 +143,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.7}
           >
             <StockTabBoxIcon color={adminColors.ink} />
-            <Text style={styles.tabCardText}>Stock</Text>
+            <Text style={styles.tabCardText}>{t('inventory.allocation.tab.stock')}</Text>
           </TouchableOpacity>
 
           {/* Ledger Tab */}
@@ -143,7 +153,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.7}
           >
             <LedgerTabIcon color={adminColors.ink} />
-            <Text style={styles.tabCardText}>Ledger</Text>
+            <Text style={styles.tabCardText}>{t('inventory.allocation.tab.ledger')}</Text>
           </TouchableOpacity>
 
           {/* Allocation Tab (Active) */}
@@ -152,7 +162,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.85}
           >
             <AllocationTabIcon color={adminColors.onBrand} />
-            <Text style={[styles.tabCardText, styles.activeTabCardText]}>Allocation</Text>
+            <Text style={[styles.tabCardText, styles.activeTabCardText]}>{t('inventory.allocation.tab.allocation')}</Text>
           </TouchableOpacity>
 
           {/* Verify Tab (gated on stock counts, availability.ts) */}
@@ -163,7 +173,7 @@ export function StockAllocationDashboardScreen({
             activeOpacity={0.7}
           >
             <VerifyTabIcon color={adminColors.ink} />
-            <Text style={styles.tabCardText}>Verify</Text>
+            <Text style={styles.tabCardText}>{t('inventory.allocation.tab.verify')}</Text>
           </TouchableOpacity>
           ) : null}
         </View>
@@ -189,8 +199,9 @@ export function StockAllocationDashboardScreen({
           <>
           {/* Total Stock Split Header & Multi-color Progress Bar */}
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Total Stock Split</Text>
-            <Text style={styles.sectionSubtitle}>Values from config</Text>
+            <Text style={styles.sectionTitle}>{t('inventory.allocation.splitTitle')}</Text>
+            {/* The bar is each channel's share of the allocated grams, not the configured split percentages. */}
+            <Text style={styles.sectionSubtitle}>{t('inventory.allocation.splitSubtitle')}</Text>
           </View>
 
           {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
@@ -209,7 +220,14 @@ export function StockAllocationDashboardScreen({
 
           {/* 4 Allocation Cards with curved left colored accent */}
           {allocations.map((alloc) => (
-            <View key={alloc.channel} style={styles.allocationCard}>
+            <TouchableOpacity
+              key={alloc.channel}
+              style={styles.allocationCard}
+              onPress={() => setSelectedChannel(alloc.channel)}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={t('inventory.allocation.openDetail', { name: alloc.label })}
+            >
               <View style={[styles.leftAccentStripe, { backgroundColor: alloc.borderColor }]} />
               <View style={styles.cardContent}>
                 <Text style={[styles.channelName, { color: alloc.titleColor }]}>
@@ -220,38 +238,83 @@ export function StockAllocationDashboardScreen({
                 <View style={styles.statsBoxRow}>
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.allocatedGrams)}</Text>
-                    <Text style={styles.statLabel}>ALLOCATED</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.allocated')}</Text>
                   </View>
 
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.consumedGrams)}</Text>
-                    <Text style={styles.statLabel}>CONSUMED</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.consumed')}</Text>
                   </View>
 
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.reservedGrams)}</Text>
-                    <Text style={styles.statLabel}>RESERVED</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.reserved')}</Text>
                   </View>
 
                   <View style={styles.statBox}>
                     <Text style={styles.statValue}>{kg(alloc.availableGrams)}</Text>
-                    <Text style={styles.statLabel}>AVAILABLE</Text>
+                    <Text style={styles.statLabel}>{t('inventory.allocation.stat.available')}</Text>
                   </View>
                 </View>
               </View>
-            </View>
+            </TouchableOpacity>
           ))}
+
+          <InfoNote tone="info">{t('inventory.allocation.fcfsNote')}</InfoNote>
           </>
           ) : null}
 
-          <View style={{ height: 24 }} />
+          <View style={styles.bottomSpacer} />
         </ScrollView>
       </View>
+
+      {/* Per-bucket detail sheet. No translucent scrim token exists, so the
+          backdrop stays clear and the sheet carries the token shadow. */}
+      <Modal
+        visible={bucket !== undefined}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedChannel(undefined)}
+      >
+        <TouchableOpacity
+          style={styles.sheetBackdrop}
+          activeOpacity={1}
+          onPress={() => setSelectedChannel(undefined)}
+          accessibilityLabel={t('inventory.allocation.detailClose')}
+        >
+          <View style={styles.sheet} onStartShouldSetResponder={() => true}>
+            {bucket === undefined ? null : (
+              <>
+                <Text style={styles.sheetTitle}>{bucket.title}</Text>
+                <InfoCard rows={bucket.rows.map((row) => [row])} />
+                <WalletButton
+                  label={t('inventory.allocation.detailClose')}
+                  variant="outline"
+                  onPress={() => setSelectedChannel(undefined)}
+                />
+              </>
+            )}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  bottomSpacer: { height: adminSpacing.xl },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    gap: adminSpacing.md,
+    ...adminShadow.lg,
+  },
+  sheetTitle: { ...adminType.sectionHead, color: adminColors.brandDeep },
   incompleteNote: {
     ...adminType.caption,
     color: adminColors.warning.text,

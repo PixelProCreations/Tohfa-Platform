@@ -7,8 +7,13 @@
  * and absorbs the Main ReceivingHistoryScreen. Live since integration phase 4:
  * GET /admin/goods-receipts, paged, each pill a server-side status filter
  * (ReceivingFlow fetches). The search narrows what is loaded. A row opens
- * ReceivingHistoryDetailScreen. The Main warehouse selector is not offered
- * (its options were fixture codes).
+ * ReceivingHistoryDetailScreen. The Main warehouse is picked in Search &
+ * Filters (onOpenFilters, real GET /warehouses uuids), sent to the server as
+ * `warehouseId` and named in the header pill.
+ *
+ * Each card names the receipt's warehouse (design M2-15 "Coonoor · Tomato ·
+ * 445/480 KG"): for Main from GET /warehouses, for a Sub scope its own name.
+ * "Received By" is not drawn: the API sends a user uuid only.
  *
  * Read-only. Gate: inventory.batch.view or inventory.goods_receipt.record; a
  * Sub scope sees only its own warehouse (BR-30).
@@ -23,18 +28,18 @@ import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/A
 import { queryViewState } from '../shared/queryViewState';
 import {
   ChipGroup,
+  HeaderIconButton,
   ScopeHeader,
   SearchBar,
+  SlidersIcon,
   StatusBadge,
   WalletButton,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { isMainScope } from './mappers';
+import { HISTORY_FILTERS, historyFilterLabel, isMainScope } from './mappers';
 import { PermissionNote, canViewReceiving, receiptTone } from './ReceivingParts';
 import type { HistoryFilter, ReceivingLiveStateProps, ReceivingRecord, WarehouseScreenBaseProps } from './types';
-
-const FILTERS: readonly HistoryFilter[] = ['All', 'Awaiting QC', 'Accepted', 'Partial', 'Rejected'];
 
 export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps, ReceivingLiveStateProps {
   /** Receipts for the selected pill, page by page. */
@@ -44,6 +49,10 @@ export interface ReceivingHistoryScreenProps extends WarehouseScreenBaseProps, R
   /** The selected pill; the flow fetches for it. */
   filter: HistoryFilter;
   onChangeFilter: (filter: HistoryFilter) => void;
+  /** Main: the warehouse Search & Filters picked, for the header pill (undefined = all). */
+  scopeLabel?: string | undefined;
+  /** Opens Search & Filters; not offered when undefined. */
+  onOpenFilters?: (() => void) | undefined;
   /** Opens a receipt by its uuid. */
   onSelectRecord: (receiptId: string) => void;
 }
@@ -66,22 +75,29 @@ export function ReceivingHistoryScreen({
   hasMore = false,
   filter,
   onChangeFilter,
+  scopeLabel,
+  onOpenFilters,
   onSelectRecord,
 }: ReceivingHistoryScreenProps) {
   const [query, setQuery] = useState('');
   const mainView = isMainScope(scope);
 
   const header = {
-    title: 'Receiving History',
+    title: t('receiving.history.title'),
     onBack,
-    headerExtra: <ScopeHeader scope={scope} label={mainView ? undefined : scope.warehouseName ?? scope.warehouseId} />,
+    headerRight: onOpenFilters ? (
+      <HeaderIconButton onPress={onOpenFilters} accessibilityLabel={t('receiving.filters.open')}>
+        <SlidersIcon />
+      </HeaderIconButton>
+    ) : undefined,
+    headerExtra: <ScopeHeader scope={scope} label={mainView ? scopeLabel : scope.warehouseName ?? scope.warehouseId} />,
   };
 
   if (!canViewReceiving(can)) {
     return (
       <WalletScreen {...header}>
         <View style={walletLayout.scrollContent}>
-          <PermissionNote message="You do not have permission to view goods receipts." />
+          <PermissionNote message={t('receiving.receipt.noPermission')} />
         </View>
       </WalletScreen>
     );
@@ -103,16 +119,16 @@ export function ReceivingHistoryScreen({
         <Text style={styles.code}>{r.receiptId}</Text>
         <StatusBadge label={r.resultLabel} tone={receiptTone(r.result)} />
       </View>
-      <Text style={styles.produce}>
-        {r.product}
-        {r.grade !== '' ? ` · ${r.grade}` : ''}
-      </Text>
+      <Text style={styles.produce}>{r.product}</Text>
+      {/* The row's grade is the order's listed grade (the assigned one is the batch's, BR-106). */}
+      {r.grade !== '' ? <Text style={styles.meta}>{t('receiving.detail.listedGradeValue', { grade: r.grade })}</Text> : null}
+      {r.warehouseName !== '' ? <Text style={styles.meta}>{r.warehouseName}</Text> : null}
       <View style={styles.stats}>
         {(
           [
-            ['Received', r.receivedGrams],
-            ['Accepted', r.acceptedGrams],
-            ['Rejected', r.rejectedGrams],
+            [t('receiving.card.received'), r.receivedGrams],
+            [t('receiving.card.accepted'), r.acceptedGrams],
+            [t('receiving.card.rejected'), r.rejectedGrams],
           ] as const
         ).map(([label, grams]) => (
           <View key={label} style={styles.statCol}>
@@ -132,9 +148,9 @@ export function ReceivingHistoryScreen({
     <WalletScreen {...header}>
       <View style={styles.flex}>
         <View style={styles.controls}>
-          <SearchBar value={query} onChangeText={setQuery} placeholder="Search GR number / product" />
+          <SearchBar value={query} onChangeText={setQuery} placeholder={t('receiving.history.search')} />
           <View style={styles.pills}>
-            <ChipGroup options={FILTERS} value={filter} onChange={onChangeFilter} />
+            <ChipGroup options={HISTORY_FILTERS} value={filter} onChange={onChangeFilter} labelOf={historyFilterLabel} />
           </View>
         </View>
 
@@ -161,7 +177,7 @@ export function ReceivingHistoryScreen({
               <>
                 {hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
                 <View style={styles.spacer} />
-                <WalletButton label="Return to Receiving Dashboard →" variant="outline" onPress={onBack} />
+                <WalletButton label={t('receiving.history.backToDashboard')} variant="outline" onPress={onBack} />
               </>
             }
           />

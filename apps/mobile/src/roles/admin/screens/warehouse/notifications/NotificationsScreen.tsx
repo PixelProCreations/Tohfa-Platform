@@ -3,7 +3,9 @@
  * Unread tabs (the API has no categories), pull-to-refresh and load-more.
  * Controlled: NotificationsFlow fetches, owns the tab and does the read writes;
  * this screen only draws them. Loading, error and empty come from the shared
- * AsyncStates so the area looks the same everywhere.
+ * AsyncStates so the area looks the same everywhere. The System Messages
+ * entry (M13-04) is drawn only when the host passes `onOpenSystemMessages`
+ * (NotificationsFlow checks its code); colours and type are admin theme tokens.
  */
 import React from 'react';
 import {
@@ -21,10 +23,12 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
-import { adminColors, adminSpacing } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import {
+  CategoryBadge,
+  ChevronRightIcon,
   FILTER_LABEL_KEY,
   NOTIFICATION_FILTERS,
   TARGET_ROW_LABEL,
@@ -47,6 +51,8 @@ export interface NotificationsScreenProps extends WarehouseScreenBaseProps {
   onSelectNotification: (item: NotificationItem) => void;
   /** Per-item action link (opens a screen outside this module). */
   onOpenTarget?: ((target: NotificationTarget, item: NotificationItem) => void) | undefined;
+  /** Opens System Messages (M13-04); absent = no entry (the host decides on the code). */
+  onOpenSystemMessages?: (() => void) | undefined;
   /** First load in flight (nothing to show yet). */
   isLoading?: boolean | undefined;
   /** The last fetch failed (null/undefined when it did not). */
@@ -71,6 +77,7 @@ export function NotificationsScreen({
   markAllPending = false,
   onSelectNotification,
   onOpenTarget,
+  onOpenSystemMessages,
   isLoading = false,
   error,
   onRetry,
@@ -124,7 +131,7 @@ export function NotificationsScreen({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#F0562A" />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Header with Warm Orange Accent */}
       <View style={styles.header}>
         <SafeAreaView style={styles.headerSafeArea}>
@@ -135,12 +142,12 @@ export function NotificationsScreen({
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               activeOpacity={0.7}
               accessibilityRole="button"
-              accessibilityLabel="Back"
+              accessibilityLabel={t('notifications.a11y.back')}
             >
               <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
                 <Path
                   d="M19 12H5M12 19l-7-7 7-7"
-                  stroke="#FFFFFF"
+                  stroke={adminColors.onBrand}
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -197,6 +204,23 @@ export function NotificationsScreen({
         </ScrollView>
       </View>
 
+      {onOpenSystemMessages !== undefined ? (
+        <TouchableOpacity
+          style={styles.systemEntry}
+          onPress={onOpenSystemMessages}
+          activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={t('systemMessages.entry.title')}
+        >
+          <CategoryBadge category="system" />
+          <View style={styles.contentCol}>
+            <Text style={styles.itemTitle}>{t('systemMessages.entry.title')}</Text>
+            <Text style={styles.itemTimestamp}>{t('systemMessages.entry.subtitle')}</Text>
+          </View>
+          <ChevronRightIcon />
+        </TouchableOpacity>
+      ) : null}
+
       {/* Notifications List */}
       {view === 'loading' ? (
         <AdminLoadingState />
@@ -238,46 +262,48 @@ export function NotificationsScreen({
   );
 }
 
+// Unread / read marker diameter, and the dimmed mark-all while its request runs.
+const DOT = 8;
+const PENDING_OPACITY = 0.5;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F4EE',
+    backgroundColor: adminColors.canvas,
   },
   header: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   headerSafeArea: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
   },
   backButton: {
-    paddingRight: 10,
-    paddingVertical: 4,
+    paddingRight: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    ...adminType.title,
+    color: adminColors.onBrand,
     flex: 1,
-    marginLeft: 4,
+    marginLeft: adminSpacing.xs,
   },
   markAllReadText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
     textDecorationLine: 'underline',
   },
   tabsWrapper: {
-    backgroundColor: '#F7F4EE',
-    paddingTop: 10,
-    paddingBottom: 8,
+    backgroundColor: adminColors.canvas,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
   },
   tabsScrollView: {
     flexGrow: 0,
@@ -285,101 +311,106 @@ const styles = StyleSheet.create({
   tabsScroll: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    paddingHorizontal: 16,
-    gap: 8,
+    paddingHorizontal: adminSpacing.lg,
+    gap: adminSpacing.sm,
     alignItems: 'center',
   },
   tabChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 7,
-    borderRadius: 20,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.full,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
   },
   tabChipActive: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   tabChipInactive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: '#E5DFD7',
+    borderColor: adminColors.border,
   },
   tabText: {
-    fontSize: 14,
+    ...adminType.body,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   tabTextInactive: {
-    color: '#374151',
+    color: adminColors.ink,
     fontWeight: '600',
+  },
+  systemEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+    marginHorizontal: adminSpacing.lg,
+    marginBottom: adminSpacing.sm,
+    padding: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
   },
   list: {
     flex: 1,
-    backgroundColor: '#F7F4EE',
+    backgroundColor: adminColors.canvas,
   },
   listContent: {
-    paddingBottom: 30,
+    paddingBottom: adminSpacing.xxl,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE5DC',
+    borderBottomColor: adminColors.border,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: 6,
-    marginRight: 10,
+    width: DOT,
+    height: DOT,
+    borderRadius: adminRadius.full,
+    marginTop: adminSpacing.xs,
+    marginRight: adminSpacing.sm,
   },
   dotUnread: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
   },
   dotRead: {
-    backgroundColor: '#D1CCC4',
+    backgroundColor: adminColors.border,
   },
   contentCol: {
     flex: 1,
   },
   itemTitle: {
-    fontSize: 15.5,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    lineHeight: 20,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
   },
   itemMessage: {
-    fontSize: 13.5,
-    fontWeight: '400',
-    color: '#5F5E5A',
-    lineHeight: 18,
-    marginTop: 2,
+    ...adminType.body,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   itemTimestamp: {
-    fontSize: 12.5,
-    fontWeight: '400',
-    color: '#7E7A75',
-    marginTop: 3,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: adminSpacing.xs,
   },
   actionLinkBtn: {
-    marginTop: 5,
+    marginTop: adminSpacing.xs,
     alignSelf: 'flex-start',
   },
   actionLinkText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#7A2E14',
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
   },
   markAllPending: {
-    opacity: 0.5,
+    opacity: PENDING_OPACITY,
   },
   footerSpinner: {
     paddingVertical: adminSpacing.lg,
   },
 });
-

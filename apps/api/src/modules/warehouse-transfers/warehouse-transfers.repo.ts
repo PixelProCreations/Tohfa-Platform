@@ -15,7 +15,15 @@ import { fromPaise, type Money } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { shelfFreeSql } from '../../db/shelfAvailability.js';
 import { logger } from '../../logger.js';
-import type { ListTransfersQuery, Transfer, TransferLine, TransferStatus, TransferSummary } from './warehouse-transfers.schema.js';
+import { findPlaceableLocation, type PlaceableLocation } from '../warehouse-ops/storage-locations.repo.js';
+import type {
+  ListTransfersQuery,
+  ReceiveCondition,
+  Transfer,
+  TransferLine,
+  TransferStatus,
+  TransferSummary,
+} from './warehouse-transfers.schema.js';
 
 /** BR-102 rule 3: Rs 50,000 (UNCONFIRMED). Used only when system_config has no usable row. */
 export const FALLBACK_HIGH_VALUE_THRESHOLD_PAISE = 5_000_000;
@@ -49,6 +57,20 @@ export interface NewTransferItem {
   qtyKg: string;
   costPerKg: string | null;
   lineValuePaise: number | null;
+}
+
+/** BR-126: what the destination recorded for one received line (all but the quantity optional). */
+export interface ReceivedLine {
+  qtyKg: string;
+  destBatchId: string | null;
+  inLedgerId: string | null;
+  damagedQtyKg?: string;
+  spoiledQtyKg?: string;
+  condition?: ReceiveCondition | null;
+  actualGrade?: string | null;
+  actualCropId?: string | null;
+  storageLocationId?: string | null;
+  storageLocation?: string | null;
 }
 
 export interface LedgerInsert {
@@ -85,16 +107,36 @@ export interface WarehouseTransfersRepo {
   setOutLedger(db: Executor, itemId: string, ledgerId: string): Promise<void>;
   /** IN_TRANSIT + dispatched_at; also approved_by/approved_at when an approver is given. */
   markDispatched(db: Executor, id: string, approvedBy: string | null): Promise<void>;
-  /** A new ACTIVE batch in `warehouseId` copied from the source batch; returns its id. */
-  insertDestBatch(db: Executor, input: { sourceBatchId: string; warehouseId: string; qtyKg: string; transferNumber: string }): Promise<string>;
-  markItemReceived(db: Executor, itemId: string, input: { qtyKg: string; destBatchId: string | null; inLedgerId: string | null }): Promise<void>;
+  /**
+   * A new ACTIVE batch in `warehouseId` copied from the source batch (crop, grade, farmer, cost,
+   * expiry), placed in the given location (BR-126); returns its id.
+   */
+  insertDestBatch(
+    db: Executor,
+    input: {
+      sourceBatchId: string;
+      warehouseId: string;
+      qtyKg: string;
+      transferNumber: string;
+      storageLocationId?: string | null;
+      storageLocation?: string | null;
+    },
+  ): Promise<string>;
+  markItemReceived(db: Executor, itemId: string, input: ReceivedLine): Promise<void>;
+  /** RECEIVED, with the next TGR receipt number (BR-126) drawn in the same statement. */
   markReceived(db: Executor, id: string, input: { receivedBy: string; hasDiscrepancy: boolean; receiptNote: string | null }): Promise<void>;
+  /** BR-126: the ids among `ids` that are live crop_master rows. */
+  findLiveCropIds(db: Executor, ids: string[]): Promise<string[]>;
+  /** BR-125/BR-126: a live location of the warehouse, share-locked; null when there is none. */
+  findPlaceableLocation(db: Executor, warehouseId: string, id: string): Promise<PlaceableLocation | null>;
   markCancelled(db: Executor, id: string, input: { cancelledBy: string; reason: string }): Promise<void>;
 }
 
 interface HeaderRow {
   id: string;
   transfer_number: string;
+  receipt_number: string | null;
+  initiated_by_name: string | null;
   from_warehouse_id: string;
   to_warehouse_id: string;
   status: TransferStatus;
@@ -130,15 +172,27 @@ interface LineRow {
   cost_per_kg: string | null;
   line_value_paise: string | null;
   dest_batch_id: string | null;
+  damaged_qty: string | null;
+  spoiled_qty: string | null;
+  condition: ReceiveCondition | null;
+  actual_grade: TransferLine['actualGrade'];
+  actual_crop_id: string | null;
+  actual_crop_name: string | null;
+  storage_location_id: string | null;
+  storage_location: string | null;
 }
 
+/** Always selected FROM `HEADER_FROM` (the initiator's name is joined, never looked up per row). */
 const HEADER_COLUMNS = `
-  t.id, t.transfer_number, t.from_warehouse_id, t.to_warehouse_id, t.status,
+  t.id, t.transfer_number, t.receipt_number, iu.full_name AS initiated_by_name,
+  t.from_warehouse_id, t.to_warehouse_id, t.status,
   t.total_value_paise::text AS total_value_paise, t.has_unvalued_lines, t.requires_approval, t.has_discrepancy,
   t.vehicle_number, t.notes, t.receipt_note, t.cancel_reason,
   t.initiated_by, t.approved_by, t.approved_at, t.dispatched_at, t.received_by, t.received_at,
   t.cancelled_by, t.cancelled_at, t.created_at, t.updated_at
 `;
+
+const HEADER_FROM = `stock_transfers t LEFT JOIN users iu ON iu.id = t.initiated_by`;
 
 const iso = (value: Date | null): string | null => (value === null ? null : value.toISOString());
 const money = (paise: string | null): Money | null => (paise === null ? null : fromPaise(Number(paise)));
@@ -147,6 +201,7 @@ function toSummary(row: HeaderRow): TransferSummary {
   return {
     id: row.id,
     transferNumber: row.transfer_number,
+    receiptNumber: row.receipt_number,
     fromWarehouseId: row.from_warehouse_id,
     toWarehouseId: row.to_warehouse_id,
     status: row.status,
@@ -159,6 +214,7 @@ function toSummary(row: HeaderRow): TransferSummary {
     receiptNote: row.receipt_note,
     cancelReason: row.cancel_reason,
     initiatedBy: row.initiated_by,
+    initiatedByName: row.initiated_by_name,
     approvedBy: row.approved_by,
     approvedAt: iso(row.approved_at),
     dispatchedAt: iso(row.dispatched_at),
@@ -184,6 +240,14 @@ function toLine(row: LineRow): TransferLine {
     costPerKg: row.cost_per_kg,
     lineValue: money(row.line_value_paise),
     destBatchId: row.dest_batch_id,
+    damagedQtyKg: row.damaged_qty,
+    spoiledQtyKg: row.spoiled_qty,
+    condition: row.condition,
+    actualGrade: row.actual_grade,
+    actualProductId: row.actual_crop_id,
+    actualProductName: row.actual_crop_name,
+    storageLocationId: row.storage_location_id,
+    storageLocation: row.storage_location,
   };
 }
 
@@ -194,9 +258,15 @@ async function loadLines(db: Executor, transferId: string): Promise<TransferLine
     `SELECT i.id, i.batch_id, b.batch_code, b.crop_id, b.grade::text AS grade,
             i.qty_sent::text AS qty_sent, i.qty_received::text AS qty_received,
             CASE WHEN i.qty_received IS NULL THEN NULL ELSE i.variance_qty::text END AS variance_qty,
-            i.cost_per_kg::text AS cost_per_kg, i.line_value_paise::text AS line_value_paise, i.dest_batch_id
+            i.cost_per_kg::text AS cost_per_kg, i.line_value_paise::text AS line_value_paise, i.dest_batch_id,
+            -- BR-126: the breakdown columns default to 0; before receipt they read null.
+            CASE WHEN i.qty_received IS NULL THEN NULL ELSE i.damaged_qty::text END AS damaged_qty,
+            CASE WHEN i.qty_received IS NULL THEN NULL ELSE i.spoiled_qty::text END AS spoiled_qty,
+            i.condition, i.actual_grade::text AS actual_grade, i.actual_crop_id, ac.name AS actual_crop_name,
+            i.storage_location_id, i.storage_location
        FROM stock_transfer_items i
        JOIN inventory_batches b ON b.id = i.batch_id
+       LEFT JOIN crop_master ac ON ac.id = i.actual_crop_id
       WHERE i.transfer_id = $1
       ORDER BY i.created_at, i.id`,
     [transferId],
@@ -206,7 +276,7 @@ async function loadLines(db: Executor, transferId: string): Promise<TransferLine
 
 async function loadTransfer(db: Executor, id: string, lock: boolean): Promise<Transfer | null> {
   const result = await db.query<HeaderRow>(
-    `SELECT ${HEADER_COLUMNS} FROM stock_transfers t WHERE t.id = $1${lock ? ' FOR UPDATE' : ''}`,
+    `SELECT ${HEADER_COLUMNS} FROM ${HEADER_FROM} WHERE t.id = $1${lock ? ' FOR UPDATE OF t' : ''}`,
     [id],
   );
   const row = result.rows[0];
@@ -335,7 +405,7 @@ export const warehouseTransfersRepo: WarehouseTransfersRepo = {
     const where = conditions.length === 0 ? 'TRUE' : conditions.join(' AND ');
     const count = await db.query<{ total: string }>(`SELECT count(*)::text AS total FROM stock_transfers t WHERE ${where}`, params);
     const rows = await db.query<HeaderRow>(
-      `SELECT ${HEADER_COLUMNS} FROM stock_transfers t WHERE ${where}
+      `SELECT ${HEADER_COLUMNS} FROM ${HEADER_FROM} WHERE ${where}
         ORDER BY t.created_at DESC, t.id DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
       [...params, query.pageSize, (query.page - 1) * query.pageSize],
     );
@@ -371,17 +441,26 @@ export const warehouseTransfersRepo: WarehouseTransfersRepo = {
 
   async insertDestBatch(db, input) {
     // qty_available stays at its default 0: the TRANSFER_IN ledger row fills it (CLAUDE.md 2.3).
+    // BR-126: the destination's location (validated by the service; the composite foreign key keeps
+    // it in this batch's warehouse) is set at insert; crop and grade stay the source batch's.
     const result = await db.query<{ id: string }>(
       `INSERT INTO inventory_batches (
          batch_code, warehouse_id, crop_id, grade, goods_receipt_id, source_farmer_id,
-         qty_received, cost_per_kg, received_on, expiry_on, status
+         qty_received, cost_per_kg, received_on, expiry_on, status, storage_location_id, storage_location
        )
        SELECT s.batch_code || '/' || $4, $2, s.crop_id, s.grade, NULL, s.source_farmer_id,
-              $3::numeric, s.cost_per_kg, (now() AT TIME ZONE 'Asia/Kolkata')::date, s.expiry_on, 'ACTIVE'
+              $3::numeric, s.cost_per_kg, (now() AT TIME ZONE 'Asia/Kolkata')::date, s.expiry_on, 'ACTIVE', $5, $6
          FROM inventory_batches s
         WHERE s.id = $1
        RETURNING id`,
-      [input.sourceBatchId, input.warehouseId, input.qtyKg, input.transferNumber],
+      [
+        input.sourceBatchId,
+        input.warehouseId,
+        input.qtyKg,
+        input.transferNumber,
+        input.storageLocationId ?? null,
+        input.storageLocation ?? null,
+      ],
     );
     const row = result.rows[0];
     if (row === undefined) throw new Error(`source batch ${input.sourceBatchId} vanished during receipt`);
@@ -391,9 +470,24 @@ export const warehouseTransfersRepo: WarehouseTransfersRepo = {
   async markItemReceived(db, itemId, input) {
     await db.query(
       `UPDATE stock_transfer_items
-          SET qty_received = $2::numeric, dest_batch_id = $3, in_ledger_id = $4, updated_at = now()
+          SET qty_received = $2::numeric, dest_batch_id = $3, in_ledger_id = $4,
+              damaged_qty = $5::numeric, spoiled_qty = $6::numeric, condition = $7,
+              actual_grade = $8::produce_grade, actual_crop_id = $9, storage_location_id = $10, storage_location = $11,
+              updated_at = now()
         WHERE id = $1`,
-      [itemId, input.qtyKg, input.destBatchId, input.inLedgerId],
+      [
+        itemId,
+        input.qtyKg,
+        input.destBatchId,
+        input.inLedgerId,
+        input.damagedQtyKg ?? '0',
+        input.spoiledQtyKg ?? '0',
+        input.condition ?? null,
+        input.actualGrade ?? null,
+        input.actualCropId ?? null,
+        input.storageLocationId ?? null,
+        input.storageLocation ?? null,
+      ],
     );
   },
 
@@ -401,11 +495,25 @@ export const warehouseTransfersRepo: WarehouseTransfersRepo = {
     await db.query(
       `UPDATE stock_transfers
           SET status = 'RECEIVED', received_by = $2, received_at = now(),
-              has_discrepancy = $3, receipt_note = $4, updated_at = now()
+              has_discrepancy = $3, receipt_note = $4, updated_at = now(),
+              -- BR-126: TGR-<Asia/Kolkata year>-<6 digits>, the GRN-/BATCH- pattern.
+              receipt_number = 'TGR-' || to_char(now() AT TIME ZONE 'Asia/Kolkata', 'YYYY') || '-'
+                               || lpad(nextval('stock_transfer_receipt_number_seq')::text, 6, '0')
         WHERE id = $1`,
       [id, input.receivedBy, input.hasDiscrepancy, input.receiptNote],
     );
   },
+
+  async findLiveCropIds(db, ids) {
+    if (ids.length === 0) return [];
+    const result = await db.query<{ id: string }>(
+      `SELECT id FROM crop_master WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+      [ids],
+    );
+    return result.rows.map((row) => row.id);
+  },
+
+  findPlaceableLocation: (db, warehouseId, id) => findPlaceableLocation(db, warehouseId, id),
 
   async markCancelled(db, id, input) {
     await db.query(

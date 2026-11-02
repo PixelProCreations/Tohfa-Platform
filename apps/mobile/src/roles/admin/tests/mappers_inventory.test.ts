@@ -14,6 +14,7 @@ import { t } from '../i18n';
 import {
   aggregateStockByProduct,
   allocatedByProduct,
+  allocationBucketDetail,
   batchStatusOf,
   buildAllocationDashboard,
   cropNamesOf,
@@ -376,6 +377,39 @@ describe('buildAllocationDashboard: channel totals in grams', () => {
     expect(dashboard.channels.map((c) => c.channel)).toEqual(['online', 'liveMarket', 'reserve', 'buffer', 'unknown']);
     expect(dashboard.channels[4]?.label).toBe(t('inventory.channel.unknown'));
     expect(dashboard.channels[4]?.allocatedGrams).toBe(1000);
+  });
+});
+
+describe('allocationBucketDetail: the per-bucket sheet (design M3-08)', () => {
+  const dashboard = buildAllocationDashboard([
+    allocation({ channel: 'ONLINE', allocatedQtyKg: '700.000', consumedQtyKg: '100.000', reservedQtyKg: '25.500', availableQtyKg: '574.500' }),
+    allocation({ channel: 'RESERVE', allocatedQtyKg: '100.000', consumedQtyKg: '0.000', reservedQtyKg: '0.000', availableQtyKg: '100.000' }),
+  ]);
+
+  it('BR-12: shows the tapped bucket\'s own allocated, reserved and available grams from the same rows', () => {
+    const online = allocationBucketDetail(dashboard, 'online');
+    expect(online?.title).toBe(t('inventory.allocation.detailTitle', { name: t('inventory.channel.online') }));
+    expect(online?.rows).toEqual([
+      { label: t('inventory.allocation.detail.allocated'), value: '700 kg' },
+      { label: t('inventory.allocation.detail.reserved'), value: '25.5 kg' },
+      { label: t('inventory.allocation.detail.available'), value: '574.5 kg' },
+    ]);
+    expect(allocationBucketDetail(dashboard, 'reserve')?.rows[0]?.value).toBe('100 kg');
+  });
+
+  it('BR-100: a bucket whose available figure the server did not send hides that row, never computes it', () => {
+    const { availableQtyKg: _omit, ...withoutAvailable } = allocation({ channel: 'BUFFER', allocatedQtyKg: '5.000' });
+    const detail = allocationBucketDetail(buildAllocationDashboard([withoutAvailable]), 'buffer');
+    expect(detail?.rows.map((r) => r.label)).toEqual([
+      t('inventory.allocation.detail.allocated'),
+      t('inventory.allocation.detail.reserved'),
+    ]);
+  });
+
+  it('nothing selected, no dashboard, or a bucket not on the dashboard: no sheet', () => {
+    expect(allocationBucketDetail(dashboard, undefined)).toBeUndefined();
+    expect(allocationBucketDetail(undefined, 'online')).toBeUndefined();
+    expect(allocationBucketDetail(dashboard, 'unknown')).toBeUndefined();
   });
 });
 

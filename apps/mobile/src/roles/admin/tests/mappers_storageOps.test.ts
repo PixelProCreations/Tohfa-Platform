@@ -23,6 +23,7 @@ import {
   issueFilterStatus,
   istDate,
   locationBatches,
+  locationInfoRows,
   locationStockOf,
   nextOffsetPage,
   parseCapacityInput,
@@ -275,6 +276,26 @@ describe('storage locations (BR-79) and derived stock', () => {
     expect(Object.keys(row)).not.toEqual(expect.arrayContaining(['rack']));
     expect(toLocationRow({ ...dto, capacityKg: null }, { grams: 1, batchCount: 1 }, NOON).occupancyPercent).toBeNull();
     expect(toLocationRow(dto, undefined, NOON).occupancyPercent).toBeNull();
+  });
+
+  it('M4-04: the info card names the warehouse the location belongs to, and hides it while unknown', () => {
+    const row = toLocationRow(dto, undefined, NOON);
+    const rows = locationInfoRows(row, 'Coonoor');
+    expect(rows.flat()).toEqual([
+      { label: t('storageOps.location.field.code'), value: 'CS-A' },
+      { label: t('storageOps.location.field.type'), value: t('storageOps.location.typeNotSet') },
+      { label: t('storageOps.location.field.warehouse'), value: 'Coonoor' },
+      { label: t('storageOps.location.field.capacity'), value: row.capacity },
+      { label: t('storageOps.location.field.created'), value: row.createdAt },
+    ]);
+    expect(rows.every((r) => r.length <= 2)).toBe(true);
+    const labels = locationInfoRows(row, undefined).flat().map((f) => f.label);
+    expect(labels).not.toContain(t('storageOps.location.field.warehouse'));
+    // No section / rack / shelf: the API has no layout fields.
+    expect(labels).toHaveLength(4);
+    expect(locationInfoRows(toLocationRow({ ...dto, capacityKg: null }, undefined, NOON), 'Coonoor').flat()[3]?.value).toBe(
+      t('storageOps.location.capacityNotSet'),
+    );
   });
 
   it('groups by type with untyped locations last', () => {

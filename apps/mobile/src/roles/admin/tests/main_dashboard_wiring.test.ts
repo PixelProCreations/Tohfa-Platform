@@ -12,6 +12,9 @@ const SRC = path.join(__dirname, '..', '..', '..');
 const read = (rel: string) => fs.readFileSync(path.join(SRC, rel), 'utf8');
 
 const MAIN = read('roles/admin/screens/dashboard/MainWarehouseAdminDashboardScreen.tsx');
+// The Inventory tab overview moved out of the shell into the shared inventory area.
+const INVENTORY_HOOK = read('roles/admin/screens/warehouse/inventory/useMainInventoryOverview.ts');
+const INVENTORY_MAPPERS = read('roles/admin/screens/warehouse/inventory/mainInventoryMappers.ts');
 const EN = JSON.parse(read('roles/admin/i18n/en.json')) as Record<string, string>;
 
 describe('no design samples on the live dashboard', () => {
@@ -54,12 +57,24 @@ describe('every query has a view-state handler (no zeros or "all normal" while l
     'salesMtdQuery',
     'activityQuery',
     'snoozedAlertsQuery',
+  ];
+  // The Inventory tab's own reads live in the shared overview hook.
+  const INVENTORY_QUERY_SOURCES = [
+    'batchesQuery',
     'allocationsQuery',
+    'lowStockQuery',
+    'verificationsQuery',
     'adjustmentsQuery',
+    'transfersQuery',
+    'ledgerQuery',
   ];
 
   it.each(QUERY_SOURCES)('%s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
     expect(MAIN).toMatch(new RegExp(`sourceOf\\(${name}\\)`));
+  });
+
+  it.each(INVENTORY_QUERY_SOURCES)('Inventory overview: %s is wrapped by sourceOf() so its loading and error state reach a gate', (name) => {
+    expect(INVENTORY_HOOK).toMatch(new RegExp(`sourceOf\\(${name}\\)`));
   });
 
   it('every sourceOf() result is read by a SectionGate or a figureOrPlaceholder, never left unused', () => {
@@ -172,7 +187,8 @@ describe('honest figures: no claim the data does not back', () => {
     expect(gate).toBeGreaterThan(-1);
     expect(card).toBeGreaterThan(gate);
     expect(MAIN).toContain('homeKpiSources');
-    expect(MAIN.slice(MAIN.indexOf('const homeKpiSources'), MAIN.indexOf('const inventoryKpiSources'))).toContain('perfTodayFigSrc');
+    const homeKpis = MAIN.indexOf('const homeKpiSources');
+    expect(MAIN.slice(homeKpis, MAIN.indexOf('];', homeKpis))).toContain('perfTodayFigSrc');
     expect(EN['mainDashboard.ops.orders']).toBe('Order Fulfilment');
     expect(EN['mainDashboard.ops.placed']).toBe('Placed');
     expect(EN['mainDashboard.ops.fulfilled']).toBe('Fulfilled');
@@ -548,29 +564,40 @@ describe('BR-78: the Alerts & Action Center snoozes alerts and lists the snoozed
   });
 });
 
-describe('Inventory tab: Allocated is the channel allocation, and the adjustment queue is reachable (old shell)', () => {
+describe('Inventory tab: Allocated is the channel allocation, and the adjustment queue is reachable (shared overview)', () => {
+  it('the shell renders the shared overview, fed by the one hook', () => {
+    expect(MAIN).toContain('useMainInventoryOverview({');
+    expect(MAIN).toContain('<MainInventoryDashboard');
+  });
+
   it('Allocated reads GET /admin/allocations through integer grams, not the batches\' reserved weight', () => {
-    expect(MAIN).toContain('listAllocations({ warehouseId: selectedWarehouseId');
-    expect(MAIN).toContain('deriveAllocatedGrams(allocationsQuery.data.items)');
-    expect(MAIN).toContain('formatKg(allocatedGrams)');
-    expect(MAIN).not.toMatch(/ALLOCATED<\/Text>\s*<Text[^>]*>\s*\{figureOrPlaceholder\(stockSrc\.status, \(\) => formatKg\(stockFig\.reservedGrams\)\)/);
+    expect(INVENTORY_HOOK).toContain('listAllocations({ warehouseId, limit: DASHBOARD_PAGE_LIMIT, cursor }');
+    expect(INVENTORY_HOOK).toContain('deriveAllocatedStockGrams(allocations)');
+    expect(INVENTORY_MAPPERS).toContain('deriveAllocatedGrams(allocations)');
+    expect(INVENTORY_MAPPERS).toContain('formatKg(f.allocatedStockGrams)');
   });
 
-  it('the reserved weight is still shown, as the sub line of Total Stock', () => {
-    expect(MAIN).toContain("t('mainDashboard.inventory.reservedSub', { qty: formatKg(stockFig.reservedGrams) })");
+  it('the reserved weight is shown as its own card, from the allocation cart holds (BR-22), not the batches\' qtyReservedKg', () => {
+    expect(INVENTORY_MAPPERS).toContain("optionalGramsOf(row.reservedQtyKg, 'reservedQtyKg')");
+    expect(INVENTORY_MAPPERS).toContain('formatKg(f.reservedStockGrams)');
+    expect(INVENTORY_MAPPERS).not.toContain('qtyReservedKg');
+    expect(INVENTORY_HOOK).not.toContain('qtyReservedKg');
   });
 
-  it('the adjustment approval queue opens from Pending Actions with the server count of PENDING adjustments (BR-37), only with the approve code', () => {
-    expect(MAIN).toContain("listStockAdjustments({ status: 'PENDING', warehouseId: selectedWarehouseId");
-    expect(MAIN).toContain('derivePendingAdjustments(adjustmentsQuery.data)');
+  it('the adjustment approval queue opens from the card and Pending Actions with the server count of PENDING adjustments (BR-37), only with the code the list read checks', () => {
+    expect(INVENTORY_HOOK).toContain("listStockAdjustments({ status: 'PENDING', warehouseId");
+    expect(INVENTORY_HOOK).toContain('deriveServerTotal(adjustmentsQuery.data)');
+    expect(INVENTORY_HOOK).toContain('{ enabled: on.adjustments }');
+    expect(INVENTORY_MAPPERS).toContain("adjustments: isAreaAvailable('stockAdjustments', can)");
     expect(MAIN).toContain("navigateWh('stock_adjustment_approval')");
-    expect(MAIN).toContain('canAllView && access.adjustments');
     expect(MAIN).not.toContain('Adjustments Awaiting Approval');
   });
 
   it('both are read only while the Inventory tab is open', () => {
-    expect(MAIN).toContain("{ enabled: canAllView && activeTab === 'Inventory' }");
-    expect(MAIN).toContain("{ enabled: canAllView && access.adjustments && activeTab === 'Inventory' }");
+    expect(MAIN).toContain("enabled: canAllView && activeTab === 'Inventory'");
+    expect(INVENTORY_HOOK).toContain('allocations: enabled && access.allocations');
+    expect(INVENTORY_HOOK).toContain('adjustments: enabled && access.adjustments');
+    expect(INVENTORY_HOOK).toContain('{ enabled: on.allocations }');
   });
 });
 

@@ -28,7 +28,7 @@ import {
   parseRateBasisPoints,
   splitLineAcrossDraws,
 } from './sales.math.js';
-import type { SaleHeaderRow, SaleRecord, SalesRepo } from './sales.repo.js';
+import { salesRepo, type SaleHeaderRow, type SaleRecord, type SalesRepo } from './sales.repo.js';
 import {
   customerLookupQuery,
   listSaleProductsQuery,
@@ -1169,5 +1169,25 @@ describe('salesService: UPI reference kept for the manual cancel (mocked repo, B
     expect(error.meta).toMatchObject({ reason: 'SALE_STATE_CHANGED' });
     expect(r.verifierCalls).toEqual([]);
     expect(r.steps).toEqual(['tx']);
+  });
+});
+
+describe('salesRepo.lookupCustomers (BR-91, recorded SQL)', () => {
+  it('BR-91: the counter customer lookup never matches a soft-deleted user, by code, mobile or text, scoped or not', async () => {
+    const statements: string[] = [];
+    const recording = {
+      async query(sql: string) {
+        statements.push(sql);
+        return { rows: [], rowCount: 0 } as never;
+      },
+    } as unknown as Executor;
+    await salesRepo.lookupCustomers(recording, { kind: 'code', code: 'CUST-1' }, null);
+    await salesRepo.lookupCustomers(recording, { kind: 'mobile', digits: '9876543210' }, [newId()]);
+    await salesRepo.lookupCustomers(recording, { kind: 'q', text: 'Ravi' }, null);
+    expect(statements).toHaveLength(3);
+    for (const sql of statements) {
+      // The users join itself excludes a deleted account, so a recycled mobile cannot surface it.
+      expect(sql.replace(/\s+/g, ' ')).toContain('JOIN users u ON u.id = c.user_id AND u.deleted_at IS NULL');
+    }
   });
 });

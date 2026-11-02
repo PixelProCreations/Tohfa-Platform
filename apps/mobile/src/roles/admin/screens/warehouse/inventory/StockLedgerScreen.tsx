@@ -8,6 +8,7 @@ import { isAreaAvailable } from '../availability';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import type { BatchRow, InventoryLiveStateProps, InventoryScreenBaseProps, StockMovementRow } from './types';
+import { movementRouteParams } from './movementDetailMappers';
 import { WarehouseSelector } from './WarehouseSelector';
 import Svg, { Path } from 'react-native-svg';
 import { SWAHeader } from '../../swa/components';
@@ -245,9 +246,17 @@ export function StockLedgerScreen({
           {view === 'empty' ? <AdminEmptyState title={t('inventory.empty.ledger')} /> : null}
 
           {/* One card per ledger row. The tone follows the delta's own sign (BR-37).
-              Rows do not open the movement detail: that screen is a design sample. */}
+              A row opens Movement Detail (M3S15) with the row itself: there is
+              no per-id ledger read to fetch it again. */}
           {movements.map((movement) => (
-            <View key={movement.id} style={styles.ledgerCard}>
+            <TouchableOpacity
+              key={movement.id}
+              style={styles.ledgerCard}
+              onPress={() => onNavigate?.('M3S15', movementRouteParams(movement))}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel={t('inventory.ledger.openMovement')}
+            >
               <View style={styles.cardTopRow}>
                 <View style={styles.typeWithIconRow}>
                   {movement.kind === 'reservation' ? (
@@ -292,17 +301,21 @@ export function StockLedgerScreen({
                 {movement.batchCode === undefined ? (
                   <View />
                 ) : (
-                  <Text style={styles.metaLabelText}>Batch <Text style={styles.metaValueText}>{movement.batchCode}</Text></Text>
+                  <Text style={styles.metaLabelText}>
+                    {t('inventory.ledger.batch')} <Text style={styles.metaValueText}>{movement.batchCode}</Text>
+                  </Text>
                 )}
                 <Text style={styles.timeText}>{movement.performedAt}</Text>
               </View>
 
               {movement.balanceText === '' ? null : (
                 <View style={[styles.metaRow, styles.metaRowEnd]}>
-                  <Text style={styles.metaLabelText}>Balance <Text style={styles.metaValueText}>{movement.balanceText}</Text></Text>
+                  <Text style={styles.metaLabelText}>
+                    {t('inventory.ledger.balance')} <Text style={styles.metaValueText}>{movement.balanceText}</Text>
+                  </Text>
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
           ))}
 
           {/* Load Earlier Movements */}
@@ -372,26 +385,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: adminColors.canvas,
-  },
-  warehousePillRow: {
-    paddingTop: 10,
-    paddingBottom: 2,
-  },
-  warehousePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    alignSelf: 'flex-start',
-    gap: 6,
-  },
-  warehousePillText: {
-    ...adminType.rowTitle,
-    color: adminColors.onBrand,
   },
   tabCardsRow: {
     flexDirection: 'row',

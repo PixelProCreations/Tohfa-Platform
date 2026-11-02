@@ -16,7 +16,7 @@
  *           into tickets ("call me on ..."), and the ticket shapes are otherwise contact-free.
  *  - BR-98  the active window is read from system_config on every request.
  */
-import { parseMoney } from '@tohfa/shared-types';
+import { fromPaise, parseMoney, type Money } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
@@ -28,8 +28,9 @@ import {
   composeRedactors,
   customerAccess,
   decodeNameKey,
+  decodeSortKey,
   decodeTimeKey,
-  encodeNameKey,
+  encodeSortKey,
   encodeTimeKey,
   maskMobile,
   type CustomerAccess,
@@ -38,7 +39,7 @@ import {
 } from './customers.policy.js';
 import {
   customersRepo,
-  type CustomerRow,
+  type CustomerListRow,
   type CustomersRepo,
   type Fetched,
   type IssueRow,
@@ -121,7 +122,7 @@ const ticketNotFound = (): AppError =>
 // ---------------------------------------------------------------------------
 // Serializers (allow-lists)
 // ---------------------------------------------------------------------------
-function listItem(row: CustomerRow, masked: boolean): AdminCustomerListItem {
+function listItem(row: CustomerListRow, masked: boolean): AdminCustomerListItem {
   const item: AdminCustomerListItem = {
     id: row.id,
     customerCode: row.customerCode,
@@ -135,6 +136,8 @@ function listItem(row: CustomerRow, masked: boolean): AdminCustomerListItem {
     lastActivityAt: row.lastActivityAt,
     piiMasked: masked,
     createdAt: row.createdAt,
+    issueCount: row.issueCount,
+    ticketCount: row.ticketCount,
   };
   // BR-92: for a masked actor the keys are ABSENT, not null.
   if (!masked) {
@@ -278,6 +281,16 @@ const afterTime = (cursor: string | undefined): TimeKey | undefined =>
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
+/**
+ * BR-129: a SUM in integer paise (text, from SQL) as Money. Refuses a non-safe integer rather than
+ * let a float round it (CLAUDE.md 2.2).
+ */
+function paiseToMoney(text: string): Money {
+  const paise = Number(text);
+  if (!Number.isSafeInteger(paise)) throw new Error(`wallet total paise out of range: ${text}`);
+  return fromPaise(paise);
+}
+
 export function createCustomersService(deps: Partial<CustomersServiceDeps> = {}): CustomersService {
   const repo = deps.repo ?? customersRepo;
   const db = deps.db ?? pool;
@@ -322,17 +335,35 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
     async list(scope, query) {
       const access = customerAccess(scope);
       const days = await windowDays(db);
+      // BR-115: the default `name` sort keeps its original cursor (`after`); every other sort
+      // pages on (sort value, id) and refuses a cursor minted for another sort (422).
+      const sort = query.sort ?? 'name';
+      const cursorArgs =
+        query.cursor === undefined
+          ? {}
+          : sort === 'name'
+            ? { after: decodeNameKey(query.cursor) }
+            : { afterSort: decodeSortKey(query.cursor, sort) };
       const fetchedRows = await repo.listCustomers(db, {
         access,
         windowDays: days,
         limit: query.limit,
         ...(query.q === undefined ? {} : { q: query.q }),
         ...(query.status === undefined ? {} : { status: query.status }),
-        ...(query.cursor === undefined ? {} : { after: decodeNameKey(query.cursor) }),
+        ...(query.crop === undefined ? {} : { crop: query.crop }),
+        ...(query.grade === undefined ? {} : { grade: query.grade }),
+        ...(query.from === undefined ? {} : { from: query.from }),
+        ...(query.to === undefined ? {} : { to: query.to }),
+        ...(sort === 'name' ? {} : { sort }),
+        ...cursorArgs,
       });
       // BR-91e: the summary counts the whole visible set (not the page, not the filters).
       const summary = await repo.summarize(db, access, days);
-      const paged = page(fetchedRows, (row) => listItem(row, access.masked), (row) => encodeNameKey({ name: row.fullName, id: row.id }));
+      const paged = page(
+        fetchedRows,
+        (row) => listItem(row, access.masked),
+        (row) => encodeSortKey({ sort, value: sort === 'name' ? row.fullName : row.sortCursor, id: row.id }),
+      );
       return { ...paged, summary };
     },
 
@@ -387,6 +418,8 @@ export function createCustomersService(deps: Partial<CustomersServiceDeps> = {})
         customerId,
         walletId: wallet.walletId,
         balance: parseMoney(wallet.ledgerBalance),
+        totalCredited: paiseToMoney(wallet.totalCreditedPaise),
+        totalUsed: paiseToMoney(wallet.totalUsedPaise),
         currency: 'INR',
         status: wallet.status as AdminCustomerWalletSummary['status'],
         transactionCount: wallet.transactionCount,

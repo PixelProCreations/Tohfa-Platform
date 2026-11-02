@@ -6,7 +6,7 @@
  *                         -> Attendance History (this member)
  *         -> Add Staff (Edit Staff Profile in create mode)
  *   Staff -> Attendance -> Attendance Detail ({ staffId, date })
- *                       -> Attendance History
+ *                       -> Attendance History -> Attendance Detail (a By Date row)
  *
  * Gate (docs/rbac.json; BR-83: a Sub Warehouse Admin holds none of these):
  *   Staff, StaffDetail                         admin.staff.list_view
@@ -134,6 +134,7 @@ export function StaffFlow({
           {...common}
           staffId={params.historyStaffId}
           staffName={params.historyStaffName}
+          onSelectRecord={(record) => navigate('AttendanceDetail', { record })}
           onNavigateToToday={() => {
             // Back to the overview when History was opened from it; otherwise open it.
             const prev = stack[stack.length - 2];

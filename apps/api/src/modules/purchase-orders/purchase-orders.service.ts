@@ -69,6 +69,8 @@ export function formatPoRowToResponse(row: PurchaseOrderRow): PurchaseOrderRespo
     status: row.status,
     expectedDeliveryDate: row.expected_delivery_date,
     issuedAt: row.issued_at instanceof Date ? row.issued_at.toISOString() : String(row.issued_at),
+    // BR-119: joined by the insert and by the existing-order read; null when the crop is missing.
+    cropName: row.crop_name ?? null,
   };
 }
 

@@ -14,11 +14,19 @@ export const listSystemMessagesQuery = z
   .strict();
 export type ListSystemMessagesQuery = z.infer<typeof listSystemMessagesQuery>;
 
+/**
+ * BR-134: `announcements.type` (migration 0081). UNCONFIRMED value set: implementer proposal, the
+ * owner has not defined the kinds. Keep aligned with `announcements_type_chk`.
+ */
+export const SYSTEM_MESSAGE_TYPES = ['GENERAL', 'MAINTENANCE', 'ALERT', 'PROMOTION'] as const;
+export type SystemMessageType = (typeof SYSTEM_MESSAGE_TYPES)[number];
+
 /** `ZONE` is a valid announcement scope in the table but the visibility query never returns it. */
 export const systemMessageResponse = z
   .object({
     id: z.string().uuid(),
     scope: z.enum(['SYSTEM_WIDE', 'WAREHOUSE', 'ROLE']),
+    type: z.enum(SYSTEM_MESSAGE_TYPES),
     title: z.string(),
     body: z.string(),
     locale: z.enum(['en', 'ta']),

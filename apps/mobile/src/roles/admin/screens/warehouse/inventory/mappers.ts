@@ -24,6 +24,7 @@ import type { AllocationDto, BatchDto, StockLedgerEntryDto } from '../../../api/
 import { t, type TranslationKey } from '../../../i18n';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
 import { formatAdminDate, formatAdminDay } from '../../../utils/datetime';
+import type { InfoFieldValue } from '../shared/infoFields';
 import type {
   AllocationChannelKey,
   AllocationChannelSummary,
@@ -50,6 +51,25 @@ function has<K extends string>(table: Record<K, unknown>, value: string): value 
  */
 export function inventoryWarehouseFilter(scope: WarehouseScope, selectedId: string | undefined): string | undefined {
   return scope.warehouseId !== undefined ? scope.warehouseId : selectedId;
+}
+
+/** docs/rbac.json code behind GET /warehouses (Main all, Sub none). */
+export const WAREHOUSE_LIST_CODE = 'warehouse.all.view';
+
+/**
+ * The display name of a warehouse uuid. A Sub admin's own warehouse is named
+ * from its scope (it cannot read GET /warehouses, BR-30); any other comes from
+ * that list. Unknown -> undefined, so the screen hides the field rather than
+ * printing a uuid.
+ */
+export function inventoryWarehouseName(
+  scope: WarehouseScope,
+  options: readonly { warehouseId: string; warehouseName: string }[],
+  warehouseId: string | undefined,
+): string | undefined {
+  if (warehouseId === undefined) return undefined;
+  if (warehouseId === scope.warehouseId && scope.warehouseName) return scope.warehouseName;
+  return options.find((option) => option.warehouseId === warehouseId)?.warehouseName;
 }
 
 /** The key of one product (crop + grade), shared by batches, allocations and LOW_STOCK alerts. */
@@ -251,6 +271,10 @@ export function signedKg(deltaGrams: number | null): string {
   return deltaGrams > 0 ? `+${formatKg(deltaGrams)}` : formatKg(deltaGrams);
 }
 
+function nonBlank(value: string | null | undefined): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
 /**
  * One ledger row. `batches` (batch uuid -> row) names the batch when it is
  * among the loaded ones; otherwise the row shows no batch rather than a guess.
@@ -264,10 +288,13 @@ export function toStockMovementRow(
   const deltaGrams = grams(dto.qtyDeltaKg);
   const balanceAfterGrams = grams(dto.balanceAfterKg);
   const batch = batches?.get(dto.batchId);
-  const remarks = typeof dto.remarks === 'string' && dto.remarks.trim() !== '' ? dto.remarks : undefined;
+  const remarks = nonBlank(dto.remarks);
+  const refType = nonBlank(dto.refType);
+  const refId = nonBlank(dto.refId);
   return {
     id: dto.id,
     batchId: dto.batchId,
+    warehouseId: dto.warehouseId,
     kind,
     typeLabel: t(MOVEMENT_LABEL[kind]),
     direction: directionOf(deltaGrams),
@@ -280,6 +307,8 @@ export function toStockMovementRow(
       ? {}
       : { batchCode: batch.batchCode, productLabel: productLabelOf(batch.productName, batch.grade) }),
     ...(remarks === undefined ? {} : { remarks }),
+    ...(refType === undefined ? {} : { refType }),
+    ...(refId === undefined ? {} : { refId }),
   };
 }
 
@@ -377,6 +406,35 @@ export function buildAllocationDashboard(rows: readonly AllocationDto[]): Alloca
     channels,
     totalAllocatedGrams: channels.reduce((sum, channel) => sum + channel.allocatedGrams, 0),
   };
+}
+
+/** The per-bucket sheet of the allocation dashboard (design M3-08). */
+export interface AllocationBucketDetail {
+  channel: AllocationChannelKey;
+  title: string;
+  rows: InfoFieldValue[];
+}
+
+/**
+ * The sheet for the tapped bucket, from the same per-channel totals the cards
+ * show. Available is the server's figure (BR-100); a bucket without it leaves
+ * that row out rather than computing one. undefined = no sheet.
+ */
+export function allocationBucketDetail(
+  dashboard: AllocationDashboard | undefined,
+  channel: AllocationChannelKey | undefined,
+): AllocationBucketDetail | undefined {
+  if (dashboard === undefined || channel === undefined) return undefined;
+  const summary = dashboard.channels.find((c) => c.channel === channel);
+  if (summary === undefined) return undefined;
+  const rows: InfoFieldValue[] = [
+    { label: t('inventory.allocation.detail.allocated'), value: formatKg(summary.allocatedGrams) },
+    { label: t('inventory.allocation.detail.reserved'), value: formatKg(summary.reservedGrams) },
+  ];
+  if (summary.availableGrams !== null) {
+    rows.push({ label: t('inventory.allocation.detail.available'), value: formatKg(summary.availableGrams) });
+  }
+  return { channel, title: t('inventory.allocation.detailTitle', { name: summary.label }), rows };
 }
 
 /** productKey() -> allocated grams over every channel row of that product. */

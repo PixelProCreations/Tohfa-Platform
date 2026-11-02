@@ -24,8 +24,8 @@ import { createHash } from 'node:crypto';
 import type { Executor } from '../db/pool.js';
 import { AppError } from './problem.js';
 
-/** docs/openapi.yaml IdempotencyKeyHeader: "Keys are retained 24 hours." */
-export const IDEMPOTENCY_RETENTION_HOURS = 24;
+/** Fallback used only when system_config is unreachable. */
+const IDEMPOTENCY_RETENTION_HOURS_DEFAULT = 24;
 const MAX_KEY_LENGTH = 255;
 const HEADER_FIELD = 'header.Idempotency-Key';
 
@@ -146,6 +146,14 @@ export const idempotencyStore: IdempotencyStore = {
     // claim matches the conflict but not the WHERE, so nothing is returned and
     // the existing row is read below. The conflict wait on a concurrent,
     // uncommitted claim is what serialises parallel requests.
+    const cfgRow = await tx.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'idempotency.retention_hours' LIMIT 1`,
+    );
+    const retentionHours =
+      typeof cfgRow.rows[0]?.value === 'number' && Number.isFinite(cfgRow.rows[0].value)
+        ? (cfgRow.rows[0].value as number)
+        : IDEMPOTENCY_RETENTION_HOURS_DEFAULT;
+
     const inserted = await tx.query(
       `INSERT INTO idempotency_keys (actor_user_id, idempotency_key, operation, request_hash)
        VALUES ($1, $2, $3, $4)
@@ -156,7 +164,7 @@ export const idempotencyStore: IdempotencyStore = {
              created_at = now()
          WHERE idempotency_keys.created_at < now() - make_interval(hours => $5::int)
        RETURNING 1`,
-      [claim.actorUserId, claim.key, claim.operation, claim.requestHash, IDEMPOTENCY_RETENTION_HOURS],
+      [claim.actorUserId, claim.key, claim.operation, claim.requestHash, retentionHours],
     );
     if (inserted.rowCount === 1) return { claimed: true };
 

@@ -64,18 +64,6 @@ export const QC_CRITERIA: readonly QcCriterion[] = [
   { id: 'freshness', code: '05 — REQUIRED', title: 'Freshness', icon: 'leaf' },
 ];
 
-/** The receiving pipeline, in order (Main Receiving Activity card). */
-export const RECEIVING_PIPELINE = [
-  'Shipment Arrived',
-  'Receiving Started',
-  'Quantity Verification',
-  'Quality Check',
-  'Decision',
-  'Batch Assignment',
-  'Storage Assignment',
-  'Receipt Completion',
-] as const;
-
 /** docs/rbac.json codes the receiving screens check (each one exists there; MAIN=all, SUB=all unless noted). */
 export const RECEIVING_CODES = {
   /** Record a goods receipt (the wizard itself, and the Accept action). */

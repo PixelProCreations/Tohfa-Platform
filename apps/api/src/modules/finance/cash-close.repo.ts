@@ -37,6 +37,18 @@ export interface DayFigures {
   cashExpenses: Money;
 }
 
+/**
+ * BR-133: the day's figures summed over the warehouses in scope, each as integer paise in TEXT (a
+ * bigint never passes through a float on the way out of SQL).
+ */
+export interface DayFiguresTotalPaise {
+  warehouseCount: number;
+  openingCash: string;
+  cashSales: string;
+  cashTopUps: string;
+  cashExpenses: string;
+}
+
 export interface NewCashClose extends DayFigures {
   warehouseId: string;
   date: string;
@@ -65,6 +77,8 @@ export interface CashCloseRepo {
   /** Today's date in Asia/Kolkata, from the database clock. */
   todayInIndia(db: Executor): Promise<string>;
   dayFigures(db: Executor, warehouseId: string, date: string): Promise<DayFigures>;
+  /** BR-133: `dayFigures` summed over every active, undeleted warehouse inside `scope`. */
+  dayFiguresTotal(db: Executor, scope: ResolvedScope, date: string): Promise<DayFiguresTotalPaise>;
   findByWarehouseAndDate(db: Executor, warehouseId: string, date: string): Promise<CashCloseRecord | null>;
   /** Null when the warehouse day is already closed (the unique key refused the row). */
   insert(db: Executor, input: NewCashClose): Promise<CashCloseRecord | null>;
@@ -126,10 +140,13 @@ function map(row: CashCloseRow): CashCloseRecord {
 /** `SUM(numeric)` with a 2-decimal text result; an empty set sums to 0.00, not NULL. */
 const SUM_TEXT = (column: string): string => `COALESCE(SUM(${column}), 0)::numeric(14,2)::text`;
 
-/** The Asia/Kolkata day `$2::date`, as a half-open range over a timestamptz column. */
-const IN_DAY = (column: string): string =>
-  `${column} >= ($2::date)::timestamp AT TIME ZONE 'Asia/Kolkata'
-   AND ${column} < (($2::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')`;
+/** The Asia/Kolkata day `<dateParam>::date` (default `$2`), as a half-open range over a timestamptz column. */
+const IN_DAY = (column: string, dateParam = '$2'): string =>
+  `${column} >= (${dateParam}::date)::timestamp AT TIME ZONE 'Asia/Kolkata'
+   AND ${column} < ((${dateParam}::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')`;
+
+/** Integer paise of one `numeric(12,2)` row value (`* 100` is exact at 2 decimals). */
+const PAISE = (column: string): string => `(${column} * 100)::bigint`;
 
 function closeWhere(scope: ResolvedScope, filters: CashCloseFilters): { sql: string; params: unknown[] } {
   const clauses: string[] = [];
@@ -208,6 +225,53 @@ export const cashCloseRepo: CashCloseRepo = {
       cashSales: parseMoney(row.cash_sales),
       cashTopUps: parseMoney(row.cash_top_ups),
       cashExpenses: parseMoney(row.cash_expenses),
+    };
+  },
+
+  async dayFiguresTotal(db, scope, date) {
+    // BR-133: dayFigures' own definitions, per warehouse, for every active undeleted warehouse the
+    // scope admits (warehouseScopeFilter: a Sub admin only its own), each row converted to integer
+    // paise before it is summed. One statement; the per-warehouse figures are not touched.
+    const filter = warehouseScopeFilter(scope, 'w.id', 2);
+    const result = await db.query<{
+      warehouse_count: number;
+      opening_paise: string;
+      sales_paise: string;
+      top_ups_paise: string;
+      expenses_paise: string;
+    }>(
+      `SELECT count(*)::int AS warehouse_count,
+              COALESCE(SUM(f.opening_paise), 0)::text AS opening_paise,
+              COALESCE(SUM(f.sales_paise), 0)::text AS sales_paise,
+              COALESCE(SUM(f.top_ups_paise), 0)::text AS top_ups_paise,
+              COALESCE(SUM(f.expenses_paise), 0)::text AS expenses_paise
+         FROM warehouses w
+        CROSS JOIN LATERAL (
+          SELECT
+            (SELECT COALESCE(SUM(${PAISE('o.total_amount')}), 0) FROM orders o
+              WHERE ${REVENUE_PREDICATE} AND o.payment_method::text = 'CASH' AND o.warehouse_id = w.id
+                AND ${IN_DAY('o.completed_at', '$1')}) AS sales_paise,
+            (SELECT COALESCE(SUM(${PAISE('t.amount')}), 0) FROM topups t
+              WHERE t.channel::text = 'CASH' AND t.status = 'SUCCESS' AND t.warehouse_id = w.id
+                AND ${IN_DAY('t.created_at', '$1')}) AS top_ups_paise,
+            (SELECT COALESCE(SUM(${PAISE('e.amount')}), 0) FROM expenses e
+              WHERE e.payment_method = 'CASH' AND e.deleted_at IS NULL
+                AND e.warehouse_id = w.id AND e.expense_date = $1::date) AS expenses_paise,
+            COALESCE((SELECT ${PAISE('c.counted_cash')} FROM cash_closes c
+                       WHERE c.warehouse_id = w.id AND c.close_date < $1::date
+                       ORDER BY c.close_date DESC LIMIT 1), 0) AS opening_paise
+        ) AS f
+        WHERE w.is_active AND w.deleted_at IS NULL AND ${filter.sql}`,
+      [date, ...filter.params],
+    );
+    const row = result.rows[0];
+    if (row === undefined) throw new Error('the day figures total query returned no row');
+    return {
+      warehouseCount: row.warehouse_count,
+      openingCash: row.opening_paise,
+      cashSales: row.sales_paise,
+      cashTopUps: row.top_ups_paise,
+      cashExpenses: row.expenses_paise,
     };
   },
 

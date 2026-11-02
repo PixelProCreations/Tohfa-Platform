@@ -4,8 +4,9 @@
  * Sub own; BR-79). A location outside the caller's warehouse is 404.
  *
  * Shows what the API carries: code, name, free-text type, capacity and the
- * active flag. The old Section / Rack / Shelf card is gone (the API has no
- * layout). "Stored stock" and occupancy are DERIVED from the warehouse's
+ * active flag, plus the warehouse it belongs to (named by useStorageWarehouse
+ * from the scope or GET /warehouses; hidden until known). The old Section /
+ * Rack / Shelf card is gone (the API has no layout). "Stored stock" and occupancy are DERIVED from the warehouse's
  * ACTIVE batches whose free-text storage location equals this location's code
  * (what the receiving flow records), and the screen says so.
  *
@@ -32,6 +33,7 @@ import {
 import {
   buildLocationBody,
   locationBatches,
+  locationInfoRows,
   locationStockOf,
   toLocationRow,
   type LocationDraft,
@@ -102,18 +104,7 @@ export function StorageLocationDetailScreen({
         ) : (
           <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <SectionTitle>{t('storageOps.location.section.info')}</SectionTitle>
-            <InfoCard
-              rows={[
-                [
-                  { label: t('storageOps.location.field.code'), value: row.code },
-                  { label: t('storageOps.location.field.type'), value: row.typeLabel },
-                ],
-                [
-                  { label: t('storageOps.location.field.capacity'), value: row.capacity ?? t('storageOps.location.capacityNotSet') },
-                  { label: t('storageOps.location.field.created'), value: row.createdAt },
-                ],
-              ]}
-            />
+            <InfoCard rows={locationInfoRows(row, warehouse.warehouseName)} />
 
             {canManage && editing ? (
               <EditLocationForm

@@ -12,6 +12,7 @@ import type {
   PageMeta,
   ProduceGrade,
   RecordMovementInput,
+  StockLedgerEntryAdminView,
   StockLedgerEntryView,
 } from './inventory.schema.js';
 
@@ -28,6 +29,8 @@ export interface BatchRow {
   qty_available: string;
   cost_per_kg: string | null;
   storage_location: string | null;
+  /** BR-125 (migration 0079); absent only in hand-built test rows. */
+  storage_location_id?: string | null;
   received_on: Date | string;
   expiry_on: Date | string | null;
   status: string;
@@ -69,10 +72,50 @@ export function toBatchView(row: BatchRow): BatchView {
     qtyAvailableKg: row.qty_available,
     costPerKg: row.cost_per_kg,
     storageLocation: row.storage_location,
+    storageLocationId: row.storage_location_id ?? null,
     receivedOn: formatDate(row.received_on) ?? new Date().toISOString().split('T')[0]!,
     expiryOn: formatDate(row.expiry_on),
     status: row.status as BatchView['status'],
   };
+}
+
+/**
+ * BR-130: a ledger row read with the two names. Both come from LEFT JOINs in the same query, so
+ * either may be absent (a row with no recorder; no approved adjustment points at the row).
+ */
+export interface StockLedgerNamedRow extends StockLedgerRow {
+  created_by_name?: string | null;
+  approved_by_name?: string | null;
+}
+
+export function toStockLedgerEntryAdminView(row: StockLedgerNamedRow): StockLedgerEntryAdminView {
+  return {
+    ...toStockLedgerEntryView(row),
+    createdByName: row.created_by_name ?? null,
+    approvedByName: row.approved_by_name ?? null,
+  };
+}
+
+/**
+ * BR-130: the admin read of the ledger, `FROM stock_ledger l` with the two names joined in the same
+ * statement (no per-row lookup). `created_by_name` is the recorder. `approved_by_name` is derivable
+ * only for a row an approved adjustment inserted (`stock_adjustments.ledger_entry_id`, indexed);
+ * every other row gets null. The approver side is a LATERAL ... LIMIT 1 because nothing in the schema
+ * makes `ledger_entry_id` unique, and a second pointer must never duplicate a ledger row in a page.
+ */
+function selectLedgerWithNames(extraColumns = ''): string {
+  return `
+      SELECT l.*, cu.full_name AS created_by_name, ap.full_name AS approved_by_name${extraColumns}
+        FROM stock_ledger l
+        LEFT JOIN users cu ON cu.id = l.created_by
+        LEFT JOIN LATERAL (
+              SELECT u.full_name
+                FROM stock_adjustments sa
+                JOIN users u ON u.id = sa.approved_by
+               WHERE sa.ledger_entry_id = l.id AND sa.status = 'APPROVED'
+               ORDER BY sa.approved_at, sa.id
+               LIMIT 1
+        ) ap ON true`;
 }
 
 export function toStockLedgerEntryView(row: StockLedgerRow): StockLedgerEntryView {
@@ -116,7 +159,7 @@ export interface ListBatchesResult {
 }
 
 export interface ListStockLedgerResult {
-  items: StockLedgerEntryView[];
+  items: StockLedgerEntryAdminView[];
   page: PageMeta;
 }
 
@@ -130,6 +173,8 @@ export interface InventoryRepo {
     scope: ResolvedScope,
     filters: ListStockLedgerQuery,
   ): Promise<ListStockLedgerResult>;
+  /** BR-130: one row in the list's shape, under the list's scope filter; null when unknown or out of scope. */
+  getStockLedgerEntryById(db: Executor, scope: ResolvedScope, id: string): Promise<StockLedgerEntryAdminView | null>;
   getPooledAvailability(
     db: Executor,
     warehouseId: string,
@@ -376,14 +421,13 @@ export const inventoryRepo: InventoryRepo = {
     params.push(limit + 1);
 
     const querySql = `
-      SELECT l.*, ${MICRO_TS_SQL('l.created_at')} AS cursor_ts
-        FROM stock_ledger l
+      ${selectLedgerWithNames(`, ${MICRO_TS_SQL('l.created_at')} AS cursor_ts`)}
        WHERE ${where}
        ORDER BY l.created_at DESC, l.id DESC
        LIMIT $${params.length}
     `;
 
-    const result = await db.query<StockLedgerRow & { cursor_ts: string }>(querySql, params);
+    const result = await db.query<StockLedgerNamedRow & { cursor_ts: string }>(querySql, params);
     const rows = result.rows;
     const hasMore = rows.length > limit;
     const itemsToReturn = hasMore ? rows.slice(0, limit) : rows;
@@ -394,12 +438,25 @@ export const inventoryRepo: InventoryRepo = {
         : null;
 
     return {
-      items: itemsToReturn.map(toStockLedgerEntryView),
+      items: itemsToReturn.map(toStockLedgerEntryAdminView),
       page: {
         nextCursor,
         hasMore,
       },
     };
+  },
+
+  async getStockLedgerEntryById(db, scope, id) {
+    // The list's own scope filter (BR-30): an out-of-scope row is simply absent, like an unknown id.
+    const scoped = renumber(scopedWhere(scope, { warehouseColumn: 'l.warehouse_id' }), 2);
+    const result = await db.query<StockLedgerNamedRow>(
+      `${selectLedgerWithNames()}
+       WHERE l.id = $1 AND ${scoped.sql}
+       LIMIT 1`,
+      [id, ...scoped.params],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : toStockLedgerEntryAdminView(row);
   },
 
   async getPooledAvailability(

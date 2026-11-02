@@ -66,6 +66,8 @@ export interface TransferLineView {
   receivedGrams: number | null;
   /** received minus sent (negative = short); null until received. */
   varianceGrams: number | null;
+  /** The batch the receipt created at the destination; null until received, or when 0 was received. */
+  destBatchId: string | null;
   /** null when the source batch had no cost. */
   lineValuePaise: Paise | null;
 }
@@ -84,6 +86,8 @@ export interface TransferDetailView extends TransferListItem {
   notes: string | null;
   receiptNote: string | null;
   cancelReason: string | null;
+  /** When the destination received it (ISO); null until then. */
+  receivedAt: string | null;
   lines: TransferLineView[];
   sentGrams: number;
   timeline: TransferTimelineStep[];

@@ -80,6 +80,7 @@ adminFulfilmentRouter.post(
       req.scope!,
       params.id,
       body,
+      req.header('idempotency-key'),
     );
     res.status(200).json(result);
   }),
@@ -99,6 +100,7 @@ adminFulfilmentRouter.post(
       req.scope!,
       params.id,
       body,
+      req.header('idempotency-key'),
     );
     res.status(200).json(result);
   }),
@@ -118,6 +120,7 @@ adminFulfilmentRouter.post(
       req.scope!,
       params.id,
       body,
+      req.header('idempotency-key'),
     );
     res.status(200).json(result);
   }),

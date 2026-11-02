@@ -27,6 +27,13 @@
  * Idempotency-Key and is safe to retry (orderActions.ts). The OTP check is the
  * handover on the server (the order becomes PICKED_UP), so the old separate
  * "Complete Pickup" step is gone and success opens the completed view.
+ *
+ * The verify step (design 064) also shows the payment status
+ * (AdminOrderDetail.paymentStatus, pickupSummaryFields) and a verification
+ * checklist that is display only (pickupVerificationChecklist): "Customer
+ * identified" is a local tick, "Order packed" reads the order status. Nothing
+ * from it is sent and "Continue to OTP" does not wait on it; the order is
+ * never completed at this step, only the OTP check hands it over.
  */
 import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
@@ -38,7 +45,7 @@ import { isPickupOtp, type VerifyOtpBody } from '../../../api/orders';
 import { t } from '../../../i18n';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
-import { otpAttemptsLeft } from './mappers';
+import { otpAttemptsLeft, pickupSummaryFields, pickupVerificationChecklist, type OrderSummaryField } from './mappers';
 import type { OrderDetailView, OrderScreenBaseProps, OrdersLiveStateProps, PickupStep } from './types';
 import type { LiveOrderAction } from './useOrdersData';
 
@@ -53,10 +60,6 @@ export interface PickupOtpScreenProps extends OrderScreenBaseProps, OrdersLiveSt
 
 /** The handover code's length (docs/openapi.yaml verify-otp `^[0-9]{4}$`, BR-20). */
 const OTP_LENGTH = 4;
-
-function itemsText(count: number): string {
-  return count === 1 ? t('orders.items.one') : t('orders.items.many', { count });
-}
 
 const STEP_ORDER: readonly PickupStep[] = ['verify', 'otp', 'handover'];
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
@@ -111,6 +114,14 @@ function ArrowRightIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function TickIcon() {
+  return (
+    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={adminColors.onBrand} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -179,6 +190,23 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Fields two to a row, as the design's summary cards lay them out. */
+function FieldRows({ fields }: { fields: readonly OrderSummaryField[] }) {
+  const rows: OrderSummaryField[][] = [];
+  for (let index = 0; index < fields.length; index += 2) rows.push(fields.slice(index, index + 2));
+  return (
+    <>
+      {rows.map((row, index) => (
+        <View key={row.map((field) => field.key).join(':')} style={[styles.twoColRow, index > 0 && styles.rowGap]}>
+          {row.map((field) => (
+            <Field key={field.key} label={field.label} value={field.value} />
+          ))}
+        </View>
+      ))}
+    </>
+  );
+}
+
 // ─── Step: verify (was M5S10) ────────────────────────────────────────────────
 
 interface StepProps {
@@ -187,43 +215,66 @@ interface StepProps {
 }
 
 function VerifyStep({ order, onBack, onContinue }: StepProps & { onContinue: () => void }) {
+  // The clerk's own tick; a counter aid only, never sent (see the header).
+  const [customerIdentified, setCustomerIdentified] = useState(false);
+  const checklist = pickupVerificationChecklist(order, customerIdentified);
+
   return (
     <>
-      <Header title="Pickup Verification" subtitle={order.orderNumber} onBack={onBack} />
+      <Header title={t('orders.pickup.verifyTitle')} subtitle={order.orderNumber} onBack={onBack} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Customer</Text>
+        <Text style={styles.sectionTitle}>{t('orders.pickup.section.customer')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Customer" value={order.buyerName} />
-            <Field label="Phone" value={order.buyerMobileMasked ?? t('orders.noValue')} />
+            <Field label={t('orders.pickup.field.customer')} value={order.buyerName} />
+            {/* Masked by the server for every scope (BR-92). */}
+            <Field label={t('orders.pickup.field.phone')} value={order.buyerMobileMasked ?? t('orders.noValue')} />
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Order Summary</Text>
+        <Text style={styles.sectionTitle}>{t('orders.pickup.section.summary')}</Text>
         <View style={styles.card}>
-          <View style={styles.twoColRow}>
-            <Field label="Items" value={itemsText(order.itemCount)} />
-            <Field label="Total" value={order.totals.totalLabel} />
-          </View>
-          <View style={styles.rowGap}>
-            <Field label="Pickup Warehouse" value={order.warehouseName} />
-          </View>
+          <FieldRows fields={pickupSummaryFields(order)} />
         </View>
 
-        <Text style={styles.sectionTitle}>Customer Verification</Text>
+        <Text style={styles.sectionTitle}>{t('orders.pickup.section.verification')}</Text>
         <View style={styles.infoBox}>
           <InfoCircleIcon />
-          <Text style={styles.infoText}>
-            Ask the customer to confirm the Order ID and their name before continuing to OTP.
-          </Text>
+          <Text style={styles.infoText}>{t('orders.pickup.verifyHint')}</Text>
         </View>
 
         <View style={[styles.card, styles.cardAfterInfo]}>
           <View style={styles.twoColRow}>
-            <Field label="Order ID" value={order.orderNumber} />
-            <Field label="Customer Name" value={order.buyerName} />
+            <Field label={t('orders.pickup.field.orderId')} value={order.orderNumber} />
+            <Field label={t('orders.pickup.field.customerName')} value={order.buyerName} />
           </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>{t('orders.pickup.section.checklist')}</Text>
+        <View style={styles.card}>
+          {checklist.map((item, index) => {
+            const row = (
+              <>
+                <View style={[styles.checkbox, item.checked && styles.checkboxOn]}>{item.checked ? <TickIcon /> : null}</View>
+                <Text style={styles.checkText}>{item.label}</Text>
+              </>
+            );
+            return item.tickable ? (
+              <TouchableOpacity
+                key={item.key}
+                style={[styles.checkRow, index > 0 && styles.rowGap]}
+                activeOpacity={0.7}
+                onPress={() => setCustomerIdentified((prev) => !prev)}
+              >
+                {row}
+              </TouchableOpacity>
+            ) : (
+              <View key={item.key} style={[styles.checkRow, index > 0 && styles.rowGap]}>
+                {row}
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -232,7 +283,7 @@ function VerifyStep({ order, onBack, onContinue }: StepProps & { onContinue: () 
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={onContinue}>
           <NumericKeypadIcon />
-          <Text style={styles.primaryBtnText}>Continue to OTP</Text>
+          <Text style={styles.primaryBtnText}>{t('orders.pickup.continue')}</Text>
         </TouchableOpacity>
       </View>
     </>
@@ -262,7 +313,7 @@ function OtpStep({
 
   return (
     <>
-      <Header title="Verify Pickup" subtitle={order.orderNumber} onBack={onBack} />
+      <Header title={t('orders.pickup.otpTitle')} subtitle={order.orderNumber} onBack={onBack} />
 
       <ScrollView
         style={styles.content}
@@ -270,7 +321,7 @@ function OtpStep({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.promptTitle}>Enter 4-digit pickup OTP</Text>
+        <Text style={styles.promptTitle}>{t('orders.pickup.otpPrompt', { count: OTP_LENGTH })}</Text>
 
         <TouchableOpacity style={styles.otpRow} activeOpacity={1} onPress={() => inputRef.current?.focus()}>
           {Array.from({ length: OTP_LENGTH }, (_, index) => (
@@ -319,7 +370,7 @@ function OtpStep({
             onPress={() => verify.run({ otp }, onVerified)}
           >
             <ArrowRightIcon />
-            <Text style={styles.primaryBtnText}>{verify.isPending ? t('orders.action.saving') : 'Confirm Handover'}</Text>
+            <Text style={styles.primaryBtnText}>{verify.isPending ? t('orders.action.saving') : t('orders.pickup.confirmHandover')}</Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -337,32 +388,32 @@ function OtpStep({
 function HandoverStep({ order, onBack, onNavigate }: StepProps & { onNavigate: OrderScreenBaseProps['onNavigate'] }) {
   return (
     <>
-      <Header title="Pickup Completed" onBack={onBack} />
+      <Header title={t('orders.pickup.completedTitle')} onBack={onBack} />
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.heroContainer}>
           <View style={styles.successCircleBadge}>
             <CheckmarkCircleIcon size={36} strokeWidth="2.4" />
           </View>
-          <Text style={styles.heroTitle}>Pickup Completed</Text>
+          <Text style={styles.heroTitle}>{t('orders.pickup.completedTitle')}</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Order" value={order.orderNumber} />
-            <Field label="Completed" value={order.completedLabel ?? t('orders.noValue')} />
+            <Field label={t('orders.pickup.field.order')} value={order.orderNumber} />
+            <Field label={t('orders.pickup.field.completed')} value={order.completedLabel ?? t('orders.noValue')} />
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Final Information</Text>
+        <Text style={styles.sectionTitle}>{t('orders.pickup.section.final')}</Text>
         <View style={styles.card}>
           <View style={styles.twoColRow}>
-            <Field label="Customer" value={order.buyerName} />
-            <Field label="Items" value={String(order.itemCount)} />
+            <Field label={t('orders.pickup.field.customer')} value={order.buyerName} />
+            <Field label={t('orders.pickup.field.items')} value={String(order.itemCount)} />
           </View>
           <View style={[styles.twoColRow, styles.rowGap]}>
-            <Field label="Payment" value={order.paymentStatusLabel} />
-            <Field label="Warehouse" value={order.warehouseName} />
+            <Field label={t('orders.pickup.field.payment')} value={order.paymentStatusLabel} />
+            <Field label={t('orders.pickup.field.handoverWarehouse')} value={order.warehouseName} />
           </View>
         </View>
 
@@ -373,7 +424,7 @@ function HandoverStep({ order, onBack, onNavigate }: StepProps & { onNavigate: O
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.primaryBtn} activeOpacity={0.8} onPress={() => onNavigate?.('M5S04', { orderId: order.id })}>
           <DocumentIcon />
-          <Text style={styles.primaryBtnText}>View Order</Text>
+          <Text style={styles.primaryBtnText}>{t('orders.pickup.viewOrder')}</Text>
         </TouchableOpacity>
       </View>
     </>
@@ -415,7 +466,7 @@ export function PickupOtpScreen({
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
-          <Header title="Verify Pickup" onBack={onBack} />
+          <Header title={t('orders.pickup.otpTitle')} onBack={onBack} />
           {view === 'loading' ? (
             <AdminLoadingState />
           ) : view === 'error' ? (
@@ -451,6 +502,7 @@ const BACK_BUTTON_SIZE = 32;
 const OTP_BOX_WIDTH = 58;
 const OTP_BOX_HEIGHT = 64;
 const SUCCESS_BADGE_SIZE = 68;
+const CHECKBOX_SIZE = 22;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -629,6 +681,30 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     ...adminType.sectionHead,
     color: adminColors.onBrand,
+  },
+  checkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  checkbox: {
+    width: CHECKBOX_SIZE,
+    height: CHECKBOX_SIZE,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxOn: {
+    backgroundColor: adminColors.success.text,
+    borderColor: adminColors.success.text,
+  },
+  checkText: {
+    ...adminType.body,
+    flex: 1,
+    color: adminColors.ink,
   },
   heroContainer: {
     alignItems: 'center',

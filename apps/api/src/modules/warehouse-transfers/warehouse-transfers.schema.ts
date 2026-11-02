@@ -10,6 +10,13 @@ import { z } from 'zod';
 export const TRANSFER_STATUSES = ['PENDING_APPROVAL', 'IN_TRANSIT', 'RECEIVED', 'CANCELLED'] as const;
 export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 
+/** BR-126: the condition of a received line; the BR-120 level set (UNCONFIRMED). */
+export const RECEIVE_CONDITIONS = ['EXCELLENT', 'GOOD', 'FAIR', 'POOR', 'UNACCEPTABLE'] as const;
+export type ReceiveCondition = (typeof RECEIVE_CONDITIONS)[number];
+
+/** BR-126: the produce_grade master set (actualGrade). */
+export const PRODUCE_GRADES = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT'] as const;
+
 /** BR-102 rule 1: 1-50 lines per transfer. */
 export const MAX_TRANSFER_LINES = 50;
 
@@ -24,6 +31,8 @@ const positiveKg = z
 
 /** numeric(12,3), zero allowed: a line that arrived with nothing is received as 0. */
 const nonNegativeKg = z.string().regex(KG_PATTERN, `qtyReceivedKg ${KG_MESSAGE}`);
+/** BR-126: a part of the shortfall, numeric(12,3), zero allowed. */
+const breakdownKg = (field: string) => z.string().regex(KG_PATTERN, `${field} ${KG_MESSAGE}`);
 
 export const transferIdParams = z.object({ id: z.string().uuid('transfer id must be a UUID') }).strict();
 
@@ -58,7 +67,22 @@ export type CreateTransferBody = z.infer<typeof createTransferBody>;
 export const receiveTransferBody = z
   .object({
     lines: z
-      .array(z.object({ itemId: z.string().uuid(), qtyReceivedKg: nonNegativeKg }).strict())
+      .array(
+        z
+          .object({
+            itemId: z.string().uuid(),
+            qtyReceivedKg: nonNegativeKg,
+            // BR-126: every field below is optional, so an old client's line parses unchanged.
+            damagedQtyKg: breakdownKg('damagedQtyKg').optional(),
+            spoiledQtyKg: breakdownKg('spoiledQtyKg').optional(),
+            condition: z.enum(RECEIVE_CONDITIONS).optional(),
+            actualGrade: z.enum(PRODUCE_GRADES).optional(),
+            actualProductId: z.string().uuid().optional(),
+            storageLocationId: z.string().uuid().optional(),
+            storageLocation: z.string().trim().min(1).max(40).optional(),
+          })
+          .strict(),
+      )
       .min(1)
       .max(MAX_TRANSFER_LINES),
     receiptNote: z.string().trim().min(1).max(1000).optional(),
@@ -108,6 +132,15 @@ export const transferLineResponse = z.object({
   costPerKg: z.string().nullable(),
   lineValue: z.string().nullable(),
   destBatchId: z.string().uuid().nullable(),
+  /** BR-126: receive details; null until the line is received. */
+  damagedQtyKg: z.string().nullable(),
+  spoiledQtyKg: z.string().nullable(),
+  condition: z.enum(RECEIVE_CONDITIONS).nullable(),
+  actualGrade: z.enum(PRODUCE_GRADES).nullable(),
+  actualProductId: z.string().uuid().nullable(),
+  actualProductName: z.string().nullable(),
+  storageLocationId: z.string().uuid().nullable(),
+  storageLocation: z.string().nullable(),
 });
 export type TransferLine = z.infer<typeof transferLineResponse>;
 
@@ -115,6 +148,8 @@ export type TransferLine = z.infer<typeof transferLineResponse>;
 export const transferSummaryResponse = z.object({
   id: z.string().uuid(),
   transferNumber: z.string(),
+  /** BR-126: TGR-<year>-<6 digits>, set when RECEIVED. */
+  receiptNumber: z.string().nullable(),
   fromWarehouseId: z.string().uuid(),
   toWarehouseId: z.string().uuid(),
   status: z.enum(TRANSFER_STATUSES),
@@ -127,6 +162,8 @@ export const transferSummaryResponse = z.object({
   receiptNote: z.string().nullable(),
   cancelReason: z.string().nullable(),
   initiatedBy: z.string().uuid(),
+  /** BR-126: users.full_name of the initiator. */
+  initiatedByName: z.string().nullable(),
   approvedBy: z.string().uuid().nullable(),
   approvedAt: z.string().nullable(),
   dispatchedAt: z.string().nullable(),

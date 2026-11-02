@@ -1,4 +1,4 @@
-import { RoleCode } from '@tohfa/shared-types';
+import { RoleCode, isMoney, toPaise } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
@@ -15,11 +15,6 @@ import type {
   CreatePayoutInput,
   ApprovePayoutInput,
 } from './payouts.schema.js';
-
-// ---------------------------------------------------------------------------
-// BR-31: dual-approval threshold
-// ---------------------------------------------------------------------------
-const DUAL_APPROVAL_THRESHOLD = 10_000.00;
 
 // ---------------------------------------------------------------------------
 // Service interface
@@ -138,16 +133,28 @@ export function createPayoutsService(
           });
         }
 
-        // Validate amount is positive
-        const amountNum = parseFloat(input.amount);
-        if (isNaN(amountNum) || amountNum <= 0) {
+        // Validate amount is positive. Compared as integer paise: Money is never
+        // turned into a float (CLAUDE.md 2.2).
+        const amountPaise = isMoney(input.amount) ? toPaise(input.amount) : 0;
+        if (amountPaise <= 0) {
           throw new AppError('BAD_REQUEST', {
             status: 422,
             detail: 'Payout amount must be a positive number.',
           });
         }
 
-        requiresDualApproval = amountNum > DUAL_APPROVAL_THRESHOLD;
+        // BR-31c: the threshold is system_config.payout_dual_approval_threshold,
+        // read on every request; the boundary is strictly `>`. A missing or
+        // malformed value refuses the payout: guessing a limit here would
+        // either block every payout or silently drop the dual control.
+        const thresholdPaise = await repo.getDualApprovalThresholdPaise(tx);
+        if (thresholdPaise === null) {
+          throw new AppError('INTERNAL', {
+            status: 500,
+            detail: 'system_config.payout_dual_approval_threshold is missing or malformed.',
+          });
+        }
+        requiresDualApproval = amountPaise > thresholdPaise;
 
         // BR-70: a supplied bank account must be an active destination of THIS
         // farmer. Checked inside the transaction, after the farmer row lock, so
@@ -177,7 +184,7 @@ export function createPayoutsService(
         });
         const payout = created.payout;
 
-        // For amounts ≤ 10,000: approve immediately (single-approval path)
+        // At or below the threshold: approve immediately (single-approval path)
         if (!requiresDualApproval) {
           await repo.updatePayoutStatus(tx, {
             payoutId: payout.id,
@@ -187,7 +194,7 @@ export function createPayoutsService(
           });
           payout.status = 'APPROVED';
         } else {
-          // Amount > 10,000 → PENDING_APPROVAL, requires second Super Admin
+          // Above the threshold → PENDING_APPROVAL, requires second Super Admin
           await repo.updatePayoutStatus(tx, {
             payoutId: payout.id,
             status: 'PENDING_APPROVAL',
@@ -297,7 +304,7 @@ export function createPayoutsService(
         if (!isSuperAdmin) {
           throw new AppError('FORBIDDEN', {
             status: 403,
-            detail: 'Approvals for payouts above ₹10,000 require Super Admin role (BR-31).',
+            detail: 'Approvals for payouts above the dual-approval threshold require Super Admin role (BR-31).',
           });
         }
 

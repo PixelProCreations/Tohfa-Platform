@@ -1,4 +1,4 @@
-import { fromPaise, parseMoney, toPaise, RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { fromPaise, greaterThan, isMoney, parseMoney, toPaise, RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { config } from '../../config.js';
@@ -171,8 +171,19 @@ export function createTopupService(opts: {
         });
       }
 
-      const cap = await repo.getCashTopupCap(db);
-      if (Number(input.amount) > Number(cap)) {
+      // BR-19: the cap is system_config `cash_topup_cap` and nothing else. The comparison is exact,
+      // in integer paise through the Money helpers (CLAUDE.md 2.2); it used to be
+      // `Number(amount) > Number(cap)`, which rounds both to binary floats and, for a cap that is
+      // not a number (e.g. "10,000.00"), compared against NaN and let every amount through. A
+      // missing or malformed cap therefore fails closed instead of leaving the top-up unbounded.
+      const configuredCap = await repo.getCashTopupCap(db);
+      if (configuredCap === null || !isMoney(configuredCap)) {
+        throw new AppError('INTERNAL', {
+          detail: 'system_config.cash_topup_cap is missing or is not a money value.',
+        });
+      }
+      const cap = parseMoney(configuredCap);
+      if (greaterThan(input.amount, cap)) {
         throw new AppError('CASH_LIMIT_EXCEEDED', {
           status: 422,
           detail: `Cash top-up is capped at INR ${cap} per transaction.`,

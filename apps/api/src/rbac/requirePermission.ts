@@ -213,6 +213,39 @@ export function requirePermission(permissionCode: string): RequestHandler {
   };
 }
 
+/**
+ * Route gate for the rare route whose permission code depends on the request body (documented in
+ * docs/openapi.yaml as `x-permission-any-of`), e.g. POST /admin/accounts, where the role being
+ * created picks `admin.<role>.create`. Admits an actor holding at least one of `permissionCodes`
+ * (403 otherwise, exactly like `requirePermission`) by running `requirePermission` for the FIRST
+ * code the actor holds, so `req.scope` and every provisioning check are the same as for a single
+ * code. This is a GATE only: the handler MUST still resolve the body-specific code with
+ * `resolveScope` and refuse when it is null.
+ */
+export function requireAnyPermission(permissionCodes: readonly string[]): RequestHandler {
+  if (permissionCodes.length === 0) throw new Error('requireAnyPermission needs at least one permission code');
+  const gates = permissionCodes.map((code) => ({ code, gate: requirePermission(code) }));
+
+  return (req, res, next) => {
+    const actor = req.actor;
+    if (actor === undefined) {
+      next(new AppError('UNAUTHENTICATED', { detail: 'requireAnyPermission was used without requireAuth in front of it.' }));
+      return;
+    }
+    const held = gates.find(({ code }) => resolveScope(actor, code) !== null);
+    if (held === undefined) {
+      next(
+        new AppError('FORBIDDEN', {
+          detail: `Your roles grant none of ${permissionCodes.map((code) => `"${code}"`).join(', ')}.`,
+          meta: { permissions: [...permissionCodes], roles: actor.roles.map((r) => r.code) },
+        }),
+      );
+      return;
+    }
+    held.gate(req, res, next);
+  };
+}
+
 /** Narrow `req.scope` inside a handler. Throws 500 if the middleware is absent. */
 export function requireScope(scope: ResolvedScope | undefined): ResolvedScope {
   if (scope === undefined) {
@@ -337,8 +370,9 @@ function finish(clauses: string[], params: unknown[], nextIndex: number): Scoped
  * The middleware cannot do this — it has not loaded the row yet. Services call
  * this immediately after fetching the target, before any state change.
  *
- * Only NOT_OWN_LISTING and OWN_ZONE_ONLY are implemented here because they are
- * the two the base platform needs; the others land with their own stories.
+ * Implemented here: NOT_OWN_LISTING, OWN_ZONE_ONLY, LOWER_ROLES_ONLY and
+ * SUPPORT_ONLY. Any other predicate named in docs/rbac.json falls through to
+ * the `default` branch (501) until its own story lands.
  */
 export interface PredicateSubject {
   /** User id that created/owns the target row. */

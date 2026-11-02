@@ -13,14 +13,28 @@
  * server with WAREHOUSE_SCOPE_VIOLATION; any other is a 404). The receipt is
  * a stock-moving write, so one Idempotency-Key per body is reused across
  * retries (root CLAUDE.md 2.4).
+ *
+ * Design M2-16, reduced to what the API backs (receiptViews.ts): each line
+ * shows what was sent and, when a batch read the scope may make carried it,
+ * the crop name (else the batch code the transfer carries); the Quantity
+ * Verification tiles total sent, received and the difference as typed; one
+ * confirmation dialog comes before the POST, whose button is disabled while
+ * it is pending; and the screen ends on the Transfer Receiving Summary built
+ * from the receive response. A transfer opened when already RECEIVED shows
+ * that summary from its read. Not drawn (no API, owner decision): an arrival
+ * step, per-line damage / spoilage / condition, accept / partial / reject,
+ * a transfer receipt number, resolving the discrepancy, a storage location and
+ * the initiator's name.
  */
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ApiError } from '../../../../../shell/api/client';
 import { useIdempotencyKey } from '../../../api/hooks';
+import type { WarehouseTransferDto } from '../../../api/transfers';
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
@@ -42,10 +56,25 @@ import {
   RECEIPT_NOTE_MAX,
   RECEIVE_ERROR_KEY,
   receiveShortfallGrams,
+  toTransferDetail,
   transferActions,
 } from './mappers';
+import {
+  lineProductName,
+  receiveConfirmation,
+  receiveTotals,
+  transferBatchIdsToRead,
+  transferReceiptSummary,
+  type BatchFacts,
+} from './receiptViews';
+import { TransferReceiptSummaryView } from './TransferReceiptSummaryView';
 import { transferRouteLabel } from './TransferParts';
-import { useReceiveTransferMutation, useTransferDetail, useTransferWarehouses } from './useTransfersData';
+import {
+  useReceiveTransferMutation,
+  useTransferBatchFacts,
+  useTransferDetail,
+  useTransferWarehouses,
+} from './useTransfersData';
 import type { TransferDetailView, WarehouseScreenBaseProps } from './types';
 
 export interface TransferReceivingInspectionScreenProps extends WarehouseScreenBaseProps {
@@ -66,14 +95,17 @@ function initialEntries(transfer: TransferDetailView): Record<string, string> {
 
 function InspectionForm({
   transfer,
+  facts,
   header,
   onBack,
-  onComplete,
+  onReceived,
 }: {
   transfer: TransferDetailView;
+  facts: ReadonlyMap<string, BatchFacts>;
   header: React.ReactNode;
   onBack: () => void;
-  onComplete: (transferId: string) => void;
+  /** The receive POST answered: the transfer, now RECEIVED. */
+  onReceived: (saved: WarehouseTransferDto) => void;
 }) {
   const [entered, setEntered] = useState<Record<string, string>>(() => initialEntries(transfer));
   const [note, setNote] = useState('');
@@ -83,9 +115,12 @@ function InspectionForm({
 
   const result = buildReceiveTransferBody(transfer.lines, entered, note);
   const shortGrams = receiveShortfallGrams(transfer.lines, entered);
+  const totals = receiveTotals(transfer.lines, entered);
+  const kgOrUnknown = (grams: number | null) => (grams === null ? t('transfers.kpi.unknown') : formatKg(grams));
 
-  const submit = () => {
-    if (!result.ok) return;
+  /** The POST itself; reached only from the confirmation dialog. */
+  const send = () => {
+    if (!result.ok || receive.isPending) return;
     setSubmitError(null);
     const body = result.body;
     receive.mutate(
@@ -93,17 +128,21 @@ function InspectionForm({
       {
         onSuccess: (saved) => {
           receiveKey.reset();
-          Alert.alert(
-            t('transfers.inspection.done.title'),
-            saved.hasDiscrepancy
-              ? t('transfers.inspection.done.short', { code: transfer.code })
-              : t('transfers.inspection.done.full', { code: transfer.code }),
-            [{ text: t('transfers.common.ok'), onPress: () => onComplete(transfer.id) }],
-          );
+          onReceived(saved);
         },
         onError: setSubmitError,
       },
     );
+  };
+
+  /** One confirmation before the stock-moving POST, as the goods receiving wizard asks before its quality check. */
+  const confirmSubmit = () => {
+    if (!result.ok || receive.isPending) return;
+    const confirmation = receiveConfirmation(transfer, transfer.sentGrams - result.shortGrams);
+    Alert.alert(confirmation.title, confirmation.body, [
+      { text: t('transfers.confirm.cancel'), style: 'cancel' },
+      { text: t('transfers.confirm.ok'), onPress: () => send() },
+    ]);
   };
 
   return (
@@ -118,7 +157,7 @@ function InspectionForm({
             label={t('transfers.inspection.submit')}
             icon={<CheckIcon />}
             disabled={!result.ok || receive.isPending}
-            onPress={submit}
+            onPress={confirmSubmit}
           />
         </WalletFooter>
       }
@@ -139,28 +178,49 @@ function InspectionForm({
         />
 
         <SectionTitle>{t('transfers.inspection.lines')}</SectionTitle>
-        {transfer.lines.map((line) => (
-          <View key={line.id} style={styles.lineCard}>
-            <Text style={styles.lineTitle}>{line.batchCode}</Text>
-            <Text style={styles.lineMeta}>
-              {t('transfers.inspection.lineMeta', { grade: line.gradeLabel, qty: formatKg(line.sentGrams) })}
-            </Text>
-            <View style={styles.inputBox}>
-              <TextInput
-                style={styles.input}
-                value={entered[line.id] ?? ''}
-                onChangeText={(text) => setEntered((prev) => ({ ...prev, [line.id]: text }))}
-                keyboardType="decimal-pad"
-                placeholderTextColor={adminColors.placeholder}
-                accessibilityLabel={t('transfers.inspection.qtyA11y', { batch: line.batchCode })}
-              />
-              <Text style={styles.unit}>{t('transfers.common.kgUnit')}</Text>
+        {transfer.lines.map((line) => {
+          const product = lineProductName(line, facts);
+          return (
+            <View key={line.id} style={styles.lineCard}>
+              <Text style={styles.lineTitle}>{product ?? line.batchCode}</Text>
+              <Text style={styles.lineMeta}>
+                {product === undefined
+                  ? t('transfers.inspection.lineMeta', { grade: line.gradeLabel, qty: formatKg(line.sentGrams) })
+                  : t('transfers.inspection.lineBatchMeta', {
+                      batch: line.batchCode,
+                      grade: line.gradeLabel,
+                      qty: formatKg(line.sentGrams),
+                    })}
+              </Text>
+              <View style={styles.inputBox}>
+                <TextInput
+                  style={styles.input}
+                  value={entered[line.id] ?? ''}
+                  onChangeText={(text) => setEntered((prev) => ({ ...prev, [line.id]: text }))}
+                  keyboardType="decimal-pad"
+                  placeholderTextColor={adminColors.placeholder}
+                  accessibilityLabel={t('transfers.inspection.qtyA11y', { batch: line.batchCode })}
+                />
+                <Text style={styles.unit}>{t('transfers.common.kgUnit')}</Text>
+              </View>
+              {!result.ok && result.lineId === line.id ? (
+                <Text style={styles.error}>{t(RECEIVE_ERROR_KEY[result.error])}</Text>
+              ) : null}
             </View>
-            {!result.ok && result.lineId === line.id ? (
-              <Text style={styles.error}>{t(RECEIVE_ERROR_KEY[result.error])}</Text>
-            ) : null}
-          </View>
-        ))}
+          );
+        })}
+
+        <SectionTitle>{t('transfers.verify.title')}</SectionTitle>
+        <OverviewCardsGrid style={styles.grid}>
+          <OverviewDashboardCard value={formatKg(totals.sentGrams)} title={t('transfers.verify.sent')} icon="truck" />
+          <OverviewDashboardCard value={kgOrUnknown(totals.receivedGrams)} title={t('transfers.verify.received')} icon="receiving" />
+          <OverviewDashboardCard
+            value={kgOrUnknown(totals.differenceGrams)}
+            title={t('transfers.verify.difference')}
+            icon="alert"
+            tone={totals.differenceGrams !== null && totals.differenceGrams < 0 ? 'warning' : 'default'}
+          />
+        </OverviewCardsGrid>
 
         <Text style={styles.fieldLabel}>
           {shortGrams > 0 ? t('transfers.inspection.noteRequired') : t('transfers.inspection.noteOptional')}
@@ -197,8 +257,14 @@ export function TransferReceivingInspectionScreen({
 }: TransferReceivingInspectionScreenProps) {
   const { nameOf } = useTransferWarehouses(scope, can);
   const detail = useTransferDetail(scope, transferId, nameOf);
-  const transfer = detail.transfer;
+  // The receive response is kept here, not in the form: the write refetches the
+  // detail as RECEIVED, which would otherwise swap the form for the not-receivable note.
+  const [received, setReceived] = useState<WarehouseTransferDto | null>(null);
+  const receivedView = useMemo(() => (received === null ? undefined : toTransferDetail(received, nameOf)), [received, nameOf]);
+  const transfer = receivedView ?? detail.transfer;
+  const facts = useTransferBatchFacts(transfer === undefined ? [] : transferBatchIdsToRead(scope, can, transfer), scope.warehouseId);
   const header = <ScopeHeader scope={scope} label={scope.warehouseId === undefined ? t('transfers.scope.all') : undefined} />;
+  const complete = (id: string) => (onCompleteTransfer ? onCompleteTransfer(id) : onBack());
 
   if (transfer === undefined) {
     const notFound = transferId === undefined || isNotFound(detail.error);
@@ -211,6 +277,11 @@ export function TransferReceivingInspectionScreen({
         {!detail.isLoading && !notFound && detail.error ? <AdminErrorState error={detail.error} onRetry={detail.refresh} /> : null}
       </WalletScreen>
     );
+  }
+
+  const summary = transferReceiptSummary(transfer, facts);
+  if (summary !== null) {
+    return <TransferReceiptSummaryView summary={summary} header={header} onBack={onBack} onDone={() => complete(transfer.id)} />;
   }
 
   if (!transferActions(scope, can, transfer).receive) {
@@ -226,13 +297,7 @@ export function TransferReceivingInspectionScreen({
   }
 
   return (
-    <InspectionForm
-      key={transfer.id}
-      transfer={transfer}
-      header={header}
-      onBack={onBack}
-      onComplete={(id) => (onCompleteTransfer ? onCompleteTransfer(id) : onBack())}
-    />
+    <InspectionForm key={transfer.id} transfer={transfer} facts={facts} header={header} onBack={onBack} onReceived={setReceived} />
   );
 }
 
@@ -271,5 +336,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   unit: { ...adminType.sectionHead, color: adminColors.muted },
+  grid: { marginBottom: adminSpacing.md },
   error: { ...adminType.rowMeta, color: adminColors.danger.text, marginTop: adminSpacing.xs },
 });

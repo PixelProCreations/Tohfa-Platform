@@ -27,6 +27,7 @@ import { subAdminsRouter, warehouseOpsRouter } from './modules/warehouse-ops/rou
 import { warehouseTransfersRouter } from './modules/warehouse-transfers/warehouse-transfers.routes.js';
 import { stockAdjustmentsRouter } from './modules/stock-adjustments/stock-adjustments.routes.js';
 import { stockVerificationsRouter } from './modules/stock-verifications/stock-verifications.routes.js';
+import { inventoryOverviewRouter } from './modules/inventory-overview/inventory-overview.routes.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { listingsRouter } from './modules/listings/listings.routes.js';
 import { uploadsRouter } from './modules/uploads/uploads.routes.js';
@@ -129,6 +130,12 @@ import {
 import { tasksAlertsRouter } from './modules/tasks-alerts/tasks-alerts.routes.js';
 import { adminHelpRouter } from './modules/help-support/help-support.routes.js';
 import { reportExportsRouter } from './modules/report-exports/report-exports.routes.js';
+import { auditLogRouter } from './modules/audit-log/audit-log.routes.js';
+import { adminFarmersRouter } from './modules/admin-farmers/admin-farmers.routes.js';
+import { tierConfigRouter } from './modules/tier-config/tier-config.routes.js';
+import { adminAccountsRouter } from './modules/admin-accounts/admin-accounts.routes.js';
+import { adminPromotionsRouter } from './modules/admin-promotions/admin-promotions.routes.js';
+import { rolesRouter } from './modules/roles/roles.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
 
@@ -170,6 +177,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin/stock-ledger', router: adminStockLedgerRouter },
   { prefix: '/v1/admin/stock-adjustments', router: stockAdjustmentsRouter },
   { prefix: '/v1/admin/stock-verifications', router: stockVerificationsRouter },
+  { prefix: '/v1/admin/inventory', router: inventoryOverviewRouter },
   { prefix: '/v1/admin/allocations', router: adminAllocationsRouter },
   { prefix: '/v1/admin/allocation-config', router: adminAllocationConfigRouter },
   { prefix: '/v1/admin', router: adminTopupRouter },
@@ -190,12 +198,18 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/admin', router: tasksAlertsRouter },
   { prefix: '/v1/admin/help', router: adminHelpRouter },
   { prefix: '/v1/admin/exports', router: reportExportsRouter },
+  { prefix: '/v1/admin/audit-log', router: auditLogRouter },
   { prefix: '/v1/admin/payout-dues', router: payoutDuesRouter },
   { prefix: '/v1/admin/payouts', router: payoutsRouter },
   { prefix: '/v1/invoices', router: invoicesRouter },
   { prefix: '/v1/farmers/me/documents', router: farmerDocumentsRouter },
   { prefix: '/v1/farmers/me/rating', router: farmRatingsFarmerRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmRatingsRouter },
+  { prefix: '/v1/admin/farmers', router: adminFarmersRouter },
+  { prefix: '/v1/admin', router: tierConfigRouter },
+  { prefix: '/v1/admin/accounts', router: adminAccountsRouter },
+  { prefix: '/v1/admin/promotions', router: adminPromotionsRouter },
+  { prefix: '/v1/roles', router: rolesRouter },
   { prefix: '/v1/admin/audits', router: adminAuditsRouter },
   { prefix: '/v1/farmers/me/audits', router: farmerAuditsRouter },
   { prefix: '/v1/farmers/me/weather', router: weatherFarmerRouter },

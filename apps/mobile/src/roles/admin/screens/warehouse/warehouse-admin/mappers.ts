@@ -7,10 +7,10 @@
  * Weights arrive as kg strings (docs/openapi.yaml Quantity) and become integer
  * grams through money/quantity.ts, never through parseFloat. The utilization
  * percent is the server's own figure (BR-66b), passed through unrounded except
- * for display; nothing here compares it against a threshold, because no
- * near-capacity threshold is exposed to clients (root CLAUDE.md 2.7). The only
- * capacity flag is "over capacity", which is a fact (available < 0), not a
- * threshold.
+ * for display; nothing here compares it against a threshold (root CLAUDE.md
+ * 2.7). "Over capacity" is a fact (available < 0); "near capacity" is the
+ * server's CAPACITY_NEAR_FULL alert, resolved in ./overviewFigures.ts
+ * (capacityTone) and only labelled here (warehouseStatusPill).
  */
 import { ApiError } from '../../../../../shell/api/client';
 import type { CreateSubAdminBody, SubAdminDto } from '../../../api/subAdmins';
@@ -19,6 +19,8 @@ import type { WarehouseCapacityDto, WarehouseDto } from '../../../api/warehouses
 import { adminErrorKey } from '../../../api/errors';
 import { t, type TranslationKey } from '../../../i18n';
 import { formatKg, parseKgToGrams } from '../../../money/quantity';
+import type { AdminTone } from '../../../theme';
+import type { CapacityTone } from './overviewFigures';
 
 // ─── Capacity ────────────────────────────────────────────────────────────────
 
@@ -65,6 +67,18 @@ export function warehouseKindLabel(type: 'MAIN' | 'SUB'): string {
 
 export function warehouseStatusLabel(isActive: boolean): string {
   return isActive ? t('warehouseAdmin.status.active') : t('warehouseAdmin.status.inactive');
+}
+
+/**
+ * The status pill of a warehouse card (design M15-01/02: "Active" or "Near
+ * Capacity"). Inactive wins over any capacity state; an active warehouse is
+ * green only when the server has flagged nothing (capacityTone 'neutral').
+ */
+export function warehouseStatusPill(isActive: boolean, tone: CapacityTone): { label: string; tone: AdminTone } {
+  if (!isActive) return { label: t('warehouseAdmin.status.inactive'), tone: 'danger' };
+  if (tone === 'over') return { label: t('warehouseAdmin.status.overCapacity'), tone: 'danger' };
+  if (tone === 'nearFull') return { label: t('warehouseAdmin.status.nearCapacity'), tone: 'warning' };
+  return { label: t('warehouseAdmin.status.active'), tone: 'success' };
 }
 
 function nonBlank(value: string | null | undefined): string | null {
@@ -229,6 +243,19 @@ export function figureLabel<T>(source: FigureSource<T> | undefined, format: (val
   if (source.data !== undefined) return format(source.data);
   if (source.isLoading) return t('warehouseAdmin.figure.loading');
   return t('warehouseAdmin.figure.unavailable');
+}
+
+/**
+ * One figure built from several sources (Needs Attention reads capacities,
+ * alerts and SWAs): ready only when every source answered, loading while any
+ * is still loading and none failed, failed (the dash) as soon as one failed,
+ * so a partial count is never shown as the whole.
+ */
+export function combinedSource(sources: readonly FigureSource<unknown>[]): FigureSource<true> {
+  const failed = sources.find((s) => s.data === undefined && !s.isLoading && s.error !== null && s.error !== undefined);
+  if (failed !== undefined) return { data: undefined, isLoading: false, error: failed.error };
+  if (sources.every((s) => s.data !== undefined)) return { data: true, isLoading: false, error: null };
+  return { data: undefined, isLoading: sources.some((s) => s.isLoading), error: null };
 }
 
 export function countLabel(n: number): string {

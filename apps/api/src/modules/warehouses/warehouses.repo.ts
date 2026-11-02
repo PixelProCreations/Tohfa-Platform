@@ -15,6 +15,7 @@
  */
 import type { Executor } from '../../db/pool.js';
 import type { ScopedWhere } from '../../rbac/requirePermission.js';
+import { tasksAlertsRepo } from '../tasks-alerts/tasks-alerts.repo.js';
 import type {
   ListWarehousesQuery,
   WarehouseCapacityResponse,
@@ -40,6 +41,7 @@ interface WarehouseRow {
   market_day_of_week: number | null;
   is_active: boolean;
   created_at: Date;
+  staff_count: number;
 }
 
 function toWarehouse(row: WarehouseRow): WarehouseDetail {
@@ -62,6 +64,7 @@ function toWarehouse(row: WarehouseRow): WarehouseDetail {
     marketDayOfWeek: row.market_day_of_week,
     isActive: row.is_active,
     createdAt: row.created_at.toISOString(),
+    staffCount: row.staff_count,
   };
 }
 
@@ -95,6 +98,11 @@ export interface WarehousesRepo {
     id: string,
     scope: ScopedWhere,
   ): Promise<WarehouseCapacityResponse | null>;
+  /**
+   * BR-131: `alert_capacity_utilization_percent` through the alerts' own reader (BR-77f), so the
+   * capacity card and the CAPACITY_NEAR_FULL alert agree; null when missing or unusable.
+   */
+  capacityThresholdPercent(db: Executor): Promise<number | null>;
   /** Row-locks the warehouse and returns its current capacity (the before image). */
   lockCapacity(db: Executor, id: string, scope: ScopedWhere): Promise<CapacityRow | null>;
   /** Writes `warehouses.capacity_kg` and returns the stored (normalised) value. */
@@ -104,7 +112,27 @@ export interface WarehousesRepo {
 const SELECT_COLUMNS = `
   w.id, w.code, w.name, w.type, w.address, w.city, w.pincode, w.lat, w.lng,
   w.capacity_kg, w.operating_hours, w.contact_phone, w.is_market_day_venue,
-  w.market_day_of_week, w.is_active, w.created_at
+  w.market_day_of_week, w.is_active, w.created_at,
+  COALESCE(sc.staff_count, 0) AS staff_count
+`;
+
+/**
+ * BR-132 (UNCONFIRMED definition): distinct ACTIVE, undeleted users holding a LIVE role binding on
+ * the warehouse. Only SUB_WH_ADMIN and MAIN_WH_ADMIN rows can carry a warehouse_id
+ * (user_roles_warehouse_only_for_wh_roles_chk). "Live" is the admin-accounts LIVE_ROLE reading:
+ * started, and not ended (an ended role has valid_to <= now()). One grouped aggregate LEFT JOINed
+ * into the read, so a warehouse costs no extra query and no row is repeated.
+ */
+const STAFF_COUNT_JOIN = `
+  LEFT JOIN (
+        SELECT ur.warehouse_id, count(DISTINCT ur.user_id)::int AS staff_count
+          FROM user_roles ur
+          JOIN users u ON u.id = ur.user_id
+         WHERE ur.warehouse_id IS NOT NULL
+           AND ur.valid_from <= now() AND (ur.valid_to IS NULL OR ur.valid_to > now())
+           AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+         GROUP BY ur.warehouse_id
+  ) sc ON sc.warehouse_id = w.id
 `;
 
 interface CapacityDbRow {
@@ -154,6 +182,7 @@ export const warehousesRepo: WarehousesRepo = {
     const rows = await db.query<WarehouseRow>(
       `SELECT ${SELECT_COLUMNS}
          FROM warehouses w
+         ${STAFF_COUNT_JOIN}
         WHERE ${where}
         ORDER BY w.code ASC
         LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
@@ -174,6 +203,7 @@ export const warehousesRepo: WarehousesRepo = {
     const result = await db.query<WarehouseRow>(
       `SELECT ${SELECT_COLUMNS}
          FROM warehouses w
+         ${STAFF_COUNT_JOIN}
         WHERE w.id = $1 AND w.deleted_at IS NULL AND ${scoped.sql}
         LIMIT 1`,
       params,
@@ -216,6 +246,14 @@ export const warehousesRepo: WarehousesRepo = {
       availableKg: row.available_kg,
       utilizationPercent: row.utilization_percent === null ? null : Number(row.utilization_percent),
     };
+  },
+
+  async capacityThresholdPercent(db): Promise<number | null> {
+    // The reader validates the value (a JSON number from 0 to 100) and hands it over as a decimal
+    // string; a percentage is not money, and the alert compares it in NUMERIC, so Number() is exact
+    // enough for display and never used for arithmetic here.
+    const { capacityPercent } = await tasksAlertsRepo.getAlertThresholds(db);
+    return capacityPercent === null ? null : Number(capacityPercent);
   },
 
   async lockCapacity(db, id, scope): Promise<CapacityRow | null> {
