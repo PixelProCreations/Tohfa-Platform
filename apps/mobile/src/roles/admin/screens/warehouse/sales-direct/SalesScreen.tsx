@@ -406,7 +406,7 @@ export function SalesScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
 
       {/* ─── Header ─── */}
       <View style={styles.headerBanner}>

@@ -285,7 +285,7 @@ export function LivestockScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={[styles.scrollContent, { gap: 12 }]}>
           <Skeleton width="100%" height={48} borderRadius={21} />
           <Skeleton width="100%" height={72} borderRadius={16} />
@@ -299,7 +299,7 @@ export function LivestockScreen({
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={[styles.scrollContent, { flex: 1, justifyContent: 'center' }]}>
           <ErrorState error={error} onRetry={() => void loadAnimals()} />
         </View>
@@ -309,7 +309,7 @@ export function LivestockScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}

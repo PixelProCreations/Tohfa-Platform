@@ -98,7 +98,7 @@ export function SystemAuditLogsScreen({ onBack }: SystemAuditLogsScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

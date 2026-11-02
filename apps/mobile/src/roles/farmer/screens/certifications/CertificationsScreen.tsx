@@ -402,7 +402,7 @@ export function CertificationsScreen({
 
   return (
     <SafeAreaView style={S.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={S.header}>

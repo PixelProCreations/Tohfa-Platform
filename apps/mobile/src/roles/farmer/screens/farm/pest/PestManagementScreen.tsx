@@ -13,7 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../../native/documentPicker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Skeleton } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
@@ -643,7 +643,7 @@ export function PestManagementScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ──────────────────────────────────────────────────────────────────────────
           VIEW 1: PEST MANAGEMENT HUB (Screenshots 1 & 2)
@@ -1738,7 +1738,7 @@ const styles = StyleSheet.create({
 
   // ── In-Modal Overlays ──
   inModalOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',

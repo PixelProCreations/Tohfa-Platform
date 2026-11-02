@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';
 
@@ -146,7 +147,7 @@ export const AdminPendingApplicationsScreen: React.FC<Props> = ({
   const [selectedFilter, setSelectedFilter] = useState('ALL');
   const [scrollProgress, setScrollProgress] = useState(0);
   const [trackWidth, setTrackWidth] = useState(260);
-  const filterScrollRef = useRef<ScrollView>(null);
+  const filterScrollRef = useRef<ScrollViewInstance>(null);
 
   const filteredApps = DEMO_PENDING_APPLICATIONS.filter((app) => {
     if (selectedFilter === 'DOCS' && app.badgeType !== 'green') return false;
@@ -166,7 +167,7 @@ export const AdminPendingApplicationsScreen: React.FC<Props> = ({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header with circular back button */}
       <View style={styles.header}>

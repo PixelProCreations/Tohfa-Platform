@@ -76,7 +76,7 @@ export function FarmRatingsScreen({ onNavigateBack }: FarmRatingsScreenProps): R
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+        <StatusBar barStyle="light-content" />
         <View style={styles.skeletonContainer}>
           <Skeleton height={140} width="100%" style={styles.skeletonBlock} />
           <Skeleton height={280} width="100%" style={styles.skeletonBlock} />
@@ -190,7 +190,7 @@ export function FarmRatingsScreen({ onNavigateBack }: FarmRatingsScreenProps): R
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <StatusBar barStyle="light-content" />
 
       {/* Header Section */}
       <View style={styles.header}>

@@ -60,7 +60,7 @@ export interface AdminPermissionsMatrixScreenProps {
 export function AdminPermissionsMatrixScreen({ onBack }: AdminPermissionsMatrixScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>

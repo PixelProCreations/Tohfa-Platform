@@ -264,7 +264,7 @@ export function FieldContextScreen({ farmId, onNavigateBack, onNavigateToZones }
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
+      <StatusBar barStyle="dark-content" />
 
       {/* HEADER */}
       <View style={styles.header}>

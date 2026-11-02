@@ -235,7 +235,7 @@ export interface WalletScreenProps {
 export function WalletScreen({ title, subtitle, onBack, headerLeft, headerRight, headerExtra, footer, children }: WalletScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           {headerLeft !== undefined ? (

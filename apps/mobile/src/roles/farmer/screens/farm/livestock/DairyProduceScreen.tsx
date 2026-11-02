@@ -910,7 +910,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={{ padding: 16, gap: 12 }}>
           <Skeleton width="100%" height={42} borderRadius={21} />
           <Skeleton width="100%" height={80} borderRadius={14} />
@@ -924,7 +924,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
   if (loadError) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
           <ErrorState error={loadError} onRetry={() => void load()} />
         </View>
@@ -934,7 +934,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scrollView}

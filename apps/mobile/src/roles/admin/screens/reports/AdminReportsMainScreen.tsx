@@ -213,7 +213,7 @@ export function AdminReportsMainScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scroll}

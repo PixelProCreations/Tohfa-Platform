@@ -379,7 +379,7 @@ export function AuditResultScreen({ onBack, auditId }: AuditResultScreenProps): 
   if (state.kind === 'loading') {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         {header}
         <View style={styles.scrollContent}>
           <Skeleton width="100%" height={90} borderRadius={16} />
@@ -395,7 +395,7 @@ export function AuditResultScreen({ onBack, auditId }: AuditResultScreenProps): 
   if (state.kind === 'notFound') {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         {header}
         <View style={styles.centerFill}>
           <Text style={styles.emptyTitle}>{t('farmer.auditResult.notFound.title')}</Text>
@@ -408,7 +408,7 @@ export function AuditResultScreen({ onBack, auditId }: AuditResultScreenProps): 
   if (state.kind === 'error' || audit === null) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         {header}
         <View style={styles.centerFill}>
           <ErrorState
@@ -432,7 +432,7 @@ export function AuditResultScreen({ onBack, auditId }: AuditResultScreenProps): 
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       {header}

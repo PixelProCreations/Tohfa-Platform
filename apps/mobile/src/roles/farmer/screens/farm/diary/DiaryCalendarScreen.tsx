@@ -185,7 +185,7 @@ export function DiaryCalendarScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

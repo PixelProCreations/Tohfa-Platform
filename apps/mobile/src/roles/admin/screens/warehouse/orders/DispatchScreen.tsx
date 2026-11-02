@@ -350,7 +350,7 @@ export function DispatchScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.container}>
         {step === 'dispatch' ? (
           <DispatchDetailsStep

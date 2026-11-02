@@ -107,7 +107,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
   if (isCreating) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <StatusBar barStyle="dark-content" />
 
         <ScrollView
           style={styles.scroll}
@@ -239,7 +239,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
   // ─── MAIN SCREEN: ANNOUNCEMENTS LIST ────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scroll}

@@ -196,7 +196,7 @@ export function ChannelSalesScreen({
   if (!canView) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <View style={styles.mainContainer}>
           <AdminEmptyState title={t('sales.common.noPermission')} />
@@ -252,7 +252,7 @@ export function ChannelSalesScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {header}
 
       <View style={styles.mainContainer}>
@@ -326,7 +326,7 @@ export function ChannelSalesScreen({
                 >
                   <Text style={styles.loadMoreText}>{t('sales.common.loadMore')}</Text>
                 </TouchableOpacity>
-              ) : null
+              ) : undefined
             }
           />
         )}

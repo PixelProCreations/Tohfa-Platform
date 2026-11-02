@@ -135,7 +135,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

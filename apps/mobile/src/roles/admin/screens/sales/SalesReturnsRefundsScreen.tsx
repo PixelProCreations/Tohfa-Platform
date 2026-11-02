@@ -179,7 +179,7 @@ export function SalesReturnsRefundsScreen({ onBack }: SalesReturnsRefundsScreenP
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

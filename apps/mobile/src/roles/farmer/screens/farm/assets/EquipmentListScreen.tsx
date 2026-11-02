@@ -201,7 +201,7 @@ export function EquipmentListScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
           <Skeleton width="100%" height={56} borderRadius={14} />
           <Skeleton width="100%" height={110} borderRadius={18} />
@@ -214,7 +214,7 @@ export function EquipmentListScreen({
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.errorContainer}>
           <ErrorState error={error} onRetry={loadEquipment} />
         </View>
@@ -224,7 +224,7 @@ export function EquipmentListScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* ── Top Header ── */}
         <View style={styles.header}>

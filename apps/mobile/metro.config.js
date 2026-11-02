@@ -21,7 +21,15 @@ const monorepoRoot = path.resolve(__dirname, '../..');
 const defaultConfig = getDefaultConfig(__dirname);
 const { assetExts, sourceExts } = defaultConfig.resolver;
 
-const exclusionList = require('metro-config/src/defaults/exclusionList');
+// metro-config 0.87 (pulled in by @react-native/metro-config 0.88) has a
+// package.json "exports" map that blocks the old deep import
+// 'metro-config/src/defaults/exclusionList'. The supported path is the
+// 'private/*' subpath, resolved from @react-native/metro-config's own copy
+// because pnpm does not hoist metro-config into this app's node_modules.
+const exclusionListPath = require.resolve('metro-config/private/defaults/exclusionList', {
+  paths: [require.resolve('@react-native/metro-config')],
+});
+const exclusionList = require(exclusionListPath).default;
 
 const config = {
   watchFolders: [monorepoRoot],

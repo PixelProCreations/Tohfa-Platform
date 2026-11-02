@@ -164,7 +164,7 @@ export function ChannelOrderDetailScreen({
   if (!order) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <View style={styles.content}>
           <AdminEmptyState
@@ -194,7 +194,7 @@ export function ChannelOrderDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {header}
 
       <ScrollView

@@ -566,7 +566,7 @@ export function GoodsReceivingWizardScreen({
 
   const header = (title: string, sub?: string) => (
     <>
-      <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+      <StatusBar barStyle="light-content" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
           <BackArrowIcon />

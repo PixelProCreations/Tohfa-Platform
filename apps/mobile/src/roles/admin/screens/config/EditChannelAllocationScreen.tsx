@@ -62,7 +62,7 @@ export function EditChannelAllocationScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}

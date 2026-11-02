@@ -67,7 +67,7 @@ interface Props {
 export const AdminComplianceTiersScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header with Back button */}
       <View style={styles.header}>

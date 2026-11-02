@@ -137,7 +137,7 @@ export function SaleDetailScreen({ can, onBack, saleId, warehouseNameOf, onViewI
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
 
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>

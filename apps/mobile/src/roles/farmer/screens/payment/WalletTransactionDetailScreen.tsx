@@ -105,7 +105,7 @@ export function WalletTransactionDetailScreen({
   if (!transaction) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -133,7 +133,7 @@ export function WalletTransactionDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>

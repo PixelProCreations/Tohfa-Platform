@@ -179,7 +179,7 @@ export function CustomerSearchScreen({
   if (live !== undefined) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -246,7 +246,7 @@ export function CustomerSearchScreen({
   if (!can('customer.list.view')) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -279,7 +279,7 @@ export function CustomerSearchScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
 
       {/* ─── Header (Orange Theme with Back Arrow) ─── */}
       <View style={styles.header}>

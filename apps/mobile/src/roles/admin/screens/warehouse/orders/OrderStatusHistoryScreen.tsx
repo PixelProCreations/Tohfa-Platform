@@ -118,7 +118,7 @@ export function OrderStatusHistoryScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <SafeAreaView style={styles.topSafeArea} />
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>

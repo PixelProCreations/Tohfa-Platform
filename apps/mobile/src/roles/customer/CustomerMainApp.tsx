@@ -114,7 +114,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <SafeAreaView style={[styles.root, { backgroundColor: theme.colors.surface }]}>
-          <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+          <StatusBar barStyle="light-content" />
 
           {currentScreen === 'Home' && <HomeScreen />}
           {currentScreen === 'Categories' && <CategoriesScreen />}

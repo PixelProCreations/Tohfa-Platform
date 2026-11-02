@@ -535,12 +535,12 @@ const styles = StyleSheet.create({
   // The scrim is its own layer because a colour token has no alpha: tinting a
   // theme colour and dropping its opacity keeps the backdrop on-palette.
   calendarScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colors.textDark,
     opacity: 0.5,
   },
   calendarBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   calendarSheet: {
     backgroundColor: colors.white,

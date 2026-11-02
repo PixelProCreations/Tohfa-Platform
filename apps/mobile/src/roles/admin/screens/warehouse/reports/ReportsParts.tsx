@@ -181,7 +181,7 @@ export function ReportView({
   const state = queryViewState({ isLoading, error, itemCount: hasData ? 1 : 0 });
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity

@@ -450,7 +450,7 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
 
   return (
     <SafeAreaView style={reportStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={reportStyles.headerBanner}>
         <View style={reportStyles.headerTopRow}>
           <View style={reportStyles.headerLeftGroup}>

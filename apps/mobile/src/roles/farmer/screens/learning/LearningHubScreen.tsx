@@ -439,7 +439,7 @@ export function LearningHubScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header Bar ── */}
       <View style={styles.header}>

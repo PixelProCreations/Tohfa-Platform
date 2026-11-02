@@ -273,7 +273,7 @@ export function ContentDetailScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.greenDeep1} />
+      <StatusBar barStyle="light-content" />
 
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
