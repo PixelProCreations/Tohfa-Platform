@@ -1,8 +1,10 @@
+import { RoleCode } from '@tohfa/shared-types';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
+import { assertMayGrantRole } from '../../rbac/roleExclusivity.js';
 import { uploadsService, type UploadsService } from '../uploads/uploads.service.js';
 import type { SignUploadBody, SignUploadResponse } from '../uploads/uploads.schema.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
@@ -638,6 +640,12 @@ export function createFarmerApplicationsService(
       }
 
       const result = await withTransaction(async (tx) => {
+        // BR-135: approval gives the applicant's account FARMER and a farmers row. A SUPER_ADMIN,
+        // TOHFA_ADMIN, MAIN_WH_ADMIN or SUB_WH_ADMIN account may not become a farmer (a Farmer
+        // Admin may). Checked before anything is written; migration 0082 is the backstop.
+        const applicantRoles = await repo.findApplicantLiveRoles(tx, { userId: app.user_id, mobile: app.mobile });
+        assertMayGrantRole({ roles: applicantRoles, hasLiveFarmer: false }, RoleCode.FARMER);
+
         const year = new Date().getFullYear();
         const tohfaFarmerId = await repo.allocateNextTohfaFarmerId(tx, year);
 

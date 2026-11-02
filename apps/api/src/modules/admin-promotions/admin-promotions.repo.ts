@@ -64,6 +64,8 @@ export interface AdminPromotionsRepo {
    * Null when the user is missing, deleted or not an admin.
    */
   lockTargetRoles(db: Executor, userId: string): Promise<string[] | null>;
+  /** BR-135: true when the user has a `farmers` row that is not soft-deleted. */
+  hasLiveFarmer(db: Executor, userId: string): Promise<boolean>;
   /** End every live assignment of `roleCode` held by the user. */
   endRoleAssignments(db: Executor, userId: string, roleCode: string): Promise<number>;
   /** One live assignment of `roleCode`, with no warehouse and no zone. */
@@ -154,6 +156,11 @@ export const adminPromotionsRepo: AdminPromotionsRepo = {
       [userId],
     );
     return roles.rows.map((row) => row.role_code);
+  },
+
+  async hasLiveFarmer(db, userId) {
+    const result = await db.query(`SELECT 1 FROM farmers f WHERE f.user_id = $1 AND f.deleted_at IS NULL`, [userId]);
+    return result.rows.length > 0;
   },
 
   async endRoleAssignments(db, userId, roleCode) {

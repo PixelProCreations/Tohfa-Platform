@@ -41,6 +41,11 @@ const roleSchema = z.object({
   colorHex: z.string().nullable().optional(),
   /** `warehouse_id` for Sub Warehouse Admin, `zone_id` for Farmer Admin. */
   scopeDimension: z.enum(['warehouse_id', 'zone_id', 'farmer_id', 'customer_id']).nullable(),
+  /**
+   * BR-135: a user holding this role is never also a farmer or a customer (no end-user role, no live
+   * `farmers` row). Absent means false. FARMER_ADMIN leaves it out: it is an elected farmer.
+   */
+  excludesEndUserRoles: z.boolean().optional(),
   summary: z.string().optional(),
 });
 

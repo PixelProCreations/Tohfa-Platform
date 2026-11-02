@@ -9,6 +9,8 @@
  *      SUPER_ADMIN holds `admin.promotion.approve`, at `all`, so this is a defence in depth.
  *   5. The target is locked; it must be a live admin still holding a live `from_role` assignment,
  *      otherwise the request is stale -> 409 CONFLICT.
+ *   6. BR-135: after `from_role` ends, the target may not keep FARMER or CUSTOMER or a live farmers
+ *      row while gaining `to_role` (every promotion target role is a single-role admin) -> 409 CONFLICT.
  *
  * The role change, the request's decision, the session and refresh-token revocation and the audit
  * row share one transaction (BR-35). The access-token invalidation stamp lives in Redis, outside that
@@ -23,6 +25,7 @@
  *   4. LOWER_ROLES_ONLY sanity check against the requester's own role, whatever its grant level (TOHFA
  *      holds `all` too): the target must sit strictly below the requester and `toRole` may not be above
  *      it -> 403. UNCONFIRMED default (BR-117).
+ *   4b. BR-135: the same role-exclusivity check as approve step 6 -> 409 CONFLICT.
  *   5. One PENDING request per target -> 409 CONFLICT. The target row lock serialises concurrent creates;
  *      the partial unique index is the backstop and its violation is also mapped to 409.
  * The insert and its audit row share one transaction. Nothing about the target's roles or sessions
@@ -41,6 +44,7 @@ import { pool, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import { loadRbac } from '../../rbac/loadRbac.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { assertMayGrantRole } from '../../rbac/roleExclusivity.js';
 import { adminPromotionsRepo, type AdminPromotionsRepo, type PromotionRow } from './admin-promotions.repo.js';
 import {
   PROMOTION_FROM_ROLES,
@@ -115,6 +119,12 @@ export function createAdminPromotionsService(deps: Partial<AdminPromotionsServic
   const transaction: TransactionRunner = deps.transaction ?? ((fn) => withTransaction(fn));
   const invalidateAccessTokens = deps.invalidateAccessTokens ?? ((userId: string) => markTokensInvalidBefore(userId));
 
+  /** BR-135: the target, keeping every live role but `fromRole`, may be given `toRole`. */
+  async function assertTargetMayHold(tx: Executor, userId: string, roles: string[], fromRole: string, toRole: string): Promise<void> {
+    const kept = roles.filter((code) => code !== fromRole);
+    assertMayGrantRole({ roles: kept, hasLiveFarmer: await repo.hasLiveFarmer(tx, userId) }, toRole);
+  }
+
   return {
     async approve(scope, id, body) {
       const approved = await transaction(async (tx) => {
@@ -145,6 +155,10 @@ export function createAdminPromotionsService(deps: Partial<AdminPromotionsServic
             detail: `The target account no longer holds ${request.fromRole}; this request is stale.`,
           });
         }
+
+        // BR-135: a Farmer Admin who is also a farmer (or a customer) never becomes a single-role
+        // admin. Checked against the roles the target keeps after from_role is ended.
+        await assertTargetMayHold(tx, request.targetUserId, targetRoles, request.fromRole, request.toRole);
 
         await repo.endRoleAssignments(tx, request.targetUserId, request.fromRole);
         if (!targetRoles.includes(request.toRole)) {
@@ -211,6 +225,9 @@ export function createAdminPromotionsService(deps: Partial<AdminPromotionsServic
             detail: 'You may only request a promotion for an account below your own role, into a role no higher than your own.',
           });
         }
+
+        // BR-135: refuse the request now rather than at approval; approve checks again.
+        await assertTargetMayHold(tx, body.targetUserId, targetRoles, fromRole, body.toRole);
 
         if (await repo.hasPendingForTarget(tx, body.targetUserId)) throw pendingConflict();
 

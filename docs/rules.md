@@ -3275,6 +3275,29 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-135 — Only a Farmer Admin may also be a farmer; the other admins are never farmers or customers
+| | |
+|---|---|
+| **Source** | Owner rule (2026-11-02): "only Farmer Admin may hold two roles"; `docs/rbac.json` describes FARMER_ADMIN as an "Elected farmer, not paid staff". Marked in `docs/rbac.json` by `excludesEndUserRoles: true` on SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN and SUB_WH_ADMIN |
+| **Status** | CONFIRMED for the farmer and customer part. Whether two ADMIN roles may be combined is open (contradiction 33) |
+| **Layer** | Server-side: `apps/api/src/rbac/roleExclusivity.ts` (`assertMayGrantRole`), called by `adminPromotionsService.create` / `approve` and `farmerApplicationsService.approveApplication`. Database: migration `0082_role_exclusivity.sql` (triggers on `user_roles` and `farmers`). Seed: `db/seed/003_dev_users.sql` |
+| **Scope** | Track 1 |
+
+**Rule.** A user who holds SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN or SUB_WH_ADMIN never also holds FARMER or CUSTOMER, and never has a live `farmers` row (one whose `deleted_at` is null). A FARMER_ADMIN may also be a farmer: FARMER_ADMIN + FARMER (with a farmers row) is allowed. Giving an account a role that would break this is refused with 409 `CONFLICT` (`meta.rule = "BR-135"`) and nothing is written:
+- a promotion request (create or approve) whose target, after its `fromRole` ends, would keep FARMER or CUSTOMER or a live farmers row;
+- approving a farmer application whose account (the application's user, or the live user holding its mobile) holds one of the four admin roles.
+The other places that add a role create a brand-new account in the same transaction (admin account create, Sub Warehouse Admin create, customer sign-up), so the account cannot already hold a conflicting role; the database triggers cover them anyway. The database refuses the same combinations on every new `user_roles` row and on every new or restored `farmers` row (check violation, `BR-135` in the message). Rows that existed before migration 0082 are not touched or checked, and re-inserting a role the user already holds (a seed re-run with `ON CONFLICT DO NOTHING`) is not checked either. Combinations of two admin roles are not restricted by this rule.
+
+**Failure mode if unenforced.** The access token's `farmerId` comes from the farmers row, and a scope that carries a farmerId is never confined to a warehouse (`isWarehouseConfinable` fails closed). The dev seed gave the Sub Warehouse Admin a FARMER role and a farmers row "for mobile access", and its tasks, alerts, sales summary and warehouse activity all answered 404 "Warehouse not found" for its own warehouse.
+
+**Test contract.**
+- `BR-135` (`apps/api/src/rbac/roleExclusivity.test.ts`) The four roles come from `docs/rbac.json`; granting FARMER or CUSTOMER to each of them is refused; granting each of them to a user holding FARMER, CUSTOMER or a live farmers row is refused; FARMER to a FARMER_ADMIN and FARMER_ADMIN to a farmer are allowed; admin + admin is not restricted.
+- `BR-135` (`apps/api/src/modules/admin-promotions/admin-promotions.role-exclusivity.test.ts`) Create and approve refuse a Farmer Admin who is also a farmer or customer (409, nothing written) and still promote one who is not.
+- `BR-135` (`apps/api/src/modules/farmer-applications/farmer-applications.role-exclusivity.test.ts`) Approval refuses an applicant account holding any of the four roles (also when found by mobile) before anything is written, and approves a Farmer Admin applicant.
+- `BR-135` (`apps/api/src/rbac/roleExclusivity.db.test.ts`, PostgreSQL) The triggers refuse each forbidden combination on insert and on restoring a soft-deleted farmers row; they allow FARMER_ADMIN + FARMER, admin + admin, a soft-deleted farmers row, and a repeated insert of a role already held; the SQL role list matches `docs/rbac.json`.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -3308,6 +3331,7 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 | 30 | Who may disable an admin account (BR-110) | Not in this repository (Ch.6 unavailable) | §10 `Disable admin account`: rbac.json grants SA = all, TA = conditional, FA = conditional, MW = none, SW = none, but its source note reads "TA/MW restricted to roles below their own" | Grants implemented as written in `docs/rbac.json` with `LOWER_ROLES_ONLY` by role level: TA may disable FA/MW/SW accounts, FA may disable SW accounts only, MW none. The contradicting source note was reworded on 2026-10-23 to record the decision; no grant changed | **Resolved 2026-10-23** (owner decision: keep the grants exactly as written) |
 | 31 | Admin promotion workflow (BR-114) | §5.3 FR-A01 (via rbac.json): SUPER_ADMIN approves or rejects a warehouse admin promotion; no workflow, eligibility, or who may request | §10 `admin.promotion.approve` SA only; no create/list/reject rows | Owner decision 2026-10-23: create the request table. Implemented: `promotion_requests` (migration 0074), approve (BR-114) and, on the owner request of 2026-10-23 for a create path, create/list/read/reject (BR-117) with new spec-gap codes `admin.promotion.request` and `admin.promotion.view` (SUPER_ADMIN and TOHFA_ADMIN `all`) and `admin.promotion.reject` (SUPER_ADMIN only, mirroring approve). UNCONFIRMED defaults: who may request (SA and TA); target roles limited to SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN (a FARMER_ADMIN needs a zone, a SUB_WH_ADMIN a warehouse, which a request does not carry); `fromRole` derived as the target's highest live role (a tie is 409); a LOWER_ROLES_ONLY check against the requester's own level; `reason` required; the old role is ended, not kept; the target's sessions are revoked on approval; self-request and self-decision are refused; decision notes are optional | requires owner confirmation (who may request, target roles, the defaults listed) |
 | 32 | Admin customer list filters (BR-115) | Not stated | Not stated | The mobile asks for grade, crop, date and sort filters on the customer list. `customers` has no grade column, so `grade`, `crop` and `from`/`to` are read as "bought produce of this grade / this crop / in this window" on one purchase line (non-cancelled, non-unpaid order). `sort` offers name, registration date, lifetime value and order count. Issues are return requests, tickets are support tickets | requires owner confirmation (whether a customer grade or tier was meant) |
+| 33 | Two admin roles on one account (BR-135) | Not stated | Not stated | The owner rule of 2026-11-02 says only FARMER_ADMIN may hold two roles, its example being FARMER_ADMIN + FARMER. It does not say whether FARMER_ADMIN may be combined with another admin role. The dev user `multirole@tohfa.test` holds FARMER_ADMIN + TOHFA_ADMIN. Default implemented: admin + admin combinations are not restricted by this rule; only FARMER/CUSTOMER and farmers rows are refused for SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN and SUB_WH_ADMIN | requires owner decision (is `multirole@` allowed; may any admin role be combined with another) |
 
 ---
 
