@@ -305,6 +305,46 @@ describe('admin account disable: request schema (BR-110)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// 2b. Role-lock SQL shape (no database)
+// ---------------------------------------------------------------------------
+/**
+ * The SQL with every parenthesised sub-select blanked out, leaving only the statement's own
+ * (top-level) clauses. PostgreSQL rejects a locking clause combined with DISTINCT at the SAME
+ * query level (error 0A000) but allows it inside a sub-SELECT.
+ */
+function topLevelSql(sql: string): string {
+  let out = sql;
+  for (let previous = ''; previous !== out; ) {
+    previous = out;
+    out = out.replace(/\([^()]*\)/g, ' ');
+  }
+  return out;
+}
+
+describe('admin account disable: role-lock SQL shape (BR-110)', () => {
+  it('BR-110: no statement issued by findAdminForUpdate combines DISTINCT with FOR UPDATE at one query level (PostgreSQL 0A000)', async () => {
+    const statements: string[] = [];
+    const db = {
+      query: async (sql: string) => {
+        statements.push(sql);
+        const isRoleQuery = /FROM\s+user_roles/i.test(sql);
+        return { rows: isRoleQuery ? [{ code: 'TOHFA_ADMIN', level: 2 }] : [{ id: newId(), fullName: 'Target Admin', status: 'ACTIVE' }], rowCount: 1 };
+      },
+    } as unknown as Executor;
+
+    const found = await adminAccountsRepo.findAdminForUpdate(db, newId());
+
+    expect(found?.roles).toEqual([{ code: 'TOHFA_ADMIN', level: 2 }]);
+    for (const sql of statements) {
+      const own = topLevelSql(sql);
+      expect(/\bDISTINCT\b/i.test(own) && /\bFOR\s+(NO\s+KEY\s+)?(UPDATE|SHARE|KEY\s+SHARE)\b/i.test(own), sql).toBe(false);
+    }
+    // The fix must keep the TOCTOU lock: user_roles rows are still locked FOR UPDATE.
+    expect(statements.some((sql) => /\bFOR\s+UPDATE\s+OF\s+ur\b/i.test(sql))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3. Router
 // ---------------------------------------------------------------------------
 describe('admin accounts router (BR-110f)', () => {
