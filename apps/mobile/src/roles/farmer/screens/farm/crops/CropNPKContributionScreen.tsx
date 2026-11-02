@@ -4,12 +4,12 @@ import {
   Image,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
@@ -238,7 +238,7 @@ export function CropNPKContributionScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.paleStoneBg} />
 
       <View style={styles.container}>
         {/* ── Header ── */}

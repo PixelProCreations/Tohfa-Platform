@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   ADMIN_PALETTE,
   AdminBackChevronIcon,
@@ -116,7 +116,7 @@ export function AdminActivityLogsScreen({ onBack }: AdminActivityLogsScreenProps
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

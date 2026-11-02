@@ -4,7 +4,6 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
@@ -71,7 +71,7 @@ export function IntegrationDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}

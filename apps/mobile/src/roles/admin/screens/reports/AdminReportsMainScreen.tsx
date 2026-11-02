@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { RecentReportDetailScreen } from './RecentReportDetailScreen';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
@@ -213,7 +213,7 @@ export function AdminReportsMainScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       <ScrollView
         style={styles.scroll}

@@ -6,12 +6,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { Icon, Skeleton } from '@tohfa/mobile-ui';
+import { Icon, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { useTheme, colors, authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { getFarms, updateFarm } from '../../api/farms';
@@ -264,7 +263,7 @@ export function FieldContextScreen({ farmId, onNavigateBack, onNavigateToZones }
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
 
       {/* HEADER */}
       <View style={styles.header}>

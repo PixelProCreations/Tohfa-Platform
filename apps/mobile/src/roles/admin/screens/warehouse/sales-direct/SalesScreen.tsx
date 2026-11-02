@@ -16,7 +16,8 @@
  * presentation only (root CLAUDE.md 2.1).
  */
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { SalePaymentStatus } from '../../../api/sales';
 import { t } from '../../../i18n';
@@ -406,7 +407,7 @@ export function SalesScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header ─── */}
       <View style={styles.headerBanner}>

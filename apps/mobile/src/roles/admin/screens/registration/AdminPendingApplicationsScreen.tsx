@@ -3,13 +3,13 @@ import {
   Image,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { ScrollViewInstance } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';
@@ -167,7 +167,7 @@ export const AdminPendingApplicationsScreen: React.FC<Props> = ({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       {/* Header with circular back button */}
       <View style={styles.header}>

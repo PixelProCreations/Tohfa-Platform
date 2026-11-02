@@ -14,12 +14,12 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
@@ -131,7 +131,7 @@ export function NotificationsScreen({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {/* Header with Warm Orange Accent */}
       <View style={styles.header}>
         <SafeAreaView style={styles.headerSafeArea}>

@@ -1,6 +1,7 @@
 // Design id: M3S06
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -158,7 +159,7 @@ export function StockLedgerScreen({
 
   return (
     <View style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <SWAHeader 
           title="Stock Ledger"

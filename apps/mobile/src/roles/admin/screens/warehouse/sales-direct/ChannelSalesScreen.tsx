@@ -16,13 +16,13 @@ import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
@@ -196,7 +196,7 @@ export function ChannelSalesScreen({
   if (!canView) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <View style={styles.mainContainer}>
           <AdminEmptyState title={t('sales.common.noPermission')} />
@@ -252,7 +252,7 @@ export function ChannelSalesScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {header}
 
       <View style={styles.mainContainer}>

@@ -3,14 +3,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import {
@@ -585,7 +584,7 @@ export function AnimalDetailScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={{ padding: 20, gap: 12 }}>
           <Skeleton width="100%" height={58} borderRadius={16} />
           <Skeleton width="100%" height={40} borderRadius={20} />
@@ -598,7 +597,7 @@ export function AnimalDetailScreen({
   if (loadError) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
           <ErrorState error={loadError} onRetry={() => void load()} />
         </View>
@@ -608,7 +607,7 @@ export function AnimalDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
       <View style={styles.container}>
         {/* ── Top Header Bar ── */}
         <View style={styles.header}>

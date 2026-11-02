@@ -4,14 +4,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';
@@ -160,7 +159,7 @@ export function CropRotationScreen({ farmId, onBack }: CropRotationScreenProps):
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

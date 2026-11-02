@@ -38,7 +38,8 @@
 import React, { useEffect, useState } from 'react';
 import { inventoryRouteArea, isAreaAvailable } from '../availability';
 import { useFlowBack } from '../useFlowBack';
-import { StatusBar, View } from 'react-native';
+import { View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { adminColors } from '../../../theme';
 import { AdjustmentDetailScreen } from './AdjustmentDetailScreen';
 import { AdjustmentHistoryScreen } from './AdjustmentHistoryScreen';
@@ -435,7 +436,7 @@ export function InventoryFlow({
 
   return (
     <View style={{ flex: 1, backgroundColor: adminColors.brand }}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <React.Fragment key={stack.length}>{renderScreen()}</React.Fragment>
     </View>
   );

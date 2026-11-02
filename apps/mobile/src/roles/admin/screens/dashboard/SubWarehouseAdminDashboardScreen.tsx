@@ -4,7 +4,6 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   type StyleProp,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
@@ -657,7 +657,7 @@ function SubWarehouseTodayOverviewView({
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
@@ -2056,7 +2056,7 @@ export function SubWarehouseAdminDashboardScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
       <View style={{ flex: 1 }}>
         {activeTab === 'Home' && !showOrdersModule && (

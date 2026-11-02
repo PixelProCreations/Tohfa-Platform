@@ -14,7 +14,6 @@
 import React from 'react';
 import {
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +22,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { adminErrorKey } from '../../../api/errors';
@@ -149,7 +149,7 @@ export interface BillingScreenProps {
 export function BillingScreen({ title, subtitle, onBack, headerRight, headerExtra, footer, children }: BillingScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity

@@ -13,7 +13,8 @@
  * only decides what to render.
  */
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
@@ -235,7 +236,7 @@ export interface WalletScreenProps {
 export function WalletScreen({ title, subtitle, onBack, headerLeft, headerRight, headerExtra, footer, children }: WalletScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           {headerLeft !== undefined ? (

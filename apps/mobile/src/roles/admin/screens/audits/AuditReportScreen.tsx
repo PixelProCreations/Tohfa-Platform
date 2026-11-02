@@ -3,12 +3,12 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { AuditEntry } from './AuditInspectionScreen';
 
@@ -210,7 +210,7 @@ export function AuditReportScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       <ScrollView
         style={styles.scroll}

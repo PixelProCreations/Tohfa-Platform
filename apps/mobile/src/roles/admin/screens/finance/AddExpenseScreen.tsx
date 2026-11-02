@@ -5,13 +5,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ export function AddExpenseScreen({ onBack, onSuccess }: AddExpenseScreenProps) {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

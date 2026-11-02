@@ -2,12 +2,12 @@ import React from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import {
   ADMIN_PALETTE,
@@ -60,7 +60,7 @@ export interface AdminPermissionsMatrixScreenProps {
 export function AdminPermissionsMatrixScreen({ onBack }: AdminPermissionsMatrixScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

@@ -18,13 +18,13 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { adminErrorKey } from '../../../api/errors';
 import { useIdempotencyKey } from '../../../api/hooks';
@@ -215,7 +215,7 @@ export function PaymentScreen({
   if (!allowed) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <View style={styles.scrollContent}>
           <Text style={styles.note}>{t('sales.common.noPermission')}</Text>
@@ -227,7 +227,7 @@ export function PaymentScreen({
   if (pendingSale) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <PendingUpiPanel
@@ -243,7 +243,7 @@ export function PaymentScreen({
   if (!buyer) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <View style={styles.scrollContent}>
           <Text style={styles.note}>{t('sales.payment.noBuyer')}</Text>
@@ -264,7 +264,7 @@ export function PaymentScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {header}
 
       <ScrollView

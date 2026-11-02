@@ -2,12 +2,12 @@ import React from 'react';
 import {
   FlatList,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import {
   BackChevronIcon,
@@ -79,7 +79,7 @@ export interface SalesB2BOrdersScreenProps {
 export function SalesB2BOrdersScreen({ onBack, onOpenInvoice }: SalesB2BOrdersScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

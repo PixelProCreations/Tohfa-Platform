@@ -2,14 +2,13 @@ import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const A = {
@@ -523,7 +522,7 @@ export function ScheduleNewAuditScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={A.pageBg} />
 
       <ScrollView
         style={styles.scroll}

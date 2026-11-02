@@ -3,13 +3,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, authPalette as P, typography } from '../../theme';
 
@@ -439,7 +439,7 @@ export function LearningHubScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
 
       {/* ── Top Header Bar ── */}
       <View style={styles.header}>

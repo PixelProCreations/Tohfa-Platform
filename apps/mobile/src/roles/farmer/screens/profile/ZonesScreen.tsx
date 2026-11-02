@@ -7,7 +7,6 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   Modal,
   TextInput,
   Alert,
@@ -25,6 +24,7 @@ import {
   Skeleton,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapOverlay,
+  ScreenStatusBar,
 } from '@tohfa/mobile-ui';
 import {
   useTheme,
@@ -825,7 +825,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* HEADER + FARM PICKER -- the only chrome above the map. Hidden in fullscreen. */}
       {isFullscreen ? null : (

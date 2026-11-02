@@ -5,14 +5,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
 import type { DiaryPlot } from '../../../api/farmDiary';
@@ -451,7 +450,7 @@ export function ProduceCalendarScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

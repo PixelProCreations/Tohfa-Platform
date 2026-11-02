@@ -5,7 +5,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -13,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
@@ -910,7 +909,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={{ padding: 16, gap: 12 }}>
           <Skeleton width="100%" height={42} borderRadius={21} />
           <Skeleton width="100%" height={80} borderRadius={14} />
@@ -924,7 +923,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
   if (loadError) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
           <ErrorState error={loadError} onRetry={() => void load()} />
         </View>
@@ -934,7 +933,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       <ScrollView
         style={styles.scrollView}
