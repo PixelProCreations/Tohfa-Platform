@@ -2223,8 +2223,12 @@ paths:
         Issues the TOHFA farmer ID (`TOHFA-F-YYYY-XXXX`) and activates the farmer account. Super Admin / TOHFA Admin only.
         An application with zero step-3 farm locations is refused with 422 `VALIDATION_FAILED` and nothing is written:
         a farmer is never approved with zero farms (BR-69).
+        If the applicant's account (the application's user, or the live user holding its mobile) is a
+        SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN or SUB_WH_ADMIN, approval is refused with 409 `CONFLICT`
+        and nothing is written: those admins hold no second role (BR-135). A Farmer Admin or customer may
+        also be a farmer.
       x-permission: farmer.application.approve
-      x-business-rules: [BR-33, BR-69]
+      x-business-rules: [BR-33, BR-69, BR-135]
       parameters:
         - $ref: '#/components/parameters/IdParam'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -13475,13 +13479,16 @@ paths:
         5. `LOWER_ROLES_ONLY` sanity check against the requester's own role level (UNCONFIRMED): the
            target's `fromRole` must be strictly below the requester's role, and `toRole` may not be
            above it; otherwise 403 `FORBIDDEN`. A SUPER_ADMIN always passes.
+        5b. The target, keeping its live roles other than `fromRole`, would still hold any other role
+           or a live farmers row: 409 `CONFLICT` (BR-135: every `toRole` is held alone; only FARMER,
+           FARMER_ADMIN and CUSTOMER may be combined).
         6. The target already has a `PENDING` request: 409 `CONFLICT`.
 
         On success the request, with `requestedBy` = the caller, and one `admin.promotion.request`
         audit row (entity type `promotion_request`, after image) are written in one transaction. No
         role, session or token changes until approval.
       x-permission: admin.promotion.request
-      x-business-rules: [BR-117, BR-114, BR-28, BR-35]
+      x-business-rules: [BR-117, BR-114, BR-28, BR-35, BR-135]
       requestBody:
         required: true
         content:
@@ -13536,6 +13543,8 @@ paths:
         `INVALID_STATE_TRANSITION` and nothing is written. Approving a promotion of your own account
         is 403. The target must still be a live admin account holding a live assignment of the
         request's `fromRole`; otherwise the request is stale: 409 `CONFLICT`, nothing written.
+        If the target, keeping its live roles other than `fromRole`, would still hold any other role or
+        a live farmers row, approval is 409 `CONFLICT` and nothing is written (BR-135).
 
         In one transaction: the target's live `fromRole` assignments are ended, one `toRole`
         assignment is added (no warehouse, no zone), the request becomes `APPROVED` with
@@ -13549,7 +13558,7 @@ paths:
         SUPER_ADMIN, TOHFA_ADMIN and MAIN_WH_ADMIN; the old role is ended, not kept (see BR-114 and
         Open contradictions #31).
       x-permission: admin.promotion.approve
-      x-business-rules: [BR-114, BR-28, BR-35]
+      x-business-rules: [BR-114, BR-28, BR-35, BR-135]
       parameters:
         - $ref: '#/components/parameters/IdParam'
       requestBody:

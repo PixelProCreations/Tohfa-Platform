@@ -37,7 +37,6 @@
 | **SUPER_ADMIN** | `+919800000001` | Super Administrator | System-wide access (`*`) | Fair price ceiling changes, global overrides, PO approvals |
 | **TOHFA_ADMIN** | `+919800000002` | Tohfa Platform Admin | Platform administration | Farmer review, retail pricing, allocation settings |
 | **FARMER_ADMIN** | `+919800000003` | Farmer Desk Admin | Reviewer queue (`FARMER_ADMIN`) | Application verification, listing counter-offers (`BR-29`) |
-| **MULTI_ROLE** | `+919800000004` | Operations Manager | `TOHFA_ADMIN` + `FARMER_ADMIN` | Multi-role switching validation |
 | **FARMER (Active)** | `+919870000001` | Ramesh Patel (Organic Pro) | Verified PGS (`FARMER`) | Produce listings, certificates, wallet payouts |
 | **FARMER (Expiring)** | `+919870000012` | Geetha Manoharan | Verified PGS expiring 20 Days after seeding (`FARMER`) | 30-day warning banner test (the "expiring soon" demo; same `Password@123`) |
 | **FARMER (Long-dated)** | `+919870000003` | Suresh Gowda | Verified PGS `PGS-TN-DEMO-0003` 400 Days to Expiry (`FARMER`) | Not expiring: no warning banner. Dev data also holds an `UNVERIFIED` `PGS-IN-KL-002-143` expiring 2027-02-12 |

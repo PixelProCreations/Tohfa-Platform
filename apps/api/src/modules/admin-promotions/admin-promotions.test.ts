@@ -69,6 +69,10 @@ function fakeRepo(row: PromotionRow | null, targetRoles: string[] | null = ['SUB
       calls.events.push('lockTarget');
       return targetRoles;
     },
+    // BR-135 is tested in admin-promotions.role-exclusivity.test.ts; these targets are not farmers.
+    async hasLiveFarmer() {
+      return false;
+    },
     // Create/list/read/reject (BR-117) are not part of approve; reaching one here is a bug.
     async findById() {
       throw new Error('approve must not call findById');

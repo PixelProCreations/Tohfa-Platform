@@ -3517,6 +3517,10 @@
       "source": "inferred \u2014 every document upload path in docs/openapi.yaml uses it"
     }
   ],
+  "allowedRoleCombinationsNote": "BR-135 (owner rule 2026-11-03): a user holds exactly one role, except that the roles of ONE group below may be held together in any combination (any subset of the group). A live `farmers` row counts as holding FARMER. Every role not in a group (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN) is held alone. Enforced by apps/api/src/rbac/roleExclusivity.ts and the trigger function app_br135_allowed_groups() (migration 0083), which must list the same groups.",
+  "allowedRoleCombinations": [
+    ["FARMER", "FARMER_ADMIN", "CUSTOMER"]
+  ],
   "creationRules": [
     {
       "canCreate": "SUPER_ADMIN",

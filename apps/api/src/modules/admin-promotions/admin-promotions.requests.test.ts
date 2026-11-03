@@ -76,6 +76,10 @@ function fakeRepo(state: Partial<FakeState> = {}): { repo: AdminPromotionsRepo; 
       calls.events.push('lockTarget');
       return calls.targetRoles;
     },
+    // BR-135 is tested in admin-promotions.role-exclusivity.test.ts; these targets are not farmers.
+    async hasLiveFarmer() {
+      return false;
+    },
     async hasPendingForTarget() {
       calls.events.push('pendingCheck');
       return calls.pending;

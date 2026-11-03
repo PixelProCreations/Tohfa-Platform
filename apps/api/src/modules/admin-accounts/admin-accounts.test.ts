@@ -496,10 +496,15 @@ describeIfDatabase('admin account disable (PostgreSQL, rolled back)', () => {
     await inRollback(async (tx) => {
       const actor = await anAdmin(tx, 'TOHFA_ADMIN');
       const target = await anAdmin(tx, 'SUB_WH_ADMIN');
+      // BR-135 (migration 0083) refuses a NEW second admin role; accounts created before it may still
+      // hold two, and their level must still be the highest one. The second role is written with the
+      // BR-135 trigger off for this rolled-back transaction only.
+      await tx.query('ALTER TABLE user_roles DISABLE TRIGGER trg_user_roles_br135_guard');
       await tx.query(
         `INSERT INTO user_roles (user_id, role_id, valid_from) SELECT $1, id, now() - interval '2 days' FROM roles WHERE code = 'TOHFA_ADMIN'`,
         [target],
       );
+      await tx.query('ALTER TABLE user_roles ENABLE TRIGGER trg_user_roles_br135_guard');
       expect((await caught(service(tx).disable(scopeAs(RoleCode.TOHFA_ADMIN, actor), target, {}))).status).toBe(403);
       await tx.query(`UPDATE user_roles SET valid_to = now() - interval '1 second' WHERE user_id = $1 AND role_code = 'TOHFA_ADMIN'`, [target]);
       expect((await service(tx).disable(scopeAs(RoleCode.TOHFA_ADMIN, actor), target, {})).status).toBe('DISABLED');
