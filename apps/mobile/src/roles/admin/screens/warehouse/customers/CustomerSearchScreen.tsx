@@ -18,13 +18,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
 import { CUSTOMER_WALLET_TRANSACTIONS } from '../wallet-cashtopup/fixtures';
@@ -179,7 +179,7 @@ export function CustomerSearchScreen({
   if (live !== undefined) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -246,7 +246,7 @@ export function CustomerSearchScreen({
   if (!can('customer.list.view')) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.header}>
           <TouchableOpacity
             style={styles.backBtn}
@@ -279,7 +279,7 @@ export function CustomerSearchScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* ─── Header (Orange Theme with Back Arrow) ─── */}
       <View style={styles.header}>

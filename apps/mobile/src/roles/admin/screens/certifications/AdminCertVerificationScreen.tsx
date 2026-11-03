@@ -3,14 +3,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { FarmerListItem } from '../farmers/AdminAllFarmersScreen';
 
 // Custom SVG Rosette Ribbon matching exact design reference
@@ -135,7 +134,7 @@ export const AdminCertVerificationScreen: React.FC<Props> = ({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       {/* Header with Back button */}
       <View style={styles.header}>

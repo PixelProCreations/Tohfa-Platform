@@ -2,12 +2,12 @@ import React from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
@@ -34,7 +34,7 @@ interface Props {
 export const AdminFarmMapScreen: React.FC<Props> = ({ farmer, onBack }) => {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       {/* Header with Back button */}
       <View style={styles.header}>

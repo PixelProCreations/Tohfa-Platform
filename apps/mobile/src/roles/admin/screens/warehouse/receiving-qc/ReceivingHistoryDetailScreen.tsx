@@ -36,7 +36,8 @@
  * batchId / batchCode) and is hidden when it names none.
  */
 import React from 'react';
-import { RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { t } from '../../../i18n';
@@ -171,7 +172,7 @@ export function ReceivingHistoryDetailScreen({
   if (!canView || rec === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <View style={[styles.container, styles.contentPad]}>
           {!canView ? (
@@ -193,7 +194,7 @@ export function ReceivingHistoryDetailScreen({
     const now = new Date();
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <ScrollView
           style={styles.container}
@@ -252,7 +253,7 @@ export function ReceivingHistoryDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {header}
 
       <ScrollView

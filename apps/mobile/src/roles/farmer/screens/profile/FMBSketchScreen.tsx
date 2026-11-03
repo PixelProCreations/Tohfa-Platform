@@ -5,7 +5,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -20,6 +19,7 @@ import {
   Skeleton,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
+  ScreenStatusBar,
 } from '@tohfa/mobile-ui';
 import { colors, useTheme, typography } from '../../theme';
 import { authPalette as P } from '../../theme';
@@ -347,7 +347,7 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
 
       {/* HEADER */}
       <View style={styles.header}>

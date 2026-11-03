@@ -1,6 +1,7 @@
 // Design id: M3S05
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminSpacing } from '../../../theme';
@@ -67,7 +68,7 @@ export function BatchDetailScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Fixed Header */}
       <SWAHeader

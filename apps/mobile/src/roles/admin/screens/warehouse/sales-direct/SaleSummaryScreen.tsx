@@ -9,7 +9,8 @@
  * through adminErrorKey with a Retry.
  */
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
@@ -248,7 +249,7 @@ export function SaleSummaryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>

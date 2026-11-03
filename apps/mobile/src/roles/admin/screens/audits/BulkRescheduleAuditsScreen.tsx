@@ -3,7 +3,6 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -11,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { InlineDatePicker, formatDisplay } from './ScheduleNewAuditScreen';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
@@ -248,7 +247,7 @@ export function BulkRescheduleAuditsScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       <ScrollView
         style={styles.scroll}

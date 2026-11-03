@@ -23,7 +23,8 @@
  */
 // Design id: M5S04 (M5S04_OrderDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, RefreshControl } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
@@ -118,7 +119,7 @@ export function OrderDetailScreen({
   if (view !== 'ready' || order === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -163,7 +164,7 @@ export function OrderDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>

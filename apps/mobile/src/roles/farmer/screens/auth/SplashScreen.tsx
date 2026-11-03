@@ -8,6 +8,8 @@ import {
   Text,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '../../../../i18n/farmer';
 import { fetchMe, resolveRouteAfterAuth } from '../../api/auth';
 import { getAccessToken } from '../../storage/tokenStorage';
@@ -54,6 +56,9 @@ const SPLASH_GRADIENT_STOPS: ReadonlyArray<{ position: number; opacity: number }
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
   const dotProgress = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
   const brandProgress = useRef(new Animated.Value(0)).current;
+  // Full-bleed photo: only the bottom-anchored dots and build tag need to
+  // clear the navigation bar.
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let active = true;
@@ -125,6 +130,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
 
   return (
     <View style={styles.container}>
+      <ScreenStatusBar barStyle="light-content" translucent />
       <ImageBackground
         source={splashTeaGarden}
         style={StyleSheet.absoluteFill}
@@ -159,7 +165,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
         </Animated.View>
 
         {/* Loading dots */}
-        <View style={styles.loadingRow} pointerEvents="none">
+        <View style={[styles.loadingRow, { marginBottom: insets.bottom }]} pointerEvents="none">
           {dotProgress.map((value, i) => (
             <Animated.View
               key={i}
@@ -177,7 +183,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
         </View>
 
         {/* Build tag */}
-        <Text style={styles.version}>{APP_VERSION}</Text>
+        <Text style={[styles.version, { marginBottom: insets.bottom }]}>{APP_VERSION}</Text>
       </ImageBackground>
     </View>
   );

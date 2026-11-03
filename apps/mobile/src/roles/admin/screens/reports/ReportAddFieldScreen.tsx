@@ -3,13 +3,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ export function ReportAddFieldScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       <ScrollView
         style={styles.scroll}

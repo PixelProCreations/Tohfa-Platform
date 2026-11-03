@@ -3,14 +3,13 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { ErrorState, Icon } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import {
@@ -238,7 +237,7 @@ export function WeatherScreen({ onNavigateBack }: WeatherScreenProps): React.JSX
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* Header */}
       <View style={styles.header}>

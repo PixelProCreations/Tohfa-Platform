@@ -12,7 +12,8 @@
  */
 // Design id: M5S05 (Stock Check), absorbs M5S06 (Stock Shortage)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, StatusBar } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
@@ -172,7 +173,7 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>

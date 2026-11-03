@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   adminColors,
   adminRadius,
@@ -72,6 +73,9 @@ export const TohfaToast: React.FC<Props> = ({
 }) => {
   const translateX = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  // Mounted at the app root, which on Android now starts at the very top of
+  // the screen (edge-to-edge): clear the status bar before the usual offset.
+  const insets = useSafeAreaInsets();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -141,6 +145,7 @@ export const TohfaToast: React.FC<Props> = ({
     <Animated.View
       style={[
         styles.container,
+        Platform.OS === 'android' && { marginTop: insets.top },
         {
           opacity,
           transform: [{ translateX }],

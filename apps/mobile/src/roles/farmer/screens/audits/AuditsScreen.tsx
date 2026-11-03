@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,7 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../theme';
 import {
   AUDIT_STATUS_LABEL_KEY,
@@ -274,7 +273,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
   if (state.kind === 'loading') {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         {header}
         <View style={styles.scrollContent}>
           <Skeleton width="100%" height={52} borderRadius={14} />
@@ -290,7 +289,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
   if (state.kind === 'error') {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         {header}
         <View style={styles.centerFill}>
           <ErrorState
@@ -308,7 +307,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
   if (overview === null || overview.isEmpty) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         {header}
         <View style={styles.centerFill}>
           <Text style={styles.emptyTitle}>{t('farmer.audits.empty.title')}</Text>
@@ -330,7 +329,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
       {header}

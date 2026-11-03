@@ -5,7 +5,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -13,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import DocumentPicker, { type DocumentPickerResponse } from '../../../native/documentPicker';
 import { t } from '../../../../../i18n/farmer';
@@ -719,7 +719,7 @@ export function NewFarmDiaryEntryStep3Screen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

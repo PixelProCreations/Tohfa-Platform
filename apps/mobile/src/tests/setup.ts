@@ -81,3 +81,20 @@ vi.mock('react-native', () => {
     View: componentStub('View'),
   };
 });
+
+/**
+ * `react-native-safe-area-context` is a native module (it reads the window's
+ * system-bar insets on the device), so like the keychain above it cannot run
+ * in plain Node. Nothing is rendered in this test environment; the stub only
+ * has to be importable. Insets are zero, i.e. a device with no system bars.
+ */
+vi.mock('react-native-safe-area-context', () => {
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  const passthrough = (props: { children?: unknown }) => props.children ?? null;
+  return {
+    SafeAreaProvider: passthrough,
+    SafeAreaView: passthrough,
+    initialWindowMetrics: { insets, frame: { x: 0, y: 0, width: 0, height: 0 } },
+    useSafeAreaInsets: () => insets,
+  };
+});

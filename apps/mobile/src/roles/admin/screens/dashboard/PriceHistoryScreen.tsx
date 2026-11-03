@@ -7,13 +7,12 @@ import React from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -60,7 +59,7 @@ export function PriceHistoryScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

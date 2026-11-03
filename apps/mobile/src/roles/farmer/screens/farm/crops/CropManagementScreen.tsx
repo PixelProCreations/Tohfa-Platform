@@ -4,12 +4,12 @@ import {
   BackHandler,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 
@@ -211,7 +211,7 @@ export function CropManagementScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

@@ -3,12 +3,12 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { AuditReportData } from './AuditReportScreen';
 
@@ -155,7 +155,7 @@ export function AuditPdfPreviewScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       {/* Nav */}
       <View style={styles.navBar}>

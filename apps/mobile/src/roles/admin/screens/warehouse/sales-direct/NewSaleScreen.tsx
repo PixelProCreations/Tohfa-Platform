@@ -8,7 +8,8 @@
  * presentation only; every sales endpoint re-checks the permission.
  */
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { WarehouseOption } from '../../../api/warehouseList';
 import { t } from '../../../i18n';
@@ -147,7 +148,7 @@ export function NewSaleScreen({
   if (!canCreate) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <AdminEmptyState title={t('sales.common.noPermission')} />
       </SafeAreaView>
@@ -185,7 +186,7 @@ export function NewSaleScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {header}
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

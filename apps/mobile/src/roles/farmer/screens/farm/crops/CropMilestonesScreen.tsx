@@ -3,12 +3,12 @@ import {
   BackHandler,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
@@ -216,7 +216,7 @@ export function CropMilestonesScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top App Bar ── */}
       <View style={styles.topAppBar}>

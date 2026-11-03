@@ -3,12 +3,12 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Line, Path } from 'react-native-svg';
 import type { RecentDocItem } from './AdminReportsMainScreen';
 
@@ -83,7 +83,7 @@ export function RecentReportDetailScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       <ScrollView
         style={styles.scroll}

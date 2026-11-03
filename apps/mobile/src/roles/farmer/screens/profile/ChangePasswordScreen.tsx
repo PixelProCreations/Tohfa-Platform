@@ -5,13 +5,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../theme';
 import { changePassword } from '../../api/auth';
@@ -135,7 +135,7 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
