@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, authPalette as P, typography } from '../../theme';
 
@@ -242,7 +242,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

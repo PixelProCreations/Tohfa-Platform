@@ -6,13 +6,12 @@
 import React, { useState } from 'react';
 import {
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -49,7 +48,7 @@ export function UpdateFairPriceScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

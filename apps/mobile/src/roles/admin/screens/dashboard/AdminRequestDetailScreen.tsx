@@ -4,13 +4,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   ADMIN_PALETTE,
@@ -147,7 +147,7 @@ export function AdminRequestDetailScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

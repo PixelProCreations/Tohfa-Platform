@@ -4,13 +4,12 @@ import {
   Image,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 import telephoneIconAsset from '../../assets/images/telephone.png';
@@ -91,7 +90,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       {/* Header bar with Back button and Edit (pencil) button */}
       <View style={styles.header}>

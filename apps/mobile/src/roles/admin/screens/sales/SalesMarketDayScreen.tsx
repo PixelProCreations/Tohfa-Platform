@@ -5,13 +5,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import {
   BackChevronIcon,
@@ -140,7 +140,7 @@ export function SalesMarketDayScreen({ onBack }: SalesMarketDayScreenProps) {
 
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -289,7 +289,7 @@ export function SalesMarketDayScreen({ onBack }: SalesMarketDayScreenProps) {
   // ─── FULL SCREEN 1: LIVE MARKET DAY SALES LIST ─────────────────────────────
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

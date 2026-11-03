@@ -230,6 +230,8 @@ function mockFarmerApplicationsRepo(
     findFarmerById: async () => mockProfile,
     updateFarmerProfile: async () => mockProfile,
     allocateNextTohfaFarmerId: async () => 'TOHFA-F-2026-0002',
+    // BR-135 is tested in farmer-applications.role-exclusivity.test.ts; these applicants hold no admin role.
+    findApplicantLiveRoles: async () => [],
   };
 }
 

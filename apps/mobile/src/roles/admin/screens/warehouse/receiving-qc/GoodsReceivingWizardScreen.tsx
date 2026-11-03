@@ -69,8 +69,8 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  StatusBar,
-} from 'react-native';
+  } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import { adminErrorKey } from '../../../api/errors';
 import type { Grade } from '../../../api/inventory';
@@ -566,7 +566,7 @@ export function GoodsReceivingWizardScreen({
 
   const header = (title: string, sub?: string) => (
     <>
-      <StatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
+      <ScreenStatusBar backgroundColor={adminColors.brand} barStyle="light-content" />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
           <BackArrowIcon />

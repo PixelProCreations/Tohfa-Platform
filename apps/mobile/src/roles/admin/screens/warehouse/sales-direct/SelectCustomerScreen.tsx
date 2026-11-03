@@ -12,13 +12,13 @@ import React, { useEffect, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
@@ -179,7 +179,7 @@ export function SelectCustomerScreen({ can, onBack, pickOnly, initialQuery, onPi
   if (!canCreate) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <AdminEmptyState title={t('sales.common.noPermission')} />
       </SafeAreaView>
@@ -193,7 +193,7 @@ export function SelectCustomerScreen({ can, onBack, pickOnly, initialQuery, onPi
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {header}
 
       <View style={styles.modeRow}>

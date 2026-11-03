@@ -4,12 +4,12 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 const P = {
@@ -769,7 +769,7 @@ export function FarmerPerformanceReportScreen({ onBack }: FarmerPerformanceRepor
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       <ScrollView
         style={styles.scroll}

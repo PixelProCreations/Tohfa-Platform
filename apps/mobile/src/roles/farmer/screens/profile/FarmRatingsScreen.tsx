@@ -2,14 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   deriveFarmRatingView,
   getMyFarmRating,
@@ -76,7 +75,7 @@ export function FarmRatingsScreen({ onNavigateBack }: FarmRatingsScreenProps): R
   if (loading) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
         <View style={styles.skeletonContainer}>
           <Skeleton height={140} width="100%" style={styles.skeletonBlock} />
           <Skeleton height={280} width="100%" style={styles.skeletonBlock} />
@@ -190,7 +189,7 @@ export function FarmRatingsScreen({ onNavigateBack }: FarmRatingsScreenProps): R
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
 
       {/* Header Section */}
       <View style={styles.header}>

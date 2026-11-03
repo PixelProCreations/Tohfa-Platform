@@ -7,7 +7,6 @@ import {
   Pressable,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   Modal,
   TextInput,
   Alert,
@@ -17,6 +16,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import {
   FarmBoundaryMap,
@@ -24,6 +24,7 @@ import {
   Skeleton,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapOverlay,
+  ScreenStatusBar,
 } from '@tohfa/mobile-ui';
 import {
   useTheme,
@@ -179,7 +180,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
    * its content is laid out -- otherwise the dots (derived from `focusedZoneId`) and the card on
    * screen disagree, and the card the farmer sees is not the zone they just saved.
    */
-  const zoneListRef = useRef<ScrollView>(null);
+  const zoneListRef = useRef<ScrollViewInstance>(null);
 
   /** Hides header, bottom card and footer so the whole screen is map; the map tools stay. */
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -824,7 +825,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={colors.white} />
 
       {/* HEADER + FARM PICKER -- the only chrome above the map. Hidden in fullscreen. */}
       {isFullscreen ? null : (
@@ -1757,7 +1758,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.input,
   },
   modalScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     // `black` is the token reserved for scrims; dimmed with opacity rather than an rgba literal.
     backgroundColor: P.black,
     opacity: 0.5,

@@ -3,13 +3,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 const PALETTE = {
@@ -107,7 +107,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
   if (isCreating) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
         <ScrollView
           style={styles.scroll}
@@ -239,7 +239,7 @@ export function AnnouncementsScreen({ onBack }: AnnouncementsScreenProps) {
   // ─── MAIN SCREEN: ANNOUNCEMENTS LIST ────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       <ScrollView
         style={styles.scroll}

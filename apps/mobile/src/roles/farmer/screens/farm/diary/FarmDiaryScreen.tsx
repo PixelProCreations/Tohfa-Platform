@@ -3,13 +3,13 @@ import {
   ActivityIndicator,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   Modal,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { format, fromPaise } from '@tohfa/shared-types';
 import { t } from '../../../../../i18n/farmer';
@@ -278,7 +278,7 @@ export function FarmDiaryScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
 
       {/* ── Top Green Header ── */}
       <View style={styles.topHeader}>

@@ -4,13 +4,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 // ─── Design Tokens ────────────────────────────────────────────────────────────
@@ -190,7 +190,7 @@ export function SystemConfigScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}

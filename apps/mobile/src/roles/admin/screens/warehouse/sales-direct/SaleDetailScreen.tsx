@@ -9,7 +9,8 @@
  * invoice detail only with the sale's real invoice uuid.
  */
 import React from 'react';
-import { RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { SaleStatus } from '../../../api/sales';
 import { t } from '../../../i18n';
@@ -137,7 +138,7 @@ export function SaleDetailScreen({ can, onBack, saleId, warehouseNameOf, onViewI
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>

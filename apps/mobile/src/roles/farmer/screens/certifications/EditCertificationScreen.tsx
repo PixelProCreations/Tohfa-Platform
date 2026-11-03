@@ -3,16 +3,15 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../native/documentPicker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
-import { DatePicker } from '@tohfa/mobile-ui';
+import { DatePicker, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import {
@@ -398,7 +397,7 @@ export function EditCertificationScreen({
 
   return (
     <SafeAreaView style={E.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Header ── */}
       <View style={E.header}>

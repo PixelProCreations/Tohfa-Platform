@@ -3,14 +3,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatSafeDate } from '../../../polyfills';
@@ -211,7 +210,7 @@ export function MachineryListScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.loadingContainer}>
           <Skeleton width="100%" height={56} borderRadius={14} />
           <Skeleton width="100%" height={110} borderRadius={18} />
@@ -224,7 +223,7 @@ export function MachineryListScreen({
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.errorContainer}>
           <ErrorState error={error} onRetry={loadMachinery} />
         </View>
@@ -234,7 +233,7 @@ export function MachineryListScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
       <View style={styles.container}>
         {/* ── Top Header ── */}
         <View style={styles.header}>

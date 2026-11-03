@@ -237,7 +237,7 @@ export function WorkforceScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}

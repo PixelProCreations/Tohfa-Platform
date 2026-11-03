@@ -6,13 +6,12 @@ import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { MarketDay } from './MarketDayScheduleScreen';
 
 const P = {
@@ -128,7 +127,7 @@ export function AddMarketDayScreen({ onBack, onSave }: AddMarketDayScreenProps) 
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

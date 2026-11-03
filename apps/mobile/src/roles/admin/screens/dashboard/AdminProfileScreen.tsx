@@ -3,7 +3,6 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Switch,
   Text,
@@ -11,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
 
@@ -458,7 +458,7 @@ export function AdminProfileScreen({
   if (currentView === 'edit') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
             <ArrowBackIcon />
@@ -536,7 +536,7 @@ export function AdminProfileScreen({
   if (currentView === 'permissions') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
             <ArrowBackIcon />
@@ -604,7 +604,7 @@ export function AdminProfileScreen({
   if (currentView === 'security') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
             <ArrowBackIcon />
@@ -703,7 +703,7 @@ export function AdminProfileScreen({
   if (currentView === 'preferences') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
             <ArrowBackIcon />
@@ -788,7 +788,7 @@ export function AdminProfileScreen({
   if (currentView === 'support') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
         <View style={styles.header}>
           <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
             <ArrowBackIcon />
@@ -858,7 +858,7 @@ export function AdminProfileScreen({
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       {/* Top Header */}
       <View style={styles.header}>

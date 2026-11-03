@@ -80,7 +80,7 @@ pnpm db:reset && SEED_DEV_USERS=true SEED_DEMO=true pnpm db:seed
 ## 📋 Section 3: Warehouse Ingestion & 70/10/10/10 Allocation (05:30 – 08:30)
 
 ### Persona & Credentials
-* **User**: `multirole@tohfa.test` (Main Warehouse Admin - Ooty)
+* **User**: `warehouseadmin@tohfa.test` (Main Warehouse Admin - Ooty)
 * **Password**: `Password@123`
 
 ### Talking Points

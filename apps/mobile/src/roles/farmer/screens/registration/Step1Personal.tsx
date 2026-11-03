@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { colors, typography, useTheme } from '../../theme';
 import { Icon, DatePicker } from '@tohfa/mobile-ui';
 import { validateStep } from './validation';
@@ -28,7 +29,7 @@ export const Step1Personal: React.FC<Step1Props> = ({ initialData, onSave }) => 
   const { colors } = theme;
 
   // Extract or default values from initial data
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
   const todayDate = useMemo(() => new Date(), []);
   const [fullName, setFullName] = useState(initialData?.fullName ?? '');
   const [dob, setDob] = useState(initialData?.dob ?? '');

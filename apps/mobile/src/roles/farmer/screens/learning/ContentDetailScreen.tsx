@@ -4,13 +4,13 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, authPalette as P, typography } from '../../theme';
 
@@ -273,7 +273,7 @@ export function ContentDetailScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.greenDeep1} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={P.greenDeep1} />
 
       <KeyboardAvoidingView
         style={styles.keyboardContainer}

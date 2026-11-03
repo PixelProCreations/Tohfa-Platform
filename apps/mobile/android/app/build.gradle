@@ -2,9 +2,27 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-project.ext.react = [
-    enableHermes: true,
-]
+/**
+ * React Native Gradle Plugin configuration (RN 0.88 template).
+ *
+ * Hermes is enabled by `hermesEnabled=true` in gradle.properties. The old
+ * `project.ext.react` map (pre-0.71 config) was removed: the plugin no longer reads it.
+ */
+react {
+    // pnpm does not place @react-native/codegen in this app's own
+    // node_modules (it is a dependency of react-native, not of the app), so
+    // resolve it the same way Node would from react-native's location instead
+    // of relying on the plugin's default ../../node_modules/@react-native/codegen.
+    codegenDir = new File(["node", "--print", "require.resolve('@react-native/codegen/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()).getParentFile().getAbsoluteFile()
+
+    /* Autolinking */
+    autolinkLibrariesWithApp()
+}
+
+/**
+ * The preferred build flavor of JavaScriptCore (JSC), only used if hermesEnabled=false.
+ */
+def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
 android {
     ndkVersion rootProject.ext.ndkVersion
@@ -41,26 +59,18 @@ android {
         release {
             signingConfig signingConfigs.debug
             minifyEnabled false
-            proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
         }
     }
 }
 
 dependencies {
+    // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
-        implementation("org.webkit:android-jsc:+")
+        implementation jscFlavor
     }
 }
-
-def getPackagePath(String packageName) {
-    def proc = ['node', '--print', "require.resolve('${packageName}/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir)
-    proc.waitFor()
-    return new File(proc.in.text.trim()).parentFile
-}
-
-def cliPlatformAndroid = getPackagePath('@react-native-community/cli-platform-android')
-apply from: new File(cliPlatformAndroid, 'native_modules.gradle'); applyNativeModulesAppBuildGradle(project)
 

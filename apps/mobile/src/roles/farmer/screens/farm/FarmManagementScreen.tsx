@@ -4,13 +4,13 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
@@ -328,7 +328,7 @@ export function FarmManagementScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
 
       {/* ── Dark Green Header with Summary Stats ── */}
       <View style={styles.topHeader}>

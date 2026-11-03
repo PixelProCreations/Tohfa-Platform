@@ -216,7 +216,7 @@ export function SoilTestScreen({ farmId, onNavigateBack, onNavigateToNewSoilTest
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={styles.header}>

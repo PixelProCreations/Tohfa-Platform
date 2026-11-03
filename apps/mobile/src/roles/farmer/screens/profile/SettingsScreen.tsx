@@ -4,7 +4,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { setLocale, t, type Locale } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { logout } from '../../api/auth';
@@ -572,7 +571,7 @@ export function SettingsScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>
@@ -848,7 +847,7 @@ export function SettingsScreen({
       >
         <View style={styles.modalOverlay}>
           <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             activeOpacity={1}
             onPress={() => setActiveModal(null)}
           />

@@ -4,12 +4,12 @@ import {
   Platform,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
 
@@ -105,7 +105,7 @@ export function WalletTransactionDetailScreen({
   if (!transaction) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.header}>
           <View style={styles.headerRow}>
             <TouchableOpacity
@@ -133,7 +133,7 @@ export function WalletTransactionDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* Header */}
       <View style={styles.header}>

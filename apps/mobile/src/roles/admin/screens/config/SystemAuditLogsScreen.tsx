@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
   FlatList,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
@@ -98,7 +98,7 @@ export function SystemAuditLogsScreen({ onBack }: SystemAuditLogsScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

@@ -25,8 +25,8 @@ import {
   TouchableOpacity,
   ScrollView,
   SafeAreaView,
-  StatusBar,
-} from 'react-native';
+  } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 import type { Grade } from '../../../api/sales';
@@ -164,7 +164,7 @@ export function ChannelOrderDetailScreen({
   if (!order) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         {header}
         <View style={styles.content}>
           <AdminEmptyState
@@ -194,7 +194,7 @@ export function ChannelOrderDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       {header}
 
       <ScrollView

@@ -80,9 +80,6 @@ jobs:
       - name: Contract test (routes vs openapi + rbac)
         run: pnpm test:contract
 
-      - name: Unit tests
-        run: pnpm test
-
       - name: Migrate database
         run: pnpm db:migrate
 
@@ -95,6 +92,12 @@ jobs:
         run: pnpm db:seed
         env:
           SEED_DEV_USERS: 'true'
+
+      # Unit tests include the API integration suites. DATABASE_URL is set for
+      # the whole job, so those suites refuse to skip and need the schema and
+      # seeds to exist first. Keep this AFTER migrate + seed.
+      - name: Unit tests
+        run: pnpm test
 
       # rbac:check compares the DB grant matrix against docs/rbac.json, so it
       # must run AFTER migrate + seed have created and populated those tables.

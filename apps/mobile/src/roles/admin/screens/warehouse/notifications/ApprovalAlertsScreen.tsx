@@ -166,7 +166,7 @@ export function ApprovalAlertsScreen({
           ListEmptyComponent={
             <AdminEmptyState title={t(state === 'snoozed' ? 'alerts.empty.snoozed' : 'alerts.empty.active')} />
           }
-          ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
+          ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : undefined}
         />
       )}
     </WalletScreen>

@@ -3,13 +3,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 
@@ -108,7 +108,7 @@ export const AdminEditRatingCategoriesScreen: React.FC<Props> = ({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       {/* Header bar */}
       <View style={styles.header}>

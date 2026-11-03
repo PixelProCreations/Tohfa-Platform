@@ -4,7 +4,6 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -20,7 +19,7 @@ import {
   type Certification,
 } from '../../api/farmer';
 import { certificationDisplayName } from './certificationForm';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 
@@ -402,7 +401,7 @@ export function CertificationsScreen({
 
   return (
     <SafeAreaView style={S.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Header ── */}
       <View style={S.header}>

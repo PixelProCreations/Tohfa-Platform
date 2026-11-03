@@ -1,6 +1,7 @@
 // Design id: M3S05
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar, InteractionManager, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminSpacing } from '../../../theme';
@@ -67,7 +68,7 @@ export function BatchDetailScreen({
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Fixed Header */}
       <SWAHeader
@@ -178,7 +179,7 @@ export function BatchDetailScreen({
           <Text style={styles.sectionTitle}>Actions</Text>
           <TouchableOpacity
             style={styles.actionBtn}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S06', { batchId: batch.id }))}
+            onPress={() => requestIdleCallback(() => onNavigate?.('M3S06', { batchId: batch.id }))}
             activeOpacity={0.7}
           >
             <LedgerIcon />
@@ -187,7 +188,7 @@ export function BatchDetailScreen({
           {canVerify ? (
           <TouchableOpacity
             style={[styles.actionBtn, { marginBottom: 0 }]}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S11', { batchId: batch.id }))}
+            onPress={() => requestIdleCallback(() => onNavigate?.('M3S11', { batchId: batch.id }))}
             activeOpacity={0.7}
           >
             <VerifyIcon />
@@ -197,7 +198,7 @@ export function BatchDetailScreen({
           {canAdjust ? (
           <TouchableOpacity
             style={[styles.actionBtn, styles.actionBtnSpaced]}
-            onPress={() => InteractionManager.runAfterInteractions(() => onNavigate?.('M3S13', { batchId: batch.id }))}
+            onPress={() => requestIdleCallback(() => onNavigate?.('M3S13', { batchId: batch.id }))}
             activeOpacity={0.7}
           >
             <LedgerIcon />

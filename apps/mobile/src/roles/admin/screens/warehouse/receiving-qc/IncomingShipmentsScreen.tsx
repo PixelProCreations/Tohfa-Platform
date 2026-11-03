@@ -262,7 +262,7 @@ export function IncomingShipmentsScreen({
               ) : undefined
             }
             ListEmptyComponent={<AdminEmptyState title={t('receiving.empty.shipments')} />}
-            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : null}
+            ListFooterComponent={hasMore ? <ActivityIndicator color={adminColors.brand} /> : undefined}
           />
         )}
       </View>

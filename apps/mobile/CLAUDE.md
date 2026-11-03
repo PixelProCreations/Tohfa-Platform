@@ -1,6 +1,6 @@
 # apps/mobile — instructions
 
-React Native 0.74 · TypeScript · TanStack Query · dependency-free i18n. Read the root
+React Native 0.88 (New Architecture only) · TypeScript · TanStack Query · dependency-free i18n. Read the root
 `CLAUDE.md` first — this file only adds what's specific to this app.
 
 ## One app, not three

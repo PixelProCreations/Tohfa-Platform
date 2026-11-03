@@ -7,7 +7,8 @@
  * are drawn once here, on the admin theme.
  */
 import React from 'react';
-import { SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminErrorKey } from '../../../api/errors';
@@ -56,7 +57,7 @@ export interface ReturnsScreenProps {
 export function ReturnsScreen({ title, subtitle, onBack, headerRight, headerExtra, footer, children }: ReturnsScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.header}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity

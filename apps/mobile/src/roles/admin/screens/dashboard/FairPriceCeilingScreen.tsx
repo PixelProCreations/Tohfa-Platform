@@ -7,14 +7,14 @@ import React, { useState, useRef } from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   PanResponder,
 } from 'react-native';
-import { Icon } from '@tohfa/mobile-ui';
+import type { ScrollViewInstance } from 'react-native';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 
 const P = {
   pageBg: '#FAF8F5',
@@ -78,7 +78,7 @@ export function FairPriceCeilingScreen({
   onViewHistory,
 }: FairPriceCeilingScreenProps) {
   const [selectedCategory, setSelectedCategory] = useState<Category>('All');
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<ScrollViewInstance>(null);
   const [scrollBarWidth, setScrollBarWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
@@ -116,7 +116,7 @@ export function FairPriceCeilingScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

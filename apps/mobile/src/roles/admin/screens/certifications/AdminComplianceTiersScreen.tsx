@@ -2,14 +2,13 @@ import React from 'react';
 import {
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 
 const P = {
   bg: '#FAF8F5',
@@ -67,7 +66,7 @@ interface Props {
 export const AdminComplianceTiersScreen: React.FC<Props> = ({ onBack }) => {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
 
       {/* Header with Back button */}
       <View style={styles.header}>

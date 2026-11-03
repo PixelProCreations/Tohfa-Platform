@@ -6,7 +6,6 @@ import {
   SafeAreaView,
   ScrollView,
   Share,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -14,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { ErrorState, FarmBoundaryMap, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, FarmBoundaryMap, Icon, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,
@@ -815,7 +814,7 @@ export function ProfileScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
 
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
@@ -1044,7 +1043,7 @@ export function ProfileScreen({
             {farmsLoading ? (
               <Skeleton borderRadius={0} style={styles.fmbMapSkeleton} />
             ) : previewCenter ? (
-              <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+              <View style={StyleSheet.absoluteFill} pointerEvents="none">
                 <FarmBoundaryMap
                   // FarmBoundaryMap reads initialCenter/initialPolygon only at mount, so remount
                   // whenever the farm or its saved boundary changes (e.g. after an FMB Sketch save).
@@ -2314,7 +2313,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fmbMapSkeleton: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     height: '100%',
   },
   fmbMapEmpty: {

@@ -1,7 +1,7 @@
 # TOHFA Device Matrix & Platform Baselines Report
 
 **Story Reference:** S-51  
-**Authoritative Support Baselines:** Android 8.0 (API 26)+ and iOS 13.0+  
+**Authoritative Support Baselines:** Android 8.0 (API 26)+ and iOS 15.1+ (raised from 13.0: React Native 0.88 minimum, owner-approved)  
 **JavaScript Engine:** Hermes enabled on all targets
 
 ---
@@ -11,7 +11,7 @@
 | Specification Source | Mentioned Target | Authoritative Decision |
 | :--- | :--- | :--- |
 | `apps/mobile/README.md` | Android 10 (2GB RAM) | Resolved to **Android 8.0 (API 26)** as the authoritative project baseline (the lower of the two) per PRD and system architecture specifications. |
-| Requirements PRD §2 | Android 8.0 (API 26)+ & iOS 13.0+ | **Authoritative baseline** for both Farmer and Customer mobile applications. |
+| Requirements PRD §2 | Android 8.0 (API 26)+ & iOS 13.0+ | **Authoritative baseline** for both Farmer and Customer mobile applications. iOS floor raised to **15.1** by the React Native 0.88 upgrade (RN's minimum; owner-approved). |
 
 ---
 
@@ -19,11 +19,11 @@
 
 - **Android (`apps/*/android/build.gradle` & `apps/*/android/app/build.gradle`)**:
   - `minSdkVersion`: `26` (Android 8.0 Oreo)
-  - `compileSdkVersion`: `34` (Android 14)
-  - `targetSdkVersion`: `34`
-  - `enableHermes`: `true` (`hermesEnabled=true`)
+  - `compileSdkVersion`: `37`
+  - `targetSdkVersion`: `36`
+  - `hermesEnabled=true`, `newArchEnabled=true` (`gradle.properties`)
 - **iOS (`apps/*/ios/Podfile`)**:
-  - `platform :ios`: `'13.0'`
+  - `platform :ios`: `'15.1'`
   - `:hermes_enabled`: `true`
 
 ---

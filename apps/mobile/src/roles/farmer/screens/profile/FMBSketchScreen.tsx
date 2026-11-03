@@ -5,7 +5,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -13,13 +12,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../native/documentPicker';
 import {
   FarmBoundaryMap,
   Icon,
   Skeleton,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
+  ScreenStatusBar,
 } from '@tohfa/mobile-ui';
 import { colors, useTheme, typography } from '../../theme';
 import { authPalette as P } from '../../theme';
@@ -347,7 +347,7 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
 
       {/* HEADER */}
       <View style={styles.header}>

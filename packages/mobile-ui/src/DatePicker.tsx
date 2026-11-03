@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TouchableWithoutFeedback,
 } from 'react-native';
+import type { ScrollViewInstance } from 'react-native';
 import { useTheme } from './theme';
 
 export interface DatePickerProps {
@@ -116,7 +117,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
   const [viewYear, setViewYear] = useState<number>(initialDate.getFullYear());
   const [viewMonth, setViewMonth] = useState<number>(initialDate.getMonth());
 
-  const yearScrollViewRef = useRef<ScrollView>(null);
+  const yearScrollViewRef = useRef<ScrollViewInstance>(null);
   const prevVisibleRef = useRef<boolean>(false);
 
   // CRITICAL: Only re-initialize date/mode when the modal transitions from CLOSED to OPEN.

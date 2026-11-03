@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { fromPaise, format as formatMoney } from '@tohfa/shared-types';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
@@ -1449,7 +1449,7 @@ export function CropDetailScreen({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <ScreenStatusBar barStyle="light-content" translucent backgroundColor="transparent" />
 
       <ScrollView
         style={styles.scrollView}

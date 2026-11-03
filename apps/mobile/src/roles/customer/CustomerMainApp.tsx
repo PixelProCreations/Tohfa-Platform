@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BackHandler, SafeAreaView, StatusBar, StyleSheet } from 'react-native';
-import { ThemeProvider, buildThemeForRole } from '@tohfa/mobile-ui';
+import { BackHandler, SafeAreaView, StyleSheet } from 'react-native';
+import { ThemeProvider, buildThemeForRole, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { RoleCode } from '@tohfa/shared-types';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../shell/api/queryClient';
@@ -114,7 +114,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <SafeAreaView style={[styles.root, { backgroundColor: theme.colors.surface }]}>
-          <StatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
+          <ScreenStatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
 
           {currentScreen === 'Home' && <HomeScreen />}
           {currentScreen === 'Categories' && <CategoriesScreen />}

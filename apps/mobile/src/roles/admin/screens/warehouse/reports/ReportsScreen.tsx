@@ -19,7 +19,8 @@
  *     has no file save / share mechanism (see constants.ts).
  */
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import type { ReportChannel } from '../../../api/reports';
 import { t } from '../../../i18n';
@@ -450,7 +451,7 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
 
   return (
     <SafeAreaView style={reportStyles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={reportStyles.headerBanner}>
         <View style={reportStyles.headerTopRow}>
           <View style={reportStyles.headerLeftGroup}>

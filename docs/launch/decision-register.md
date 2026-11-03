@@ -19,7 +19,7 @@
 | **D-07** | **Fulfilment Handover OTP (BR-20)** | 4-digit numeric OTP generated on order packaging, held exclusively by customer mobile app, and verified by warehouse admin at physical handover. | Guarantees physical proof of delivery without requiring mobile network coverage at the customer device during handover. | Low (Can be augmented with QR scanning in Phase 2). | Warehouse Logistics Lead |
 | **D-08** | **Dual Payout Approval (BR-28, BR-29)** | Farmer payout dues require two distinct admin approvals (Finance Admin + Super Admin) before bank disbursement. | Safeguards platform treasury against single-operator fraud or mistaken disbursements. | Low (Threshold configuration in RBAC). | Compliance Officer |
 | **D-09** | **Aadhaar Privacy (BR-33, BR-32)** | Aadhaar numbers encrypted via AES-256 at rest, masked in logs (`+9198****3210` / `****-****-1234`), and accompanied by prominent in-app disclosure. | Fulfills UIDAI regulations and Google Play Data Safety compliance. | Zero (Mandatory legal compliance). | Legal Counsel |
-| **D-10** | **Mobile Baselines (S-51)** | Authoritative minimum support baselines locked to Android 8.0 (API 26) and iOS 13.0 with Hermes JS engine. | Maximizes addressable farmer market across rural Tamil Nadu on entry-level 2GB RAM devices. | Medium (Raising baseline drops older handsets). | Mobile Engineering Lead |
+| **D-10** | **Mobile Baselines (S-51)** | Authoritative minimum support baselines locked to Android 8.0 (API 26) and iOS 15.1 (raised from 13.0, the React Native 0.88 minimum) with Hermes JS engine. | Maximizes addressable farmer market across rural Tamil Nadu on entry-level 2GB RAM devices. | Medium (Raising baseline drops older handsets). | Mobile Engineering Lead |
 
 ---
 

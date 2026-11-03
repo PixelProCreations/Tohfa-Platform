@@ -3,13 +3,13 @@ import {
   Alert,
   FlatList,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import {
   ADMIN_PALETTE,
@@ -210,7 +210,7 @@ export function ManageAdminsScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={ADMIN_PALETTE.pageBg} />
 
       {/* Header */}
       <View style={styles.header}>

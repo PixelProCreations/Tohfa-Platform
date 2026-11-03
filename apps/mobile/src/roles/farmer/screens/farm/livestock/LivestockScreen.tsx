@@ -3,7 +3,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,7 +11,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   listAnimals,
   type AnimalResponse,
@@ -285,7 +284,7 @@ export function LivestockScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={[styles.scrollContent, { gap: 12 }]}>
           <Skeleton width="100%" height={48} borderRadius={21} />
           <Skeleton width="100%" height={72} borderRadius={16} />
@@ -299,7 +298,7 @@ export function LivestockScreen({
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={[styles.scrollContent, { flex: 1, justifyContent: 'center' }]}>
           <ErrorState error={error} onRetry={() => void loadAnimals()} />
         </View>
@@ -309,7 +308,7 @@ export function LivestockScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
       <View style={styles.container}>
         <ScrollView
           style={styles.scrollView}

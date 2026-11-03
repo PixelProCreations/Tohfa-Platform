@@ -4,7 +4,8 @@
  * every string arrives already translated from the caller.
  */
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { t } from '../../../i18n';
@@ -181,7 +182,7 @@ export function ReportView({
   const state = queryViewState({ isLoading, error, itemCount: hasData ? 1 : 0 });
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <TouchableOpacity

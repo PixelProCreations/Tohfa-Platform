@@ -26,6 +26,10 @@ apps/*/.expo/
 apps/*/android/.gradle/
 apps/*/android/build/
 apps/*/android/app/build/
+# CMake/Kotlin build state, generated now that the New Architecture builds the
+# app's native code (RN 0.88 template ignores these too)
+apps/*/android/app/.cxx/
+apps/*/android/.kotlin/
 apps/*/android/local.properties
 apps/*/android/app/src/main/res/values/strings.xml
 apps/*/ios/build/

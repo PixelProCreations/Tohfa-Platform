@@ -123,6 +123,12 @@ export interface FarmerApplicationsRepo {
     },
   ): Promise<FarmerProfileRow | null>;
   allocateNextTohfaFarmerId(db: Executor, year: number): Promise<string>;
+  /**
+   * BR-135: live role codes of the account approval will make a farmer: `userId` when the
+   * application has one, otherwise the live (not soft-deleted) user holding `mobile`. Empty when
+   * there is no such account yet.
+   */
+  findApplicantLiveRoles(db: Executor, lookup: { userId: string | null; mobile: string }): Promise<string[]>;
 }
 
 export const farmerApplicationsRepo: FarmerApplicationsRepo = {
@@ -344,6 +350,20 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
     if (result.rows[0] === undefined) return null;
     return this.findFarmerById(db, farmerId);
+  },
+
+  async findApplicantLiveRoles(db, { userId, mobile }) {
+    const result = await db.query<{ role_code: string }>(
+      `SELECT DISTINCT ur.role_code
+         FROM users u
+         JOIN user_roles ur ON ur.user_id = u.id
+        WHERE u.deleted_at IS NULL
+          AND (CASE WHEN $1::uuid IS NULL THEN u.mobile = $2 ELSE u.id = $1::uuid END)
+          AND ur.valid_from <= now() AND (ur.valid_to IS NULL OR ur.valid_to > now())
+        ORDER BY ur.role_code`,
+      [userId, mobile],
+    );
+    return result.rows.map((row) => row.role_code);
   },
 
   async allocateNextTohfaFarmerId(db, year) {

@@ -653,11 +653,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   calendarScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   calendarBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   calendarSheet: {
     width: '90%',

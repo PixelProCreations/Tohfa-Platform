@@ -2,12 +2,12 @@ import React from 'react';
 import {
   FlatList,
   SafeAreaView,
-  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   BackChevronIcon,
   SALES_PALETTE,
@@ -60,7 +60,7 @@ export interface SalesHorecaOrdersScreenProps {
 export function SalesHorecaOrdersScreen({ onBack, onSelectAccount }: SalesHorecaOrdersScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={SALES_PALETTE.pageBg} />
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>

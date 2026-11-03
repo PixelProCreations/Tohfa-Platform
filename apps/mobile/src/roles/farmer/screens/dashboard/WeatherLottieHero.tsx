@@ -59,11 +59,14 @@ function FallbackGlyph({ condition, size = 64 }: { condition: string; size?: num
   );
 }
 
-// Check if native Lottie module is linked into the currently running APK
-const isLottieLinked = Boolean(
-  UIManager.getViewManagerConfig?.('LottieAnimationView') ||
-  UIManager.getViewManagerConfig?.('RNTLottieAnimationView')
-);
+// Check if native Lottie module is linked into the currently running APK.
+// hasViewManagerConfig, not getViewManagerConfig: under the New Architecture
+// (mandatory since the RN 0.88 upgrade) getViewManagerConfig returns null for
+// Fabric components unless the ViewConfig interop layer is on, which would make
+// this always false and silently fall back to the static icons.
+const isLottieLinked =
+  UIManager.hasViewManagerConfig('LottieAnimationView') ||
+  UIManager.hasViewManagerConfig('RNTLottieAnimationView');
 
 import clearDayAnim from '../../assets/weather/clear-day.json';
 import clearNightAnim from '../../assets/weather/clear-night.json';

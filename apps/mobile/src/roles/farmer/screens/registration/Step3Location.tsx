@@ -14,6 +14,7 @@ import {
   Platform,
   PanResponder,
 } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import Svg, { Path, Circle as SvgCircle, Line } from 'react-native-svg';
 import { MAPBOX_ACCESS_TOKEN } from '@env';
 import {
@@ -293,7 +294,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [draftLabel, setDraftLabel] = useState('');
   const [draftAreaAcresText, setDraftAreaAcresText] = useState('');
-  const areaInputRef = useRef<TextInput>(null);
+  const areaInputRef = useRef<TextInputInstance>(null);
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -2506,7 +2507,7 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   modalScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     // `black` is the token reserved for scrims; dimmed with opacity rather than an rgba literal.
     backgroundColor: P.black,
     opacity: 0.5,

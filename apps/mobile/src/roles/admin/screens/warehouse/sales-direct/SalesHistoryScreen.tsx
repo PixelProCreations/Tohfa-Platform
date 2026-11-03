@@ -17,13 +17,13 @@ import {
   RefreshControl,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { SalePaymentMethod, SaleStatus } from '../../../api/sales';
 import { t } from '../../../i18n';
@@ -248,7 +248,7 @@ export function SalesHistoryScreen({ scope, can, onBack, onSelectSale }: SalesHi
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
@@ -376,7 +376,7 @@ export function SalesHistoryScreen({ scope, can, onBack, onSelectSale }: SalesHi
                   <View style={styles.loadMoreWrap}>
                     <AdminStateButton label={t('sales.common.loadMore')} onPress={list.loadMore} variant="secondary" />
                   </View>
-                ) : null
+                ) : undefined
               }
             />
           )}

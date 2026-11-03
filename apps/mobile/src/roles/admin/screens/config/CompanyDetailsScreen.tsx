@@ -3,13 +3,13 @@ import {
   Alert,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
   CONFIG_PALETTE,
   ConfigBackChevronIcon,
@@ -37,7 +37,7 @@ export function CompanyDetailsScreen({ onBack }: CompanyDetailsScreenProps) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={CONFIG_PALETTE.pageBg} />
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.contentContainer}

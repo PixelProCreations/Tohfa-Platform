@@ -4,7 +4,6 @@ import {
   Modal,
   SafeAreaView,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { t } from '../../../../../i18n/farmer';
 import { ApiError, extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
@@ -499,7 +498,7 @@ export function NewCropScreen({
   if (loadingOptions) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.optionsLoadingContainer}>
           <Skeleton width="100%" height={56} borderRadius={12} />
           <Skeleton width="100%" height={56} borderRadius={12} />
@@ -512,7 +511,7 @@ export function NewCropScreen({
   if (optionsError) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.optionsErrorContainer}>
           <ErrorState error={optionsError} onRetry={loadOptions} />
         </View>
@@ -523,7 +522,7 @@ export function NewCropScreen({
   if (plots.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
         <View style={styles.optionsErrorContainer}>
           <Text style={styles.noPlotsText}>{t('farmer.crops.newCrop.noPlotsMessage')}</Text>
         </View>
@@ -533,7 +532,7 @@ export function NewCropScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>
