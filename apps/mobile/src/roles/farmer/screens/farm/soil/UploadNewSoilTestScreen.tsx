@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../../native/documentPicker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Skeleton, DatePicker } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
@@ -490,7 +490,7 @@ export function UploadNewSoilTestScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

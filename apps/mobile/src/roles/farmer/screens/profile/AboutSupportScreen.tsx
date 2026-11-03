@@ -266,7 +266,7 @@ export function AboutSupportScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.weatherCloudWhite} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={styles.header}>

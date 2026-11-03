@@ -13,7 +13,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../native/documentPicker';
 import {
   FarmBoundaryMap,
   Icon,
@@ -347,7 +347,7 @@ export function FMBSketchScreen({ onNavigateBack, onNavigateToFieldContext }: FM
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.bgLight }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.bgLight} />
+      <StatusBar barStyle="dark-content" />
 
       {/* HEADER */}
       <View style={styles.header}>

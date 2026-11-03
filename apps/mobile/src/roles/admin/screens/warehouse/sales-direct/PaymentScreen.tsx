@@ -215,7 +215,7 @@ export function PaymentScreen({
   if (!allowed) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <View style={styles.scrollContent}>
           <Text style={styles.note}>{t('sales.common.noPermission')}</Text>
@@ -227,7 +227,7 @@ export function PaymentScreen({
   if (pendingSale) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
           <PendingUpiPanel
@@ -243,7 +243,7 @@ export function PaymentScreen({
   if (!buyer) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         {header}
         <View style={styles.scrollContent}>
           <Text style={styles.note}>{t('sales.payment.noBuyer')}</Text>
@@ -264,7 +264,7 @@ export function PaymentScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {header}
 
       <ScrollView

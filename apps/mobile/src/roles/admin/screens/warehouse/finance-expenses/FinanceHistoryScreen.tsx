@@ -105,7 +105,7 @@ function HistoryBody({
           )
         }
         ListFooterComponent={
-          view === 'ready' && hasMore && isLoading ? <Text style={styles.footer}>{t('finance.history.loadingMore')}</Text> : null
+          view === 'ready' && hasMore && isLoading ? <Text style={styles.footer}>{t('finance.history.loadingMore')}</Text> : undefined
         }
         renderItem={({ item }) => <HistoryRow row={item} onPress={() => onSelectItem(item)} />}
         onEndReached={() => {

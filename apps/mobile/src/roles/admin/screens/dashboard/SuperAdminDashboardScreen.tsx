@@ -569,7 +569,7 @@ export function SuperAdminDashboardScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Main Content Area */}
       <View style={{ flex: 1 }}>

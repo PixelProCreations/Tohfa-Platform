@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../native/documentPicker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
 import { DatePicker } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
@@ -398,7 +398,7 @@ export function EditCertificationScreen({
 
   return (
     <SafeAreaView style={E.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Header ── */}
       <View style={E.header}>

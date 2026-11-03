@@ -274,7 +274,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
   if (state.kind === 'loading') {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         {header}
         <View style={styles.scrollContent}>
           <Skeleton width="100%" height={52} borderRadius={14} />
@@ -290,7 +290,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
   if (state.kind === 'error') {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         {header}
         <View style={styles.centerFill}>
           <ErrorState
@@ -308,7 +308,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
   if (overview === null || overview.isEmpty) {
     return (
       <SafeAreaView style={styles.screen}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         {header}
         <View style={styles.centerFill}>
           <Text style={styles.emptyTitle}>{t('farmer.audits.empty.title')}</Text>
@@ -330,7 +330,7 @@ export function AuditsScreen({ onBack, onNavigateToResult }: AuditsScreenProps):
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       {header}

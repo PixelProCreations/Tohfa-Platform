@@ -118,7 +118,7 @@ export function OrderDetailScreen({
   if (view !== 'ready' || order === undefined) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <StatusBar barStyle="light-content" />
         <View style={styles.container}>
           <View style={styles.header}>
             <View style={styles.headerLeft}>
@@ -163,7 +163,7 @@ export function OrderDetailScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerLeft}>

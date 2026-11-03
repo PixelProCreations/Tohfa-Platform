@@ -24,17 +24,32 @@ describe('User Story 51 (S-51): Customer Mobile Baselines & Throttled 4G Perform
     const gradleProps = fs.readFileSync(gradlePropsPath, 'utf8');
 
     expect(buildGradle).toMatch(/minSdkVersion\s*=\s*26/);
-    expect(appBuildGradle).toMatch(/enableHermes:\s*true/);
-    expect(gradleProps).toMatch(/hermesEnabled=true/);
+    // RN 0.88: Hermes is no longer configured by `project.ext.react.enableHermes`
+    // (a pre-0.71 map the Gradle plugin no longer reads). The real mechanism is
+    // `hermesEnabled=true` in gradle.properties, which app/build.gradle reads to
+    // link hermes-android, and the New Architecture flag the RN 0.88 runtime requires.
+    expect(appBuildGradle).toMatch(/apply plugin:\s*"com\.facebook\.react"/);
+    expect(appBuildGradle).toMatch(
+      /if\s*\(hermesEnabled\.toBoolean\(\)\)\s*\{\s*implementation\("com\.facebook\.react:hermes-android"\)/,
+    );
+    expect(gradleProps).toMatch(/^hermesEnabled=true$/m);
+    expect(gradleProps).toMatch(/^newArchEnabled=true$/m);
   });
 
-  it('verifies iOS Podfile matches baseline iOS 13.0 with Hermes enabled', () => {
+  it('verifies iOS Podfile matches baseline iOS 15.1 (RN 0.88 minimum) with Hermes enabled', () => {
     const podfilePath = path.resolve(__dirname, '../../../../ios/Podfile');
     expect(fs.existsSync(podfilePath)).toBe(true);
 
     const podfile = fs.readFileSync(podfilePath, 'utf8');
-    expect(podfile).toMatch(/platform\s*:ios,\s*['"]13\.0['"]/);
+    expect(podfile).toMatch(/platform\s*:ios,\s*['"]15\.1['"]/);
     expect(podfile).toMatch(/:hermes_enabled\s*=>\s*true/);
+
+    // The Xcode project's own deployment target must agree with the Podfile.
+    const pbxprojPath = path.resolve(__dirname, '../../../../ios/TohfaMobile.xcodeproj/project.pbxproj');
+    const pbxproj = fs.readFileSync(pbxprojPath, 'utf8');
+    const targets = [...pbxproj.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = ([0-9.]+);/g)].map((m) => m[1]);
+    expect(targets.length).toBeGreaterThan(0);
+    expect(new Set(targets)).toEqual(new Set(['15.1']));
   });
 
   // KNOWN FAILING, not weakened, not skipped (root CLAUDE.md §7): per plan §1's

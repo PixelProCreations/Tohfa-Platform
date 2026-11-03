@@ -131,7 +131,7 @@ export function NotificationsScreen({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       {/* Header with Warm Orange Accent */}
       <View style={styles.header}>
         <SafeAreaView style={styles.headerSafeArea}>
@@ -254,7 +254,7 @@ export function NotificationsScreen({
             )
           }
           ListFooterComponent={
-            hasMore ? <ActivityIndicator style={styles.footerSpinner} color={adminColors.brand} /> : null
+            hasMore ? <ActivityIndicator style={styles.footerSpinner} color={adminColors.brand} /> : undefined
           }
         />
       )}

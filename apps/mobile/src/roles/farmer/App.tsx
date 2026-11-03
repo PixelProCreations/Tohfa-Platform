@@ -1213,11 +1213,6 @@ export default function App(): React.JSX.Element {
   // through to the 'Unsupported' branch below instead of the Super Admin one.
   const adminShell = adminShellForRole(params['adminRole']);
 
-  const isSubWarehouse =
-    screen.startsWith('SubWarehouse') ||
-    screen.startsWith('MainWarehouse') ||
-    Boolean(params && (params['adminRole'] === 'SUB_WH_ADMIN' || params['adminRole'] === 'MAIN_WH_ADMIN'));
-
   // One TanStack Query cache per session: sessionEpoch changes on every
   // sign-out, and the provider then drops the previous account's cache.
   // CustomerMainApp mounts its own provider below; the nearest one wins.
@@ -1225,10 +1220,7 @@ export default function App(): React.JSX.Element {
   return (
     <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaView style={[styles.screen, isAuthLanding && styles.screenSplash]}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={isAuthLanding ? SPLASH_DARK : isSubWarehouse ? '#F0562A' : colors.primaryPressed}
-      />
+      <StatusBar barStyle="light-content" />
 
       <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
 

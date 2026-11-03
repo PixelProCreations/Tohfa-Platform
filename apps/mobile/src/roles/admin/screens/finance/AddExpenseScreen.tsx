@@ -86,7 +86,7 @@ export function AddExpenseScreen({ onBack, onSuccess }: AddExpenseScreenProps) {
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

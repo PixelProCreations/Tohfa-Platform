@@ -14,7 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../../native/documentPicker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
@@ -480,7 +480,7 @@ export function AddWorkerScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

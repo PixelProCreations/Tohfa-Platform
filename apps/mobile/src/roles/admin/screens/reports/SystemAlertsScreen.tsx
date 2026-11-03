@@ -175,7 +175,7 @@ export function SystemAlertsScreen({
   if (isConfiguring) {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <StatusBar barStyle="dark-content" />
 
         <ScrollView
           style={styles.scroll}
@@ -270,7 +270,7 @@ export function SystemAlertsScreen({
   // ─── MAIN SCREEN: ALERTS LIST ──────────────────────────────────────────
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scroll}

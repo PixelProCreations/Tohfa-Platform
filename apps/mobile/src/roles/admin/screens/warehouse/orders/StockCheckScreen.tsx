@@ -172,7 +172,7 @@ function CheckStepView({ orderId, canMarkPacked, onBack, onReviewShortage, onNav
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>

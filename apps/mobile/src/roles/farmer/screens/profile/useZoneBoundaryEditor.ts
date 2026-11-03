@@ -147,7 +147,7 @@ interface ZoneBoundaryEditorOptions {
  * editor puts a zone's ring onto the live map in `begin` and takes it off again in `end`.
  */
 export function useZoneBoundaryEditor(
-  mapRef: RefObject<FarmBoundaryMapHandle>,
+  mapRef: RefObject<FarmBoundaryMapHandle | null>,
   { farmId, farmRing, zones, farmTotalAcres, onSaved }: ZoneBoundaryEditorOptions,
 ) {
   const [target, setTarget] = useState<ZoneEditTarget | null>(null);

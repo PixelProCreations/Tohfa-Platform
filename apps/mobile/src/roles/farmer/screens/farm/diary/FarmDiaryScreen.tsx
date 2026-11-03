@@ -278,7 +278,7 @@ export function FarmDiaryScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <StatusBar barStyle="light-content" />
 
       {/* ── Top Green Header ── */}
       <View style={styles.topHeader}>

@@ -328,7 +328,7 @@ export function FarmManagementScreen({
 
   return (
     <SafeAreaView style={styles.screen}>
-      <StatusBar barStyle="light-content" backgroundColor={P.deepGreen} />
+      <StatusBar barStyle="light-content" />
 
       {/* ── Dark Green Header with Summary Stats ── */}
       <View style={styles.topHeader}>

@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import DocumentPicker, { type DocumentPickerResponse } from 'react-native-document-picker';
+import type { ScrollViewInstance } from 'react-native';
+import DocumentPicker, { type DocumentPickerResponse } from '../../native/documentPicker';
 import { useTheme, authPalette as P, typography } from '../../theme';
 import { Icon } from '@tohfa/mobile-ui';
 import { BackButtonIcon } from '../../assets/icons/AssetIcons';
@@ -51,7 +52,7 @@ function makeEmptyDoc(): DocState {
 export const Step4Documents: React.FC<Step4Props> = ({ applicationId, initialData, onSave, onBack }) => {
   const theme = useTheme();
   const { colors } = theme;
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
 
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 

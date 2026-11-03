@@ -177,7 +177,7 @@ export function AuditInspectionScreen({
 
   return (
     <SafeAreaView style={s.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={s.scroll}

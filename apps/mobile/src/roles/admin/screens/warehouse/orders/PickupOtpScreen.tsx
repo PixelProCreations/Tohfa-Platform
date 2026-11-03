@@ -37,6 +37,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import type { TextInputInstance } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
@@ -301,7 +302,7 @@ function OtpStep({
 }: StepProps & { verify: LiveOrderAction<VerifyOtpBody>; canVerify: boolean; onVerified: () => void }) {
   // Never pre-filled: the code is the customer's and the API never returns it (BR-20).
   const [otp, setOtp] = useState('');
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const ready = order.status === 'readyForPickup';
   const complete = isPickupOtp(otp);
   const attemptsLeft = otpAttemptsLeft(verify.error);

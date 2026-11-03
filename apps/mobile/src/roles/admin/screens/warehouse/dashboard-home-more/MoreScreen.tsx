@@ -777,7 +777,7 @@ export function MoreScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <StatusBar barStyle="light-content" />
 
       {/* â”€â”€â”€ Top Brand Header Banner â”€â”€â”€ */}
       <View style={styles.headerBanner}>

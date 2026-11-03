@@ -523,7 +523,7 @@ export function ScheduleNewAuditScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={A.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scroll}

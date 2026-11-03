@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import DocumentPicker, { type DocumentPickerResponse } from 'react-native-document-picker';
+import DocumentPicker, { type DocumentPickerResponse } from '../../../native/documentPicker';
 import { t } from '../../../../../i18n/farmer';
 import { extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { authPalette as P, typography } from '../../../theme';
@@ -719,7 +719,7 @@ export function NewFarmDiaryEntryStep3Screen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── Top Header ── */}
       <View style={styles.header}>

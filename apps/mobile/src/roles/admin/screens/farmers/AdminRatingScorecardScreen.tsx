@@ -52,7 +52,7 @@ export const AdminRatingScorecardScreen: React.FC<Props> = ({
 }) => {
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header with Back button */}
       <View style={styles.header}>

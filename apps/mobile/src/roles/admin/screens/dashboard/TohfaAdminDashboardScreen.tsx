@@ -476,7 +476,7 @@ export function TohfaAdminDashboardScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <View style={{ flex: 1 }}>
         {/* ══════════════════════════════════════════════════════════════════════

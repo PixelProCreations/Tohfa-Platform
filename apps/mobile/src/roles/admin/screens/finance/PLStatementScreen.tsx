@@ -109,7 +109,7 @@ export function PLStatementScreen({
 
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="dark-content" />
 
       <ScrollView
         style={styles.scroll}

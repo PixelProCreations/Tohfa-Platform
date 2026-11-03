@@ -292,7 +292,7 @@ export function InputManagementScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Top Header Bar */}
       <View style={styles.headerBar}>

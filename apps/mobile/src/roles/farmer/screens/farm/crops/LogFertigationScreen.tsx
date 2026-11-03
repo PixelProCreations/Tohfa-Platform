@@ -359,7 +359,7 @@ export function LogFertigationScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Header Bar */}
       <View style={styles.headerBar}>

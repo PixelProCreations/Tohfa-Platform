@@ -211,7 +211,7 @@ export function MachineryListScreen({
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.loadingContainer}>
           <Skeleton width="100%" height={56} borderRadius={14} />
           <Skeleton width="100%" height={110} borderRadius={18} />
@@ -224,7 +224,7 @@ export function MachineryListScreen({
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <StatusBar barStyle="dark-content" />
         <View style={styles.errorContainer}>
           <ErrorState error={error} onRetry={loadMachinery} />
         </View>
@@ -234,7 +234,7 @@ export function MachineryListScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor={P.white} />
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
         {/* ── Top Header ── */}
         <View style={styles.header}>
