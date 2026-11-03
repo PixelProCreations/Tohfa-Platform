@@ -1233,6 +1233,7 @@ See also BR-66.
 5. **Soft delete:** Deleting a crop input sets `deleted_at = now()`. Soft-deleted inputs are excluded from lists, gets, and NPK calculations (`BR-56e`).
 6. **Nutrient contribution calculation:** `GET /farmers/me/crops/:farmCropId/npk-contribution` computes cumulative N, P, and K nutrient mass (in kg) applied to that crop across all active inputs (`BR-56f`). The cost is a decimal string with at most 2 decimals (never a JSON number) and `totalCostInr` is an exact 2dp sum computed in integer paise. The unit-to-kg conversions (BAG = 50, ML and GRAM = 0.001, LITRE = 1, OTHER = 1, TONNE = 1000) are UNAPPROVED DEFAULTS pending an owner decision.
 7. **Audit logging & Row locking:** Creating, updating, or deleting a crop input locks the farmer row and writes an append-only `audit_log` row (BR-35, `BR-56g`).
+8. **Farm-wide list:** `GET /farmers/me/crop-inputs` returns the caller's own inputs across every own crop, including HARVESTED and FAILED ones (crop status is not a filter; inputs on soft-deleted crops, plots or farms are excluded as on the per-crop routes), each with `cropName` and `plotName`. Ordered newest `appliedOn` first, ties by `createdAt` then `id` (descending), with a keyset cursor on that tuple so pages never skip or repeat a row. Optional `inputType` and inclusive `from`/`to` (on `appliedOn`; `from > to` is 422). The farmer comes only from the token: a `farmerId` parameter is 422, and a farmer with no rows gets an empty page, never 403/404 (`BR-56h`).
 
 **Failure mode if unenforced.** Negative or zero quantities corrupt farm input expense accounting; future application dates misrepresent cultivation timelines; invalid NPK percentages corrupt nutrient balance analytics; cross-farmer access leaks agronomic practices.
 
@@ -1244,6 +1245,7 @@ See also BR-66.
 - `BR-56e` Soft-delete sets `deleted_at` and removes record from lists and GET endpoints.
 - `BR-56f` Accurately computes cumulative NPK nutrient contribution; `totalCostInr` is summed in integer paise with no drift; a cost is a 2dp decimal string, never a JSON number.
 - `BR-56g` Mutations lock farmer row and write audit logs (BR-35).
+- `BR-56h` The farm-wide list returns only the caller's rows (another farmer's never appear), includes inputs on HARVESTED crops, is newest-`appliedOn`-first and pages stably by cursor, honours `inputType`/`from`/`to`, returns an empty page for a farmer with no inputs, and is 401 without a token / 403 for every non-farmer role.
 
 ---
 
@@ -3275,6 +3277,146 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-135 — The community planting summary is a k-anonymous aggregate with no farmer identity
+| | |
+|---|---|
+| **Source** | Derived rule (added 2026-11-02): mobile `TohfaCalendarScreen.tsx` ("TOHFA Calendar — What the community is growing", hard-coded until now); `docs/crop-planning-insight-design.md` spec gap 1; extends BR-16 (allow-list serializer, no farm identity) and is bounded by BR-36 (open contradiction 33); `docs/rbac.json` `farmer.community.view_planting_summary` (new spec-gap code); `system_config.community_planting_min_farmers` (`db/migrations/0082_community_planting_config.sql`) |
+| **Status** | DERIVED (the view itself and every default below are UNCONFIRMED: open contradiction 33) |
+| **Layer** | Server-side: `apps/api/src/modules/community-planting/` (`communityPlantingRepo`, `communityPlantingService`); no schema change beyond the config row |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /farmers/community/planting-summary?crop=&month=&region=` returns, across ALL farmers, how many distinct farmers grow each crop and the summed quantity, and `GET /farmers/community/planting-filters` returns its filter options.
+1. **What counts.** A `farm_crops` row with status `PLANNED` or `GROWING`, not soft-deleted, on a plot and farm that are not soft-deleted, of a farmer who is not soft-deleted and whose `application_status` is `APPROVED`, for a crop that is not soft-deleted. Quantity is `expected_yield_kg` summed in integer grams (a planting with no expected yield counts as a farmer and adds 0 kg). `month` (1-12) matches the calendar month of `planted_on` in any year; a planting with no `planted_on` never matches a month. `region` is the farm's `taluk`, trimmed and case-folded (`initcap(lower(btrim(taluk)))`) on both sides; `crop` is a `crop_master` id. Filters combine with AND (`BR-135e`).
+2. **k-anonymity.** k = `system_config.community_planting_min_farmers`, read on every call; it must be a JSON integer >= 2, otherwise both endpoints answer 503 `INTERNAL` before any planting is read (no fallback constant) (`BR-135c`). A crop with fewer than k distinct farmers is not listed (`BR-135a`). Crops below k are folded into `other` (`{crops, farmers, quantityKg}`, no crop named), returned only when they together have >= k distinct farmers, else `null`.
+3. **Totals over released data only.** `totals.farmers` is the distinct farmers across the released groups (`byCrop` plus `other` when released), `totals.totalPlantedKg` their summed quantity, `totals.crops` the released crop count including the folded ones; a suppressed crop never contributes, so it cannot be recovered as "total minus rows" (`BR-135b`). A slice with no data and a slice whose every group is below k both read as the same empty summary.
+4. **No identity.** No response carries a farmer id, farmer name, farm name, plot, village, coordinate or any other identifier: the repo returns a per-query rank instead of the farmer id, and every response object is built field by field and parsed through an allow-list Zod schema that strips unknown keys (`BR-135d`).
+5. **Filter options.** Active undeleted crops, the months 1-12 as integers (labels come from the client's i18n catalogue), and only the regions that on their own reach k distinct farmers with an active planting; no region count is sent (`BR-135f`).
+6. **Who.** `farmer.community.view_planting_summary`: FARMER, FARMER_ADMIN, TOHFA_ADMIN, SUPER_ADMIN = `all` (community-wide by design, no owner predicate exists); MAIN_WH_ADMIN, SUB_WH_ADMIN, CUSTOMER = `none` (403). Read-only; nothing is written, nothing is audited (`BR-135g`).
+
+**Not built.** The screen's "Customer wishlist demand" list: no wishlist table or module exists, so no endpoint is offered for it rather than fabricating demand from another source. Residual risk accepted pending the owner: differencing two overlapping released slices (for example a crop across all regions minus the same crop in one region) can isolate a group below k; preventing it would need noise or coarser, fixed slices.
+
+**Failure mode if unenforced.** A crop grown by one farmer in one taluk publishes that farmer's planting and expected yield to every other farmer; or the threshold silently falls back to a literal and groups of one ship.
+
+**Test contract.** (`apps/api/src/modules/community-planting/community-planting.test.ts`)
+- `BR-135a` A crop below k is not listed; a crop at exactly k is; small crops fold into `other` only when together they reach k.
+- `BR-135b` Totals cover released groups only (a suppressed crop's quantity appears nowhere); a farmer in several released crops is counted once.
+- `BR-135c` k comes from `system_config`; changing it changes what is released; a missing or unusable value (absent, null, 0, 1, 2.5, a string, a boolean, an object) is 503 and no planting data is read; against PostgreSQL the migration seeds a JSON number >= 2 and a deleted key is 503.
+- `BR-135d` With identifiers injected into repo rows, the response key sets are exactly the documented ones and the serialized response contains none of them.
+- `BR-135e` The crop, month and region filters reach the repo and are echoed; against PostgreSQL harvested, failed, soft-deleted and unapproved-farmer plantings are excluded, month is the month of `planted_on`, and the region matches trimmed and case-insensitively.
+- `BR-135f` Filter options list the 12 months, the active crops, and only regions at or above k.
+- `BR-135g` Both routes are 401 without a token, 403 for CUSTOMER, SUB_WH_ADMIN and MAIN_WH_ADMIN, admitted for FARMER, FARMER_ADMIN, TOHFA_ADMIN and SUPER_ADMIN, and 422 for a bad month, a non-UUID crop, an empty region or an unknown parameter.
+
+---
+
+### BR-136 — Animal records are owner-scoped and farm-side only
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/farmer/screens/farm/livestock/AnimalDetailScreen.tsx` (farmer app, added 2026-11-03); `db/migrations/0024_livestock.sql` (`withdrawal_until` comment); `db/migrations/0084_livestock_animal_records.sql`; extends BR-36 (own-data ownership) and BR-16 (no farm identity toward customers) |
+| **Status** | DERIVED (product decision pending) |
+| **Layer** | Server-side: `apps/api/src/modules/livestock/` (`livestock.service.ts` ownership check through `scope.farmerId`; `livestock.repo.ts` joins `livestock_animals` to `farms` filtered by `farmer_id`); tables `livestock_health_records`, `livestock_breeding_records`, `livestock_feed_plans`, `livestock_feed_logs`, `livestock_housing_records`, `livestock_hygiene_logs` |
+| **Scope** | Track 1 |
+
+**Rule.** The six per-animal record resources under `/farmers/me/livestock/animals/{animalId}/` (`health-records`, `breeding-records`, `feed-plans`, `feed-logs`, `housing-records`, `hygiene-logs`; GET lists, POST creates) belong to the animal's owner only. GET needs `farmer.livestock.view_own`, POST needs `farmer.livestock.create_own`; no new permission code exists.
+1. **Ownership.** The animal must belong to one of the caller's farms (`livestock_animals.farm_id` to `farms.farmer_id`) and neither animal nor farm may be soft-deleted. A POST on a foreign, nonexistent or soft-deleted animal is 404 and writes nothing. A GET list on such an animal is 200 with an empty page, never 403 or 404, so the response does not reveal whether the row exists.
+2. **Any lifecycle status.** Records may be added to an animal that has left the herd (back-filling history after a sale is legitimate).
+3. **Attachments.** `attachmentUploadId` (health, breeding, feed plan, housing) must reference an upload owned by the caller, else 422 `VALIDATION_FAILED`.
+4. **Farm-side only (BR-16).** Responses are parsed through allow-list Zod schemas: `farm_id` is stored on every row but never returned, and no record ever reaches a customer response.
+5. **Lists.** Soft-deleted rows are excluded; ordering is newest first by the resource's date column, then `created_at`, then `id`; cursor-paginated with `limit` 1-100 (default 20); a malformed cursor is 422.
+6. **BR-38 note.** Everything recorded is farmer-entered. `nextDueDate`, `followUpDate`, `nextCheckDate` and `expectedDeliveryDate` are stored values only: nothing schedules a reminder, raises a notification or generates advice from them.
+
+**Failure mode if unenforced.** One farmer reads or back-fills another farmer's animal health, breeding or feed history (or probes which animal ids exist), or farm-identifying data from these tables leaks into a customer-facing response.
+
+**Test contract.** (`apps/api/src/modules/livestock/livestock.test.ts`)
+- `BR-136a` A POST on another farmer's animal is 404 and nothing is written.
+- `BR-136b` A GET list on another farmer's animal is 200 with `{items: [], page: {nextCursor: null, hasMore: false}}`.
+- `BR-136c` An `attachmentUploadId` that is missing or not owned by the caller is 422.
+- `BR-136d` Soft-deleted rows are excluded from every list.
+- `BR-136e` Every route is 401 without a token and 403 for CUSTOMER, MAIN_WH_ADMIN and SUB_WH_ADMIN; POST is also 403 for FARMER_ADMIN (`create_own` is `none` for FARMER_ADMIN).
+- `BR-136f` Responses are allow-listed: no `farmId` or `farm_id` key appears in any response, even when the repo row carries one.
+- `BR-136g` Cursor pagination is stable across pages and an invalid cursor is 422.
+
+---
+
+### BR-137 — A treatment's withdrawal window extends the animal's withdrawal date, never shortens it
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/farmer/screens/farm/livestock/AnimalDetailScreen.tsx` (farmer app, added 2026-11-03); `db/migrations/0024_livestock.sql` (`withdrawal_until` comment); `db/migrations/0084_livestock_animal_records.sql` |
+| **Status** | DERIVED (product decision pending) |
+| **Layer** | Server-side: `livestock.service.ts` creates the health record and updates `livestock_animals.withdrawal_until` in one transaction; Zod date refinements in `livestock.schema.ts` |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /farmers/me/livestock/animals/{animalId}/health-records` with `recordType: TREATMENT` and `milkWithdrawal` and/or `meatWithdrawal` sets `livestock_animals.withdrawal_until = GREATEST(COALESCE(withdrawal_until, newEnd), newEnd)`, where `newEnd` is the latest supplied `endDate`, in the same transaction as the insert (and bumps `updated_at`). An existing later date is never shortened. A record with no withdrawal leaves the animal untouched. Within a treatment, `endDate` must be on or after its `startDate` and on or after `recordDate`, and `medicationEndDate` on or after `medicationStartDate`. Withdrawal fields exist only on `TREATMENT`; the other variants are strict and reject them.
+
+**Failure mode if unenforced.** A medicated animal's withdrawal window is lost or shortened, so produce from it is treated as organic-sellable while still inside the withdrawal period (see BR-139), or a half-applied write records the treatment without the withdrawal.
+
+**Test contract.** (`apps/api/src/modules/livestock/livestock.test.ts`)
+- `BR-137a` A treatment whose `milkWithdrawal.endDate` is later than the animal's current `withdrawalUntil` (or the animal has none) sets `withdrawalUntil` to that date.
+- `BR-137b` A treatment with an earlier `endDate` leaves `withdrawalUntil` unchanged.
+- `BR-137c` An `endDate` before its `startDate` or before `recordDate` is 422 and nothing is written.
+- `BR-137d` Withdrawal fields on a non-`TREATMENT` variant are rejected (422, strict schema).
+- `BR-137e` The record insert and the animal update roll back together when either fails.
+
+---
+
+### BR-138 — Breeding records exist only for female animals
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/farmer/screens/farm/livestock/AnimalDetailScreen.tsx` (farmer app, added 2026-11-03); `db/migrations/0024_livestock.sql` (`withdrawal_until` comment); `db/migrations/0084_livestock_animal_records.sql` |
+| **Status** | DERIVED (product decision pending) |
+| **Layer** | Server-side: `livestock.service.ts`, after the ownership check |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /farmers/me/livestock/animals/{animalId}/breeding-records` on an owned animal whose `gender` is `MALE` is 422 `VALIDATION_FAILED`, with a detail that names the rule. Ownership is checked first (BR-136), so a foreign or nonexistent animal is 404 whatever its gender. **BR-38 note.** Everything recorded is farmer-entered. `nextDueDate`, `followUpDate`, `nextCheckDate` and `expectedDeliveryDate` are stored values only: nothing schedules a reminder, raises a notification or generates advice from them.
+
+**Failure mode if unenforced.** Heat, insemination, pregnancy and calving rows accumulate on bulls and rams, corrupting the herd's breeding history that the farmer and any certification audit rely on.
+
+**Test contract.** (`apps/api/src/modules/livestock/livestock.test.ts`)
+- `BR-138a` A breeding record on an owned `MALE` animal is 422 `VALIDATION_FAILED` and nothing is written; on a `FEMALE` animal it is created.
+- `BR-138b` A breeding record on a foreign animal is 404, checked before the 422.
+
+---
+
+### BR-139 — Produce from an animal under withdrawal is stored restricted from sale
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/farmer/screens/farm/livestock/AnimalDetailScreen.tsx` (farmer app, added 2026-11-03); `db/migrations/0024_livestock.sql` (`withdrawal_until` comment); `db/migrations/0084_livestock_animal_records.sql`; extends BR-137 |
+| **Status** | DERIVED (product decision pending) |
+| **Layer** | Server-side: `livestock.service.ts` `createProductionLog`; `livestock_production_logs.restricted_from_sale` |
+| **Scope** | Track 1 |
+
+**Rule.** `POST /farmers/me/livestock/production-logs` naming an `animalId` whose `withdrawal_until` is on or after `loggedOn` (default today) stores `restricted_from_sale = true`, whatever `restrictedFromSale` the client sent; a client `false` cannot override it. With no `animalId`, or with no / an expired withdrawal (`withdrawal_until` before `loggedOn`), the client's value is stored (default `false`). `fatPercent` is only accepted when `productType` is `MILK` (422 otherwise). The flag is a stored fact on the log; nothing is scheduled or notified from it (BR-38). Farm-side only: it never appears in a customer response (BR-16).
+
+**Failure mode if unenforced.** Milk, meat or eggs from an animal still inside its medication withdrawal period are logged as freely sellable, putting non-compliant produce on the organic market.
+
+**Test contract.** (`apps/api/src/modules/livestock/livestock.test.ts`)
+- `BR-139a` `withdrawal_until >= loggedOn` with a client `restrictedFromSale: false` stores `true`.
+- `BR-139b` An expired withdrawal (`withdrawal_until < loggedOn`) keeps the client's value.
+- `BR-139c` No `animalId` keeps the client's value.
+
+---
+
+### BR-140 — The housing list compares each record's indoor space per animal with the configured standard
+| | |
+|---|---|
+| **Source** | `apps/mobile/src/roles/farmer/screens/farm/livestock/AnimalDetailScreen.tsx` (farmer app housing tab, static "≥ 11 sq.ft NPOP minimum" box); `db/migrations/0084_livestock_animal_records.sql`; `db/migrations/0085_livestock_space_standard.sql`; extends BR-136 |
+| **Status** | DERIVED (product decision pending): the value 11 is read off the mobile UI text, not from an NPOP document, and is UNCONFIRMED; whether it should differ by species is also open |
+| **Layer** | Server-side: `livestock.service.ts` `listHousingRecords` (validation and comparison); `livestock.repo.ts` `getMinIndoorSpaceSqFtPerAnimal` (SQL read); `system_config.livestock_min_indoor_space_sqft_per_animal` |
+| **Scope** | Track 1 |
+
+**Rule.** `GET /farmers/me/livestock/animals/{animalId}/housing-records` returns `spaceStandard: { minIndoorSqFtPerAnimal }` beside `items` and `page`, and every item carries `meetsIndoorSpaceStandard: boolean`.
+1. **Threshold.** `minIndoorSqFtPerAnimal` is `system_config.livestock_min_indoor_space_sqft_per_animal`, square feet per animal, one value for every species (no per-species key exists in `system_config`). It is read on every list call, also for an empty page and for a foreign or nonexistent animal (so those still look exactly like an own animal with no housing, BR-136b). It must be a JSON number > 0 with at most two significant decimals (trailing zeros allowed); a missing row, `null`, a string, a boolean, an object or array, 0, a negative or a third decimal is 503 `INTERNAL` with no fallback constant (`BR-140c`). Seeded as 11 in 0085 (DERIVED, UNCONFIRMED).
+2. **Comparison.** `meetsIndoorSpaceStandard` is true when `indoorSpacePerAnimal`, converted to square feet, is >= the threshold; equality meets. Conversion is exact: 1 ft = 0.3048 m, so 1 sq.ft = 0.09290304 sq.m, and 1 acre = 43,560 sq.ft. Values (numeric(10,2)) and the threshold are compared in integer hundredths, never through a float conversion factor (`BR-140a`).
+3. **Not a write rule.** The POST stores any positive indoor space as entered and its response carries no verdict; a barn below the standard is a fact to show the farmer, not an invalid request. Nothing is scheduled, notified or advised from the verdict (BR-38). Farm-side only (BR-16).
+
+**Failure mode if unenforced.** The farmer app shows a hard-coded "NPOP minimum" that cannot be corrected without an app release, or a float conversion flips a barn sitting exactly on the line to the wrong side; if the standard is missing, a silent default would present an unconfirmed figure as a compliance verdict.
+
+**Test contract.** (`apps/api/src/modules/livestock/livestock.test.ts`)
+- `BR-140a` Against an 11 sq.ft standard: 11 SQ_FT meets, 10.99 SQ_FT does not; 1.02 SQ_M (10.979 sq.ft) does not, 1.03 SQ_M (11.087 sq.ft) meets; 1 SQ_M meets 10.76 and fails 10.77; 0.01 ACRES (435.6 sq.ft) meets 435.6 and fails 435.61.
+- `BR-140b` The list carries `spaceStandard.minIndoorSqFtPerAnimal` from `system_config` and changing it changes the verdicts; the response schema requires `spaceStandard` and a boolean `meetsIndoorSpaceStandard` on every item; an empty or foreign page still carries `spaceStandard`.
+- `BR-140c` A missing or unusable value (absent, `null`, `"11"`, `true`, `{}`, `[11]`, 0, 0.00, -1, 11.005) is 503 `INTERNAL`, also for a foreign animal; the value is read on every list and never on create; against PostgreSQL 0085 seeds a JSON number and a deleted key or a string value is 503.
+
+---
+
 ### BR-135 — One role per account; only FARMER, FARMER_ADMIN and CUSTOMER may be combined
 | | |
 |---|---|
@@ -3316,7 +3458,7 @@ Every other place that adds a role creates a brand-new account in the same trans
 | 12 | Farmer application approval by Farmer Admin | §6.1 `Approve farmer applications`: FA = View | §2: `Approve farmer application` FA = N, with a separate view-only queue row | FA has read-only access, no approval path (behaviourally identical) | resolved, recorded for completeness |
 | 13 | Object storage vendor | Ch.7/Ch.9: Azure Blob or Cloudinary | §15: AWS S3 or Cloudinary | Storage access is behind one adapter interface; no vendor SDK in domain code | requires client confirmation |
 | 14 | Certificate eligibility for listing (BR-01 vs BR-02) | §2.1, as transcribed into this file, gave two different tests: BR-01 blocked a farmer "whose certifications are **all** expired", BR-02 refused listing "while a farmer has no verified, unexpired PGS or NPOP certificate". The listing gate implemented neither: it refused if ANY single certificate was expired or unverified, so an old expired certificate or a pending renewal blocked a farmer who held a valid one | Not the source of the conflict (BR-02 cites §9 / P7 only for manual verification) | Eligibility is per farmer: listing is allowed iff at least one certificate is VERIFIED, unexpired (`expires_on` >= Asia/Kolkata today) and PGS/NPOP; other expired, pending or rejected certificates never block. BR-01 and BR-02 are reworded so BR-02 is the governing test and BR-01 a subset of it. When nothing qualifies: `CERT_UNVERIFIED` if an unexpired certificate awaits verification, otherwise `CERT_EXPIRED` if one has expired, otherwise `CERT_MISSING`. **Gap closed 2026-10-05:** with no certificate at all, or only unexpired `REJECTED` ones, the live gate used not to refuse; only `farmers.is_market_blocked` did (`CERT_EXPIRED`, "Farmer market access is currently blocked."), so a farmer whose flag was false with no qualifying certificate (seeded or stale data) could still list. The gate now refuses these itself with 422 `CERT_MISSING` (BR-02f, BR-02g), whatever the flag says; the flag is still checked after it. `PATCH /listings/{id}` and admin approval have never checked certificates; still unchanged | **Resolved 2026-10-05** (user-confirmed: a valid certificate permits listing; a pending renewal must not block; a farmer with no certificate, or only rejected ones, must be refused with its own error). Still open: whether the edit path (`PATCH /listings/{id}`) and admin approval should check certificates |
-| 15 | Soil classification bands (BR-40) | Not specified | Not specified | BR-40 says the bands live in `system_config`, but no authoritative values exist. Seven keys are read: `soil.classification.organic_carbon`, `.ph`, `.ec`, `.tds`, `.nitrogen`, `.phosphorus`, `.potassium`, each `{low, high, belowLabel, insideLabel, aboveLabel}`. The soil repo answers 503 naming the missing keys. The unit-test mock `BANDS` values are only proposals | requires owner to supply the values |
+| 15 | Soil classification bands (BR-40) | Not specified | Not specified | BR-40 says the bands live in `system_config`. Seven keys are read: `soil.classification.organic_carbon`, `.ph`, `.ec`, `.tds`, `.nitrogen`, `.phosphorus`, `.potassium`, each `{low, high, belowLabel, insideLabel, aboveLabel}`. Seeded in `0083_soil_classification_config.sql` matching the mobile app UI display ranges (`BANDS`). | resolved (seeded in 0083) |
 | 16 | BR-53 display-only vs payout destination (BR-70) | Not specified | Not specified | BR-53 item 1: an account with a null `account_number_token` is display-only and cannot be a payout destination. Taken literally no account could be attached to a payout, which contradicts BR-53 item 4. Tokenisation is an open owner decision, so BR-70 checks ownership and soft-delete only and does not enforce this | requires owner decision (tokenisation) |
 | 17 | Registration submit threshold (BR-69) | Spec: "GPS/FMB boundary — GPS capture with manual lat/lng fallback" | Not specified | Submit requires at least one farm location with a boundary or a GPS position (plus `ID_PROOF` and `FARM_DOC`). This is the implementer's reading of the spec. Whether `aadhaarLast4` and `dob` are required at submit is not decided | requires product confirmation |
 | 19 | Revenue definition (BR-63) | No definition of "revenue" for finance reports | No definition | Orders with `payment_status = PAID`, `status IN (DELIVERED, PICKED_UP)` and `completed_at` not null, dated by the Asia/Kolkata day of `completed_at`; the database `order_status` enum has no `COMPLETED` value | requires client confirmation |
@@ -3331,7 +3473,7 @@ Every other place that adds a role creates a brand-new account in the same trans
 | 30 | Who may disable an admin account (BR-110) | Not in this repository (Ch.6 unavailable) | §10 `Disable admin account`: rbac.json grants SA = all, TA = conditional, FA = conditional, MW = none, SW = none, but its source note reads "TA/MW restricted to roles below their own" | Grants implemented as written in `docs/rbac.json` with `LOWER_ROLES_ONLY` by role level: TA may disable FA/MW/SW accounts, FA may disable SW accounts only, MW none. The contradicting source note was reworded on 2026-10-23 to record the decision; no grant changed | **Resolved 2026-10-23** (owner decision: keep the grants exactly as written) |
 | 31 | Admin promotion workflow (BR-114) | §5.3 FR-A01 (via rbac.json): SUPER_ADMIN approves or rejects a warehouse admin promotion; no workflow, eligibility, or who may request | §10 `admin.promotion.approve` SA only; no create/list/reject rows | Owner decision 2026-10-23: create the request table. Implemented: `promotion_requests` (migration 0074), approve (BR-114) and, on the owner request of 2026-10-23 for a create path, create/list/read/reject (BR-117) with new spec-gap codes `admin.promotion.request` and `admin.promotion.view` (SUPER_ADMIN and TOHFA_ADMIN `all`) and `admin.promotion.reject` (SUPER_ADMIN only, mirroring approve). UNCONFIRMED defaults: who may request (SA and TA); target roles limited to SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN (a FARMER_ADMIN needs a zone, a SUB_WH_ADMIN a warehouse, which a request does not carry); `fromRole` derived as the target's highest live role (a tie is 409); a LOWER_ROLES_ONLY check against the requester's own level; `reason` required; the old role is ended, not kept; the target's sessions are revoked on approval; self-request and self-decision are refused; decision notes are optional | requires owner confirmation (who may request, target roles, the defaults listed) |
 | 32 | Admin customer list filters (BR-115) | Not stated | Not stated | The mobile asks for grade, crop, date and sort filters on the customer list. `customers` has no grade column, so `grade`, `crop` and `from`/`to` are read as "bought produce of this grade / this crop / in this window" on one purchase line (non-cancelled, non-unpaid order). `sort` offers name, registration date, lifetime value and order count. Issues are return requests, tickets are support tickets | requires owner confirmation (whether a customer grade or tier was meant) |
-| 33 | Two admin roles on one account (BR-135) | Not stated | Not stated | The owner rule of 2026-11-02 said only FARMER_ADMIN may hold two roles and left open whether an admin role may be combined with another (the dev user `multirole@tohfa.test` held TOHFA_ADMIN + FARMER_ADMIN), whether FARMER_ADMIN may be combined with CUSTOMER and whether FARMER may be combined with CUSTOMER. Implemented now: one role per account except any combination of FARMER, FARMER_ADMIN and CUSTOMER (`docs/rbac.json` `allowedRoleCombinations`); admin + admin and the four staff admins with any other role are refused (migration 0083); `multirole@` is removed from the dev seed | **Resolved 2026-11-03** (owner decision: only FARMER + FARMER_ADMIN, FARMER + CUSTOMER and FARMER_ADMIN + CUSTOMER may be held together, hence all three; nothing else, so TOHFA_ADMIN + FARMER_ADMIN is not allowed) |
+| 33 | Community planting aggregate for farmers (BR-135 vs BR-36) | Not available in this repository (no Ch.6 row for a cross-farmer view) | P8 / BR-36: "no cross-user visibility in either app, in any direction"; no community-view row | Built as an anonymised aggregate only (BR-135), read as not breaching BR-36 because no other farmer's record is visible: counts and summed expected yield per crop, region = normalised farm taluk, every released group has >= `community_planting_min_farmers` (seeded 5, placeholder) distinct farmers, totals over released groups only. New code `farmer.community.view_planting_summary` (FARMER, FARMER_ADMIN, TOHFA_ADMIN, SUPER_ADMIN = `all`; warehouse admins, CUSTOMER = `none`). UNCONFIRMED implementer defaults: active = `PLANNED`/`GROWING`; quantity = expected yield; month = month of `planted_on` (not growing-season overlap); approved farmers only; k = 5. Residual risk: differencing across overlapping slices (e.g. all regions minus one region) is not prevented. The screen's "Customer wishlist demand" list is NOT built: no wishlist table exists | requires owner confirmation (the view itself, k, the defaults listed, and a wishlist data source) |
 
 ---
 

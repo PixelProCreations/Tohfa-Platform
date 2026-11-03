@@ -306,6 +306,41 @@ INSERT INTO system_config (key, value, data_type, description) VALUES
      '730'::jsonb, 'number',
      'BR-48h: how many days after today (Asia/Kolkata) a certificate''s expiresOn may lie, on POST and on the merged result of PATCH /farmers/me/certifications/{id}. With 730 (2 years), an expiresOn exactly 730 days ahead is accepted and 731 days ahead is 422 VALIDATION_FAILED on body.expiresOn. User decision 2026-10-05, raised from 548 to 730 on 2026-10-06. certifications.service.ts reads this key through certificationsRepo.getCertExpiryMaxFutureDays (fallback 730 when missing or not a non-negative integer) and GET /v1/config/farmer exposes it as certExpiryMaxFutureDays — it is NOT a literal in the service.'),
 
+    ('soil.classification.organic_carbon',
+     '{"low": 0.51, "high": 0.75, "belowLabel": "Low", "insideLabel": "Medium", "aboveLabel": "High"}'::jsonb,
+     'json',
+     'BR-40: Organic Carbon classification band (%): <0.51 is Low, 0.51-0.75 is Medium, >0.75 is High.'),
+
+    ('soil.classification.ph',
+     '{"low": 6.0, "high": 7.5, "belowLabel": "Acidic", "insideLabel": "Good", "aboveLabel": "Alkaline"}'::jsonb,
+     'json',
+     'BR-40: pH classification band: <6.0 is Acidic, 6.0-7.5 is Good, >7.5 is Alkaline.'),
+
+    ('soil.classification.ec',
+     '{"low": 0.0, "high": 1.0, "belowLabel": "Good", "insideLabel": "Good", "aboveLabel": "High"}'::jsonb,
+     'json',
+     'BR-40: Electrical Conductivity (EC in dS/m) classification band: <=1.0 is Good, >1.0 is High.'),
+
+    ('soil.classification.tds',
+     '{"low": 0, "high": 500, "belowLabel": "Good", "insideLabel": "Good", "aboveLabel": "High"}'::jsonb,
+     'json',
+     'BR-40: Total Dissolved Solids (TDS in ppm) classification band: <=500 is Good, >500 is High.'),
+
+    ('soil.classification.nitrogen',
+     '{"low": 280, "high": 560, "belowLabel": "Low", "insideLabel": "Good", "aboveLabel": "High"}'::jsonb,
+     'json',
+     'BR-40: Available Nitrogen (N in kg/ha) classification band: <280 is Low, 280-560 is Good, >560 is High.'),
+
+    ('soil.classification.phosphorus',
+     '{"low": 10, "high": 25, "belowLabel": "Low", "insideLabel": "Good", "aboveLabel": "High"}'::jsonb,
+     'json',
+     'BR-40: Available Phosphorus (P in kg/ha) classification band: <10 is Low, 10-25 is Good, >25 is High.'),
+
+    ('soil.classification.potassium',
+     '{"low": 110, "high": 280, "belowLabel": "Low", "insideLabel": "Good", "aboveLabel": "High"}'::jsonb,
+     'json',
+     'BR-40: Available Potassium (K in kg/ha) classification band: <110 is Low, 110-280 is Good, >280 is High.'),
+
     ('asset_service_due_soon_days',
      '14'::jsonb, 'number',
      'Specification gap: no source document defines the farm_assets DUE_SOON window. 14 days is a placeholder chosen to match the MachineryListScreen/ToolsListScreen/EquipmentListScreen mock fixture data (their "Due soon" rows sit at 2-9 days away, their "OK" rows at 39+ days away), the same "match the client''s existing mock/fallback until they confirm" reasoning as cert_expiry_warning_days above. farm-assets.service.ts reads this key — it is NOT a literal in the service. The client must confirm the correct value.')

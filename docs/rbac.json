@@ -1021,6 +1021,21 @@
       "source": "specification gap \u2014 added for M6 Tohfa Calendar (BR-58)"
     },
     {
+      "code": "farmer.community.view_planting_summary",
+      "module": "Farmers Management",
+      "description": "View the community planting summary (TOHFA Calendar 'What the community is growing'): per-crop counts of distinct farmers and summed expected yield across ALL approved farmers' active plantings, plus its filter options. Scope note: `all` here means community-wide by design, NOT access to other farmers' records \u2014 the response is an anonymised aggregate only (no farmer, farm, plot, village or GPS field, allow-list serializer) and every released group has at least system_config.community_planting_min_farmers distinct farmers (BR-135). Granted `all` rather than `own` because there is no owner predicate to inject: the data is the community, never one farmer's rows.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "all",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "all",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap \u2014 added 2026-11-02 for the TOHFA Calendar community view (BR-135); no source document has a row for a cross-farmer aggregate, and BR-36 states no cross-user visibility, so the grant is pending owner approval (rules.md open contradiction 33). CUSTOMER none: planting supply is farmer-side information (BR-16 spirit); warehouse admins none: not their domain."
+    },
+    {
       "code": "platform.event.manage",
       "module": "Farmers Management",
       "description": "Create, edit, view and soft-delete platform events and calendar notices.",
@@ -1128,7 +1143,7 @@
     {
       "code": "farmer.livestock.view_own",
       "module": "Livestock",
-      "description": "View own livestock_animals records and production logs (milk/curd/paneer/... and egg collection).",
+      "description": "View own livestock_animals records, production logs (milk/curd/paneer/... and egg collection) and the per-animal health, breeding, feed plan, feed log, housing and hygiene records.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1138,12 +1153,12 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "BR-47, product decision 2026-09-29"
+      "source": "BR-47, BR-136..BR-139, product decision 2026-09-29"
     },
     {
       "code": "farmer.livestock.create_own",
       "module": "Livestock",
-      "description": "Register a new animal (livestock_animals row) or log a production entry, on the farmer's own operation.",
+      "description": "Register a new animal (livestock_animals row), log a production entry, or add a health, breeding, feed plan, feed log, housing or hygiene record to an own animal, on the farmer's own operation.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1153,7 +1168,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "BR-47, product decision 2026-09-29"
+      "source": "BR-47, BR-136..BR-139, product decision 2026-09-29"
     },
     {
       "code": "farmer.livestock.edit_own",
@@ -3713,6 +3728,13 @@
       "roleMatrix": "not specified \u2014 \u00a79 lists certification verification for SUPER_ADMIN/TOHFA_ADMIN only, with no edit/delete row",
       "precedence": "neither document \u2014 specification gap, conservative default",
       "decision": "`certification.manage_any` = all for SUPER_ADMIN and TOHFA_ADMIN, none for every other role (same grants as certification.view / certification.mark_verified). The edit resets verification to UNVERIFIED and the delete is soft, exactly as for the farmer (BR-49, BR-50, BR-51), so staff cannot use it to verify by editing. Open: whether FARMER_ADMIN should edit certificates of farmers in their own zone (would need the OWN_ZONE_ONLY predicate). Confirm with client."
+    },
+    {
+      "topic": "Community planting aggregate for farmers (farmer.community.view_planting_summary)",
+      "reqsCh6": "not available in this repository — no Ch.6 row for a cross-farmer view",
+      "roleMatrix": "Matrix P8 (BR-36): 'no cross-user visibility in either app, in any direction'; no row for a community aggregate",
+      "precedence": "neither document — specification gap; the mobile TOHFA Calendar screen ('What the community is growing') is the only source",
+      "decision": "Implemented as an anonymised aggregate (BR-135): counts and sums only, never a farmer/farm/plot identifier or location finer than taluk, and every released group has at least system_config.community_planting_min_farmers (seeded 5, placeholder) distinct farmers. Read as NOT a breach of BR-36 because no other farmer's record is visible, only k-anonymous totals. FARMER, FARMER_ADMIN, TOHFA_ADMIN, SUPER_ADMIN = all; warehouse admins and CUSTOMER = none. Requires owner confirmation (rules.md open contradiction 33); crop-planning-insight-design.md spec gap 1 asked the same question."
     }
   ],
   "conflictPrecedence": "Requirements Document Ch.6 is authoritative. The Role & Feature Matrix supplies additional features Ch.6 omits, but never overrides a value Ch.6 states."

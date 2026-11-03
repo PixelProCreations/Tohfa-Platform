@@ -109,6 +109,7 @@ import {
   farmerSupportTicketsRouter,
 } from './modules/support-tickets/support-tickets.routes.js';
 import { cropPlanningInsightRouter } from './modules/crop-planning-insight/crop-planning-insight.routes.js';
+import { communityPlantingRouter } from './modules/community-planting/community-planting.routes.js';
 import {
   adminExpenseCategoriesRouter,
   adminExpensesRouter,
@@ -237,6 +238,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farmers/me', router: farmerSupportTicketsRouter },
   { prefix: '/v1/admin', router: adminSupportTicketsRouter },
   { prefix: '/v1/farmers/me', router: cropPlanningInsightRouter },
+  { prefix: '/v1/farmers/community', router: communityPlantingRouter },
   { prefix: '/v1/admin/expenses', router: adminExpensesRouter },
   { prefix: '/v1/admin/expense-categories', router: adminExpenseCategoriesRouter },
   { prefix: '/v1/admin/finance', router: adminFinanceRouter },

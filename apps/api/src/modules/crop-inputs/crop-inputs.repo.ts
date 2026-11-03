@@ -32,6 +32,29 @@ export interface CropInputCursor {
   id: string;
 }
 
+/** A row of the farm-wide list (BR-56h): the per-crop record plus the crop and plot display names. */
+export interface FarmCropInputRecord extends CropInputRecord {
+  cropName: string;
+  plotName: string;
+}
+
+/**
+ * Keyset position in the farm-wide list, which is ordered (applied_on, created_at, id) DESC.
+ * `createdAt` keeps Postgres' full microsecond precision: a millisecond ISO string would make
+ * two rows created in the same millisecond compare wrongly and a page boundary could skip one.
+ */
+export interface FarmCropInputCursor {
+  appliedOn: string;
+  createdAt: string;
+  id: string;
+}
+
+export interface FarmCropInputFilters {
+  inputType?: InputType | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
 interface CropInputRow {
   id: string;
   farmer_id: string;
@@ -117,6 +140,13 @@ export interface CropInputsRepo {
     farmerId: string,
     farmCropId: string,
   ): Promise<CropInputRecord[]>;
+  listFarmerCropInputs(
+    db: Executor,
+    farmerId: string,
+    filters: FarmCropInputFilters,
+    limit: number,
+    cursor?: FarmCropInputCursor,
+  ): Promise<{ items: FarmCropInputRecord[]; next: FarmCropInputCursor | null }>;
 }
 
 export const cropInputsRepo: CropInputsRepo = {
@@ -282,5 +312,76 @@ export const cropInputsRepo: CropInputsRepo = {
       [farmerId, farmCropId],
     );
     return result.rows.map(mapRow);
+  },
+
+  async listFarmerCropInputs(db, farmerId, filters, limit, cursor) {
+    // Ownership is checked twice on purpose: crop_inputs.farmer_id AND the farm_crops -> plots -> farms
+    // chain, the same join checkFarmCropBelongsToFarmer uses, so a row whose farmer_id disagrees with
+    // its crop's owner can never surface. Crop STATUS is not filtered: a HARVESTED or FAILED crop's
+    // inputs are history the farmer still needs. Only soft-deleted crops/plots/farms are excluded,
+    // matching the per-crop routes, which 404 on those.
+    const params: unknown[] = [farmerId];
+    const conditions: string[] = [];
+    const add = (sql: (n: number) => string, value: unknown) => {
+      params.push(value);
+      conditions.push(sql(params.length));
+    };
+
+    if (filters.inputType !== undefined) add((n) => `ci.input_type = $${n}`, filters.inputType);
+    if (filters.from !== undefined) add((n) => `ci.applied_on >= $${n}::date`, filters.from);
+    if (filters.to !== undefined) add((n) => `ci.applied_on <= $${n}::date`, filters.to);
+    if (cursor) {
+      params.push(cursor.appliedOn, cursor.createdAt, cursor.id);
+      const n = params.length;
+      conditions.push(
+        `(ci.applied_on, ci.created_at, ci.id) < ($${n - 2}::date, $${n - 1}::timestamptz, $${n}::uuid)`,
+      );
+    }
+    params.push(limit + 1);
+    const limitParam = params.length;
+
+    const result = await db.query<CropInputRow & { created_at_cursor: string; crop_name: string; plot_name: string }>(
+      `SELECT ci.id, ci.farmer_id, ci.farm_crop_id, ci.input_type, ci.input_name,
+              ci.applied_on::text AS applied_on, ci.quantity, ci.unit, ci.nitrogen_pct, ci.phosphorus_pct,
+              ci.potassium_pct, ci.application_method, ci.cost_inr::text AS cost_inr, ci.notes,
+              ci.created_at, ci.updated_at,
+              to_char(ci.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
+              cm.name AS crop_name, p.name AS plot_name
+         FROM crop_inputs ci
+         JOIN farm_crops fc ON fc.id = ci.farm_crop_id
+         JOIN plots p ON p.id = fc.plot_id
+         JOIN farms f ON f.id = p.farm_id
+         JOIN crop_master cm ON cm.id = fc.crop_id
+        WHERE ci.farmer_id = $1
+          AND f.farmer_id = $1
+          AND ci.deleted_at IS NULL
+          AND fc.deleted_at IS NULL
+          AND p.deleted_at IS NULL
+          AND f.deleted_at IS NULL
+          ${conditions.map((c) => `AND ${c}`).join('\n          ')}
+     ORDER BY ci.applied_on DESC, ci.created_at DESC, ci.id DESC
+        LIMIT $${limitParam}`,
+      params,
+    );
+
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const items: FarmCropInputRecord[] = rows.map((row) => ({
+      ...mapRow(row),
+      cropName: row.crop_name,
+      plotName: row.plot_name,
+    }));
+
+    const lastRow = rows[rows.length - 1];
+    const next: FarmCropInputCursor | null =
+      hasMore && lastRow
+        ? {
+            appliedOn: String(lastRow.applied_on).slice(0, 10),
+            createdAt: lastRow.created_at_cursor,
+            id: lastRow.id,
+          }
+        : null;
+
+    return { items, next };
   },
 };

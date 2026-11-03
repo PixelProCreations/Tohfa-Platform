@@ -361,6 +361,46 @@ export async function listCropInputs(
   return api.get<ListCropInputsResult>(path, signal);
 }
 
+/** One row of the farm-wide list: a crop input plus the crop and plot (zone) it was applied to. */
+export interface FarmCropInputResponse extends CropInputResponse {
+  cropName: string;
+  plotName: string;
+}
+
+export interface ListFarmCropInputsQuery {
+  cursor?: string | undefined;
+  limit?: number | undefined;
+  inputType?: CropInputType | undefined;
+  /** Inclusive YYYY-MM-DD bounds on appliedOn. */
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
+export interface ListFarmCropInputsResult {
+  items: FarmCropInputResponse[];
+  page: { nextCursor: string | null; hasMore: boolean };
+}
+
+/**
+ * GET /farmers/me/crop-inputs (BR-56h)
+ * The farmer's own inputs across every own crop, including harvested ones,
+ * newest appliedOn first, cursor-paginated.
+ */
+export async function listFarmCropInputs(
+  query: ListFarmCropInputsQuery = {},
+  signal?: AbortSignal,
+): Promise<ListFarmCropInputsResult> {
+  const params = new URLSearchParams();
+  if (query.cursor !== undefined) params.append('cursor', query.cursor);
+  if (query.limit !== undefined) params.append('limit', query.limit.toString());
+  if (query.inputType !== undefined) params.append('inputType', query.inputType);
+  if (query.from !== undefined) params.append('from', query.from);
+  if (query.to !== undefined) params.append('to', query.to);
+
+  const queryStr = params.toString();
+  return api.get<ListFarmCropInputsResult>(`/farmers/me/crop-inputs${queryStr ? `?${queryStr}` : ''}`, signal);
+}
+
 export interface CreateCropInputRequest {
   inputType: CropInputType;
   inputName: string;

@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   Platform,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,8 +13,28 @@ import {
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import { authPalette as P, radius, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import {
+  applicationTitle,
+  applicationTypeLabel,
+  dueLabel,
+  formatAppliedDate,
+  formatApplicationCost,
+  useInputApplications,
+  type ApplicationIcon,
+  type DueReminder,
+} from './inputApplications';
+
+/**
+ * FR-F05 Input Management. Recent applications and pest reminders come from
+ * the real API through `inputApplications.ts` (crop inputs, BR-56, plus zone
+ * pest treatment logs/reminders). There is no fertigation schedule anywhere
+ * in the backend, and BR-38 forbids inventing reminders, so the old literal
+ * "Fertigation due — Carrot · overdue 1 day" card is replaced by an honest
+ * "not available" note rather than faked.
+ */
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -168,75 +190,26 @@ function HistoryRotateIcon({ size = 18, color = P.forestGreen }: { size?: number
   );
 }
 
+
 // ─────────────────────────────────────────────
 // Types & Props
 // ─────────────────────────────────────────────
+
+/** The zone a pest reminder belongs to, so Log Pest Treatment saves against it. */
+export interface PestLogContext {
+  farmId: string;
+  plotId: string;
+}
 
 export interface InputManagementScreenProps {
   onBack?: (() => void) | undefined;
   onNavigateToLogInput?: ((crop?: CropItem | null | undefined, inputType?: ('Fertigation' | 'Pest Treatment') | undefined) => void) | undefined;
   onNavigateToLogFertigation?: ((crop?: CropItem | null | undefined) => void) | undefined;
-  onNavigateToLogPestTreatment?: ((crop?: CropItem | null | undefined) => void) | undefined;
+  onNavigateToLogPestTreatment?:
+    | ((crop?: CropItem | null | undefined, context?: PestLogContext | undefined) => void)
+    | undefined;
   onNavigateToFullHistory?: (() => void) | undefined;
 }
-
-interface RecentApplicationItem {
-  id: string;
-  name: string;
-  cropName: string;
-  date: string;
-  category: 'Fertigation' | 'Pest treatment';
-  cost: string;
-  badgeType: 'organic' | 'pest' | 'flask' | 'leaf' | 'seedling';
-}
-
-const RECENT_APPLICATIONS: RecentApplicationItem[] = [
-  {
-    id: 'rec_1',
-    name: 'Vermicompost',
-    cropName: 'Carrot',
-    date: '12 Jul',
-    category: 'Fertigation',
-    cost: '₹720',
-    badgeType: 'organic',
-  },
-  {
-    id: 'rec_2',
-    name: 'Neem oil spray',
-    cropName: 'Cabbage',
-    date: '8 Jul',
-    category: 'Pest treatment',
-    cost: '₹340',
-    badgeType: 'pest',
-  },
-  {
-    id: 'rec_3',
-    name: 'Panchagavya',
-    cropName: 'Carrot',
-    date: '28 Jun',
-    category: 'Fertigation',
-    cost: '₹640',
-    badgeType: 'flask',
-  },
-  {
-    id: 'rec_4',
-    name: 'Trichoderma drench',
-    cropName: 'Tomato',
-    date: '20 Jun',
-    category: 'Fertigation',
-    cost: '₹450',
-    badgeType: 'leaf',
-  },
-  {
-    id: 'rec_5',
-    name: 'Bone meal',
-    cropName: 'Carrot',
-    date: '10 Jun',
-    category: 'Fertigation',
-    cost: '₹525',
-    badgeType: 'seedling',
-  },
-];
 
 export function InputManagementScreen({
   onBack,
@@ -257,8 +230,10 @@ export function InputManagementScreen({
     return () => sub.remove();
   }, [onBack]);
 
+  const { state, data, retry, refreshing, refresh } = useInputApplications('recent');
+
   // No crop is pre-selected: the log screens load the farmer's real crops
-  // and let them pick one (the old mock cache pre-picked "carrot"/"tomato").
+  // and let them pick one (a pest reminder carries a zone, never a crop).
   const handleLogFertigation = () => {
     if (onNavigateToLogFertigation) {
       onNavigateToLogFertigation(null);
@@ -267,15 +242,16 @@ export function InputManagementScreen({
     }
   };
 
-  const handleLogPestMgmt = () => {
+  const handleLogPestMgmt = (context?: PestLogContext) => {
     if (onNavigateToLogPestTreatment) {
-      onNavigateToLogPestTreatment(null);
+      if (context) onNavigateToLogPestTreatment(null, context);
+      else onNavigateToLogPestTreatment(null);
     } else if (onNavigateToLogInput) {
       onNavigateToLogInput(null, 'Pest Treatment');
     }
   };
 
-  const renderBadgeIcon = (type: RecentApplicationItem['badgeType']) => {
+  const renderBadgeIcon = (type: ApplicationIcon) => {
     switch (type) {
       case 'organic':
         return <OrganicSproutIcon size={20} color={P.forestGreen} />;
@@ -290,6 +266,137 @@ export function InputManagementScreen({
     }
   };
 
+  const renderReminder = (reminder: DueReminder) => {
+    const overdue = reminder.daysUntilDue < 0;
+    return (
+      <View key={reminder.id} testID={`inputMgmt.reminder.${reminder.id}`} style={styles.reminderCard}>
+        <View style={[styles.reminderIconBadge, { backgroundColor: P.twPurple100 }]}>
+          <PestIcon size={20} color={P.deepPurple600} />
+        </View>
+
+        <View style={styles.reminderInfo}>
+          <Text testID={`inputMgmt.reminder.${reminder.id}.title`} style={styles.reminderTitle}>
+            {t('farmer.inputManagement.reminder.pestTitle', { title: reminder.title })}
+          </Text>
+          <Text
+            testID={`inputMgmt.reminder.${reminder.id}.zone`}
+            style={overdue ? styles.reminderSubtitleOrange : styles.reminderSubtitleGray}
+          >
+            {`${reminder.zoneName} · `}
+            <Text
+              testID={`inputMgmt.reminder.${reminder.id}.due`}
+              style={overdue ? styles.reminderOverdueText : undefined}
+            >
+              {dueLabel(reminder.daysUntilDue)}
+            </Text>
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          testID={`inputMgmt.reminder.${reminder.id}.logNow`}
+          style={[styles.reminderLogBtn, { backgroundColor: P.deepPurple600 }]}
+          onPress={() => handleLogPestMgmt({ farmId: reminder.farmId, plotId: reminder.plotId })}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.inputManagement.reminder.logNowFor', { title: reminder.title })}
+        >
+          <Text style={styles.reminderLogBtnText}>{t('farmer.inputManagement.logNow')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderRemindersBody = () => {
+    if (state === 'loading' || state === 'error' || data === null) return null;
+    return (
+      <View style={styles.remindersList}>
+        {data.reminders.length === 0 ? (
+          <Text testID="inputMgmt.reminders.empty" style={styles.mutedText}>
+            {t('farmer.inputManagement.reminders.empty')}
+          </Text>
+        ) : (
+          data.reminders.map(renderReminder)
+        )}
+        <Text testID="inputMgmt.reminders.fertigationUnavailable" style={styles.mutedText}>
+          {t('farmer.inputManagement.reminders.fertigationUnavailable')}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderRecentBody = () => {
+    if (state === 'loading') {
+      return (
+        <View testID="inputMgmt.loading" style={styles.stateBox}>
+          <ActivityIndicator color={P.forestGreen} />
+          <Text style={styles.mutedText}>{t('farmer.common.loading')}</Text>
+        </View>
+      );
+    }
+    if (state === 'error' || data === null) {
+      return (
+        <View testID="inputMgmt.error" style={styles.stateBox}>
+          <Text style={styles.errorText}>{t('farmer.inputManagement.loadError')}</Text>
+          <TouchableOpacity
+            testID="inputMgmt.retry"
+            style={styles.retryBtn}
+            onPress={retry}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.common.retry')}
+          >
+            <Text style={styles.retryBtnText}>{t('farmer.common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (data.applications.length === 0) {
+      return (
+        <View testID="inputMgmt.empty" style={styles.stateBox}>
+          <Text style={styles.mutedText}>{t('farmer.inputManagement.recent.empty')}</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.recentListCard}>
+        {data.applications.map((item, index) => {
+          const isLast = index === data.applications.length - 1;
+          const isPest = item.kind === 'pest';
+          return (
+            <View
+              key={item.key}
+              testID={`inputMgmt.app.${item.key}`}
+              style={[styles.recentItemRow, !isLast && styles.recentItemBorder]}
+            >
+              <View
+                testID={`inputMgmt.app.${item.key}.icon.${item.icon}`}
+                style={[
+                  styles.recentIconBadge,
+                  { backgroundColor: isPest ? P.twPurple100 : P.mintTintBg },
+                ]}
+              >
+                {renderBadgeIcon(item.icon)}
+              </View>
+
+              <View style={styles.recentInfoCol}>
+                <Text testID={`inputMgmt.app.${item.key}.title`} style={styles.recentItemTitle}>
+                  {applicationTitle(item)}
+                </Text>
+                <Text testID={`inputMgmt.app.${item.key}.subtitle`} style={styles.recentItemSubtitle}>
+                  {`${formatAppliedDate(item.appliedOn)} · ${applicationTypeLabel(item.kind)}`}
+                </Text>
+              </View>
+
+              <Text testID={`inputMgmt.app.${item.key}.cost`} style={styles.recentItemCost}>
+                {formatApplicationCost(item.cost)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
@@ -301,15 +408,15 @@ export function InputManagementScreen({
           onPress={onBack}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('farmer.common.back')}
         >
           <ArrowBackIcon size={20} color={P.deepGreen} />
         </TouchableOpacity>
 
         <View style={styles.headerTextGroup}>
-          <Text style={styles.headerTag}>FR-F05</Text>
-          <Text style={styles.headerTitle}>Input Management</Text>
-          <Text style={styles.headerSubtitle}>Fertigation & pest treatments</Text>
+          <Text style={styles.headerTag}>{t('farmer.inputManagement.code')}</Text>
+          <Text style={styles.headerTitle}>{t('farmer.inputManagement.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('farmer.inputManagement.subtitle')}</Text>
         </View>
       </View>
 
@@ -317,43 +424,48 @@ export function InputManagementScreen({
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={P.forestGreen} />
+        }
       >
         {/* 2-Column Action Cards */}
         <View style={styles.topCardsRow}>
           {/* Card 1: Fertigation */}
           <TouchableOpacity
+            testID="inputMgmt.logFertigation"
             style={[styles.topCard, { backgroundColor: P.forestGreen }]}
             onPress={handleLogFertigation}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Fertigation, Log a nutrient application"
+            accessibilityLabel={`${t('farmer.inputManagement.card.fertigation.title')}, ${t('farmer.inputManagement.card.fertigation.body')}`}
           >
             <View style={styles.cardIconCircle}>
               <DropletIcon size={20} color={P.white} />
             </View>
-            <Text style={styles.cardTitle}>Fertigation</Text>
-            <Text style={styles.cardSubtitle}>Log a nutrient{'\n'}application</Text>
+            <Text style={styles.cardTitle}>{t('farmer.inputManagement.card.fertigation.title')}</Text>
+            <Text style={styles.cardSubtitle}>{t('farmer.inputManagement.card.fertigation.body')}</Text>
             <View style={styles.cardActionRow}>
-              <Text style={styles.cardActionText}>Log now</Text>
+              <Text style={styles.cardActionText}>{t('farmer.inputManagement.logNow')}</Text>
               <ArrowRightIcon size={15} color={P.white} />
             </View>
           </TouchableOpacity>
 
           {/* Card 2: Pest Mgmt */}
           <TouchableOpacity
+            testID="inputMgmt.logPest"
             style={[styles.topCard, { backgroundColor: P.deepPurple600 }]}
-            onPress={handleLogPestMgmt}
+            onPress={() => handleLogPestMgmt()}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Pest Mgmt, Log a pest treatment"
+            accessibilityLabel={`${t('farmer.inputManagement.card.pest.title')}, ${t('farmer.inputManagement.card.pest.body')}`}
           >
             <View style={styles.cardIconCircle}>
               <PestIcon size={20} color={P.white} />
             </View>
-            <Text style={styles.cardTitle}>Pest Mgmt</Text>
-            <Text style={styles.cardSubtitle}>Log a pest treatment</Text>
+            <Text style={styles.cardTitle}>{t('farmer.inputManagement.card.pest.title')}</Text>
+            <Text style={styles.cardSubtitle}>{t('farmer.inputManagement.card.pest.body')}</Text>
             <View style={styles.cardActionRow}>
-              <Text style={styles.cardActionText}>Log now</Text>
+              <Text style={styles.cardActionText}>{t('farmer.inputManagement.logNow')}</Text>
               <ArrowRightIcon size={15} color={P.white} />
             </View>
           </TouchableOpacity>
@@ -361,118 +473,38 @@ export function InputManagementScreen({
 
         {/* Section: UPCOMING REMINDERS */}
         <View style={styles.sectionHeaderWrap}>
-          <Text style={styles.sectionTitle}>UPCOMING REMINDERS</Text>
+          <Text style={styles.sectionTitle}>{t('farmer.inputManagement.reminders.title')}</Text>
         </View>
-
-        <View style={styles.remindersList}>
-          {/* Reminder 1: Fertigation due — Carrot */}
-          <View style={styles.reminderCard}>
-            <View style={[styles.reminderIconBadge, { backgroundColor: P.mintTintBg }]}>
-              <OrganicSproutIcon size={22} color={P.forestGreen} />
-            </View>
-
-            <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Fertigation due — Carrot</Text>
-              <Text style={styles.reminderSubtitleOrange}>
-                Zone 1 — Upper Field ·{' '}
-                <Text style={styles.reminderOverdueText}>overdue 1 day</Text>
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.reminderLogBtn, { backgroundColor: P.forestGreen }]}
-              onPress={handleLogFertigation}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Log now for Carrot"
-            >
-              <Text style={styles.reminderLogBtnText}>Log now</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Reminder 2: Pest check due — Tomato */}
-          <View style={styles.reminderCard}>
-            <View style={[styles.reminderIconBadge, { backgroundColor: P.twPurple100 }]}>
-              <PestIcon size={20} color={P.deepPurple600} />
-            </View>
-
-            <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Pest check due — Tomato</Text>
-              <Text style={styles.reminderSubtitleGray}>
-                Zone 2 — Lower Slope · due today
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.reminderLogBtn, { backgroundColor: P.deepPurple600 }]}
-              onPress={handleLogPestMgmt}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Log now for Tomato"
-            >
-              <Text style={styles.reminderLogBtnText}>Log now</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {renderRemindersBody()}
 
         {/* Section: RECENT APPLICATIONS */}
         <View style={styles.recentHeaderRow}>
-          <Text style={styles.sectionTitle}>RECENT APPLICATIONS</Text>
+          <Text style={styles.sectionTitle}>{t('farmer.inputManagement.recent.title')}</Text>
           <TouchableOpacity
+            testID="inputMgmt.fullHistoryLink"
             onPress={onNavigateToFullHistory}
             activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={{ top: spacing.sm, bottom: spacing.sm, left: spacing.sm, right: spacing.sm }}
             accessibilityRole="button"
-            accessibilityLabel="Full history"
+            accessibilityLabel={t('farmer.inputManagement.recent.fullHistory')}
           >
-            <Text style={styles.fullHistoryLink}>Full history</Text>
+            <Text style={styles.fullHistoryLink}>{t('farmer.inputManagement.recent.fullHistory')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* List of Recent Applications */}
-        <View style={styles.recentListCard}>
-          {RECENT_APPLICATIONS.map((item, index) => {
-            const isLast = index === RECENT_APPLICATIONS.length - 1;
-            const isPest = item.badgeType === 'pest';
-            return (
-              <View
-                key={item.id}
-                style={[styles.recentItemRow, !isLast && styles.recentItemBorder]}
-              >
-                <View
-                  style={[
-                    styles.recentIconBadge,
-                    { backgroundColor: isPest ? P.twPurple100 : P.mintTintBg },
-                  ]}
-                >
-                  {renderBadgeIcon(item.badgeType)}
-                </View>
-
-                <View style={styles.recentInfoCol}>
-                  <Text style={styles.recentItemTitle}>
-                    {item.name} · {item.cropName}
-                  </Text>
-                  <Text style={styles.recentItemSubtitle}>
-                    {item.date} · {item.category}
-                  </Text>
-                </View>
-
-                <Text style={styles.recentItemCost}>{item.cost}</Text>
-              </View>
-            );
-          })}
-        </View>
+        {renderRecentBody()}
 
         {/* Bottom Button: View full history */}
         <TouchableOpacity
+          testID="inputMgmt.viewFullHistory"
           style={styles.viewFullHistoryBtn}
           onPress={onNavigateToFullHistory}
           activeOpacity={0.75}
           accessibilityRole="button"
-          accessibilityLabel="View full history"
+          accessibilityLabel={t('farmer.inputManagement.recent.viewFullHistory')}
         >
           <HistoryRotateIcon size={18} color={P.forestGreen} />
-          <Text style={styles.viewFullHistoryBtnText}>View full history</Text>
+          <Text style={styles.viewFullHistoryBtnText}>{t('farmer.inputManagement.recent.viewFullHistory')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -487,21 +519,21 @@ const styles = StyleSheet.create({
   headerBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'android' ? 6 : 4,
-    paddingBottom: 10,
+    paddingHorizontal: spacing.input,
+    paddingTop: Platform.OS === 'android' ? spacing.sm : spacing.xs,
+    paddingBottom: spacing.md,
     backgroundColor: P.white,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.full,
     borderWidth: 1,
     borderColor: P.twGray200,
     backgroundColor: P.white,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: spacing.md,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -517,7 +549,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.slate400,
     letterSpacing: 0.5,
-    marginBottom: 1,
   },
   headerTitle: {
     fontSize: typography.title,
@@ -528,26 +559,24 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: typography.body,
     color: P.twGray500,
-    marginTop: 1,
   },
   scrollView: {
     flex: 1,
     backgroundColor: P.white,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: spacing.largeSection,
   },
   topCardsRow: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginTop: 10,
-    gap: 12,
+    paddingHorizontal: spacing.input,
+    marginTop: spacing.md,
+    gap: spacing.md,
   },
   topCard: {
     flex: 1,
-    borderRadius: 18,
-    padding: 16,
-    minHeight: 145,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
     justifyContent: 'space-between',
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 3 },
@@ -556,13 +585,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   cardIconCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.full,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   cardTitle: {
     fontSize: typography.title,
@@ -572,16 +601,15 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: typography.bodySmall,
-    lineHeight: 16,
     color: 'rgba(255, 255, 255, 0.88)',
-    marginTop: 4,
+    marginTop: spacing.xs,
     flex: 1,
   },
   cardActionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 12,
+    gap: spacing.xs,
+    marginTop: spacing.md,
   },
   cardActionText: {
     fontSize: typography.body,
@@ -589,9 +617,9 @@ const styles = StyleSheet.create({
     color: P.white,
   },
   sectionHeaderWrap: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-    marginBottom: 10,
+    paddingHorizontal: spacing.input,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: typography.bodySmall,
@@ -601,15 +629,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   remindersList: {
-    paddingHorizontal: 20,
-    gap: 10,
+    paddingHorizontal: spacing.input,
+    gap: spacing.md,
   },
   reminderCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: P.white,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: radius.xl,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: P.twGray100,
     shadowColor: P.black,
@@ -619,16 +647,16 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   reminderIconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   reminderInfo: {
     flex: 1,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   reminderTitle: {
     fontSize: typography.body,
@@ -639,7 +667,7 @@ const styles = StyleSheet.create({
   reminderSubtitleOrange: {
     fontSize: typography.bodySmall,
     color: P.twOrange700,
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
   reminderOverdueText: {
     fontWeight: '700',
@@ -648,12 +676,12 @@ const styles = StyleSheet.create({
   reminderSubtitleGray: {
     fontSize: typography.bodySmall,
     color: P.twGray500,
-    marginTop: 3,
+    marginTop: spacing.xs,
   },
   reminderLogBtn: {
-    paddingHorizontal: 15,
-    paddingVertical: 8.5,
-    borderRadius: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -662,13 +690,40 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '700',
   },
+  mutedText: {
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
+  },
+  errorText: {
+    fontSize: typography.body,
+    color: P.twOrange700,
+    textAlign: 'center',
+  },
+  stateBox: {
+    marginHorizontal: spacing.input,
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  retryBtn: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: P.forestGreen,
+  },
+  retryBtnText: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.forestGreen,
+  },
   recentHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginTop: 26,
-    marginBottom: 10,
+    paddingHorizontal: spacing.input,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   fullHistoryLink: {
     fontSize: typography.body,
@@ -677,10 +732,10 @@ const styles = StyleSheet.create({
   },
   recentListCard: {
     backgroundColor: P.white,
-    borderRadius: 18,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: P.twGray100,
-    marginHorizontal: 20,
+    marginHorizontal: spacing.input,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -691,20 +746,20 @@ const styles = StyleSheet.create({
   recentItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 13,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   recentItemBorder: {
     borderBottomWidth: 1,
     borderBottomColor: P.twGray100,
   },
   recentIconBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   recentInfoCol: {
     flex: 1,
@@ -718,26 +773,26 @@ const styles = StyleSheet.create({
   recentItemSubtitle: {
     fontSize: typography.bodySmall,
     color: P.twGray500,
-    marginTop: 2,
+    marginTop: spacing.xs,
   },
   recentItemCost: {
     fontSize: typography.bodyLarge,
     fontWeight: '700',
     color: P.twGray900,
-    marginLeft: 10,
+    marginLeft: spacing.md,
   },
   viewFullHistoryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 20,
-    marginTop: 16,
-    height: 48,
-    borderRadius: 14,
-    borderWidth: 1.2,
+    marginHorizontal: spacing.input,
+    marginTop: spacing.lg,
+    minHeight: spacing.xxxl,
+    borderRadius: radius.lg,
+    borderWidth: 1,
     borderColor: P.twGray200,
     backgroundColor: P.white,
-    gap: 8,
+    gap: spacing.sm,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,

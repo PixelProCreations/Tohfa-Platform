@@ -2406,9 +2406,10 @@ export default function App(): React.JSX.Element {
               if (crop) setSelectedCrop(crop);
               navigate('LogFertigation');
             }}
-            onNavigateToLogPestTreatment={(crop) => {
+            onNavigateToLogPestTreatment={(crop, context) => {
               if (crop) setSelectedCrop(crop);
-              navigate('LogPestTreatment');
+              // A pest reminder's "Log now" carries the reminder's zone.
+              navigate('LogPestTreatment', context ? { farmId: context.farmId, plotId: context.plotId } : {});
             }}
             onNavigateToLogInput={(crop, inputType) => {
               if (crop) setSelectedCrop(crop);
@@ -2420,7 +2421,7 @@ export default function App(): React.JSX.Element {
                 navigate('AddInputApplied', { initialInputType: inputType });
               }
             }}
-            onNavigateToFullHistory={() => navigate('CropInputsApplied')}
+            onNavigateToFullHistory={() => navigate('CropInputsApplied', { scope: 'all' })}
           />
         ) : screen === 'LogFertigation' ? (
           <LogFertigationScreen
@@ -2431,6 +2432,8 @@ export default function App(): React.JSX.Element {
         ) : screen === 'LogPestTreatment' ? (
           <LogPestTreatmentScreen
             crop={selectedCrop}
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
             onBack={goBack}
             onSave={() => goBack('InputManagement')}
           />
@@ -2513,7 +2516,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'CropInputsApplied' ? (
           <CropInputsAppliedScreen
-            crop={selectedCrop}
+            // Input Management's "Full history" is farm-wide; Crop Detail's is that crop's.
+            crop={params['scope'] === 'all' ? null : selectedCrop}
             onBack={goBack}
             onNewInput={() => navigate('AddInputApplied')}
           />
@@ -2562,22 +2566,25 @@ export default function App(): React.JSX.Element {
             }
           />
         ) : screen === 'AnimalDetail' ? (
+          // No stand-in animal: a missing id renders AnimalDetailScreen's error state.
+          // The detail screen remounts when EditAnimal / RegisterAnimal go back, so it re-fetches.
           <AnimalDetailScreen
-            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
-            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
-            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
-            species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
-            breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
-            gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
-            age={typeof params['age'] === 'string' ? params['age'] : '4 yr'}
-            statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : 'Fully Organic'}
+            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : undefined}
+            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : undefined}
+            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : undefined}
+            species={typeof params['species'] === 'string' ? params['species'] : undefined}
+            breed={typeof params['breed'] === 'string' ? params['breed'] : undefined}
+            gender={typeof params['gender'] === 'string' ? params['gender'] : undefined}
+            age={typeof params['age'] === 'string' ? params['age'] : undefined}
+            statusBadge={typeof params['statusBadge'] === 'string' ? params['statusBadge'] : undefined}
             onBack={goBack}
             onNavigateToEdit={(animalData) => navigate('EditAnimal', animalData || {})}
+            onNavigateToRegisterOffspring={(prefill) => navigate('RegisterAnimal', prefill)}
             onNavigateToSale={() =>
               navigate('SaleTransferCull', {
-                animalId: params['animalId'] || 'a1',
-                animalName: params['animalName'] || 'Lakshmi',
-                animalCode: params['animalCode'] || 'C-014',
+                animalId: params['animalId'],
+                animalName: params['animalName'],
+                animalCode: params['animalCode'],
               })
             }
           />
@@ -2590,9 +2597,9 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SaleTransferCull' ? (
           <SaleTransferCullScreen
-            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
-            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
-            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
+            {...(typeof params['animalId'] === 'string' ? { animalId: params['animalId'] } : {})}
+            {...(typeof params['animalName'] === 'string' ? { animalName: params['animalName'] } : {})}
+            {...(typeof params['animalCode'] === 'string' ? { animalCode: params['animalCode'] } : {})}
             onBack={goBack}
             onSuccess={() => navigate('Livestock')}
           />

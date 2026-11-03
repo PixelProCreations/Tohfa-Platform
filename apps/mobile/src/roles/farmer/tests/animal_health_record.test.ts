@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
+import farmerEn from '../../../i18n/farmer.en.json';
+import farmerTa from '../../../i18n/farmer.ta.json';
 
 describe('AnimalDetailScreen - Health Record Form & Modal', () => {
   const filePath = path.resolve(__dirname, '../screens/farm/livestock/AnimalDetailScreen.tsx');
@@ -14,60 +16,72 @@ describe('AnimalDetailScreen - Health Record Form & Modal', () => {
 
   it('contains the Add Health Record modal with the header and back button', () => {
     expect(fileContent).toContain('isAddHealthModalVisible');
-    expect(fileContent).toContain('Add Health Record');
+    // Header title is now an i18n key (en: "Add Health Record").
+    expect(fileContent).toContain("t('farmer.livestock.detail.health.addRecord')");
     expect(fileContent).toContain('GreenBackArrowIcon');
   });
 
   it('contains animal summary card with avatar, name and specs', () => {
-    expect(fileContent).toContain('CowAvatarIcon');
+    // The modal card has always rendered PawPrintIcon; the unused CowAvatarIcon was removed (lint).
+    expect(fileContent).toContain('PawPrintIcon');
     expect(fileContent).toContain('modalAnimalCard');
     expect(fileContent).toContain('displayName');
     expect(fileContent).toContain('GenderSymbolIcon');
   });
 
+  // The reference spec's example VALUES ("12 Jul 2026", "Dr. Anand", "FMD vaccine",
+  // "FMD-2026-001", "10 Oct 2026", "vaccine_receipt.jpg (240 KB)") were mock data baked
+  // into the screen; the wired screen must NOT contain them. The fields themselves remain.
   it('contains all 10 required form fields from the reference specification', () => {
-    // 1. Record type (with 4 pills)
-    expect(fileContent).toContain('Record type');
-    expect(fileContent).toContain('Vaccination');
-    expect(fileContent).toContain('Deworming');
-    expect(fileContent).toContain('Checkup');
-    expect(fileContent).toContain('Treatment');
+    // The field captions used to be asserted as English literals in the source. They are i18n
+    // keys now (en + ta), so the test pins the key in the source and its English value.
+    const field = (key: string, english: string): void => {
+      expect(fileContent).toContain(`t('${key}')`);
+      expect((farmerEn as Record<string, string>)[key]).toBe(english);
+      expect((farmerTa as Record<string, string>)[key]).toBeTruthy();
+    };
+    // 1. Record type (4 options, from the API enum table)
+    field('farmer.livestock.detail.healthForm.recordType', 'Record type');
+    expect(fileContent).toContain('HEALTH_RECORD_TYPE_OPTIONS');
+    for (const v of ['VACCINATION', 'DEWORMING', 'CHECKUP', 'TREATMENT']) expect(fileContent).toContain(`'${v}'`);
 
     // 2. Record date
-    expect(fileContent).toContain('Record date');
-    expect(fileContent).toContain('12 Jul 2026');
+    field('farmer.livestock.detail.field.recordDate', 'Record date');
+    expect(fileContent).not.toContain('12 Jul 2026');
 
-    // 3. Veterinarian dropdown
-    expect(fileContent).toContain('Veterinarian');
-    expect(fileContent).toContain('Dr. Anand');
+    // 3. Veterinarian
+    field('farmer.livestock.detail.field.veterinarian', 'Veterinarian');
+    expect(fileContent).not.toContain('Dr. Anand');
 
     // 4. Vaccine name
-    expect(fileContent).toContain('Vaccine name');
-    expect(fileContent).toContain('FMD vaccine');
+    field('farmer.livestock.detail.field.vaccineName', 'Vaccine name');
+    expect(fileContent).not.toContain('FMD vaccine');
 
     // 5. Dose and unit
-    expect(fileContent).toContain('Dose');
+    field('farmer.livestock.detail.field.dose', 'Dose');
     expect(fileContent).toContain('doseUnit');
 
-    // 6. Administration route
-    expect(fileContent).toContain('Administration route');
-    expect(fileContent).toContain('Injection (IM)');
+    // 6. Administration route (default Injection (IM), now the enum INJECTION_IM with a translated label)
+    field('farmer.livestock.detail.healthForm.administrationRoute', 'Administration route');
+    expect(fileContent).toContain("useState<string>('INJECTION_IM')");
+    expect((farmerEn as Record<string, string>)['farmer.livestock.detail.option.route.INJECTION_IM']).toBe('Injection (IM)');
 
     // 7. Batch / Lot number
-    expect(fileContent).toContain('Batch / Lot number');
-    expect(fileContent).toContain('FMD-2026-001');
+    field('farmer.livestock.detail.field.batchNumber', 'Batch / Lot number');
+    expect(fileContent).not.toContain('FMD-2026-001');
 
-    // 8. Next vaccination date with calendar icons
-    expect(fileContent).toContain('Next vaccination date');
-    expect(fileContent).toContain('10 Oct 2026');
+    // 8. Next vaccination date
+    field('farmer.livestock.detail.healthForm.nextVaccinationDate', 'Next vaccination date');
+    expect(fileContent).not.toContain('10 Oct 2026');
 
     // 9. Notes textarea
-    expect(fileContent).toContain('Notes');
+    field('farmer.livestock.detail.field.notes', 'Notes');
 
-    // 10. Attachment (optional)
-    expect(fileContent).toContain('Attachment (optional)');
-    expect(fileContent).toContain('vaccine_receipt.jpg');
-    expect(fileContent).toContain('240 KB');
+    // 10. Attachment (optional) — a real picker/upload now, never a fabricated file.
+    expect(fileContent).toContain("t('farmer.livestock.detail.attachment.title')");
+    expect(fileContent).toContain('handlePickAttachment(setAttachment');
+    expect(fileContent).not.toContain('vaccine_receipt.jpg');
+    expect(fileContent).not.toContain('240 KB');
   });
 
   it('contains Cancel and Save action buttons with appropriate handlers', () => {

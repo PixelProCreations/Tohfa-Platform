@@ -512,6 +512,37 @@ const GRANT_CASES: readonly GrantCase[] = [
     expected: ScopeLevel.NONE,
     because: 'Customers cannot create platform-wide calendar events (BR-58).',
   },
+  // --- Community planting summary (BR-135): anonymised aggregate, community-wide by design. ---
+  {
+    permission: 'farmer.community.view_planting_summary',
+    role: RoleCode.FARMER,
+    expected: ScopeLevel.ALL,
+    because: 'The TOHFA Calendar community view spans all farmers; it is a k-anonymous aggregate with no owner predicate (BR-135).',
+  },
+  {
+    permission: 'farmer.community.view_planting_summary',
+    role: RoleCode.FARMER_ADMIN,
+    expected: ScopeLevel.ALL,
+    because: 'An elected Farmer Admin is a farmer and sees the same community aggregate (BR-135).',
+  },
+  {
+    permission: 'farmer.community.view_planting_summary',
+    role: RoleCode.CUSTOMER,
+    expected: ScopeLevel.NONE,
+    because: 'Farmer-side planting supply is not customer-visible (BR-135, BR-16).',
+  },
+  {
+    permission: 'farmer.community.view_planting_summary',
+    role: RoleCode.SUB_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no farmer planting view (BR-135).',
+  },
+  {
+    permission: 'farmer.community.view_planting_summary',
+    role: RoleCode.MAIN_WH_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'Warehouse admins have no farmer planting view (BR-135).',
+  },
   {
     permission: 'notification.own.view',
     role: RoleCode.CUSTOMER,

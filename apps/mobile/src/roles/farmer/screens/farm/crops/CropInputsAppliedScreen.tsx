@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   BackHandler,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,8 +13,34 @@ import {
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import { authPalette as P, radius, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import {
+  applicationTitle,
+  applicationTypeLabel,
+  formatAppliedDate,
+  formatApplicationCost,
+  useInputApplications,
+  type ApplicationKind,
+} from './inputApplications';
+
+/**
+ * "Inputs Applied" — the full input-application history. Two entry points:
+ *  - Crop Detail → Inputs: `crop` is set, so only that crop's BR-56 inputs
+ *    (and any pest treatment log recorded against that crop) are shown.
+ *  - Input Management → Full history: `crop` is null, so every own crop's
+ *    inputs (harvested ones included, from the farm-wide GET
+ *    /farmers/me/crop-inputs, BR-56h) plus every zone's pest treatment logs
+ *    are merged.
+ *
+ * Both input sources are cursor-paginated; the loader walks the one cursor to
+ * the end (counts are then exact) and this screen reveals the merged list a
+ * page at a time.
+ */
+
+// Rows revealed per "Show more" tap (a layout choice, not a business threshold).
+const ROWS_PER_PAGE = 20;
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -75,62 +103,13 @@ function PlusIcon({ size = 22, color = P.white }: { size?: number; color?: strin
 }
 
 // ─────────────────────────────────────────────
-// Types & Sample Data
+// Screen
 // ─────────────────────────────────────────────
 
-export interface CropInputItem {
-  id: string;
-  category: 'Fertigation' | 'Pest Treatment';
-  name: string;
-  timestamp: string;
-  quantity: string;
-  tag: string;
-}
-
-const INITIAL_INPUTS: CropInputItem[] = [
-  {
-    id: 'in1',
-    category: 'Fertigation',
-    name: 'Vermicompost Tea',
-    timestamp: '14 Jul · 07:00 AM',
-    quantity: '4 L',
-    tag: 'Fertigation',
-  },
-  {
-    id: 'in2',
-    category: 'Pest Treatment',
-    name: 'Neem Oil Concentrate',
-    timestamp: '11 Jul · 08:45 AM · Aphids',
-    quantity: '200 ml',
-    tag: 'Pest Treatment',
-  },
-  {
-    id: 'in3',
-    category: 'Fertigation',
-    name: 'Panchagavya',
-    timestamp: '9 Jul · 06:30 AM',
-    quantity: '3 L',
-    tag: 'Fertigation',
-  },
-  {
-    id: 'in4',
-    category: 'Fertigation',
-    name: 'Jeevamrutha',
-    timestamp: '2 Jul · 07:30 AM · Root Zone',
-    quantity: '8 L',
-    tag: 'Fertigation',
-  },
-  {
-    id: 'in5',
-    category: 'Pest Treatment',
-    name: 'Agniastra Decoction',
-    timestamp: '26 Jun · 06:15 AM · Preventive',
-    quantity: '150 ml',
-    tag: 'Pest Treatment',
-  },
-];
+type Filter = 'all' | ApplicationKind;
 
 export interface CropInputsAppliedScreenProps {
+  /** Set for one crop's history; null/undefined for the farm-wide history. */
   crop?: CropItem | null;
   onBack?: () => void;
   onNewInput?: () => void;
@@ -141,7 +120,8 @@ export function CropInputsAppliedScreen({
   onBack,
   onNewInput,
 }: CropInputsAppliedScreenProps): React.JSX.Element {
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Fertigation' | 'Pest Treatment'>('All');
+  const [activeFilter, setActiveFilter] = useState<Filter>('all');
+  const [visibleCount, setVisibleCount] = useState(ROWS_PER_PAGE);
 
   // Android hardware back
   useEffect(() => {
@@ -155,25 +135,138 @@ export function CropInputsAppliedScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const cropName = crop?.name ?? 'Carrot';
-  const variety = crop?.variety ?? 'Nantes';
-  const zone = crop?.zoneShort || crop?.zone || 'Zone 1';
-  const subtitle = `${cropName} — ${variety} · ${zone}`;
+  const scopedCrop = useMemo(
+    () => (crop?.id ? { id: crop.id, name: crop.name, zone: crop.zone || null } : null),
+    [crop?.id, crop?.name, crop?.zone],
+  );
+  const { state, data, retry, refreshing, refresh } = useInputApplications('history', scopedCrop);
 
-  const fertigationCount = INITIAL_INPUTS.filter((i) => i.category === 'Fertigation').length + 2; // 6
-  const pestCount = INITIAL_INPUTS.filter((i) => i.category === 'Pest Treatment').length; // 2
+  const subtitle = !crop?.id
+    ? t('farmer.inputHistory.allCrops')
+    : crop.variety
+      ? t('farmer.inputHistory.cropSubtitle', { crop: crop.name, variety: crop.variety, zone: crop.zoneShort || crop.zone })
+      : t('farmer.inputHistory.cropSubtitleNoVariety', { crop: crop.name, zone: crop.zoneShort || crop.zone });
 
-  const filteredInputs = INITIAL_INPUTS.filter((item) => {
-    if (activeFilter === 'All') return true;
-    return item.category === activeFilter;
-  });
+  const applications = data?.applications ?? [];
+  const fertigationCount = applications.filter((a) => a.kind === 'fertigation').length;
+  const pestCount = applications.filter((a) => a.kind === 'pest').length;
+  const filtered = activeFilter === 'all' ? applications : applications.filter((a) => a.kind === activeFilter);
+  const visible = filtered.slice(0, visibleCount);
+
+  const selectFilter = (filter: Filter) => {
+    setActiveFilter(filter);
+    setVisibleCount(ROWS_PER_PAGE);
+  };
 
   const handleFabPress = () => {
     if (onNewInput) {
       onNewInput();
     } else {
-      Alert.alert('Apply Input', `Record chemical or organic input applied for ${cropName} (${zone})`);
+      Alert.alert(t('farmer.inputHistory.title'), t('farmer.inputHistory.addHint'));
     }
+  };
+
+  const FILTERS: ReadonlyArray<{ key: Filter; label: string }> = [
+    { key: 'all', label: t('farmer.inputHistory.filter.all') },
+    { key: 'fertigation', label: t('farmer.inputManagement.type.fertigation') },
+    { key: 'pest', label: t('farmer.inputManagement.type.pest') },
+  ];
+
+  const renderList = () => {
+    if (state === 'loading') {
+      return (
+        <View testID="inputHistory.loading" style={styles.stateBox}>
+          <ActivityIndicator color={P.deepGreen} />
+          <Text style={styles.mutedText}>{t('farmer.common.loading')}</Text>
+        </View>
+      );
+    }
+    if (state === 'error' || data === null) {
+      return (
+        <View testID="inputHistory.error" style={styles.stateBox}>
+          <Text style={styles.errorText}>{t('farmer.inputHistory.loadError')}</Text>
+          <TouchableOpacity
+            testID="inputHistory.retry"
+            style={styles.outlineBtn}
+            onPress={retry}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.common.retry')}
+          >
+            <Text style={styles.outlineBtnText}>{t('farmer.common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    if (filtered.length === 0) {
+      return (
+        <View testID="inputHistory.empty" style={styles.stateBox}>
+          <Text style={styles.mutedText}>{t('farmer.inputHistory.empty')}</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.inputsList}>
+        {visible.map((item) => {
+          const isFertigation = item.kind === 'fertigation';
+          return (
+            <View key={item.key} testID={`inputHistory.row.${item.key}`} style={styles.inputCard}>
+              <View
+                style={[
+                  styles.inputIconBadge,
+                  isFertigation ? { backgroundColor: P.twBlue50 } : { backgroundColor: P.twRed50 },
+                ]}
+              >
+                {isFertigation ? (
+                  <DropletIcon size={18} color={P.twBlue600} />
+                ) : (
+                  <PestIcon size={18} color={P.twRed600} />
+                )}
+              </View>
+
+              <View style={styles.inputTextCol}>
+                <Text testID={`inputHistory.row.${item.key}.title`} style={styles.inputName}>
+                  {applicationTitle(item)}
+                </Text>
+                <Text testID={`inputHistory.row.${item.key}.subtitle`} style={styles.inputSubtitle}>
+                  {formatAppliedDate(item.appliedOn, true)}
+                </Text>
+                <View style={[styles.tagBadge, isFertigation ? styles.tagBadgeBlue : styles.tagBadgeRed]}>
+                  <Text
+                    style={[styles.tagBadgeText, isFertigation ? styles.tagBadgeTextBlue : styles.tagBadgeTextRed]}
+                  >
+                    {applicationTypeLabel(item.kind)}
+                  </Text>
+                </View>
+              </View>
+
+              <Text testID={`inputHistory.row.${item.key}.cost`} style={styles.inputCostText}>
+                {formatApplicationCost(item.cost)}
+              </Text>
+            </View>
+          );
+        })}
+
+        {filtered.length > visible.length ? (
+          <TouchableOpacity
+            testID="inputHistory.showMore"
+            style={styles.outlineBtn}
+            onPress={() => setVisibleCount((n) => n + ROWS_PER_PAGE)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.inputHistory.showMore')}
+          >
+            <Text style={styles.outlineBtnText}>{t('farmer.inputHistory.showMore')}</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {data.complete ? null : (
+          <Text testID="inputHistory.incomplete" style={styles.mutedText}>
+            {t('farmer.inputHistory.incomplete')}
+          </Text>
+        )}
+      </View>
+    );
   };
 
   return (
@@ -187,15 +280,15 @@ export function CropInputsAppliedScreen({
             style={styles.backButton}
             onPress={onBack}
             activeOpacity={0.7}
-            hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+            hitSlop={{ top: spacing.md, bottom: spacing.md, left: spacing.md, right: spacing.md }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.common.back')}
           >
             <ArrowBackIcon size={20} color={P.twGray800} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Inputs Applied</Text>
+            <Text style={styles.headerTitle}>{t('farmer.inputHistory.title')}</Text>
             <Text style={styles.headerSubtitle}>{subtitle}</Text>
           </View>
         </View>
@@ -204,25 +297,28 @@ export function CropInputsAppliedScreen({
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={P.deepGreen} />}
         >
           {/* ── Top Stat Cards ── */}
           <View style={styles.statsRow}>
-            {/* Card 1: Fertigation Events */}
             <View style={styles.statCard}>
               <View style={[styles.statIconBadge, { backgroundColor: P.twBlue50 }]}>
                 <DropletIcon size={18} color={P.twBlue600} />
               </View>
-              <Text style={styles.statValue}>{fertigationCount}</Text>
-              <Text style={styles.statLabel}>Fertigation Events</Text>
+              <Text testID="inputHistory.count.fertigation" style={styles.statValue}>
+                {state === 'ready' ? String(fertigationCount) : t('farmer.inputHistory.placeholder')}
+              </Text>
+              <Text style={styles.statLabel}>{t('farmer.inputHistory.stat.fertigation')}</Text>
             </View>
 
-            {/* Card 2: Pest Treatments */}
             <View style={styles.statCard}>
               <View style={[styles.statIconBadge, { backgroundColor: P.twRed50 }]}>
                 <PestIcon size={18} color={P.twRed600} />
               </View>
-              <Text style={styles.statValue}>{pestCount}</Text>
-              <Text style={styles.statLabel}>Pest Treatments</Text>
+              <Text testID="inputHistory.count.pest" style={styles.statValue}>
+                {state === 'ready' ? String(pestCount) : t('farmer.inputHistory.placeholder')}
+              </Text>
+              <Text style={styles.statLabel}>{t('farmer.inputHistory.stat.pest')}</Text>
             </View>
           </View>
 
@@ -233,17 +329,17 @@ export function CropInputsAppliedScreen({
             contentContainerStyle={styles.filterRow}
             style={styles.filterScrollView}
           >
-            {(['All', 'Fertigation', 'Pest Treatment'] as const).map((filter) => {
-              const isSelected = activeFilter === filter;
+            {FILTERS.map(({ key, label }) => {
+              const isSelected = activeFilter === key;
               return (
                 <TouchableOpacity
-                  key={filter}
-                  style={[
-                    styles.filterChip,
-                    isSelected ? styles.filterChipActive : styles.filterChipInactive,
-                  ]}
-                  onPress={() => setActiveFilter(filter)}
+                  key={key}
+                  testID={`inputHistory.filter.${key}`}
+                  style={[styles.filterChip, isSelected ? styles.filterChipActive : styles.filterChipInactive]}
+                  onPress={() => selectFilter(key)}
                   activeOpacity={0.75}
+                  accessibilityRole="button"
+                  accessibilityLabel={label}
                 >
                   <Text
                     style={[
@@ -251,63 +347,14 @@ export function CropInputsAppliedScreen({
                       isSelected ? styles.filterChipTextActive : styles.filterChipTextInactive,
                     ]}
                   >
-                    {filter}
+                    {label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
 
-          {/* ── Inputs Activity Cards List ── */}
-          <View style={styles.inputsList}>
-            {filteredInputs.map((item) => {
-              const isFertigation = item.category === 'Fertigation';
-              return (
-                <View key={item.id} style={styles.inputCard}>
-                  {/* Category-specific Icon Badge */}
-                  <View
-                    style={[
-                      styles.inputIconBadge,
-                      isFertigation
-                        ? { backgroundColor: P.twBlue50 }
-                        : { backgroundColor: P.twRed50 },
-                    ]}
-                  >
-                    {isFertigation ? (
-                      <DropletIcon size={18} color={P.twBlue600} />
-                    ) : (
-                      <PestIcon size={18} color={P.twRed600} />
-                    )}
-                  </View>
-
-                  <View style={styles.inputTextCol}>
-                    <Text style={styles.inputName}>{item.name}</Text>
-                    <Text style={styles.inputSubtitle}>{item.timestamp}</Text>
-
-                    {/* Tag badge */}
-                    <View
-                      style={[
-                        styles.tagBadge,
-                        isFertigation ? styles.tagBadgeBlue : styles.tagBadgeRed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tagBadgeText,
-                          isFertigation ? styles.tagBadgeTextBlue : styles.tagBadgeTextRed,
-                        ]}
-                      >
-                        {item.tag}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Quantity */}
-                  <Text style={styles.inputQuantityText}>{item.quantity}</Text>
-                </View>
-              );
-            })}
-          </View>
+          {renderList()}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -318,7 +365,7 @@ export function CropInputsAppliedScreen({
           onPress={handleFabPress}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Add input applied"
+          accessibilityLabel={t('farmer.inputHistory.add')}
         >
           <PlusIcon size={24} color={P.white} />
         </TouchableOpacity>
@@ -328,7 +375,7 @@ export function CropInputsAppliedScreen({
 }
 
 // ─────────────────────────────────────────────
-// Stylesheet (strictly no raw hex literals)
+// Stylesheet (tokens only)
 // ─────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -344,21 +391,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 10,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
     backgroundColor: P.paleStoneBg,
   },
   backButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.full,
     backgroundColor: P.white,
     borderWidth: 1,
     borderColor: P.twGray200,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: spacing.md,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -378,28 +425,27 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
-    marginTop: 2,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 90,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.pageMargin,
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 18,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
   },
   statCard: {
     flex: 1,
     backgroundColor: P.white,
-    borderRadius: 16,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: P.twGray200,
-    padding: 16,
+    padding: spacing.lg,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -407,12 +453,12 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statIconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   statValue: {
     fontSize: typography.title,
@@ -423,20 +469,19 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall,
     fontWeight: '500',
     color: P.twGray500,
-    marginTop: 2,
   },
   filterScrollView: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   filterRow: {
     flexDirection: 'row',
-    gap: 8,
-    paddingRight: 16,
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
   },
   filterChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.pill,
   },
   filterChipActive: {
     backgroundColor: P.deepGreen,
@@ -458,17 +503,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   inputsList: {
-    gap: 10,
+    gap: spacing.md,
   },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: P.white,
-    borderRadius: 16,
+    borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: P.twGray200,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     shadowColor: P.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -476,16 +521,16 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   inputIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: spacing.largeSection,
+    height: spacing.largeSection,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   inputTextCol: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 8,
+    marginLeft: spacing.md,
+    marginRight: spacing.sm,
   },
   inputName: {
     fontSize: typography.bodyLarge,
@@ -495,14 +540,13 @@ const styles = StyleSheet.create({
   inputSubtitle: {
     fontSize: typography.bodySmall,
     color: P.twGray500,
-    marginTop: 2,
-    marginBottom: 6,
+    marginBottom: spacing.xs,
   },
   tagBadge: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
   },
   tagBadgeBlue: {
     backgroundColor: P.twBlue50,
@@ -520,21 +564,49 @@ const styles = StyleSheet.create({
   tagBadgeTextRed: {
     color: P.twRed600,
   },
-  inputQuantityText: {
+  inputCostText: {
     fontSize: typography.bodyLarge,
     fontWeight: '800',
     color: P.ink,
   },
+  stateBox: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  mutedText: {
+    fontSize: typography.bodySmall,
+    color: P.twGray500,
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: typography.body,
+    color: P.twRed600,
+    textAlign: 'center',
+  },
+  outlineBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.button,
+    borderWidth: 1,
+    borderColor: P.deepGreen,
+  },
+  outlineBtnText: {
+    fontSize: typography.body,
+    fontWeight: '700',
+    color: P.deepGreen,
+  },
   bottomSpacer: {
-    height: 20,
+    height: spacing.input,
   },
   fabButton: {
     position: 'absolute',
-    bottom: 24,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    bottom: spacing.xl,
+    right: spacing.input,
+    width: spacing.modalGap,
+    height: spacing.modalGap,
+    borderRadius: radius.full,
     backgroundColor: P.deepGreen,
     alignItems: 'center',
     justifyContent: 'center',

@@ -17,8 +17,20 @@ import { requirePermission, requireScope } from '../../rbac/requirePermission.js
 import {
   animalIdParams,
   createAnimalBody,
+  createBreedingRecordBody,
+  createFeedLogBody,
+  createFeedPlanBody,
+  createHealthRecordBody,
+  createHousingRecordBody,
+  createHygieneLogBody,
   createProductionLogBody,
   listAnimalsQuery,
+  listBreedingRecordsQuery,
+  listFeedLogsQuery,
+  listFeedPlansQuery,
+  listHealthRecordsQuery,
+  listHousingRecordsQuery,
+  listHygieneLogsQuery,
   listProductionLogsQuery,
   recordLifecycleEventBody,
   updateAnimalBody,
@@ -118,5 +130,180 @@ livestockRouter.post(
     const scope = requireScope(req.scope);
     const body = getValidated(req, 'body', createProductionLogBody);
     res.status(201).json(await livestockService.createProductionLog(scope, body));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Animal records (AnimalDetailScreen) — BR-136..BR-138. Each resource is a GET
+// list (farmer.livestock.view_own) and a POST create (farmer.livestock.create_own)
+// under /animals/:animalId. No PATCH/DELETE yet: the screen has none.
+// ---------------------------------------------------------------------------
+
+// GET /v1/farmers/me/livestock/animals/:animalId/health-records
+livestockRouter.get(
+  '/animals/:animalId/health-records',
+  requireAuth,
+  requirePermission('farmer.livestock.view_own'),
+  validate({ params: animalIdParams, query: listHealthRecordsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const query = getValidated(req, 'query', listHealthRecordsQuery);
+    res.json(await livestockService.listHealthRecords(scope, animalId, query));
+  }),
+);
+
+// POST /v1/farmers/me/livestock/animals/:animalId/health-records — a TREATMENT
+// with a withdrawal window also extends the animal's withdrawalUntil (BR-137).
+livestockRouter.post(
+  '/animals/:animalId/health-records',
+  requireAuth,
+  requirePermission('farmer.livestock.create_own'),
+  validate({ params: animalIdParams, body: createHealthRecordBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const body = getValidated(req, 'body', createHealthRecordBody);
+    res.status(201).json(await livestockService.createHealthRecord(scope, animalId, body));
+  }),
+);
+
+// GET /v1/farmers/me/livestock/animals/:animalId/breeding-records
+livestockRouter.get(
+  '/animals/:animalId/breeding-records',
+  requireAuth,
+  requirePermission('farmer.livestock.view_own'),
+  validate({ params: animalIdParams, query: listBreedingRecordsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const query = getValidated(req, 'query', listBreedingRecordsQuery);
+    res.json(await livestockService.listBreedingRecords(scope, animalId, query));
+  }),
+);
+
+// POST /v1/farmers/me/livestock/animals/:animalId/breeding-records — FEMALE animals only (BR-138).
+livestockRouter.post(
+  '/animals/:animalId/breeding-records',
+  requireAuth,
+  requirePermission('farmer.livestock.create_own'),
+  validate({ params: animalIdParams, body: createBreedingRecordBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const body = getValidated(req, 'body', createBreedingRecordBody);
+    res.status(201).json(await livestockService.createBreedingRecord(scope, animalId, body));
+  }),
+);
+
+// GET /v1/farmers/me/livestock/animals/:animalId/feed-plans
+livestockRouter.get(
+  '/animals/:animalId/feed-plans',
+  requireAuth,
+  requirePermission('farmer.livestock.view_own'),
+  validate({ params: animalIdParams, query: listFeedPlansQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const query = getValidated(req, 'query', listFeedPlansQuery);
+    res.json(await livestockService.listFeedPlans(scope, animalId, query));
+  }),
+);
+
+// POST /v1/farmers/me/livestock/animals/:animalId/feed-plans
+livestockRouter.post(
+  '/animals/:animalId/feed-plans',
+  requireAuth,
+  requirePermission('farmer.livestock.create_own'),
+  validate({ params: animalIdParams, body: createFeedPlanBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const body = getValidated(req, 'body', createFeedPlanBody);
+    res.status(201).json(await livestockService.createFeedPlan(scope, animalId, body));
+  }),
+);
+
+// GET /v1/farmers/me/livestock/animals/:animalId/feed-logs
+livestockRouter.get(
+  '/animals/:animalId/feed-logs',
+  requireAuth,
+  requirePermission('farmer.livestock.view_own'),
+  validate({ params: animalIdParams, query: listFeedLogsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const query = getValidated(req, 'query', listFeedLogsQuery);
+    res.json(await livestockService.listFeedLogs(scope, animalId, query));
+  }),
+);
+
+// POST /v1/farmers/me/livestock/animals/:animalId/feed-logs
+livestockRouter.post(
+  '/animals/:animalId/feed-logs',
+  requireAuth,
+  requirePermission('farmer.livestock.create_own'),
+  validate({ params: animalIdParams, body: createFeedLogBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const body = getValidated(req, 'body', createFeedLogBody);
+    res.status(201).json(await livestockService.createFeedLog(scope, animalId, body));
+  }),
+);
+
+// GET /v1/farmers/me/livestock/animals/:animalId/housing-records
+livestockRouter.get(
+  '/animals/:animalId/housing-records',
+  requireAuth,
+  requirePermission('farmer.livestock.view_own'),
+  validate({ params: animalIdParams, query: listHousingRecordsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const query = getValidated(req, 'query', listHousingRecordsQuery);
+    res.json(await livestockService.listHousingRecords(scope, animalId, query));
+  }),
+);
+
+// POST /v1/farmers/me/livestock/animals/:animalId/housing-records
+livestockRouter.post(
+  '/animals/:animalId/housing-records',
+  requireAuth,
+  requirePermission('farmer.livestock.create_own'),
+  validate({ params: animalIdParams, body: createHousingRecordBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const body = getValidated(req, 'body', createHousingRecordBody);
+    res.status(201).json(await livestockService.createHousingRecord(scope, animalId, body));
+  }),
+);
+
+// GET /v1/farmers/me/livestock/animals/:animalId/hygiene-logs
+livestockRouter.get(
+  '/animals/:animalId/hygiene-logs',
+  requireAuth,
+  requirePermission('farmer.livestock.view_own'),
+  validate({ params: animalIdParams, query: listHygieneLogsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const query = getValidated(req, 'query', listHygieneLogsQuery);
+    res.json(await livestockService.listHygieneLogs(scope, animalId, query));
+  }),
+);
+
+// POST /v1/farmers/me/livestock/animals/:animalId/hygiene-logs
+livestockRouter.post(
+  '/animals/:animalId/hygiene-logs',
+  requireAuth,
+  requirePermission('farmer.livestock.create_own'),
+  validate({ params: animalIdParams, body: createHygieneLogBody }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { animalId } = getValidated(req, 'params', animalIdParams);
+    const body = getValidated(req, 'body', createHygieneLogBody);
+    res.status(201).json(await livestockService.createHygieneLog(scope, animalId, body));
   }),
 );

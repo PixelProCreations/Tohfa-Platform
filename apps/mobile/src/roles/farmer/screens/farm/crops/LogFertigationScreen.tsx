@@ -15,14 +15,22 @@ import {
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { format, type Money } from '@tohfa/shared-types';
 import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
 import { useActiveCropItems, type CropItem } from './cropItems';
+import { createCropInput, ApiError, type CropInputUnit } from '../../../api/crops';
+import { COST_INR_MAX, computeCostInr, isWithinCostLimit, parseQuantity } from './fertigationCost';
 import {
-  createCropInput,
-  ApiError,
-  type CropInputType,
-  type CropInputUnit,
-} from '../../../api/crops';
+  APPLICATION_METHODS,
+  APPROVED_FERTIGATION_INPUTS,
+  FERTIGATION_UNITS,
+  methodLabelKey,
+  nutrientReferenceFor,
+  unitLabelKey,
+  type ApprovedFertigationInput,
+} from './fertigationCatalogue';
+import { todayInKolkata } from '../../certifications/certificationForm';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -107,17 +115,6 @@ function CalculatorIcon({ size = 18, color = P.forestGreen }: { size?: number; c
   );
 }
 
-function CalendarIcon({ size = 16, color = P.twGray600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="2" />
-      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="2" />
-      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function CheckmarkIcon({ size = 18, color = P.white }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -147,166 +144,26 @@ function CloseIcon({ size = 18, color = P.twGray800 }: { size?: number; color?: 
 }
 
 // ─────────────────────────────────────────────
-// Reference & Input Data Models
+// Screen
 // ─────────────────────────────────────────────
+//
+// Data sources:
+//  - crops: the farmer's real active crops (cropItems.ts, API-backed);
+//  - approved inputs, unit prices, dosage and the crop reference card: the LOCAL
+//    catalogue in fertigationCatalogue.ts, because no catalogue endpoint exists yet;
+//  - cost: exact integer-paise maths in fertigationCost.ts, POSTed as a 2dp string.
+//
+// There is deliberately no "next application date". The crop-inputs API (BR-56)
+// has no interval or next-date field, so any date shown here would be invented
+// (the old screen hard-coded a fixed calendar date and a "+14 days" badge), and a system-suggested
+// schedule is the kind of automation BR-38 holds until the client decides.
 
-interface CropReferenceData {
-  cropName: string;
-  idealPh: string;
-  nKgHa: string;
-  pKgHa: string;
-  kKgHa: string;
-}
-
-const CROP_REFERENCES: Record<string, CropReferenceData> = {
-  carrot: {
-    cropName: 'CARROT',
-    idealPh: '5.5',
-    nKgHa: '40',
-    pKgHa: '30',
-    kKgHa: '50',
-  },
-  tomato: {
-    cropName: 'TOMATO',
-    idealPh: '6.2',
-    nKgHa: '65',
-    pKgHa: '45',
-    kKgHa: '70',
-  },
-  cabbage: {
-    cropName: 'CABBAGE',
-    idealPh: '6.5',
-    nKgHa: '55',
-    pKgHa: '35',
-    kKgHa: '60',
-  },
-};
-
-interface ApprovedInput {
-  name: string;
-  type: string;
-  backendType: CropInputType;
-  method: string;
-  dosage: string;
-  defaultQty: string;
-  unit: string;
-  pricePerUnit: number;
-  phiDays: string;
-  nitrogenPct?: number;
-  phosphorusPct?: number;
-  potassiumPct?: number;
-}
-
-const APPROVED_INPUTS: ApprovedInput[] = [
-  {
-    name: 'Vermicompost',
-    type: 'Organic',
-    backendType: 'MANURE',
-    method: 'Drench',
-    dosage: '2 kg per plant, worked into the root zone before watering.',
-    defaultQty: '60',
-    unit: 'kg',
-    pricePerUnit: 12,
-    phiDays: '0',
-    nitrogenPct: 2.0,
-    phosphorusPct: 1.0,
-    potassiumPct: 1.5,
-  },
-  {
-    name: 'Panchagavya',
-    type: 'Organic',
-    backendType: 'BIO_INPUT',
-    method: 'Foliar spray',
-    dosage: '30 ml per L of water, spray every 15 days.',
-    defaultQty: '15',
-    unit: 'L',
-    pricePerUnit: 42,
-    phiDays: '0',
-    nitrogenPct: 1.0,
-    phosphorusPct: 0.5,
-    potassiumPct: 1.0,
-  },
-  {
-    name: 'Jeevamrutha',
-    type: 'Organic',
-    backendType: 'BIO_INPUT',
-    method: 'Drench',
-    dosage: '200 L per acre through irrigation water.',
-    defaultQty: '50',
-    unit: 'L',
-    pricePerUnit: 8,
-    phiDays: '0',
-    nitrogenPct: 1.5,
-    phosphorusPct: 0.5,
-    potassiumPct: 1.0,
-  },
-  {
-    name: 'Bone meal',
-    type: 'Organic',
-    backendType: 'FERTILIZER',
-    method: 'Soil incorporation',
-    dosage: '100 g per sq. meter worked into soil.',
-    defaultQty: '25',
-    unit: 'kg',
-    pricePerUnit: 21,
-    phiDays: '0',
-    nitrogenPct: 3.5,
-    phosphorusPct: 18.0,
-    potassiumPct: 0,
-  },
-  {
-    name: 'Trichoderma drench',
-    type: 'Biological',
-    backendType: 'BIO_INPUT',
-    method: 'Root drench',
-    dosage: '5 g per L of water around collar region.',
-    defaultQty: '5',
-    unit: 'kg',
-    pricePerUnit: 90,
-    phiDays: '0',
-  },
-];
-
-const DEFAULT_INPUT: ApprovedInput = APPROVED_INPUTS[0]!;
-
-const DEFAULT_REF: CropReferenceData = {
-  cropName: 'CARROT',
-  idealPh: '5.5',
-  nKgHa: '40',
-  pKgHa: '30',
-  kKgHa: '50',
-};
-
-const METHODS = ['Drench', 'Foliar spray', 'Drip irrigation', 'Soil incorporation', 'Broadcasting'];
-const UNITS = ['kg', 'L', 'g', 'ml'];
-
-/** Asia/Kolkata is a fixed UTC+05:30 with no DST. Server requires calendar date not in future (BR-56b). */
-const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
-function todayInKolkata(nowMs: number = Date.now()): string {
-  return new Date(nowMs + IST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-function toCropInputUnit(unitStr: string): CropInputUnit {
-  switch (unitStr.toLowerCase()) {
-    case 'kg':
-      return 'KG';
-    case 'l':
-    case 'litre':
-      return 'LITRE';
-    case 'g':
-    case 'gram':
-      return 'GRAM';
-    case 'ml':
-      return 'ML';
-    default:
-      return 'KG';
-  }
-}
+const DEFAULT_INPUT: ApprovedFertigationInput = APPROVED_FERTIGATION_INPUTS[0]!;
 
 export interface LogFertigationScreenProps {
   crop?: CropItem | null | undefined;
   onBack?: (() => void) | undefined;
-  onSave?: ((data?: any) => void) | undefined;
+  onSave?: ((data?: unknown) => void) | undefined;
 }
 
 export function LogFertigationScreen({
@@ -326,7 +183,6 @@ export function LogFertigationScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  // Selected crop / field
   // Crop picker options: the farmer's real active crops (see cropItems.ts).
   const { items: cropOptions } = useActiveCropItems();
   const [selectedCrop, setSelectedCrop] = useState<CropItem | null>(crop ?? null);
@@ -335,12 +191,11 @@ export function LogFertigationScreen({
   }, [cropOptions, selectedCrop]);
 
   // Selected input
-  const [selectedInput, setSelectedInput] = useState<ApprovedInput>(DEFAULT_INPUT);
+  const [selectedInput, setSelectedInput] = useState<ApprovedFertigationInput>(DEFAULT_INPUT);
   const [method, setMethod] = useState<string>(DEFAULT_INPUT.method);
   const [quantity, setQuantity] = useState<string>(DEFAULT_INPUT.defaultQty);
-  const [unit, setUnit] = useState<string>(DEFAULT_INPUT.unit);
+  const [unit, setUnit] = useState<CropInputUnit>(DEFAULT_INPUT.unit);
   const [phiDays, setPhiDays] = useState<string>(DEFAULT_INPUT.phiDays);
-  const [nextDate] = useState<string>('31 Jul 2026');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -350,15 +205,19 @@ export function LogFertigationScreen({
   const [showMethodModal, setShowMethodModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
 
-  // Cost calculation
-  const qtyNumber = parseFloat(quantity) || 0;
-  const totalCost = Math.round(qtyNumber * selectedInput.pricePerUnit);
+  // Cost: the catalogue price is per the input's own unit. With another unit selected
+  // there is no approved conversion (BR-56f lists its unit conversions as unapproved
+  // defaults), so no cost is computed or sent rather than a wrong one.
+  const unitMatchesPrice = unit === selectedInput.unit;
+  const cost: Money | null = unitMatchesPrice ? computeCostInr(quantity, selectedInput.pricePerUnit) : null;
 
-  // Active reference data
-  const cropKey = selectedCrop?.name.toLowerCase() ?? 'carrot';
-  const refData: CropReferenceData = CROP_REFERENCES[cropKey] ?? DEFAULT_REF;
+  const refData = nutrientReferenceFor(selectedCrop?.name);
+  const methodLabel = (value: string): string => {
+    const key = methodLabelKey(value);
+    return key ? t(key) : value;
+  };
 
-  const handleSelectInput = (item: ApprovedInput) => {
+  const handleSelectInput = (item: ApprovedFertigationInput) => {
     setSelectedInput(item);
     setMethod(item.method);
     setQuantity(item.defaultQty);
@@ -369,11 +228,25 @@ export function LogFertigationScreen({
 
   const handleSave = async () => {
     if (!selectedCrop?.id) {
-      Alert.alert('Crop Required', 'Please select an active field/crop first.');
+      Alert.alert(
+        t('farmer.logFertigation.alert.cropRequiredTitle'),
+        t('farmer.logFertigation.alert.cropRequiredBody'),
+      );
       return;
     }
-    if (!quantity.trim() || qtyNumber <= 0) {
-      Alert.alert('Invalid Quantity', 'Please enter a valid application quantity greater than 0.');
+    const parsedQuantity = parseQuantity(quantity);
+    if (parsedQuantity === null) {
+      Alert.alert(
+        t('farmer.logFertigation.alert.invalidQuantityTitle'),
+        t('farmer.logFertigation.alert.invalidQuantityBody'),
+      );
+      return;
+    }
+    if (cost !== null && !isWithinCostLimit(cost)) {
+      Alert.alert(
+        t('farmer.logFertigation.alert.costTooHighTitle'),
+        t('farmer.logFertigation.alert.costTooHighBody', { max: format(COST_INR_MAX) }),
+      );
       return;
     }
 
@@ -381,42 +254,39 @@ export function LogFertigationScreen({
     setSaveError(null);
 
     try {
-      const appliedOn = todayInKolkata();
-      const costInr = totalCost > 0 ? totalCost.toFixed(2) : undefined;
-      const notes = `Dosage: ${selectedInput.dosage} | PHI: ${phiDays} days | Next application: ${nextDate}`;
-
       const created = await createCropInput(selectedCrop.id, {
-        inputType: selectedInput.backendType ?? 'MANURE',
+        inputType: selectedInput.backendType,
         inputName: selectedInput.name,
-        appliedOn,
-        quantity: qtyNumber,
-        unit: toCropInputUnit(unit),
+        appliedOn: todayInKolkata(),
+        // The API contract types quantity as a JSON number (numeric(10,2), not money).
+        // parsedQuantity has at most 2 decimals, so Number() serialises back to the
+        // same digits; the cost above was computed from the string, never this number.
+        quantity: Number(parsedQuantity),
+        unit,
         applicationMethod: method ? method.slice(0, 100) : undefined,
-        costInr,
+        costInr: cost ?? undefined,
         nitrogenPct: selectedInput.nitrogenPct,
         phosphorusPct: selectedInput.phosphorusPct,
         potassiumPct: selectedInput.potassiumPct,
-        notes,
+        notes: t('farmer.logFertigation.notes', { dosage: t(selectedInput.dosageKey), phi: phiDays }),
       });
 
       Alert.alert(
-        'Fertigation Logged',
-        `${selectedInput.name} application for ${selectedCrop?.name ?? 'Carrot'} saved successfully.`,
+        t('farmer.logFertigation.alert.savedTitle'),
+        t('farmer.logFertigation.alert.savedBody', { input: selectedInput.name, crop: selectedCrop.name }),
         [
           {
-            text: 'OK',
+            text: t('farmer.logFertigation.alert.ok'),
             onPress: () => {
               if (onSave) {
                 onSave({
                   crop: selectedCrop,
                   inputName: selectedInput.name,
-                  type: selectedInput.type,
                   method,
-                  dosage: selectedInput.dosage,
-                  quantity: `${quantity} ${unit}`,
+                  quantity: parsedQuantity,
+                  unit,
                   phiDays,
-                  cost: totalCost,
-                  nextDate,
+                  cost,
                   createdInput: created,
                 });
               } else if (onBack) {
@@ -430,9 +300,9 @@ export function LogFertigationScreen({
       const message =
         err instanceof ApiError
           ? err.problem.detail || err.message
-          : 'Failed to record fertigation application.';
+          : t('farmer.logFertigation.error.saveFailed');
       setSaveError(message);
-      Alert.alert('Save Failed', message);
+      Alert.alert(t('farmer.logFertigation.alert.saveFailedTitle'), message);
     } finally {
       setIsSaving(false);
     }
@@ -449,14 +319,14 @@ export function LogFertigationScreen({
           onPress={onBack}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('farmer.logFertigation.back')}
         >
           <ArrowBackIcon size={20} color={P.deepGreen} />
         </TouchableOpacity>
 
         <View style={styles.headerTextGroup}>
-          <Text style={styles.headerTitle}>Log Fertigation</Text>
-          <Text style={styles.headerSubtitle}>New nutrient application</Text>
+          <Text style={styles.headerTitle}>{t('farmer.logFertigation.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('farmer.logFertigation.subtitle')}</Text>
         </View>
 
         <TouchableOpacity
@@ -464,9 +334,9 @@ export function LogFertigationScreen({
           activeOpacity={0.7}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           accessibilityRole="button"
-          accessibilityLabel="Cancel"
+          accessibilityLabel={t('farmer.logFertigation.cancel')}
         >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
+          <Text style={styles.cancelButtonText}>{t('farmer.logFertigation.cancel')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -480,7 +350,7 @@ export function LogFertigationScreen({
           <View style={styles.labelRow}>
             <FieldBoxIcon size={15} color={P.forestGreen} />
             <Text style={styles.label}>
-              Field <Text style={styles.requiredAsterisk}>*</Text>
+              {t('farmer.logFertigation.field.label')} <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
           </View>
 
@@ -489,59 +359,59 @@ export function LogFertigationScreen({
             onPress={() => setShowCropModal(true)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Select Field"
+            accessibilityLabel={t('farmer.logFertigation.field.select')}
           >
             <Text style={styles.selectBoxTextGreen}>
               {selectedCrop
-                ? `${selectedCrop.zone} (${selectedCrop.name})`
-                : 'Zone 1 — Upper Field (Carrot)'}
+                ? t('farmer.logFertigation.field.option', { zone: selectedCrop.zone, crop: selectedCrop.name })
+                : t('farmer.logFertigation.field.placeholder')}
             </Text>
             <ChevronDownIcon size={18} color={P.forestGreen} />
           </TouchableOpacity>
         </View>
 
-        {/* Reference Card (REFERENCE · CARROT) */}
-        <View style={styles.referenceCard}>
-          <View style={styles.referenceHeader}>
-            <InfoCircleIcon size={16} color={P.forestGreen} />
-            <Text style={styles.referenceHeaderText}>
-              REFERENCE · {refData.cropName}
-            </Text>
+        {/* Reference Card — only for crops the local reference table knows */}
+        {refData && selectedCrop ? (
+          <View style={styles.referenceCard} testID="logFertigation.referenceCard">
+            <View style={styles.referenceHeader}>
+              <InfoCircleIcon size={16} color={P.forestGreen} />
+              <Text style={styles.referenceHeaderText}>
+                {t('farmer.logFertigation.reference.title', { crop: selectedCrop.name.toUpperCase() })}
+              </Text>
+            </View>
+
+            <View style={styles.statBoxesRow}>
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{refData.idealPh}</Text>
+                <Text style={styles.statLabel}>{t('farmer.logFertigation.reference.idealPh')}</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{refData.nKgHa}</Text>
+                <Text style={styles.statLabel}>{t('farmer.logFertigation.reference.n')}</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{refData.pKgHa}</Text>
+                <Text style={styles.statLabel}>{t('farmer.logFertigation.reference.p')}</Text>
+              </View>
+
+              <View style={styles.statBox}>
+                <Text style={styles.statValue}>{refData.kKgHa}</Text>
+                <Text style={styles.statLabel}>{t('farmer.logFertigation.reference.k')}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.referenceFooterNote}>{t('farmer.logFertigation.reference.footer')}</Text>
           </View>
-
-          <View style={styles.statBoxesRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{refData.idealPh}</Text>
-              <Text style={styles.statLabel}>Ideal pH</Text>
-            </View>
-
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{refData.nKgHa}</Text>
-              <Text style={styles.statLabel}>N kg/ha</Text>
-            </View>
-
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{refData.pKgHa}</Text>
-              <Text style={styles.statLabel}>P kg/ha</Text>
-            </View>
-
-            <View style={styles.statBox}>
-              <Text style={styles.statValue}>{refData.kKgHa}</Text>
-              <Text style={styles.statLabel}>K kg/ha</Text>
-            </View>
-          </View>
-
-          <Text style={styles.referenceFooterNote}>
-            Full breakdown in the NPK Contribution Tracker (Screen 38).
-          </Text>
-        </View>
+        ) : null}
 
         {/* Input Name Selector */}
         <View style={styles.formGroup}>
           <View style={styles.labelRow}>
             <FlaskIcon size={16} color={P.forestGreen} />
             <Text style={styles.label}>
-              Input name <Text style={styles.requiredAsterisk}>*</Text>
+              {t('farmer.logFertigation.input.label')} <Text style={styles.requiredAsterisk}>*</Text>
             </Text>
           </View>
 
@@ -550,41 +420,39 @@ export function LogFertigationScreen({
             onPress={() => setShowInputModal(true)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Select Input name"
+            accessibilityLabel={t('farmer.logFertigation.input.select')}
           >
             <Text style={styles.selectBoxTextGreen}>{selectedInput.name}</Text>
             <ChevronDownIcon size={18} color={P.forestGreen} />
           </TouchableOpacity>
 
-          <Text style={styles.helpText}>
-            From the Approved Inputs list — fills type, method, dosage & PHI below.
-          </Text>
+          <Text style={styles.helpText}>{t('farmer.logFertigation.input.help')}</Text>
         </View>
 
         {/* Type & Method Row */}
         <View style={styles.rowTwoCols}>
           {/* Type */}
           <View style={styles.col}>
-            <Text style={styles.subLabel}>Type</Text>
+            <Text style={styles.subLabel}>{t('farmer.logFertigation.inputType.label')}</Text>
             <View style={styles.autoFieldBox}>
-              <Text style={styles.autoFieldValue}>{selectedInput.type}</Text>
+              <Text style={styles.autoFieldValue}>{t(selectedInput.typeKey)}</Text>
               <View style={styles.autoBadge}>
-                <Text style={styles.autoBadgeText}>AUTO</Text>
+                <Text style={styles.autoBadgeText}>{t('farmer.logFertigation.auto')}</Text>
               </View>
             </View>
           </View>
 
           {/* Method */}
           <View style={styles.col}>
-            <Text style={styles.subLabel}>Method</Text>
+            <Text style={styles.subLabel}>{t('farmer.logFertigation.method.label')}</Text>
             <TouchableOpacity
               style={styles.methodSelectBox}
               onPress={() => setShowMethodModal(true)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Select Method"
+              accessibilityLabel={t('farmer.logFertigation.method.select')}
             >
-              <Text style={styles.methodSelectText}>{method}</Text>
+              <Text style={styles.methodSelectText}>{methodLabel(method)}</Text>
               <ChevronDownIcon size={18} color={P.twGray500} />
             </TouchableOpacity>
           </View>
@@ -592,9 +460,9 @@ export function LogFertigationScreen({
 
         {/* Dosage Guidance */}
         <View style={styles.formGroup}>
-          <Text style={styles.subLabel}>Dosage guidance</Text>
+          <Text style={styles.subLabel}>{t('farmer.logFertigation.dosage.label')}</Text>
           <View style={styles.dosageBox}>
-            <Text style={styles.dosageText}>{selectedInput.dosage}</Text>
+            <Text style={styles.dosageText}>{t(selectedInput.dosageKey)}</Text>
           </View>
         </View>
 
@@ -602,36 +470,37 @@ export function LogFertigationScreen({
         <View style={styles.rowTwoCols}>
           {/* Quantity */}
           <View style={styles.colQty}>
-            <Text style={styles.subLabel}>Quantity</Text>
+            <Text style={styles.subLabel}>{t('farmer.logFertigation.quantity.label')}</Text>
             <View style={styles.qtyInputRow}>
               <TextInput
+                testID="logFertigation.quantity"
                 style={styles.qtyInput}
                 value={quantity}
                 onChangeText={setQuantity}
-                keyboardType="numeric"
-                accessibilityLabel="Quantity"
+                keyboardType="decimal-pad"
+                accessibilityLabel={t('farmer.logFertigation.quantity.label')}
               />
               <TouchableOpacity
                 style={styles.unitBtn}
                 onPress={() => setShowUnitModal(true)}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Unit"
+                accessibilityLabel={t('farmer.logFertigation.unit.select')}
               >
-                <Text style={styles.unitBtnText}>{unit}</Text>
+                <Text style={styles.unitBtnText}>{t(unitLabelKey(unit))}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* PHI (days) */}
           <View style={styles.colPhi}>
-            <Text style={styles.subLabel}>PHI (days)</Text>
+            <Text style={styles.subLabel}>{t('farmer.logFertigation.phi.label')}</Text>
             <TextInput
               style={styles.phiInput}
               value={phiDays}
               onChangeText={setPhiDays}
-              keyboardType="numeric"
-              accessibilityLabel="PHI in days"
+              keyboardType="number-pad"
+              accessibilityLabel={t('farmer.logFertigation.phi.a11y')}
             />
           </View>
         </View>
@@ -644,29 +513,24 @@ export function LogFertigationScreen({
             </View>
             <View>
               <Text style={styles.costFormula}>
-                COST · {quantity} {unit.toUpperCase()} × ₹{selectedInput.pricePerUnit}
+                {t('farmer.logFertigation.cost.formula', {
+                  qty: quantity,
+                  unit: t(unitLabelKey(selectedInput.unit)),
+                  price: format(selectedInput.pricePerUnit),
+                })}
               </Text>
-              <Text style={styles.costAmount}>₹ {totalCost}</Text>
+              <Text testID="logFertigation.cost" style={styles.costAmount}>
+                {cost !== null
+                  ? format(cost)
+                  : unitMatchesPrice
+                    ? t('farmer.logFertigation.cost.unavailable')
+                    : t('farmer.logFertigation.cost.unitMismatch', { unit: t(unitLabelKey(selectedInput.unit)) })}
+              </Text>
             </View>
           </View>
 
           <View style={styles.editableBadge}>
-            <Text style={styles.editableBadgeText}>AUTO · EDITABLE</Text>
-          </View>
-        </View>
-
-        {/* Next Application Date */}
-        <View style={styles.formGroup}>
-          <View style={styles.labelRow}>
-            <CalendarIcon size={16} color={P.twGray600} />
-            <Text style={styles.labelDate}>Next application date</Text>
-          </View>
-
-          <View style={styles.dateBox}>
-            <Text style={styles.dateText}>{nextDate}</Text>
-            <View style={styles.dateDaysBadge}>
-              <Text style={styles.dateDaysBadgeText}>+14 DAYS</Text>
-            </View>
+            <Text style={styles.editableBadgeText}>{t('farmer.logFertigation.auto')}</Text>
           </View>
         </View>
 
@@ -679,12 +543,13 @@ export function LogFertigationScreen({
 
         {/* Bottom Button: Save application */}
         <TouchableOpacity
+          testID="logFertigation.save"
           style={[styles.saveBtn, isSaving && styles.saveBtnDisabled]}
           onPress={handleSave}
           disabled={isSaving}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel="Save application"
+          accessibilityLabel={t('farmer.logFertigation.save')}
         >
           {isSaving ? (
             <ActivityIndicator size="small" color={P.white} />
@@ -692,7 +557,7 @@ export function LogFertigationScreen({
             <CheckmarkIcon size={18} color={P.white} />
           )}
           <Text style={styles.saveBtnText}>
-            {isSaving ? 'Saving...' : 'Save application'}
+            {isSaving ? t('farmer.logFertigation.saving') : t('farmer.logFertigation.save')}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -711,8 +576,12 @@ export function LogFertigationScreen({
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Field / Crop</Text>
-              <TouchableOpacity onPress={() => setShowCropModal(false)}>
+              <Text style={styles.modalTitle}>{t('farmer.logFertigation.field.modalTitle')}</Text>
+              <TouchableOpacity
+                onPress={() => setShowCropModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmer.logFertigation.cancel')}
+              >
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
@@ -733,7 +602,7 @@ export function LogFertigationScreen({
                       isSelected && styles.modalItemTextSelected,
                     ]}
                   >
-                    {item.zone} ({item.name})
+                    {t('farmer.logFertigation.field.option', { zone: item.zone, crop: item.name })}
                   </Text>
                 </TouchableOpacity>
               );
@@ -756,16 +625,21 @@ export function LogFertigationScreen({
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Approved Nutrient Inputs</Text>
-              <TouchableOpacity onPress={() => setShowInputModal(false)}>
+              <Text style={styles.modalTitle}>{t('farmer.logFertigation.input.modalTitle')}</Text>
+              <TouchableOpacity
+                onPress={() => setShowInputModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmer.logFertigation.cancel')}
+              >
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {APPROVED_INPUTS.map((item) => {
+            {APPROVED_FERTIGATION_INPUTS.map((item) => {
               const isSelected = selectedInput.name === item.name;
               return (
                 <TouchableOpacity
                   key={item.name}
+                  testID={`logFertigation.input.${item.name}`}
                   style={[styles.modalItem, isSelected && styles.modalItemSelected]}
                   onPress={() => handleSelectInput(item)}
                 >
@@ -776,10 +650,14 @@ export function LogFertigationScreen({
                         isSelected && styles.modalItemTextSelected,
                       ]}
                     >
-                      {item.name} ({item.type})
+                      {t('farmer.logFertigation.input.option', { name: item.name, type: t(item.typeKey) })}
                     </Text>
                     <Text style={styles.modalSubItemText}>
-                      ₹{item.pricePerUnit}/{item.unit} · {item.method}
+                      {t('farmer.logFertigation.input.optionDetail', {
+                        price: format(item.pricePerUnit),
+                        unit: t(unitLabelKey(item.unit)),
+                        method: methodLabel(item.method),
+                      })}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -803,19 +681,23 @@ export function LogFertigationScreen({
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Application Method</Text>
-              <TouchableOpacity onPress={() => setShowMethodModal(false)}>
+              <Text style={styles.modalTitle}>{t('farmer.logFertigation.method.modalTitle')}</Text>
+              <TouchableOpacity
+                onPress={() => setShowMethodModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmer.logFertigation.cancel')}
+              >
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {METHODS.map((m) => {
-              const isSelected = method === m;
+            {APPLICATION_METHODS.map((m) => {
+              const isSelected = method === m.value;
               return (
                 <TouchableOpacity
-                  key={m}
+                  key={m.value}
                   style={[styles.modalItem, isSelected && styles.modalItemSelected]}
                   onPress={() => {
-                    setMethod(m);
+                    setMethod(m.value);
                     setShowMethodModal(false);
                   }}
                 >
@@ -825,7 +707,7 @@ export function LogFertigationScreen({
                       isSelected && styles.modalItemTextSelected,
                     ]}
                   >
-                    {m}
+                    {t(m.labelKey)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -848,19 +730,24 @@ export function LogFertigationScreen({
         >
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Select Unit</Text>
-              <TouchableOpacity onPress={() => setShowUnitModal(false)}>
+              <Text style={styles.modalTitle}>{t('farmer.logFertigation.unit.modalTitle')}</Text>
+              <TouchableOpacity
+                onPress={() => setShowUnitModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmer.logFertigation.cancel')}
+              >
                 <CloseIcon size={18} color={P.twGray800} />
               </TouchableOpacity>
             </View>
-            {UNITS.map((u) => {
-              const isSelected = unit === u;
+            {FERTIGATION_UNITS.map((u) => {
+              const isSelected = unit === u.unit;
               return (
                 <TouchableOpacity
-                  key={u}
+                  key={u.unit}
+                  testID={`logFertigation.unit.${u.unit}`}
                   style={[styles.modalItem, isSelected && styles.modalItemSelected]}
                   onPress={() => {
-                    setUnit(u);
+                    setUnit(u.unit);
                     setShowUnitModal(false);
                   }}
                 >
@@ -870,7 +757,7 @@ export function LogFertigationScreen({
                       isSelected && styles.modalItemTextSelected,
                     ]}
                   >
-                    {u}
+                    {t(u.labelKey)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -954,12 +841,6 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '700',
     color: P.twGray900,
-    marginLeft: 6,
-  },
-  labelDate: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGray800,
     marginLeft: 6,
   },
   requiredAsterisk: {
@@ -1208,34 +1089,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.forestGreen,
     letterSpacing: 0.3,
-  },
-  dateBox: {
-    height: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    backgroundColor: P.white,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  dateText: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.twGray900,
-  },
-  dateDaysBadge: {
-    backgroundColor: P.twGray100,
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  dateDaysBadgeText: {
-    fontSize: typography.caption,
-    fontWeight: '700',
-    color: P.twGray500,
   },
   saveBtn: {
     height: 52,
