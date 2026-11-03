@@ -41,11 +41,6 @@ const roleSchema = z.object({
   colorHex: z.string().nullable().optional(),
   /** `warehouse_id` for Sub Warehouse Admin, `zone_id` for Farmer Admin. */
   scopeDimension: z.enum(['warehouse_id', 'zone_id', 'farmer_id', 'customer_id']).nullable(),
-  /**
-   * BR-135: a user holding this role is never also a farmer or a customer (no end-user role, no live
-   * `farmers` row). Absent means false. FARMER_ADMIN leaves it out: it is an elected farmer.
-   */
-  excludesEndUserRoles: z.boolean().optional(),
   summary: z.string().optional(),
 });
 
@@ -78,6 +73,11 @@ const rbacSchema = z.object({
   predicates: z.record(z.string(), predicateSchema),
   permissions: z.array(permissionSchema).min(1),
   scopeFilters: z.array(scopeFilterSchema).default([]),
+  /**
+   * BR-135: the groups of roles that may be held together, in any subset. A role in no group is
+   * held alone. Each group names at least two distinct roles; checked again in loadRbac().
+   */
+  allowedRoleCombinations: z.array(z.array(roleCodeSchema).min(2)).default([]),
 });
 
 export type RbacRole = z.infer<typeof roleSchema>;
@@ -126,6 +126,19 @@ export function loadRbac(filePath: string = RBAC_JSON_PATH): Rbac {
   const rolesByCode = new Map<RoleCode, RbacRole>();
   for (const role of document.roles) rolesByCode.set(role.code, role);
 
+  // BR-135: a combination must name real, distinct roles of this file. A role code that zod accepts
+  // but the file does not declare would make the guard silently allow a role nobody defined.
+  for (const group of document.allowedRoleCombinations) {
+    for (const code of group) {
+      if (!rolesByCode.has(code)) {
+        throw new Error(`allowedRoleCombinations names ${code}, which is not a role of rbac.json`);
+      }
+    }
+    if (new Set(group).size !== group.length) {
+      throw new Error(`allowedRoleCombinations repeats a role: ${group.join(', ')}`);
+    }
+  }
+
   const permission = (permissionCode: string): RbacPermission => {
     const found = byCode.get(permissionCode);
     if (found === undefined) {
@@ -150,6 +163,21 @@ export function loadRbac(filePath: string = RBAC_JSON_PATH): Rbac {
 
   if (filePath === RBAC_JSON_PATH) cached = rbac;
   return rbac;
+}
+
+/** BR-135: the role groups of docs/rbac.json `allowedRoleCombinations`. */
+export function allowedRoleCombinations(): readonly (readonly string[])[] {
+  return loadRbac().document.allowedRoleCombinations;
+}
+
+/**
+ * BR-135: true when one account may hold every role in `codes` at once: no role, a single role
+ * (duplicates count once), or roles that all belong to ONE group of `allowedRoleCombinations`.
+ */
+export function isAllowedRoleSet(codes: readonly string[]): boolean {
+  const distinct = new Set(codes);
+  if (distinct.size <= 1) return true;
+  return allowedRoleCombinations().some((group) => [...distinct].every((code) => group.includes(code)));
 }
 
 /** Test hook — drop the cache so a fixture file can be loaded. */

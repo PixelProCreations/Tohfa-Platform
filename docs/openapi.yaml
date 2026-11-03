@@ -2225,7 +2225,8 @@ paths:
         a farmer is never approved with zero farms (BR-69).
         If the applicant's account (the application's user, or the live user holding its mobile) is a
         SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN or SUB_WH_ADMIN, approval is refused with 409 `CONFLICT`
-        and nothing is written: those admins are never also farmers (BR-135). A Farmer Admin may be.
+        and nothing is written: those admins hold no second role (BR-135). A Farmer Admin or customer may
+        also be a farmer.
       x-permission: farmer.application.approve
       x-business-rules: [BR-33, BR-69, BR-135]
       parameters:
@@ -13478,9 +13479,9 @@ paths:
         5. `LOWER_ROLES_ONLY` sanity check against the requester's own role level (UNCONFIRMED): the
            target's `fromRole` must be strictly below the requester's role, and `toRole` may not be
            above it; otherwise 403 `FORBIDDEN`. A SUPER_ADMIN always passes.
-        5b. The target, keeping its live roles other than `fromRole`, holds FARMER or CUSTOMER or has a
-           live farmers row: 409 `CONFLICT` (BR-135: every `toRole` is an admin role that is never
-           also a farmer or a customer; only a Farmer Admin may be one).
+        5b. The target, keeping its live roles other than `fromRole`, would still hold any other role
+           or a live farmers row: 409 `CONFLICT` (BR-135: every `toRole` is held alone; only FARMER,
+           FARMER_ADMIN and CUSTOMER may be combined).
         6. The target already has a `PENDING` request: 409 `CONFLICT`.
 
         On success the request, with `requestedBy` = the caller, and one `admin.promotion.request`
@@ -13542,8 +13543,8 @@ paths:
         `INVALID_STATE_TRANSITION` and nothing is written. Approving a promotion of your own account
         is 403. The target must still be a live admin account holding a live assignment of the
         request's `fromRole`; otherwise the request is stale: 409 `CONFLICT`, nothing written.
-        If the target, keeping its live roles other than `fromRole`, holds FARMER or CUSTOMER or has a
-        live farmers row, approval is 409 `CONFLICT` and nothing is written (BR-135).
+        If the target, keeping its live roles other than `fromRole`, would still hold any other role or
+        a live farmers row, approval is 409 `CONFLICT` and nothing is written (BR-135).
 
         In one transaction: the target's live `fromRole` assignments are ended, one `toRole`
         assignment is added (no warehouse, no zone), the request becomes `APPROVED` with

@@ -9,8 +9,8 @@
  *      SUPER_ADMIN holds `admin.promotion.approve`, at `all`, so this is a defence in depth.
  *   5. The target is locked; it must be a live admin still holding a live `from_role` assignment,
  *      otherwise the request is stale -> 409 CONFLICT.
- *   6. BR-135: after `from_role` ends, the target may not keep FARMER or CUSTOMER or a live farmers
- *      row while gaining `to_role` (every promotion target role is a single-role admin) -> 409 CONFLICT.
+ *   6. BR-135: after `from_role` ends, the target may keep no other role and no live farmers row
+ *      while gaining `to_role` (every promotion target role is held alone) -> 409 CONFLICT.
  *
  * The role change, the request's decision, the session and refresh-token revocation and the audit
  * row share one transaction (BR-35). The access-token invalidation stamp lives in Redis, outside that
@@ -119,10 +119,13 @@ export function createAdminPromotionsService(deps: Partial<AdminPromotionsServic
   const transaction: TransactionRunner = deps.transaction ?? ((fn) => withTransaction(fn));
   const invalidateAccessTokens = deps.invalidateAccessTokens ?? ((userId: string) => markTokensInvalidBefore(userId));
 
-  /** BR-135: the target, keeping every live role but `fromRole`, may be given `toRole`. */
+  /**
+   * BR-135: the target's role set AFTER `fromRole` ends and `toRole` is added (a live farmers row
+   * counts as FARMER) must be one docs/rbac.json allows. Every `toRole` is held alone, so anything
+   * the target keeps besides `fromRole` refuses the promotion.
+   */
   async function assertTargetMayHold(tx: Executor, userId: string, roles: string[], fromRole: string, toRole: string): Promise<void> {
-    const kept = roles.filter((code) => code !== fromRole);
-    assertMayGrantRole({ roles: kept, hasLiveFarmer: await repo.hasLiveFarmer(tx, userId) }, toRole);
+    assertMayGrantRole({ roles, hasLiveFarmer: await repo.hasLiveFarmer(tx, userId) }, toRole, { ending: fromRole });
   }
 
   return {
@@ -156,8 +159,8 @@ export function createAdminPromotionsService(deps: Partial<AdminPromotionsServic
           });
         }
 
-        // BR-135: a Farmer Admin who is also a farmer (or a customer) never becomes a single-role
-        // admin. Checked against the roles the target keeps after from_role is ended.
+        // BR-135: the promoted account holds to_role alone. Checked against the roles the target
+        // keeps after from_role is ended (a Farmer Admin who is also a farmer or customer is refused).
         await assertTargetMayHold(tx, request.targetUserId, targetRoles, request.fromRole, request.toRole);
 
         await repo.endRoleAssignments(tx, request.targetUserId, request.fromRole);

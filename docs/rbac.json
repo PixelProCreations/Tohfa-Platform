@@ -16,7 +16,6 @@
       "level": 1,
       "colorHex": "#3F7D32",
       "scopeDimension": null,
-      "excludesEndUserRoles": true,
       "summary": "Full system. System configuration, role management, financial oversight, policy setting, override authority for all functions. Only role that can set the fair price ceiling, set allocation percentages, approve payouts above Rs 10,000, and create Super/TOHFA/Main Warehouse Admins. Business-level administrative access, not a DevOps role."
     },
     {
@@ -25,7 +24,6 @@
       "level": 2,
       "colorHex": "#3F7D32",
       "scopeDimension": null,
-      "excludesEndUserRoles": true,
       "summary": "Operational head across farmers, produce, sales, customers and finance. Cannot create Super Admins or Main Warehouse Admins, cannot set the fair price ceiling, cannot initiate inter-warehouse transfers, cannot approve payouts above Rs 10,000. NOTE: the approved TOHFA Design System assigns ONE universal primary (#3F7D32) to every role; the per-role brand colours reqs Ch.8.1 left open are therefore no longer an open question."
     },
     {
@@ -42,7 +40,6 @@
       "level": 3,
       "colorHex": "#3F7D32",
       "scopeDimension": null,
-      "excludesEndUserRoles": true,
       "summary": "Oversees all 4 warehouses (Ooty, Coonoor, Kotagiri, Gudalur). Initiates inter-warehouse transfers, approves stock adjustments, manages Sub Warehouse Admins, aggregate reporting. No farmer-application, pricing, payout or GST-invoice authority."
     },
     {
@@ -51,7 +48,6 @@
       "level": 4,
       "colorHex": "#3F7D32",
       "scopeDimension": "warehouse_id",
-      "excludesEndUserRoles": true,
       "summary": "Day-to-day operations of exactly one assigned warehouse: goods receipt, quality check, batch assignment, local stock ledger, stock verification, pickup OTP, cash top-up. Cannot access other warehouses, cannot assign orders to warehouses, cannot approve its own stock adjustments."
     },
     {
@@ -3520,6 +3516,10 @@
       },
       "source": "inferred \u2014 every document upload path in docs/openapi.yaml uses it"
     }
+  ],
+  "allowedRoleCombinationsNote": "BR-135 (owner rule 2026-11-03): a user holds exactly one role, except that the roles of ONE group below may be held together in any combination (any subset of the group). A live `farmers` row counts as holding FARMER. Every role not in a group (SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN) is held alone. Enforced by apps/api/src/rbac/roleExclusivity.ts and the trigger function app_br135_allowed_groups() (migration 0083), which must list the same groups.",
+  "allowedRoleCombinations": [
+    ["FARMER", "FARMER_ADMIN", "CUSTOMER"]
   ],
   "creationRules": [
     {

@@ -3,7 +3,9 @@
  * and a `farmers` row. The account is the application's `user_id` or, when that is null, the live
  * user holding the application's mobile (the users upsert in approveApplication). If that account
  * is a SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN or SUB_WH_ADMIN, approval is refused (409) before
- * anything is written. A Farmer Admin applicant is approved as usual (an elected farmer).
+ * anything is written: those roles are held alone. FARMER, FARMER_ADMIN and CUSTOMER form the one
+ * allowed group (docs/rbac.json `allowedRoleCombinations`), so a Farmer Admin or a customer applicant
+ * is approved as usual (owner rule 2026-11-03).
  *
  * Service against a fake repo with `withTransaction` intercepted; no database.
  */
@@ -133,5 +135,28 @@ describe('BR-135: farmer approval never makes a single-role admin a farmer', () 
     await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
       REACHED_ALLOCATION,
     );
+  });
+
+  it('BR-135: a customer applicant is approved as usual (FARMER + CUSTOMER is allowed)', async () => {
+    const { repo } = fakeRepo(anApplication(), ['CUSTOMER']);
+    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
+      REACHED_ALLOCATION,
+    );
+  });
+
+  it('BR-135: a Farmer Admin who is also a customer is approved as usual (the whole group may be held)', async () => {
+    const { repo } = fakeRepo(anApplication(), ['FARMER_ADMIN', 'CUSTOMER']);
+    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toThrow(
+      REACHED_ALLOCATION,
+    );
+  });
+
+  it('BR-135: refuses an applicant holding a single-role admin beside a group role (pre-rule TOHFA_ADMIN + FARMER_ADMIN account)', async () => {
+    const { repo } = fakeRepo(anApplication(), ['FARMER_ADMIN', 'TOHFA_ADMIN']);
+    await expect(createFarmerApplicationsService(repo).approveApplication(admin, APP_ID, {})).rejects.toMatchObject({
+      code: 'CONFLICT',
+      meta: { rule: 'BR-135' },
+    });
+    expect(capture.queries.filter((sql) => /INSERT|UPDATE/.test(sql))).toEqual([]);
   });
 });

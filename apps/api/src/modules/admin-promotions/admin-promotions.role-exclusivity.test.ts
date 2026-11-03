@@ -1,9 +1,13 @@
 /**
  * BR-135 on the promotion path (BR-114 approve, BR-117 create): promotion is the one live code path
- * that gives an EXISTING account a new admin role. A Farmer Admin is an elected farmer and may hold
- * FARMER (and a farmers row); promoting it into SUPER_ADMIN, TOHFA_ADMIN or MAIN_WH_ADMIN would
- * leave a single-role admin that is also a farmer. Both create and approve refuse that (409, nothing
- * written). Service against a fake repo; no database.
+ * that gives an EXISTING account a new admin role. Every promotion target role (SUPER_ADMIN,
+ * TOHFA_ADMIN, MAIN_WH_ADMIN) is held alone. The role set is judged AFTER `fromRole` ends: a Farmer
+ * Admin who is also a farmer (FARMER role or a live farmers row) or a customer keeps that role, so
+ * the promotion would leave a two-role single-role admin and is refused (409, nothing written). A
+ * Farmer Admin with no other role may be promoted. Service against a fake repo; no database.
+ *
+ * Changed 2026-11-03 (owner's final BR-135 wording): admin + admin is no longer unrestricted, so a
+ * target that would keep another admin role is refused too.
  */
 import { describe, expect, it } from 'vitest';
 import { RoleCode } from '@tohfa/shared-types';
@@ -121,7 +125,7 @@ async function caught(promise: Promise<unknown>): Promise<AppError> {
 
 const WRITES = /^(insert|add|end|approve|revokeSessions|revokeRefreshTokens)/;
 
-describe('BR-135: promotion never makes a single-role admin out of a farmer or customer', () => {
+describe('BR-135: a promotion never leaves a single-role admin holding a second role', () => {
   it('BR-135: approve refuses promoting a Farmer Admin who also holds FARMER into TOHFA_ADMIN (409, nothing written)', async () => {
     const { repo, events } = fakeRepo(aRequest(), { roles: ['FARMER', 'FARMER_ADMIN'], hasLiveFarmer: true });
     const error = await caught(serviceWith(repo).approve(superScope('admin.promotion.approve'), newId(), {}));
@@ -144,7 +148,7 @@ describe('BR-135: promotion never makes a single-role admin out of a farmer or c
     expect(error.code).toBe('CONFLICT');
   });
 
-  it('BR-135: approve still promotes a Farmer Admin who is not a farmer or customer (admin + admin not restricted)', async () => {
+  it('BR-135: approve still promotes a Farmer Admin who holds no other role (FARMER_ADMIN ends, TOHFA_ADMIN alone)', async () => {
     const { repo, events } = fakeRepo(aRequest(), { roles: ['FARMER_ADMIN'], hasLiveFarmer: false });
     const result = await serviceWith(repo).approve(superScope('admin.promotion.approve'), newId(), {});
     expect(result.status).toBe('APPROVED');
@@ -174,5 +178,45 @@ describe('BR-135: promotion never makes a single-role admin out of a farmer or c
       reason: 'Runs the zone well',
     });
     expect(events).toContain('insert:FARMER_ADMIN->TOHFA_ADMIN');
+  });
+
+  it('BR-135: approve refuses when the target would keep another admin role after fromRole ends (pre-rule TOHFA_ADMIN + FARMER_ADMIN account)', async () => {
+    const { repo, events } = fakeRepo(aRequest({ fromRole: 'TOHFA_ADMIN', toRole: 'SUPER_ADMIN' }), {
+      roles: ['TOHFA_ADMIN', 'FARMER_ADMIN'],
+      hasLiveFarmer: false,
+    });
+    const error = await caught(serviceWith(repo).approve(superScope('admin.promotion.approve'), newId(), {}));
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ rule: 'BR-135' });
+    expect(events.filter((e) => WRITES.test(e))).toEqual([]);
+  });
+
+  it('BR-135: create refuses when the target would keep another admin role after fromRole ends', async () => {
+    const { repo, events } = fakeRepo(null, { roles: ['MAIN_WH_ADMIN', 'SUB_WH_ADMIN'], hasLiveFarmer: false });
+    const error = await caught(
+      serviceWith(repo).create(superScope('admin.promotion.request'), {
+        targetUserId: newId(),
+        toRole: 'TOHFA_ADMIN',
+        reason: 'Runs the warehouses well',
+      }),
+    );
+    expect(error.code).toBe('CONFLICT');
+    expect(error.meta).toMatchObject({ rule: 'BR-135' });
+    expect(events.filter((e) => WRITES.test(e))).toEqual([]);
+  });
+
+  it('BR-135: approve refuses a Farmer Admin who is also a customer (CUSTOMER would remain beside TOHFA_ADMIN)', async () => {
+    const { repo, events } = fakeRepo(aRequest(), { roles: ['FARMER_ADMIN', 'CUSTOMER'], hasLiveFarmer: false });
+    const error = await caught(serviceWith(repo).approve(superScope('admin.promotion.approve'), newId(), {}));
+    expect(error.code).toBe('CONFLICT');
+    expect(events.filter((e) => WRITES.test(e))).toEqual([]);
+  });
+
+  it('BR-135: approve promotes a MAIN_WH_ADMIN holding no other role into TOHFA_ADMIN', async () => {
+    const { repo, events } = fakeRepo(aRequest({ fromRole: 'MAIN_WH_ADMIN' }), { roles: ['MAIN_WH_ADMIN'], hasLiveFarmer: false });
+    const result = await serviceWith(repo).approve(superScope('admin.promotion.approve'), newId(), {});
+    expect(result.status).toBe('APPROVED');
+    expect(events).toContain('end:MAIN_WH_ADMIN');
+    expect(events).toContain('add:TOHFA_ADMIN');
   });
 });
