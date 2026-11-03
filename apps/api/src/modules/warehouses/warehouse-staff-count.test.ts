@@ -87,9 +87,14 @@ describeIfDatabase('warehouse staffCount (PostgreSQL, rolled back) — BR-132', 
       // Counted: a Sub admin, a Main admin bound to the warehouse, and one user bound twice (counted once).
       await bind(tx, await admin(tx), 'SUB_WH_ADMIN', target.id);
       await bind(tx, await admin(tx), 'MAIN_WH_ADMIN', target.id);
+      // BR-135 (migration 0083) no longer lets a new account hold SUB_WH_ADMIN + MAIN_WH_ADMIN, but
+      // accounts created before it may, and they must still be counted once. The second binding is
+      // written with the BR-135 trigger off for this rolled-back transaction only.
       const twice = await admin(tx);
       await bind(tx, twice, 'SUB_WH_ADMIN', target.id);
+      await tx.query('ALTER TABLE user_roles DISABLE TRIGGER trg_user_roles_br135_guard');
       await bind(tx, twice, 'MAIN_WH_ADMIN', target.id);
+      await tx.query('ALTER TABLE user_roles ENABLE TRIGGER trg_user_roles_br135_guard');
       // A binding ending in the future is still live.
       await bind(tx, await admin(tx), 'SUB_WH_ADMIN', target.id, { from: '2020-01-01T00:00:00Z', to: '2999-01-01T00:00:00Z' });
       // Not counted.
