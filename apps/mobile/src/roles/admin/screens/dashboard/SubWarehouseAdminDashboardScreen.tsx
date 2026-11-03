@@ -122,6 +122,7 @@ import {
 } from '../warehouse/wallet-cashtopup/WalletParts';
 import { t } from '../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { OverviewDashboardCard } from '../../components';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
@@ -208,17 +209,6 @@ function LockBadgeIcon() {
   );
 }
 
-function ClipboardClockIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.8" />
-      <Circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.8" fill="#FFF" />
-      <Path d="M16 14v2l1.5 1.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function PersonCheckIcon({ color = PALETTE.primary }: { color?: string }) {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
@@ -236,37 +226,6 @@ function DeliveryTruckIcon({ color = PALETTE.primary }: { color?: string }) {
       <Path d="M15 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="5.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
       <Circle cx="18.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="2" />
-      <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill="#FFF" />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-      <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function WalletIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -992,6 +951,25 @@ function SubLowStockCount({ warehouseId, style }: { warehouseId: string; style: 
   const alerts = useLowStockAlerts(warehouseId);
   const count = alerts.isLoading || alerts.error ? null : alerts.items.length;
   return <Text style={style}>{countLabel(count)}</Text>;
+}
+
+/**
+ * The Today's Overview "Low Stock Items" card. Same live count as
+ * SubLowStockCount above (LOW_STOCK alerts, BR-77; the dash until it loads),
+ * handed to the shared card as its value instead of drawn as a bare Text.
+ */
+function SubLowStockOverviewCard({ warehouseId }: { warehouseId: string }) {
+  const alerts = useLowStockAlerts(warehouseId);
+  const count = alerts.isLoading || alerts.error ? null : alerts.items.length;
+  return (
+    <OverviewDashboardCard
+      value={countLabel(count)}
+      title="Low Stock Items"
+      subtitle="Needs attention"
+      icon="inventory"
+      tone="danger"
+    />
+  );
 }
 
 /**
@@ -2178,73 +2156,57 @@ export function SubWarehouseAdminDashboardScreen({
                 {canOrders ? (
                 <>
                 {/* 1. Pending Orders */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <ClipboardClockIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.ordersActionable)}</Text>
-                  <Text style={styles.overviewTitle}>Pending Orders</Text>
-                  <Text style={styles.overviewSub}>{taskCounts.ordersActionable} need action</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={taskCountText(taskCounts.ordersActionable)}
+                  title="Pending Orders"
+                  subtitle={`${taskCounts.ordersActionable} need action`}
+                  icon="orders"
+                />
 
                 {/* 2. Ready for Pickup */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <PersonCheckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.readyForPickup)}</Text>
-                  <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                  <Text style={styles.overviewSub}>{taskCounts.readyForPickup} customers expected</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={taskCountText(taskCounts.readyForPickup)}
+                  title="Ready for Pickup"
+                  subtitle={`${taskCounts.readyForPickup} customers expected`}
+                  icon="pickup"
+                />
                 </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <DeliveryTruckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.qcPending)}</Text>
-                  <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>{taskCounts.qcPending} awaiting QC</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={taskCountText(taskCounts.qcPending)}
+                  title="Today's Receiving"
+                  subtitle={`${taskCounts.qcPending} awaiting QC`}
+                  icon="receiving"
+                />
 
                 {/* 4. Low Stock Items */}
                 {canStock ? (
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <BoxIcon color={PALETTE.primary} />
-                  </View>
-                  {/* LOW_STOCK is an alert, not a task type: the count is the live alert list (BR-77). */}
-                  {scope.warehouseId !== undefined ? (
-                    <SubLowStockCount warehouseId={scope.warehouseId} style={[styles.overviewNumber, styles.overviewNumberDanger]} />
-                  ) : null}
-                  <Text style={styles.overviewTitle}>Low Stock Items</Text>
-                  <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                </View>
+                  scope.warehouseId !== undefined ? (
+                    <SubLowStockOverviewCard warehouseId={scope.warehouseId} />
+                  ) : (
+                    <OverviewDashboardCard value="" title="Low Stock Items" subtitle="Needs attention" icon="inventory" tone="danger" />
+                  )
                 ) : null}
 
                 {/* 5. Today's Sales */}
                 {canSales ? (
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <BanknotesIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{salesRevenueText}</Text>
-                  <Text style={styles.overviewTitle}>Today's Sales</Text>
-                  <Text style={styles.overviewSub}>{salesTxnCountText}</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={salesRevenueText}
+                  title="Today's Sales"
+                  subtitle={salesTxnCountText}
+                  icon="sales"
+                />
                 ) : null}
 
                 {/* 6. Cash Top-Ups */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <WalletIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{cashTopUpText}</Text>
-                  <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
-                  <Text style={styles.overviewSub}>Daily total</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={cashTopUpText}
+                  title="Cash Top-Ups"
+                  subtitle="Daily total"
+                  icon="cash"
+                />
               </View>
 
               {/* 3. Quick Actions */}

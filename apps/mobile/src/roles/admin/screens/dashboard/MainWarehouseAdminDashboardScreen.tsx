@@ -15,6 +15,7 @@ import {
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminSpacing, adminType } from '../../theme';
+import { OverviewDashboardCard } from '../../components';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
   HOME_CODES,
@@ -2340,67 +2341,65 @@ export function MainWarehouseAdminDashboardScreen({ onSignOut }: MainWarehouseAd
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
                 {/* Total Stock: opens the capacity summary */}
-                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('warehouse_capacity')} activeOpacity={0.75}>
-                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.totalStock')}</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
-                  </Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.inStock')}</Text>
-                </TouchableOpacity>
+                <OverviewDashboardCard
+                  onPress={() => navigateWh('warehouse_capacity')}
+                  value={figureOrPlaceholder(stockSrc.status, () => formatKg(stockFig.totalGrams))}
+                  title={t('mainDashboard.kpi.totalStock')}
+                  subtitle={t('mainDashboard.kpi.inStock')}
+                  icon="inventory"
+                />
 
                 {/* Incoming Goods: opens Receiving */}
-                <TouchableOpacity style={styles.kpiCard} onPress={() => openTab('Receiving')} activeOpacity={0.75}>
-                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.incoming')}</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.grossGrams))}
-                  </Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.receivedToday')}</Text>
-                </TouchableOpacity>
+                <OverviewDashboardCard
+                  onPress={() => openTab('Receiving')}
+                  value={figureOrPlaceholder(receiptsFigSrc.status, () => formatKg(receiptFig.grossGrams))}
+                  title={t('mainDashboard.kpi.incoming')}
+                  subtitle={t('mainDashboard.kpi.receivedToday')}
+                  icon="receiving"
+                />
 
                 {/* Pending Transfers: opens the transfer list */}
                 {access.transfers ? (
-                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('inter_warehouse_transfer')} activeOpacity={0.75}>
-                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.pendingTransfers')}</Text>
-                    <Text style={styles.kpiValue}>
-                      {figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
-                    </Text>
-                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.notYetReceived')}</Text>
-                  </TouchableOpacity>
+                  <OverviewDashboardCard
+                    onPress={() => navigateWh('inter_warehouse_transfer')}
+                    value={figureOrPlaceholder(transfersSrc.status, () => countLabel(transferFig.counts.open, transferFig.counts.exact))}
+                    title={t('mainDashboard.kpi.pendingTransfers')}
+                    subtitle={t('mainDashboard.kpi.notYetReceived')}
+                    icon="truck"
+                  />
                 ) : null}
 
                 {/* Today's Orders: opens the order list */}
-                <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('customer_orders')} activeOpacity={0.75}>
-                  <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.orders')}</Text>
-                  <Text style={styles.kpiValue}>
-                    {figureOrPlaceholder(perfTodayFigSrc.status, () => String(perfToday.ordersPlaced))}
-                  </Text>
-                  <Text style={styles.kpiSub}>{t('mainDashboard.kpi.ordersSub')}</Text>
-                </TouchableOpacity>
+                <OverviewDashboardCard
+                  onPress={() => navigateWh('customer_orders')}
+                  value={figureOrPlaceholder(perfTodayFigSrc.status, () => String(perfToday.ordersPlaced))}
+                  title={t('mainDashboard.kpi.orders')}
+                  subtitle={t('mainDashboard.kpi.ordersSub')}
+                  icon="orders"
+                />
 
                 {/* Sales: today's paid revenue and how many sales stand behind it */}
                 {access.sales ? (
-                  <TouchableOpacity
-                    style={styles.kpiCard}
+                  <OverviewDashboardCard
                     onPress={() => navigateWh('sales')}
-                    activeOpacity={0.75}
-                  >
-                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.sales')}</Text>
-                    <Text style={styles.kpiValue}>{figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}</Text>
-                    <Text style={styles.kpiSub}>
-                      {t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status, () => String(salesCount)) })}
-                    </Text>
-                  </TouchableOpacity>
+                    value={figureOrPlaceholder(revenueSrc.status, () => salesRevenueLabel)}
+                    title={t('mainDashboard.kpi.sales')}
+                    subtitle={t('mainDashboard.kpi.salesSub', { count: figureOrPlaceholder(revenueSrc.status, () => String(salesCount)) })}
+                    icon="sales"
+                  />
                 ) : null}
 
-                {/* Open Issues: the real operational issues (BR-103), not the alert count */}
+                {/* Open Issues: the real operational issues (BR-103), not the alert count.
+                    Danger tone only once the figure has loaded, never on the placeholder. */}
                 {access.issues ? (
-                  <TouchableOpacity style={styles.kpiCard} onPress={() => navigateWh('operational_issues')} activeOpacity={0.75}>
-                    <Text style={styles.kpiLabel}>{t('mainDashboard.kpi.openIssues')}</Text>
-                    <Text style={styles.kpiValue}>
-                      {figureOrPlaceholder(issuesFigSrc.status, () => String(issueFig.total))}
-                    </Text>
-                    <Text style={styles.kpiSub}>{t('mainDashboard.kpi.openIssuesSub')}</Text>
-                  </TouchableOpacity>
+                  <OverviewDashboardCard
+                    onPress={() => navigateWh('operational_issues')}
+                    value={figureOrPlaceholder(issuesFigSrc.status, () => String(issueFig.total))}
+                    title={t('mainDashboard.kpi.openIssues')}
+                    subtitle={t('mainDashboard.kpi.openIssuesSub')}
+                    icon="alert"
+                    tone={issuesFigSrc.status === 'ready' && issueFig.total > 0 ? 'danger' : 'default'}
+                  />
                 ) : null}
               </View>
               {homeKpiSources.some((s) => s.status === 'error') ? (
