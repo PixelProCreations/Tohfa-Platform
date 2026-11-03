@@ -99,6 +99,13 @@ describe('requireAuth: closes the password-change access-token gap', () => {
       expect(rejected.body.code).toBe('UNAUTHENTICATED');
       expect(rejected.body.detail).toMatch(/revoked/i);
 
+      // tokenInvalidation.ts deliberately rejects a token whose `iat` is in
+      // the SAME second as the stamp (`<=`, so a refresh that raced a password
+      // change is also revoked). A token minted right now would share the
+      // stamp's second and get 401, so wait past the boundary again -- the
+      // same way a real user logs in again some time after changing password.
+      await new Promise((resolve) => setTimeout(resolve, 1_100));
+
       // A brand-new token, minted AFTER the password change, must still work
       // -- the fix must not lock the user out of their own new session.
       const accepted = await request(app).get('/protected').set('Authorization', `Bearer ${freshToken(userId)}`);
@@ -106,7 +113,7 @@ describe('requireAuth: closes the password-change access-token gap', () => {
     } finally {
       await redis.del(`auth:tokens-invalid-before:${userId}`);
     }
-  }, 10_000);
+  }, 15_000);
 });
 
 describe('optionalAuth: direct-call usage survives the asyncHandler wrap', () => {

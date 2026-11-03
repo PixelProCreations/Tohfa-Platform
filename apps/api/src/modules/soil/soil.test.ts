@@ -8,7 +8,8 @@
  *
  *  2. ONE integration test against a real pool, proving the six tables (five
  *     from 0021 plus cover_crop_windows from 0022) and the seeded
- *     system_config classification bands actually round-trip through
+ *     system_config classification bands (written by the test itself: no
+ *     seed defines them, see BR-40) actually round-trip through
  *     Postgres. Wrapped in a transaction that rolls back, so it leaves no
  *     residue.
  */
@@ -36,6 +37,7 @@ import type {
   SoilRepo,
   SoilTestRecord,
 } from './soil.repo.js';
+import { SOIL_CLASSIFICATION_CONFIG_KEYS } from './soil.repo.js';
 import {
   createCoverCropWindowBody,
   createErosionNoteBody,
@@ -930,10 +932,23 @@ describeIfDatabase('soilService (integration against PostgreSQL)', () => {
       const scope = farmerScope({ farmerId, userId });
       const svc = createSoilService({ db: client, runTx: async (fn) => fn(client) });
 
-      const configRow = await client.query<{ value: unknown }>(
-        `SELECT value FROM system_config WHERE key = 'soil.classification.ph'`,
-      );
-      expect(configRow.rows[0], 'db/seed/001_reference.sql must be applied').toBeDefined();
+      // test fixture only: the real band values are an owner/agronomy decision
+      // (BR-40) and are deliberately not seeded; do not copy these into a seed.
+      // The rows live inside this test's rolled-back transaction, so they never
+      // outlive it. Shape = ClassificationBands (soil.repo.ts). Only `ph` keeps
+      // the label 'Acidic' because the assertions below check that exact string.
+      for (const [metric, key] of Object.entries(SOIL_CLASSIFICATION_CONFIG_KEYS)) {
+        const band =
+          metric === 'ph'
+            ? { low: 6.0, high: 7.5, belowLabel: 'Acidic', insideLabel: 'TEST-INSIDE', aboveLabel: 'TEST-ABOVE' }
+            : { low: 1, high: 2, belowLabel: 'TEST-BELOW', insideLabel: 'TEST-INSIDE', aboveLabel: 'TEST-ABOVE' };
+        await client.query(
+          `INSERT INTO system_config (key, value, data_type, description)
+           VALUES ($1, $2::jsonb, 'json', 'test fixture only (BR-40), rolled back')
+           ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`,
+          [key, JSON.stringify(band)],
+        );
+      }
 
       const record = await svc.createSoilTest(
         scope,
@@ -943,7 +958,7 @@ describeIfDatabase('soilService (integration against PostgreSQL)', () => {
           testDate: '2026-04-01',
           nextDueDate: '2026-10-01',
           organicCarbonPct: 0.6,
-          ph: 5.0, // below the seeded 6.0 floor
+          ph: 5.0, // below the fixture's 6.0 floor
           ecDsPerM: 0.5,
         }),
       );
