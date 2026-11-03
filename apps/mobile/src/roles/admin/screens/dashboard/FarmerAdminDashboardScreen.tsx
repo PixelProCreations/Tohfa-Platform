@@ -3856,6 +3856,7 @@ export function FarmerAdminDashboardScreen({
           <AdminMoreMenuScreen
             role="FARMER_ADMIN"
             onBack={() => goBack('Home')}
+            onLogout={onSignOut}
             onNavigateInputsPest={() => pushNavigation({ subView: 'inputs_pest' })}
             onNavigateMarketPricing={() => pushNavigation({ subView: 'market_pricing' })}
             onNavigateProduceListings={() => pushNavigation({ subView: 'produce_listings' })}
@@ -3881,8 +3882,12 @@ export function FarmerAdminDashboardScreen({
                 pushNavigation({ subView: 'farmer_ratings' });
               } else if (title === 'Disputes') {
                 pushNavigation({ subView: 'disputes' });
-              } else if (title === 'Settings and Profile' || title === 'Profile') {
+              } else if (title === 'Settings and Profile' || title === 'Settings & Profile' || title === 'Profile') {
                 pushNavigation({ subView: 'settings' });
+              } else if (title === 'Notification & Task') {
+                pushNavigation({ subView: 'notifications' });
+              } else if (title === 'Logout') {
+                onSignOut();
               } else {
                 setModalItem({
                   title,

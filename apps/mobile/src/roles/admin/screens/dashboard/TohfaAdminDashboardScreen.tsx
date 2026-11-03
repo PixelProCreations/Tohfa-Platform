@@ -12514,6 +12514,7 @@ export function TohfaAdminDashboardScreen({
           ) : (
             <AdminMoreMenuScreen
               onBack={() => setActiveTab('Home')}
+              onLogout={onSignOut}
               onSelectOption={(optionId) => {
                 if (optionId === 'farmers') {
                   setFarmersReturnTab('More');
@@ -12547,6 +12548,8 @@ export function TohfaAdminDashboardScreen({
                   setCommunitySubScreen('home');
                 } else if (optionId === 'settings') {
                   setActiveTab('Settings');
+                } else if (optionId === 'logout') {
+                  onSignOut();
                 }
               }}
             />

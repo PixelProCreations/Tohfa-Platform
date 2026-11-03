@@ -33,6 +33,13 @@ import { WarehouseSelector } from '../inventory';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
+import {
+  AdminAllFarmersScreen,
+  AdminFarmerDetailScreen,
+  AdminFarmMapScreen,
+  AdminRatingScorecardScreen,
+  type FarmerListItem,
+} from '../../farmers';
 
 // Menu items whose visibility depends on a docs/rbac.json permission. Items not
 // listed here are shown to every warehouse admin. The server re-checks each of
@@ -43,112 +50,100 @@ const ITEM_PERMISSION: Readonly<Record<string, string>> = {
   warehouse_management: 'warehouse.all.view',
 };
 
-const OPTION_GROUPS: OptionGroup[] = [
+export const MORE_ITEMS: MoreOptionItem[] = [
   {
-    id: 'operations',
-    title: 'OPERATIONS',
-    items: [
-      {
-        id: 'orders',
-        title: 'Customer Orders',
-        subtitle: 'Manage customer orders and fulfillment',
-        iconType: 'orders',
-      },
-      {
-        id: 'sales',
-        title: 'Direct / Market Sales',
-        subtitle: 'Manage direct and market sales',
-        iconType: 'sales',
-      },
-      {
-        id: 'customers',
-        title: 'Customers',
-        subtitle: 'View customers and purchase activity',
-        iconType: 'customers',
-      },
-    ],
+    id: 'orders',
+    title: 'Customer Orders',
+    subtitle: 'Manage customer orders and fulfillment',
+    iconType: 'orders',
   },
   {
-    id: 'finance_transactions',
-    title: 'FINANCE & TRANSACTIONS',
-    items: [
-      {
-        id: 'wallet',
-        title: 'Wallet & Cash Top-Up',
-        subtitle: 'Manage customer wallet cash top-ups',
-        iconType: 'wallet',
-      },
-      {
-        id: 'billing',
-        title: 'Billing & Invoices',
-        subtitle: 'View and manage invoices',
-        iconType: 'billing',
-      },
-      {
-        id: 'returns',
-        title: 'Returns & Issues',
-        subtitle: 'Manage returns and warehouse issues',
-        iconType: 'returns',
-      },
-      {
-        id: 'finance',
-        title: 'Warehouse Finance',
-        subtitle: 'View warehouse financial activity',
-        iconType: 'finance',
-      },
-      {
-        id: 'reports',
-        title: 'Reports',
-        subtitle: 'View warehouse reports and analytics',
-        iconType: 'reports',
-      },
-      {
-        id: 'notifications',
-        title: 'Notifications & Tasks',
-        subtitle: 'View alerts, notifications and assigned tasks',
-        iconType: 'notifications',
-      },
-      {
-        id: 'staff',
-        title: 'Warehouse Staff',
-        subtitle: 'View warehouse staff and attendance',
-        iconType: 'staff',
-      },
-      {
-        id: 'warehouse_management',
-        title: 'Warehouse Management',
-        subtitle: 'Manage warehouses and administrators',
-        iconType: 'warehouse_management',
-      },
-      {
-        id: 'warehouse_operations',
-        title: 'Warehouse Operations',
-        subtitle: 'Manage storage, crates, zones and operations',
-        iconType: 'warehouse_operations',
-      },
-      {
-        id: 'profile',
-        title: 'Warehouse Profile',
-        subtitle: 'View assigned warehouse information',
-        iconType: 'profile',
-      },
-    ],
+    id: 'sales',
+    title: 'Direct / Market Sales',
+    subtitle: 'Manage direct and market sales',
+    iconType: 'sales',
   },
   {
-    id: 'account_settings',
-    title: 'ACCOUNT & SETTINGS',
-    items: [
-      {
-        id: 'settings',
-        title: 'Settings',
-        subtitle: 'Manage account and application settings',
-        iconType: 'settings',
-      },
-    ],
+    id: 'customers',
+    title: 'Customers',
+    subtitle: 'View customers and purchase activity',
+    iconType: 'customers',
+  },
+  {
+    id: 'farm_management',
+    title: 'Farm Management',
+    subtitle: 'View and manage registered farmers and farm details',
+    iconType: 'farm_management',
+  },
+  {
+    id: 'wallet',
+    title: 'Wallet & Cash Top-Up',
+    subtitle: 'Manage customer wallet cash top-ups',
+    iconType: 'wallet',
+  },
+  {
+    id: 'returns',
+    title: 'Returns & Issues',
+    subtitle: 'Manage returns and warehouse issues',
+    iconType: 'returns',
+  },
+  {
+    id: 'finance',
+    title: 'Warehouse Finance',
+    subtitle: 'View warehouse financial activity',
+    iconType: 'finance',
+  },
+  {
+    id: 'reports',
+    title: 'Reports',
+    subtitle: 'View warehouse reports and analytics',
+    iconType: 'reports',
+  },
+  {
+    id: 'staff',
+    title: 'Warehouse Staff',
+    subtitle: 'View warehouse staff and attendance',
+    iconType: 'staff',
+  },
+  {
+    id: 'warehouse_operations',
+    title: 'Warehouse Operations',
+    subtitle: 'Manage storage, crates, zones and operations',
+    iconType: 'warehouse_operations',
+  },
+  {
+    id: 'warehouse_management',
+    title: 'Warehouse Management',
+    subtitle: 'Manage warehouses and administrators',
+    iconType: 'warehouse_management',
+  },
+  {
+    id: 'notifications',
+    title: 'Notification & Task',
+    subtitle: 'View alerts, notifications and assigned tasks',
+    iconType: 'notifications',
+  },
+  {
+    id: 'settings',
+    title: 'Settings & Profile',
+    subtitle: 'Manage account, warehouse profile and settings',
+    iconType: 'settings',
+  },
+  {
+    id: 'logout',
+    title: 'Logout',
+    subtitle: 'Sign out of this account',
+    iconType: 'logout',
   },
 ];
 
-// â”€â”€â”€ SVG Icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+export const OPTION_GROUPS: OptionGroup[] = [
+  {
+    id: 'all_options',
+    title: 'MENU',
+    items: MORE_ITEMS,
+  },
+];
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -160,6 +155,31 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function FarmManagementIcon({ color = adminColors.muted, size = 20 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path
+        d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="8" cy="16" r="1" fill={color} />
+      <Circle cx="12" cy="16" r="1" fill={color} />
+      <Circle cx="16" cy="16" r="1" fill={color} />
     </Svg>
   );
 }
@@ -531,6 +551,7 @@ export interface MoreScreenProps extends WarehouseScreenBaseProps {
   // the shared storage-ops hub (StorageFlow), so they need no host callbacks.
   onNavigateToReceiveGoods?: (() => void) | undefined;
   onNavigateToStockVerification?: (() => void) | undefined;
+  onNavigateToFarmManagement?: (() => void) | undefined;
   onLogout?: (() => void) | undefined;
 }
 
@@ -562,6 +583,7 @@ export function MoreScreen({
   onNavigateToStorageLocations,
   onNavigateToReceiveGoods,
   onNavigateToStockVerification,
+  onNavigateToFarmManagement,
   onLogout,
 }: MoreScreenProps) {
   const isMain = scope.warehouseId === undefined;
@@ -570,18 +592,15 @@ export function MoreScreen({
   const warehouseLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? '';
   const roleTitle = isMain ? 'Main Warehouse Admin' : 'Sub Warehouse Admin';
 
-  // Hide gated rows and any group left empty. Display only: the server enforces.
-  // Warehouse Management tab and its screens are only for main warehouse, not for subwarehouse.
-  const visibleGroups: OptionGroup[] = OPTION_GROUPS.map((group) => ({
-    ...group,
-    items: group.items.filter((item) => {
-      if (item.id === 'warehouse_management' && !isMain) {
-        return false;
-      }
-      const code = ITEM_PERMISSION[item.id];
-      return code === undefined || can(code);
-    }),
-  })).filter((group) => group.items.length > 0);
+  // Filter visible items by RBAC and warehouse role.
+  // Warehouse Management is only for main warehouse (warehouse.all.view).
+  const visibleItems = MORE_ITEMS.filter((item) => {
+    if (item.id === 'warehouse_management' && !isMain) {
+      return false;
+    }
+    const code = ITEM_PERMISSION[item.id];
+    return code === undefined || can(code);
+  });
 
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showWarehouseProfileScreen, setShowWarehouseProfileScreen] = useState(false);
@@ -593,6 +612,10 @@ export function MoreScreen({
   const [showCustomersScreen, setShowCustomersScreen] = useState(false);
   const [showStaffScreen, setShowStaffScreen] = useState(false);
   const [showWarehouseManagementScreen, setShowWarehouseManagementScreen] = useState(false);
+  const [showFarmManagementScreen, setShowFarmManagementScreen] = useState(false);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'map' | 'scorecard' | null>(null);
+  const [farmersMainTab, setFarmersMainTab] = useState<'farmers' | 'applications'>('farmers');
 
   const handleBackToDashboard = () => {
     if (onNavigateToDashboard) {
@@ -632,6 +655,16 @@ export function MoreScreen({
           onNavigateToCustomers();
         } else {
           setShowCustomersScreen(true);
+        }
+        break;
+      case 'farm_management':
+        if (onNavigateToFarmManagement) {
+          onNavigateToFarmManagement();
+        } else {
+          setSelectedFarmer(null);
+          setFarmerSubScreen(null);
+          setFarmersMainTab('farmers');
+          setShowFarmManagementScreen(true);
         }
         break;
       case 'wallet':
@@ -696,6 +729,9 @@ export function MoreScreen({
           setShowSettingsScreen(true);
         }
         break;
+      case 'logout':
+        handleLogoutPress();
+        break;
       case 'help':
         if (onNavigateToHelpSupport) {
           onNavigateToHelpSupport();
@@ -741,6 +777,8 @@ export function MoreScreen({
         return <MarketSalesIcon color={adminColors.muted} size={20} />;
       case 'customers':
         return <CustomersIcon color={adminColors.muted} size={20} />;
+      case 'farm_management':
+        return <FarmManagementIcon color={adminColors.muted} size={20} />;
       case 'wallet':
         return <WalletIcon color={adminColors.muted} size={20} />;
       case 'billing':
@@ -767,6 +805,8 @@ export function MoreScreen({
         return <WarehouseOperationsIcon color={adminColors.muted} />;
       case 'warehouse_management':
         return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
+      case 'logout':
+        return <LogoutIcon color={adminColors.danger.text} size={20} />;
       default:
         return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
     }
@@ -902,6 +942,44 @@ export function MoreScreen({
     );
   }
 
+  if (showFarmManagementScreen) {
+    if (farmerSubScreen === 'map' && selectedFarmer) {
+      return (
+        <AdminFarmMapScreen
+          farmer={selectedFarmer}
+          onBack={() => setFarmerSubScreen(null)}
+        />
+      );
+    }
+    if (farmerSubScreen === 'scorecard' && selectedFarmer) {
+      return (
+        <AdminRatingScorecardScreen
+          farmer={selectedFarmer}
+          onBack={() => setFarmerSubScreen(null)}
+          onOpenComplianceTiers={() => {}}
+        />
+      );
+    }
+    if (selectedFarmer) {
+      return (
+        <AdminFarmerDetailScreen
+          farmer={selectedFarmer}
+          onBack={() => setSelectedFarmer(null)}
+          onOpenFarmMap={() => setFarmerSubScreen('map')}
+          onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+        />
+      );
+    }
+    return (
+      <AdminAllFarmersScreen
+        showBottomNav={false}
+        initialTab={farmersMainTab}
+        onBack={() => setShowFarmManagementScreen(false)}
+        onSelectFarmer={(farmer) => setSelectedFarmer(farmer)}
+      />
+    );
+  }
+
   if (showWarehouseManagementScreen && isMain) {
     return (
       <MainWarehouseAdminScreen
@@ -948,103 +1026,49 @@ export function MoreScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Profile Card */}
-        {(() => {
-          const profileContent = (
-            <>
-              <View style={styles.profileTopRow}>
-                <View style={styles.profileIconWrap}>
-                  <WarehouseOutlineIcon color={adminColors.muted} size={22} />
-                </View>
-                <View style={styles.profileInfoCol}>
-                  {isMain ? (
-                    <>
-                      <Text style={styles.profileRoleTitle}>Rajesh Kumar</Text>
-                      <Text style={styles.profileSubRoleText}>Main Warehouse Admin</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={styles.profileRoleTitle}>Suresh</Text>
-                      <Text style={styles.profileSubRoleText}>Sub Warehouse Admin</Text>
-                    </>
-                  )}
-                </View>
-              </View>
+        {/* ─── Single Column Menu Card (No Separate Headings, Top Admin Name Removed) ─── */}
+        <View style={styles.singleCard}>
+          {visibleItems.map((item, index) => {
+            const isLast = index === visibleItems.length - 1;
+            const isLogout = item.id === 'logout';
+            return (
+              <React.Fragment key={item.id}>
+                <TouchableOpacity
+                  style={styles.itemRow}
+                  onPress={() => handleOptionPress(item)}
+                  activeOpacity={0.7}
+                >
+                  {/* Icon Box */}
+                  <View style={[styles.iconWrap, isLogout && styles.logoutIconWrap]}>
+                    {renderOptionIcon(item.iconType)}
+                  </View>
 
-              <View style={styles.profileDivider} />
+                  {/* Title & Subtitle */}
+                  <View style={styles.itemInfo}>
+                    <Text
+                      style={[
+                        styles.itemTitle,
+                        isLogout && { color: adminColors.danger.text },
+                      ]}
+                    >
+                      {item.title}
+                    </Text>
+                    <Text style={styles.itemSubtitle} numberOfLines={1}>
+                      {item.subtitle}
+                    </Text>
+                  </View>
 
-              <View style={styles.profileBottomRow}>
-                <Text style={styles.warehouseCodeText}>
-                  {isMain ? 'All Warehouses' : scope.warehouseId}
-                </Text>
-                <View style={styles.activeStatusRow}>
-                  <View style={styles.activeDot} />
-                  <Text style={styles.activeStatusText}>Active</Text>
-                </View>
-              </View>
-            </>
-          );
-          return <View style={styles.profileCard}>{profileContent}</View>;
-        })()}
+                  {/* Right Chevron */}
+                  <View style={styles.chevronWrap}>
+                    <ChevronRightIcon size={16} color={adminColors.muted} />
+                  </View>
+                </TouchableOpacity>
 
-        {/* â”€â”€â”€ Grouped Section Cards â”€â”€â”€ */}
-        {visibleGroups.map((group) => {
-          return (
-            <View key={group.id} style={styles.groupContainer}>
-              <Text style={styles.groupTitle}>{group.title}</Text>
-
-              <View style={styles.groupCard}>
-                {group.items.map((item, index) => {
-                  const isLast = index === group.items.length - 1;
-                  return (
-                    <React.Fragment key={item.id}>
-                      <TouchableOpacity
-                        style={styles.itemRow}
-                        onPress={() => handleOptionPress(item)}
-                        activeOpacity={0.7}
-                      >
-                        {/* Soft Peach Icon Box */}
-                        <View style={styles.iconWrap}>
-                          {renderOptionIcon(item.iconType)}
-                        </View>
-
-                        {/* Title & Subtitle */}
-                        <View style={styles.itemInfo}>
-                          <Text style={styles.itemTitle}>{item.title}</Text>
-                          <Text style={styles.itemSubtitle} numberOfLines={1}>
-                            {item.subtitle}
-                          </Text>
-                        </View>
-
-                        {/* Right Chevron */}
-                        <View style={styles.chevronWrap}>
-                          <ChevronRightIcon size={16} color={adminColors.muted} />
-                        </View>
-                      </TouchableOpacity>
-
-                      {!isLast && <View style={styles.rowDivider} />}
-                    </React.Fragment>
-                  );
-                })}
-              </View>
-            </View>
-          );
-        })}
-
-        {/* â”€â”€â”€ Logout Standalone Card â”€â”€â”€ */}
-        <TouchableOpacity
-          style={styles.logoutCard}
-          onPress={handleLogoutPress}
-          activeOpacity={0.75}
-        >
-          <View style={styles.logoutIconWrap}>
-            <LogoutIcon color={adminColors.danger.text} size={20} />
-          </View>
-          <View style={styles.itemInfo}>
-            <Text style={styles.logoutTitle}>Logout</Text>
-            <Text style={styles.itemSubtitle}>Sign out of this account</Text>
-          </View>
-        </TouchableOpacity>
+                {!isLast && <View style={styles.rowDivider} />}
+              </React.Fragment>
+            );
+          })}
+        </View>
 
         <View style={{ height: adminSpacing.xl }} />
       </ScrollView>
@@ -1177,6 +1201,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: adminSpacing.sm,
     marginLeft: 2,
+  },
+  singleCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    overflow: 'hidden',
   },
   groupCard: {
     backgroundColor: adminColors.card,

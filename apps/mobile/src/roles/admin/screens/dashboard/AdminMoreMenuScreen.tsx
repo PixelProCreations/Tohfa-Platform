@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -32,6 +33,7 @@ export interface AdminMoreMenuScreenProps {
   onNavigateNotifications?: (() => void) | undefined;
   onSwitchRole?: (() => void) | undefined;
   onItemSelect?: ((itemTitle: string) => void) | undefined;
+  onLogout?: (() => void) | undefined;
 }
 
 // ─── Menu Icons Matching Exact Design Mockup in Brand Orange ───────────────
@@ -181,41 +183,10 @@ function SettingsProfileIcon({ size = 20, color = adminColors.brand }: { size?: 
   );
 }
 
-function ReceiptIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+function LogoutIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="8" y1="7" x2="16" y2="7" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="8" y1="11" x2="16" y2="11" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="8" y1="15" x2="13" y2="15" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function StarIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2.5l2.9 6.2 6.8.9-5 4.8 1.3 6.8-6-3.3-6 3.3 1.3-6.8-5-4.8 6.8-.9L12 2.5z"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function GavelIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 13l5 5M6 6l4-4 5 5-4 4-5-5zM2 22l6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -254,9 +225,28 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
     onNavigateNotifications,
     onSwitchRole,
     onItemSelect,
+    onLogout,
   } = props;
 
   const isFarmerAdmin = role === 'FARMER_ADMIN';
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => {
+            if (onLogout) onLogout();
+            else onItemSelect?.('Logout');
+          },
+        },
+      ]
+    );
+  };
 
   const menuItems: MenuItemConfig[] = isFarmerAdmin
     ? [
@@ -272,10 +262,28 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
         {
           id: 'disputes',
           label: 'Disputes',
-          icon: <GavelIcon />,
+          icon: <GavelIcon size={20} color={adminColors.brand} />,
           onPressAction: () => {
             if (onNavigateDisputes) onNavigateDisputes();
             else onItemSelect?.('Disputes');
+          },
+        },
+        {
+          id: 'switch_role',
+          label: 'Switch Role',
+          icon: <SwitchArrowsIcon />,
+          onPressAction: () => {
+            if (onSwitchRole) onSwitchRole();
+            else onItemSelect?.('Switch Role');
+          },
+        },
+        {
+          id: 'notifications',
+          label: 'Notification & Task',
+          icon: <NotificationsReportsIcon />,
+          onPressAction: () => {
+            if (onNavigateNotifications) onNavigateNotifications();
+            else onItemSelect?.('Notification & Task');
           },
         },
         {
@@ -289,22 +297,10 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
           },
         },
         {
-          id: 'notifications',
-          label: 'Notifications',
-          icon: <NotificationsReportsIcon />,
-          onPressAction: () => {
-            if (onNavigateNotifications) onNavigateNotifications();
-            else onItemSelect?.('Notifications');
-          },
-        },
-        {
-          id: 'switch_role',
-          label: 'Switch Role',
-          icon: <SwitchArrowsIcon />,
-          onPressAction: () => {
-            if (onSwitchRole) onSwitchRole();
-            else onItemSelect?.('Switch Role');
-          },
+          id: 'logout',
+          label: 'Logout',
+          icon: <LogoutIcon />,
+          onPressAction: handleLogout,
         },
       ]
     : [
@@ -315,9 +311,15 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
         { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
         { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
         { id: 'workforce', label: 'Workforce & Staff', icon: <WorkforceStaffIcon /> },
-        { id: 'notifications', label: 'Notifications & Reports', icon: <NotificationsReportsIcon /> },
         { id: 'community', label: 'Community & Knowledge Management', icon: <CommunityIcon /> },
+        { id: 'notifications', label: 'Notification & Task', icon: <NotificationsReportsIcon /> },
         { id: 'settings', label: 'Settings & Profile', icon: <SettingsProfileIcon /> },
+        {
+          id: 'logout',
+          label: 'Logout',
+          icon: <LogoutIcon />,
+          onPressAction: handleLogout,
+        },
       ];
 
   const handleItemPress = (item: MenuItemConfig) => {
@@ -356,7 +358,14 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
             >
               <View style={styles.menuItemLeft}>
                 <View style={styles.menuIconBox}>{item.icon}</View>
-                <Text style={styles.menuItemLabel}>{item.label}</Text>
+                <Text
+                  style={[
+                    styles.menuItemLabel,
+                    item.id === 'logout' && { color: adminColors.danger.text },
+                  ]}
+                >
+                  {item.label}
+                </Text>
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
@@ -366,6 +375,14 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function GavelIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M14 13l5 5M6 6l4-4 5 5-4 4-5-5zM2 22l6-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
   );
 }
 

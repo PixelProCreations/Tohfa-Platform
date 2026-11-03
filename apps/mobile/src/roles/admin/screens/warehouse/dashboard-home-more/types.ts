@@ -9,6 +9,7 @@ export interface MoreOptionItem {
     | 'orders'
     | 'sales'
     | 'customers'
+    | 'farm_management'
     | 'wallet'
     | 'billing'
     | 'returns'
@@ -21,7 +22,8 @@ export interface MoreOptionItem {
     | 'settings'
     | 'warehouse_operations'
     | 'warehouse_management'
-    | 'help';
+    | 'help'
+    | 'logout';
 }
 
 /** A titled card of More menu rows. */
