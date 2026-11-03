@@ -120,9 +120,10 @@ export function KpiGrid({ children }: { children: React.ReactNode }) {
   return <View style={styles.kpiGrid}>{children}</View>;
 }
 
-export function KpiTile({ label, value }: { label: string; value: string }) {
+/** `full`: the odd last tile of a grid spans the row, as in the approved Reports design. */
+export function KpiTile({ label, value, full = false }: { label: string; value: string; full?: boolean }) {
   return (
-    <View style={styles.kpiCard}>
+    <View style={[styles.kpiCard, full && styles.kpiCardFull]}>
       <Text style={styles.kpiLabel}>{label}</Text>
       <Text style={styles.kpiValue}>{value}</Text>
     </View>
@@ -263,19 +264,32 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.sm,
   },
   cardStack: { gap: adminSpacing.sm },
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.md },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: adminSpacing.smMd,
+    marginBottom: adminSpacing.lg,
+  },
   kpiCard: {
-    flexGrow: 1,
-    flexBasis: '45%',
+    width: '48.3%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
+    borderRadius: adminRadius.xl,
+    paddingVertical: adminSpacing.mdLg,
+    paddingHorizontal: adminSpacing.mdLg,
     borderWidth: 1,
     borderColor: adminColors.border,
     ...adminShadow.sm,
   },
-  kpiLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  kpiValue: { ...adminType.kpiValue, color: adminColors.ink },
+  kpiCardFull: { width: '100%' },
+  kpiLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+    marginBottom: adminSpacing.xsSm,
+  },
+  kpiValue: { ...adminType.kpiValue, color: adminColors.ink, letterSpacing: -0.3 },
   dataRowCard: {
     backgroundColor: adminColors.card,
     padding: adminSpacing.md,

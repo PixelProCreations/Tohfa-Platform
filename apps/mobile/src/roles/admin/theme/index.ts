@@ -159,6 +159,8 @@ export const adminRadius = {
 /**
  * Spacing is the platform scale (4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80).
  * The admin PDF publishes radii but no spacing values of its own.
+ * It also carries three half steps, xsSm 6, smMd 10 and mdLg 14, for the
+ * approved admin Reports layout only (tokens.json $spacingHalfStepNote).
  */
 export const adminSpacing = tokens.spacing;
 
