@@ -13,7 +13,6 @@
  */
 import React from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,7 +21,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { adminErrorKey } from '../../../api/errors';

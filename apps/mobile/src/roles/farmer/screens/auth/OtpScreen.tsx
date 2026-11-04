@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   TextInput,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import type { TextInputInstance } from 'react-native';
 import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';

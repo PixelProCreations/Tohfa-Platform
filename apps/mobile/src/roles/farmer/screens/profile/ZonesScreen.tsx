@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Pressable,
-  SafeAreaView,
   ScrollView,
   Modal,
   TextInput,
@@ -25,6 +24,7 @@ import {
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapOverlay,
   ScreenStatusBar,
+  SafeAreaView,
 } from '@tohfa/mobile-ui';
 import {
   useTheme,

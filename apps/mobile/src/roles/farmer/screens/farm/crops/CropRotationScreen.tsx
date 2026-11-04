@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
-import { Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getPlots } from '../../../api/farms';

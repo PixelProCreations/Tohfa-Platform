@@ -19,8 +19,8 @@
  *     has no file save / share mechanism (see constants.ts).
  */
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import type { ReportChannel } from '../../../api/reports';
 import { OverviewDashboardCard, type OverviewCardIcon } from '../../../components';

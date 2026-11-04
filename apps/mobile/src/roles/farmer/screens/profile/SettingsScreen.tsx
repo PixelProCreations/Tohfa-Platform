@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { setLocale, t, type Locale } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { logout } from '../../api/auth';

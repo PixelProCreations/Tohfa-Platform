@@ -4,7 +4,6 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -15,7 +14,7 @@ import {
 } from 'react-native';
 import DocumentPicker from '../../../native/documentPicker';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms, getPlots } from '../../../api/farms';

@@ -4,13 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  SafeAreaView,
   ScrollView,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { Icon, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { useTheme, colors, authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { getFarms, updateFarm } from '../../api/farms';
