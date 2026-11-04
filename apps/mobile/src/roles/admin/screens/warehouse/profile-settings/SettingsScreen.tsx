@@ -56,18 +56,19 @@ export interface SettingsScreenProps extends WarehouseScreenBaseProps {
   onOpen?: ((route: SettingsChildRoute) => void) | undefined;
   /** Sign out (host navigates to its login). Without it the signed-out state is shown. */
   onLogout?: (() => void) | undefined;
+  subtitle?: string | undefined;
 }
 
 type SettingsView = 'hub' | 'changePassword' | 'signedOut';
 
-export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onLogout }: SettingsScreenProps) {
+export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onLogout, subtitle }: SettingsScreenProps) {
   const [view, setView] = useState<SettingsView>(initialView);
   const [showLogout, setShowLogout] = useState(false);
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
 
-  const accountLabel = `${roleLabelOf(scope)} · ${scopeLabelOf(scope)}`;
+  const accountLabel = subtitle ?? `${roleLabelOf(scope)} · ${scopeLabelOf(scope)}`;
 
   const resetPasswordForm = () => {
     setCurrentPass('');
@@ -220,7 +221,7 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
       <ConfirmDialog
         visible={showLogout}
         title="Logout?"
-        message={`Are you sure you want to sign out of your ${roleLabelOf(scope)} account?`}
+        message={`Are you sure you want to sign out of your ${subtitle ? (subtitle.split('·')[0] ?? '').trim() : roleLabelOf(scope)} account?`}
         confirmLabel="Logout"
         destructive
         icon={<LogoutIcon />}

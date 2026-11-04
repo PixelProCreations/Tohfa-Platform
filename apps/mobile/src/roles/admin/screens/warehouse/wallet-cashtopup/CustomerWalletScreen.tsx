@@ -43,7 +43,6 @@ import {
 } from './WalletParts';
 
 export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope' | 'can'> {
-  can?: PermissionCheck | undefined;
   onBack: () => void;
   scope?: WarehouseScope | undefined;
   subtitle?: string | undefined;

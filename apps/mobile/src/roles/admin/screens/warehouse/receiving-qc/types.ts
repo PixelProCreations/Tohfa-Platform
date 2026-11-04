@@ -166,7 +166,10 @@ export type ShipmentStatus =
   | 'Mismatch'
   | 'Partially Accepted'
   | 'Completed'
-  | 'Rejected';
+  | 'Rejected'
+  | 'Pending for view'
+  | 'Pending offer'
+  | 'Approved';
 
 /** The two documented shipment contexts; no other type is invented. */
 export type ShipmentType = 'Farmer/Admin' | 'Inter-Warehouse Transfer';
@@ -254,14 +257,18 @@ export type ReceivingRoute =
   | 'ActivityTimeline'
   | 'PendingQueue'
   | 'TransferReceiving'
-  | 'TransferDetail';
+  | 'TransferDetail'
+  | 'CounterOffer';
 
 export interface ReceivingRouteParams {
   shipmentId?: string | undefined;
+  shipment?: IncomingShipment | undefined;
   receiptId?: string | undefined;
   transferId?: string | undefined;
   batchId?: string | undefined;
   statusTab?: ShipmentFilterTab | undefined;
   historyFilter?: HistoryFilter | undefined;
   wizardStep?: ReceivingWizardStep | undefined;
+  initialTab?: 'fairPrice' | 'counterOffer' | 'history' | undefined;
+  isRestricted?: boolean | undefined;
 }

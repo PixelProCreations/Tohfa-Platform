@@ -130,14 +130,12 @@ export function WarehouseOperationsScreen({
   ];
 
   const mainQuickActions = [
-    { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
     { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials },
     { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
   ];
 
   const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', icon: <ShelfIcon size={24} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
     { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials },
     { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
     { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
@@ -393,23 +391,7 @@ export function WarehouseOperationsScreen({
               </>
             ) : null}
 
-            <SectionTitle
-              right={
-                <TouchableOpacity onPress={() => onOpenActivity('All')} accessibilityRole="button">
-                  <Text style={styles.link}>View All</Text>
-                </TouchableOpacity>
-              }
-            >
-              Recent Activity
-            </SectionTitle>
-            {recent.map((act) => (
-              <TouchableOpacity key={act.id} style={styles.card} onPress={() => onSelectActivity(act.id)} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.cardTitle}>{act.title}</Text>
-                <Text style={styles.statLabel}>
-                  {act.subtitle} · {act.when}
-                </Text>
-              </TouchableOpacity>
-            ))}
+
           </>
         )}
       </ScrollView>
@@ -532,7 +514,7 @@ const styles = StyleSheet.create({
   statLabel: { ...adminType.rowMeta, color: adminColors.muted },
   statValue: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
   actionTile: {
-    flexBasis: '30%',
+    flexBasis: '47%',
     flexGrow: 1,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

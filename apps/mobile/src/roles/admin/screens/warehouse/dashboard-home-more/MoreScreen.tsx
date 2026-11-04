@@ -52,8 +52,20 @@ const ITEM_PERMISSION: Readonly<Record<string, string>> = {
 
 export const MORE_ITEMS: MoreOptionItem[] = [
   {
+    id: 'farm_management',
+    title: 'Farmers Management',
+    subtitle: 'View and manage registered farmers and farm details',
+    iconType: 'farm_management',
+  },
+  {
+    id: 'warehouse_operations',
+    title: 'Operations',
+    subtitle: 'Manage storage, crates, zones and operations',
+    iconType: 'warehouse_operations',
+  },
+  {
     id: 'orders',
-    title: 'Customer Orders',
+    title: 'Orders',
     subtitle: 'Manage customer orders and fulfillment',
     iconType: 'orders',
   },
@@ -70,12 +82,6 @@ export const MORE_ITEMS: MoreOptionItem[] = [
     iconType: 'customers',
   },
   {
-    id: 'farm_management',
-    title: 'Farm Management',
-    subtitle: 'View and manage registered farmers and farm details',
-    iconType: 'farm_management',
-  },
-  {
     id: 'wallet',
     title: 'Wallet & Cash Top-Up',
     subtitle: 'Manage customer wallet cash top-ups',
@@ -83,7 +89,7 @@ export const MORE_ITEMS: MoreOptionItem[] = [
   },
   {
     id: 'returns',
-    title: 'Returns & Issues',
+    title: 'Returns',
     subtitle: 'Manage returns and warehouse issues',
     iconType: 'returns',
   },
@@ -106,26 +112,26 @@ export const MORE_ITEMS: MoreOptionItem[] = [
     iconType: 'staff',
   },
   {
-    id: 'warehouse_operations',
-    title: 'Warehouse Operations',
-    subtitle: 'Manage storage, crates, zones and operations',
-    iconType: 'warehouse_operations',
-  },
-  {
     id: 'warehouse_management',
     title: 'Warehouse Management',
     subtitle: 'Manage warehouses and administrators',
     iconType: 'warehouse_management',
   },
   {
+    id: 'warehouse_profile',
+    title: 'Warehouses profile',
+    subtitle: 'View warehouse details, storage capacity and operating info',
+    iconType: 'profile',
+  },
+  {
     id: 'notifications',
-    title: 'Notification & Task',
+    title: 'Notifications',
     subtitle: 'View alerts, notifications and assigned tasks',
     iconType: 'notifications',
   },
   {
     id: 'settings',
-    title: 'Settings & Profile',
+    title: 'Settings',
     subtitle: 'Manage account, warehouse profile and settings',
     iconType: 'settings',
   },
@@ -526,6 +532,7 @@ export interface MoreScreenProps extends WarehouseScreenBaseProps {
   onNavigateToDashboard?: (() => void) | undefined;
   onNavigateToNotifications?: (() => void) | undefined;
   onNavigateToProfile?: (() => void) | undefined;
+  onNavigateToWarehouseProfile?: (() => void) | undefined;
   onSelectModule?: ((moduleId: string) => void) | undefined;
   /** When set, the profile card is tappable (Main Warehouse opens its admin hub from here). */
   onProfileCardPress?: (() => void) | undefined;
@@ -563,6 +570,7 @@ export function MoreScreen({
   onTabChange,
   onNavigateToNotifications,
   onNavigateToProfile,
+  onNavigateToWarehouseProfile,
   onSelectModule,
   onProfileCardPress,
   onNavigateToOrders,
@@ -596,6 +604,9 @@ export function MoreScreen({
   // Warehouse Management is only for main warehouse (warehouse.all.view).
   const visibleItems = MORE_ITEMS.filter((item) => {
     if (item.id === 'warehouse_management' && !isMain) {
+      return false;
+    }
+    if (item.id === 'warehouse_profile' && isMain) {
       return false;
     }
     const code = ITEM_PERMISSION[item.id];
@@ -719,7 +730,9 @@ export function MoreScreen({
         else Alert.alert(item.title, "Opening Today's Attendance...");
         break;
       case 'profile':
-        if (onNavigateToProfile) onNavigateToProfile();
+      case 'warehouse_profile':
+        if (onNavigateToWarehouseProfile) onNavigateToWarehouseProfile();
+        else if (onNavigateToProfile) onNavigateToProfile();
         else setShowWarehouseProfileScreen(true);
         break;
       case 'settings':
@@ -772,43 +785,43 @@ export function MoreScreen({
   const renderOptionIcon = (type: MoreOptionItem['iconType']) => {
     switch (type) {
       case 'orders':
-        return <CustomerOrdersIcon color={adminColors.muted} size={20} />;
+        return <CustomerOrdersIcon color={adminColors.brand} size={20} />;
       case 'sales':
-        return <MarketSalesIcon color={adminColors.muted} size={20} />;
+        return <MarketSalesIcon color={adminColors.brand} size={20} />;
       case 'customers':
-        return <CustomersIcon color={adminColors.muted} size={20} />;
+        return <CustomersIcon color={adminColors.brand} size={20} />;
       case 'farm_management':
-        return <FarmManagementIcon color={adminColors.muted} size={20} />;
+        return <FarmManagementIcon color={adminColors.brand} size={20} />;
       case 'wallet':
-        return <WalletIcon color={adminColors.muted} size={20} />;
+        return <WalletIcon color={adminColors.brand} size={20} />;
       case 'billing':
-        return <InvoicesIcon color={adminColors.muted} size={20} />;
+        return <InvoicesIcon color={adminColors.brand} size={20} />;
       case 'returns':
-        return <ReturnsIcon color={adminColors.muted} size={20} />;
+        return <ReturnsIcon color={adminColors.brand} size={20} />;
       case 'finance':
-        return <FinanceIcon color={adminColors.muted} size={20} />;
+        return <FinanceIcon color={adminColors.brand} size={20} />;
       case 'reports':
-        return <ReportsIcon color={adminColors.muted} size={20} />;
+        return <ReportsIcon color={adminColors.brand} size={20} />;
       case 'notifications':
-        return <NotificationsIcon color={adminColors.muted} size={20} />;
+        return <NotificationsIcon color={adminColors.brand} size={20} />;
       case 'staff':
-        return <StaffIcon color={adminColors.muted} size={20} />;
+        return <StaffIcon color={adminColors.brand} size={20} />;
       case 'attendance':
-        return <AttendanceIcon color={adminColors.muted} />;
+        return <AttendanceIcon color={adminColors.brand} />;
       case 'profile':
-        return <WarehouseProfileIcon color={adminColors.muted} size={20} />;
+        return <WarehouseProfileIcon color={adminColors.brand} size={20} />;
       case 'settings':
-        return <SettingsIcon color={adminColors.muted} size={20} />;
+        return <SettingsIcon color={adminColors.brand} size={20} />;
       case 'help':
-        return <HelpSupportIcon color={adminColors.muted} size={20} />;
+        return <HelpSupportIcon color={adminColors.brand} size={20} />;
       case 'warehouse_operations':
-        return <WarehouseOperationsIcon color={adminColors.muted} />;
+        return <WarehouseOperationsIcon color={adminColors.brand} />;
       case 'warehouse_management':
-        return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
+        return <WarehouseOutlineIcon color={adminColors.brand} size={20} />;
       case 'logout':
         return <LogoutIcon color={adminColors.danger.text} size={20} />;
       default:
-        return <WarehouseOutlineIcon color={adminColors.muted} size={20} />;
+        return <WarehouseOutlineIcon color={adminColors.brand} size={20} />;
     }
   };
 
@@ -817,6 +830,7 @@ export function MoreScreen({
       <ProfileFlow
         scope={scope}
         can={can}
+        adminRole={isMain ? 'MAIN_WH_ADMIN' : 'SUB_WH_ADMIN'}
         initialScreen="WarehouseProfile"
         onBack={() => setShowWarehouseProfileScreen(false)}
         onLogout={onLogout}
@@ -830,6 +844,7 @@ export function MoreScreen({
       <ProfileFlow
         scope={scope}
         can={can}
+        adminRole={isMain ? 'MAIN_WH_ADMIN' : 'SUB_WH_ADMIN'}
         initialScreen="Settings"
         onBack={() => setShowSettingsScreen(false)}
         onLogout={onLogout}
@@ -956,7 +971,7 @@ export function MoreScreen({
         <AdminRatingScorecardScreen
           farmer={selectedFarmer}
           onBack={() => setFarmerSubScreen(null)}
-          onOpenComplianceTiers={() => {}}
+          onOpenComplianceTiers={() => { }}
         />
       );
     }
@@ -992,23 +1007,16 @@ export function MoreScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* â”€â”€â”€ Top Brand Header Banner â”€â”€â”€ */}
+      {/* ─── Top Brand Header Banner ─── */}
       <View style={styles.headerBanner}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBackToDashboard}
-            activeOpacity={0.75}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={22} color={adminColors.onBrand} />
-          </TouchableOpacity>
-
-          <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>More</Text>
-            {!isMain && <Text style={styles.headerSubtitle}>{warehouseLabel}</Text>}
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.headerBackBtn}
+          onPress={handleBackToDashboard}
+          activeOpacity={0.8}
+        >
+          <ArrowBackIcon size={20} color={adminColors.onBrand} />
+          <Text style={styles.headerTitle}>More</Text>
+        </TouchableOpacity>
         {isMain && (
           <View style={{ marginTop: 10 }}>
             <WarehouseSelector
@@ -1026,51 +1034,37 @@ export function MoreScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Single Column Menu Card (No Separate Headings, Top Admin Name Removed) ─── */}
-        <View style={styles.singleCard}>
-          {visibleItems.map((item, index) => {
-            const isLast = index === visibleItems.length - 1;
+        <View style={styles.menuContainer}>
+          {visibleItems.map((item) => {
             const isLogout = item.id === 'logout';
             return (
-              <React.Fragment key={item.id}>
-                <TouchableOpacity
-                  style={styles.itemRow}
-                  onPress={() => handleOptionPress(item)}
-                  activeOpacity={0.7}
-                >
-                  {/* Icon Box */}
-                  <View style={[styles.iconWrap, isLogout && styles.logoutIconWrap]}>
+              <TouchableOpacity
+                key={item.id}
+                style={styles.menuItemCard}
+                onPress={() => handleOptionPress(item)}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemLeft}>
+                  <View style={styles.menuIconBox}>
                     {renderOptionIcon(item.iconType)}
                   </View>
+                  <Text
+                    style={[
+                      styles.menuItemLabel,
+                      isLogout && { color: adminColors.danger.text },
+                    ]}
+                  >
+                    {item.title}
+                  </Text>
+                </View>
 
-                  {/* Title & Subtitle */}
-                  <View style={styles.itemInfo}>
-                    <Text
-                      style={[
-                        styles.itemTitle,
-                        isLogout && { color: adminColors.danger.text },
-                      ]}
-                    >
-                      {item.title}
-                    </Text>
-                    <Text style={styles.itemSubtitle} numberOfLines={1}>
-                      {item.subtitle}
-                    </Text>
-                  </View>
-
-                  {/* Right Chevron */}
-                  <View style={styles.chevronWrap}>
-                    <ChevronRightIcon size={16} color={adminColors.muted} />
-                  </View>
-                </TouchableOpacity>
-
-                {!isLast && <View style={styles.rowDivider} />}
-              </React.Fragment>
+                <ChevronRightIcon size={16} color={adminColors.muted} />
+              </TouchableOpacity>
             );
           })}
         </View>
 
-        <View style={{ height: adminSpacing.xl }} />
+        <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -1085,30 +1079,16 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: 10,
-    paddingBottom: 20,
+    paddingBottom: 14,
   },
-  headerRow: {
+  headerBackBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.md,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTextCol: {
-    flex: 1,
+    gap: adminSpacing.sm,
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-  },
-  headerSubtitle: {
-    ...adminType.body,
-    color: adminColors.onBrand,
-    marginTop: 2,
   },
   scroll: {
     flex: 1,
@@ -1117,7 +1097,37 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.lg,
-    paddingBottom: 20,
+    paddingBottom: adminSpacing.xxxl,
+  },
+  menuContainer: {
+    gap: adminSpacing.sm,
+  },
+  menuItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  menuIconBox: {
+    width: 28,
+    alignItems: 'center',
+  },
+  menuItemLabel: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '700',
   },
 
   // â”€â”€â”€ Profile Card â”€â”€â”€

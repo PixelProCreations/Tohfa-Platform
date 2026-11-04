@@ -86,16 +86,22 @@ export function ShipmentDetailScreen({
   const closed = s.status === 'Completed' || s.status === 'Rejected';
   const done = pipelineStagesDone(s.status);
 
-  const headerTitle = 'Shipment Detail';
-  const headerSubtitle = `${s.code} · ${s.status} · ${s.from} → ${s.to}`;
-
   const isMain = mainView || can(RECEIVING_CODES.batchAssign) || can('inventory.batch.create');
   const stagesList = isMain ? RECEIVING_PIPELINE : SUB_PROGRESS_STAGES;
 
+  const headerBadge = (
+    <View style={styles.headerStatusBadge}>
+      <Text style={styles.headerStatusBadgeText}>
+        {s.status === 'Awaiting QC' ? 'Arrived' : s.status}
+      </Text>
+    </View>
+  );
+
   return (
     <WalletScreen
-      title={headerTitle}
-      subtitle={headerSubtitle}
+      title={s.code}
+      headerRight={headerBadge}
+      headerExtra={<ScopeHeader scope={scope} />}
       onBack={onBack}
       footer={
         closed ? undefined : (
@@ -104,7 +110,7 @@ export function ShipmentDetailScreen({
               <TouchableOpacity
                 style={styles.startReceivingBtn}
                 activeOpacity={0.85}
-                onPress={() => onStartReceiving(s, false)}
+                onPress={() => onStartReceiving(s, resume)}
               >
                 <View style={styles.playCircleIcon}>
                   <RightArrowIcon size={14} color={adminColors.brand} />
@@ -119,32 +125,69 @@ export function ShipmentDetailScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle>Shipment Information</SectionTitle>
-        <InfoCard
-          rows={[
-            [
-              { label: 'Shipment ID', value: s.code },
-              { label: 'Type', value: s.type === 'Farmer/Admin' ? 'Farmer/Admin Consolidated' : s.type },
-            ],
-            [
-              { label: 'Source', value: s.from },
-              { label: 'Destination', value: s.to },
-            ],
-            [
-              { label: 'Created Date', value: s.dispatchDate },
-              { label: 'Actual Arrival', value: s.actualArrival ?? '25 Sep · 09:15 AM' },
-            ],
-          ]}
-        />
+        {/* Source -> Destination Overview Card matching Image 2 */}
+        <View style={styles.overviewCard}>
+          <View style={styles.routeHeaderRow}>
+            <View style={styles.routeHeaderCol}>
+              <Text style={styles.routeHeaderLabel}>SOURCE</Text>
+              <Text style={styles.routeHeaderValue}>{s.from}</Text>
+            </View>
+            <View style={styles.routeArrowCol}>
+              <RightArrowIcon size={16} color={adminColors.brand} />
+            </View>
+            <View style={styles.routeHeaderCol}>
+              <Text style={styles.routeHeaderLabel}>DESTINATION</Text>
+              <Text style={styles.routeHeaderValue}>{s.to.includes('Warehouse') ? s.to : `${s.to} Warehouse`}</Text>
+            </View>
+          </View>
 
-        <SectionTitle>Product Summary</SectionTitle>
-        <View style={styles.productSummaryCard}>
-          <Text style={styles.productNameText}>{s.produce}</Text>
-          <Text style={styles.productDetailsText}>
-            {s.expectedQty} KG · {s.grade}{s.crates !== undefined ? ` · ${s.crates} crates` : ''}
-          </Text>
+          <View style={styles.divider} />
+
+          <View style={styles.gridRow}>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Shipment ID</Text>
+              <Text style={styles.gridValue}>{s.code}</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Reference</Text>
+              <Text style={styles.gridValue}>{s.reference ?? 'PO-2026-0024'}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, styles.gridRowGap]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Dispatch Date</Text>
+              <Text style={styles.gridValue}>{s.dispatchDate}</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Expected Arrival</Text>
+              <Text style={styles.gridValue}>{s.expectedArrival}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, styles.gridRowGap]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Actual Arrival</Text>
+              <Text style={styles.gridValue}>{s.actualArrival ?? '24 Sep · 10:30 AM'}</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Batch / Source</Text>
+              <Text style={styles.gridValue}>{s.batchSource ?? 'Internal only'}</Text>
+            </View>
+          </View>
         </View>
 
+        {/* Items Section matching Image 2 */}
+        <SectionTitle>Items</SectionTitle>
+        <View style={styles.itemCard}>
+          <View style={styles.flex}>
+            <Text style={styles.itemTitle}>{s.produce}</Text>
+            <Text style={styles.meta}>{s.grade}</Text>
+          </View>
+          <Text style={styles.itemQty}>{s.expectedQty} KG</Text>
+        </View>
+
+        {/* Receiving Progress matching Image 2 */}
         <SectionTitle
           right={
             mainView && canRecord && onViewTimeline ? (
@@ -187,49 +230,94 @@ const STEP = 22;
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  alignEnd: { alignItems: 'flex-end' },
-  routeCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.md,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+  headerStatusBadge: {
+    backgroundColor: '#FFF4EE',
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    marginTop: adminSpacing.sm,
+    borderColor: '#FDBA74',
   },
-  routeTag: { ...adminType.caption, color: adminColors.muted },
-  routeName: { ...adminType.rowTitle, color: adminColors.ink, marginTop: 2 },
-  link: { ...adminType.caption, color: adminColors.brand },
-  productSummaryCard: {
+  headerStatusBadgeText: {
+    ...adminType.caption,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  overviewCard: {
     backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
-    gap: 4,
+    padding: 16,
+    marginBottom: 8,
+    ...adminShadow.sm,
   },
-  productNameText: {
-    ...adminType.caption,
+  routeHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  routeHeaderCol: {
+    flex: 1,
+  },
+  routeHeaderLabel: {
+    ...adminType.rowMeta,
     color: adminColors.muted,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
-  productDetailsText: {
+  routeHeaderValue: {
     ...adminType.rowTitle,
+    fontWeight: '800',
     color: adminColors.ink,
   },
+  routeArrowCol: {
+    paddingHorizontal: 12,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 14,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  gridRowGap: {
+    marginTop: 12,
+  },
+  gridCol: {
+    flex: 1,
+  },
+  gridLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  gridValue: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  link: { ...adminType.caption, color: adminColors.brand },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
+    padding: 16,
+    ...adminShadow.sm,
   },
-  itemTitle: { ...adminType.sectionHead, color: adminColors.ink },
+  itemTitle: { ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink },
   meta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: 2 },
-  itemQty: { ...adminType.kpiValue, color: adminColors.ink },
+  itemQty: { ...adminType.sectionHead, fontWeight: '800', color: adminColors.ink },
   progressCard: {
     backgroundColor: adminColors.card,
     borderRadius: 16,
@@ -239,6 +327,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     gap: 14,
     marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
   },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   stepCircle: {
@@ -279,6 +368,7 @@ const styles = StyleSheet.create({
   },
   startReceivingBtnText: {
     ...adminType.sectionHead,
+    fontWeight: '700',
     color: adminColors.onBrand,
   },
 });
