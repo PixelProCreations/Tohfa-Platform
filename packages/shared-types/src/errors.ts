@@ -119,6 +119,8 @@ export const ErrorCode = {
   ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
   /** The community planting summary's minimum group size (system_config.community_planting_min_farmers) is missing or unusable; there is no fallback (BR-136). HTTP 503. */
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'COMMUNITY_PLANTING_NOT_CONFIGURED',
+  /** The livestock indoor-space standard is not set in system_config, so the housing list refuses to give a verdict (BR-141). HTTP 503. */
+  LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED: 'LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
