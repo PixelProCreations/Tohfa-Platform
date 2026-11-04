@@ -31,6 +31,7 @@ export interface AdminMoreMenuScreenProps {
   onNavigateProfile?: (() => void) | undefined;
   onNavigateSettingsAndProfile?: (() => void) | undefined;
   onNavigateNotifications?: (() => void) | undefined;
+  onNavigateReports?: (() => void) | undefined;
   onSwitchRole?: (() => void) | undefined;
   onItemSelect?: ((itemTitle: string) => void) | undefined;
   onLogout?: (() => void) | undefined;
@@ -143,6 +144,21 @@ function WorkforceStaffIcon({ size = 20, color = adminColors.brand }: { size?: n
   );
 }
 
+function ReportsMenuIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Path
+        d="M8 17v-4M12 17V8M16 17v-6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 function NotificationsReportsIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -206,7 +222,7 @@ interface MenuItemConfig {
   id: string;
   label: string;
   icon: React.ReactNode;
-  onPressAction?: () => void;
+  onPressAction?: (() => void) | undefined;
 }
 
 export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
@@ -223,6 +239,7 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
     onNavigateProfile,
     onNavigateSettingsAndProfile,
     onNavigateNotifications,
+    onNavigateReports,
     onSwitchRole,
     onItemSelect,
     onLogout,
@@ -310,6 +327,16 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
         { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
         { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
         { id: 'customers', label: 'Customers', icon: <CustomersIcon /> },
+        {
+          id: 'reports',
+          label: 'Reports',
+          icon: <ReportsMenuIcon />,
+          onPressAction: () => {
+            if (onNavigateReports) onNavigateReports();
+            else if (onSelectOption) onSelectOption('reports');
+            else onItemSelect?.('Reports');
+          },
+        },
         { id: 'workforce', label: 'Workforce & Staff', icon: <WorkforceStaffIcon /> },
         { id: 'community', label: 'Community & Knowledge Management', icon: <CommunityIcon /> },
         { id: 'notifications', label: 'Notification & Task', icon: <NotificationsReportsIcon /> },
