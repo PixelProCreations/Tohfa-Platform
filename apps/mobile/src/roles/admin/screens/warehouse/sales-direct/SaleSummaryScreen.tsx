@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import type { SaleProduct, WarehouseScope, WarehouseScreenBaseProps } from './types';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -28,41 +28,13 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function UserIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function ArrowRightIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+        d="M5 12h14M12 5l7 7-7 7"
         stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CheckCircleIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M22 11.08V12a10 10 0 1 1-5.93-9.14"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M22 4L12 14.01l-3-3"
-        stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -80,14 +52,14 @@ interface CartItem {
 
 const SAMPLE_CART: CartItem[] = [
   {
-    id: 'tomato-1',
+    id: 'prod-1',
     name: 'Tomato',
     grade: 'Grade 1',
     quantityKg: 2,
     pricePerKg: 100,
   },
   {
-    id: 'carrot-1',
+    id: 'prod-2',
     name: 'Carrot',
     grade: 'Grade 1',
     quantityKg: 1,
@@ -95,7 +67,6 @@ const SAMPLE_CART: CartItem[] = [
   },
 ];
 
-/** Cart lines from the products picked on Select Products (Main's Sale Summary slice, M6-S04). */
 function cartFromProducts(products: readonly SaleProduct[] | undefined): CartItem[] {
   if (!products || products.length === 0) return SAMPLE_CART;
   return products.map((p) => ({
@@ -107,43 +78,51 @@ function cartFromProducts(products: readonly SaleProduct[] | undefined): CartIte
   }));
 }
 
-// Design id: M6-S04
 export interface SaleSummaryScreenProps extends WarehouseScreenBaseProps {
-  /** Products picked on Select Products; a sample cart when absent. */
   items?: readonly SaleProduct[] | undefined;
-  /** Warehouse holding the stock for this sale */
   saleWarehouse?: WarehouseScope | undefined;
-  /** Direct sales channel (defaults to 'Direct Sale') */
   channel?: string | undefined;
-  /** Continue with the (possibly edited) cart total and line count. */
+  customerName?: string | undefined;
+  customerCode?: string | undefined;
   onContinueToCustomer: (total: number, itemsCount: number) => void;
 }
 
 export function SaleSummaryScreen({
   items,
-  saleWarehouse,
-  channel = 'Direct Sale',
-  scope,
+  customerName = 'Rajesh Kumar',
+  customerCode = 'CUS-00291',
   onBack,
   onContinueToCustomer,
 }: SaleSummaryScreenProps) {
-  const [cartItems] = useState<CartItem[]>(() => cartFromProducts(items));
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => cartFromProducts(items));
+
+  const handleIncrement = (id: string) => {
+    setCartItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, quantityKg: it.quantityKg + 1 } : it)),
+    );
+  };
+
+  const handleDecrement = (id: string) => {
+    setCartItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, quantityKg: Math.max(1, it.quantityKg - 1) } : it)),
+    );
+  };
+
+  const handleRemove = (id: string) => {
+    setCartItems((prev) => prev.filter((it) => it.id !== id));
+  };
 
   const subtotal = cartItems.reduce(
     (acc, item) => acc + item.quantityKg * item.pricePerKg,
-    0
+    0,
   );
   const discount = 0;
   const gst = 0;
   const total = subtotal - discount + gst;
 
-  // Warehouse name resolution
-  const warehouseDisplayName =
-    saleWarehouse?.warehouseName?.replace(/ Warehouse$/, '') ??
-    scope.warehouseName?.replace(/ Warehouse$/, '') ??
-    'Coonoor';
+  const handleContinue = () => onContinueToCustomer(total || 320, cartItems.length || 2);
 
-  const handleContinue = () => onContinueToCustomer(total, cartItems.length);
+  const displayCustomer = customerCode ? `${customerName} · ${customerCode}` : customerName;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -170,19 +149,61 @@ export function SaleSummaryScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 1. Sale Items ─── */}
+        {/* ─── 1. Sale Market (Customer) ─── */}
+        <Text style={styles.sectionHeading}>Sale Market</Text>
+        <View style={styles.card}>
+          <Text style={styles.customerSubLabel}>Customer</Text>
+          <Text style={styles.customerValueText}>{displayCustomer}</Text>
+        </View>
+
+        {/* ─── 2. Sale Items ─── */}
         <Text style={styles.sectionHeading}>Sale Items</Text>
         <View style={styles.card}>
           {cartItems.map((item, idx) => {
             const itemTotal = item.quantityKg * item.pricePerKg;
+            const isFirst = idx === 0;
+
             return (
               <View key={item.id}>
                 {idx > 0 && <View style={styles.divider} />}
-                <View style={styles.itemRow}>
-                  <Text style={styles.itemName}>
-                    {item.name} - {item.quantityKg} KG
-                  </Text>
-                  <Text style={styles.itemPrice}>₹{itemTotal}</Text>
+                <View style={styles.itemBlock}>
+                  <View style={styles.itemTopRow}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemPrice}>₹{itemTotal}</Text>
+                  </View>
+
+                  <View style={styles.itemBottomRow}>
+                    <Text style={styles.itemDetail}>
+                      {item.grade} · {item.quantityKg} KG × ₹{item.pricePerKg}
+                    </Text>
+
+                    {isFirst ? (
+                      <View style={styles.stepperWrap}>
+                        <TouchableOpacity
+                          style={styles.stepperBtn}
+                          onPress={() => handleDecrement(item.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stepperBtnText}>−</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.stepperQtyText}>{item.quantityKg}</Text>
+                        <TouchableOpacity
+                          style={styles.stepperBtn}
+                          onPress={() => handleIncrement(item.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.stepperBtnText}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => handleRemove(item.id)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.removeText}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -197,8 +218,8 @@ export function SaleSummaryScreen({
           )}
         </View>
 
-        {/* ─── 2. Pricing ─── */}
-        <Text style={styles.sectionHeading}>Pricing</Text>
+        {/* ─── 3. Price Breakdown ─── */}
+        <Text style={styles.sectionHeading}>Price Breakdown</Text>
         <View style={styles.card}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Subtotal</Text>
@@ -215,46 +236,26 @@ export function SaleSummaryScreen({
 
           <View style={styles.divider} />
 
-          <View style={[styles.breakdownRow, { paddingTop: 6, paddingBottom: 2 }]}>
+          <View style={[styles.breakdownRow, { paddingTop: 10, paddingBottom: 2 }]}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>₹{total}</Text>
           </View>
         </View>
 
-        {/* ─── 3. Stock Validation ─── */}
-        <Text style={styles.sectionHeading}>Stock Validation</Text>
-        <View style={[styles.card, styles.stockValidationCard]}>
-          <CheckCircleIcon size={20} color={adminColors.success.text} />
-          <Text style={styles.stockValidationText}>All products available</Text>
-        </View>
+        <View style={{ height: 20 }} />
+      </ScrollView>
 
-        {/* ─── 4. Sale Information ─── */}
-        <Text style={styles.sectionHeading}>Sale Information</Text>
-        <View style={styles.card}>
-          <View style={styles.saleInfoRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.saleInfoLabel}>Warehouse</Text>
-              <Text style={styles.saleInfoValue}>{warehouseDisplayName}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.saleInfoLabel}>Channel</Text>
-              <Text style={styles.saleInfoValue}>{channel}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* ─── Bottom Action Button ─── */}
+      {/* ─── Bottom Action Button ─── */}
+      <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.continueBtn}
           onPress={handleContinue}
           activeOpacity={0.85}
         >
-          <UserIcon size={20} color={adminColors.onBrand} />
+          <ArrowRightIcon size={18} />
           <Text style={styles.continueBtnText}>Continue to Customer</Text>
         </TouchableOpacity>
-
-        <View style={{ height: 24 }} />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -267,8 +268,8 @@ const styles = StyleSheet.create({
   headerBanner: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 18,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -290,75 +291,92 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
   sectionHeading: {
     ...adminType.sectionHead,
     color: adminColors.ink,
     marginTop: 14,
     marginBottom: 8,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: adminColors.card,
     borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    marginBottom: 10,
+    ...adminShadow.sm,
   },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  customerSubLabel: {
+    fontSize: 12,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  customerValueText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  itemBlock: {
     paddingVertical: 4,
   },
+  itemTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
   itemName: {
-    ...adminType.title,
+    fontSize: 15,
+    fontWeight: '600',
     color: adminColors.ink,
-    marginBottom: 2,
-  },
-  itemSubtitle: {
-    ...adminType.body,
-    color: adminColors.muted,
-  },
-  itemRightCol: {
-    alignItems: 'flex-end',
   },
   itemPrice: {
-    ...adminType.title,
+    fontSize: 15,
+    fontWeight: '700',
     color: adminColors.ink,
-    marginBottom: 4,
+  },
+  itemBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemDetail: {
+    fontSize: 12.5,
+    color: adminColors.muted,
   },
   stepperWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 20,
-    paddingHorizontal: 4,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     gap: 6,
   },
   stepperBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: adminColors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
   },
   stepperBtnText: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
-    marginTop: -1,
   },
-  stepperValue: {
-    ...adminType.sectionHead,
+  stepperQtyText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: adminColors.ink,
-    minWidth: 16,
+    minWidth: 14,
     textAlign: 'center',
   },
   removeText: {
-    ...adminType.sectionHead,
+    fontSize: 12.5,
+    fontWeight: '600',
     color: adminColors.danger.text,
   },
   divider: {
@@ -366,94 +384,36 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.border,
     marginVertical: 12,
   },
-  thickDivider: {
-    height: 1.5,
-    backgroundColor: adminColors.ink,
-    marginVertical: 10,
-  },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 5,
+    paddingVertical: 6,
   },
   breakdownLabel: {
-    ...adminType.body,
+    fontSize: 13.5,
     color: adminColors.muted,
   },
   breakdownValue: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '600',
     color: adminColors.ink,
   },
   totalLabel: {
-    ...adminType.title,
+    fontSize: 16,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   totalValue: {
-    ...adminType.title,
+    fontSize: 17,
+    fontWeight: '700',
     color: adminColors.ink,
-  },
-  marketRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  marketLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  marketValue: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
-    lineHeight: 19,
-  },
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.info.bg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginTop: 14,
-    marginBottom: 12,
-  },
-  infoBannerText: {
-    flex: 1,
-    ...adminType.body,
-    color: adminColors.info.text,
-    lineHeight: 17,
   },
   bottomBar: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     paddingBottom: 20,
     backgroundColor: adminColors.canvas,
-  },
-  stockValidationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 14,
-  },
-  stockValidationText: {
-    ...adminType.title,
-    color: adminColors.success.text,
-  },
-  saleInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  saleInfoLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  saleInfoValue: {
-    ...adminType.title,
-    color: adminColors.ink,
   },
   continueBtn: {
     flexDirection: 'row',
@@ -463,10 +423,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     gap: 8,
-    marginTop: 18,
   },
   continueBtnText: {
     color: adminColors.onBrand,
     ...adminType.title,
+    fontSize: 16,
   },
 });

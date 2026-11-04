@@ -46,7 +46,6 @@ export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps
   can?: PermissionCheck | undefined;
   onBack: () => void;
   scope?: WarehouseScope | undefined;
-  can?: PermissionCheck | undefined;
   subtitle?: string | undefined;
   customer?: WalletCustomer | undefined;
   transactions?: readonly WalletTransactionRecord[] | undefined;

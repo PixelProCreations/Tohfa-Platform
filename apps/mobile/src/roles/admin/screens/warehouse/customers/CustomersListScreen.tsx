@@ -16,16 +16,13 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  BellIcon,
   cardStyles,
   CustomersScreen,
   EmptyState,
   FilterIcon,
-  HeaderIconButton,
   inScope,
   isAllWarehouses,
   SearchField,
-  SearchIcon,
   StatTiles,
   StatusBadge,
 } from './CustomersParts';
@@ -122,22 +119,12 @@ export function CustomersListScreen({
     );
   });
 
-  const headerRight = allWarehouses ? (
-    <HeaderIconButton label="Search customers" onPress={onNavigateToSearch}>
-      <SearchIcon color={adminColors.onBrand} />
-    </HeaderIconButton>
-  ) : (
-    <HeaderIconButton label="Notifications" onPress={onNavigateToNotifications}>
-      <BellIcon />
-    </HeaderIconButton>
-  );
 
   return (
     <CustomersScreen
       title="Customers"
       subtitle={allWarehouses ? undefined : scope.warehouseName}
       onBack={onBack}
-      headerRight={headerRight}
       headerExtra={
         allWarehouses ? (
           <WarehouseSelector
@@ -196,7 +183,6 @@ export function CustomersListScreen({
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder={allWarehouses ? 'Search by name, Customer ID or mobile' : 'Search customers...'}
-        onFocus={onNavigateToSearch}
         right={
           <TouchableOpacity
             onPress={handleOpenFilters}

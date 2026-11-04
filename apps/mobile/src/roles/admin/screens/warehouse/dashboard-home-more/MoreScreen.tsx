@@ -59,8 +59,8 @@ export const MORE_ITEMS: MoreOptionItem[] = [
   },
   {
     id: 'sales',
-    title: 'Direct / Market Sales',
-    subtitle: 'Manage direct and market sales',
+    title: 'Purchase & Sales Orders',
+    subtitle: 'Manage purchase and sales orders',
     iconType: 'sales',
   },
   {
@@ -648,7 +648,7 @@ export function MoreScreen({
         break;
       case 'sales':
         if (onNavigateToSales) onNavigateToSales();
-        else Alert.alert(item.title, 'Opening Direct / Market Sales...');
+        else Alert.alert(item.title, 'Opening Purchase & Sales Orders...');
         break;
       case 'customers':
         if (onNavigateToCustomers) {

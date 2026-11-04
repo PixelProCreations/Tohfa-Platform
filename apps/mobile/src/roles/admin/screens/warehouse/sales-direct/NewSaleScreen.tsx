@@ -54,6 +54,15 @@ function EmptyCartIcon({ size = 56, color = adminColors.border }: { size?: numbe
   );
 }
 
+function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 function PlusIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -69,6 +78,7 @@ import type { SaleProduct, WarehouseScreenBaseProps } from './types';
 // No direct/walk-in sale code exists in docs/rbac.json (SPEC_GAPS "Sales
 // Direct" #110): ungated, and a Sub admin is locked to its own warehouse.
 export interface NewSaleScreenProps extends WarehouseScreenBaseProps {
+  role?: string | undefined;
   /** Customer already chosen (from Select Customer or the caller), shown on the card. */
   customerLabel?: string | undefined;
   /** Main only: the warehouse the sale is made from (Main's warehouse selector, M6-S02). */
@@ -78,10 +88,12 @@ export interface NewSaleScreenProps extends WarehouseScreenBaseProps {
   cartItems?: readonly SaleProduct[] | undefined;
   onSelectCustomer: () => void;
   onSelectProducts: () => void;
+  onSelectChannel?: ((channel: 'HORECA' | 'B2B') => void) | undefined;
 }
 
 export function NewSaleScreen({
   scope,
+  role,
   customerLabel,
   saleWarehouseId,
   onSelectWarehouse,
@@ -89,8 +101,10 @@ export function NewSaleScreen({
   onBack,
   onSelectCustomer,
   onSelectProducts,
+  onSelectChannel,
 }: NewSaleScreenProps) {
-  const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket'>('Direct');
+  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket' | 'HORECA' | 'B2B'>('Direct');
   const selectedCustomer = customerLabel || 'Select Customer / Walk-in';
 
   return (
@@ -134,7 +148,7 @@ export function NewSaleScreen({
           />
         )}
 
-        {/* ─── 2. Sales Channel ─── */}
+        {/* ─── 2. Sales Channel (4 channels for Tohfa Admin, 2 for Sub/Main Warehouse) ─── */}
         <Text style={styles.sectionHeading}>Sales Channel</Text>
 
         <View style={styles.channelContainer}>
@@ -163,7 +177,54 @@ export function NewSaleScreen({
             </View>
             <Text style={styles.channelLabel}>Live Market</Text>
           </TouchableOpacity>
+
+          {/* Tohfa Admin: HORECA & B2B Channels */}
+          {isTohfaAdmin ? (
+            <>
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                style={styles.channelRow}
+                onPress={() => {
+                  setSalesChannel('HORECA');
+                  onSelectChannel?.('HORECA');
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.radioOuter, salesChannel === 'HORECA' && styles.radioOuterSelected]}>
+                  {salesChannel === 'HORECA' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.channelLabel}>HORECA Orders</Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              <TouchableOpacity
+                style={styles.channelRow}
+                onPress={() => {
+                  setSalesChannel('B2B');
+                  onSelectChannel?.('B2B');
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.radioOuter, salesChannel === 'B2B' && styles.radioOuterSelected]}>
+                  {salesChannel === 'B2B' && <View style={styles.radioInner} />}
+                </View>
+                <Text style={styles.channelLabel}>B2B</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
+
+        {/* Sub & Main Warehouse only: info banner pointing to dedicated HORECA/B2B sections (Image 1) */}
+        {!isTohfaAdmin ? (
+          <View style={styles.channelInfoBanner}>
+            <InfoCircleBlueIcon size={16} />
+            <Text style={styles.channelInfoText}>
+              HORECA and B2B use their own dedicated sections (S11/S12), not this flow.
+            </Text>
+          </View>
+        ) : null}
 
         {/* ─── 3. Customer ─── */}
         <Text style={styles.sectionHeading}>Customer</Text>
@@ -380,5 +441,24 @@ const styles = StyleSheet.create({
   selectProductsBtnText: {
     color: adminColors.onBrand,
     ...adminType.title,
+  },
+  channelInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    marginTop: 6,
+    marginBottom: 6,
+  },
+  channelInfoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#1E40AF',
+    lineHeight: 16,
   },
 });

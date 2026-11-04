@@ -117,11 +117,16 @@ export type SalesRoute =
   | 'SaleDetail'
   | 'MarketDaySales'
   | 'ChannelSales'
+  | 'PurchaseOrdersList'
+  | 'PurchaseOrderDetail'
+  | 'PurchaseOrderReceipt'
+  | 'PurchaseOrderPayout'
   | 'Invoice';
 
 export interface SalesRouteParams {
   sale?: SaleRecord | undefined;
   channel?: SalesChannel | undefined;
+  poNumber?: string | undefined;
   /** Customer preselected by the caller (e.g. a customer's "New Sale"). */
   customerName?: string | undefined;
   customerCode?: string | undefined;

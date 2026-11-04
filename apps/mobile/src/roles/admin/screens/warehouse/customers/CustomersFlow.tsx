@@ -157,7 +157,6 @@ export function CustomersFlow({
         <CustomersListScreen
           {...common}
           warehouseOptions={warehouseOptions}
-          onNavigateToSearch={() => navigate('CustomerSearch')}
           onSelectCustomer={(selected) => navigate('CustomerDetails', { customer: selected })}
           onNavigateToNotifications={onNavigateToNotifications}
           onOpenFilters={() => navigate('CustomerFilters')}

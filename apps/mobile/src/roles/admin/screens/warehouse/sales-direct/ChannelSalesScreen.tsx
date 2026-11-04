@@ -145,6 +145,7 @@ const WAREHOUSE_OPTIONS = [
 // ─── Component Props ─────────────────────────────────────────────────────────
 
 export interface ChannelSalesScreenProps extends WarehouseScreenBaseProps {
+  role?: string | undefined;
   channel: SalesChannel;
   /** Host navigation to the order detail; renders inline when absent. */
   onSelectOrder?: ((order: ChannelOrderItem) => void) | undefined;
@@ -154,6 +155,7 @@ export interface ChannelSalesScreenProps extends WarehouseScreenBaseProps {
 export function ChannelSalesScreen({
   scope,
   can,
+  role,
   onBack,
   onNavigate,
   channel,
@@ -161,6 +163,8 @@ export function ChannelSalesScreen({
   onTabChange,
 }: ChannelSalesScreenProps): React.JSX.Element {
   const isMain = isAllWarehouses(scope);
+  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const canCreateOrder = isTohfaAdmin;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<ChannelOrderItem | null>(null);
 
@@ -212,91 +216,91 @@ export function ChannelSalesScreen({
   const mainOrders: ChannelOrderItem[] =
     channel === 'HORECA'
       ? [
-          {
-            id: 'HORECA-0021',
-            channel: 'HORECA',
-            businessName: 'Hilltop Resort & Restaurant',
-            customerCode: 'CUS-H0021',
-            status: 'Paid',
-            itemCountText: '4 items · Coonoor',
-            dateText: '24 Sep 2026',
-            amount: 1250,
-            warehouseName: 'Coonoor',
-            items: [
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00231', qtyText: '2 KG @ ₹100', pricePerUnit: 100, lineTotal: 200 },
-              { name: 'Carrot Grade 1', grade: 'Grade 1', batch: 'BTH-00189', qtyText: '1 KG @ ₹120', pricePerUnit: 120, lineTotal: 120 },
-              { name: 'Beans Grade 1', grade: 'Grade 1', batch: 'BTH-00155', qtyText: '5 KG @ ₹90', pricePerUnit: 90, lineTotal: 450 },
-              { name: 'Potato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹48', pricePerUnit: 48, lineTotal: 480 },
-            ],
-          },
-          {
-            id: 'HORECA-0020',
-            channel: 'HORECA',
-            businessName: 'Highland Residency Hotel',
-            customerCode: 'CUS-H0020',
-            status: 'Paid',
-            itemCountText: '18 items · Ooty',
-            dateText: '24 Sep 2026',
-            amount: 2100,
-            warehouseName: 'Ooty',
-            items: [],
-          },
-          {
-            id: 'HORECA-0019',
-            channel: 'HORECA',
-            businessName: 'Nilgiri Tea & Dine',
-            customerCode: 'CUS-H0019',
-            status: 'Paid',
-            itemCountText: '8 items · Kotagiri',
-            dateText: '23 Sep 2026',
-            amount: 1450,
-            warehouseName: 'Kotagiri',
-            items: [],
-          },
-        ]
+        {
+          id: 'HORECA-0021',
+          channel: 'HORECA',
+          businessName: 'Hilltop Resort & Restaurant',
+          customerCode: 'CUS-H0021',
+          status: 'Paid',
+          itemCountText: '4 items · Coonoor',
+          dateText: '24 Sep 2026',
+          amount: 1250,
+          warehouseName: 'Coonoor',
+          items: [
+            { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00231', qtyText: '2 KG @ ₹100', pricePerUnit: 100, lineTotal: 200 },
+            { name: 'Carrot Grade 1', grade: 'Grade 1', batch: 'BTH-00189', qtyText: '1 KG @ ₹120', pricePerUnit: 120, lineTotal: 120 },
+            { name: 'Beans Grade 1', grade: 'Grade 1', batch: 'BTH-00155', qtyText: '5 KG @ ₹90', pricePerUnit: 90, lineTotal: 450 },
+            { name: 'Potato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹48', pricePerUnit: 48, lineTotal: 480 },
+          ],
+        },
+        {
+          id: 'HORECA-0020',
+          channel: 'HORECA',
+          businessName: 'Highland Residency Hotel',
+          customerCode: 'CUS-H0020',
+          status: 'Paid',
+          itemCountText: '18 items · Ooty',
+          dateText: '24 Sep 2026',
+          amount: 2100,
+          warehouseName: 'Ooty',
+          items: [],
+        },
+        {
+          id: 'HORECA-0019',
+          channel: 'HORECA',
+          businessName: 'Nilgiri Tea & Dine',
+          customerCode: 'CUS-H0019',
+          status: 'Paid',
+          itemCountText: '8 items · Kotagiri',
+          dateText: '23 Sep 2026',
+          amount: 1450,
+          warehouseName: 'Kotagiri',
+          items: [],
+        },
+      ]
       : [
-          {
-            id: 'B2B-0041',
-            channel: 'B2B',
-            businessName: 'Green Valley Retail Pvt Ltd',
-            customerCode: 'CUS-B0041',
-            status: 'Paid',
-            itemCountText: '12 items · Ooty',
-            dateText: '22 Sep 2026',
-            amount: 4400,
-            warehouseName: 'Ooty',
-            items: [
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-              { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
-            ],
-          },
-          {
-            id: 'B2B-0040',
-            channel: 'B2B',
-            businessName: 'Nilgiris Fresh Stores',
-            customerCode: 'CUS-B0040',
-            status: 'Paid',
-            itemCountText: '8 items · Coonoor',
-            dateText: '22 Sep 2026',
-            amount: 2800,
-            warehouseName: 'Coonoor',
-            items: [],
-          },
-          {
-            id: 'B2B-0039',
-            channel: 'B2B',
-            businessName: 'Apex Grocers Wholesalers',
-            customerCode: 'CUS-B0039',
-            status: 'Paid',
-            itemCountText: '15 items · Kotagiri',
-            dateText: '21 Sep 2026',
-            amount: 3600,
-            warehouseName: 'Kotagiri',
-            items: [],
-          },
-        ];
+        {
+          id: 'B2B-0041',
+          channel: 'B2B',
+          businessName: 'Green Valley Retail Pvt Ltd',
+          customerCode: 'CUS-B0041',
+          status: 'Paid',
+          itemCountText: '12 items · Ooty',
+          dateText: '22 Sep 2026',
+          amount: 4400,
+          warehouseName: 'Ooty',
+          items: [
+            { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
+            { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
+            { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
+            { name: 'Tomato Grade 1', grade: 'Grade 1', batch: 'BTH-00204', qtyText: '10 KG @ ₹100', pricePerUnit: 100, lineTotal: 1000 },
+          ],
+        },
+        {
+          id: 'B2B-0040',
+          channel: 'B2B',
+          businessName: 'Nilgiris Fresh Stores',
+          customerCode: 'CUS-B0040',
+          status: 'Paid',
+          itemCountText: '8 items · Coonoor',
+          dateText: '22 Sep 2026',
+          amount: 2800,
+          warehouseName: 'Coonoor',
+          items: [],
+        },
+        {
+          id: 'B2B-0039',
+          channel: 'B2B',
+          businessName: 'Apex Grocers Wholesalers',
+          customerCode: 'CUS-B0039',
+          status: 'Paid',
+          itemCountText: '15 items · Kotagiri',
+          dateText: '21 Sep 2026',
+          amount: 3600,
+          warehouseName: 'Kotagiri',
+          items: [],
+        },
+      ];
 
   const rawList = isMain ? mainOrders : CHANNEL_ORDERS[channel];
 
@@ -360,12 +364,12 @@ export function ChannelSalesScreen({
             </View>
           </View>
 
-          <ScrollView style={styles.mainContainer} contentContainerStyle={{ paddingBottom: 40 }}>
+          <ScrollView style={styles.mainContainer} contentContainerStyle={{ paddingBottom: 20 }}>
             <View style={styles.confirmationSuccessCircle}>
               <CheckmarkIcon size={32} color={adminColors.success.text} />
             </View>
             <Text style={styles.confirmationTitle}>Order Created</Text>
-            <Text style={styles.confirmationSub}>- confirmed by the server</Text>
+            <Text style={styles.confirmationSub}>· confirmed by the server</Text>
 
             <View style={styles.summaryCardBox}>
               <View style={styles.summaryGridRow}>
@@ -375,29 +379,29 @@ export function ChannelSalesScreen({
                 </View>
                 <View style={styles.summaryGridCol}>
                   <Text style={styles.summaryFieldLabel}>Status</Text>
-                  <Text style={[styles.summaryFieldValue, { color: adminColors.warning.text }]}>Pending</Text>
+                  <Text style={[styles.summaryFieldValue, { fontWeight: '700', color: adminColors.ink }]}>Pending</Text>
                 </View>
               </View>
 
               <View style={[styles.summaryGridRow, { marginTop: 12 }]}>
                 <View style={styles.summaryGridCol}>
                   <Text style={styles.summaryFieldLabel}>Business</Text>
-                  <Text style={styles.summaryFieldValue}>{businessName}</Text>
+                  <Text style={styles.summaryFieldValue}>{businessName || '—'}</Text>
                 </View>
                 <View style={styles.summaryGridCol}>
                   <Text style={styles.summaryFieldLabel}>Mode</Text>
-                  <Text style={styles.summaryFieldValue}>{fulfilmentMode}</Text>
+                  <Text style={[styles.summaryFieldValue, { fontWeight: '700', color: adminColors.ink }]}>{fulfilmentMode}</Text>
                 </View>
               </View>
 
               <View style={[styles.summaryGridRow, { marginTop: 12 }]}>
                 <View style={styles.summaryGridCol}>
                   <Text style={styles.summaryFieldLabel}>Warehouse</Text>
-                  <Text style={styles.summaryFieldValue}>{fulfillingWarehouse}</Text>
+                  <Text style={[styles.summaryFieldValue, { fontWeight: '700', color: adminColors.ink }]}>{fulfillingWarehouse}</Text>
                 </View>
                 <View style={styles.summaryGridCol}>
                   <Text style={styles.summaryFieldLabel}>Items</Text>
-                  <Text style={styles.summaryFieldValue}>{orderItems.length}</Text>
+                  <Text style={[styles.summaryFieldValue, { fontWeight: '700', color: adminColors.ink }]}>{orderItems.length}</Text>
                 </View>
               </View>
 
@@ -406,7 +410,10 @@ export function ChannelSalesScreen({
                 <Text style={styles.summaryFieldValueBold}>₹{orderTotalAmount}</Text>
               </View>
             </View>
+          </ScrollView>
 
+          {/* Bottom Docked Action Buttons (Image 1 reference) */}
+          <View style={styles.confirmationBottomBar}>
             <TouchableOpacity
               style={styles.primaryActionButton}
               onPress={() => {
@@ -459,7 +466,7 @@ export function ChannelSalesScreen({
                 <Text style={styles.halfSecondaryBtnText}>Back to List</Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </SafeAreaView>
       );
     }
@@ -603,7 +610,7 @@ export function ChannelSalesScreen({
             <TouchableOpacity style={styles.backBtn} onPress={() => setCreatingOrder(false)} activeOpacity={0.8}>
               <ArrowBackIcon size={24} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{channel === 'B2B' ? 'New B2B Order' : 'New HORECA Order'}</Text>
+            <Text style={styles.headerTitle}>{channel === 'B2B' ? 'Create B2B Order' : 'Create HORECA Order'}</Text>
             <View style={styles.stepPillBadge}>
               <Text style={styles.stepPillText}>STEP 1 OF 2</Text>
             </View>
@@ -960,59 +967,37 @@ export function ChannelSalesScreen({
 
       {/* ─── Main Content ─── */}
       <View style={styles.mainContainer}>
-        {isMain ? (
-          /* ─── Main Warehouse Top 2 KPI Cards ─── */
-          <View style={styles.mainKpiRow}>
-            <View style={styles.mainKpiCardHalf}>
-              <Text style={styles.mainKpiLabel}>{channel === 'HORECA' ? 'HORECA SALES' : 'B2B SALES'}</Text>
-              <Text style={styles.mainKpiValue}>{channel === 'HORECA' ? '₹4,800' : '₹4,400'}</Text>
-            </View>
-            <View style={styles.mainKpiCardHalf}>
-              <Text style={styles.mainKpiLabel}>ORDERS</Text>
-              <Text style={styles.mainKpiValue}>{channel === 'HORECA' ? '5' : '4'}</Text>
-            </View>
+        {/* ─── Shared 4-Box KPI Row & Sales Value Card ─── */}
+        <View style={styles.kpiRow}>
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiNumber}>{kpis.orders}</Text>
+            <Text style={styles.kpiLabel}>ORDERS</Text>
           </View>
-        ) : (
-          /* ─── Subwarehouse 4-Box Row & Sales Value (policy banner removed) ─── */
-          <>
-            <View style={styles.kpiRow}>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiNumber}>{kpis.orders}</Text>
-                <Text style={styles.kpiLabel}>ORDERS</Text>
-              </View>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiNumber}>{kpis.pending}</Text>
-                <Text style={styles.kpiLabel}>PENDING</Text>
-              </View>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiNumber}>{kpis.processing}</Text>
-                <Text style={styles.kpiLabel}>PROCESSING</Text>
-              </View>
-              <View style={styles.kpiBox}>
-                <Text style={styles.kpiNumber}>{kpis.completed}</Text>
-                <Text style={styles.kpiLabel}>COMPLETED</Text>
-              </View>
-            </View>
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiNumber}>{kpis.pending}</Text>
+            <Text style={styles.kpiLabel}>PENDING</Text>
+          </View>
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiNumber}>{kpis.processing}</Text>
+            <Text style={styles.kpiLabel}>PROCESSING</Text>
+          </View>
+          <View style={styles.kpiBox}>
+            <Text style={styles.kpiNumber}>{kpis.completed}</Text>
+            <Text style={styles.kpiLabel}>COMPLETED</Text>
+          </View>
+        </View>
 
-            <View style={styles.salesValueCard}>
-              <Text style={styles.salesValueLabel}>Sales Value</Text>
-              <Text style={styles.salesValueAmount}>₹{kpis.salesValue.toLocaleString('en-IN')}</Text>
-            </View>
-          </>
-        )}
+        <View style={styles.salesValueCard}>
+          <Text style={styles.salesValueLabel}>Sales Value</Text>
+          <Text style={styles.salesValueAmount}>₹{kpis.salesValue.toLocaleString('en-IN')}</Text>
+        </View>
 
         {/* ─── Search Bar ─── */}
         <View style={styles.searchBarWrap}>
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder={
-              isMain
-                ? channel === 'HORECA'
-                  ? 'Order / hotel / restaurant / customer'
-                  : 'Order / business / customer'
-                : copy.searchPlaceholder
-            }
+            placeholder={copy.searchPlaceholder}
             placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -1055,22 +1040,10 @@ export function ChannelSalesScreen({
               </TouchableOpacity>
             );
           }}
-          ListFooterComponent={
-            isMain ? (
-              <View style={styles.disclaimerNoticeCard}>
-                <BanCircleIcon size={18} color={adminColors.muted} />
-                <Text style={styles.disclaimerNoticeText}>
-                  {channel === 'HORECA'
-                    ? 'MWA can view and create HORECA orders here. No Edit, Delete, payment/quantity modification, or order approval.'
-                    : 'MWA can view and create B2B orders here. No Edit, Delete, payment/quantity modification, or order approval.'}
-                </Text>
-              </View>
-            ) : null
-          }
         />
 
-        {/* Bottom Button for Main Warehouse */}
-        {isMain ? (
+        {/* Bottom Button for Tohfa Admin only (RBAC: Main & Sub Warehouse are view-only) */}
+        {canCreateOrder ? (
           <TouchableOpacity
             style={styles.createOrderBottomBtn}
             onPress={() => {
@@ -1663,6 +1636,15 @@ const styles = StyleSheet.create({
   confirmationBtnRow: {
     flexDirection: 'row',
     gap: 12,
+  },
+  confirmationBottomBar: {
+    backgroundColor: adminColors.card,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    ...adminShadow.sm,
   },
   halfSecondaryBtn: {
     flex: 1,

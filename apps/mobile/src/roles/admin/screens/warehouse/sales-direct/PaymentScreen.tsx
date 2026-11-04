@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -70,59 +68,10 @@ function WalletIcon({ size = 20, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function QuestionCircleIcon({ size = 20, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
-      <Path
-        d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CheckmarkOutlineIcon({ size = 18, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M5 13l4 4L19 7"
-        stroke={color}
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CancelCrossIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 6L6 18M6 6l12 12"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 type PaymentMethod = SalePaymentMethod;
 
-// Design id: M6-S06
-// No direct-sale / payment-collection code exists in docs/rbac.json (SPEC_GAPS
-// "Sales Direct" #111): the screen is scope-locked but ungated. The Wallet
-// method is not gated on a wallet code either; none covers paying from a wallet
-// at a counter, and inventing one is not allowed (noted in SPEC_GAPS).
 export interface PaymentScreenProps extends WarehouseScreenBaseProps {
   amountDue?: number | undefined;
-  /** Wallet balance of the sale's customer (Wallet method). */
   walletBalance?: number | undefined;
   onPaymentConfirmed: (method: PaymentMethod) => void;
 }
@@ -134,8 +83,7 @@ export function PaymentScreen({
   onPaymentConfirmed,
 }: PaymentScreenProps) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('Cash');
-  const [receivedAmount, setReceivedAmount] = useState<string>('');
-  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
+  const [receivedAmount, setReceivedAmount] = useState<string>('500');
 
   // UPI State
   const [upiStatus] = useState<'Waiting' | 'Received'>('Waiting');
@@ -151,15 +99,6 @@ export function PaymentScreen({
   const changeAmount = isNaN(numericReceived) ? 180 : Math.max(0, numericReceived - amountDue);
 
   const handleConfirm = () => {
-    if (showConfirmPopup) {
-      handleFinalConfirm();
-    } else {
-      setShowConfirmPopup(true);
-    }
-  };
-
-  const handleFinalConfirm = () => {
-    setShowConfirmPopup(false);
     onPaymentConfirmed(selectedMethod);
   };
 
@@ -289,9 +228,7 @@ export function PaymentScreen({
           </TouchableOpacity>
         </View>
 
-        {/* ─── 3. DYNAMIC CONTENT BASED ON SELECTED METHOD ─── */}
-
-        {/* ── Option A: Cash ── */}
+        {/* ─── 3. Dynamic Content Based on Selected Method ─── */}
         {selectedMethod === 'Cash' && (
           <View>
             <Text style={styles.sectionHeading}>Amount Received</Text>
@@ -301,19 +238,19 @@ export function PaymentScreen({
                 value={receivedAmount}
                 onChangeText={setReceivedAmount}
                 keyboardType="numeric"
-                placeholder=""
+                placeholder="500"
                 placeholderTextColor={adminColors.placeholder}
               />
               <Text style={styles.currencySymbol}>₹</Text>
             </View>
 
-            <View style={styles.changeCard}>
+            <View style={styles.changeRow}>
               <Text style={styles.changeLabel}>Change</Text>
               <Text style={styles.changeValue}>₹{changeAmount}</Text>
             </View>
 
             {/* Payment Summary */}
-            <Text style={styles.paymentSummaryHeading}>Payment Summary</Text>
+            <Text style={styles.sectionHeading}>Payment Summary</Text>
             <View style={styles.paymentSummaryCard}>
               <View style={styles.summaryCol}>
                 <Text style={styles.summaryLabel}>Amount</Text>
@@ -324,104 +261,55 @@ export function PaymentScreen({
                 <Text style={styles.summaryValue}>cash</Text>
               </View>
             </View>
-
-            {/* Inline Confirm Payment Card (Image 5) */}
-            {showConfirmPopup && (
-              <View style={styles.inlineConfirmCard}>
-                <View style={styles.inlineConfirmHeader}>
-                  <QuestionCircleIcon size={20} color={adminColors.brandDeep} />
-                  <Text style={styles.inlineConfirmTitle}>Confirm Payment?</Text>
-                </View>
-
-                <View style={styles.inlineConfirmSubBox}>
-                  <View style={styles.inlineConfirmSubCol}>
-                    <Text style={styles.inlineConfirmSubLabel}>Amount</Text>
-                    <Text style={styles.inlineConfirmSubVal}>₹{amountDue}</Text>
-                  </View>
-                  <View style={styles.inlineConfirmSubCol}>
-                    <Text style={styles.inlineConfirmSubLabel}>Method</Text>
-                    <Text style={styles.inlineConfirmSubVal}>{selectedMethod}</Text>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={styles.inlineConfirmBtn}
-                  onPress={handleFinalConfirm}
-                  activeOpacity={0.8}
-                >
-                  <CheckmarkOutlineIcon size={18} color={adminColors.success.text} />
-                  <Text style={styles.inlineConfirmBtnText}>Confirm Payment</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.inlineCancelBtn}
-                  onPress={() => setShowConfirmPopup(false)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.inlineCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         )}
 
-        {/* ── Option B: UPI ── */}
         {selectedMethod === 'UPI' && (
           <View>
-            <View style={styles.statusDetailCard}>
+            <Text style={styles.sectionHeading}>UPI Payment</Text>
+            <View style={styles.paymentSummaryCard}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.detailLabel}>Payment Status</Text>
+                <Text style={styles.summaryLabel}>Payment Status</Text>
                 <Text
                   style={[
-                    styles.detailValue,
+                    styles.summaryValue,
                     upiStatus === 'Received' && { color: adminColors.success.text },
                   ]}
                 >
                   {upiStatus === 'Received' ? 'Received ✓' : 'Waiting for payment...'}
                 </Text>
               </View>
-
               <View style={{ flex: 1, paddingLeft: 12 }}>
-                <Text style={styles.detailLabel}>Transaction Reference</Text>
-                <Text style={styles.detailValue}>{upiRef}</Text>
+                <Text style={styles.summaryLabel}>Transaction Reference</Text>
+                <Text style={styles.summaryValue}>{upiRef}</Text>
               </View>
             </View>
           </View>
         )}
 
-        {/* ── Option C: Card ── */}
         {selectedMethod === 'Card' && (
           <View>
-            <View style={styles.statusDetailCard}>
+            <Text style={styles.sectionHeading}>Card Payment</Text>
+            <View style={styles.paymentSummaryCard}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.detailLabel}>Payment Status</Text>
-                <Text style={styles.detailValue}>{cardStatus}</Text>
+                <Text style={styles.summaryLabel}>Payment Status</Text>
+                <Text style={styles.summaryValue}>{cardStatus}</Text>
               </View>
             </View>
           </View>
         )}
 
-        {/* ── Option D: Wallet ── */}
         {selectedMethod === 'Wallet' && (
           <View>
-            <View style={styles.walletDetailCard}>
-              <View style={styles.walletRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.detailLabel}>Wallet Available</Text>
-                  <Text style={styles.detailValue}>₹{walletBalance.toLocaleString()}</Text>
-                </View>
-
-                <View style={{ flex: 1, paddingLeft: 12 }}>
-                  <Text style={styles.detailLabel}>Sale Amount</Text>
-                  <Text style={styles.detailValue}>₹{amountDue}</Text>
-                </View>
+            <Text style={styles.sectionHeading}>Customer Wallet</Text>
+            <View style={styles.paymentSummaryCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.summaryLabel}>Wallet Available</Text>
+                <Text style={styles.summaryValue}>₹{walletBalance.toLocaleString()}</Text>
               </View>
-
-              <View style={[styles.walletRow, { marginTop: 14 }]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.detailLabel}>Balance After Payment</Text>
-                  <Text style={styles.detailValue}>₹{balanceAfter.toLocaleString()}</Text>
-                </View>
+              <View style={{ flex: 1, paddingLeft: 12 }}>
+                <Text style={styles.summaryLabel}>Balance After</Text>
+                <Text style={styles.summaryValue}>₹{balanceAfter.toLocaleString()}</Text>
               </View>
             </View>
           </View>
@@ -453,8 +341,8 @@ const styles = StyleSheet.create({
   headerBanner: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 18,
+    paddingTop: 12,
+    paddingBottom: 16,
   },
   headerRow: {
     flexDirection: 'row',
@@ -475,153 +363,127 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 14,
+    paddingBottom: 20,
   },
   amountDueCard: {
     backgroundColor: adminColors.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: 26,
+    borderRadius: 16,
+    paddingVertical: 24,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: adminColors.border,
     marginBottom: 16,
+    ...adminShadow.sm,
   },
   amountDueValue: {
-    ...adminType.title,
+    fontSize: 32,
+    fontWeight: '800',
     color: adminColors.ink,
-    letterSpacing: -0.5,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   amountDueLabel: {
-    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
     color: adminColors.muted,
-    letterSpacing: 0.8,
+    letterSpacing: 0.5,
   },
   paymentMethodsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 18,
+    gap: 8,
+    marginBottom: 16,
   },
   methodBtn: {
     flex: 1,
     backgroundColor: adminColors.card,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: adminColors.border,
     gap: 6,
+    ...adminShadow.sm,
   },
   methodBtnSelected: {
     backgroundColor: adminColors.brand,
     borderColor: adminColors.brand,
   },
   methodBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: adminColors.ink,
   },
   methodBtnTextSelected: {
     color: adminColors.onBrand,
-    fontWeight: '700',
   },
   sectionHeading: {
     ...adminType.sectionHead,
     color: adminColors.ink,
+    marginTop: 10,
     marginBottom: 8,
-    marginTop: 4,
+    fontWeight: '700',
   },
   receivedInputCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
     borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    paddingHorizontal: 16,
-    height: 52,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   receivedInput: {
     flex: 1,
-    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '700',
     color: adminColors.ink,
-    paddingVertical: 0,
+    padding: 0,
   },
   currencySymbol: {
-    ...adminType.title,
-    color: adminColors.muted,
-  },
-  changeCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 14,
-  },
-  changeLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  changeValue: {
-    ...adminType.title,
-    color: adminColors.success.text,
-  },
-  statusDetailCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    marginBottom: 14,
-  },
-  detailLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  detailValue: {
-    ...adminType.sectionHead,
+    fontSize: 18,
+    fontWeight: '700',
     color: adminColors.ink,
   },
-  walletDetailCard: {
+  changeRow: {
+    paddingVertical: 4,
+    marginBottom: 12,
+  },
+  changeLabel: {
+    fontSize: 12.5,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  changeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  paymentSummaryCard: {
+    flexDirection: 'row',
     backgroundColor: adminColors.card,
     borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
     marginBottom: 14,
+    ...adminShadow.sm,
   },
-  walletRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  walletNoticeBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: adminColors.brandTint,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginBottom: 14,
-  },
-  walletNoticeText: {
+  summaryCol: {
     flex: 1,
-    ...adminType.body,
-    color: adminColors.brandDeep,
-    lineHeight: 17,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: adminColors.muted,
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -641,181 +503,6 @@ const styles = StyleSheet.create({
   confirmBtnText: {
     color: adminColors.onBrand,
     ...adminType.title,
-  },
-  modalOverlay: {
-    flex: 1,
-    // Was a translucent black scrim; no translucent token, so a solid canvas scrim (card raised by adminShadow.lg).
-    backgroundColor: adminColors.canvas,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  popupCard: {
-    width: '100%',
-    maxWidth: 340,
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    padding: 20,
-    ...adminShadow.lg,
-  },
-  popupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  popupTitle: {
-    ...adminType.title,
-    color: adminColors.brandDeep,
-  },
-  popupSummaryBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginTop: 14,
-    backgroundColor: adminColors.card,
-  },
-  popupSummaryCol: {
-    flex: 1,
-  },
-  popupSummaryLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  popupSummaryVal: {
-    ...adminType.title,
-    color: adminColors.ink,
-  },
-  popupConfirmBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: adminColors.success.text,
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginTop: 16,
-    backgroundColor: adminColors.card,
-  },
-  popupConfirmBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.success.text,
-  },
-  popupCancelBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginTop: 10,
-    backgroundColor: adminColors.card,
-  },
-  popupCancelBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-  },
-  paymentSummaryHeading: {
-    ...adminType.title,
-    color: adminColors.brandDeep,
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  paymentSummaryCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 16,
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  summaryCol: {
-    flex: 1,
-  },
-  summaryLabel: {
-    ...adminType.rowTitle,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  summaryValue: {
-    ...adminType.title,
-    color: adminColors.ink,
-  },
-  inlineConfirmCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    padding: 16,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  inlineConfirmHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  inlineConfirmTitle: {
-    ...adminType.title,
-    color: adminColors.brandDeep,
-  },
-  inlineConfirmSubBox: {
-    backgroundColor: adminColors.canvas,
-    borderRadius: 12,
-    padding: 14,
-    flexDirection: 'row',
-  },
-  inlineConfirmSubCol: {
-    flex: 1,
-  },
-  inlineConfirmSubLabel: {
-    ...adminType.rowTitle,
-    color: adminColors.muted,
-    marginBottom: 4,
-  },
-  inlineConfirmSubVal: {
-    ...adminType.title,
-    color: adminColors.ink,
-  },
-  inlineConfirmBtn: {
-    borderWidth: 1.5,
-    borderColor: adminColors.success.border,
-    borderRadius: 12,
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 14,
-    backgroundColor: adminColors.card,
-    gap: 8,
-  },
-  inlineConfirmBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.success.text,
-  },
-  inlineCancelBtn: {
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: 12,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    backgroundColor: adminColors.card,
-  },
-  inlineCancelBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
+    fontSize: 16,
   },
 });

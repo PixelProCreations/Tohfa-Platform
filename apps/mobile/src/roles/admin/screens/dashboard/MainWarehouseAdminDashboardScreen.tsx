@@ -2452,6 +2452,7 @@ export function MainWarehouseAdminDashboardScreen({
             <TransfersFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="TransferReceiving"
               onBack={() => setReceivingSubView('dashboard')}
             />
@@ -3024,6 +3025,7 @@ export function MainWarehouseAdminDashboardScreen({
             <SalesFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen={MAIN_SALES_ENTRY[whSubView]?.screen}
               initialParams={MAIN_SALES_ENTRY[whSubView]?.params}
               onBack={goBackWh}

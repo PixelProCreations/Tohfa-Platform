@@ -51,7 +51,7 @@ import {
   type OnlineOrderItem,
   type B2BAccount,
 } from '../sales';
-import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
+import { SalesFlow } from '../warehouse/sales-direct';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
 
@@ -4678,13 +4678,13 @@ function CustomersManagementScreen({
     icon: 'users' | 'clipboard' | 'box' | 'orders' | 'alert';
     tone?: 'default' | 'warning' | 'danger';
   }> = [
-    { value: '18', label: 'Total Customers', icon: 'users' },
-    { value: '2', label: 'New Registrations', icon: 'clipboard' },
-    { value: '11', label: 'Individual', icon: 'users' },
-    { value: '7', label: 'Business (B2B/HORECA)', icon: 'box' },
-    { value: '24', label: 'Recent Orders', icon: 'orders' },
-    { value: '2', label: 'Business Details Pending', icon: 'alert', tone: 'warning' },
-  ];
+      { value: '18', label: 'Total Customers', icon: 'users' },
+      { value: '2', label: 'New Registrations', icon: 'clipboard' },
+      { value: '11', label: 'Individual', icon: 'users' },
+      { value: '7', label: 'Business (B2B/HORECA)', icon: 'box' },
+      { value: '24', label: 'Recent Orders', icon: 'orders' },
+      { value: '2', label: 'Business Details Pending', icon: 'alert', tone: 'warning' },
+    ];
 
   return (
     <View style={customerStyles.rootContainer}>
@@ -7200,7 +7200,7 @@ export function TohfaAdminDashboardScreen({
   const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | null>(null);
   const [operationsReturnTab, setOperationsReturnTab] = useState<'Home' | 'Inventory' | 'Operations' | null>(null);
   const [workforceReturnTab, setWorkforceReturnTab] = useState<'Home' | 'Workforce' | 'More' | null>(null);
-  const [financeReturnTab, setFinanceReturnTab] = useState<'Home' | 'Finance' | null>(null);
+  const [financeReturnTab, setFinanceReturnTab] = useState<'Home' | 'Finance' | 'More' | null>(null);
   const [inputsPestReturnTab, setInputsPestReturnTab] = useState<'Home' | 'More' | null>(null);
 
   const handleOperationsBack = () => {
@@ -7697,12 +7697,12 @@ export function TohfaAdminDashboardScreen({
       activeTab === 'More'
         ? 'More'
         : activeTab === 'WorkQueue'
-        ? 'WorkQueue'
-        : activeTab === 'Inventory'
-        ? 'Inventory'
-        : activeTab === 'Operations'
-        ? 'Operations'
-        : 'Home'
+          ? 'WorkQueue'
+          : activeTab === 'Inventory'
+            ? 'Inventory'
+            : activeTab === 'Operations'
+              ? 'Operations'
+              : 'Home'
     );
     setFarmersMainTab('applications');
     setActiveTab('Farmers');
@@ -7719,10 +7719,10 @@ export function TohfaAdminDashboardScreen({
       fromTab === 'More' || fromTab === 'WorkQueue' || fromTab === 'Home'
         ? fromTab
         : activeTab === 'More'
-        ? 'More'
-        : activeTab === 'WorkQueue'
-        ? 'WorkQueue'
-        : 'Home';
+          ? 'More'
+          : activeTab === 'WorkQueue'
+            ? 'WorkQueue'
+            : 'Home';
     setAuditReturnTab(validReturnTab);
     setDashboardSubScreen('scheduleAudit');
   };
@@ -11795,364 +11795,371 @@ export function TohfaAdminDashboardScreen({
             {/* ══════════════════════════════════════════════════════════════════════
             FINANCE TAB (Accounts & Finance Dashboard)
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Finance' && (
-          financeSubScreen === 'purchaseSales' ? (
-            <PurchaseSalesOrdersScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'duesPayouts' ? (
-            <PurchaseDuesPayoutsScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'salesIncome' ? (
-            <SalesIncomeRevenueScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'expenses' ? (
-            <ExpenseManagementScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'invoicesGst' ? (
-            <InvoicesGstBillingScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'reviewReturns' ? (
-            <ReturnsRmaRefundsScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'transactionHistory' ? (
-            <TransactionHistoryScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'customerWallet' ? (
-            <CustomerWalletOverviewScreen
-              onBack={handleFinanceBack}
-            />
-          ) : financeSubScreen === 'reportExport' ? (
-            <ReportsExportScreen
-              onBack={handleFinanceBack}
-            />
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.accountsFinanceScrollContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* 1. Header Banner */}
-              <View style={styles.accountsFinanceHeaderBanner}>
-                <View style={styles.accountsFinanceHeaderTopRow}>
-                  <View style={styles.accountsFinanceHeaderTitleGroup}>
-                    <TouchableOpacity
-                      style={styles.accountsFinanceBackBtn}
-                      onPress={() => {
-                        setActiveTab(financeReturnTab || 'Home');
-                        setFinanceReturnTab(null);
-                      }}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Go back to Home"
-                    >
-                      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                        <Path
-                          d="M19 12H5M12 19l-7-7 7-7"
-                          stroke={adminColors.onBrand}
-                          strokeWidth="2.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </Svg>
-                    </TouchableOpacity>
-                    <BankBuildingWhiteIcon size={24} color={adminColors.onBrand} />
-                    <Text style={styles.accountsFinanceHeaderTitle}>Accounts & Finance</Text>
-                  </View>
-                  <View style={styles.accountsFinanceHeaderActionsRow}>
-                    <TouchableOpacity
-                      style={styles.accountsFinanceHeaderPillBtn}
-                      onPress={() => setShowFinanceFilterModal(true)}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Filter accounts and finance"
-                    >
-                      <FilterSlidersIcon size={18} color={adminColors.onBrand} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.accountsFinanceHeaderPillBtn}
-                      onPress={handleExportFinanceReport}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                      accessibilityLabel="Download finance report"
-                    >
-                      <DownloadWhiteIcon size={18} color={adminColors.onBrand} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <Text style={styles.accountsFinanceHeaderSubtitle}>Last 30 Days</Text>
-              </View>
-
-              {/* 2. Subheader */}
-              <View style={styles.accountsFinanceSubheaderRow}>
-                <Text style={styles.accountsFinanceLastUpdated}>Last updated 14 Oct 2026, 06:00</Text>
-              </View>
-
-              {/* 3. 8 KPI Cards (Reusing OverviewDashboardCard component strictly as requested) */}
-              <OverviewCardsGrid style={{ paddingHorizontal: adminSpacing.md, rowGap: 10 }}>
-                <OverviewDashboardCard
-                  title="Sales"
-                  value="₹2,14,600.00"
-                  icon="sales"
+            {activeTab === 'Finance' && (
+              financeSubScreen === 'purchaseSales' ? (
+                <SalesFlow
+                  scope={{ warehouseId: undefined, warehouseName: undefined }}
+                  can={can}
+                  role="TOHFA_ADMIN"
+                  onBack={handleFinanceBack}
+                  onTabChange={(tab) => {
+                    setActiveTab(tab as any);
+                    setFinanceSubScreen(null);
+                  }}
                 />
-                <OverviewDashboardCard
-                  title="Farmer Purchase Value"
-                  value="₹1,38,900.00"
-                  icon="truck"
+              ) : financeSubScreen === 'duesPayouts' ? (
+                <PurchaseDuesPayoutsScreen
+                  onBack={handleFinanceBack}
                 />
-                <OverviewDashboardCard
-                  title="Outstanding Dues"
-                  value="₹32,450.00"
-                  icon="orders"
+              ) : financeSubScreen === 'salesIncome' ? (
+                <SalesIncomeRevenueScreen
+                  onBack={handleFinanceBack}
                 />
-                <OverviewDashboardCard
-                  title="Expenses"
-                  value="₹18,200.00"
-                  icon="cash"
+              ) : financeSubScreen === 'expenses' ? (
+                <ExpenseManagementScreen
+                  onBack={handleFinanceBack}
                 />
-                <OverviewDashboardCard
-                  title="Wallet Liability"
-                  value="₹9,340.00"
-                  icon="wallet"
+              ) : financeSubScreen === 'invoicesGst' ? (
+                <InvoicesGstBillingScreen
+                  onBack={handleFinanceBack}
                 />
-                <OverviewDashboardCard
-                  title="Pending Payouts"
-                  value="6"
-                  icon="pickup"
+              ) : financeSubScreen === 'reviewReturns' ? (
+                <ReturnsRmaRefundsScreen
+                  onBack={handleFinanceBack}
                 />
-                <OverviewDashboardCard
-                  title="Refunds"
-                  value="₹1,840.00"
-                  icon="alert"
+              ) : financeSubScreen === 'transactionHistory' ? (
+                <TransactionHistoryScreen
+                  onBack={handleFinanceBack}
                 />
-                <OverviewDashboardCard
-                  title="Net Financial Summary"
-                  value="Not defined"
-                  icon="clipboard"
+              ) : financeSubScreen === 'customerWallet' ? (
+                <CustomerWalletOverviewScreen
+                  onBack={handleFinanceBack}
                 />
-              </OverviewCardsGrid>
-
-              {/* 5. Revenue, expense & purchase (daily) */}
-              <View style={styles.financeSectionBlock}>
-                <Text style={styles.financeSectionHeading}>Revenue, expense & purchase (daily)</Text>
-
-                <View style={styles.financeProgressRow}>
-                  <Text style={styles.financeProgressLabel}>Revenue</Text>
-                  <View style={styles.financeProgressBarTrack}>
-                    <View style={[styles.financeProgressBarFill, { width: '85%', backgroundColor: '#2E8B57' }]} />
+              ) : financeSubScreen === 'reportExport' ? (
+                <ReportsExportScreen
+                  onBack={handleFinanceBack}
+                />
+              ) : (
+                <ScrollView
+                  style={styles.scroll}
+                  contentContainerStyle={styles.accountsFinanceScrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* 1. Header Banner */}
+                  <View style={styles.accountsFinanceHeaderBanner}>
+                    <View style={styles.accountsFinanceHeaderTopRow}>
+                      <View style={styles.accountsFinanceHeaderTitleGroup}>
+                        <TouchableOpacity
+                          style={styles.accountsFinanceBackBtn}
+                          onPress={() => {
+                            setActiveTab(financeReturnTab || 'Home');
+                            setFinanceReturnTab(null);
+                          }}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Go back to Home"
+                        >
+                          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                            <Path
+                              d="M19 12H5M12 19l-7-7 7-7"
+                              stroke={adminColors.onBrand}
+                              strokeWidth="2.4"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </Svg>
+                        </TouchableOpacity>
+                        <BankBuildingWhiteIcon size={24} color={adminColors.onBrand} />
+                        <Text style={styles.accountsFinanceHeaderTitle}>Accounts & Finance</Text>
+                      </View>
+                      <View style={styles.accountsFinanceHeaderActionsRow}>
+                        <TouchableOpacity
+                          style={styles.accountsFinanceHeaderPillBtn}
+                          onPress={() => setShowFinanceFilterModal(true)}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Filter accounts and finance"
+                        >
+                          <FilterSlidersIcon size={18} color={adminColors.onBrand} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.accountsFinanceHeaderPillBtn}
+                          onPress={handleExportFinanceReport}
+                          activeOpacity={0.8}
+                          accessibilityRole="button"
+                          accessibilityLabel="Download finance report"
+                        >
+                          <DownloadWhiteIcon size={18} color={adminColors.onBrand} />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    <Text style={styles.accountsFinanceHeaderSubtitle}>Last 30 Days</Text>
                   </View>
-                  <Text style={styles.financeProgressValue}>₹2,14,600</Text>
-                </View>
 
-                <View style={styles.financeProgressRow}>
-                  <Text style={styles.financeProgressLabel}>Purchase</Text>
-                  <View style={styles.financeProgressBarTrack}>
-                    <View style={[styles.financeProgressBarFill, { width: '55%', backgroundColor: adminColors.brand }]} />
+                  {/* 2. Subheader */}
+                  <View style={styles.accountsFinanceSubheaderRow}>
+                    <Text style={styles.accountsFinanceLastUpdated}>Last updated 14 Oct 2026, 06:00</Text>
                   </View>
-                  <Text style={styles.financeProgressValue}>₹1,38,900</Text>
-                </View>
 
-                <View style={styles.financeProgressRow}>
-                  <Text style={styles.financeProgressLabel}>Expense</Text>
-                  <View style={styles.financeProgressBarTrack}>
-                    <View style={[styles.financeProgressBarFill, { width: '15%', backgroundColor: '#D97706' }]} />
-                  </View>
-                  <Text style={styles.financeProgressValue}>₹18,200</Text>
-                </View>
-              </View>
+                  {/* 3. 8 KPI Cards (Reusing OverviewDashboardCard component strictly as requested) */}
+                  <OverviewCardsGrid style={{ paddingHorizontal: adminSpacing.md, rowGap: 10 }}>
+                    <OverviewDashboardCard
+                      title="Sales"
+                      value="₹2,14,600.00"
+                      icon="sales"
+                    />
+                    <OverviewDashboardCard
+                      title="Farmer Purchase Value"
+                      value="₹1,38,900.00"
+                      icon="truck"
+                    />
+                    <OverviewDashboardCard
+                      title="Outstanding Dues"
+                      value="₹32,450.00"
+                      icon="orders"
+                    />
+                    <OverviewDashboardCard
+                      title="Expenses"
+                      value="₹18,200.00"
+                      icon="cash"
+                    />
+                    <OverviewDashboardCard
+                      title="Wallet Liability"
+                      value="₹9,340.00"
+                      icon="wallet"
+                    />
+                    <OverviewDashboardCard
+                      title="Pending Payouts"
+                      value="6"
+                      icon="pickup"
+                    />
+                    <OverviewDashboardCard
+                      title="Refunds"
+                      value="₹1,840.00"
+                      icon="alert"
+                    />
+                    <OverviewDashboardCard
+                      title="Net Financial Summary"
+                      value="Not defined"
+                      icon="clipboard"
+                    />
+                  </OverviewCardsGrid>
 
-              {/* 6. Payment status (statuses the records carry) */}
-              <View style={styles.financeSectionBlock}>
-                <Text style={styles.financeSectionHeading}>Payment status (statuses the records carry)</Text>
+                  {/* 5. Revenue, expense & purchase (daily) */}
+                  <View style={styles.financeSectionBlock}>
+                    <Text style={styles.financeSectionHeading}>Revenue, expense & purchase (daily)</Text>
 
-                <View style={styles.financeProgressRow}>
-                  <Text style={styles.financeProgressLabel}>Collected</Text>
-                  <View style={styles.financeProgressBarTrack}>
-                    <View style={[styles.financeProgressBarFill, { width: '82%', backgroundColor: '#2E8B57' }]} />
-                  </View>
-                  <Text style={styles.financeProgressValue}>18</Text>
-                </View>
+                    <View style={styles.financeProgressRow}>
+                      <Text style={styles.financeProgressLabel}>Revenue</Text>
+                      <View style={styles.financeProgressBarTrack}>
+                        <View style={[styles.financeProgressBarFill, { width: '85%', backgroundColor: '#2E8B57' }]} />
+                      </View>
+                      <Text style={styles.financeProgressValue}>₹2,14,600</Text>
+                    </View>
 
-                <View style={styles.financeProgressRow}>
-                  <Text style={styles.financeProgressLabel}>Pending</Text>
-                  <View style={styles.financeProgressBarTrack}>
-                    <View style={[styles.financeProgressBarFill, { width: '23%', backgroundColor: '#D97706' }]} />
-                  </View>
-                  <Text style={styles.financeProgressValue}>5</Text>
-                </View>
+                    <View style={styles.financeProgressRow}>
+                      <Text style={styles.financeProgressLabel}>Purchase</Text>
+                      <View style={styles.financeProgressBarTrack}>
+                        <View style={[styles.financeProgressBarFill, { width: '55%', backgroundColor: adminColors.brand }]} />
+                      </View>
+                      <Text style={styles.financeProgressValue}>₹1,38,900</Text>
+                    </View>
 
-                <View style={styles.financeProgressRow}>
-                  <Text style={styles.financeProgressLabel}>Failed</Text>
-                  <View style={styles.financeProgressBarTrack}>
-                    <View style={[styles.financeProgressBarFill, { width: '6%', backgroundColor: '#DC2626' }]} />
-                  </View>
-                  <Text style={styles.financeProgressValue}>1</Text>
-                </View>
-              </View>
-
-              {/* 7. By warehouse */}
-              <View style={styles.financeSectionBlock}>
-                <Text style={styles.financeSectionHeading}>By warehouse</Text>
-                <View style={styles.financeWarehouseCard}>
-                  <View style={styles.financeWarehouseRow}>
-                    <Text style={styles.financeWarehouseName}>Main Warehouse, Ooty</Text>
-                    <Text style={styles.financeWarehouseValue}>₹1,20,400.00</Text>
-                  </View>
-                  <View style={styles.financeCardDivider} />
-                  <View style={styles.financeWarehouseRow}>
-                    <Text style={styles.financeWarehouseName}>Coonoor</Text>
-                    <Text style={styles.financeWarehouseValue}>₹58,200.00</Text>
-                  </View>
-                  <View style={styles.financeCardDivider} />
-                  <View style={styles.financeWarehouseRow}>
-                    <Text style={styles.financeWarehouseName}>Kotagiri / Gudalur</Text>
-                    <Text style={styles.financeWarehouseValue}>₹36,000.00</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* 8. Recent transactions */}
-              <View style={styles.financeSectionBlock}>
-                <Text style={styles.financeSectionHeading}>Recent transactions</Text>
-
-                <View style={styles.financeTxnCard}>
-                  <View style={styles.financeTxnHeaderRow}>
-                    <Text style={styles.financeTxnTitle}>SO-0013 · Sale</Text>
-                    <View style={[styles.financeStatusBadge, { backgroundColor: '#D1F2DE' }]}>
-                      <Text style={[styles.financeStatusBadgeText, { color: '#15803D' }]}>Collected</Text>
+                    <View style={styles.financeProgressRow}>
+                      <Text style={styles.financeProgressLabel}>Expense</Text>
+                      <View style={styles.financeProgressBarTrack}>
+                        <View style={[styles.financeProgressBarFill, { width: '15%', backgroundColor: '#D97706' }]} />
+                      </View>
+                      <Text style={styles.financeProgressValue}>₹18,200</Text>
                     </View>
                   </View>
-                  <Text style={styles.financeTxnSubtext}>₹12,560.00 · Nilgiri Fresh Traders · 1 Oct 2026</Text>
-                </View>
 
-                <View style={styles.financeTxnCard}>
-                  <View style={styles.financeTxnHeaderRow}>
-                    <Text style={styles.financeTxnTitle}>PY-0005 · Payout</Text>
-                    <View style={[styles.financeStatusBadge, { backgroundColor: '#FDE8E8' }]}>
-                      <Text style={[styles.financeStatusBadgeText, { color: '#DC2626' }]}>Failed</Text>
+                  {/* 6. Payment status (statuses the records carry) */}
+                  <View style={styles.financeSectionBlock}>
+                    <Text style={styles.financeSectionHeading}>Payment status (statuses the records carry)</Text>
+
+                    <View style={styles.financeProgressRow}>
+                      <Text style={styles.financeProgressLabel}>Collected</Text>
+                      <View style={styles.financeProgressBarTrack}>
+                        <View style={[styles.financeProgressBarFill, { width: '82%', backgroundColor: '#2E8B57' }]} />
+                      </View>
+                      <Text style={styles.financeProgressValue}>18</Text>
+                    </View>
+
+                    <View style={styles.financeProgressRow}>
+                      <Text style={styles.financeProgressLabel}>Pending</Text>
+                      <View style={styles.financeProgressBarTrack}>
+                        <View style={[styles.financeProgressBarFill, { width: '23%', backgroundColor: '#D97706' }]} />
+                      </View>
+                      <Text style={styles.financeProgressValue}>5</Text>
+                    </View>
+
+                    <View style={styles.financeProgressRow}>
+                      <Text style={styles.financeProgressLabel}>Failed</Text>
+                      <View style={styles.financeProgressBarTrack}>
+                        <View style={[styles.financeProgressBarFill, { width: '6%', backgroundColor: '#DC2626' }]} />
+                      </View>
+                      <Text style={styles.financeProgressValue}>1</Text>
                     </View>
                   </View>
-                  <Text style={styles.financeTxnSubtext}>₹3,300.00 · Kumar · 6 Oct 2026</Text>
-                </View>
-              </View>
 
-              {/* 9. Go to Section (RBAC Action Cards Grid) */}
-              <View style={styles.financeSectionBlock}>
-                <Text style={styles.financeSectionHeading}>Go to</Text>
-                <View style={styles.financeGoToGrid}>
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('purchase_sales')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Purchase & Sales"
-                  >
-                    <GoToPurchaseSalesIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Purchase & Sales</Text>
-                  </TouchableOpacity>
+                  {/* 7. By warehouse */}
+                  <View style={styles.financeSectionBlock}>
+                    <Text style={styles.financeSectionHeading}>By warehouse</Text>
+                    <View style={styles.financeWarehouseCard}>
+                      <View style={styles.financeWarehouseRow}>
+                        <Text style={styles.financeWarehouseName}>Main Warehouse, Ooty</Text>
+                        <Text style={styles.financeWarehouseValue}>₹1,20,400.00</Text>
+                      </View>
+                      <View style={styles.financeCardDivider} />
+                      <View style={styles.financeWarehouseRow}>
+                        <Text style={styles.financeWarehouseName}>Coonoor</Text>
+                        <Text style={styles.financeWarehouseValue}>₹58,200.00</Text>
+                      </View>
+                      <View style={styles.financeCardDivider} />
+                      <View style={styles.financeWarehouseRow}>
+                        <Text style={styles.financeWarehouseName}>Kotagiri / Gudalur</Text>
+                        <Text style={styles.financeWarehouseValue}>₹36,000.00</Text>
+                      </View>
+                    </View>
+                  </View>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('dues_payouts')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Dues & Payouts"
-                  >
-                    <GoToDuesPayoutsIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Dues & Payouts</Text>
-                  </TouchableOpacity>
+                  {/* 8. Recent transactions */}
+                  <View style={styles.financeSectionBlock}>
+                    <Text style={styles.financeSectionHeading}>Recent transactions</Text>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('sales_income')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Sales Income & Revenue"
-                  >
-                    <GoToSalesIncomeIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Sales Income & Revenue</Text>
-                  </TouchableOpacity>
+                    <View style={styles.financeTxnCard}>
+                      <View style={styles.financeTxnHeaderRow}>
+                        <Text style={styles.financeTxnTitle}>SO-0013 · Sale</Text>
+                        <View style={[styles.financeStatusBadge, { backgroundColor: '#D1F2DE' }]}>
+                          <Text style={[styles.financeStatusBadgeText, { color: '#15803D' }]}>Collected</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.financeTxnSubtext}>₹12,560.00 · Nilgiri Fresh Traders · 1 Oct 2026</Text>
+                    </View>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('expenses')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Expenses"
-                  >
-                    <GoToExpensesIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Expenses</Text>
-                  </TouchableOpacity>
+                    <View style={styles.financeTxnCard}>
+                      <View style={styles.financeTxnHeaderRow}>
+                        <Text style={styles.financeTxnTitle}>PY-0005 · Payout</Text>
+                        <View style={[styles.financeStatusBadge, { backgroundColor: '#FDE8E8' }]}>
+                          <Text style={[styles.financeStatusBadgeText, { color: '#DC2626' }]}>Failed</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.financeTxnSubtext}>₹3,300.00 · Kumar · 6 Oct 2026</Text>
+                    </View>
+                  </View>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('customer_wallet')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Customer Wallet"
-                  >
-                    <GoToCustomerWalletIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Customer Wallet</Text>
-                  </TouchableOpacity>
+                  {/* 9. Go to Section (RBAC Action Cards Grid) */}
+                  <View style={styles.financeSectionBlock}>
+                    <Text style={styles.financeSectionHeading}>Go to</Text>
+                    <View style={styles.financeGoToGrid}>
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('purchase_sales')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Purchase & Sales"
+                      >
+                        <GoToPurchaseSalesIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Purchase & Sales</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('create_view_invoice')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Create or View Invoice"
-                  >
-                    <GoToInvoiceIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Create or View Invoice</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('dues_payouts')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Dues & Payouts"
+                      >
+                        <GoToDuesPayoutsIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Dues & Payouts</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('review_returns')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Review Returns"
-                  >
-                    <GoToReviewReturnsIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Review Returns</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('sales_income')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Sales Income & Revenue"
+                      >
+                        <GoToSalesIncomeIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Sales Income & Revenue</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('transaction_history')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="History"
-                  >
-                    <GoToTransactionHistoryIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>History</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('expenses')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Expenses"
+                      >
+                        <GoToExpensesIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Expenses</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={styles.financeGoToCard}
-                    onPress={() => handleGoToItem('report_export')}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel="Report & Export"
-                  >
-                    <GoToReportExportIcon size={24} color={adminColors.brand} />
-                    <Text style={styles.financeGoToCardTitle}>Report & Export</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('customer_wallet')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Customer Wallet"
+                      >
+                        <GoToCustomerWalletIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Customer Wallet</Text>
+                      </TouchableOpacity>
 
-              <View style={{ height: adminSpacing.xxl }} />
-            </ScrollView>
-          )
-        )}
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('create_view_invoice')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Create or View Invoice"
+                      >
+                        <GoToInvoiceIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Create or View Invoice</Text>
+                      </TouchableOpacity>
 
-        {/* ══════════════════════════════════════════════════════════════════════
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('review_returns')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Review Returns"
+                      >
+                        <GoToReviewReturnsIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Review Returns</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('transaction_history')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="History"
+                      >
+                        <GoToTransactionHistoryIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>History</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.financeGoToCard}
+                        onPress={() => handleGoToItem('report_export')}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel="Report & Export"
+                      >
+                        <GoToReportExportIcon size={24} color={adminColors.brand} />
+                        <Text style={styles.financeGoToCardTitle}>Report & Export</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  <View style={{ height: adminSpacing.xxl }} />
+                </ScrollView>
+              )
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════
             SALES TAB (Subscreens & Channels)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Sales' && (
@@ -12214,347 +12221,362 @@ export function TohfaAdminDashboardScreen({
             {/* ══════════════════════════════════════════════════════════════════════
             MORE TAB (Image 1 Menu Screen)
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'More' && (
-          customerScreen === 'management' ? (
-            <CustomersManagementScreen
-              onBack={() => setCustomerScreen(null)}
-              onOpenDirectory={() => setCustomerScreen('directory')}
-              onOpenGstBusiness={() => setCustomerScreen('gst_business')}
-            />
-          ) : customerScreen === 'directory' ? (
-            <CustomerDirectoryScreen
-              onBack={() => setCustomerScreen('management')}
-              onSelectCustomer={(cust) => {
-                setSelectedCustomer(cust);
-                setCustomerScreen('customer_detail');
-              }}
-              onAddNewCustomer={() => setCustomerScreen('add_customer')}
-            />
-          ) : customerScreen === 'add_customer' ? (
-            <AddCustomerScreen
-              onBack={() => setCustomerScreen('directory')}
-              onSaveCustomer={(newCust) => {
-                CUSTOMERS_DATA.unshift(newCust);
-                setCustomerScreen('directory');
-              }}
-            />
-          ) : customerScreen === 'customer_detail' ? (
-            <CustomerDetailScreen
-              customer={selectedCustomer}
-              onBack={() => setCustomerScreen('directory')}
-            />
-          ) : customerScreen === 'gst_business' ? (
-            <GstBusinessScreen
-              onBack={() => setCustomerScreen('management')}
-              onSelectBusiness={(biz) => {
-                setSelectedGstBusiness(biz);
-                setCustomerScreen('gst_business_detail');
-              }}
-            />
-          ) : customerScreen === 'gst_business_detail' ? (
-            <GstBusinessDetailScreen
-              business={selectedGstBusiness}
-              onBack={() => setCustomerScreen('gst_business')}
-            />
-          ) : produceControlScreen === 'calendar' ? (
-            <ProduceControlCalendarScreen
-              onBack={() => setProduceControlScreen(null)}
-              onOpenFilters={() => setShowProduceFiltersModal(true)}
-              onNavigateToZoneBreakdown={() => setProduceControlScreen('zoneBreakdown')}
-              onNavigateToHarvestForecast={() => setProduceControlScreen('harvestForecast')}
-              onNavigateToCropHistory={() => setProduceControlScreen('cropHistory')}
-            />
-          ) : produceControlScreen === 'zoneBreakdown' ? (
-            <ZoneCropBreakdownScreen
-              onBack={() => setProduceControlScreen('calendar')}
-              onOpenFilters={() => setShowProduceFiltersModal(true)}
-              onSelectCropRecord={(_recordId) => setProduceControlScreen('cropDetail')}
-            />
-          ) : produceControlScreen === 'cropDetail' ? (
-            <CropRecordDetailScreen
-              onBack={() => setProduceControlScreen('zoneBreakdown')}
-              onOpenFarmerProfile={() => {
-                setProduceControlScreen(null);
-                if (onNavigate) onNavigate('AdminAllFarmers');
-                else setActiveTab('Farmers');
-              }}
-            />
-          ) : produceControlScreen === 'harvestForecast' ? (
-            <HarvestForecastInsightsScreen
-              onBack={() => setProduceControlScreen('calendar')}
-              onOpenExportModal={() => setShowExportCropModal(true)}
-              onOpenFilters={() => setShowProduceFiltersModal(true)}
-            />
-          ) : produceControlScreen === 'cropHistory' ? (
-            <CropHistoryRecordsScreen
-              onBack={() => setProduceControlScreen('calendar')}
-              onOpenCompareModal={() => setShowCompareModal(true)}
-              onSelectCropRecord={(_recordId) => setProduceControlScreen('cropDetail')}
-              onOpenFilters={() => setShowProduceFiltersModal(true)}
-              selectedCompareIds={selectedCompareIds}
-              onToggleCompare={(recordId) => {
-                setSelectedCompareIds((prev) =>
-                  prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]
-                );
-              }}
-            />
-          ) : inputsPestScreen === 'home' ? (
-            <InputsPestHomeScreen
-              onBack={() => {
-                setInputsPestScreen(null);
-                if (inputsPestReturnTab) {
-                  setActiveTab(inputsPestReturnTab);
-                  setInputsPestReturnTab(null);
-                }
-              }}
-              onNavigateApprovedInputs={() => setInputsPestScreen('catalog')}
-              onNavigatePestLibrary={() => setInputsPestScreen('pest_library')}
-              onNavigateApplicationGuides={() => Alert.alert('Application Guides', 'Create Application Guide module.')}
-              onNavigatePestIncidents={() => setInputsPestScreen('pest_incidents')}
-              onAddInput={() => setInputsPestScreen('add_input')}
-            />
-          ) : inputsPestScreen === 'catalog' ? (
-            <ApprovedInputsScreen
-              onBack={() => setInputsPestScreen('home')}
-              onAddNewInput={() => setInputsPestScreen('add_input')}
-              onSelectInput={(item) => {
-                setSelectedCatalogInput(item);
-                setInputsPestScreen('input_detail');
-              }}
-            />
-          ) : inputsPestScreen === 'add_input' ? (
-            <AddNewInputScreen
-              onBack={() => setInputsPestScreen('catalog')}
-              onSave={() => setInputsPestScreen('catalog')}
-            />
-          ) : inputsPestScreen === 'input_detail' ? (
-            <InputDetailScreen
-              inputItem={selectedCatalogInput}
-              onBack={() => setInputsPestScreen('catalog')}
-              onEdit={() => setInputsPestScreen('add_input')}
-            />
-          ) : inputsPestScreen === 'pest_library' ? (
-            <PestLibraryScreen
-              onBack={() => setInputsPestScreen('home')}
-              onAddNewPest={() => setInputsPestScreen('add_pest')}
-              onSelectPest={(pest) => {
-                Alert.alert(pest.name, `${pest.scientificName || ''}\n${pest.metaLine || ''}`);
-              }}
-            />
-          ) : inputsPestScreen === 'add_pest' ? (
-            <AddNewPestScreen
-              onBack={() => setInputsPestScreen('pest_library')}
-              onSave={() => setInputsPestScreen('pest_library')}
-            />
-          ) : inputsPestScreen === 'pest_incidents' ? (
-            <FarmerPestIncidentsScreen
-              onBack={() => setInputsPestScreen('home')}
-              onSelectIncident={(incident) => {
-                setSelectedIncident(incident);
-                setInputsPestScreen('incident_detail');
-              }}
-            />
-          ) : inputsPestScreen === 'incident_detail' ? (
-            <PestIncidentDetailScreen
-              incident={selectedIncident}
-              onBack={() => setInputsPestScreen('pest_incidents')}
-            />
-          ) : communitySubScreen === 'create_content' ? (
-            <CreateContentScreen
-              initialType={createContentInitialType}
-              initialData={createContentInitialData}
-              onBack={() => setCommunitySubScreen('home')}
-              onSubmitSuccess={() => {
-                setArticleNavOrigin('content_pending_review');
-                setCommunitySubScreen('content_pending_review');
-              }}
-              onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
-            />
-          ) : communitySubScreen === 'create_group' ? (
-            <CreateGroupScreen
-              onBack={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
-              onSubmitSuccess={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
-            />
-          ) : communitySubScreen === 'create_community' ? (
-            <CreateCommunityScreen
-              onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
-              onSubmitSuccess={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
-            />
-          ) : communitySubScreen === 'add_video' ? (
-            <AddVideoScreen
-              onBack={() => setCommunitySubScreen('home')}
-              onSubmitSuccess={() => {
-                setArticleNavOrigin('content_pending_review');
-                setCommunitySubScreen('content_pending_review');
-              }}
-            />
-          ) : communitySubScreen === 'community_details' ? (
-            <CommunityDetailsScreen
-              communityId={selectedCommunityId}
-              onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
-              onNavigateKnowledgeDetail={() => setCommunitySubScreen('article_details')}
-            />
-          ) : communitySubScreen === 'all_communities' ? (
-            <CommunitiesListScreen
-              onBack={() => setCommunitySubScreen('home')}
-              onSelectCommunity={(commId) => {
-                setCommunityNavOrigin('all_communities');
-                if (commId) setSelectedCommunityId(commId);
-                setCommunitySubScreen('community_details');
-              }}
-              onNavigateCreateCommunity={() => {
-                setCommunityNavOrigin('all_communities');
-                setCommunitySubScreen('create_community');
-              }}
-            />
-          ) : communitySubScreen === 'all_groups' ? (
-            <GroupsListScreen
-              onBack={() => setCommunitySubScreen('home')}
-              onSelectGroup={() => {
-                setGroupNavOrigin('all_groups');
-                setCommunitySubScreen('create_group');
-              }}
-              onNavigateCreateGroup={() => {
-                setGroupNavOrigin('all_groups');
-                setCommunitySubScreen('create_group');
-              }}
-            />
-          ) : communitySubScreen === 'article_details' ? (
-            <ArticleDetailsScreen
-              onBack={() => setCommunitySubScreen(articleNavOrigin === 'home' ? 'home' : articleNavOrigin === 'content_pending_review' ? 'content_pending_review' : 'content_item_detail')}
-              onOpenChatThread={() => setCommunitySubScreen('qa_chat')}
-              onOpenContentDetails={() => setCommunitySubScreen('content_item_detail')}
-            />
-          ) : communitySubScreen === 'content_pending_review' ? (
-            <ContentPendingReviewScreen
-              onBack={() => setCommunitySubScreen('create_content')}
-              onNavigateEditContent={() => {
-                setCreateContentInitialData(resumedMulchingData);
-                setCommunitySubScreen('create_content');
-              }}
-              onPublishSuccess={() => {
-                setCommunitySubScreen('knowledge_library');
-              }}
-            />
-          ) : communitySubScreen === 'content_item_detail' ? (
-            <ContentItemDetailScreen
-              onBack={() => setCommunitySubScreen('knowledge_library')}
-              onNavigateChat={() => {
-                setArticleNavOrigin('content_item_detail');
-                setCommunitySubScreen('article_details');
-              }}
-              onNavigateMessages={() => {
-                setArticleNavOrigin('content_item_detail');
-                setCommunitySubScreen('article_details');
-              }}
-              onNavigateEditContent={() => {
-                setCreateContentInitialData(resumedMulchingData);
-                setCommunitySubScreen('create_content');
-              }}
-            />
-          ) : communitySubScreen === 'qa_chat' ? (
-            <QuestionAnswerChatScreen
-              onBack={() => setCommunitySubScreen('article_details')}
-            />
-          ) : communitySubScreen === 'knowledge_library' ? (
-            <KnowledgeLibraryScreen
-              onBack={() => setCommunitySubScreen('home')}
-              onSelectItem={(_item) => {
-                setArticleNavOrigin('content_item_detail');
-                setCommunitySubScreen('content_item_detail');
-              }}
-              onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
-              onNavigateCreateContent={() => {
-                setCreateContentInitialData(undefined);
-                setCommunitySubScreen('create_content');
-              }}
-            />
-          ) : communitySubScreen === 'home' ? (
-            <CommunityKnowledgeHomeScreen
-              onBack={() => setCommunitySubScreen(null)}
-              onNavigateCreateContent={(type) => {
-                setCreateContentInitialData(undefined);
-                setCreateContentInitialType(type || 'Article');
-                setCommunitySubScreen('create_content');
-              }}
-              onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
-              onNavigateKnowledgeLibrary={() => setCommunitySubScreen('knowledge_library')}
-              onNavigateCommunityDetails={(commId) => {
-                setCommunityNavOrigin('home');
-                if (commId) setSelectedCommunityId(commId);
-                setCommunitySubScreen('community_details');
-              }}
-              onNavigateAllCommunities={() => setCommunitySubScreen('all_communities')}
-              onNavigateCreateGroup={() => {
-                setGroupNavOrigin('home');
-                setCommunitySubScreen('create_group');
-              }}
-              onNavigateAllGroups={() => setCommunitySubScreen('all_groups')}
-              onNavigateCreateCommunity={() => {
-                setCommunityNavOrigin('home');
-                setCommunitySubScreen('create_community');
-              }}
-              onViewActivityDetails={() => {
-                setArticleNavOrigin('home');
-                setCommunitySubScreen('article_details');
-              }}
-            />
-          ) : workforceActive ? (
-            workforceSubScreen === 'management' ? (
-              renderWorkforceManagementScreen()
-            ) : workforceSubScreen === 'create' ? (
-              renderWorkforceCreateScreen()
-            ) : workforceSubScreen === 'attendance' ? (
-              renderWorkforceAttendanceScreen()
-            ) : workforceSubScreen === 'details' ? (
-              renderWorkforceDetailsScreen()
-            ) : (
-              renderWorkforceDashboardScreen()
-            )
-          ) : (
-            <AdminMoreMenuScreen
-              onBack={() => setActiveTab('Home')}
-              onLogout={onSignOut}
-              onSelectOption={(optionId) => {
-                if (optionId === 'farmers') {
-                  setFarmersReturnTab('More');
-                  setFarmersMainTab('farmers');
-                  setSelectedAdminFarmer(null);
-                  setSelectedAdminApplication(null);
-                  if (onNavigate) onNavigate('AdminAllFarmers');
-                  else setActiveTab('Farmers');
-                } else if (optionId === 'produce') {
-                  setProduceControlScreen('calendar');
-                } else if (optionId === 'audit') {
-                  handleOpenScheduleAudit('More');
-                } else if (optionId === 'inputs') {
-                  setInputsPestScreen('home');
-                } else if (optionId === 'pricing') {
-                  setPricingReturnTab('More');
-                  setDashboardSubScreen('marketPricingHome');
-                } else if (optionId === 'purchase_sales') {
-                  setActiveTab('Finance');
-                } else if (optionId === 'customers') {
-                  setCustomerScreen('management');
-                } else if (optionId === 'finance') {
-                  setActiveTab('Finance');
-                } else if (optionId === 'workforce') {
-                  setWorkforceActive(true);
-                  setWorkforceSubScreen('dashboard');
-                } else if (optionId === 'notifications') {
-                  setNotificationsReturnTab('More');
-                  setActiveTab('Notifications');
-                } else if (optionId === 'community') {
-                  setCommunitySubScreen('home');
-                } else if (optionId === 'settings') {
-                  setActiveTab('Settings');
-                } else if (optionId === 'logout') {
-                  onSignOut();
-                }
-              }}
-            />
-          )
-        )}
+            {activeTab === 'More' && (
+              customerScreen === 'management' ? (
+                <CustomersManagementScreen
+                  onBack={() => setCustomerScreen(null)}
+                  onOpenDirectory={() => setCustomerScreen('directory')}
+                  onOpenGstBusiness={() => setCustomerScreen('gst_business')}
+                />
+              ) : customerScreen === 'directory' ? (
+                <CustomerDirectoryScreen
+                  onBack={() => setCustomerScreen('management')}
+                  onSelectCustomer={(cust) => {
+                    setSelectedCustomer(cust);
+                    setCustomerScreen('customer_detail');
+                  }}
+                  onAddNewCustomer={() => setCustomerScreen('add_customer')}
+                />
+              ) : customerScreen === 'add_customer' ? (
+                <AddCustomerScreen
+                  onBack={() => setCustomerScreen('directory')}
+                  onSaveCustomer={(newCust) => {
+                    CUSTOMERS_DATA.unshift(newCust);
+                    setCustomerScreen('directory');
+                  }}
+                />
+              ) : customerScreen === 'customer_detail' ? (
+                <CustomerDetailScreen
+                  customer={selectedCustomer}
+                  onBack={() => setCustomerScreen('directory')}
+                />
+              ) : customerScreen === 'gst_business' ? (
+                <GstBusinessScreen
+                  onBack={() => setCustomerScreen('management')}
+                  onSelectBusiness={(biz) => {
+                    setSelectedGstBusiness(biz);
+                    setCustomerScreen('gst_business_detail');
+                  }}
+                />
+              ) : customerScreen === 'gst_business_detail' ? (
+                <GstBusinessDetailScreen
+                  business={selectedGstBusiness}
+                  onBack={() => setCustomerScreen('gst_business')}
+                />
+              ) : produceControlScreen === 'calendar' ? (
+                <ProduceControlCalendarScreen
+                  onBack={() => setProduceControlScreen(null)}
+                  onOpenFilters={() => setShowProduceFiltersModal(true)}
+                  onNavigateToZoneBreakdown={() => setProduceControlScreen('zoneBreakdown')}
+                  onNavigateToHarvestForecast={() => setProduceControlScreen('harvestForecast')}
+                  onNavigateToCropHistory={() => setProduceControlScreen('cropHistory')}
+                />
+              ) : produceControlScreen === 'zoneBreakdown' ? (
+                <ZoneCropBreakdownScreen
+                  onBack={() => setProduceControlScreen('calendar')}
+                  onOpenFilters={() => setShowProduceFiltersModal(true)}
+                  onSelectCropRecord={(_recordId) => setProduceControlScreen('cropDetail')}
+                />
+              ) : produceControlScreen === 'cropDetail' ? (
+                <CropRecordDetailScreen
+                  onBack={() => setProduceControlScreen('zoneBreakdown')}
+                  onOpenFarmerProfile={() => {
+                    setProduceControlScreen(null);
+                    if (onNavigate) onNavigate('AdminAllFarmers');
+                    else setActiveTab('Farmers');
+                  }}
+                />
+              ) : produceControlScreen === 'harvestForecast' ? (
+                <HarvestForecastInsightsScreen
+                  onBack={() => setProduceControlScreen('calendar')}
+                  onOpenExportModal={() => setShowExportCropModal(true)}
+                  onOpenFilters={() => setShowProduceFiltersModal(true)}
+                />
+              ) : produceControlScreen === 'cropHistory' ? (
+                <CropHistoryRecordsScreen
+                  onBack={() => setProduceControlScreen('calendar')}
+                  onOpenCompareModal={() => setShowCompareModal(true)}
+                  onSelectCropRecord={(_recordId) => setProduceControlScreen('cropDetail')}
+                  onOpenFilters={() => setShowProduceFiltersModal(true)}
+                  selectedCompareIds={selectedCompareIds}
+                  onToggleCompare={(recordId) => {
+                    setSelectedCompareIds((prev) =>
+                      prev.includes(recordId) ? prev.filter((id) => id !== recordId) : [...prev, recordId]
+                    );
+                  }}
+                />
+              ) : inputsPestScreen === 'home' ? (
+                <InputsPestHomeScreen
+                  onBack={() => {
+                    setInputsPestScreen(null);
+                    if (inputsPestReturnTab) {
+                      setActiveTab(inputsPestReturnTab);
+                      setInputsPestReturnTab(null);
+                    }
+                  }}
+                  onNavigateApprovedInputs={() => setInputsPestScreen('catalog')}
+                  onNavigatePestLibrary={() => setInputsPestScreen('pest_library')}
+                  onNavigateApplicationGuides={() => Alert.alert('Application Guides', 'Create Application Guide module.')}
+                  onNavigatePestIncidents={() => setInputsPestScreen('pest_incidents')}
+                  onAddInput={() => setInputsPestScreen('add_input')}
+                />
+              ) : inputsPestScreen === 'catalog' ? (
+                <ApprovedInputsScreen
+                  onBack={() => setInputsPestScreen('home')}
+                  onAddNewInput={() => setInputsPestScreen('add_input')}
+                  onSelectInput={(item) => {
+                    setSelectedCatalogInput(item);
+                    setInputsPestScreen('input_detail');
+                  }}
+                />
+              ) : inputsPestScreen === 'add_input' ? (
+                <AddNewInputScreen
+                  onBack={() => setInputsPestScreen('catalog')}
+                  onSave={() => setInputsPestScreen('catalog')}
+                />
+              ) : inputsPestScreen === 'input_detail' ? (
+                <InputDetailScreen
+                  inputItem={selectedCatalogInput}
+                  onBack={() => setInputsPestScreen('catalog')}
+                  onEdit={() => setInputsPestScreen('add_input')}
+                />
+              ) : inputsPestScreen === 'pest_library' ? (
+                <PestLibraryScreen
+                  onBack={() => setInputsPestScreen('home')}
+                  onAddNewPest={() => setInputsPestScreen('add_pest')}
+                  onSelectPest={(pest) => {
+                    Alert.alert(pest.name, `${pest.scientificName || ''}\n${pest.metaLine || ''}`);
+                  }}
+                />
+              ) : inputsPestScreen === 'add_pest' ? (
+                <AddNewPestScreen
+                  onBack={() => setInputsPestScreen('pest_library')}
+                  onSave={() => setInputsPestScreen('pest_library')}
+                />
+              ) : inputsPestScreen === 'pest_incidents' ? (
+                <FarmerPestIncidentsScreen
+                  onBack={() => setInputsPestScreen('home')}
+                  onSelectIncident={(incident) => {
+                    setSelectedIncident(incident);
+                    setInputsPestScreen('incident_detail');
+                  }}
+                />
+              ) : inputsPestScreen === 'incident_detail' ? (
+                <PestIncidentDetailScreen
+                  incident={selectedIncident}
+                  onBack={() => setInputsPestScreen('pest_incidents')}
+                />
+              ) : communitySubScreen === 'create_content' ? (
+                <CreateContentScreen
+                  initialType={createContentInitialType}
+                  initialData={createContentInitialData}
+                  onBack={() => setCommunitySubScreen('home')}
+                  onSubmitSuccess={() => {
+                    setArticleNavOrigin('content_pending_review');
+                    setCommunitySubScreen('content_pending_review');
+                  }}
+                  onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
+                />
+              ) : communitySubScreen === 'create_group' ? (
+                <CreateGroupScreen
+                  onBack={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
+                  onSubmitSuccess={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
+                />
+              ) : communitySubScreen === 'create_community' ? (
+                <CreateCommunityScreen
+                  onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+                  onSubmitSuccess={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+                />
+              ) : communitySubScreen === 'add_video' ? (
+                <AddVideoScreen
+                  onBack={() => setCommunitySubScreen('home')}
+                  onSubmitSuccess={() => {
+                    setArticleNavOrigin('content_pending_review');
+                    setCommunitySubScreen('content_pending_review');
+                  }}
+                />
+              ) : communitySubScreen === 'community_details' ? (
+                <CommunityDetailsScreen
+                  communityId={selectedCommunityId}
+                  onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+                  onNavigateKnowledgeDetail={() => setCommunitySubScreen('article_details')}
+                />
+              ) : communitySubScreen === 'all_communities' ? (
+                <CommunitiesListScreen
+                  onBack={() => setCommunitySubScreen('home')}
+                  onSelectCommunity={(commId) => {
+                    setCommunityNavOrigin('all_communities');
+                    if (commId) setSelectedCommunityId(commId);
+                    setCommunitySubScreen('community_details');
+                  }}
+                  onNavigateCreateCommunity={() => {
+                    setCommunityNavOrigin('all_communities');
+                    setCommunitySubScreen('create_community');
+                  }}
+                />
+              ) : communitySubScreen === 'all_groups' ? (
+                <GroupsListScreen
+                  onBack={() => setCommunitySubScreen('home')}
+                  onSelectGroup={() => {
+                    setGroupNavOrigin('all_groups');
+                    setCommunitySubScreen('create_group');
+                  }}
+                  onNavigateCreateGroup={() => {
+                    setGroupNavOrigin('all_groups');
+                    setCommunitySubScreen('create_group');
+                  }}
+                />
+              ) : communitySubScreen === 'article_details' ? (
+                <ArticleDetailsScreen
+                  onBack={() => setCommunitySubScreen(articleNavOrigin === 'home' ? 'home' : articleNavOrigin === 'content_pending_review' ? 'content_pending_review' : 'content_item_detail')}
+                  onOpenChatThread={() => setCommunitySubScreen('qa_chat')}
+                  onOpenContentDetails={() => setCommunitySubScreen('content_item_detail')}
+                />
+              ) : communitySubScreen === 'content_pending_review' ? (
+                <ContentPendingReviewScreen
+                  onBack={() => setCommunitySubScreen('create_content')}
+                  onNavigateEditContent={() => {
+                    setCreateContentInitialData(resumedMulchingData);
+                    setCommunitySubScreen('create_content');
+                  }}
+                  onPublishSuccess={() => {
+                    setCommunitySubScreen('knowledge_library');
+                  }}
+                />
+              ) : communitySubScreen === 'content_item_detail' ? (
+                <ContentItemDetailScreen
+                  onBack={() => setCommunitySubScreen('knowledge_library')}
+                  onNavigateChat={() => {
+                    setArticleNavOrigin('content_item_detail');
+                    setCommunitySubScreen('article_details');
+                  }}
+                  onNavigateMessages={() => {
+                    setArticleNavOrigin('content_item_detail');
+                    setCommunitySubScreen('article_details');
+                  }}
+                  onNavigateEditContent={() => {
+                    setCreateContentInitialData(resumedMulchingData);
+                    setCommunitySubScreen('create_content');
+                  }}
+                />
+              ) : communitySubScreen === 'qa_chat' ? (
+                <QuestionAnswerChatScreen
+                  onBack={() => setCommunitySubScreen('article_details')}
+                />
+              ) : communitySubScreen === 'knowledge_library' ? (
+                <KnowledgeLibraryScreen
+                  onBack={() => setCommunitySubScreen('home')}
+                  onSelectItem={(_item) => {
+                    setArticleNavOrigin('content_item_detail');
+                    setCommunitySubScreen('content_item_detail');
+                  }}
+                  onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
+                  onNavigateCreateContent={() => {
+                    setCreateContentInitialData(undefined);
+                    setCommunitySubScreen('create_content');
+                  }}
+                />
+              ) : communitySubScreen === 'home' ? (
+                <CommunityKnowledgeHomeScreen
+                  onBack={() => setCommunitySubScreen(null)}
+                  onNavigateCreateContent={(type) => {
+                    setCreateContentInitialData(undefined);
+                    setCreateContentInitialType(type || 'Article');
+                    setCommunitySubScreen('create_content');
+                  }}
+                  onNavigateAddVideo={() => setCommunitySubScreen('add_video')}
+                  onNavigateKnowledgeLibrary={() => setCommunitySubScreen('knowledge_library')}
+                  onNavigateCommunityDetails={(commId) => {
+                    setCommunityNavOrigin('home');
+                    if (commId) setSelectedCommunityId(commId);
+                    setCommunitySubScreen('community_details');
+                  }}
+                  onNavigateAllCommunities={() => setCommunitySubScreen('all_communities')}
+                  onNavigateCreateGroup={() => {
+                    setGroupNavOrigin('home');
+                    setCommunitySubScreen('create_group');
+                  }}
+                  onNavigateAllGroups={() => setCommunitySubScreen('all_groups')}
+                  onNavigateCreateCommunity={() => {
+                    setCommunityNavOrigin('home');
+                    setCommunitySubScreen('create_community');
+                  }}
+                  onViewActivityDetails={() => {
+                    setArticleNavOrigin('home');
+                    setCommunitySubScreen('article_details');
+                  }}
+                />
+              ) : workforceActive ? (
+                workforceSubScreen === 'management' ? (
+                  renderWorkforceManagementScreen()
+                ) : workforceSubScreen === 'create' ? (
+                  renderWorkforceCreateScreen()
+                ) : workforceSubScreen === 'attendance' ? (
+                  renderWorkforceAttendanceScreen()
+                ) : workforceSubScreen === 'details' ? (
+                  renderWorkforceDetailsScreen()
+                ) : (
+                  renderWorkforceDashboardScreen()
+                )
+              ) : (
+                <AdminMoreMenuScreen
+                  onBack={() => setActiveTab('Home')}
+                  onLogout={onSignOut}
+                  onNavigatePurchases={() => {
+                    if (!can('sales.channel.manage')) {
+                      Alert.alert('Permission Denied', 'Your role lacks permission to access Purchase & Sales (sales.channel.manage).');
+                      return;
+                    }
+                    setFinanceReturnTab('More');
+                    setFinanceSubScreen('purchaseSales');
+                    setActiveTab('Finance');
+                  }}
+                  onSelectOption={(optionId) => {
+                    if (optionId === 'farmers') {
+                      setFarmersReturnTab('More');
+                      setFarmersMainTab('farmers');
+                      setSelectedAdminFarmer(null);
+                      setSelectedAdminApplication(null);
+                      if (onNavigate) onNavigate('AdminAllFarmers');
+                      else setActiveTab('Farmers');
+                    } else if (optionId === 'produce') {
+                      setProduceControlScreen('calendar');
+                    } else if (optionId === 'audit') {
+                      handleOpenScheduleAudit('More');
+                    } else if (optionId === 'inputs') {
+                      setInputsPestScreen('home');
+                    } else if (optionId === 'pricing') {
+                      setPricingReturnTab('More');
+                      setDashboardSubScreen('marketPricingHome');
+                    } else if (optionId === 'purchase_sales') {
+                      if (!can('sales.channel.manage')) {
+                        Alert.alert('Permission Denied', 'Your role lacks permission to access Purchase & Sales (sales.channel.manage).');
+                        return;
+                      }
+                      setFinanceReturnTab('More');
+                      setFinanceSubScreen('purchaseSales');
+                      setActiveTab('Finance');
+                    } else if (optionId === 'customers') {
+                      setCustomerScreen('management');
+                    } else if (optionId === 'finance') {
+                      setActiveTab('Finance');
+                    } else if (optionId === 'workforce') {
+                      setWorkforceActive(true);
+                      setWorkforceSubScreen('dashboard');
+                    } else if (optionId === 'notifications') {
+                      setNotificationsReturnTab('More');
+                      setActiveTab('Notifications');
+                    } else if (optionId === 'community') {
+                      setCommunitySubScreen('home');
+                    } else if (optionId === 'settings') {
+                      setActiveTab('Settings');
+                    } else if (optionId === 'logout') {
+                      onSignOut?.();
+                    }
+                  }}
+                />
+              )
+            )}
 
 
             {/* ══════════════════════════════════════════════════════════════════════
@@ -16030,4 +16052,3 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 });
-

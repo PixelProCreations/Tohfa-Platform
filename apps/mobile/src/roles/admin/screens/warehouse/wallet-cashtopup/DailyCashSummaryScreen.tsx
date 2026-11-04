@@ -78,13 +78,6 @@ export function DailyCashSummaryScreen({
     (row) => row.date === date && inScope(scope, row.warehouseId, selectedWarehouseId),
   );
 
-  const handleReconcile = () => {
-    Alert.alert(
-      'Reconciliation Submitted',
-      `Physical Cash: ${formatRupees(parsedPhysical)}\nVariance: ${variance === 0 ? '₹0 (Balanced)' : `${variance > 0 ? '+' : '-'}${formatRupees(Math.abs(variance))}`}`,
-      [{ text: 'OK' }],
-    );
-  };
 
   return (
     <WalletScreen
@@ -165,11 +158,6 @@ export function DailyCashSummaryScreen({
             A variance never automatically modifies the wallet ledger or cash records — it always surfaces as Review
             Required instead.
           </InfoNote>
-        ) : null}
-        {allWarehouses ? (
-          <View style={styles.actionWrap}>
-            <WalletButton label="Reconcile Cash" onPress={handleReconcile} />
-          </View>
         ) : null}
 
         <SectionTitle>Reconciliation Status</SectionTitle>

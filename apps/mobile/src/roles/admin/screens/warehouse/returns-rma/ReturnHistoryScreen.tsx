@@ -88,17 +88,6 @@ export function ReturnHistoryScreen({
     <ReturnsScreen
       title="Return History"
       onBack={onBack}
-      headerRight={
-        <TouchableOpacity
-          style={styles.headerFilterBtn}
-          onPress={() => {}}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Filter returns"
-        >
-          <FilterSlidersIcon size={20} color={adminColors.onBrand} />
-        </TouchableOpacity>
-      }
       headerExtra={
         allWarehouses ? (
           <WarehouseSelector

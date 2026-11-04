@@ -277,19 +277,6 @@ export function ReturnsIssuesScreen({
       <ReturnsScreen
         title="Returns & Issues"
         onBack={onBack}
-        headerRight={
-          onNavigateToNotifications ? (
-            <TouchableOpacity
-              style={styles.mainBellBtn}
-              onPress={onNavigateToNotifications}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-            >
-              <BellIcon />
-            </TouchableOpacity>
-          ) : null
-        }
         headerExtra={
           <WarehouseSelector
             scope={scope}
@@ -407,19 +394,6 @@ export function ReturnsIssuesScreen({
     <ReturnsScreen
       title="Returns & Issues"
       onBack={onBack}
-      headerRight={
-        onNavigateToNotifications ? (
-          <TouchableOpacity
-            style={styles.bellButton}
-            onPress={onNavigateToNotifications}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-          >
-            <BellIcon />
-          </TouchableOpacity>
-        ) : null
-      }
       headerExtra={headerExtra}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

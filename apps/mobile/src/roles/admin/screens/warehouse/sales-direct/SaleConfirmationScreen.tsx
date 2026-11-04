@@ -10,31 +10,17 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminType, adminShadow } from '../../../theme';
 import { BillingFlow, type BillingRouteParams } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from './types';
-
-function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M12 19l-7-7 7-7"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
 
 function SuccessCheckIcon({ size = 32 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <Circle cx="16" cy="16" r="14" stroke={adminColors.success.text} strokeWidth="2.5" />
+      <Circle cx="16" cy="16" r="14" stroke="#15803D" strokeWidth="2.5" />
       <Path
         d="M10 16.5l4 4 8-8"
-        stroke={adminColors.success.text}
+        stroke="#15803D"
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -58,33 +44,14 @@ function InvoiceIcon({ size = 18, color = adminColors.onBrand }: { size?: number
   );
 }
 
-function ShieldCheckIcon({ size = 16, color = adminColors.success.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-// Design id: M6-S07
 export interface SaleConfirmationScreenProps extends WarehouseScreenBaseProps {
   saleId?: string | undefined;
   customerName?: string | undefined;
   customerCode?: string | undefined;
   paymentMethod?: string | undefined;
   totalAmount?: number | undefined;
-  /** Number of product lines, for the invoice review step. */
   itemsCount?: number | undefined;
-  /** Warehouse that made the sale (Main picks one on New Sale); defaults to the viewer's scope. */
   saleWarehouse?: WarehouseScope | undefined;
-  /** Open the invoice in the host; without it the shared billing flow opens inline. */
   onViewInvoice?: (() => void) | undefined;
   onNewSale?: (() => void) | undefined;
 }
@@ -97,18 +64,18 @@ export function SaleConfirmationScreen({
   totalAmount = 320,
   itemsCount = 2,
   saleWarehouse,
-  onBack,
   onViewInvoice,
   onNewSale,
   scope,
   can,
 }: SaleConfirmationScreenProps) {
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
-  // View Invoice opens the invoice wizard on its Review step, which issues the
-  // invoice: gated on the code that wizard checks (FINAL_LIST row 112).
-  const canShowInvoice = can('invoice.generate');
-  const warehouseLabel = saleWarehouse?.warehouseName ?? scope.warehouseName ?? 'All warehouses';
-  // Post-sale entry of the invoice wizard: opens on its Review step (W4).
+  const canShowInvoice = can ? can('invoice.generate') : true;
+  const warehouseLabel =
+    saleWarehouse?.warehouseName?.replace(/ Warehouse$/, '') ??
+    scope.warehouseName?.replace(/ Warehouse$/, '') ??
+    'Coonoor';
+
   const invoiceParams = useMemo<BillingRouteParams>(
     () => ({
       review: {
@@ -155,20 +122,9 @@ export function SaleConfirmationScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner ─── */}
+      {/* ─── Top Brand Header Banner (No back button per design) ─── */}
       <View style={styles.headerBanner}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={onBack}
-            activeOpacity={0.75}
-            accessibilityLabel="Back"
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <ArrowBackIcon size={24} color={adminColors.onBrand} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Sale Confirmation</Text>
-        </View>
+        <Text style={styles.headerTitle}>Sale Confirmation</Text>
       </View>
 
       {/* ─── Main Content ─── */}
@@ -272,14 +228,6 @@ export function SaleConfirmationScreen({
           <Text style={styles.valueBold}>INV-00251</Text>
         </View>
 
-        {/* ─── Server Confirmation Notice ─── */}
-        <View style={styles.serverNoticeBanner}>
-          <ShieldCheckIcon size={18} color={adminColors.success.text} />
-          <Text style={styles.serverNoticeText}>
-            This screen only ever appears after the server confirms payment, sale, and the inventory ledger movement together — never on a local/optimistic success.
-          </Text>
-        </View>
-
         <View style={{ height: 20 }} />
       </ScrollView>
 
@@ -299,7 +247,7 @@ export function SaleConfirmationScreen({
         <TouchableOpacity
           style={styles.newSaleBtn}
           onPress={handleNewSale}
-          activeOpacity={0.75}
+          activeOpacity={0.85}
         >
           <Text style={styles.newSaleBtnText}>New Sale</Text>
         </TouchableOpacity>
@@ -318,24 +266,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 14,
     paddingBottom: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    width: '100%',
-    minHeight: 36,
-    gap: 12,
-  },
-  backButton: {
-    padding: 4,
-    marginLeft: -4,
+    justifyContent: 'center',
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
     letterSpacing: 0.2,
-    textAlign: 'left',
   },
   scroll: {
     flex: 1,
@@ -348,19 +285,20 @@ const styles = StyleSheet.create({
   successSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 14,
+    paddingVertical: 18,
+    gap: 12,
   },
   successCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: adminColors.success.bg,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#DCFCE7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
   },
   successTitle: {
-    ...adminType.title,
+    fontSize: 20,
+    fontWeight: '800',
     color: adminColors.ink,
   },
   sectionHeading: {
@@ -368,83 +306,67 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     marginTop: 12,
     marginBottom: 8,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    marginBottom: 10,
+    ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   gridCol: {
     flex: 1,
   },
   label: {
-    ...adminType.rowMeta,
+    fontSize: 12,
     color: adminColors.muted,
     marginBottom: 4,
   },
   valueBold: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   customerName: {
-    ...adminType.body,
-    color: adminColors.muted,
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
     marginBottom: 2,
   },
   customerCode: {
-    ...adminType.sectionHead,
-    color: adminColors.ink,
+    fontSize: 12.5,
+    color: adminColors.muted,
   },
   productRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    alignItems: 'center',
   },
   productName: {
-    ...adminType.sectionHead,
+    fontSize: 14.5,
+    fontWeight: '600',
     color: adminColors.ink,
     marginBottom: 2,
   },
   productGrade: {
-    ...adminType.body,
+    fontSize: 12.5,
     color: adminColors.muted,
   },
   productPrice: {
-    ...adminType.sectionHead,
+    fontSize: 15,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   divider: {
     height: 1,
     backgroundColor: adminColors.border,
-    marginVertical: 10,
-  },
-  serverNoticeBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: adminColors.success.bg,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: adminColors.success.border,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 10,
-    marginTop: 14,
-    marginBottom: 10,
-  },
-  serverNoticeText: {
-    flex: 1,
-    ...adminType.rowMeta,
-    color: adminColors.success.text,
-    lineHeight: 16.5,
+    marginVertical: 12,
   },
   bottomBar: {
     paddingHorizontal: 16,
@@ -458,25 +380,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: adminColors.brand,
-    borderRadius: 12,
-    height: 48,
+    borderRadius: 14,
+    paddingVertical: 14,
     gap: 8,
   },
   viewInvoiceBtnText: {
     color: adminColors.onBrand,
-    ...adminType.sectionHead,
+    ...adminType.title,
+    fontSize: 16,
   },
   newSaleBtn: {
-    backgroundColor: adminColors.card,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
   },
   newSaleBtnText: {
     color: adminColors.brand,
-    ...adminType.sectionHead,
+    ...adminType.title,
+    fontSize: 16,
   },
 });

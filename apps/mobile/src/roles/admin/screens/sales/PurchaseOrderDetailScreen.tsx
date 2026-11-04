@@ -79,14 +79,14 @@ export function PurchaseOrderDetailScreen({
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Farmer</Text>
             <Text style={styles.detailValueBold}>
-              {order.farmerName} (FMR-00098)
+              {order.farmerName} (FMR-00093)
             </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Product, grade</Text>
             <Text style={styles.detailValueBold}>
-              {order.produceName} · {order.grade}
+              {order.produceName} - {order.grade}
             </Text>
           </View>
 

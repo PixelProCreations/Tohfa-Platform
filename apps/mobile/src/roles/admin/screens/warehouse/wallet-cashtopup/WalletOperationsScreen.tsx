@@ -295,7 +295,7 @@ export function WalletOperationsScreen({
                 </TouchableOpacity>
               ) : null}
               <WalletHeaderIcon size={24} color={adminColors.onBrand} />
-              <Text style={styles.headerTitleText}>Wallet Operations</Text>
+              <Text style={styles.headerTitleText}>Wallet & Cash Top-Up</Text>
             </View>
 
             <TouchableOpacity
@@ -541,6 +541,18 @@ export function WalletOperationsScreen({
           {/* 2. Quick Actions Section */}
           <Text style={styles.sectionHeading}>Quick Actions</Text>
           <View style={styles.quickActionsRow}>
+            {/* Find Customer */}
+            <TouchableOpacity
+              style={styles.quickActionCard}
+              onPress={onNavigateToCustomerSearch}
+              activeOpacity={0.75}
+            >
+              <View style={styles.quickActionIconWrap}>
+                <UserSearchIcon size={20} color={adminColors.brand} />
+              </View>
+              <Text style={styles.quickActionLabel}>Find Customer</Text>
+            </TouchableOpacity>
+
             {/* Cash Top-Up (hidden unless the admin may process + fiscal-tag) */}
             {canCashTopUp && (
               <TouchableOpacity
@@ -554,18 +566,6 @@ export function WalletOperationsScreen({
                 <Text style={styles.quickActionLabel}>Cash Top-Up</Text>
               </TouchableOpacity>
             )}
-
-            {/* Find Customer */}
-            <TouchableOpacity
-              style={styles.quickActionCard}
-              onPress={onNavigateToCustomerSearch}
-              activeOpacity={0.75}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <UserSearchIcon size={20} color={adminColors.brand} />
-              </View>
-              <Text style={styles.quickActionLabel}>Find Customer</Text>
-            </TouchableOpacity>
 
             {/* Top-Up History */}
             <TouchableOpacity

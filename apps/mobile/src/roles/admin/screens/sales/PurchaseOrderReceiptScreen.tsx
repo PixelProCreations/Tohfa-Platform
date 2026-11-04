@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -9,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { adminColors, adminShadow, adminSpacing } from '../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing } from '../../theme';
 import type { PurchaseOrderRecord } from './PurchaseSalesOrdersScreen';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -83,7 +84,7 @@ export function PurchaseOrderReceiptScreen({
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Farmer</Text>
             <Text style={styles.detailValueBold}>
-              {order.farmerName} (FMR-00098)
+              {order.farmerName} (FMR-00093)
             </Text>
           </View>
 
@@ -260,6 +261,15 @@ export function PurchaseOrderReceiptScreen({
           </View>
         </View>
 
+        {/* Intimate Payout CTA Button (Image 5) */}
+        <TouchableOpacity
+          style={styles.payoutButton}
+          onPress={() => Alert.alert('Intimate Payout', `Payout initiated for PO ${order.poNumber} (GR-0008).`)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.payoutButtonText}>Intimate Payout</Text>
+        </TouchableOpacity>
+
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
     </SafeAreaView>
@@ -361,5 +371,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#1F1714',
+  },
+  payoutButton: {
+    height: 48,
+    borderWidth: 1.5,
+    borderColor: '#D97706',
+    borderRadius: adminRadius?.md ?? 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginTop: 18,
+  },
+  payoutButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#D97706',
   },
 });

@@ -51,7 +51,7 @@ const DEFAULT_WAREHOUSES: WarehouseOption[] = [
   { id: 'WH-4', name: 'Gudalur' },
 ];
 
-type OrderStatus = 'Confirmed' | 'Ready for Pickup' | 'Packing' | 'Quantity Issue' | 'Completed';
+type OrderStatus = 'Confirmed' | 'Ready for Pickup' | 'Packing' | 'Quantity Issue' | 'Completed' | 'Delivered';
 
 interface OrderRow {
   id: string;
@@ -72,17 +72,17 @@ interface OrderRow {
 
 const ORDERS: OrderRow[] = [
   {
-    id: 'ORD-1024',
+    id: 'PO-0009',
     warehouseId: 'WH-COON',
     warehouseName: 'Coonoor',
     customer: 'Arun Kumar',
-    status: 'Confirmed',
-    items: '4 Items',
+    status: 'Delivered',
+    items: '3 Items',
     amount: '₹850',
     fulfillment: 'Pickup',
     time: 'Today · 10:32 AM',
-    action: 'Check Stock',
-    actionScreen: 'M5S05',
+    action: 'View Purchase Order',
+    actionScreen: 'PurchaseOrderDetail',
   },
   {
     id: 'ORD-1023',
@@ -111,6 +111,19 @@ const ORDERS: OrderRow[] = [
     time: 'Today · 09:10 AM',
     action: 'Pack',
     actionScreen: 'M5S07',
+  },
+  {
+    id: 'PO-0009',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor',
+    customer: 'Arun Kumar',
+    status: 'Delivered',
+    items: '3 Items',
+    amount: '₹850',
+    fulfillment: 'Pickup',
+    time: 'Today · 10:32 AM',
+    action: 'View Purchase Order',
+    actionScreen: 'PurchaseOrderDetail',
   },
   {
     id: 'ORD-1021',
@@ -199,6 +212,7 @@ const STATUS_TONE: Record<OrderStatus, { bg: string; text: string }> = {
   Packing: adminColors.warning,
   'Ready for Pickup': adminColors.success,
   Completed: adminColors.success,
+  Delivered: { bg: '#DCFCE7', text: '#15803D' },
   'Quantity Issue': adminColors.danger,
 };
 
@@ -377,14 +391,21 @@ export function OrdersListScreen({ scope, onBack, onNavigate, routeParams, wareh
             />
           </View>
 
-          {filteredOrders.map((order) => {
-            const tone = STATUS_TONE[order.status];
+          {filteredOrders.map((order, idx) => {
+            const tone = STATUS_TONE[order.status] ?? adminColors.success;
+            const isPO = order.id === 'PO-0009' || order.id.startsWith('PO-');
             return (
               <TouchableOpacity
-                key={order.id}
+                key={`${order.id}-${idx}`}
                 style={styles.orderCard}
                 activeOpacity={0.75}
-                onPress={() => onNavigate?.('M5S04', { orderId: order.id })}
+                onPress={() => {
+                  if (isPO) {
+                    onNavigate?.('PurchaseOrderDetail', { poNumber: order.id, orderId: order.id });
+                  } else {
+                    onNavigate?.('M5S04', { orderId: order.id });
+                  }
+                }}
               >
                 <View style={styles.cardTopRow}>
                   <Text style={styles.orderIdText}>{order.id}</Text>

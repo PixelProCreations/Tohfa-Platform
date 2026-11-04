@@ -34,6 +34,11 @@ import { SalesScreen } from './SalesScreen';
 import { SALE_WAREHOUSES } from './SalesParts';
 import { SelectCustomerScreen } from './SelectCustomerScreen';
 import { SelectProductsScreen } from './SelectProductsScreen';
+import { PurchaseOrdersListScreen, INITIAL_PO_LIST } from './PurchaseOrdersListScreen';
+import { PurchaseOrderDetailScreen } from '../../sales/PurchaseOrderDetailScreen';
+import { PurchaseOrderReceiptScreen } from '../../sales/PurchaseOrderReceiptScreen';
+import { PurchaseOrderPayoutScreen } from '../../sales/PurchaseOrderPayoutScreen';
+import type { PurchaseOrderRecord } from '../../sales/PurchaseSalesOrdersScreen';
 import type {
   PermissionCheck,
   SaleCustomer,
@@ -44,6 +49,22 @@ import type {
   WarehouseScope,
   WarehouseTab,
 } from './types';
+
+const DEFAULT_PO_RECORD: PurchaseOrderRecord = {
+  id: 'po-1',
+  poNumber: 'PO-0009',
+  listingCode: 'LST-2909',
+  farmerName: 'Kumar',
+  produceName: 'Beans',
+  grade: 'Grade 2',
+  quantityKg: 60,
+  unitPrice: 55,
+  totalPrice: 3300,
+  warehouse: 'Main Warehouse, Ooty',
+  dateStr: '30 Sep 2026',
+  purchaseStatus: 'Closed',
+  receiptStatus: 'Completed',
+};
 
 interface SalesStackEntry {
   screen: SalesRoute;
@@ -56,6 +77,7 @@ interface SalesStackEntry {
 export interface SalesFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: 'TOHFA_ADMIN' | 'MAIN_WH_ADMIN' | 'SUB_WH_ADMIN' | string | undefined;
   initialScreen?: SalesRoute | undefined;
   initialParams?: SalesRouteParams | undefined;
   /** Leave the sales module (pressed back on its first screen). */
@@ -71,6 +93,7 @@ export interface SalesFlowProps {
 export function SalesFlow({
   scope,
   can,
+  role,
   initialScreen = 'Sales',
   initialParams,
   onBack,
@@ -78,6 +101,11 @@ export function SalesFlow({
   onNavigateToNotifications,
   onNavigateToNeedsAttention,
 }: SalesFlowProps) {
+  const resolvedRole =
+    role ??
+    (scope.warehouseId !== undefined
+      ? 'SUB_WH_ADMIN'
+      : 'MAIN_WH_ADMIN');
   const [stack, setStack] = useState<SalesStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
   // The sale being built. A Main admin picks the warehouse on New Sale; a Sub
@@ -133,7 +161,7 @@ export function SalesFlow({
     setStack((prev) => [...prev.filter((e) => e.screen === 'Sales').slice(0, 1), { screen: 'NewSale' }]);
   };
 
-  const common = { scope, can, onBack: back, onTabChange };
+  const common = { scope, can, role: resolvedRole, onBack: back, onTabChange };
   const customerLabel = customer ? `${customer.name} (${customer.code})` : presetCustomer;
 
   switch (current.screen) {
@@ -141,6 +169,7 @@ export function SalesFlow({
       return (
         <SalesScreen
           {...common}
+          role={resolvedRole}
           onNavigateToNotifications={onNavigateToNotifications}
           onNavigateToNewSale={startNewSale}
           onNavigateToSalesHistory={() => navigate('SalesHistory')}
@@ -148,12 +177,19 @@ export function SalesFlow({
           onNavigateToChannelSales={(channel) => navigate('ChannelSales', { channel })}
           onNavigateToNeedsAttention={onNavigateToNeedsAttention}
           onNavigateToSaleDetail={() => navigate('SaleDetail')}
+          onNavigateToPurchaseOrderDetail={(poNum) => navigate('PurchaseOrderDetail', { poNumber: poNum })}
+          onNavigateToPurchaseOrderReceipt={(poNum) => navigate('PurchaseOrderReceipt', { poNumber: poNum })}
+          onNavigateToPurchaseOrderPayout={(poNum) => navigate('PurchaseOrderPayout', { poNumber: poNum })}
+          onNavigateToPurchaseOrdersList={() => navigate('PurchaseOrdersList')}
+          onNavigateToBilling={() => push({ screen: 'Invoice', invoice: { mode: 'wizard', params: {} } })}
+          onNavigateToInvoiceDetail={(invId) => push({ screen: 'Invoice', invoice: { mode: 'detail', params: { invoiceId: invId } } })}
         />
       );
     case 'NewSale':
       return (
         <NewSaleScreen
           {...common}
+          role={resolvedRole}
           customerLabel={customerLabel}
           saleWarehouseId={saleWarehouseId}
           onSelectWarehouse={(id) => {
@@ -163,6 +199,7 @@ export function SalesFlow({
           cartItems={cart}
           onSelectCustomer={() => push({ screen: 'SelectCustomer', pickOnly: true })}
           onSelectProducts={() => navigate('SelectProducts')}
+          onSelectChannel={(ch) => navigate('ChannelSales', { channel: ch })}
         />
       );
     case 'SelectProducts':
@@ -170,6 +207,7 @@ export function SalesFlow({
         <SelectProductsScreen
           {...common}
           saleWarehouseId={saleWarehouse.warehouseId}
+          cartItems={cart}
           onContinue={(items) => {
             setCart(items);
             const sum = items.reduce((acc, it) => acc + (it.pricePerKg * (it.selectedQty ?? 1)), 0);
@@ -183,6 +221,8 @@ export function SalesFlow({
         <SaleSummaryScreen
           {...common}
           items={cart}
+          customerName={customer?.name ?? presetCustomer ?? 'Rajesh Kumar'}
+          customerCode={customer?.code ?? initialParams?.customerCode ?? 'CUS-00291'}
           saleWarehouse={saleWarehouse}
           onContinueToCustomer={(nextTotal, count) => {
             setTotal(nextTotal);
@@ -292,6 +332,43 @@ export function SalesFlow({
       );
     case 'ChannelSales':
       return <ChannelSalesScreen {...common} channel={params.channel ?? 'B2B'} />;
+    case 'PurchaseOrdersList':
+      return (
+        <PurchaseOrdersListScreen
+          {...common}
+          onSelectPO={(po) => navigate('PurchaseOrderDetail', { poNumber: po.poNumber })}
+          onOpenReceipt={(po) => navigate('PurchaseOrderReceipt', { poNumber: po.poNumber })}
+          onViewPayout={(po) => navigate('PurchaseOrderPayout', { poNumber: po.poNumber })}
+        />
+      );
+    case 'PurchaseOrderDetail': {
+      const foundPo = INITIAL_PO_LIST.find((p) => p.poNumber === params.poNumber) ?? DEFAULT_PO_RECORD;
+      return (
+        <PurchaseOrderDetailScreen
+          order={{ ...foundPo, poNumber: params.poNumber || foundPo.poNumber } as PurchaseOrderRecord}
+          onBack={back}
+          onOpenReceipt={() => navigate('PurchaseOrderReceipt', { poNumber: params.poNumber || foundPo.poNumber })}
+        />
+      );
+    }
+    case 'PurchaseOrderReceipt': {
+      const foundPo = INITIAL_PO_LIST.find((p) => p.poNumber === params.poNumber) ?? DEFAULT_PO_RECORD;
+      return (
+        <PurchaseOrderReceiptScreen
+          order={{ ...foundPo, poNumber: params.poNumber || foundPo.poNumber } as PurchaseOrderRecord}
+          onBack={back}
+        />
+      );
+    }
+    case 'PurchaseOrderPayout': {
+      const foundPo = INITIAL_PO_LIST.find((p) => p.poNumber === params.poNumber) ?? DEFAULT_PO_RECORD;
+      return (
+        <PurchaseOrderPayoutScreen
+          order={{ ...foundPo, poNumber: params.poNumber || foundPo.poNumber } as PurchaseOrderRecord}
+          onBack={back}
+        />
+      );
+    }
     case 'Invoice':
       return (
         <BillingFlow
