@@ -15,7 +15,7 @@ import {
   adminType,
 } from '../../theme';
 import { OverviewDashboardCard } from '../../components';
-import { MainWarehouseListScreen, type WarehouseListItem } from './MainWarehouseListScreen';
+import { MainWarehouseListScreen, resolveWarehouseScopeId, type WarehouseListItem } from './MainWarehouseListScreen';
 import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
 import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
 import { MainWarehouseAddScreen, type AddedWarehouseData } from './MainWarehouseAddScreen';
@@ -210,6 +210,8 @@ const INITIAL_WAREHOUSES: WarehouseListItem[] = [
   },
 ];
 
+export { resolveWarehouseScopeId };
+
 export function MainWarehouseAdminScreen({
   onBack,
   onTabChange,
@@ -291,16 +293,7 @@ export function MainWarehouseAdminScreen({
   }
 
   if (selectedWarehouse) {
-    const matchedWarehouseId =
-      selectedWarehouse.toLowerCase().includes('coonoor') || selectedWarehouse === 'WH-002'
-        ? 'WH-COON'
-        : selectedWarehouse.toLowerCase().includes('ooty') || selectedWarehouse === 'WH-001'
-        ? 'WH-OOTY'
-        : selectedWarehouse.toLowerCase().includes('kotagiri') || selectedWarehouse === 'WH-003'
-        ? 'WH-KOTA'
-        : selectedWarehouse.toLowerCase().includes('gudalur') || selectedWarehouse === 'WH-004'
-        ? 'WH-GUDA'
-        : 'WH-COON';
+    const matchedWarehouseId = resolveWarehouseScopeId(selectedWarehouse);
 
     return (
       <ProfileFlow

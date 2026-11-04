@@ -169,7 +169,7 @@ export function WarehouseEditProfileScreen({
 }: WarehouseEditProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<EditWarehouseTab>(initialTab);
   const [showConfirmSave, setShowConfirmSave] = useState(false);
-  const scrollRef = React.useRef<ScrollView>(null);
+  const scrollRef = React.useRef<any>(null);
   const isAdd = mode === 'add';
 
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);

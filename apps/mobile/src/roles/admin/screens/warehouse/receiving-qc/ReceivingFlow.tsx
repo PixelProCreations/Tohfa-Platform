@@ -303,7 +303,7 @@ export function ReceivingFlow({
       const shipment = params.shipment ?? shipmentsInScope(scope).find((x) => x.code === params.shipmentId);
       const shipmentId = params.shipmentId ?? shipment?.code ?? 'GR-1024';
       const count = shipmentOfferCounts[shipmentId] ?? (shipment?.status === 'Rejected' ? 3 : 0);
-      const isRestricted = count >= 3;
+      const isRestricted = params.isRestricted ?? (count >= 3);
 
       return (
         <FarmerCounterOfferScreen

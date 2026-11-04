@@ -691,41 +691,7 @@ export function AdminProfileScreen({
           <View style={{ height: 40 }} />
         </ScrollView>
 
-        {/* Switch Role Modal */}
-        <Modal
-          visible={switchRoleModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setSwitchRoleModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalSheetBox}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalSheetTitle}>Switch Role</Text>
-                <TouchableOpacity onPress={() => setSwitchRoleModalVisible(false)} activeOpacity={0.7}>
-                  <CloseIcon size={20} color={adminColors.ink} />
-                </TouchableOpacity>
-              </View>
 
-              <Text style={styles.modalSheetBodyText}>
-                Switch to <Text style={{ fontWeight: '800' }}>{rbac.switchRoleTarget}</Text>? Switching refreshes your navigation, dashboard and permissions together. Your {rbac.idLabel} and profile stay the same.
-              </Text>
-
-              <View style={styles.roleOptionCardActive}>
-                <Text style={styles.roleOptionTitle}>{rbac.switchRoleTarget}</Text>
-                <Text style={styles.roleOptionSub}>{rbac.switchRoleDesc}</Text>
-              </View>
-
-              <TouchableOpacity style={styles.primarySaveBtn} onPress={handleConfirmRoleSwitch} activeOpacity={0.85}>
-                <Text style={styles.primarySaveBtnText}>Switch to {rbac.switchRoleTarget}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.cancelNeutralBtn} onPress={() => setSwitchRoleModalVisible(false)} activeOpacity={0.8}>
-                <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </SafeAreaView>
     );
   }

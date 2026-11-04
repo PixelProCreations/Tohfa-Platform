@@ -157,11 +157,11 @@ export function IncomingShipmentsScreen({
           const tone = shipmentTone(s.status);
           const badgeColors =
             s.status === 'Pending for view'
-              ? { bg: '#E2E8F0', text: '#475569' }
+              ? { bg: adminColors.canvas, text: adminColors.muted }
               : s.status === 'Pending offer'
-              ? { bg: '#DBEAFE', text: '#1E40AF' }
+              ? { bg: adminColors.info.bg, text: adminColors.info.text }
               : s.status === 'Approved'
-              ? { bg: '#D1FAE5', text: '#065F46' }
+              ? { bg: adminColors.success.bg, text: adminColors.success.text }
               : adminColors[tone];
 
           return (

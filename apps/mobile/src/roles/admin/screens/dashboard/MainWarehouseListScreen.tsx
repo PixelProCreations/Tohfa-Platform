@@ -77,6 +77,15 @@ const DEFAULT_WAREHOUSES: WarehouseListItem[] = [
   },
 ];
 
+export function resolveWarehouseScopeId(warehouseNameOrId: string): string {
+  const lower = warehouseNameOrId.toLowerCase();
+  if (lower.includes('coonoor') || warehouseNameOrId === 'WH-002') return 'WH-COON';
+  if (lower.includes('ooty') || warehouseNameOrId === 'WH-001') return 'WH-OOTY';
+  if (lower.includes('kotagiri') || warehouseNameOrId === 'WH-003') return 'WH-KOTA';
+  if (lower.includes('gudalur') || warehouseNameOrId === 'WH-004') return 'WH-GUDA';
+  return 'WH-COON';
+}
+
 export function MainWarehouseListScreen({
   onBack,
   warehouses = DEFAULT_WAREHOUSES,
@@ -93,16 +102,7 @@ export function MainWarehouseListScreen({
   const [tempStatusFilter, setTempStatusFilter] = React.useState<'All' | 'Active' | 'Inactive'>('All');
 
   if (selectedWarehouse) {
-    const matchedWarehouseId =
-      selectedWarehouse.toLowerCase().includes('coonoor') || selectedWarehouse === 'WH-002'
-        ? 'WH-COON'
-        : selectedWarehouse.toLowerCase().includes('ooty') || selectedWarehouse === 'WH-001'
-        ? 'WH-OOTY'
-        : selectedWarehouse.toLowerCase().includes('kotagiri') || selectedWarehouse === 'WH-003'
-        ? 'WH-KOTA'
-        : selectedWarehouse.toLowerCase().includes('gudalur') || selectedWarehouse === 'WH-004'
-        ? 'WH-GUDA'
-        : 'WH-COON';
+    const matchedWarehouseId = resolveWarehouseScopeId(selectedWarehouse);
 
     return (
       <ProfileFlow

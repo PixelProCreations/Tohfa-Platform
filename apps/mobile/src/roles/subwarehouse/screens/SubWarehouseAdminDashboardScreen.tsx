@@ -1700,8 +1700,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <OrdersModule
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen="M5S04"
         initialParams={{ orderId: taskOrderNo }}
@@ -1735,8 +1733,6 @@ export function SubWarehouseAdminDashboardScreen({
       // "Take Action" reconciles the variance in the wizard's Damage / Mismatch step.
       <ReceivingHistoryDetailScreen
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         receiptId={ALERT_RECEIPT_ID}
         onBack={() => setShowGoodsReceiptDetail(false)}
@@ -1752,8 +1748,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <GoodsReceivingWizardScreen
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialStep={receivingWizardStep}
         shipment={selectedShipment}
@@ -1785,8 +1779,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <NotificationsFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={notificationsEntry.screen}
         initialParams={notificationsEntry.params}
@@ -1855,8 +1847,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <HomeFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={homeEntry.screen}
         initialParams={homeEntry.params}
@@ -1902,8 +1892,6 @@ export function SubWarehouseAdminDashboardScreen({
       // warehouse; View Stock needs inventory.batch.view (SUB own).
       <StorageFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen="StorageLocationDetail"
         initialParams={{ locationId: selectedStorageLocationId }}
@@ -2011,8 +1999,6 @@ export function SubWarehouseAdminDashboardScreen({
       // capacity is view-only (SUB has no warehouse.capacity.set, so no Manage Capacity Limits).
       <StorageFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={storageEntry.screen}
         initialParams={storageEntry.params}
@@ -2066,8 +2052,6 @@ export function SubWarehouseAdminDashboardScreen({
       // Was SubWarehouseReviewReceivingScreen: now the wizard's one-page Review step (W4).
       <GoodsReceivingWizardScreen
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialStep="review_receiving"
         shipment={findShipment(scope, 'GR-1024')}
@@ -2222,8 +2206,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <ReportsScreen
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         canExport={can('report.export.file')}
         onBack={() => {
@@ -2252,8 +2234,6 @@ export function SubWarehouseAdminDashboardScreen({
       // The shared direct sales flow (admin/screens/warehouse/sales-direct).
       <SalesFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         onBack={() => {
           setShowSalesScreen(false);
@@ -2289,8 +2269,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <WalletFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen="CashTopUp"
         // No customer is preselected from Home (the old selectedCustomer was never set).
@@ -2318,8 +2296,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <CustomersFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={customersEntry.screen}
         initialParams={customersEntry.params}
@@ -2353,8 +2329,6 @@ export function SubWarehouseAdminDashboardScreen({
             return (
               <WalletFlow
                 scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
                 can={can}
                 initialScreen={target}
                 initialParams={walletParamsForCustomer(c)}
@@ -2370,8 +2344,6 @@ export function SubWarehouseAdminDashboardScreen({
             return (
               <SalesFlow
                 scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
                 can={can}
                 initialScreen="NewSale"
                 initialParams={{ customerName: c?.name, customerCode: c?.code }}
@@ -2383,8 +2355,6 @@ export function SubWarehouseAdminDashboardScreen({
             return (
               <OrdersModule
                 scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
                 can={can}
                 initialScreen="M5S04"
                 initialParams={{ orderId: p.order?.orderNo ?? p.orderNo, customerName: c?.name }}
@@ -2404,8 +2374,6 @@ export function SubWarehouseAdminDashboardScreen({
             return (
               <CustomerIssueRmaFlow
                 scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
                 can={can}
                 params={p}
                 onBack={nav.back}
@@ -2428,8 +2396,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <BillingFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         onBack={() => {
           setShowBilling(false);
@@ -2454,8 +2420,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <WalletFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         onBack={() => {
           setShowWalletOperations(false);
@@ -2497,8 +2461,6 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <ReturnsFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={returnsEntry.screen}
         initialParams={returnsEntry.params}
@@ -2535,8 +2497,6 @@ export function SubWarehouseAdminDashboardScreen({
       // The roster routes need warehouse.staff.list_view (SUB own); attendance is ungated.
       <StaffFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={staffEntry.screen}
         initialParams={{ attendanceFilter: staffEntry.filter }}
@@ -2566,8 +2526,6 @@ export function SubWarehouseAdminDashboardScreen({
       // Shared finance flow (W4), scope-locked to this warehouse.
       <FinanceFlow
         scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         onBack={() => {
           setShowFinanceScreen(false);
@@ -3377,8 +3335,6 @@ export function SubWarehouseAdminDashboardScreen({
         {activeTab === 'Receiving' && !showOrdersModule && (
           <ReceivingFlow
             scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
             can={can}
             initialScreen={receivingEntry.screen}
             initialParams={receivingEntry.params}
@@ -3404,8 +3360,6 @@ export function SubWarehouseAdminDashboardScreen({
         {activeTab === 'Inventory' && !showOrdersModule && (
           <InventoryModule
             scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
             can={can}
             initialScreen={inventoryInitialScreen}
             initialParams={inventoryInitialParams}
@@ -3434,8 +3388,6 @@ export function SubWarehouseAdminDashboardScreen({
           <OrdersModule
             key={`orders-${ordersInitialScreen}-${ordersInitialParams?.fulfillment ?? ''}`}
             scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
             can={can}
             initialScreen={ordersInitialScreen}
             initialParams={ordersInitialParams}
@@ -3471,8 +3423,6 @@ export function SubWarehouseAdminDashboardScreen({
         {activeTab === 'More' && !showOrdersModule && (
           <MoreScreen
             scope={scope}
-        adminRole="SUB_WH_ADMIN"
-        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
             can={can}
             onBack={() => setActiveTab('Home')}
             onNavigateToDashboard={() => setActiveTab('Home')}

@@ -12623,7 +12623,9 @@ export function TohfaAdminDashboardScreen({
                 initialScreen="Settings"
                 onBack={() => setActiveTab('More')}
                 onLogout={onSignOut ?? (() => onNavigate?.('Welcome'))}
-                onSwitchRole={() => {}}
+                onSwitchRole={() => {
+                  Alert.alert('Switch Role', 'Roles are assigned by TOHFA. You are currently logged in as Tohfa Admin (Platform Operations).');
+                }}
               />
             )}
 
@@ -12656,7 +12658,7 @@ export function TohfaAdminDashboardScreen({
                 }
                 onClearAll={() => setTohfaNotifications([])}
                 onBack={() => setActiveTab(notificationsReturnTab)}
-                onTabChange={(tab) => {
+                onTabChange={(tab: any) => {
                   if (tab === 'Farmers') {
                     setActiveTab('Farmers');
                   } else if (tab === 'Produce') {
@@ -12674,7 +12676,7 @@ export function TohfaAdminDashboardScreen({
                   if (target === 'TohfaInventory') {
                     setActiveTab('Inventory');
                   } else if (target === 'TohfaAudit') {
-                    setActiveTab('Audits');
+                    handleOpenScheduleAudit('More');
                   } else if (target === 'TohfaFarmers') {
                     setActiveTab('Farmers');
                   } else if (target === 'TohfaFinance') {
@@ -12683,7 +12685,7 @@ export function TohfaAdminDashboardScreen({
                     setProduceControlScreen('calendar');
                     setActiveTab('More');
                   } else if (target === 'TohfaDisputes') {
-                    setActiveTab('Disputes');
+                    setActiveTab('More');
                   }
                 }}
               />
