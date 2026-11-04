@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -13,7 +13,8 @@ import {
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { authPalette as P, colors, radius, spacing, typography } from '../../../theme';
 import { formatSafeDate } from '../../../polyfills';
 import {
   dateFromCalendarDay,
@@ -21,6 +22,9 @@ import {
   todayCalendarDateString,
 } from '../toolPurchaseDate';
 import { canDeleteAsset, TREE_REMOVE_UNAVAILABLE_MESSAGE } from '../assets/RemoveItemScreen';
+import { t } from '../../../../../i18n/farmer';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { getTreePlanting, parsePlantedOn, updateTreePlanting } from '../../../api/treePlantings';
 
 // ── Calendar theme ───────────────────────────────────────────────────────────
 
@@ -158,14 +162,46 @@ export function EditPlantingScreen({
   onSave,
   onRemove,
 }: EditPlantingScreenProps): React.JSX.Element {
-  const [species, setSpecies] = useState(planting?.species || 'Silver Oak');
-  const [treeCount, setTreeCount] = useState<number>(planting?.treeCount ?? 12);
-  const [plantedDate, setPlantedDate] = useState<Date | null>(
-    planting?.plantedDate ? new Date(planting.plantedDate) : new Date('2019-06-14')
-  );
+  const plantingId = planting?.id;
+  const [species, setSpecies] = useState(planting?.species || '');
+  const [treeCount, setTreeCount] = useState<number>(planting?.treeCount ?? 1);
+  const [plantedDate, setPlantedDate] = useState<Date | null>(null);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [locationZone, setLocationZone] = useState(planting?.locationZone || 'Zone A boundary');
-  const [purpose, setPurpose] = useState(planting?.purpose || 'Shade & windbreak');
+  const [locationZone, setLocationZone] = useState(planting?.locationZone || '');
+  const [purpose, setPurpose] = useState(planting?.purpose || '');
+  // The form is filled from the stored record, not from the list card handed
+  // over by the caller: that card holds display text ("Planted 05 Mar 2022",
+  // translated), not the values to save back.
+  const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>(plantingId ? 'loading' : 'ready');
+  const [loadError, setLoadError] = useState<unknown | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const loadPlanting = useCallback(async () => {
+    if (!plantingId) return;
+    setLoadState('loading');
+    setLoadError(null);
+    try {
+      const record = await getTreePlanting(plantingId);
+      setSpecies(record.speciesName);
+      setTreeCount(record.treeCount);
+      setPlantedDate(parsePlantedOn(record.plantedOn));
+      setLocationZone(record.zoneName ?? '');
+      setPurpose(record.purpose ?? '');
+      setLoadState('ready');
+    } catch (err: unknown) {
+      setLoadError(err);
+      setLoadState('error');
+    }
+  }, [plantingId]);
+
+  useEffect(() => {
+    void loadPlanting();
+  }, [loadPlanting]);
+
+  // Saving needs a stored record to update (BR-55): no id, or a record that
+  // failed to load, means there is nothing real to write back.
+  const canSave = Boolean(plantingId) && loadState === 'ready' && !isSaving;
 
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
   const calendarStartDate = toCalendarDateString(plantedDate ?? new Date());
@@ -199,17 +235,32 @@ export function EditPlantingScreen({
     onRemove?.();
   }
 
-  function handleSave(): void {
-    if (!species.trim()) return;
-    onSave?.({
-      id: planting?.id,
-      species: species.trim(),
-      treeCount,
-      plantedDate: plantedDate ? formatSafeDate(plantedDate) : '',
-      locationZone: locationZone.trim() || undefined,
-      purpose: purpose.trim() || undefined,
-    });
-    onNavigateBack();
+  async function handleSave(): Promise<void> {
+    if (!species.trim() || !plantingId || !canSave) return;
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await updateTreePlanting(plantingId, {
+        speciesName: species.trim(),
+        treeCount,
+        plantedOn: plantedDate ? toCalendarDateString(plantedDate) : null,
+        zoneName: locationZone.trim() || null,
+        purpose: purpose.trim() || null,
+      });
+      onSave?.({
+        id: plantingId,
+        species: species.trim(),
+        treeCount,
+        plantedDate: plantedDate ? formatSafeDate(plantedDate) : '',
+        locationZone: locationZone.trim() || undefined,
+        purpose: purpose.trim() || undefined,
+      });
+      onNavigateBack();
+    } catch (err: unknown) {
+      setSaveError(formatErrorMessage(err, t('farmer.trees.updateError')));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -245,6 +296,16 @@ export function EditPlantingScreen({
           <LockIcon size={18} color={P.twGray500} />
         </View>
 
+        {loadState === 'loading' ? (
+          <View style={styles.loadingContainer}>
+            <Skeleton width="100%" height={spacing.xxxl} borderRadius={radius.lg} />
+            <Skeleton width="100%" height={spacing.xxxl} borderRadius={radius.lg} />
+            <Skeleton width="100%" height={spacing.xxxl} borderRadius={radius.lg} />
+          </View>
+        ) : loadState === 'error' ? (
+          <ErrorState error={loadError} onRetry={() => void loadPlanting()} />
+        ) : (
+        <>
         {/* Species / Variety Field */}
         <Text style={styles.fieldLabel}>
           Species / Variety <Text style={styles.required}>*</Text>
@@ -342,6 +403,14 @@ export function EditPlantingScreen({
             Remove this planting
           </Text>
         </TouchableOpacity>
+
+        {saveError ? (
+          <Text style={styles.saveErrorText} testID="edit-planting-error">
+            {saveError}
+          </Text>
+        ) : null}
+        </>
+        )}
       </ScrollView>
 
       {/* Planting Date Calendar Modal */}
@@ -395,9 +464,10 @@ export function EditPlantingScreen({
       {/* Sticky Save Changes Button */}
       <View style={styles.stickyBottom}>
         <TouchableOpacity
-          style={[styles.saveButton, !species.trim() && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (!species.trim() || !canSave) && styles.saveButtonDisabled]}
           activeOpacity={0.8}
-          onPress={handleSave}
+          disabled={!canSave}
+          onPress={() => void handleSave()}
         >
           <CheckIcon size={18} color={P.white} />
           <Text style={styles.saveButtonText}>Save changes</Text>
@@ -661,5 +731,16 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
+  },
+
+  // Loading and save-error states (new; token values only)
+  loadingContainer: {
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  saveErrorText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed600,
+    marginTop: spacing.md,
   },
 });

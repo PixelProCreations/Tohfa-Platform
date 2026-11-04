@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Alert,
   BackHandler,
@@ -14,8 +14,17 @@ import {
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../../../../i18n/farmer';
+import { createIdempotencyKeyCache } from '../../../../../shell/api/idempotency';
+import {
+  createCropInput,
+  type CreateCropInputRequest,
+  type CropInputUnit,
+} from '../../../api/crops';
+import { todayInKolkata } from '../../certifications/certificationForm';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import { parseAppliedOn } from './inputApplications';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emoji, no raw hex)
@@ -57,10 +66,16 @@ export interface AddInputAppliedScreenProps {
   crop?: CropItem | null | undefined;
   initialInputType?: 'Fertigation' | 'Pest Treatment' | undefined;
   onBack?: (() => void) | undefined;
-  onSave?: ((entryData?: any) => void) | undefined;
+  /**
+   * Called after POST /farmers/me/crops/:farmCropId/inputs succeeds. No argument: App.tsx passes
+   * `goBack`, whose first parameter is a fallback screen name, and the history screen refetches on mount.
+   */
+  onSave?: (() => void) | undefined;
 }
 
 const UNITS = ['ml', 'L', 'kg', 'g'];
+/** The unit picker's labels (Dev's) mapped to the API's CropInputUnit. */
+const API_UNIT: Record<string, CropInputUnit> = { ml: 'ML', L: 'LITRE', kg: 'KG', g: 'GRAM' };
 const PURPOSES = [
   'General nutrition',
   'Pest prevention',
@@ -103,23 +118,28 @@ export function AddInputAppliedScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const cropName = crop?.name ?? 'Carrot';
-  const cropVariety = crop?.variety ?? 'Nantes';
-  const cropZone = crop?.zoneShort ?? 'Zone 1';
-  const subtitle = `${cropName} — ${cropVariety} · ${cropZone}`;
+  // The real crop the input is recorded against; no sample crop is shown or saved to.
+  const cropZone = crop?.zoneShort || crop?.zone || '';
+  const subtitle = !crop?.id
+    ? t('farmer.inputHistory.placeholder')
+    : crop.variety
+      ? t('farmer.inputHistory.cropSubtitle', { crop: crop.name, variety: crop.variety, zone: cropZone })
+      : t('farmer.inputHistory.cropSubtitleNoVariety', { crop: crop.name, zone: cropZone });
 
-  // Form states
+  // Form states. Quantity and date start empty: the farmer types them (Dev's
+  // "4 L" / "200 ml" and "17 Sep 2026, 09:20 AM" were sample values, kept only as placeholders).
   const [inputType, setInputType] = useState<'Fertigation' | 'Pest Treatment'>(
     initialInputType ?? 'Pest Treatment',
   );
   const [productName, setProductName] = useState('');
-  const [quantity, setQuantity] = useState(
-    initialInputType === 'Fertigation' ? '4' : '200',
-  );
+  const [quantity, setQuantity] = useState('');
   const [unit, setUnit] = useState(
     initialInputType === 'Fertigation' ? 'L' : 'ml',
   );
-  const [dateTime, setDateTime] = useState('17 Sep 2026, 09:20 AM');
+  const [dateTime, setDateTime] = useState('');
+  const [saving, setSaving] = useState(false);
+  // One Idempotency-Key per logical save: a retry of the same body replays it (CLAUDE.md 2.4).
+  const idempotencyRef = useRef(createIdempotencyKeyCache());
   const [purpose, setPurpose] = useState('General nutrition');
   const [targetPest, setTargetPest] = useState('Aphids');
   const [appliedBy, setAppliedBy] = useState('Self');
@@ -135,31 +155,72 @@ export function AddInputAppliedScreen({
     setInputType(nextType);
     if (nextType === 'Fertigation') {
       if (unit === 'ml') setUnit('L');
-      if (quantity === '200') setQuantity('4');
     } else {
       if (unit === 'L') setUnit('ml');
-      if (quantity === '4') setQuantity('200');
     }
   };
 
-  const handleSave = () => {
+  const showError = (message: string) => Alert.alert(t('farmer.addInput.error.title'), message);
+
+  /**
+   * POST /farmers/me/crops/:farmCropId/inputs (BR-56). Only what the API stores
+   * is sent: Purpose / Target pest / Applied by have no field in the crop input
+   * contract, so they are not persisted (see the report; NEEDS OWNER DECISION).
+   * "Fertigation" is sent as inputType OTHER — the form does not say whether it
+   * was manure, fertilizer or a bio-input, and that is not guessed.
+   */
+  const handleSave = async () => {
+    if (saving) return;
     if (!productName.trim()) {
-      Alert.alert('Required Field', 'Please enter a product or input name.');
+      Alert.alert(t('farmer.addInput.required.title'), t('farmer.addInput.required.body'));
       return;
     }
-    if (onSave) {
-      onSave({
-        inputType,
-        productName: productName.trim(),
-        quantity: `${quantity} ${unit}`,
-        dateTime,
-        purpose: inputType === 'Fertigation' ? purpose : targetPest,
-        targetPest: inputType === 'Pest Treatment' ? targetPest : undefined,
-        appliedBy,
-        notes,
-      });
-    } else if (onBack) {
-      onBack();
+    if (!crop?.id) {
+      showError(t('farmer.addInput.error.noCrop'));
+      return;
+    }
+    const qty = Number(quantity.trim());
+    if (quantity.trim() === '' || !Number.isFinite(qty) || qty <= 0) {
+      showError(t('farmer.addInput.error.quantity'));
+      return;
+    }
+    const date = parseAppliedOn(dateTime, todayInKolkata());
+    if (!date.ok) {
+      showError(date.reason === 'future' ? t('farmer.addInput.error.futureDate') : t('farmer.addInput.error.date'));
+      return;
+    }
+    const apiUnit = API_UNIT[unit];
+    if (apiUnit === undefined) {
+      showError(t('farmer.addInput.error.quantity'));
+      return;
+    }
+
+    const body: CreateCropInputRequest = {
+      inputType: inputType === 'Pest Treatment' ? 'PESTICIDE' : 'OTHER',
+      inputName: productName.trim(),
+      appliedOn: date.appliedOn,
+      quantity: qty,
+      unit: apiUnit,
+      ...(notes.trim() === '' ? {} : { notes: notes.trim() }),
+    };
+
+    setSaving(true);
+    try {
+      await createCropInput(
+        crop.id,
+        body,
+        idempotencyRef.current.keyFor(JSON.stringify({ cropId: crop.id, body })),
+      );
+      idempotencyRef.current.reset();
+      if (onSave) {
+        onSave();
+      } else if (onBack) {
+        onBack();
+      }
+    } catch {
+      showError(t('farmer.addInput.error.saveFailed'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -405,7 +466,8 @@ export function AddInputAppliedScreen({
 
           <TouchableOpacity
             style={styles.saveButton}
-            onPress={handleSave}
+            onPress={() => void handleSave()}
+            disabled={saving}
             activeOpacity={0.88}
             accessibilityRole="button"
             accessibilityLabel="Save Input"

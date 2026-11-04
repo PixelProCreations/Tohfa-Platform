@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
   SafeAreaView,
@@ -8,9 +8,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { authPalette as P, colors, radius, spacing, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import {
+  listAllTreePlantings,
+  toTreePlantingItem,
+  type TreePlantingItem,
+  type TreeStatus,
+} from '../../../api/treePlantings';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -141,60 +148,15 @@ function EditPencilIcon({ size = 14, color = P.twGray600 }: { size?: number; col
 
 // ── Types & Data ─────────────────────────────────────────────────────────────
 
-export type TreeStatus = 'Mature' | 'Young' | 'Fruit-bearing';
+// The list item and its mapping live with the API client; re-exported here
+// because App.tsx imports the item type from this screen.
+export type { TreePlantingItem, TreeStatus };
 
-export interface TreePlantingItem {
-  id: string;
-  name: string;
-  species?: string | undefined;
-  treeCount?: number | undefined;
-  plantedDate: string;
-  zoneInfo: string;
-  status: TreeStatus;
-  hasPruningAlert?: boolean | undefined;
-  alertText?: string | undefined;
-  ageText?: string | undefined;
-  purposeText?: string | undefined;
-  isFruitBearing?: boolean | undefined;
-}
+/** Filter choices, in display order; only statuses present in the data are offered. */
+const FILTER_ORDER: ('All plantings' | TreeStatus)[] = ['All plantings', 'Mature', 'Young', 'Fruit-bearing'];
 
-const INITIAL_PLANTINGS: TreePlantingItem[] = [
-  {
-    id: 't1',
-    name: 'Silver Oak (12 trees)',
-    species: 'Silver Oak',
-    treeCount: 12,
-    plantedDate: 'Planted 14 Jun 2019',
-    zoneInfo: 'Zone A boundary',
-    status: 'Mature',
-    ageText: '≈ 7 years old',
-    purposeText: 'Shade & windbreak',
-  },
-  {
-    id: 't2',
-    name: 'Silver Oak Saplings (8)',
-    species: 'Silver Oak',
-    treeCount: 8,
-    plantedDate: 'Planted 02 Mar 2025',
-    zoneInfo: 'Zone C boundary',
-    status: 'Young',
-    hasPruningAlert: true,
-    alertText: 'Pruning check due in 6 days',
-    purposeText: 'Shade & windbreak',
-  },
-  {
-    id: 't3',
-    name: 'Guava (4 trees)',
-    species: 'Guava',
-    treeCount: 4,
-    plantedDate: 'Planted 20 Aug 2021',
-    zoneInfo: 'Near Zone B',
-    status: 'Fruit-bearing',
-    ageText: '≈ 5 years old',
-    purposeText: 'Seasonal yield',
-    isFruitBearing: true,
-  },
-];
+/** Placeholder card height while the list loads. */
+const SKELETON_CARD_HEIGHT = spacing.xxxl * 2;
 
 export interface TreesListScreenProps {
   onBack?: (() => void) | undefined;
@@ -209,16 +171,34 @@ export function TreesListScreen({
   onNavigateToPlantingDetail,
   onNavigateToEditPlanting,
 }: TreesListScreenProps): React.JSX.Element {
-  const [plantings] = useState<TreePlantingItem[]>(INITIAL_PLANTINGS);
+  const [plantings, setPlantings] = useState<TreePlantingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<'All plantings' | TreeStatus>('All plantings');
   const [filterModalOpen, setFilterModalOpen] = useState(false);
 
-  const filterOptions: ('All plantings' | TreeStatus)[] = [
-    'All plantings',
-    'Mature',
-    'Young',
-    'Fruit-bearing',
-  ];
+  const loadPlantings = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const items = await listAllTreePlantings();
+      setPlantings(items.map((item) => toTreePlantingItem(item)));
+    } catch (err: unknown) {
+      setError(err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPlantings();
+  }, [loadPlantings]);
+
+  // The API records no status, so only "All plantings" is offered until it does
+  // (see TreeStatus in api/treePlantings.ts).
+  const filterOptions = FILTER_ORDER.filter(
+    (opt) => opt === 'All plantings' || plantings.some((item) => item.status === opt),
+  );
 
   const filteredItems =
     selectedFilter === 'All plantings'
@@ -247,7 +227,9 @@ export function TreesListScreen({
 
           <View style={styles.headerTitles}>
             <Text style={styles.headerTitle}>Trees</Text>
-            <Text style={styles.headerSubtitle}>{plantings.length} plantings</Text>
+            <Text style={styles.headerSubtitle}>
+              {loading || error ? '' : t('farmer.trees.plantingsCount', { count: plantings.length })}
+            </Text>
           </View>
         </View>
 
@@ -271,7 +253,22 @@ export function TreesListScreen({
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
 
-          {/* ── Plantings List ── */}
+          {/* ── Plantings List (or its loading / error / empty state) ── */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <Skeleton width="100%" height={SKELETON_CARD_HEIGHT} borderRadius={radius.xl} />
+              <Skeleton width="100%" height={SKELETON_CARD_HEIGHT} borderRadius={radius.xl} />
+              <Skeleton width="100%" height={SKELETON_CARD_HEIGHT} borderRadius={radius.xl} />
+            </View>
+          ) : error ? (
+            <ErrorState error={error} onRetry={() => void loadPlantings()} />
+          ) : filteredItems.length === 0 ? (
+            plantings.length === 0 ? (
+              <EmptyState title={t('farmer.trees.emptyTitle')} message={t('farmer.trees.emptyMessage')} />
+            ) : (
+              <EmptyState title={t('farmer.trees.noMatchTitle')} message={t('farmer.trees.noMatchMessage')} />
+            )
+          ) : (
           <View style={styles.plantingsListContainer}>
             {filteredItems.map((item) => {
               const isYoung = item.status === 'Young';
@@ -334,7 +331,8 @@ export function TreesListScreen({
 
                     {/* Planted Date & Zone */}
                     <Text style={styles.plantedSubtitle}>
-                      {item.plantedDate} · {item.zoneInfo}
+                      {item.plantedDate}
+                      {item.zoneInfo ? ` · ${item.zoneInfo}` : null}
                     </Text>
 
                     {/* Alert Line for Young / Pruning check */}
@@ -370,6 +368,7 @@ export function TreesListScreen({
               );
             })}
           </View>
+          )}
         </ScrollView>
 
         {/* ── Bottom Right Floating Action Button ── */}
@@ -524,6 +523,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray700,
+  },
+
+  // Loading state (new; token values only)
+  loadingContainer: {
+    gap: spacing.md,
   },
 
   // Plantings List
