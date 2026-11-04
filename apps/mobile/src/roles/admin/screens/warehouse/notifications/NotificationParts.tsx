@@ -43,7 +43,7 @@ export const NOTIFICATION_CODES = {
  * report needs wallet.cash_topup.process). Stock accepts either ledger code:
  * MAIN holds view_all, SUB holds view_own.
  */
-const TARGET_CODES: Record<NotificationTarget, readonly string[]> = {
+const TARGET_CODES: Partial<Record<NotificationTarget, readonly string[]>> = {
   ReviewReceiving: ['inventory.quality_check.perform'],
   Receiving: ['inventory.goods_receipt.record'],
   Stock: ['inventory.stock_ledger.view_all', 'inventory.stock_ledger.view_own'],
@@ -55,7 +55,9 @@ const TARGET_CODES: Record<NotificationTarget, readonly string[]> = {
 /** True when the viewer may open the screen a notification action leads to. */
 export function canOpenTarget(can: PermissionCheck, target: NotificationTarget | undefined): boolean {
   if (target === undefined) return false;
-  return TARGET_CODES[target].some((code) => can(code));
+  const codes = TARGET_CODES[target];
+  if (!codes || codes.length === 0) return true;
+  return codes.some((code) => can(code));
 }
 
 /** Action button label on a list row (the Sub list's CTAs). */
@@ -66,6 +68,17 @@ export const TARGET_ROW_LABEL: Record<NotificationTarget, string> = {
   Orders: 'View Order',
   Wallet: 'View Wallet',
   Returns: 'View Return',
+  FarmerListing: 'View Listing',
+  FarmerCounterOffer: 'Review Offer',
+  FarmerDispute: 'View Dispute',
+  FarmerAudit: 'View Audit',
+  FarmerRegistration: 'View Farmer',
+  TohfaInventory: 'View Stock',
+  TohfaAudit: 'Review Audit',
+  TohfaFarmers: 'View Application',
+  TohfaFinance: 'Authorize Payout',
+  TohfaPricing: 'Review Pricing',
+  TohfaDisputes: 'Review Dispute',
 };
 
 /** Primary button label on the detail screen (the Sub / Main detail designs). */
@@ -76,6 +89,17 @@ export const TARGET_DETAIL_LABEL: Record<NotificationTarget, string> = {
   Orders: 'View Order',
   Wallet: 'View Wallet Report',
   Returns: 'View Return',
+  FarmerListing: 'View Product Listing',
+  FarmerCounterOffer: 'Review Counter Offer',
+  FarmerDispute: 'View Dispute Details',
+  FarmerAudit: 'View Audit Report',
+  FarmerRegistration: 'View Farmer Application',
+  TohfaInventory: 'View Inventory Overview',
+  TohfaAudit: 'Review Audit Queue',
+  TohfaFarmers: 'Review Farmer Applications',
+  TohfaFinance: 'Authorize Payout Batch',
+  TohfaPricing: 'Review Market Pricing',
+  TohfaDisputes: 'Review Escalated Dispute',
 };
 
 /**
@@ -98,15 +122,18 @@ export function canOpenAlertRecord(can: PermissionCheck, record: AlertRecordTarg
 // ─── Filters ─────────────────────────────────────────────────────────────────
 
 /** Categories behind each category filter tab (the base's tabs + the Sub list's). */
-const FILTER_CATEGORIES: Record<Exclude<NotificationFilter, 'All' | 'Unread'>, readonly NotificationCategory[]> = {
+export const FILTER_CATEGORIES: Record<Exclude<NotificationFilter, 'All' | 'Unread'>, readonly NotificationCategory[]> = {
   Receiving: ['shipment', 'received'],
   Quality: ['quality', 'mismatch'],
   Orders: ['order'],
   Inventory: ['inventory'],
-  Finance: ['wallet'],
+  Finance: ['wallet', 'finance'],
   Returns: ['returns'],
   System: ['system'],
   Messages: ['message'],
+  Farmers: ['farmers'],
+  Disputes: ['dispute'],
+  Audits: ['audit'],
 };
 
 export const NOTIFICATION_FILTERS: readonly NotificationFilter[] = [
@@ -119,6 +146,9 @@ export const NOTIFICATION_FILTERS: readonly NotificationFilter[] = [
   'Quality',
   'System',
   'Messages',
+  'Farmers',
+  'Disputes',
+  'Audits',
 ];
 
 /**
@@ -134,13 +164,17 @@ export const FILTER_LABEL: Record<NotificationFilter, string> = {
   Quality: 'Quality',
   System: 'System',
   Messages: 'Messages',
+  Farmers: 'Farmers',
+  Disputes: 'Disputes',
+  Audits: 'Audits',
   Unread: 'Unread',
 };
 
 export function matchesFilter(item: NotificationItem, filter: NotificationFilter): boolean {
   if (filter === 'All') return true;
   if (filter === 'Unread') return !item.isRead;
-  return FILTER_CATEGORIES[filter].includes(item.category);
+  const categories = FILTER_CATEGORIES[filter as Exclude<NotificationFilter, 'All' | 'Unread'>];
+  return categories ? categories.includes(item.category) : false;
 }
 
 /** Horizontally scrolling filter tabs with counts ("Unread (3)"). */
@@ -198,6 +232,10 @@ export const CATEGORY_TONE: Record<NotificationCategory, AdminTone> = {
   returns: 'warning',
   system: 'info',
   message: 'brandSoft',
+  audit: 'purple',
+  farmers: 'info',
+  finance: 'success',
+  dispute: 'danger',
 };
 
 /**
@@ -215,6 +253,10 @@ export const DEFAULT_TAG: Record<NotificationCategory, string> = {
   returns: 'Return',
   system: 'System',
   message: 'Message',
+  audit: 'Audit',
+  farmers: 'Farmer',
+  finance: 'Finance',
+  dispute: 'Dispute',
 };
 
 /** The tag pill of a notification: its own label / tone, else the category's defaults. */
@@ -400,6 +442,14 @@ export function CategoryIcon({ category, size = 20 }: { category: NotificationCa
       return <ReturnIcon size={size} color={color} />;
     case 'system':
       return <WrenchIcon size={size} color={color} />;
+    case 'audit':
+      return <ClipboardIcon size={size} color={color} />;
+    case 'farmers':
+      return <PersonIcon size={size} color={color} />;
+    case 'finance':
+      return <WalletIcon size={size} color={color} />;
+    case 'dispute':
+      return <AlertTriangleIcon size={size} color={color} />;
     default:
       return <DocumentIcon size={size} color={color} />;
   }
@@ -411,7 +461,7 @@ export function CategoryBadge({ category, size = ICON_CHIP }: { category: Notifi
     <View
       style={[
         styles.iconChip,
-        { width: size, height: size, borderRadius: size / 2, backgroundColor: adminColors[CATEGORY_TONE[category]].bg },
+        { width: size, height: size, borderRadius: 12, backgroundColor: adminColors[CATEGORY_TONE[category]].bg },
       ]}
     >
       <CategoryIcon category={category} />

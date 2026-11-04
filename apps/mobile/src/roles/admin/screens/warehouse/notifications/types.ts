@@ -53,7 +53,11 @@ export type NotificationCategory =
   | 'wallet'
   | 'returns'
   | 'system'
-  | 'message';
+  | 'message'
+  | 'audit'
+  | 'farmers'
+  | 'finance'
+  | 'dispute';
 
 /**
  * Where a notification's action button leads (the Sub list's 'Review' / 'View
@@ -62,7 +66,26 @@ export type NotificationCategory =
  * module, so the flow hands it to the host (`onOpenTarget`); it is offered
  * only when the target screen's own rbac code passes (canOpenTarget).
  */
-export type NotificationTarget = 'ReviewReceiving' | 'Receiving' | 'Stock' | 'Orders' | 'Wallet' | 'Returns';
+export type NotificationTarget =
+  | 'ReviewReceiving'
+  | 'Receiving'
+  | 'Stock'
+  | 'Orders'
+  | 'Wallet'
+  | 'Returns'
+  // Farmer Admin targets
+  | 'FarmerListing'
+  | 'FarmerCounterOffer'
+  | 'FarmerDispute'
+  | 'FarmerAudit'
+  | 'FarmerRegistration'
+  // Tohfa Admin targets
+  | 'TohfaInventory'
+  | 'TohfaAudit'
+  | 'TohfaFarmers'
+  | 'TohfaFinance'
+  | 'TohfaPricing'
+  | 'TohfaDisputes';
 
 /** Status pair a notification tag pill is drawn in (the admin theme's tones). */
 export type NotificationTagTone = AdminTone;
@@ -102,7 +125,10 @@ export type NotificationFilter =
   | 'Finance'
   | 'Returns'
   | 'System'
-  | 'Messages';
+  | 'Messages'
+  | 'Farmers'
+  | 'Disputes'
+  | 'Audits';
 
 /** Where an approval / exception alert's "Open record" link leads (outside this module). */
 export type AlertRecordTarget = 'ExpenseRecord' | 'GoodsReceipt' | 'LowStock' | 'Transfer';

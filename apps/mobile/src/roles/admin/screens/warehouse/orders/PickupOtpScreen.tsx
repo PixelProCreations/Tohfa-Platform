@@ -13,7 +13,7 @@
  *   - "Confirm Handover" (OTP submit) and "Complete Pickup" (the handover
  *     itself): `order.pickup_otp.verify`. Without it the steps are read-only and
  *     the header back arrow is the way out.
- *   - "Continue to OTP", "View Order", "View Invoice" have no code of their own
+ *   - "Continue to OTP", "View Order" have no code of their own
  *     and stay ungated, as before.
  */
 import React, { useState } from 'react';
@@ -339,20 +339,12 @@ function HandoverStep({
 
         <View style={styles.bottomBar}>
           <TouchableOpacity
-            style={[styles.primaryBtn, styles.stackedBtnGap]}
+            style={styles.primaryBtn}
             activeOpacity={0.8}
             onPress={() => onNavigate?.('M5S04', { orderId })}
           >
             <DocumentIcon />
             <Text style={styles.primaryBtnText}>View Order</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.secondaryBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S18', { orderId })}
-          >
-            <Text style={styles.secondaryBtnText}>View Invoice</Text>
           </TouchableOpacity>
         </View>
       </>

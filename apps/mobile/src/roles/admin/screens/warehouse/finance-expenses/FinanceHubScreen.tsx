@@ -151,14 +151,13 @@ export function FinanceHubScreen({
     { key: 'vouchers', route: 'Vouchers', label: 'Vouchers', icon: <VoucherIcon color={iconColor} />, onPress: () => onOpen('Vouchers', selectedWarehouseId) },
     { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: <DailyCashIcon color={iconColor} />, onPress: () => onOpen('DailyCash', selectedWarehouseId) },
     { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: <LedgerIcon color={iconColor} />, onPress: () => onOpen('FinanceHistory', selectedWarehouseId) },
-    { key: 'reports', route: 'FinanceReports', label: isMain ? 'Reports' : 'Finance Reports', icon: <ReportFileIcon color={iconColor} />, onPress: () => onOpen('FinanceReports', selectedWarehouseId) },
   ];
-  // Sub's hub led with 6 quick actions; Main's grid has 8 quick actions (wallet quick action removed).
-  const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history', 'reports'];
-  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports'];
+  // Reports removed completely from Quick Actions for both subwarehouse and mainwarehouse per user request.
+  const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history'];
+  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history'];
   const order = isMain ? MAIN_ORDER : SUB_ORDER;
   const actions = candidates
-    .filter((a) => (isMain ? true : SUB_ORDER.includes(a.key)))
+    .filter((a) => (isMain ? MAIN_ORDER.includes(a.key) : SUB_ORDER.includes(a.key)))
     .filter((a) => a.route === undefined || allowed(a.route))
     .sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key));
 
@@ -286,15 +285,17 @@ export function FinanceHubScreen({
       title="Warehouse Finance"
       onBack={onBack}
       headerRight={
-        <HeaderIconButton
-          accessibilityLabel="Notifications"
-          onPress={() => {
-            if (onNavigateToNotifications) onNavigateToNotifications();
-            else Alert.alert('Notifications', '3 unread finance notifications.');
-          }}
-        >
-          <BellRingIcon size={20} color={adminColors.onBrand} />
-        </HeaderIconButton>
+        isMain ? (
+          <HeaderIconButton
+            accessibilityLabel="Notifications"
+            onPress={() => {
+              if (onNavigateToNotifications) onNavigateToNotifications();
+              else Alert.alert('Notifications', '3 unread finance notifications.');
+            }}
+          >
+            <BellRingIcon size={20} color={adminColors.onBrand} />
+          </HeaderIconButton>
+        ) : undefined
       }
       headerExtra={
         isMain ? (

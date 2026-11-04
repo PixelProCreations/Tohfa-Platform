@@ -32,6 +32,7 @@ import { TrashOutlineRedIcon } from '../receiving-qc/ReceivingParts';
 import type { WarehouseScreenBaseProps, WarehouseSelectionProps, WarehouseProfileInfo } from './types';
 import { PROFILE_WAREHOUSES, WAREHOUSE_PROFILES, WAREHOUSE_CONTACTS } from './warehouseFixtures';
 import { recordFor, singleWarehouseId } from './WarehouseProfileParts';
+import { ConfirmDialog } from './ProfileParts';
 
 export type EditWarehouseTab = 'Details' | 'Contact' | 'Storage' | 'Operations';
 export type WarehouseFormMode = 'edit' | 'add';
@@ -167,6 +168,8 @@ export function WarehouseEditProfileScreen({
   onSaveSuccess,
 }: WarehouseEditProfileScreenProps) {
   const [activeTab, setActiveTab] = useState<EditWarehouseTab>(initialTab);
+  const [showConfirmSave, setShowConfirmSave] = useState(false);
+  const scrollRef = React.useRef<ScrollView>(null);
   const isAdd = mode === 'add';
 
   const warehouseId = singleWarehouseId(scope, selectedWarehouseId, warehouseOptions);
@@ -317,22 +320,24 @@ export function WarehouseEditProfileScreen({
     ]);
   };
 
-  const handleNextOrSave = () => {
-    if (isAdd) {
-      if (activeTab === 'Details') {
-        setActiveTab('Contact');
-        return;
-      }
-      if (activeTab === 'Contact') {
-        setActiveTab('Storage');
-        return;
-      }
-      if (activeTab === 'Storage') {
-        setActiveTab('Operations');
-        return;
-      }
+    const handleNextOrSave = () => {
+    if (activeTab === 'Details') {
+      setActiveTab('Contact');
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
     }
-    handleSave();
+    if (activeTab === 'Contact') {
+      setActiveTab('Storage');
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    if (activeTab === 'Storage') {
+      setActiveTab('Operations');
+      scrollRef.current?.scrollTo({ y: 0, animated: true });
+      return;
+    }
+    // Final tab ('Operations'): show confirmation before saving details
+    setShowConfirmSave(true);
   };
 
   const subHeaderLabel = isAdd
@@ -341,11 +346,11 @@ export function WarehouseEditProfileScreen({
 
   return (
     <WalletScreen
-      title={getHeaderTitle()}
-      subtitle={subHeaderLabel}
+      title={isAdd ? getHeaderTitle() : 'Warehouse Profile'}
+      subtitle={isAdd ? subHeaderLabel : undefined}
       onBack={onBack}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Navigation Tabs Bar */}
         <View style={styles.tabsRow}>
           <TouchableOpacity
@@ -1100,6 +1105,18 @@ export function WarehouseEditProfileScreen({
           </View>
         </View>
       </Modal>
+
+      <ConfirmDialog
+        visible={showConfirmSave}
+        title="Save Changes?"
+        message="Are you sure you want to save all warehouse profile changes?"
+        confirmLabel="Save Changes"
+        onConfirm={() => {
+          setShowConfirmSave(false);
+          handleSave();
+        }}
+        onCancel={() => setShowConfirmSave(false)}
+      />
     </WalletScreen>
   );
 }

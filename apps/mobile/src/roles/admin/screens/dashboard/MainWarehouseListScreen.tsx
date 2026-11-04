@@ -18,6 +18,7 @@ import {
   ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
 import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
+import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
 
 function ArrowBackIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -79,9 +80,11 @@ const DEFAULT_WAREHOUSES: WarehouseListItem[] = [
 export function MainWarehouseListScreen({
   onBack,
   warehouses = DEFAULT_WAREHOUSES,
+  onTabChange,
 }: {
   onBack: () => void;
   warehouses?: WarehouseListItem[] | undefined;
+  onTabChange?: ((tab: any) => void) | undefined;
 }) {
   const [selectedWarehouse, setSelectedWarehouse] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
@@ -90,7 +93,27 @@ export function MainWarehouseListScreen({
   const [tempStatusFilter, setTempStatusFilter] = React.useState<'All' | 'Active' | 'Inactive'>('All');
 
   if (selectedWarehouse) {
-    return <MainWarehouseDetailScreen onBack={() => setSelectedWarehouse(null)} warehouse={selectedWarehouse} />;
+    const matchedWarehouseId =
+      selectedWarehouse.toLowerCase().includes('coonoor') || selectedWarehouse === 'WH-002'
+        ? 'WH-COON'
+        : selectedWarehouse.toLowerCase().includes('ooty') || selectedWarehouse === 'WH-001'
+        ? 'WH-OOTY'
+        : selectedWarehouse.toLowerCase().includes('kotagiri') || selectedWarehouse === 'WH-003'
+        ? 'WH-KOTA'
+        : selectedWarehouse.toLowerCase().includes('gudalur') || selectedWarehouse === 'WH-004'
+        ? 'WH-GUDA'
+        : 'WH-COON';
+
+    return (
+      <ProfileFlow
+        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+        can={() => true}
+        initialScreen="WarehouseProfile"
+        initialWarehouseId={matchedWarehouseId}
+        onBack={() => setSelectedWarehouse(null)}
+        onTabChange={onTabChange ?? (() => {})}
+      />
+    );
   }
 
   const filtered = warehouses.filter((item) => {

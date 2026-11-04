@@ -49,13 +49,16 @@ export interface IncomingShipmentsScreenProps extends WarehouseScreenBaseProps {
   filters?: ReceivingFilters | undefined;
   onOpenFilters: () => void;
   onClearFilters?: (() => void) | undefined;
-  onSelectShipment: (code: string) => void;
+  onSelectShipment: (code: string, shipment?: IncomingShipment) => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
 }
 
 /** The two figures a card shows, by status (as the Sub shell's inline cards). */
 function cardStats(s: IncomingShipment): [string, string][] {
   switch (s.status) {
+    case 'Pending for view':
+    case 'Pending offer':
+    case 'Approved':
     case 'Completed':
       return [['Received', `${s.receivedQty ?? s.expectedQty} KG`], ['Accepted', `${s.acceptedQty ?? s.expectedQty} KG`]];
     case 'Rejected':
@@ -152,13 +155,20 @@ export function IncomingShipmentsScreen({
         {rows.map((s) => {
           const stats = cardStats(s);
           const tone = shipmentTone(s.status);
-          const badgeColors = adminColors[tone];
+          const badgeColors =
+            s.status === 'Pending for view'
+              ? { bg: '#E2E8F0', text: '#475569' }
+              : s.status === 'Pending offer'
+              ? { bg: '#DBEAFE', text: '#1E40AF' }
+              : s.status === 'Approved'
+              ? { bg: '#D1FAE5', text: '#065F46' }
+              : adminColors[tone];
 
           return (
             <TouchableOpacity
-              key={s.code}
+              key={`${s.code}-${s.status}-${s.reference ?? ''}`}
               style={styles.card}
-              onPress={() => onSelectShipment(s.code)}
+              onPress={() => onSelectShipment(s.code, s)}
               activeOpacity={0.8}
               accessibilityRole="button"
             >
@@ -188,7 +198,7 @@ export function IncomingShipmentsScreen({
                 {s.hasReview ? (
                   <TouchableOpacity
                     style={styles.reviewButton}
-                    onPress={() => onSelectShipment(s.code)}
+                    onPress={() => onSelectShipment(s.code, s)}
                     accessibilityRole="button"
                   >
                     <Text style={styles.reviewText}>Review &gt;</Text>

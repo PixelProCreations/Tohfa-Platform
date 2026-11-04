@@ -54,8 +54,13 @@ import {
 import { PurchaseSalesOrdersScreen } from '../sales/PurchaseSalesOrdersScreen';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
+import { ProfileFlow } from '../warehouse/profile-settings';
 
-import { TohfaAdminNotificationsScreen } from './TohfaAdminNotificationsScreen';
+import {
+  NotificationsFlow,
+  TOHFA_NOTIFICATIONS,
+  type NotificationItem,
+} from '../warehouse/notifications';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
 import {
@@ -7171,6 +7176,8 @@ export function TohfaAdminDashboardScreen({
   const [auditReturnTab, setAuditReturnTab] = useState<'Home' | 'More' | 'WorkQueue'>('Home');
   const [profileReturnTab, setProfileReturnTab] = useState<'Home' | 'More' | 'Settings'>('Home');
   const [notificationsReturnTab, setNotificationsReturnTab] = useState<'Home' | 'More'>('Home');
+  const [tohfaNotifications, setTohfaNotifications] = useState<readonly NotificationItem[]>(TOHFA_NOTIFICATIONS);
+  const unreadTohfaNotifCount = tohfaNotifications.filter((n) => !n.isRead).length;
   const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
   const [selectedAdminApplication, setSelectedAdminApplication] = useState<ApplicationListItem | null>(null);
   const [farmersMainTab, setFarmersMainTab] = useState<'farmers' | 'applications'>('farmers');
@@ -12546,7 +12553,7 @@ export function TohfaAdminDashboardScreen({
                   setActiveTab('Notifications');
                 } else if (optionId === 'community') {
                   setCommunitySubScreen('home');
-                } else if (optionId === 'settings') {
+                } else if (optionId === 'settings' || optionId === 'profile') {
                   setActiveTab('Settings');
                 } else if (optionId === 'logout') {
                   onSignOut();
@@ -12608,18 +12615,15 @@ export function TohfaAdminDashboardScreen({
             SETTINGS TAB (Exact layout matching Farmer Admin Settings & Profile)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Settings' && (
-              <TohfaAdminSettingsScreen
+              <ProfileFlow
+                scope={{ warehouseId: undefined, warehouseName: 'Platform Operations' }}
+                subtitle="Tohfa Admin · Platform Operations"
+                adminRole="TOHFA_ADMIN"
+                can={() => true}
+                initialScreen="Settings"
                 onBack={() => setActiveTab('More')}
-                onNavigateProfile={() => {
-                  setProfileReturnTab('Settings');
-                  setActiveTab('Profile');
-                }}
-                onNavigateHome={() => setActiveTab('Home')}
-                onNavigateWorkQueue={() => setActiveTab('WorkQueue')}
-                onNavigateInventory={() => setActiveTab('Inventory')}
-                onNavigateFinance={() => setActiveTab('Finance')}
-                onNavigateMore={() => setActiveTab('More')}
                 onLogout={onSignOut ?? (() => onNavigate?.('Welcome'))}
+                onSwitchRole={() => {}}
               />
             )}
 
@@ -12638,19 +12642,20 @@ export function TohfaAdminDashboardScreen({
             NOTIFICATIONS TAB (Redirected to Farmer Admin Notifications Screen)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Notifications' && (
-              <TohfaAdminNotificationsScreen
-                role="TOHFA_ADMIN"
+              <NotificationsFlow
+                scope={{ warehouseId: 'tohfa-admin', warehouseName: 'Tohfa Platform' }}
+                can={() => true}
+                notifications={tohfaNotifications}
+                onMarkAsRead={(id) =>
+                  setTohfaNotifications((prev) =>
+                    prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+                  )
+                }
+                onMarkAllAsRead={() =>
+                  setTohfaNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+                }
+                onClearAll={() => setTohfaNotifications([])}
                 onBack={() => setActiveTab(notificationsReturnTab)}
-                onViewListing={() => {
-                  setProduceControlScreen('calendar');
-                  setActiveTab('More');
-                }}
-                onViewAudit={() => {
-                  handleOpenScheduleAudit('More');
-                }}
-                onViewDispute={() => {
-                  setActiveTab('More');
-                }}
                 onTabChange={(tab) => {
                   if (tab === 'Farmers') {
                     setActiveTab('Farmers');
@@ -12663,6 +12668,22 @@ export function TohfaAdminDashboardScreen({
                     setActiveTab('More');
                   } else {
                     setActiveTab('Home');
+                  }
+                }}
+                onOpenTarget={(target) => {
+                  if (target === 'TohfaInventory') {
+                    setActiveTab('Inventory');
+                  } else if (target === 'TohfaAudit') {
+                    setActiveTab('Audits');
+                  } else if (target === 'TohfaFarmers') {
+                    setActiveTab('Farmers');
+                  } else if (target === 'TohfaFinance') {
+                    setActiveTab('Finance');
+                  } else if (target === 'TohfaPricing') {
+                    setProduceControlScreen('calendar');
+                    setActiveTab('More');
+                  } else if (target === 'TohfaDisputes') {
+                    setActiveTab('Disputes');
                   }
                 }}
               />
