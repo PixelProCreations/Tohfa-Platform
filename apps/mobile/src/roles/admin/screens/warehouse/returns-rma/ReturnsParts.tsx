@@ -212,9 +212,7 @@ export function PermissionNote({ children }: { children: React.ReactNode }) {
 }
 
 // Timeline geometry: fixed icon sizes, not spacing (no size token exists for them).
-const TIMELINE_RING = 20;
-const TIMELINE_DOT = 8;
-const TIMELINE_LINE_HEIGHT = 28;
+
 const BACK_BUTTON = 36;
 const HERO_CIRCLE = 80;
 

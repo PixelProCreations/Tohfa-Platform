@@ -14,7 +14,7 @@ import React, { useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType, type AdminTone } from '../../../theme';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import {
   cardStyles,
   ChipRow,

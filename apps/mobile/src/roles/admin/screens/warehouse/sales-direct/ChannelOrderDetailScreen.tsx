@@ -25,7 +25,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { InvoiceDetailScreen } from '../billing-invoices';
 import { OrderStatusHistoryScreen } from '../orders';
-import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminType, adminSpacing } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import { CHANNEL_COPY, CHANNEL_FALLBACK_ORDER, invoiceIdForOrder } from './fixtures';
 import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';

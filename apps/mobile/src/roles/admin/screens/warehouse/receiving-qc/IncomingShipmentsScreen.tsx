@@ -28,7 +28,7 @@ import {
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import {
   EMPTY_RECEIVING_FILTERS,
   activeFilterCount,

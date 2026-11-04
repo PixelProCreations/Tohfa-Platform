@@ -18,7 +18,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import { INITIAL_RETURN_HISTORY } from './fixtures';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
 import type { ReturnHistoryRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -43,19 +43,7 @@ function SearchIcon() {
   );
 }
 
-function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+
 
 export function ReturnHistoryScreen({
   scope,
@@ -88,17 +76,6 @@ export function ReturnHistoryScreen({
     <ReturnsScreen
       title="Return History"
       onBack={onBack}
-      headerRight={
-        <TouchableOpacity
-          style={styles.headerFilterBtn}
-          onPress={() => {}}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel="Filter returns"
-        >
-          <FilterSlidersIcon size={20} color={adminColors.onBrand} />
-        </TouchableOpacity>
-      }
       headerExtra={
         allWarehouses ? (
           <WarehouseSelector

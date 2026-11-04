@@ -29,7 +29,7 @@ import { CustomersFlow } from '../customers';
 import { StaffFlow } from '../staff-attendance';
 import { MainWarehouseAdminScreen } from '../../dashboard/MainWarehouseAdminScreen';
 import { WarehouseAdminFlow } from '../warehouse-admin';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';
@@ -71,8 +71,8 @@ export const MORE_ITEMS: MoreOptionItem[] = [
   },
   {
     id: 'sales',
-    title: 'Purchase & Sales Management',
-    subtitle: 'Manage direct and market sales',
+    title: 'Purchase & Sales Orders',
+    subtitle: 'Manage purchase and sales orders',
     iconType: 'sales',
   },
   {
@@ -659,7 +659,7 @@ export function MoreScreen({
         break;
       case 'sales':
         if (onNavigateToSales) onNavigateToSales();
-        else Alert.alert(item.title, 'Opening Direct / Market Sales...');
+        else Alert.alert(item.title, 'Opening Purchase & Sales Orders...');
         break;
       case 'customers':
         if (onNavigateToCustomers) {
@@ -971,7 +971,7 @@ export function MoreScreen({
         <AdminRatingScorecardScreen
           farmer={selectedFarmer}
           onBack={() => setFarmerSubScreen(null)}
-          onOpenComplianceTiers={() => {}}
+          onOpenComplianceTiers={() => { }}
         />
       );
     }

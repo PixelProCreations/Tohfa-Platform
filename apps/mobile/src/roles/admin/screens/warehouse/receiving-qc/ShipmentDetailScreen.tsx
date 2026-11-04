@@ -231,12 +231,12 @@ const STEP = 22;
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   headerStatusBadge: {
-    backgroundColor: '#FFF4EE',
+    backgroundColor: adminColors.brandSoft.bg,
     borderRadius: adminRadius.full,
     paddingHorizontal: 14,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#FDBA74',
+    borderColor: adminColors.brandSoft.border,
   },
   headerStatusBadgeText: {
     ...adminType.caption,

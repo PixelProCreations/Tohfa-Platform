@@ -42,10 +42,9 @@ import {
   walletLayout,
 } from './WalletParts';
 
-export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope' | 'can'> {
+export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope'> {
   onBack: () => void;
   scope?: WarehouseScope | undefined;
-  can?: PermissionCheck | undefined;
   subtitle?: string | undefined;
   customer?: WalletCustomer | undefined;
   transactions?: readonly WalletTransactionRecord[] | undefined;

@@ -32,7 +32,7 @@ import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
 import type { ExpenseDraft, ExpenseRecord, VoucherRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { VoucherDetailScreen } from './VoucherDetailScreen';
 import { VouchersScreen } from './VouchersScreen';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 
 const EXPENSE_LOG_PERMISSION = 'finance.expense.log';
 const ALL_WAREHOUSES_LABEL = 'All Warehouses';

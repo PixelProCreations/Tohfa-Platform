@@ -31,6 +31,25 @@ import { PickupOtpScreen } from './PickupOtpScreen';
 import { ReadyForPickupScreen } from './ReadyForPickupScreen';
 import { StockCheckScreen } from './StockCheckScreen';
 import type { PermissionCheck, WarehouseScope, WarehouseTab } from './types';
+import { PurchaseOrderDetailScreen } from '../../sales/PurchaseOrderDetailScreen';
+import { PurchaseOrderReceiptScreen } from '../../sales/PurchaseOrderReceiptScreen';
+import type { PurchaseOrderRecord } from '../../sales/PurchaseSalesOrdersScreen';
+
+const PO_0009_RECORD: PurchaseOrderRecord = {
+  id: 'po-1',
+  poNumber: 'PO-0009',
+  listingCode: 'LST-2909',
+  farmerName: 'Kumar',
+  produceName: 'Beans',
+  grade: 'Grade 2',
+  quantityKg: 60,
+  unitPrice: 55,
+  totalPrice: 3300,
+  warehouse: 'Main Warehouse, Ooty',
+  dateStr: '30 Sep 2026',
+  purchaseStatus: 'Closed',
+  receiptStatus: 'Completed',
+};
 
 /** Route params passed between order screens. Loose on purpose: they come from deep links. */
 export type OrdersRouteParams = Record<string, any> | null;
@@ -119,6 +138,23 @@ export function OrdersFlow({
       case 'M5S02':
       case 'M5S02_OrdersList':
         return <OrdersListScreen {...common} routeParams={params ?? undefined} />;
+      case 'PurchaseOrderDetail':
+      case 'M8S02a_PurchaseDetail':
+        return (
+          <PurchaseOrderDetailScreen
+            order={PO_0009_RECORD}
+            onBack={back}
+            onOpenReceipt={() => navigate('PurchaseOrderReceipt', { poNumber: params?.poNumber ?? 'PO-0009' })}
+          />
+        );
+      case 'PurchaseOrderReceipt':
+      case 'M8S02a_ReceiptDetail':
+        return (
+          <PurchaseOrderReceiptScreen
+            order={PO_0009_RECORD}
+            onBack={back}
+          />
+        );
       case 'M5S03':
       case 'M5S03_SearchFilters':
         // The order-queue filters are the shared OrderFiltersScreen ('order'

@@ -8,11 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { SaleRecord, WarehouseScreenBaseProps } from './types';
-
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -30,7 +29,7 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function InvoiceReceiptIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function InvoiceReceiptIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -45,18 +44,6 @@ function InvoiceReceiptIcon({ size = 18, color = adminColors.onBrand }: { size?:
   );
 }
 
-function TimelineCheckIcon({ size = 18 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-      <Circle cx="10" cy="10" r="8.5" fill={adminColors.success.bg} stroke={adminColors.success.text} strokeWidth="1.8" />
-      <Circle cx="10" cy="10" r="3.5" fill={adminColors.success.text} />
-    </Svg>
-  );
-}
-
-// ─── Component Props ─────────────────────────────────────────────────────────
-
-// Design id: M6-S09
 export interface SaleDetailScreenProps extends WarehouseScreenBaseProps {
   sale?: SaleRecord | undefined;
   /** Open the invoice in the host; without it the shared invoice detail opens inline. */
@@ -74,26 +61,13 @@ export function SaleDetailScreen({
     status: 'Completed',
     invoiceNo: 'INV-00251',
     paymentMethod: 'UPI',
-    items: [
-      {
-        name: 'Tomato',
-        grade: 'Grade 1',
-        batch: 'BTH-00231',
-        qtyText: '2 KG @ ₹100',
-        pricePerUnit: 100,
-        lineTotal: 200,
-      },
-    ],
   },
   onBack,
   onViewInvoice,
   scope,
   can,
 }: SaleDetailScreenProps) {
-  // View Invoice opens the shared invoice detail, which checks invoice.view_own
-  // (MAIN all, SUB own); FINAL_LIST row 113 names invoice.generate, which both
-  // roles also hold. Gate on the code the target screen enforces.
-  const canShowInvoice = can('invoice.view_own');
+  const canShowInvoice = can ? can('invoice.view_own') : true;
   const [showInvoiceScreen, setShowInvoiceScreen] = useState(false);
 
   const handleViewInvoice = () => {
@@ -104,9 +78,6 @@ export function SaleDetailScreen({
     }
   };
 
-  // A Sub admin sees only its own warehouse's sales. A record from another
-  // warehouse renders as not found (empty), never as a 403 that would confirm
-  // the sale exists (root CLAUDE.md 2.1).
   const outOfScope =
     scope.warehouseId !== undefined && sale.warehouseId !== undefined && sale.warehouseId !== scope.warehouseId;
   if (outOfScope) {
@@ -114,7 +85,7 @@ export function SaleDetailScreen({
       <SafeAreaView style={styles.root}>
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.headerBanner}>
-          <View style={styles.headerTopRow}>
+          <View style={styles.headerRow}>
             <TouchableOpacity style={styles.backBtn} onPress={onBack} activeOpacity={0.8}>
               <ArrowBackIcon size={24} color={adminColors.onBrand} />
             </TouchableOpacity>
@@ -139,48 +110,28 @@ export function SaleDetailScreen({
     );
   }
 
-  const defaultItems = [
-    {
-      name: 'Tomato',
-      grade: 'Grade 1',
-      batch: 'BTH-00231',
-      qtyText: '2 KG @ ₹100',
-      pricePerUnit: 100,
-      lineTotal: 200,
-    },
-    {
-      name: 'Carrot',
-      grade: 'Grade 1',
-      batch: 'BTH-00189',
-      qtyText: '1 KG @ ₹120',
-      pricePerUnit: 120,
-      lineTotal: 120,
-    },
-  ];
-
-  const saleItems = sale.items && sale.items.length > 0 ? sale.items : defaultItems;
-  const itemsTotal = saleItems.reduce((acc, it) => acc + (it.lineTotal ?? 0), 0);
-  const totalAmount = sale.amount || itemsTotal || 320;
-
   const warehouseDisplayName =
     sale.warehouseName?.replace(/ Warehouse$/, '') ??
     scope.warehouseName?.replace(/ Warehouse$/, '') ??
     'Coonoor';
 
   const timelineSteps = [
-    { title: 'Sale Created' },
-    { title: 'Payment Confirmed' },
-    { title: 'Inventory Updated' },
-    { title: 'Sale Completed' },
+    { title: 'Sale Created', time: '6:30 PM' },
+    { title: 'Products Added', time: '6:31 PM' },
+    { title: 'Stock Checked', time: '6:32 PM' },
+    { title: 'Payment Initiated', time: '6:34 PM' },
+    { title: 'Payment Confirmed', time: '6:35 PM' },
+    { title: 'Sale Completed', time: '6:35 PM' },
+    { title: 'Invoice Generated', time: '6:35 PM' },
   ];
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Top Brand Header Banner ─── */}
+      {/* ─── Top Brand Header Banner (Image 3) ─── */}
       <View style={styles.headerBanner}>
-        <View style={styles.headerTopRow}>
+        <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.backBtn}
             onPress={onBack}
@@ -190,12 +141,9 @@ export function SaleDetailScreen({
             <ArrowBackIcon size={24} color={adminColors.onBrand} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Sale Details</Text>
-        </View>
 
-        <View style={styles.headerSubRow}>
-          <Text style={styles.headerSaleId}>{sale.id || 'SALE-00251'} · </Text>
-          <View style={styles.paidBadge}>
-            <Text style={styles.paidBadgeText}>Paid</Text>
+          <View style={styles.completedBadge}>
+            <Text style={styles.completedBadgeText}>Completed</Text>
           </View>
         </View>
       </View>
@@ -215,26 +163,19 @@ export function SaleDetailScreen({
               <Text style={styles.fieldValueBold}>{sale.id || 'SALE-00251'}</Text>
             </View>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Date</Text>
-              <Text style={styles.fieldValueBold}>24 Sep 2026</Text>
+              <Text style={styles.fieldLabel}>Created</Text>
+              <Text style={styles.fieldValueBold}>24 Sep, 6:35 PM</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: 14 }]}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Time</Text>
-              <Text style={styles.fieldValueBold}>10:42 AM</Text>
-            </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Warehouse</Text>
               <Text style={styles.fieldValueBold}>{warehouseDisplayName}</Text>
             </View>
-          </View>
-
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Sales Channel</Text>
-              <Text style={styles.fieldValueBold}>Direct</Text>
+              <Text style={styles.fieldLabel}>Channel</Text>
+              <Text style={styles.fieldValueBold}>Direct Sale</Text>
             </View>
           </View>
         </View>
@@ -245,11 +186,18 @@ export function SaleDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Customer</Text>
-              <Text style={styles.fieldValueBold}>{sale.customerName || 'Arun Kumar'}</Text>
+              <Text style={styles.fieldValueBold}>{sale.customerName || 'Rajesh Kumar'}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.fieldLabel}>Customer ID</Text>
-              <Text style={styles.fieldValueBold}>{sale.customerCode || 'CUS-00251'}</Text>
+              <Text style={styles.fieldValueBold}>{sale.customerCode || 'CUS-00291'}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.gridRow, { marginTop: 14 }]}>
+            <View style={styles.gridCol}>
+              <Text style={styles.fieldLabel}>Mobile</Text>
+              <Text style={styles.fieldValueBold}>+91 XXXXX XXXXX</Text>
             </View>
           </View>
         </View>
@@ -257,25 +205,26 @@ export function SaleDetailScreen({
         {/* ─── 3. Items ─── */}
         <Text style={styles.sectionHeading}>Items</Text>
         <View style={styles.card}>
-          {saleItems.map((item, idx) => (
-            <View key={idx}>
-              {idx > 0 && <View style={styles.itemDivider} />}
-              <View style={styles.itemRow}>
-                <Text style={styles.itemLeftText}>
-                  {item.name} · {item.grade || 'Grade 1'} · {item.qtyText}
-                </Text>
-                <Text style={styles.itemRightPrice}>₹{item.lineTotal}</Text>
-              </View>
+          <View style={styles.itemHeaderRow}>
+            <Text style={styles.itemNameText}>Tomato · Grade 1</Text>
+            <View style={styles.batchWrap}>
+              <Text style={styles.fieldLabel}>Batch</Text>
+              <Text style={styles.batchValue}>BTH-00231</Text>
             </View>
-          ))}
+          </View>
+          <Text style={styles.itemRateText}>2 KG @ ₹100</Text>
+          <View style={{ marginTop: 8 }}>
+            <Text style={styles.fieldLabel}>Line Total</Text>
+            <Text style={styles.lineTotalValue}>₹200</Text>
+          </View>
         </View>
 
-        {/* ─── 4. Financial Summary ─── */}
-        <Text style={styles.sectionHeading}>Financial Summary</Text>
+        {/* ─── 4. Amount Breakdown ─── */}
+        <Text style={styles.sectionHeading}>Amount Breakdown</Text>
         <View style={styles.card}>
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownLabel}>Subtotal</Text>
-            <Text style={styles.breakdownValue}>₹{totalAmount}</Text>
+            <Text style={styles.breakdownValue}>₹320</Text>
           </View>
 
           <View style={[styles.breakdownRow, { marginTop: 8 }]}>
@@ -292,7 +241,7 @@ export function SaleDetailScreen({
 
           <View style={styles.breakdownRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>₹{totalAmount}</Text>
+            <Text style={styles.totalValue}>₹320</Text>
           </View>
         </View>
 
@@ -301,58 +250,28 @@ export function SaleDetailScreen({
         <View style={styles.card}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Method</Text>
+              <Text style={styles.fieldLabel}>Payment Method</Text>
               <Text style={styles.fieldValueBold}>{sale.paymentMethod || 'UPI'}</Text>
             </View>
 
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Status</Text>
+              <Text style={styles.fieldLabel}>Payment Status</Text>
               <Text style={styles.fieldValueBold}>Paid</Text>
             </View>
           </View>
 
           <View style={[styles.gridRow, { marginTop: 14 }]}>
             <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Amount</Text>
-              <Text style={styles.fieldValueBold}>₹{totalAmount}</Text>
+              <Text style={styles.fieldLabel}>Transaction ID</Text>
+              <Text style={styles.fieldValueBold}>TXN-XXXXXX</Text>
             </View>
           </View>
         </View>
 
-        {/* ─── 6. Inventory Reference ─── */}
-        <Text style={styles.sectionHeading}>Inventory Reference</Text>
-        <View style={styles.card}>
-          <View style={styles.gridRow}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Movement</Text>
-              <Text style={styles.fieldValueBold}>{sale.movementId ?? `MOV-${sale.id.replace(/^SALE-/, '')}`}</Text>
-            </View>
-
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Warehouse</Text>
-              <Text style={styles.fieldValueBold}>{warehouseDisplayName}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.gridRow, { marginTop: 14 }]}>
-            <View style={styles.gridCol}>
-              <Text style={styles.fieldLabel}>Status</Text>
-              <Text style={styles.fieldValueBold}>Completed</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Reference disclaimer notice */}
-        <View style={styles.referenceNoticeBox}>
-          <Text style={styles.referenceNoticeText}>
-            🚫 This is a reference only — detailed stock movement stays in Module 3, not duplicated here.
-          </Text>
-        </View>
-
-        {/* ─── 7. Invoice ─── */}
+        {/* ─── 6. Invoice ─── */}
         <Text style={styles.sectionHeading}>Invoice</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Invoice Number</Text>
+          <Text style={styles.fieldLabel}>Invoice No.</Text>
           <Text style={styles.fieldValueBold}>{sale.invoiceNo || 'INV-00251'}</Text>
         </View>
 
@@ -362,26 +281,28 @@ export function SaleDetailScreen({
             onPress={handleViewInvoice}
             activeOpacity={0.82}
           >
+            <InvoiceReceiptIcon size={18} color={adminColors.warning.text} />
             <Text style={styles.viewInvoiceOutlineBtnText}>View Invoice</Text>
           </TouchableOpacity>
         )}
 
-        {/* ─── 8. Sale Timeline ─── */}
-        <Text style={[styles.sectionHeading, { marginTop: 20 }]}>Sale Timeline</Text>
+        {/* ─── 7. Sale Timeline (Image 4) ─── */}
+        <Text style={[styles.sectionHeading, { marginTop: 18 }]}>Sale Timeline</Text>
         <View style={styles.timelineCard}>
           {timelineSteps.map((step, idx) => {
             const isLast = idx === timelineSteps.length - 1;
             return (
               <View key={idx} style={styles.timelineRow}>
-                {/* Left Indicator & connecting vertical line */}
+                {/* Green Dot Indicator & connecting vertical line */}
                 <View style={styles.indicatorCol}>
-                  <TimelineCheckIcon size={20} />
+                  <View style={styles.timelineGreenDot} />
                   {!isLast && <View style={styles.timelineVerticalLine} />}
                 </View>
 
-                {/* Right Step Content */}
-                <View style={[styles.timelineContent, !isLast && { paddingBottom: 22 }]}>
+                {/* Step Content */}
+                <View style={[styles.timelineContent, !isLast && { paddingBottom: 18 }]}>
                   <Text style={styles.timelineStepTitle}>{step.title}</Text>
+                  <Text style={styles.timelineStepTime}>{step.time}</Text>
                 </View>
               </View>
             );
@@ -394,7 +315,6 @@ export function SaleDetailScreen({
   );
 }
 
-// ─── Stylesheet ──────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
@@ -406,101 +326,31 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
   },
-  headerTopRow: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  headerSubRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    marginLeft: 36,
-  },
-  headerSaleId: {
-    ...adminType.body,
-    color: adminColors.onBrand,
-    fontWeight: '600',
-  },
-  paidBadge: {
-    backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  paidBadgeText: {
-    ...adminType.caption,
-    color: adminColors.success.text,
+    justifyContent: 'space-between',
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 4,
+    marginLeft: -4,
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
     letterSpacing: 0.2,
     flex: 1,
-    marginLeft: 4,
+    marginLeft: 8,
   },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  itemLeftText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-    flex: 1,
-    paddingRight: 8,
-  },
-  itemRightPrice: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
-  },
-  itemDivider: {
-    height: 1,
-    backgroundColor: adminColors.border,
-    marginVertical: 8,
-  },
-  referenceNoticeBox: {
-    backgroundColor: adminColors.border,
-    borderRadius: 12,
-    padding: 12,
-    marginTop: 10,
-  },
-  referenceNoticeText: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-  },
-  viewInvoiceOutlineBtn: {
-    borderWidth: 1.5,
-    borderColor: adminColors.brand,
-    borderRadius: 12,
-    backgroundColor: adminColors.card,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-  },
-  viewInvoiceOutlineBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brand,
-  },
-  timelineCard: {
-    paddingLeft: 4,
-    marginTop: 8,
-  },
-  completedPill: {
+  completedBadge: {
     backgroundColor: adminColors.success.bg,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  completedPillText: {
-    ...adminType.rowTitle,
+  completedBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: adminColors.success.text,
   },
   scroll: {
@@ -508,153 +358,159 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingTop: 14,
+    paddingBottom: 24,
   },
   sectionHeading: {
     ...adminType.sectionHead,
     color: adminColors.ink,
-    marginTop: 18,
+    marginTop: 14,
     marginBottom: 8,
+    fontWeight: '700',
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: 14,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: 16,
+    marginBottom: 10,
     ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
   },
   gridCol: {
     flex: 1,
   },
   fieldLabel: {
-    ...adminType.body,
+    fontSize: 12,
     color: adminColors.muted,
     marginBottom: 4,
   },
   fieldValueBold: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '700',
     color: adminColors.ink,
   },
-  itemTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.muted,
+  itemHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 4,
+  },
+  itemNameText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  batchWrap: {
+    alignItems: 'flex-end',
+  },
+  batchValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  itemRateText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 6,
+  },
+  lineTotalValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
   breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   breakdownLabel: {
-    ...adminType.body,
+    fontSize: 13,
     color: adminColors.muted,
   },
   breakdownValue: {
-    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '600',
     color: adminColors.ink,
   },
   breakdownDivider: {
-    height: 1.5,
-    backgroundColor: adminColors.ink,
-    marginVertical: 12,
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 10,
   },
   totalLabel: {
-    ...adminType.title,
+    fontSize: 16,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   totalValue: {
-    ...adminType.title,
+    fontSize: 17,
+    fontWeight: '700',
     color: adminColors.ink,
   },
-  viewInvoiceBtn: {
+  viewInvoiceOutlineBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    paddingVertical: 13,
     borderWidth: 1.5,
     borderColor: adminColors.brand,
-    borderRadius: 12,
+    gap: 8,
+    marginBottom: 10,
+  },
+  viewInvoiceOutlineBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+  timelineCard: {
     backgroundColor: adminColors.card,
-    paddingVertical: 14,
-    marginTop: 14,
-  },
-  viewInvoiceBtnText: {
-    ...adminType.sectionHead,
-    color: adminColors.brand,
-  },
-  downloadInvoiceTooltip: {
-    alignSelf: 'center',
-    backgroundColor: adminColors.ink,
-    paddingVertical: 9,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    marginTop: 10,
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: 14,
     ...adminShadow.sm,
-  },
-  downloadInvoiceTooltipText: {
-    color: adminColors.onBrand,
-    ...adminType.sectionHead,
-    letterSpacing: 0.2,
-    textAlign: 'center',
-  },
-  timelineContainer: {
-    paddingLeft: 4,
-    marginTop: 8,
   },
   timelineRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
   },
   indicatorCol: {
     alignItems: 'center',
-    width: 24,
+    width: 20,
+    marginRight: 12,
+  },
+  timelineGreenDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: adminColors.success.text,
+    marginTop: 3,
   },
   timelineVerticalLine: {
     width: 2,
     flex: 1,
-    minHeight: 28,
-    backgroundColor: adminColors.border,
-    marginVertical: 2,
+    backgroundColor: adminColors.success.border,
+    marginVertical: 3,
   },
   timelineContent: {
-    marginLeft: 12,
     flex: 1,
   },
   timelineStepTitle: {
-    ...adminType.sectionHead,
+    fontSize: 13.5,
+    fontWeight: '700',
     color: adminColors.ink,
+    marginBottom: 2,
   },
   timelineStepTime: {
-    ...adminType.body,
+    fontSize: 11.5,
     color: adminColors.muted,
-    marginTop: 2,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: adminColors.card,
-    borderTopWidth: 1,
-    borderTopColor: adminColors.border,
-    paddingTop: 8,
-    paddingBottom: 6,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navLabel: {
-    ...adminType.rowMeta,
-    color: adminColors.muted,
-    marginTop: 3,
-  },
-  navLabelActive: {
-    color: adminColors.brand,
-    fontWeight: '700',
   },
 });

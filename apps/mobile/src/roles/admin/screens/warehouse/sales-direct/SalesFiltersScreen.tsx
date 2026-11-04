@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminType } from '../../../theme';
 import type { WarehouseScreenBaseProps } from './types';
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
@@ -122,7 +122,7 @@ const DATE_OPTIONS = ['Today', 'Yesterday', 'Last 7 Days', 'Custom'] as const;
 const PAYMENT_OPTIONS = ['All', 'Paid', 'Pending', 'Failed'] as const;
 
 export function SalesFiltersScreen({
-  scope,
+  scope: _scope,
   onBack,
   initialFilters,
   onApplyFilters,

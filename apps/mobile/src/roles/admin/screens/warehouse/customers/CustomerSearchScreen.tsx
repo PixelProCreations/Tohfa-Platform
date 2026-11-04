@@ -19,7 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { CustomerWalletScreen } from '../wallet-cashtopup/CustomerWalletScreen';
 import { adminColors, adminType, adminRadius, adminSpacing } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
@@ -76,14 +76,7 @@ function QrScanIcon({ size = 20, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function InfoNoticeIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8h.01M12 11v5" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
+
 
 export interface CustomerSearchScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((name: string, id?: string) => void) | ((customer: CustomerSearchItem) => void);

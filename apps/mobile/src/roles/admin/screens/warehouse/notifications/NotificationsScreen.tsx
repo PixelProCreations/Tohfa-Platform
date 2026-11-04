@@ -21,7 +21,7 @@ import {
   canOpenTarget,
   matchesFilter,
 } from './NotificationParts';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type {
   NotificationFilter,
   NotificationItem,

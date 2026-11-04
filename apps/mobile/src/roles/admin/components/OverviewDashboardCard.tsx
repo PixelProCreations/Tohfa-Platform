@@ -41,6 +41,17 @@ export interface OverviewDashboardCardProps {
     | 'categories'
     | 'history'
     | 'clock'
+    | 'store'
+    | 'direct'
+    | 'market'
+    | 'cutlery'
+    | 'horeca'
+    | 'building'
+    | 'b2b'
+    | 'invoice'
+    | 'invoices'
+    | 'card'
+    | 'invoiceValue'
     | React.ReactNode;
   /** Optional custom icon tint or defaults to warm brown/tan from admin theme */
   iconColor?: string;
@@ -189,6 +200,89 @@ function renderBuiltinIcon(type: string, color: string) {
           <Path d="M12 8v5M12 16h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
         </Svg>
       );
+    case 'store':
+    case 'direct':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M3 9a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V5H3v4z"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M4 11.2V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M7 5V3M12 5V3M17 5V3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+        </Svg>
+      );
+    case 'market':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M9 22V12h6v10" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'horeca':
+    case 'cutlery':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M5.5 4v6a2.8 2.8 0 0 0 2.8 2.8v7.2M8.3 4v6M11.1 4v6a2.8 2.8 0 0 1-2.8 2.8"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M18.5 4v16M18.5 4c-3 0-5 2.5-5 6v4h5"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      );
+    case 'b2b':
+    case 'building':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M3 21h18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <Path
+            d="M4 21V5a1.5 1.5 0 0 1 1.5-1.5h7A1.5 1.5 0 0 1 14 5v16"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M14 10h5a1.5 1.5 0 0 1 1.5 1.5V21"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M7 8h3M7 12h3M7 16h3" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <Path d="M17 14h1M17 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        </Svg>
+      );
+    case 'invoice':
+    case 'invoices':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 3 2 3-2 3 2 3-2 3 2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M14 2v6h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M8 13h8M8 17h5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
+      );
+    case 'card':
+    case 'invoiceValue':
+      return (
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Rect x="2" y="5" width="20" height="14" rx="3" stroke={color} strokeWidth="1.8" />
+          <Path d="M2 10h20M6 15h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+        </Svg>
+      );
     default:
       return null;
   }
@@ -260,10 +354,9 @@ export function OverviewDashboardCard({
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
-  const effectiveIconColor = iconColor ?? adminColors.brandDeep;
-  const effectiveIconBg = iconBgColor ?? adminColors.brandTint;
-
   const isDanger = tone === 'danger';
+  const effectiveIconColor = iconColor ?? (isDanger ? adminColors.danger.text : adminColors.brandDeep);
+  const effectiveIconBg = iconBgColor ?? (isDanger ? adminColors.danger.bg : adminColors.brandTint);
   const isWarning = tone === 'warning';
   const isSuccess = tone === 'success';
 

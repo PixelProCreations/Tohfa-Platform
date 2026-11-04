@@ -26,11 +26,11 @@ const INITIAL_SALES_DATA: SaleHistoryItem[] = [
     warehouseName: 'Coonoor Warehouse',
     customerName: 'Rajesh Kumar',
     customerCode: 'CUS-00291',
-    itemCountText: '2 Items',
+    itemCountText: '2 items',
     channel: 'Direct Sale',
-    dateText: '24 Sep · 6:35 PM',
+    dateText: '24 Sep 2026',
     amount: 320,
-    status: 'Paid',
+    status: 'Completed',
     invoiceNo: 'INV-00251',
     paymentMethod: 'UPI',
     items: [
@@ -53,66 +53,114 @@ const INITIAL_SALES_DATA: SaleHistoryItem[] = [
     ],
   },
   {
-    id: 'SALE-00248',
+    id: 'SALE-00250',
     warehouseId: 'WH-COON',
     warehouseName: 'Coonoor Warehouse',
-    customerName: 'Walk-in',
-    customerCode: 'CUS-00104',
-    itemCountText: '1 Item',
+    customerName: 'Priya Stores',
+    customerCode: 'CUS-00152',
+    itemCountText: '5 items',
     channel: 'Market Sale',
-    dateText: '24 Sep · 3:10 PM',
-    amount: 120,
-    status: 'Paid',
-    invoiceNo: 'INV-00248',
+    dateText: '24 Sep 2026',
+    amount: 1250,
+    status: 'Completed',
+    invoiceNo: 'INV-00250',
     paymentMethod: 'Cash',
     items: [
       {
         name: 'Carrot',
         grade: 'Grade 1',
         batch: 'BTH-00189',
-        qtyText: '1 KG @ ₹120',
+        qtyText: '5 KG @ ₹120',
         pricePerUnit: 120,
-        lineTotal: 120,
+        lineTotal: 600,
+      },
+      {
+        name: 'Potato',
+        grade: 'Grade 1',
+        batch: 'BTH-00204',
+        qtyText: '13 KG @ ₹50',
+        pricePerUnit: 50,
+        lineTotal: 650,
       },
     ],
   },
   {
-    id: 'SALE-00240',
-    warehouseId: 'WH-OOTY',
-    warehouseName: 'Ooty Warehouse',
-    customerName: 'Ganesh K.',
-    customerCode: 'CUS-00388',
-    itemCountText: '3 Items',
-    channel: 'Direct Sale',
-    dateText: '23 Sep · 5:45 PM',
-    amount: 410,
+    id: 'SALE-00249',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
+    customerName: 'Hotel Green View',
+    customerCode: 'CUS-00087',
+    itemCountText: '8 items',
+    channel: 'HORECA Sale',
+    dateText: '23 Sep 2026',
+    amount: 4800,
+    status: 'Completed',
+    invoiceNo: 'INV-00249',
+    paymentMethod: 'Bank Transfer',
+    items: [
+      {
+        name: 'Tomato',
+        grade: 'Grade 1',
+        batch: 'BTH-00231',
+        qtyText: '20 KG @ ₹100',
+        pricePerUnit: 100,
+        lineTotal: 2000,
+      },
+      {
+        name: 'Potato',
+        grade: 'Grade 1',
+        batch: 'BTH-00204',
+        qtyText: '40 KG @ ₹50',
+        pricePerUnit: 50,
+        lineTotal: 2000,
+      },
+      {
+        name: 'Carrot',
+        grade: 'Grade 1',
+        batch: 'BTH-00189',
+        qtyText: '8 KG @ ₹100',
+        pricePerUnit: 100,
+        lineTotal: 800,
+      },
+    ],
+  },
+  {
+    id: 'SALE-00248',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
+    customerName: 'Metro Mart',
+    customerCode: 'CUS-00192',
+    itemCountText: '12 items',
+    channel: 'B2B Sale',
+    dateText: '23 Sep 2026',
+    amount: 12400,
     status: 'Pending',
-    invoiceNo: 'INV-00240',
-    paymentMethod: 'Wallet',
+    invoiceNo: 'INV-00248',
+    paymentMethod: 'Credit',
     items: [
       {
         name: 'Potato',
         grade: 'Grade 1',
         batch: 'BTH-00204',
-        qtyText: '3 KG @ ₹50',
+        qtyText: '100 KG @ ₹50',
         pricePerUnit: 50,
-        lineTotal: 150,
+        lineTotal: 5000,
       },
       {
         name: 'Tomato',
-        grade: 'Grade 2',
-        batch: 'BTH-00219',
-        qtyText: '2 KG @ ₹80',
-        pricePerUnit: 80,
-        lineTotal: 160,
+        grade: 'Grade 1',
+        batch: 'BTH-00231',
+        qtyText: '50 KG @ ₹100',
+        pricePerUnit: 100,
+        lineTotal: 5000,
       },
       {
-        name: 'Onion',
+        name: 'Carrot',
         grade: 'Grade 1',
-        batch: 'BTH-00177',
-        qtyText: '2 KG @ ₹50',
-        pricePerUnit: 50,
-        lineTotal: 100,
+        batch: 'BTH-00189',
+        qtyText: '20 KG @ ₹120',
+        pricePerUnit: 120,
+        lineTotal: 2400,
       },
     ],
   },
@@ -159,7 +207,7 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
-// Design id: M6-S08
+// Design id: M6-S08 Sales History Screen
 export interface SalesHistoryScreenProps extends WarehouseScreenBaseProps {
   onSelectSale: (sale: SaleHistoryItem) => void;
   onOpenFilters?: () => void;
@@ -261,7 +309,7 @@ export function SalesHistoryScreen({
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
-            const isPaid = item.status === 'Paid';
+            const isCompleted = item.status === 'Completed' || item.status === 'Paid';
             return (
               <TouchableOpacity
                 style={styles.saleCard}
@@ -274,13 +322,13 @@ export function SalesHistoryScreen({
                   <View
                     style={[
                       styles.statusPill,
-                      { backgroundColor: isPaid ? adminColors.success.bg : adminColors.warning.bg },
+                      { backgroundColor: isCompleted ? adminColors.success.bg : adminColors.warning.bg },
                     ]}
                   >
                     <Text
                       style={[
                         styles.statusText,
-                        { color: isPaid ? adminColors.success.text : adminColors.warning.text },
+                        { color: isCompleted ? adminColors.success.text : adminColors.warning.text },
                       ]}
                     >
                       {item.status}
@@ -293,17 +341,16 @@ export function SalesHistoryScreen({
                   {item.customerName} · {item.itemCountText}
                 </Text>
 
-                {/* Bottom Row: Channel (Left), Date & Amount (Right) */}
-                <View style={styles.cardBottomRow}>
+                {/* Channel (Left) & Date (Right) Row */}
+                <View style={styles.channelDateRow}>
                   <Text style={styles.channelText}>
                     {showWarehouse && item.warehouseName ? `${item.channel} · ${item.warehouseName}` : item.channel}
                   </Text>
-
-                  <View style={styles.rightInfoWrap}>
-                    <Text style={styles.dateText}>{item.dateText}</Text>
-                    <Text style={styles.amountText}>₹{item.amount}</Text>
-                  </View>
+                  <Text style={styles.dateText}>{item.dateText}</Text>
                 </View>
+
+                {/* Amount Row */}
+                <Text style={styles.amountText}>₹{item.amount.toLocaleString('en-IN')}</Text>
               </TouchableOpacity>
             );
           }}
@@ -418,27 +465,25 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     marginTop: 4,
   },
-  cardBottomRow: {
+  channelDateRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginTop: 10,
+    alignItems: 'center',
+    marginTop: 8,
   },
   channelText: {
     ...adminType.body,
     color: adminColors.muted,
   },
-  rightInfoWrap: {
-    alignItems: 'flex-end',
-  },
   dateText: {
     ...adminType.rowMeta,
     color: adminColors.muted,
-    marginBottom: 2,
   },
   amountText: {
     ...adminType.title,
     color: adminColors.ink,
+    marginTop: 8,
+    fontWeight: '700',
   },
   loadMoreWrap: {
     alignItems: 'center',

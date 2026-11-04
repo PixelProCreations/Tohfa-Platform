@@ -16,7 +16,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { WarehouseScope } from './types';
 import { PROFILE_WAREHOUSES } from './warehouseFixtures';
 

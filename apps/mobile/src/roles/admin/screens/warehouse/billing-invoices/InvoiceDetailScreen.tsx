@@ -182,14 +182,7 @@ export function InvoiceDetailScreen({
       { label: 'Sales Channel', value: record.salesChannel },
     ],
     [
-      { label: 'Invoice Type', value: record.invoiceType },
-      { label: 'Status', value: record.status },
-    ],
-    [
       { label: 'Warehouse', value: record.warehouseName ?? record.warehouseId ?? '—' },
-      ...(record.downloadAvailable !== undefined
-        ? [{ label: 'Download Availability', value: record.downloadAvailable ? 'Available' : 'Unavailable' }]
-        : []),
     ],
   ];
 
@@ -222,7 +215,7 @@ export function InvoiceDetailScreen({
       footer={
         canView ? (
           <BillingFooter>
-            <BillingButton label="Download Invoice" icon={<DownloadIcon />} onPress={handleDownload} />
+            <BillingButton label="Print Invoice" icon={<DownloadIcon />} onPress={handleDownload} />
             <BillingButton label="Share" variant="outline" onPress={handleShare} />
           </BillingFooter>
         ) : null

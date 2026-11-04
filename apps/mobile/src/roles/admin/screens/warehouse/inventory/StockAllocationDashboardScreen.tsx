@@ -79,7 +79,7 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
     {
       channel: 'LIVE MARKET',
       titleColor: adminColors.brandDeep,
-      borderColor: '#047857',
+      borderColor: adminColors.success.border,
       allocated: '120 KG',
       consumed: '40 KG',
       reserved: '30 KG',
@@ -88,7 +88,7 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
     {
       channel: 'HORECA',
       titleColor: adminColors.brandDeep,
-      borderColor: '#4338CA',
+      borderColor: adminColors.purple.border,
       allocated: '80 KG',
       consumed: '20 KG',
       reserved: '20 KG',
@@ -97,7 +97,7 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
     {
       channel: 'B2B',
       titleColor: adminColors.brandDeep,
-      borderColor: '#BE185D',
+      borderColor: adminColors.danger.border,
       allocated: '60 KG',
       consumed: '10 KG',
       reserved: '10 KG',
@@ -106,7 +106,7 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
     {
       channel: 'RESERVE',
       titleColor: adminColors.brandDeep,
-      borderColor: '#0284C7',
+      borderColor: adminColors.info.border,
       allocated: '80 KG',
       consumed: '20 KG',
       reserved: '20 KG',
@@ -115,7 +115,7 @@ export function StockAllocationDashboardScreen({ scope, onNavigate, onBack }: St
     {
       channel: 'BUFFER',
       titleColor: adminColors.brandDeep,
-      borderColor: '#D97706',
+      borderColor: adminColors.brand,
       allocated: '60 KG',
       consumed: '10 KG',
       reserved: '10 KG',

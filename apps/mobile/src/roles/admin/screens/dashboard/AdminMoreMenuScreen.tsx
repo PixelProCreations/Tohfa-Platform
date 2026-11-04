@@ -200,6 +200,15 @@ function SwitchArrowsIcon({ size = 20, color = adminColors.brand }: { size?: num
   );
 }
 
+function PurchaseSalesIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M6 2h9l5 5v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14 2v6h6M8 12h8M8 16h6" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ─── Menu Items Configuration ────────────────────────────────────────────────
 
 interface MenuItemConfig {
@@ -306,6 +315,15 @@ export function AdminMoreMenuScreen(props: AdminMoreMenuScreenProps) {
     : [
         { id: 'farmers', label: 'Farmers Management', icon: <FarmersManagementIcon /> },
         { id: 'produce', label: 'Produce Calendar', icon: <ProduceControlIcon /> },
+        {
+          id: 'purchase_sales',
+          label: 'Purchase & Sales Orders',
+          icon: <PurchaseSalesIcon />,
+          onPressAction: () => {
+            if (onNavigatePurchases) onNavigatePurchases();
+            else onItemSelect?.('Purchase & Sales Orders');
+          },
+        },
         { id: 'audit', label: 'Audit Management', icon: <AuditManagementIcon /> },
         { id: 'inputs', label: 'Inputs & Pest Management', icon: <InputsPestIcon /> },
         { id: 'pricing', label: 'Market & Pricing', icon: <MarketPricingIcon /> },
