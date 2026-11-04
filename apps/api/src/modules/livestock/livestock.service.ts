@@ -54,8 +54,9 @@
  * BR-141. The housing list says, per record, whether the indoor space per
  * animal meets `system_config.livestock_min_indoor_space_sqft_per_animal`, and
  * returns that standard. The comparison is exact integer maths (see
- * meetsIndoorSpaceStandard); a missing or unusable standard is 503 with no
- * fallback constant, the same fail-closed stance as community planting (BR-136).
+ * meetsIndoorSpaceStandard); a missing or unusable standard gives NO verdict
+ * (spaceStandard and every verdict are null) and no fallback constant is ever
+ * substituted, the same stance as community planting (BR-136).
  */
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -63,7 +64,6 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { farmsService, type FarmsService } from '../farms/farms.service.js';
 import {
   livestockRepo,
-  MIN_INDOOR_SPACE_SQFT_KEY,
   type AnimalRecordsPage,
   type CreateAnimalData,
   type CreateProductionLogData,
@@ -141,29 +141,20 @@ interface IndoorSpaceStandard {
   sqFt: number;
 }
 
-function indoorSpaceStandardNotConfigured(): AppError {
-  return new AppError('LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED', {
-    status: 503,
-    detail:
-      `Livestock housing standard is not configured: system_config.${MIN_INDOOR_SPACE_SQFT_KEY} must be a JSON number ` +
-      'greater than 0 with at most two decimal places. BR-141 forbids a hard-coded fallback; an administrator must set it.',
-    meta: { configKey: MIN_INDOOR_SPACE_SQFT_KEY },
-  });
-}
-
 /**
  * Validates the raw JSON text of the standard (`value::text` from the repo).
  * Only a plain non-negative JSON number literal is accepted (no string, null,
  * boolean, object, sign or exponent); trailing zeros in the fraction are not
  * precision, so `12.500` is 12.5, but a third significant decimal is refused.
+ * Anything unusable is null: the list then carries no verdict at all.
  */
-function parseIndoorSpaceStandard(raw: string | undefined): IndoorSpaceStandard {
+function parseIndoorSpaceStandard(raw: string | undefined): IndoorSpaceStandard | null {
   const match = raw === undefined ? null : /^(0|[1-9]\d*)(?:\.(\d+))?$/.exec(raw);
-  if (match === null) throw indoorSpaceStandardNotConfigured();
+  if (match === null) return null;
   const fraction = (match[2] ?? '').replace(/0+$/, '');
-  if (fraction.length > 2) throw indoorSpaceStandardNotConfigured();
+  if (fraction.length > 2) return null;
   const hundredthsSqFt = BigInt(match[1]!) * 100n + BigInt(fraction.padEnd(2, '0'));
-  if (hundredthsSqFt <= 0n || hundredthsSqFt > BigInt(Number.MAX_SAFE_INTEGER)) throw indoorSpaceStandardNotConfigured();
+  if (hundredthsSqFt <= 0n || hundredthsSqFt > BigInt(Number.MAX_SAFE_INTEGER)) return null;
   // An exact integer divided by 100 is the correctly rounded double of the decimal, i.e. what JSON.parse would give.
   return { hundredthsSqFt, sqFt: Number(hundredthsSqFt) / 100 };
 }
@@ -625,17 +616,18 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
     async listHousingRecords(scope, animalId, query) {
       const farmerId = ownFarmerId(scope);
       const cursor = optionalDatedCursor(query.cursor);
-      // BR-141: read (and fail closed on) the standard before the rows, and for every animal id,
-      // so a foreign or missing animal answers exactly like an own animal with no housing yet.
+      // BR-141: read the standard on every call, for every animal id, so a foreign or missing animal
+      // answers exactly like an own animal with no housing yet. Unconfigured = records without a verdict.
       const standard = parseIndoorSpaceStandard(await repo.getMinIndoorSpaceSqFtPerAnimal(db));
       const { items, page } = toPage(await repo.listHousingRecords(db, { farmerId, animalId, cursor, limit: query.limit }));
       return listHousingRecordsResponse.parse({
         items: items.map((item) => ({
           ...item,
-          meetsIndoorSpaceStandard: meetsIndoorSpaceStandard(item.indoorSpacePerAnimal, standard.hundredthsSqFt),
+          meetsIndoorSpaceStandard:
+            standard === null ? null : meetsIndoorSpaceStandard(item.indoorSpacePerAnimal, standard.hundredthsSqFt),
         })),
         page,
-        spaceStandard: { minIndoorSqFtPerAnimal: standard.sqFt },
+        spaceStandard: standard === null ? null : { minIndoorSqFtPerAnimal: standard.sqFt },
       });
     },
 

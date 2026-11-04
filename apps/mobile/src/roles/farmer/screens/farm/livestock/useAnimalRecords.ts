@@ -105,7 +105,7 @@ export interface PagedRecords<T, R extends RecordsPage<T> = RecordsPage<T>> {
   items: T[];
   /**
    * The page-one failure while `state` is 'error' (an ApiError carries the
-   * problem code, e.g. the housing list's 503 LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED),
+   * problem code),
    * so a section can say why instead of a generic message. Null otherwise.
    */
   error: unknown;

@@ -1675,23 +1675,26 @@ describe('livestock housing — BR-141 indoor space per animal against the syste
     const page = { nextCursor: null, hasMore: false };
     const spaceStandard = { minIndoorSqFtPerAnimal: 11 };
     expect(listHousingRecordsResponse.safeParse({ items: [{ ...item, meetsIndoorSpaceStandard: true }], page, spaceStandard }).success).toBe(true);
+    expect(listHousingRecordsResponse.safeParse({ items: [{ ...item, meetsIndoorSpaceStandard: null }], page, spaceStandard: null }).success).toBe(true);
     expect(listHousingRecordsResponse.safeParse({ items: [item], page, spaceStandard }).success).toBe(false);
     expect(listHousingRecordsResponse.safeParse({ items: [{ ...item, meetsIndoorSpaceStandard: true }], page }).success).toBe(false);
   });
 
-  it('BR-141c: a missing or unusable minimum is 503 LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED with no fallback — also for a foreign or nonexistent animal', async () => {
+  it('BR-141c: a missing or unusable minimum gives 200 with the records but NO verdict and no invented number — also for a foreign or nonexistent animal', async () => {
     const unusable: Array<string | undefined> = [undefined, 'null', '"11"', 'true', '{}', '[11]', '0', '0.00', '-1', '11.005', '1e1', 'NaN', 'Infinity', ''];
     for (const raw of unusable) {
       const { service, config } = setup();
       const animal = await ownAnimal(service, FARMER_A);
       await service.createHousingRecord(createScopeA(), animal.id, bodies.housing());
       config.minIndoorSpaceSqFt = raw;
-      for (const animalId of [animal.id, newId()]) {
-        const error = await errorOf(service.listHousingRecords(farmerScope(FARMER_A), animalId, listHousingRecordsQuery.parse({})));
-        expect(error.code, String(raw)).toBe('LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED');
-        expect(error.status, String(raw)).toBe(503);
-        expect(error.detail).toContain('livestock_min_indoor_space_sqft_per_animal');
-      }
+      const own = await service.listHousingRecords(farmerScope(FARMER_A), animal.id, listHousingRecordsQuery.parse({}));
+      expect(own.items, String(raw)).toHaveLength(1);
+      expect(own.items[0]!.meetsIndoorSpaceStandard, String(raw)).toBeNull();
+      expect(own.spaceStandard, String(raw)).toBeNull();
+      expect(listHousingRecordsResponse.safeParse(own).success, String(raw)).toBe(true);
+      const foreign = await service.listHousingRecords(farmerScope(FARMER_A), newId(), listHousingRecordsQuery.parse({}));
+      expect(foreign.items, String(raw)).toEqual([]);
+      expect(foreign.spaceStandard, String(raw)).toBeNull();
     }
   });
 
@@ -2230,7 +2233,7 @@ describeIfDatabase('livestockRepo (integration)', () => {
     });
   });
 
-  it('BR-141: against Postgres the list is 503 until the owner-confirmed standard is configured, then carries it with an exact per-unit verdict', async () => {
+  it('BR-141: against Postgres the list has no verdict until the owner-confirmed standard is configured, then carries it with an exact per-unit verdict', async () => {
     if (!recordsReady) return;
     await withRecordsFixture(async ({ tx, service, scope }) => {
       // No migration seeds the standard (the owner has not confirmed a value): the key is absent.
@@ -2240,9 +2243,10 @@ describeIfDatabase('livestockRepo (integration)', () => {
       expect(seeded.rows, 'no migration seeds the key').toHaveLength(0);
 
       const cow = await service.createAnimal(scope(), validCreateBody({ tag: `TEST-${newId().slice(0, 8)}` }));
-      const unconfigured = await errorOf(service.listHousingRecords(scope('farmer.livestock.view_own'), cow.id, listHousingRecordsQuery.parse({})));
-      expect(unconfigured.status).toBe(503);
-      expect(unconfigured.code).toBe('LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED');
+      await service.createHousingRecord(scope(), cow.id, bodies.housing({ housingName: 'before config' }));
+      const unconfigured = await service.listHousingRecords(scope('farmer.livestock.view_own'), cow.id, listHousingRecordsQuery.parse({}));
+      expect(unconfigured.spaceStandard).toBeNull();
+      expect(unconfigured.items.map((i) => [i.housingName, i.meetsIndoorSpaceStandard])).toEqual([['before config', null]]);
 
       // Pin a test value inside the rolled-back transaction so the boundaries below are exact.
       await tx.query(
@@ -2261,7 +2265,7 @@ describeIfDatabase('livestockRepo (integration)', () => {
       const view = scope('farmer.livestock.view_own');
       const list = await service.listHousingRecords(view, cow.id, listHousingRecordsQuery.parse({ limit: 100 }));
       expect(list.spaceStandard).toEqual({ minIndoorSqFtPerAnimal: 11 });
-      const byName = Object.fromEntries(list.items.map((i) => [i.housingName, i.meetsIndoorSpaceStandard]));
+      const byName = Object.fromEntries(list.items.filter((i) => i.housingName !== 'before config').map((i) => [i.housingName, i.meetsIndoorSpaceStandard]));
       expect(byName).toEqual(Object.fromEntries(cases.map(([value, unit, meets]) => [`${value} ${unit}`, meets])));
       expect(listHousingRecordsResponse.safeParse(list).success).toBe(true);
 
@@ -2271,14 +2275,14 @@ describeIfDatabase('livestockRepo (integration)', () => {
       expect(raised.items.find((i) => i.housingName === '11 SQ_FT')!.meetsIndoorSpaceStandard).toBe(false);
 
       await tx.query(`UPDATE system_config SET value = '"11"'::jsonb WHERE key = 'livestock_min_indoor_space_sqft_per_animal'`);
-      const asString = await errorOf(service.listHousingRecords(view, cow.id, listHousingRecordsQuery.parse({})));
-      expect(asString.status).toBe(503);
-      expect(asString.code).toBe('LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED');
+      const asString = await service.listHousingRecords(view, cow.id, listHousingRecordsQuery.parse({}));
+      expect(asString.spaceStandard).toBeNull();
+      expect(asString.items.every((i) => i.meetsIndoorSpaceStandard === null)).toBe(true);
 
       await tx.query(`DELETE FROM system_config WHERE key = 'livestock_min_indoor_space_sqft_per_animal'`);
-      const missing = await errorOf(service.listHousingRecords(view, cow.id, listHousingRecordsQuery.parse({})));
-      expect(missing.status).toBe(503);
-      expect(missing.code).toBe('LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED');
+      const missing = await service.listHousingRecords(view, cow.id, listHousingRecordsQuery.parse({}));
+      expect(missing.spaceStandard).toBeNull();
+      expect(missing.items.every((i) => i.meetsIndoorSpaceStandard === null)).toBe(true);
     });
   });
 

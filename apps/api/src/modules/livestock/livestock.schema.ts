@@ -886,7 +886,7 @@ export type LivestockHousingRecord = z.infer<typeof livestockHousingRecord>;
  * A housing list item: the record plus the BR-141 verdict, computed by the service against the
  * standard returned alongside it. Only the list carries it; the POST response is the bare record.
  */
-export const livestockHousingRecordListItem = livestockHousingRecord.extend({ meetsIndoorSpaceStandard: z.boolean() });
+export const livestockHousingRecordListItem = livestockHousingRecord.extend({ meetsIndoorSpaceStandard: z.boolean().nullable() });
 export type LivestockHousingRecordListItem = z.infer<typeof livestockHousingRecordListItem>;
 
 /** BR-141: the indoor space standard the verdicts were computed against, in square feet per animal. */
@@ -896,7 +896,8 @@ export type HousingSpaceStandard = z.infer<typeof housingSpaceStandard>;
 export const listHousingRecordsResponse = z.object({
   items: z.array(livestockHousingRecordListItem),
   page: pageMeta,
-  spaceStandard: housingSpaceStandard,
+  /** Null until system_config holds a usable standard; then every item's verdict is null too. */
+  spaceStandard: housingSpaceStandard.nullable(),
 });
 export type ListHousingRecordsResponse = z.infer<typeof listHousingRecordsResponse>;
 

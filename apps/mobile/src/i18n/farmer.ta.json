@@ -2069,7 +2069,6 @@
   "farmer.livestock.detail.housing.noHygiene": "இதுவரை சுகாதாரப் பணி பதிவு செய்யப்படவில்லை.",
   "farmer.livestock.detail.housing.welfareTitle": "நலன் & இடத் தரநிலைகளைப் பூர்த்தி செய்கிறது",
   "farmer.livestock.detail.housing.welfareSubtitle": "{{species}}க்கான NPOP இயற்கை குறைந்தபட்சத்தை விட அதிகம்.",
-  "farmer.livestock.detail.housing.standardNotConfigured": "தங்குமிட இடத் தரநிலை இன்னும் அமைக்கப்படவில்லை, எனவே தங்குமிடத்தைக் காட்ட இயலாது. பிறகு முயற்சிக்கவும்.",
   "farmer.livestock.detail.spaceUnit.SQ_FT": "ச.அடி",
   "farmer.livestock.detail.spaceUnit.SQ_M": "ச.மீ",
   "farmer.livestock.detail.spaceUnit.ACRES": "ஏக்கர்",

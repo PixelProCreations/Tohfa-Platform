@@ -2080,7 +2080,6 @@
   "farmer.livestock.detail.housing.noHygiene": "No hygiene activity logged yet.",
   "farmer.livestock.detail.housing.welfareTitle": "Meets welfare & space standards",
   "farmer.livestock.detail.housing.welfareSubtitle": "Above NPOP organic minimum for {{species}}.",
-  "farmer.livestock.detail.housing.standardNotConfigured": "The housing space standard has not been set yet, so housing cannot be shown. Please try again later.",
   "farmer.livestock.detail.spaceUnit.SQ_FT": "sq.ft",
   "farmer.livestock.detail.spaceUnit.SQ_M": "sq.m",
   "farmer.livestock.detail.spaceUnit.ACRES": "acres",

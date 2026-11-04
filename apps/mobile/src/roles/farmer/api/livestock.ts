@@ -757,7 +757,8 @@ export interface LivestockHousingRecord extends RecordMeta {
  * meets). Only the list carries it — the POST response is the bare record.
  */
 export interface LivestockHousingListItem extends LivestockHousingRecord {
-  meetsIndoorSpaceStandard: boolean;
+  /** Null while the server has no standard configured: no verdict (BR-141). */
+  meetsIndoorSpaceStandard: boolean | null;
 }
 
 /** BR-141: the standard the verdicts were computed against (system_config, sq.ft per animal). */
@@ -766,15 +767,8 @@ export interface HousingSpaceStandard {
 }
 
 export interface HousingRecordsPage extends RecordsPage<LivestockHousingListItem> {
-  spaceStandard: HousingSpaceStandard;
-}
-
-/** Thrown when a housing list arrives without a usable `spaceStandard` — the screen shows the error state, never a default. */
-export class MissingSpaceStandardError extends Error {
-  constructor() {
-    super('housing-records response has no spaceStandard');
-    this.name = 'MissingSpaceStandardError';
-  }
+  /** Null until system_config holds a standard; the list then carries no verdicts. */
+  spaceStandard: HousingSpaceStandard | null;
 }
 
 export interface CreateHygieneLogBody {
@@ -864,8 +858,8 @@ export async function createFeedLog(animalId: string, body: CreateFeedLogBody): 
 
 /**
  * GET .../housing-records. The response carries `spaceStandard` beside the page
- * (BR-141); a missing or non-positive value is refused here rather than
- * replaced with a constant (the server itself 503s when system_config lacks it).
+ * (BR-141); a missing or non-positive value is read as "not configured"
+ * (null) and never replaced with a constant, so no number or verdict is shown.
  */
 export async function listHousingRecords(
   animalId: string,
@@ -875,7 +869,7 @@ export async function listHousingRecords(
   const { cursor, limit } = query;
   const result = await api.get<HousingRecordsPage>(animalRecordsPath(animalId, 'housing-records', { cursor, limit }), signal);
   const min = (result as Partial<HousingRecordsPage>).spaceStandard?.minIndoorSqFtPerAnimal;
-  if (typeof min !== 'number' || !Number.isFinite(min) || min <= 0) throw new MissingSpaceStandardError();
+  if (typeof min !== 'number' || !Number.isFinite(min) || min <= 0) return { ...result, spaceStandard: null };
   return result;
 }
 

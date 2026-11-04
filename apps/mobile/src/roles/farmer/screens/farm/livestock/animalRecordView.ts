@@ -379,8 +379,8 @@ export function feedReferenceView(plan: LivestockFeedPlan): FeedReferenceView {
 export type HousingVerdict = 'meets' | 'below' | 'notRecorded';
 
 export interface HousingStandardView {
-  /** The server's threshold, e.g. "12.5" — never a client constant. */
-  value: string;
+  /** The server's threshold, e.g. "12.5" — never a client constant; null while the server has none configured. */
+  value: string | null;
   /** Unit label of the threshold (the server states it in sq.ft per animal). */
   unit: string;
   /** From the current record's server-computed `meetsIndoorSpaceStandard`; no client-side comparison. */
@@ -394,12 +394,18 @@ export interface HousingStandardView {
  */
 export function housingStandardView(
   current: LivestockHousingListItem | undefined,
-  standard: HousingSpaceStandard,
+  standard: HousingSpaceStandard | null,
 ): HousingStandardView {
   return {
-    value: formatQuantity(standard.minIndoorSqFtPerAnimal),
+    value: standard === null ? null : formatQuantity(standard.minIndoorSqFtPerAnimal),
     unit: spaceUnitLabel('SQ_FT'),
-    verdict: current === undefined ? 'notRecorded' : current.meetsIndoorSpaceStandard ? 'meets' : 'below',
+    // A null server verdict (no standard configured) is neither "meets" nor "below": no banner.
+    verdict:
+      current === undefined || current.meetsIndoorSpaceStandard === null
+        ? 'notRecorded'
+        : current.meetsIndoorSpaceStandard
+          ? 'meets'
+          : 'below',
   };
 }
 

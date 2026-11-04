@@ -9241,7 +9241,7 @@ paths:
       description: |
         Lists the animal's `livestock_housing_records`, newest `startDate` first; the first row is the current housing.
         Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
-        Indoor space standard (BR-141): `spaceStandard.minIndoorSqFtPerAnimal` is `system_config.livestock_min_indoor_space_sqft_per_animal`, read on every call (also for an empty or foreign page). Each item's `meetsIndoorSpaceStandard` is true when its `indoorSpacePerAnimal`, converted exactly to square feet (1 sq.ft = 0.09290304 sq.m, 1 acre = 43,560 sq.ft), is at least that value; exactly equal meets. A missing or unusable standard (not a JSON number > 0 with at most two decimals) is 503 `LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED`, never a default; no standard is seeded until the owner confirms one.
+        Indoor space standard (BR-141): `spaceStandard.minIndoorSqFtPerAnimal` is `system_config.livestock_min_indoor_space_sqft_per_animal`, read on every call (also for an empty or foreign page). Each item's `meetsIndoorSpaceStandard` is true when its `indoorSpacePerAnimal`, converted exactly to square feet (1 sq.ft = 0.09290304 sq.m, 1 acre = 43,560 sq.ft), is at least that value; exactly equal meets. A missing or unusable standard (not a JSON number > 0 with at most two decimals) is not an error: the records are returned normally with `spaceStandard: null` and `meetsIndoorSpaceStandard: null` on every item (no verdict), never a default; no standard is seeded until the owner confirms one.
       x-permission: farmer.livestock.view_own
       x-business-rules: [BR-137, BR-141]
       parameters:
@@ -9264,16 +9264,15 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/LivestockHousingRecordListItem' }
                   page: { $ref: '#/components/schemas/PageMeta' }
-                  spaceStandard: { $ref: '#/components/schemas/LivestockHousingSpaceStandard' }
+                  spaceStandard:
+                    oneOf:
+                      - { $ref: '#/components/schemas/LivestockHousingSpaceStandard' }
+                      - { type: 'null' }
+                    description: Null while the standard is not configured; every item's `meetsIndoorSpaceStandard` is then null.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
-        '503':
-          description: The indoor space standard is not configured (code `LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED`, BR-141).
-          content:
-            application/problem+json:
-              schema: { $ref: '#/components/schemas/Problem' }
     post:
       tags: [Livestock]
       operationId: createMyLivestockHousingRecord
@@ -17176,7 +17175,6 @@ components:
         * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
         * `ROLE_NOT_FOUND` — the requested role code is not defined in `docs/rbac.json`, so it cannot be assigned (BR-28). HTTP 422.
         * `COMMUNITY_PLANTING_NOT_CONFIGURED` — `system_config.community_planting_min_farmers` (the community planting summary's minimum group size) is missing or not a JSON integer of at least 2; there is no fallback (BR-136). HTTP 503.
-        * `LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED` — the livestock indoor-space standard (`system_config.livestock_min_indoor_space_sqft_per_animal`) is absent or unusable, so the housing list refuses to give a verdict; no fallback value exists until the owner confirms one (BR-141). HTTP 503.
       required: [type, title, status, code]
       properties:
         type:
@@ -21744,12 +21742,12 @@ components:
         attachmentUploadId: { type: [string, 'null'], format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
-        meetsIndoorSpaceStandard: { type: boolean, description: 'BR-141: indoor space per animal (exact sq.ft conversion) >= spaceStandard.minIndoorSqFtPerAnimal; equality meets.' }
+        meetsIndoorSpaceStandard: { type: [boolean, 'null'], description: 'BR-141: indoor space per animal (exact sq.ft conversion) >= spaceStandard.minIndoorSqFtPerAnimal; equality meets. Null (no verdict) while the standard is not configured.' }
       additionalProperties: false
     LivestockHousingSpaceStandard:
       type: object
       description: |
-        The indoor space standard the list's verdicts were computed against (BR-141): `system_config.livestock_min_indoor_space_sqft_per_animal`, one value for every species. The seeded 11 is derived from the farmer app's "NPOP minimum" text and is unconfirmed.
+        The indoor space standard the list's verdicts were computed against (BR-141): `system_config.livestock_min_indoor_space_sqft_per_animal`, one value for every species. No value is seeded; until the owner configures one the list carries `spaceStandard: null`.
       required: [minIndoorSqFtPerAnimal]
       properties:
         minIndoorSqFtPerAnimal: { type: number, exclusiveMinimum: 0, description: 'Square feet per animal, at most two decimals.' }

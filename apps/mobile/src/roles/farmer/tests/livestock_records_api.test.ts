@@ -21,7 +21,6 @@ import {
   listHealthRecords,
   listHousingRecords,
   listHygieneLogs,
-  MissingSpaceStandardError,
 } from '../api/livestock';
 
 const ID = 'a0000000-0000-4000-8000-000000000001';
@@ -61,17 +60,17 @@ describe('per-animal record client', () => {
     expect(apiPost).toHaveBeenCalledWith(`${BASE}/hygiene-logs`, { activity: 'Floor scrubbed', performedOn: '2026-07-14' });
   });
 
-  it('BR-141c: a housing list without a usable spaceStandard is an error, never a default', async () => {
-    for (const bad of [undefined, { minIndoorSqFtPerAnimal: 0 }, { minIndoorSqFtPerAnimal: -1 }, { minIndoorSqFtPerAnimal: '11' }, {}]) {
+  it('BR-141c: a housing list without a usable spaceStandard reads as not configured (null), never a default number', async () => {
+    for (const bad of [undefined, null, { minIndoorSqFtPerAnimal: 0 }, { minIndoorSqFtPerAnimal: -1 }, { minIndoorSqFtPerAnimal: '11' }, {}]) {
       apiGet.mockResolvedValueOnce({ ...empty, ...(bad === undefined ? {} : { spaceStandard: bad }) });
-      await expect(listHousingRecords(ID, { limit: 1 })).rejects.toBeInstanceOf(MissingSpaceStandardError);
+      expect((await listHousingRecords(ID, { limit: 1 })).spaceStandard).toBeNull();
     }
   });
 
   it('BR-141: a housing list with the server standard passes through', async () => {
     apiGet.mockResolvedValueOnce({ ...empty, spaceStandard: { minIndoorSqFtPerAnimal: 12.5 } });
     const result = await listHousingRecords(ID, { limit: 1 });
-    expect(result.spaceStandard.minIndoorSqFtPerAnimal).toBe(12.5);
+    expect(result.spaceStandard?.minIndoorSqFtPerAnimal).toBe(12.5);
   });
 
   it('DairyProduceScreen only keeps dairy products (MEAT / WOOL / MANURE are filtered out)', () => {

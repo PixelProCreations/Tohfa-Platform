@@ -51,7 +51,6 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
 
 import { AnimalDetailScreen } from '../screens/farm/livestock/AnimalDetailScreen';
 import { localTodayIso } from '../screens/farm/livestock/animalRecordView';
-import { ApiError } from '../../../shell/api/client';
 import { t } from '../../../i18n/farmer';
 
 const A = 'a0000000-0000-4000-8000-000000000001';
@@ -65,8 +64,8 @@ interface Fixture {
   feedPlans: unknown[];
   feedLogs: unknown[];
   housing: unknown[];
-  /** BR-141: the server's spaceStandard; 'missing' = a response without it; '503' = LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED. */
-  spaceStandard: number | 'missing' | '503';
+  /** BR-141: the server's spaceStandard; 'unconfigured' = the server sends null (no system_config value yet) and a null verdict per item. */
+  spaceStandard: number | 'unconfigured';
   hygiene: unknown[];
 }
 
@@ -230,17 +229,10 @@ function route(p: string): Promise<unknown> {
   if (p.startsWith(`${BASE}/feed-plans`)) return Promise.resolve(page(fx.feedPlans));
   if (p.startsWith(`${BASE}/feed-logs`)) return Promise.resolve(page(fx.feedLogs));
   if (p.startsWith(`${BASE}/housing-records`)) {
-    if (fx.spaceStandard === '503') {
-      return Promise.reject(
-        new ApiError({
-          type: 'about:blank',
-          title: 'Livestock housing standard is not configured',
-          status: 503,
-          code: 'LIVESTOCK_SPACE_STANDARD_NOT_CONFIGURED',
-        }),
-      );
+    if (fx.spaceStandard === 'unconfigured') {
+      const items = (fx.housing as Array<Record<string, unknown>>).map((h) => ({ ...h, meetsIndoorSpaceStandard: null }));
+      return Promise.resolve({ ...page(items), spaceStandard: null });
     }
-    if (fx.spaceStandard === 'missing') return Promise.resolve(page(fx.housing));
     return Promise.resolve({ ...page(fx.housing), spaceStandard: { minIndoorSqFtPerAnimal: fx.spaceStandard } });
   }
   if (p.startsWith(`${BASE}/hygiene-logs`)) return Promise.resolve(page(fx.hygiene));
@@ -297,12 +289,6 @@ async function press(tree: renderer.ReactTestRenderer, testID: string): Promise<
 
 function getPaths(): string[] {
   return apiGet.mock.calls.map((c) => c[0] as string);
-}
-
-function errorMessageOf(tree: renderer.ReactTestRenderer, testID: string): string | undefined {
-  const wrapper = tree.root.findByProps({ testID });
-  const state = wrapper.findAll((n) => (n.type as unknown) === 'ErrorState')[0];
-  return (state?.props as { message?: string } | undefined)?.message;
 }
 
 beforeEach(() => {
@@ -568,25 +554,16 @@ describe('Housing tab', () => {
     expect(has(tree, 'animalDetail.housing.card')).toBe(true);
   });
 
-  it('BR-141c: a 503 (standard not configured) is the housing error state with its own message, no fallback number, no verdict', async () => {
-    fx.spaceStandard = '503';
+  it('BR-141c: with no standard configured the records still show, with no standard box, no verdict banner and no invented number', async () => {
+    fx.spaceStandard = 'unconfigured';
     fx.housing = [housingRecord('h1', 14, true)];
     const tree = await mount();
     await press(tree, 'animalDetail.tab.Housing');
-    expect(has(tree, 'animalDetail.housing.error')).toBe(true);
-    expect(errorMessageOf(tree, 'animalDetail.housing.error')).toBe(t('farmer.livestock.detail.housing.standardNotConfigured'));
+    expect(has(tree, 'animalDetail.housing.error')).toBe(false);
+    expect(textWithin(tree, 'animalDetail.housing.card')).toContain('Main barn');
     expect(has(tree, 'animalDetail.housing.standard')).toBe(false);
     expect(has(tree, 'animalDetail.housing.verdict.meets')).toBe(false);
     expect(textOf(tree)).not.toContain('≥');
-  });
-
-  it('BR-141c: a response without spaceStandard is treated as an error, not given a default', async () => {
-    fx.spaceStandard = 'missing';
-    fx.housing = [housingRecord('h1', 14, true)];
-    const tree = await mount();
-    await press(tree, 'animalDetail.tab.Housing');
-    expect(has(tree, 'animalDetail.housing.error')).toBe(true);
-    expect(has(tree, 'animalDetail.housing.standard')).toBe(false);
   });
 });
 
