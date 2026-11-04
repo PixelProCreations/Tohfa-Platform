@@ -130,6 +130,7 @@ export function WarehouseInfoScreen({
     <WalletScreen
       title="Warehouse Profile"
       onBack={onBack}
+      headerLeft={undefined}
       headerRight={
         isMainWarehouse ? (
           <HeaderIconButton onPress={handleEdit} accessibilityLabel="Edit warehouse profile">
@@ -140,6 +141,7 @@ export function WarehouseInfoScreen({
       headerExtra={
         <SingleWarehouseHeader scope={scope} warehouseId={warehouseId} options={warehouseOptions} onSelect={onSelectWarehouse} />
       }
+      footer={onTabChange ? <WarehouseTabBar activeTab="More" onTabChange={onTabChange} /> : undefined}
     >
       {profile === undefined ? (
         <EmptyState title="No warehouse profile" subtitle="This warehouse has no profile data yet." />
@@ -192,6 +194,12 @@ export function WarehouseInfoScreen({
               ],
             ]}
           />
+
+          <View style={styles.infoBox}>
+            <Text style={styles.infoBoxText}>
+              Current Stock links to Inventory → Warehouse Inventory (Module 3) — it is not editable from here, and SWA cannot activate or deactivate the warehouse.
+            </Text>
+          </View>
 
           {onOpen ? (
             <>
@@ -295,4 +303,18 @@ const styles = StyleSheet.create({
   },
   mapCoords: { ...adminType.sectionHead, color: adminColors.ink },
   mapAddress: { ...adminType.body, color: adminColors.muted, textAlign: 'center' },
+  infoBox: {
+    backgroundColor: '#E8F1FC',
+    borderWidth: 1,
+    borderColor: '#B9D5F8',
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xs,
+  },
+  infoBoxText: {
+    ...adminType.caption,
+    color: '#1A56DB',
+    lineHeight: 18,
+  },
 });

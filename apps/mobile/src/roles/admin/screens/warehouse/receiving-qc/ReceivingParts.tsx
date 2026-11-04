@@ -20,12 +20,16 @@ export function shipmentTone(status: ShipmentStatus): AdminTone {
       return 'brandSoft';
     case 'Arrived':
     case 'Completed':
+    case 'Approved':
       return 'success';
     case 'Receiving':
+    case 'Pending offer':
       return 'info';
     case 'Awaiting QC':
     case 'Partially Accepted':
       return 'warning';
+    case 'Pending for view':
+      return 'brandSoft';
     default:
       return 'danger';
   }

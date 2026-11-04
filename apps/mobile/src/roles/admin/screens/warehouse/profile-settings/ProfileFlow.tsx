@@ -28,6 +28,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
+import { AdminProfileScreen, type AdminRoleCode } from '../../dashboard/AdminProfileScreen';
 import { AboutScreen } from './AboutScreen';
 import { ContactScreen } from './ContactScreen';
 import { DocumentsScreen } from './DocumentsScreen';
@@ -63,6 +64,9 @@ export interface ProfileFlowProps {
   initialWarehouseId?: string | undefined;
   /** Open a storage location's detail (host-owned). Without it Storage cards are not tappable. */
   onSelectStorageLocation?: ((locationId: string) => void) | undefined;
+  adminRole?: AdminRoleCode | undefined;
+  subtitle?: string | undefined;
+  onSwitchRole?: (() => void) | undefined;
 }
 
 export function ProfileFlow({
@@ -76,7 +80,12 @@ export function ProfileFlow({
   warehouseOptions = PROFILE_WAREHOUSES,
   initialWarehouseId,
   onSelectStorageLocation,
+  adminRole,
+  subtitle,
+  onSwitchRole,
 }: ProfileFlowProps) {
+  const effectiveRole: AdminRoleCode =
+    adminRole ?? (scope.warehouseId === undefined ? 'MAIN_WH_ADMIN' : 'SUB_WH_ADMIN');
   const [stack, setStack] = useState<ProfileRoute[]>(() => [initialScreen]);
   // Main's selector pick, shared by the warehouse-facing screens of the flow.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
@@ -107,13 +116,20 @@ export function ProfileFlow({
 
   switch (current) {
     case 'Settings':
-      return <SettingsScreen key="settings" {...common} onOpen={navigate} onLogout={onLogout} />;
+      return <SettingsScreen key="settings" {...common} subtitle={subtitle} onOpen={navigate} onLogout={onLogout} />;
     case 'ChangePassword':
       // The Settings screen's inline change-password state; back leaves it. The
       // distinct key gives it fresh state rather than reusing the hub instance.
-      return <SettingsScreen key="change-password" {...common} initialView="changePassword" onLogout={onLogout} />;
+      return <SettingsScreen key="change-password" {...common} subtitle={subtitle} initialView="changePassword" onLogout={onLogout} />;
     case 'UserProfile':
-      return <UserProfileScreen {...common} onChangePassword={() => navigate('ChangePassword')} onLogout={onLogout} />;
+      return (
+        <AdminProfileScreen
+          role={effectiveRole}
+          onBack={back}
+          onSignOut={onLogout ?? (() => {})}
+          onSwitchRole={onSwitchRole}
+        />
+      );
     case 'NotificationSettings':
       return <NotificationSettingsScreen {...common} />;
     case 'Security':

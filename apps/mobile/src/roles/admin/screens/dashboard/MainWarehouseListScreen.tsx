@@ -18,6 +18,7 @@ import {
   ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
 import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
+import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
 
 function ArrowBackIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -76,12 +77,23 @@ const DEFAULT_WAREHOUSES: WarehouseListItem[] = [
   },
 ];
 
+export function resolveWarehouseScopeId(warehouseNameOrId: string): string {
+  const lower = warehouseNameOrId.toLowerCase();
+  if (lower.includes('coonoor') || warehouseNameOrId === 'WH-002') return 'WH-COON';
+  if (lower.includes('ooty') || warehouseNameOrId === 'WH-001') return 'WH-OOTY';
+  if (lower.includes('kotagiri') || warehouseNameOrId === 'WH-003') return 'WH-KOTA';
+  if (lower.includes('gudalur') || warehouseNameOrId === 'WH-004') return 'WH-GUDA';
+  return 'WH-COON';
+}
+
 export function MainWarehouseListScreen({
   onBack,
   warehouses = DEFAULT_WAREHOUSES,
+  onTabChange,
 }: {
   onBack: () => void;
   warehouses?: WarehouseListItem[] | undefined;
+  onTabChange?: ((tab: any) => void) | undefined;
 }) {
   const [selectedWarehouse, setSelectedWarehouse] = React.useState<string | null>(null);
   const [query, setQuery] = React.useState('');
@@ -90,7 +102,18 @@ export function MainWarehouseListScreen({
   const [tempStatusFilter, setTempStatusFilter] = React.useState<'All' | 'Active' | 'Inactive'>('All');
 
   if (selectedWarehouse) {
-    return <MainWarehouseDetailScreen onBack={() => setSelectedWarehouse(null)} warehouse={selectedWarehouse} />;
+    const matchedWarehouseId = resolveWarehouseScopeId(selectedWarehouse);
+
+    return (
+      <ProfileFlow
+        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+        can={() => true}
+        initialScreen="WarehouseProfile"
+        initialWarehouseId={matchedWarehouseId}
+        onBack={() => setSelectedWarehouse(null)}
+        onTabChange={onTabChange ?? (() => {})}
+      />
+    );
   }
 
   const filtered = warehouses.filter((item) => {

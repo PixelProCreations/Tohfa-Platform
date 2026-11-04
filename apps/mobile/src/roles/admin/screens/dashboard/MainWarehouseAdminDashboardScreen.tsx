@@ -2640,6 +2640,7 @@ export function MainWarehouseAdminDashboardScreen({
             onNavigateToBilling={() => navigateWh('billing_invoices')}
             onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
             onNavigateToProfile={() => navigateWh('warehouse_profile')}
+            onNavigateToWarehouseProfile={() => navigateWh('warehouse_profile')}
             onNavigateToNotifications={() => navigateWh('warehouse_notifications')}
             // The More row is the account hub ("Manage account and application settings",
             // FINAL_LIST #84); warehouse settings stay reachable from Warehouse Overview.
@@ -2651,13 +2652,13 @@ export function MainWarehouseAdminDashboardScreen({
         {whSubView !== 'overview' && (
           whSubView === 'warehouse_profile' ? (
             // Warehouse Profile screen (WarehouseInfoScreen in ProfileFlow)
-            // Notice: no onTabChange passed, so no bottom nav bar is rendered in Warehouse Profile or its inner screens
             <ProfileFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
               initialScreen="WarehouseProfile"
               onBack={goBackWh}
               onLogout={onSignOut}
+              onTabChange={handleMoreTabChange}
             />
           ) : whSubView === 'profile' ? (
             // The admin's own profile is the shared UserProfileScreen (W4, absorbs

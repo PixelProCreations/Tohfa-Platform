@@ -1,135 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+
 import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import {
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
 
-// ─── Design Tokens Mapped to Admin Theme ──────────────────────────────────
-const PALETTE = {
-  primary: adminColors.brand,
-  primaryLight: adminColors.brandTint,
-  primaryBorder: adminColors.border,
-  primaryDark: adminColors.brandDeep,
+// ─── SVG Icons (using strictly adminColors) ──────────────────────────────────
 
-  pageBg: adminColors.canvas,
-  cardBg: adminColors.card,
-  ink: adminColors.ink,
-  labelMuted: adminColors.muted,
-  border: adminColors.border,
-  borderLight: adminColors.border,
-  inputBg: adminColors.card,
-
-  green: adminColors.success.text,
-  greenLight: adminColors.success.bg,
-  amber: adminColors.warning.text,
-  amberLight: adminColors.warning.bg,
-  blue: adminColors.info.text,
-  blueLight: adminColors.info.bg,
-  purple: adminColors.purple.text,
-  purpleLight: adminColors.purple.bg,
-  danger: adminColors.danger.text,
-  dangerLight: adminColors.danger.bg,
-};
-
-// ─── SVG Icons ────────────────────────────────────────────────────────────────
-function ArrowBackIcon({ color = PALETTE.ink }: { color?: string }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M19 12H5M12 19L5 12L12 5" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function UserIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={2} />
-      <Path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ShieldCheckIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill={PALETTE.primaryLight} />
-      <Path d="M9 12l2 2 4-4" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function KeyIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={8} cy={15} r={4} stroke={color} strokeWidth={2} />
-      <Path d="M10.85 12.15L19 4M18 5L20 7M15 8L17 10" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BellIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function SlidersIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" stroke={color} strokeWidth={2} strokeLinecap="round" />
-      <Circle cx={4} cy={12} r={2} stroke={color} strokeWidth={2} />
-      <Circle cx={12} cy={10} r={2} stroke={color} strokeWidth={2} />
-      <Circle cx={20} cy={14} r={2} stroke={color} strokeWidth={2} />
-    </Svg>
-  );
-}
-
-function ChevronRightIcon({ color = adminColors.muted }: { color?: string }) {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 18L15 12L9 6" stroke={color} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CheckCircleIcon({ size = 18, color = PALETTE.green }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={2} />
-      <Path d="M8 12l3 3 5-5" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function LogOutIcon({ size = 18, color = PALETTE.danger }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReceiptDocIcon({ size = 18, color = PALETTE.primary }: { size?: number; color?: string }) {
+function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+        d="M19 12H5M12 19l-7-7 7-7"
         stroke={color}
-        strokeWidth="2.2"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -137,27 +39,93 @@ function ReceiptDocIcon({ size = 18, color = PALETTE.primary }: { size?: number;
   );
 }
 
-function BuildingWarehouseIcon({ size = 20, color = PALETTE.primary }: { size?: number; color?: string }) {
+function ProhibitionIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M2.5 21h19M4.5 21V9a1 1 0 0 1 1-1h2.5V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9h3a1 1 0 0 1 1 1v7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M10.5 21v-4h3v4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M6.5 11h1M6.5 14h1M6.5 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M10.5 6.5h1M13 6.5h1M10.5 9.5h1M13 9.5h1M10.5 12.5h1M13 12.5h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M16.5 15.5h1M16.5 18h1" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-// ─── Props & Role Specific Configurations ─────────────────────────────────────
+function CheckmarkCircleIcon({ size = 32, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2.2" />
+      <Path d="M8 12l2.5 2.5L16 9" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function RadioCheckedIcon({ size = 18, color = adminColors.brandDeep }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M8 12l2.5 2.5L16 9" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function RadioUncheckedIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function CloseIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function LockIcon({ size = 32, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="10" width="16" height="12" rx="2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M7 10V7a5 5 0 0 1 10 0v3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="15.5" r="1.5" fill={color} />
+      <Line x1="12" y1="17" x2="12" y2="19" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+// ─── Custom Pill Switch ──────────────────────────────────────────────────────
+
+interface PillSwitchProps {
+  value: boolean;
+  onToggle: () => void;
+}
+
+function PillSwitch({ value, onToggle }: PillSwitchProps) {
+  return (
+    <TouchableOpacity
+      onPress={onToggle}
+      activeOpacity={0.8}
+      style={[
+        styles.pillSwitchBase,
+        value ? styles.pillSwitchOn : styles.pillSwitchOff,
+      ]}
+    >
+      <View
+        style={[
+          styles.pillSwitchThumb,
+          value ? styles.pillSwitchThumbOn : styles.pillSwitchThumbOff,
+        ]}
+      />
+    </TouchableOpacity>
+  );
+}
+
+// ─── RBAC Role Data Specifications ──────────────────────────────────────────
+
+export type AdminRoleCode = 'SUPER_ADMIN' | 'TOHFA_ADMIN' | 'FARMER_ADMIN' | 'MAIN_WH_ADMIN' | 'SUB_WH_ADMIN';
+
 export interface AdminProfileScreenProps {
-  role?: ('SUPER_ADMIN' | 'TOHFA_ADMIN' | 'FARMER_ADMIN' | 'MAIN_WH_ADMIN' | 'SUB_WH_ADMIN') | undefined;
+  role?: AdminRoleCode | undefined;
   onBack?: (() => void) | undefined;
   onSignOut?: (() => void) | undefined;
   onSwitchRole?: (() => void) | undefined;
@@ -166,1422 +134,1895 @@ export interface AdminProfileScreenProps {
   onNavigateWarehouseOperations?: (() => void) | undefined;
 }
 
-type InnerScreenView = 'main' | 'edit' | 'permissions' | 'security' | 'preferences' | 'support';
-
-interface RoleProfileSpec {
-  title: string;
-  badgeLabel: string;
-  staffId: string;
+interface RoleRbacConfig {
+  activeRole: string;
+  roleBadge: string;
+  idLabel: string;
+  idValue: string;
+  accountId: string;
+  zoneLabel: string;
+  zoneValue: string;
   defaultName: string;
+  defaultMobile: string;
   defaultEmail: string;
-  defaultPhone: string;
-  dept: string;
-  hub: string;
-  dutyHours: string;
-  reportingTo: string;
-  metrics: Array<{ val: string; lbl: string; highlight?: boolean }>;
-  permissions: string[];
-  alertTypes: Array<{ key: string; title: string; subtitle: string; defaultVal: boolean }>;
-  supportDetails: {
-    deskName: string;
-    hotline: string;
-    email: string;
-    hours: string;
-  };
+  defaultAddress: string;
+  availableRoles: string;
+  switchRoleTarget: string;
+  switchRoleDesc: string;
 }
 
-const ROLE_SPECS: Record<string, RoleProfileSpec> = {
-  SUPER_ADMIN: {
-    title: 'Super Administrator Profile',
-    badgeLabel: 'Super Administrator',
-    staffId: 'TOHFA-SA-0001',
-    defaultName: 'Rajesh Kumar',
-    defaultEmail: 'superadmin@tohfa.test',
-    defaultPhone: '+91 98000 00001',
-    dept: 'Executive Governance & Platform Control',
-    hub: 'Statewide & Nilgiris Biosphere Zone (All Hubs)',
-    dutyHours: '24/7 Executive Authority',
-    reportingTo: 'Board of Governors / Agricultural Ministry',
-    metrics: [
-      { val: '4 Hubs', lbl: 'Supervised' },
-      { val: 'SUPER', lbl: 'Access Tier' },
-      { val: '100%', lbl: 'Secured', highlight: true },
-    ],
-    permissions: [
-      'Full System Database Cluster Access & Audit Trace Logs',
-      'User Role Assignment, Elevation & Access Revocation',
-      'Financial Ledger Authorization & Multi-Warehouse Payout Release',
-      'Inter-Hub Stock Redistribution Overrides & Emergency Clearance',
-      'PGS India / NPOP Organic Compliance Certification Governance',
-    ],
-    alertTypes: [
-      { key: 'payouts', title: 'High-Value Payout Sign-offs', subtitle: 'Alert for transactions requiring executive approval (> ₹50,000)', defaultVal: true },
-      { key: 'audits', title: 'Critical Compliance Flags', subtitle: 'Instant notification on severe audit failure or non-compliance', defaultVal: true },
-      { key: 'security', title: 'System Security & Access Events', subtitle: 'Real-time alert on anomalous login or privilege escalation', defaultVal: true },
-    ],
-    supportDetails: {
-      deskName: 'TOHFA Core Infrastructure Operations',
-      hotline: '1800-425-8643 (Priority Line)',
-      email: 'governance@tohfa.in',
-      hours: '24/7 Priority Emergency Support',
-    },
-  },
-
-  TOHFA_ADMIN: {
-    title: 'Tohfa Operations Admin Profile',
-    badgeLabel: 'Platform Operations Admin',
-    staffId: 'TOHFA-OP-0012',
-    defaultName: 'Priya Sundaram',
-    defaultEmail: 'operations@tohfa.test',
-    defaultPhone: '+91 98000 00002',
-    dept: 'Supply Chain, Allocations & Marketplace Operations',
-    hub: 'Central Marketplace & Dynamic Stock Routing Hub',
-    dutyHours: '06:00 AM – 09:00 PM (Daily Dispatch Windows)',
-    reportingTo: 'Chief Operations Officer',
-    metrics: [
-      { val: '18 Live', lbl: 'Commodities' },
-      { val: '42 Routed', lbl: 'Allocations' },
-      { val: '99.4%', lbl: 'Fulfillment', highlight: true },
-    ],
-    permissions: [
-      'Live Produce Marketplace Catalog & Buyer Orders Management',
-      'Daily Floor Price Calibration & Price Ceiling Enforcement',
-      'Automated Hub-to-Hub Stock Redistribution Algorithms',
-      'Buyer Order Verification & Central Dispatch Clearance',
-      'Marketplace Dispute Resolution & Buyer Return Allocations',
-    ],
-    alertTypes: [
-      { key: 'pricing', title: 'Price Floor & Ceiling Alerts', subtitle: 'Notification when market rates breach allowed variance', defaultVal: true },
-      { key: 'allocations', title: 'Inter-Warehouse Routing Deficits', subtitle: 'Alert when a sub-warehouse runs low on committed crop stock', defaultVal: true },
-      { key: 'disputes', title: 'Counter-Offer Escalations', subtitle: 'Immediate alert when buyer-farmer negotiations stall', defaultVal: true },
-    ],
-    supportDetails: {
-      deskName: 'Tohfa Marketplace & Logistics Command',
-      hotline: '1800-425-8644',
-      email: 'marketplace-ops@tohfa.in',
-      hours: '05:30 AM – 10:30 PM Everyday',
-    },
-  },
-
+const ROLE_RBAC_CONFIGS: Record<AdminRoleCode, RoleRbacConfig> = {
   FARMER_ADMIN: {
-    title: 'Farmer Admin Profile',
-    badgeLabel: 'Farmer Admin & Grower Rep',
-    staffId: 'TOHFA-FA-0028',
-    defaultName: 'Muthu Velan',
-    defaultEmail: 'farmeradmin@tohfa.test',
-    defaultPhone: '+91 98000 00003',
-    dept: 'Smallholder Farmer Outreach & Verification',
-    hub: 'Grower Representative Desk (Kotagiri / Coonoor / Ooty)',
-    dutyHours: '07:00 AM – 07:00 PM',
-    reportingTo: 'Nilgiris Farmer Producer Union Liaison',
-    metrics: [
-      { val: '148 Active', lbl: 'Growers' },
-      { val: '12 Queued', lbl: 'Applications' },
-      { val: '4.9 / 5', lbl: 'Trust Rating', highlight: true },
-    ],
-    permissions: [
-      'Farmer Onboarding Queue & Land Survey KYC Verification',
-      'Community Dispute & Counter-Offer Negotiation Mediation',
-      'Direct Field Audit Verification & Grading Review',
-      'Farmer Payout Discrepancy Escalation & Resolution',
-      'FMB Sketch & Soil Test Verification Clearance',
-    ],
-    alertTypes: [
-      { key: 'kyc', title: 'New Farmer Applications', subtitle: 'Instant alert when a new grower submits registration documents', defaultVal: true },
-      { key: 'disputes', title: 'Farmer Grievance & Price Appeals', subtitle: 'Notify when a farmer requests intervention on lot grading', defaultVal: true },
-      { key: 'audits', title: 'Upcoming Organic Field Audits', subtitle: 'Reminders 48h prior to scheduled village farm inspections', defaultVal: true },
-    ],
-    supportDetails: {
-      deskName: 'Nilgiris Smallholder Grower Council',
-      hotline: '1800-425-8645',
-      email: 'farmer-help@tohfa.in',
-      hours: '06:00 AM – 08:00 PM Daily',
-    },
+    activeRole: 'Farmer Admin',
+    roleBadge: 'Farmer Admin',
+    idLabel: 'Farmer ID',
+    idValue: 'FR-00100',
+    accountId: 'ACC-000100',
+    zoneLabel: 'Zone',
+    zoneValue: 'Coonoor',
+    defaultName: 'Suresh Kumar',
+    defaultMobile: '+91 98765 00100',
+    defaultEmail: 'suresh.kumar@example.org',
+    defaultAddress: '12 Hill Road, Coonoor, Nilgiris 643101',
+    availableRoles: 'Farmer, Farmer Admin',
+    switchRoleTarget: 'Farmer',
+    switchRoleDesc: 'Personal farm management, produce listings, and crop harvest ledger.',
   },
-
+  TOHFA_ADMIN: {
+    activeRole: 'Tohfa Admin',
+    roleBadge: 'Platform Operations Admin',
+    idLabel: 'Staff ID',
+    idValue: 'TOHFA-OP-0012',
+    accountId: 'ACC-000012',
+    zoneLabel: 'Assigned zone',
+    zoneValue: 'Platform Operations',
+    defaultName: 'Priya Sundaram',
+    defaultMobile: '+91 98000 00002',
+    defaultEmail: 'operations@tohfa.test',
+    defaultAddress: 'TOHFA Platform Central Hub, Ooty, Nilgiris 643001',
+    availableRoles: 'Tohfa Admin, Super Admin',
+    switchRoleTarget: 'Super Admin',
+    switchRoleDesc: 'Platform governance, financial authorization, and statewide hub administration.',
+  },
+  SUPER_ADMIN: {
+    activeRole: 'Super Admin',
+    roleBadge: 'Super Administrator',
+    idLabel: 'Staff ID',
+    idValue: 'TOHFA-SA-0001',
+    accountId: 'ACC-000001',
+    zoneLabel: 'Assigned zone',
+    zoneValue: 'Statewide Hubs',
+    defaultName: 'Rajesh Kumar',
+    defaultMobile: '+91 98000 00001',
+    defaultEmail: 'superadmin@tohfa.test',
+    defaultAddress: 'Executive Secretariat, Agricultural Directorate, Chennai',
+    availableRoles: 'Super Admin, Tohfa Admin',
+    switchRoleTarget: 'Tohfa Admin',
+    switchRoleDesc: 'Daily supply chain operations, order fulfillment, and dispatch routing.',
+  },
   MAIN_WH_ADMIN: {
-    title: 'Main Warehouse Admin Profile',
-    badgeLabel: 'Main Warehouse Admin',
-    staffId: 'TOHFA-MWH-0004',
-    defaultName: 'Senthil Nathan',
-    defaultEmail: 'mainwh@tohfa.test',
-    defaultPhone: '+91 98000 00004',
-    dept: 'Central Receiving & Multi-Hub Logistics',
-    hub: 'Ooty Central Main Hub (WH-MAIN-01)',
-    dutyHours: '05:00 AM – 11:00 PM (Shift Operations)',
-    reportingTo: 'Director of Supply Chain & Logistics',
-    metrics: [
-      { val: '4 Hubs', lbl: 'Network Linked' },
-      { val: '3,420 kg', lbl: 'Today Inward' },
-      { val: '12 Active', lbl: 'Shift Staff', highlight: true },
-    ],
-    permissions: [
-      'Central Cold Storage & Bulk Grain Silo Storage Management',
-      'Inter-Warehouse Inward / Outward Manifest Clearance',
-      'Logistics Fleet Coordination & Driver Route Scheduling',
-      'Shift Staff Attendance & Crate Batch Tracking',
-      'Multi-Hub Stock Reconciliation & Quality Grading Overrides',
-    ],
-    alertTypes: [
-      { key: 'coldchain', title: 'Cold Chain Temperature Alerts', subtitle: 'Alert if cold storage chamber deviates from 2°C–6°C', defaultVal: true },
-      { key: 'fleet', title: 'Fleet Arrival & Manifest Clearance', subtitle: 'Real-time alert when transit vehicle reaches gate', defaultVal: true },
-      { key: 'staff', title: 'Shift Attendance & Staff Shortages', subtitle: 'Notify if daily floor weighment team has unassigned shifts', defaultVal: true },
-    ],
-    supportDetails: {
-      deskName: 'Ooty Central Warehousing Support',
-      hotline: '1800-425-8646',
-      email: 'wh-main@tohfa.in',
-      hours: '24/7 Loading Dock Support',
-    },
+    activeRole: 'Main warehouse admin',
+    roleBadge: 'Main Hub Logistics Controller',
+    idLabel: 'Farmer ID',
+    idValue: 'FR-00100',
+    accountId: 'ACC-000100',
+    zoneLabel: 'Zone',
+    zoneValue: 'All Warehouses',
+    defaultName: 'Suresh Kumar',
+    defaultMobile: '+91 98765 00100',
+    defaultEmail: 'suresh.kumar@example.org',
+    defaultAddress: 'Main Warehouse Logistics Hub, Ooty Road, Nilgiris',
+    availableRoles: 'Main Warehouse Admin',
+    switchRoleTarget: 'Sub Warehouse',
+    switchRoleDesc: 'Local receiving and sorting operations.',
   },
-
   SUB_WH_ADMIN: {
-    title: 'Sub Warehouse Admin Profile',
-    badgeLabel: 'Sub Warehouse Admin',
-    staffId: 'TOHFA-SWH-0019',
-    defaultName: 'Karthik Raja',
-    defaultEmail: 'subwh.coonoor@tohfa.test',
-    defaultPhone: '+91 98000 00005',
-    dept: 'Local Hub Receiving & Customer Pickup Operations',
-    hub: 'Coonoor Local Sub-Hub (WH-COON-02)',
-    dutyHours: '06:00 AM – 08:30 PM',
-    reportingTo: 'Main Warehouse Regional Manager',
-    metrics: [
-      { val: '42 Batches', lbl: 'Drop-offs' },
-      { val: '18 Handled', lbl: 'Pickups' },
-      { val: '₹48.5k', lbl: 'Cash Balance', highlight: true },
-    ],
-    permissions: [
-      'Daily Farmer Batch Drop-off & Digital Weighment Recording',
-      'Customer Pickup Queue Management & OTP Handover Verification',
-      'Spot Cash Top-ups & Local Petty Cash Ledger Reconciliation',
-      'Reusable Crate Return Verification & Deposit Release',
-      'Local Secondary Stock Rotation & Daily Dispatch Handover',
-    ],
-    alertTypes: [
-      { key: 'dropoffs', title: 'Farmer Weighment Sync Alerts', subtitle: 'Instant notification on batch weight confirmation', defaultVal: true },
-      { key: 'pickups', title: 'Customer Pickup Queue Notifications', subtitle: 'Chime & alert when customer OTP is presented at desk', defaultVal: true },
-      { key: 'cash', title: 'Spot Cash Rebalancing Reminders', subtitle: 'Alert when cash drawer reaches threshold for bank deposit', defaultVal: true },
-    ],
-    supportDetails: {
-      deskName: 'Coonoor Hub Logistics Desk',
-      hotline: '1800-425-8647',
-      email: 'wh-coonoor@tohfa.in',
-      hours: '06:00 AM – 09:00 PM Daily',
-    },
+    activeRole: 'Sub warehouse admin',
+    roleBadge: 'Sub Warehouse Operations Lead',
+    idLabel: 'Farmer ID',
+    idValue: 'FR-00100',
+    accountId: 'ACC-000100',
+    zoneLabel: 'Zone',
+    zoneValue: 'Coonoor',
+    defaultName: 'Suresh Kumar',
+    defaultMobile: '+91 98765 00100',
+    defaultEmail: 'suresh.kumar@example.org',
+    defaultAddress: 'Coonoor Sub Warehouse, Market Yard, Nilgiris',
+    availableRoles: 'Sub Warehouse Admin',
+    switchRoleTarget: 'Farmer',
+    switchRoleDesc: 'Farmer operations and produce listing.',
   },
 };
 
-const DEFAULT_ROLE_SPEC: RoleProfileSpec = ROLE_SPECS['SUPER_ADMIN']!;
-
-function getRoleSpec(role: string): RoleProfileSpec {
-  return ROLE_SPECS[role] ?? DEFAULT_ROLE_SPEC;
-}
+// ─── Component Implementation ───────────────────────────────────────────────
 
 export function AdminProfileScreen({
-  role = 'SUPER_ADMIN',
+  role = 'FARMER_ADMIN',
   onBack,
   onSignOut,
-  onNavigateCustomers,
-  onNavigateBillingInvoices,
-  onNavigateWarehouseOperations,
+  onSwitchRole,
 }: AdminProfileScreenProps): React.JSX.Element {
-  const spec: RoleProfileSpec = getRoleSpec(role);
+  const rbac = ROLE_RBAC_CONFIGS[role] ?? ROLE_RBAC_CONFIGS.FARMER_ADMIN;
+  const isWarehouseAdmin = role === 'SUB_WH_ADMIN' || role === 'MAIN_WH_ADMIN';
 
-  const [user, setUser] = useState<UserMe | null>(null);
-  const [currentView, setCurrentView] = useState<InnerScreenView>('main');
+  // Navigation View State
+  const [currentView, setCurrentView] = useState<
+    'main' | 'edit' | 'confirm_password' | 'success' | 'security' | 'change_password'
+  >('main');
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
-  // Form state initialized with role spec
-  const [fullName, setFullName] = useState(spec.defaultName);
-  const [phone, setPhone] = useState(spec.defaultPhone);
-  const [email, setEmail] = useState(spec.defaultEmail);
-  const [hubLocation, setHubLocation] = useState(spec.hub);
-  const [saveToast, setSaveToast] = useState(false);
+  // User Profile Data State
+  const [fullName, setFullName] = useState(rbac.defaultName);
+  const [farmerId] = useState(rbac.idValue);
+  const [accountId] = useState(rbac.accountId);
+  const [accountStatus] = useState('Active');
+  const [activeRole] = useState(rbac.activeRole);
+  const [availableRoles] = useState(rbac.availableRoles);
+  const [assignedZone] = useState(rbac.zoneValue);
+  const [accountCreated] = useState('12 Jun 2024');
+  const [lastLogin] = useState('10 Oct 2026, 08:45');
+  const [language, setLanguage] = useState<'English' | 'Tamil'>('English');
 
-  // Security state
-  const [biometricsEnabled, setBiometricsEnabled] = useState(true);
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
+  // Contact / Editable fields
+  const [mobileNumber, setMobileNumber] = useState(rbac.defaultMobile);
+  const [emailAddress, setEmailAddress] = useState(rbac.defaultEmail);
+  const [address, setAddress] = useState(rbac.defaultAddress);
+
+  // Edit Buffer Fields
+  const [editFullName, setEditFullName] = useState(fullName);
+  const [editLanguage, setEditLanguage] = useState<'English' | 'Tamil'>('English');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+
+  // Notification Preferences State
+  const [notifications, setNotifications] = useState({
+    produceListings: true,
+    disputes: false,
+    handovers: true,
+    community: true,
+    farmerRatings: true,
+    farmerSupport: true,
+  });
+
+  // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // Preferences state
-  const [alertToggles, setAlertToggles] = useState<Record<string, boolean>>({
-    [spec.alertTypes[0]?.key || 'a1']: true,
-    [spec.alertTypes[1]?.key || 'a2']: true,
-    [spec.alertTypes[2]?.key || 'a3']: true,
-  });
-  const [selectedLanguage, setSelectedLanguage] = useState<'English' | 'Tamil'>('English');
+  // Feedback Toast
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
 
+  // Switch Role Modal
+  const [switchRoleModalVisible, setSwitchRoleModalVisible] = useState(false);
+
+  // Fetch real user info if available
   useEffect(() => {
     fetchMe()
-      .then((me) => {
-        setUser(me);
-        if (me.fullName) setFullName(me.fullName);
-        if (me.email) setEmail(me.email);
-        if (me.mobile) setPhone(me.mobile);
+      .then((me: UserMe) => {
+        if (me) {
+          if (me.fullName) setFullName(me.fullName);
+          if (me.email) setEmailAddress(me.email);
+          if (me.mobile) setMobileNumber(me.mobile);
+        }
       })
       .catch(() => {});
   }, []);
 
-  const handleToggleAlert = (key: string) => {
-    setAlertToggles((prev) => ({ ...prev, [key]: !prev[key] }));
+  const handleOpenEdit = () => {
+    setEditFullName(fullName);
+    setEditLanguage(language);
+    setCurrentView('edit');
   };
 
-  const handleSaveProfile = () => {
-    setSaveToast(true);
-    setTimeout(() => {
-      setSaveToast(false);
-      setCurrentView('main');
-    }, 1000);
+  const handleSaveChanges = () => {
+    setFullName(editFullName.trim() || fullName);
+    setLanguage(editLanguage);
+    setCurrentView('success');
   };
 
-  const handleSignOutConfirm = () => {
-    Alert.alert(
-      'Sign Out of ' + spec.badgeLabel,
-      'Are you sure you want to end your active administrative session on ' + spec.staffId + '?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await logout();
-            onSignOut();
-          },
+  const handleConfirmAndSave = () => {
+    setConfirmPasswordInput('');
+    setCurrentView('success');
+  };
+
+  const handleToggleNotification = (key: keyof typeof notifications) => {
+    setNotifications((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const handleSavePreferences = () => {
+    setFeedbackToast('Preferences saved successfully');
+    setTimeout(() => setFeedbackToast(null), 2500);
+  };
+
+  const handleResetPreferences = () => {
+    setNotifications({
+      produceListings: true,
+      disputes: false,
+      handovers: true,
+      community: true,
+      farmerRatings: true,
+      farmerSupport: true,
+    });
+    setFeedbackToast('Preferences reset to defaults');
+    setTimeout(() => setFeedbackToast(null), 2500);
+  };
+
+  const passwordRequirements = useMemo(() => {
+    return {
+      length: newPassword.length >= 8 && newPassword.length <= 64,
+      upper: /[A-Z]/.test(newPassword),
+      lower: /[a-z]/.test(newPassword),
+      number: /[0-9]/.test(newPassword),
+      special: /[^A-Za-z0-9]/.test(newPassword),
+    };
+  }, [newPassword]);
+
+  const handleUpdatePassword = () => {
+    setPasswordError(null);
+    if (!currentPassword) {
+      setPasswordError('Please enter your current password');
+      return;
+    }
+    const allMet = Object.values(passwordRequirements).every(Boolean);
+    if (!allMet) {
+      setPasswordError('Please meet all password requirements listed below');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New password and confirm password do not match');
+      return;
+    }
+    Alert.alert('Success', 'Password updated successfully.', [
+      {
+        text: 'OK',
+        onPress: () => {
+          setCurrentPassword('');
+          setNewPassword('');
+          setConfirmPassword('');
+          setCurrentView('security');
         },
-      ],
-    );
+      },
+    ]);
   };
 
+  const handleConfirmRoleSwitch = () => {
+    setSwitchRoleModalVisible(false);
+    if (onSwitchRole) {
+      onSwitchRole();
+    } else {
+      Alert.alert('Role Switch', `Switched to ${rbac.switchRoleTarget}.`);
+    }
+  };
+
+  const handleSignOutAction = async () => {
+    setShowSignOutConfirm(false);
+    try {
+      await logout();
+    } catch {
+      // Ignore logout api errors and proceed
+    }
+    if (onSignOut) {
+      onSignOut();
+    }
+  };
+
+  // Avatar initial letter (e.g. "S" for Suresh)
+  const avatarLetter = (fullName.trim()[0] || 'A').toUpperCase();
+
   // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN
+  // VIEW: CHANGE PASSWORD SCREEN
   // ════════════════════════════════════════════════════════════════════════════
-  if (currentView === 'edit') {
+  if (currentView === 'change_password') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
-            <ArrowBackIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Administrator Info</Text>
-          <TouchableOpacity style={styles.headerActionBtn} onPress={handleSaveProfile} activeOpacity={0.7}>
-            <Text style={styles.headerActionText}>Save</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setCurrentView('security')}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Security & Preferences"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Security & Preferences</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>Manage your password, preferences, sessions and role.</Text>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={styles.roleHeaderTag}>
-            <Text style={styles.roleHeaderTagText}>{spec.badgeLabel} · {spec.staffId}</Text>
-          </View>
-
-          <View style={styles.formCard}>
-            <Text style={styles.inputLabel}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Enter administrator full name"
-              placeholderTextColor={adminColors.placeholder}
-            />
-
-            <Text style={styles.inputLabel}>Official Contact Phone</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              placeholder="+91 XXXXX XXXXX"
-              placeholderTextColor={adminColors.placeholder}
-            />
-
-            <Text style={styles.inputLabel}>Official System Email Address</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholder="admin@tohfa.test"
-              placeholderTextColor={adminColors.placeholder}
-            />
-
-            <Text style={styles.inputLabel}>Assigned Hub / Center Location</Text>
-            <TextInput
-              style={styles.input}
-              value={hubLocation}
-              onChangeText={setHubLocation}
-              placeholder="e.g. Coonoor Sub-Hub"
-              placeholderTextColor={adminColors.placeholder}
-            />
-          </View>
-
-          {saveToast && (
-            <View style={styles.successToast}>
-              <CheckCircleIcon size={18} color={PALETTE.green} />
-              <Text style={styles.successToastText}>Profile updated successfully!</Text>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionHeader}>Account security</Text>
+          <View style={styles.card}>
+            <Text style={styles.fieldLabel}>Current Password</Text>
+            <View style={styles.textInputBox}>
+              <TextInput
+                style={styles.textInputField}
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                secureTextEntry
+                placeholder=""
+                placeholderTextColor={adminColors.placeholder}
+              />
             </View>
-          )}
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSaveProfile} activeOpacity={0.8}>
-            <Text style={styles.primaryButtonText}>Save Profile Changes</Text>
-          </TouchableOpacity>
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>New Password</Text>
+            <View style={styles.textInputBox}>
+              <TextInput
+                style={styles.textInputField}
+                value={newPassword}
+                onChangeText={setNewPassword}
+                secureTextEntry
+                placeholder=""
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Confirm New Password</Text>
+            <View style={styles.textInputBox}>
+              <TextInput
+                style={styles.textInputField}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+                placeholder=""
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+
+            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Password requirements</Text>
+            <View style={styles.reqItemRow}>
+              <Text style={[styles.reqBullet, passwordRequirements.length && styles.reqBulletMet]}>
+                {passwordRequirements.length ? '✓' : '•'}
+              </Text>
+              <Text style={[styles.reqText, passwordRequirements.length && styles.reqTextMet]}>8–64 characters</Text>
+            </View>
+            <View style={styles.reqItemRow}>
+              <Text style={[styles.reqBullet, passwordRequirements.upper && styles.reqBulletMet]}>
+                {passwordRequirements.upper ? '✓' : '•'}
+              </Text>
+              <Text style={[styles.reqText, passwordRequirements.upper && styles.reqTextMet]}>An uppercase letter</Text>
+            </View>
+            <View style={styles.reqItemRow}>
+              <Text style={[styles.reqBullet, passwordRequirements.lower && styles.reqBulletMet]}>
+                {passwordRequirements.lower ? '✓' : '•'}
+              </Text>
+              <Text style={[styles.reqText, passwordRequirements.lower && styles.reqTextMet]}>A lowercase letter</Text>
+            </View>
+            <View style={styles.reqItemRow}>
+              <Text style={[styles.reqBullet, passwordRequirements.number && styles.reqBulletMet]}>
+                {passwordRequirements.number ? '✓' : '•'}
+              </Text>
+              <Text style={[styles.reqText, passwordRequirements.number && styles.reqTextMet]}>A number</Text>
+            </View>
+            <View style={styles.reqItemRow}>
+              <Text style={[styles.reqBullet, passwordRequirements.special && styles.reqBulletMet]}>
+                {passwordRequirements.special ? '✓' : '•'}
+              </Text>
+              <Text style={[styles.reqText, passwordRequirements.special && styles.reqTextMet]}>A special character</Text>
+            </View>
+
+            {passwordError ? <Text style={styles.passwordErrorText}>{passwordError}</Text> : null}
+          </View>
+
+          <View style={styles.editActionButtonsContainer}>
+            <TouchableOpacity style={styles.primarySaveBtn} onPress={handleUpdatePassword} activeOpacity={0.85}>
+              <Text style={styles.primarySaveBtnText}>Update Password</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelNeutralBtn} onPress={() => setCurrentView('security')} activeOpacity={0.8}>
+              <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 2: ROLE & MODULE PERMISSIONS (100% FULL SCREEN - brand)
-  // ════════════════════════════════════════════════════════════════════════════
-  if (currentView === 'permissions') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
-            <ArrowBackIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Role & Permissions</Text>
-          <View style={styles.headerPlaceholder} />
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.heroSummaryCard}>
-            <View style={styles.roleBadge}>
-              <ShieldCheckIcon size={18} color={PALETTE.primary} />
-              <Text style={styles.roleBadgeText}>{spec.badgeLabel}</Text>
-            </View>
-            <Text style={styles.heroSummarySub}>Staff Code: {spec.staffId}</Text>
-            <Text style={styles.heroSummaryDept}>{spec.dept}</Text>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Operational Scope & Governance</Text>
-            
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Assigned Territory</Text>
-              <Text style={styles.infoValueBold}>{spec.hub}</Text>
-            </View>
-            <View style={styles.rowDivider} />
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Reporting Channel</Text>
-              <Text style={styles.infoValue}>{spec.reportingTo}</Text>
-            </View>
-            <View style={styles.rowDivider} />
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Active Duty Window</Text>
-              <Text style={styles.infoValue}>{spec.dutyHours}</Text>
-            </View>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Granted Operational Privileges</Text>
-            {spec.permissions.map((perm, idx) => (
-              <View key={idx} style={styles.permRow}>
-                <View style={styles.checkIconWrapper}>
-                  <CheckCircleIcon size={18} color={PALETTE.primary} />
-                </View>
-                <Text style={styles.permText}>{perm}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.infoBanner}>
-            <Text style={styles.infoBannerText}>
-              Security Policy: Administrative privileges for {spec.staffId} are cryptographically authenticated against TOHFA Unified RBAC Protocols.
-            </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 3: SECURITY & ACCESS (100% FULL SCREEN - brand)
+  // VIEW: SECURITY & PREFERENCES SCREEN
   // ════════════════════════════════════════════════════════════════════════════
   if (currentView === 'security') {
     return (
       <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
-            <ArrowBackIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Security & Access</Text>
-          <View style={styles.headerPlaceholder} />
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Authentication Credentials</Text>
-
-            <View style={styles.switchRow}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.switchTitle}>Biometric Authentication</Text>
-                <Text style={styles.switchSub}>Use Face ID / Fingerprint for quick administrative unlocking</Text>
-              </View>
-              <Switch
-                value={biometricsEnabled}
-                onValueChange={setBiometricsEnabled}
-                trackColor={{ false: adminColors.border, true: PALETTE.primary }}
-                thumbColor={adminColors.onBrand}
-              />
-            </View>
-            <View style={styles.rowDivider} />
-
-            <View style={styles.switchRow}>
-              <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.switchTitle}>Two-Factor Authentication (2FA)</Text>
-                <Text style={styles.switchSub}>Enforce SMS OTP code during sign in to {spec.staffId}</Text>
-              </View>
-              <Switch
-                value={twoFactorEnabled}
-                onValueChange={setTwoFactorEnabled}
-                trackColor={{ false: adminColors.border, true: PALETTE.primary }}
-                thumbColor={adminColors.onBrand}
-              />
-            </View>
-          </View>
-
-          <View style={styles.formCard}>
-            <Text style={styles.sectionHeader}>Update Account Password</Text>
-
-            <Text style={styles.inputLabel}>Current Password</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-              placeholder="Enter current administrative password"
-              placeholderTextColor={adminColors.placeholder}
-            />
-
-            <Text style={styles.inputLabel}>New Secure Password</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-              placeholder="Minimum 8 characters with numbers & symbols"
-              placeholderTextColor={adminColors.placeholder}
-            />
-
-            <Text style={styles.inputLabel}>Confirm New Password</Text>
-            <TextInput
-              style={styles.input}
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Re-enter new secure password"
-              placeholderTextColor={adminColors.placeholder}
-            />
-
+          <View style={styles.headerRow}>
             <TouchableOpacity
-              style={styles.primaryButton}
-              onPress={() => {
-                Alert.alert('Password Updated', 'Your administrative password has been updated securely.');
-                setCurrentPassword('');
-                setNewPassword('');
-                setConfirmPassword('');
-                setCurrentView('main');
-              }}
-              activeOpacity={0.8}
+              style={styles.backBtn}
+              onPress={() => setCurrentView('main')}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Profile"
             >
-              <Text style={styles.primaryButtonText}>Update Password</Text>
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
+            <Text style={styles.headerTitle}>Security & Preferences</Text>
           </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 4: PREFERENCES & ALERTS (100% FULL SCREEN - ENGLISH & TAMIL ONLY)
-  // ════════════════════════════════════════════════════════════════════════════
-  if (currentView === 'preferences') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
-            <ArrowBackIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Preferences & Alerts</Text>
-          <View style={styles.headerPlaceholder} />
+          <Text style={styles.headerSubtitle}>Manage your password, preferences, sessions and role.</Text>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Language Selection: English and Tamil only (No Hindi) */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Platform Interface Language</Text>
-            <View style={styles.langSelectorRow}>
-              <TouchableOpacity
-                style={[styles.langOptionCard, selectedLanguage === 'English' && styles.langOptionCardActive]}
-                onPress={() => setSelectedLanguage('English')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.langOptionTitle, selectedLanguage === 'English' && styles.langOptionTitleActive]}>
-                  English
-                </Text>
-                <Text style={styles.langOptionSub}>Default Platform Language</Text>
-                {selectedLanguage === 'English' && (
-                  <View style={styles.langCheckBadge}>
-                    <CheckCircleIcon size={16} color={PALETTE.primary} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.langOptionCard, selectedLanguage === 'Tamil' && styles.langOptionCardActive]}
-                onPress={() => setSelectedLanguage('Tamil')}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.langOptionTitle, selectedLanguage === 'Tamil' && styles.langOptionTitleActive]}>
-                  தமிழ் (Tamil)
-                </Text>
-                <Text style={styles.langOptionSub}>Regional State Language</Text>
-                {selectedLanguage === 'Tamil' && (
-                  <View style={styles.langCheckBadge}>
-                    <CheckCircleIcon size={16} color={PALETTE.primary} />
-                  </View>
-                )}
-              </TouchableOpacity>
-            </View>
+        {feedbackToast && (
+          <View style={styles.feedbackToastBanner}>
+            <Text style={styles.feedbackToastText}>{feedbackToast}</Text>
           </View>
+        )}
 
-          {/* Role-Specific Push Notification Toggles */}
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>{spec.badgeLabel} Operational Alerts</Text>
-
-            {spec.alertTypes.map((alertItem, idx) => (
-              <React.Fragment key={alertItem.key}>
-                <View style={styles.switchRow}>
-                  <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={styles.switchTitle}>{alertItem.title}</Text>
-                    <Text style={styles.switchSub}>{alertItem.subtitle}</Text>
-                  </View>
-                  <Switch
-                    value={alertToggles[alertItem.key] ?? alertItem.defaultVal}
-                    onValueChange={() => handleToggleAlert(alertItem.key)}
-                    trackColor={{ false: adminColors.border, true: PALETTE.primary }}
-                    thumbColor={adminColors.onBrand}
-                  />
-                </View>
-                {idx < spec.alertTypes.length - 1 && <View style={styles.rowDivider} />}
-              </React.Fragment>
-            ))}
-          </View>
-
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setCurrentView('main')} activeOpacity={0.8}>
-            <Text style={styles.primaryButtonText}>Save Preferences</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
-
-  // ════════════════════════════════════════════════════════════════════════════
-  // SUB-SCREEN 5: HELPDESK & DIAGNOSTICS (100% FULL SCREEN - brand)
-  // ════════════════════════════════════════════════════════════════════════════
-  if (currentView === 'support') {
-    return (
-      <SafeAreaView style={styles.root}>
-        <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.headerBtn} onPress={() => setCurrentView('main')} activeOpacity={0.7}>
-            <ArrowBackIcon />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Helpdesk & System Health</Text>
-          <View style={styles.headerPlaceholder} />
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>System Diagnostics & Network Health</Text>
-
-            <View style={styles.diagRow}>
-              <Text style={styles.diagLabel}>API Gateway Cluster</Text>
-              <View style={styles.badgeSuccess}>
-                <View style={styles.dotSuccess} />
-                <Text style={styles.badgeSuccessText}>Online (22ms)</Text>
-              </View>
-            </View>
-            <View style={styles.rowDivider} />
-
-            <View style={styles.diagRow}>
-              <Text style={styles.diagLabel}>PostgreSQL & Redis DB</Text>
-              <View style={styles.badgeSuccess}>
-                <View style={styles.dotSuccess} />
-                <Text style={styles.badgeSuccessText}>Synchronized</Text>
-              </View>
-            </View>
-            <View style={styles.rowDivider} />
-
-            <View style={styles.diagRow}>
-              <Text style={styles.diagLabel}>App Environment</Text>
-              <Text style={styles.diagVal}>Mobile v1.0.4 · Production</Text>
-            </View>
-            <View style={styles.rowDivider} />
-
-            <View style={styles.diagRow}>
-              <Text style={styles.diagLabel}>Offline Local Storage</Text>
-              <Text style={styles.diagVal}>14.2 MB Cached</Text>
-            </View>
-          </View>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>{spec.badgeLabel} Technical Desk</Text>
-            <Text style={styles.supportOrgName}>{spec.supportDetails.deskName}</Text>
-            <Text style={styles.supportLine}>Direct Hotline: {spec.supportDetails.hotline}</Text>
-            <Text style={styles.supportLine}>Support Email: {spec.supportDetails.email}</Text>
-            <Text style={styles.supportLine}>Duty Window: {spec.supportDetails.hours}</Text>
-          </View>
-
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
+          <Text style={styles.sectionHeader}>Account security</Text>
           <TouchableOpacity
-            style={styles.primaryButton}
-            onPress={() => {
-              Alert.alert('Cache Cleared', 'Offline temporary cached images and datasets cleared successfully.');
-            }}
+            style={styles.changePasswordOutlineBtn}
+            onPress={() => setCurrentView('change_password')}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryButtonText}>Clear Local App Cache</Text>
+            <Text style={styles.changePasswordOutlineBtnText}>Change Password</Text>
           </TouchableOpacity>
+
+          <Text style={styles.sectionHeader}>Preferred language</Text>
+          <Text style={styles.languageNoticeText}>
+            Select your preferred display language. Content that has not been translated will appear in English.
+          </Text>
+
+          <View style={styles.card}>
+            <TouchableOpacity style={styles.langOptionRow} onPress={() => setLanguage('English')} activeOpacity={0.75}>
+              <Text style={[styles.langText, language === 'English' && styles.langTextActive]}>English</Text>
+              {language === 'English' ? <RadioCheckedIcon size={20} /> : <RadioUncheckedIcon size={20} />}
+            </TouchableOpacity>
+
+            <View style={styles.rowDivider} />
+
+            <TouchableOpacity style={styles.langOptionRow} onPress={() => setLanguage('Tamil')} activeOpacity={0.75}>
+              <Text style={[styles.langText, language === 'Tamil' && styles.langTextActive]}>Tamil (தமிழ்)</Text>
+              {language === 'Tamil' ? <RadioCheckedIcon size={20} /> : <RadioUncheckedIcon size={20} />}
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.sectionHeader}>Notification preferences</Text>
+          <View style={styles.card}>
+            <Text style={styles.notificationCardHeader}>Choose which notifications you receive:</Text>
+
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => handleToggleNotification('produceListings')}
+              activeOpacity={0.8}
+            >
+              <PillSwitch value={notifications.produceListings} onToggle={() => handleToggleNotification('produceListings')} />
+              <Text style={styles.toggleLabel}>New produce listings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.toggleRow} onPress={() => handleToggleNotification('disputes')} activeOpacity={0.8}>
+              <PillSwitch value={notifications.disputes} onToggle={() => handleToggleNotification('disputes')} />
+              <Text style={styles.toggleLabel}>Dispute resolution updates</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.toggleRow} onPress={() => handleToggleNotification('handovers')} activeOpacity={0.8}>
+              <PillSwitch value={notifications.handovers} onToggle={() => handleToggleNotification('handovers')} />
+              <Text style={styles.toggleLabel}>Sub warehouse handovers</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.toggleRow} onPress={() => handleToggleNotification('community')} activeOpacity={0.8}>
+              <PillSwitch value={notifications.community} onToggle={() => handleToggleNotification('community')} />
+              <Text style={styles.toggleLabel}>Community alerts</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => handleToggleNotification('farmerRatings')}
+              activeOpacity={0.8}
+            >
+              <PillSwitch value={notifications.farmerRatings} onToggle={() => handleToggleNotification('farmerRatings')} />
+              <Text style={styles.toggleLabel}>Farmer rating changes</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.toggleRow}
+              onPress={() => handleToggleNotification('farmerSupport')}
+              activeOpacity={0.8}
+            >
+              <PillSwitch value={notifications.farmerSupport} onToggle={() => handleToggleNotification('farmerSupport')} />
+              <Text style={styles.toggleLabel}>Farmer support updates</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.notificationFooterNotice}>
+              These control informational updates only. Notifications that need your action, and security alerts, are always delivered.
+            </Text>
+          </View>
+
+          <View style={styles.prefActionButtonsRow}>
+            <TouchableOpacity style={styles.savePreferencesBtn} onPress={handleSavePreferences} activeOpacity={0.8}>
+              <Text style={styles.savePreferencesBtnText}>Save Preferences</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.resetPreferencesBtn} onPress={handleResetPreferences} activeOpacity={0.8}>
+              <Text style={styles.resetPreferencesBtnText}>Reset to Defaults</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Role Selection Card */}
+          <View style={styles.card}>
+            <Text style={styles.roleNoticeText}>
+              Select the role you want to use. Switching refreshes your navigation, dashboard and permissions together. Your {rbac.idLabel} and profile stay the same.
+            </Text>
+
+            <View style={styles.roleRadioRow}>
+              <RadioCheckedIcon size={20} color={adminColors.brandDeep} />
+              <Text style={styles.roleRadioTextBold}>{rbac.activeRole} — Current Role</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.roleRadioRow}
+              onPress={() => setSwitchRoleModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <RadioUncheckedIcon size={20} color={adminColors.muted} />
+              <Text style={styles.roleRadioText}>{rbac.switchRoleTarget}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Sign Out Section */}
+          <Text style={styles.sectionHeader}>Sign out</Text>
+          <TouchableOpacity
+            style={styles.solidSignOutBtn}
+            onPress={() => setShowSignOutConfirm(!showSignOutConfirm)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.solidSignOutBtnText}>Sign Out</Text>
+          </TouchableOpacity>
+
+          {showSignOutConfirm && (
+            <View style={styles.signOutConfirmCard}>
+              <Text style={styles.signOutConfirmTitle}>Sign out of your account?</Text>
+              <TouchableOpacity style={styles.signOutConfirmActionBtn} onPress={handleSignOutAction} activeOpacity={0.85}>
+                <Text style={styles.signOutConfirmActionBtnText}>Sign Out</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.signOutConfirmCancelBtn}
+                onPress={() => setShowSignOutConfirm(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.signOutConfirmCancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+
+
+      </SafeAreaView>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // VIEW: CONFIRM PASSWORD (FOR SENSITIVE CHANGES)
+  // ════════════════════════════════════════════════════════════════════════════
+  if (currentView === 'confirm_password') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setCurrentView('edit')}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Edit Profile"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Confirm Password</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>Manage your personal information and account details.</Text>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
+          <View style={styles.confirmPasswordCard}>
+            <View style={styles.lockIconContainer}>
+              <LockIcon size={34} color={adminColors.brand} />
+            </View>
+            <Text style={styles.confirmPasswordTitle}>Confirm your password</Text>
+            <Text style={styles.confirmPasswordSubtitle}>
+              For your account security, enter your password to confirm and save your updated information.
+            </Text>
+          </View>
+
+          <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Password</Text>
+          <View style={styles.textInputBox}>
+            <TextInput
+              style={styles.textInputField}
+              value={confirmPasswordInput}
+              onChangeText={setConfirmPasswordInput}
+              secureTextEntry
+              placeholder=""
+              placeholderTextColor={adminColors.placeholder}
+            />
+          </View>
+
+          <View style={{ marginTop: 24, gap: 12 }}>
+            <TouchableOpacity style={styles.primarySaveBtn} onPress={handleConfirmAndSave} activeOpacity={0.85}>
+              <Text style={styles.primarySaveBtnText}>Confirm and Save</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelNeutralBtn} onPress={() => setCurrentView('edit')} activeOpacity={0.8}>
+              <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
   // ════════════════════════════════════════════════════════════════════════════
-  // MAIN VIEW: TAILORED ROLE PROFILE OVERVIEW
+  // VIEW: PROFILE UPDATED CONFIRMATION
+  // ════════════════════════════════════════════════════════════════════════════
+  if (currentView === 'success') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setCurrentView('main')}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Profile"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Profile Updated</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>Your profile has been updated successfully.</Text>
+        </View>
+
+        <View style={styles.successContainer}>
+          <View style={styles.successIconCircle}>
+            <CheckmarkCircleIcon size={32} color={adminColors.success.text} />
+          </View>
+          <Text style={styles.successTitle}>Profile Updated</Text>
+          <Text style={styles.successSubtitle}>Your profile information has been saved successfully.</Text>
+
+          <TouchableOpacity style={styles.backToProfileBtn} onPress={() => setCurrentView('main')} activeOpacity={0.85}>
+            <Text style={styles.backToProfileBtnText}>Back to Profile</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // VIEW: EDIT PROFILE SCREEN
+  // ════════════════════════════════════════════════════════════════════════════
+  if (currentView === 'edit') {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={() => setCurrentView('main')}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to Profile"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Profile</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>Update your personal information below.</Text>
+        </View>
+
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
+          <View style={styles.card}>
+            {/* Full Name */}
+            <Text style={styles.fieldLabel}>
+              Full Name <Text style={{ color: adminColors.danger.text }}>*</Text>
+            </Text>
+            <View style={styles.textInputBox}>
+              <TextInput
+                style={styles.textInputField}
+                value={editFullName}
+                onChangeText={setEditFullName}
+                placeholder="Enter full name"
+                placeholderTextColor={adminColors.placeholder}
+              />
+            </View>
+
+            {/* Mobile Number - Locked (BR-83) */}
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Mobile Number</Text>
+            <View style={styles.readOnlyInputBox}>
+              <Text style={styles.readOnlyInputText}>{mobileNumber}</Text>
+              <View style={styles.lockedPillBadge}>
+                <Text style={styles.lockedPillBadgeText}>Locked</Text>
+              </View>
+            </View>
+
+            {/* Email Address - Locked (BR-83) */}
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Email Address</Text>
+            <View style={styles.readOnlyInputBox}>
+              <Text style={styles.readOnlyInputText}>{emailAddress}</Text>
+              <View style={styles.lockedPillBadge}>
+                <Text style={styles.lockedPillBadgeText}>Locked</Text>
+              </View>
+            </View>
+
+            {/* Language Selection */}
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Language</Text>
+            <View style={styles.editLanguageRow}>
+              <TouchableOpacity
+                style={[styles.langChip, editLanguage === 'English' && styles.langChipActive]}
+                onPress={() => setEditLanguage('English')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.langChipText, editLanguage === 'English' && styles.langChipTextActive]}>English</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.langChip, editLanguage === 'Tamil' && styles.langChipActive]}
+                onPress={() => setEditLanguage('Tamil')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.langChipText, editLanguage === 'Tamil' && styles.langChipTextActive]}>Tamil</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* BR-83 Locked Notice Card */}
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeCardText}>
+              Your mobile number and email are locked (BR-83). To change them, contact TOHFA support.
+            </Text>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.editActionButtonsContainer}>
+            <TouchableOpacity style={styles.primarySaveBtn} onPress={handleSaveChanges} activeOpacity={0.85}>
+              <Text style={styles.primarySaveBtnText}>Save Changes</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.cancelNeutralBtn} onPress={() => setCurrentView('main')} activeOpacity={0.8}>
+              <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // VIEW: MAIN "MY PROFILE" SCREEN (Matching media_1793709515420_c492aaeb.png)
   // ════════════════════════════════════════════════════════════════════════════
   return (
     <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Top Header */}
+      {/* Terracotta Header */}
       <View style={styles.header}>
-        {onBack ? (
-          <TouchableOpacity style={styles.headerBtn} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Back">
-            <ArrowBackIcon />
+        <View style={styles.headerRow}>
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityLabel="Back"
+          >
+            <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-        ) : (
-          <View style={styles.headerPlaceholder} />
-        )}
-        <Text style={styles.headerTitle}>{spec.badgeLabel}</Text>
-        <TouchableOpacity
-          style={styles.headerActionBtn}
-          onPress={() => setCurrentView('edit')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.headerActionText}>Edit</Text>
-        </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Profile</Text>
+        </View>
+        <Text style={styles.headerSubtitle}>
+          Manage your personal information and account details.
+        </Text>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.avatarWrapper}>
-            <View style={styles.avatarCircle}>
-              <UserIcon size={38} color={PALETTE.primary} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollPad}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Hero Card */}
+        <View style={styles.card}>
+          <View style={styles.profileHeaderTopRow}>
+            <View style={styles.avatarCircleLarge}>
+              <Text style={styles.avatarInitialLarge}>{avatarLetter}</Text>
             </View>
+
+            <View style={styles.profileNameWrap}>
+              <Text style={styles.profileNameText}>{fullName}</Text>
+              <Text style={styles.profileIdText}>{farmerId}</Text>
+            </View>
+          </View>
+
+          <View style={styles.profileTwoColGrid}>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>{rbac.idLabel}</Text>
+              <Text style={styles.gridValueBold}>{farmerId}</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Account status</Text>
+              <View style={styles.statusDotRow}>
+                <View style={styles.statusDotGreen} />
+                <Text style={styles.gridValueBold}>{accountStatus}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.profileTwoColGrid}>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>Active role</Text>
+              <Text style={styles.gridValueBold}>{activeRole}</Text>
+            </View>
+            <View style={styles.gridCol}>
+              <Text style={styles.gridLabel}>{rbac.zoneLabel}</Text>
+              <Text style={styles.gridValueBold}>{assignedZone}</Text>
+            </View>
+          </View>
+
+          {/* Edit Profile Outline Button */}
+          <TouchableOpacity
+            style={styles.editProfileOutlineBtn}
+            onPress={handleOpenEdit}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.editProfileOutlineBtnText}>Edit Profile</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Section 1: Personal information */}
+        <Text style={styles.sectionHeader}>Personal information</Text>
+        <View style={styles.card}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>Full name</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{fullName}</Text>
+              <View style={styles.editablePillBadge}>
+                <Text style={styles.editablePillBadgeText}>Editable</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>Mobile number</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{mobileNumber}</Text>
+              <View style={styles.lockedPillBadge}>
+                <Text style={styles.lockedPillBadgeText}>Locked</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>Email address</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{emailAddress}</Text>
+              <View style={styles.lockedPillBadge}>
+                <Text style={styles.lockedPillBadgeText}>Locked</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>Language</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{language}</Text>
+              <View style={styles.editablePillBadge}>
+                <Text style={styles.editablePillBadgeText}>Editable</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>{rbac.idLabel}</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{farmerId}</Text>
+              <View style={styles.readOnlyPillBadge}>
+                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoRowLabel}>Assigned zone</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{assignedZone}</Text>
+              <View style={styles.readOnlyPillBadge}>
+                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.infoRowLabel}>Account status</Text>
+            <View style={styles.infoRowRight}>
+              <Text style={styles.infoRowValue}>{accountStatus}</Text>
+              <View style={styles.readOnlyPillBadge}>
+                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* BR-83 Locked Notice Card */}
+        <View style={styles.noticeCard}>
+          <Text style={styles.noticeCardText}>
+            Your mobile number and email are locked (BR-83). To change them, contact TOHFA support.
+          </Text>
+        </View>
+
+        {/* Section 2: Account information */}
+        <Text style={styles.sectionHeader}>Account information</Text>
+        <View style={styles.card}>
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Account ID</Text>
+            <Text style={styles.tableValueBold}>{accountId}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>{rbac.idLabel}</Text>
+            <Text style={styles.tableValueBold}>{farmerId}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Registered mobile</Text>
+            <Text style={styles.tableValueBold}>{mobileNumber}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Registered email</Text>
+            <Text style={styles.tableValueBold}>{emailAddress}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Account created</Text>
+            <Text style={styles.tableValueBold}>{accountCreated}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Current role</Text>
+            <Text style={styles.tableValueBold}>{activeRole}</Text>
+          </View>
+
+          <View style={styles.tableRow}>
+            <Text style={styles.tableLabel}>Account status</Text>
+            <Text style={styles.tableValueBold}>{accountStatus}</Text>
+          </View>
+
+          <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+            <Text style={styles.tableLabel}>Last login</Text>
+            <Text style={styles.tableValueBold}>{lastLogin}</Text>
+          </View>
+        </View>
+
+        {/* Section 3: Role information or Activity (for Warehouse Admins) */}
+        {isWarehouseAdmin ? (
+          <>
+            <Text style={styles.sectionHeader}>Activity</Text>
+            <View style={styles.activityContainer}>
+              <View style={styles.activityRow}>
+                <View style={styles.activityDotCol}>
+                  <View style={styles.activityDot} />
+                  <View style={styles.activityLine} />
+                </View>
+                <View style={styles.activityContent}>
+                  <Text style={styles.activityTitle}>Profile Created</Text>
+                </View>
+              </View>
+
+              <View style={styles.activityRow}>
+                <View style={styles.activityDotCol}>
+                  <View style={styles.activityDot} />
+                  <View style={styles.activityLine} />
+                </View>
+                <View style={styles.activityContent}>
+                  <Text style={styles.activityTitle}>
+                    {role === 'MAIN_WH_ADMIN'
+                      ? 'Assigned to Main Warehouse'
+                      : `Assigned to ${assignedZone}`}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.activityRow}>
+                <View style={styles.activityDotCol}>
+                  <View style={styles.activityDot} />
+                </View>
+                <View style={styles.activityContent}>
+                  <Text style={styles.activityTitle}>Attendance Recorded</Text>
+                </View>
+              </View>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.sectionHeader}>Role information</Text>
+            <View style={styles.card}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Current role</Text>
+                <Text style={styles.tableValueBold}>{activeRole}</Text>
+              </View>
+
+              <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.tableLabel}>Available roles</Text>
+                <Text style={styles.tableValueBold}>{availableRoles}</Text>
+              </View>
+            </View>
+
+            {/* Switch Role Button */}
             <TouchableOpacity
-              style={styles.avatarEditBadge}
-              onPress={() => setCurrentView('edit')}
+              style={styles.switchRoleOutlineBtn}
+              onPress={() => setSwitchRoleModalVisible(true)}
               activeOpacity={0.8}
             >
-              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={adminColors.onBrand} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
+              <Text style={styles.switchRoleOutlineBtnText}>Switch Role</Text>
             </TouchableOpacity>
-          </View>
 
-          <Text style={styles.heroName}>{fullName}</Text>
-          <Text style={styles.heroEmail}>{email}</Text>
+            {/* Roles assigned by TOHFA notice card */}
+            <View style={styles.prohibitionNoticeCard}>
+              <ProhibitionIcon size={18} color={adminColors.muted} />
+              <Text style={styles.prohibitionNoticeText}>
+                Roles are assigned by TOHFA. You cannot edit your role or give yourself more permissions.
+              </Text>
+            </View>
 
-          {/* Role Pill in brand */}
-          <View style={styles.roleBadge}>
-            <ShieldCheckIcon size={14} color={PALETTE.primary} />
-            <Text style={styles.roleBadgeText}>{spec.badgeLabel}</Text>
-          </View>
-
-          {/* Role-Specific Quick Metrics Bar */}
-          <View style={styles.metricsBar}>
-            {spec.metrics.map((m, idx) => (
-              <React.Fragment key={idx}>
-                <View style={styles.metricItem}>
-                  <Text style={[styles.metricVal, m.highlight && { color: PALETTE.green }]}>{m.val}</Text>
-                  <Text style={styles.metricLbl}>{m.lbl}</Text>
-                </View>
-                {idx < spec.metrics.length - 1 && <View style={styles.metricDivider} />}
-              </React.Fragment>
-            ))}
-          </View>
-        </View>
-
-        {/* Section 1: Staff & Account Info */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>Staff Credentials & Hub</Text>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Staff Code</Text>
-            <Text style={styles.infoValueBold}>{spec.staffId}</Text>
-          </View>
-          <View style={styles.rowDivider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Department</Text>
-            <Text style={styles.infoValue}>{spec.dept}</Text>
-          </View>
-          <View style={styles.rowDivider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Assigned Hub</Text>
-            <Text style={styles.infoValue}>{hubLocation}</Text>
-          </View>
-          <View style={styles.rowDivider} />
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Official Contact</Text>
-            <Text style={styles.infoValue}>{phone}</Text>
-          </View>
-        </View>
-
-        {/* Module Entries: Warehouse Operations, Customers & Billing & Invoices */}
-        {(onNavigateWarehouseOperations || onNavigateCustomers || onNavigateBillingInvoices) && (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Operational Modules</Text>
-
-            {onNavigateWarehouseOperations && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuRow}
-                  onPress={onNavigateWarehouseOperations}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
-                    <BuildingWarehouseIcon size={20} color={PALETTE.primary} />
-                  </View>
-                  <View style={styles.menuTextBox}>
-                    <Text style={styles.menuTitle}>Warehouse Operations</Text>
-                    <Text style={styles.menuSubtitle}>Hub operations, storage & material flow</Text>
-                  </View>
-                  <ChevronRightIcon />
-                </TouchableOpacity>
-                {(onNavigateCustomers || onNavigateBillingInvoices) && <View style={styles.rowDivider} />}
-              </>
-            )}
-
-            {onNavigateCustomers && (
-              <>
-                <TouchableOpacity
-                  style={styles.menuRow}
-                  onPress={onNavigateCustomers}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
-                    <UserIcon size={18} color={PALETTE.primary} />
-                  </View>
-                  <View style={styles.menuTextBox}>
-                    <Text style={styles.menuTitle}>Customers</Text>
-                    <Text style={styles.menuSubtitle}>Customer list, orders & directory</Text>
-                  </View>
-                  <ChevronRightIcon />
-                </TouchableOpacity>
-                {onNavigateBillingInvoices && <View style={styles.rowDivider} />}
-              </>
-            )}
-
-            {onNavigateBillingInvoices && (
-              <TouchableOpacity
-                style={styles.menuRow}
-                onPress={onNavigateBillingInvoices}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
-                  <ReceiptDocIcon size={18} color={PALETTE.primary} />
-                </View>
-                <View style={styles.menuTextBox}>
-                  <Text style={styles.menuTitle}>Billing & Invoices</Text>
-                  <Text style={styles.menuSubtitle}>Invoices, receipts & billing records</Text>
-                </View>
-                <ChevronRightIcon />
-              </TouchableOpacity>
-            )}
-          </View>
+            {/* Security & Preferences Button */}
+            <TouchableOpacity
+              style={styles.securityPreferencesBtn}
+              onPress={() => setCurrentView('security')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.securityPreferencesBtnText}>Security & Preferences</Text>
+            </TouchableOpacity>
+          </>
         )}
 
-        {/* Section 2: Full Screen Navigation to Sub-Screens */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeader}>Controls & Operations</Text>
-
-          {/* Edit Profile */}
-          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentView('edit')} activeOpacity={0.7}>
-            <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
-              <UserIcon size={18} color={PALETTE.primary} />
-            </View>
-            <View style={styles.menuTextBox}>
-              <Text style={styles.menuTitle}>Edit Personal Info</Text>
-              <Text style={styles.menuSubtitle}>Name, official phone & hub location</Text>
-            </View>
-            <ChevronRightIcon />
-          </TouchableOpacity>
-          <View style={styles.rowDivider} />
-
-          {/* Role & Permissions */}
-          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentView('permissions')} activeOpacity={0.7}>
-            <View style={[styles.menuIconBox, { backgroundColor: PALETTE.primaryLight }]}>
-              <ShieldCheckIcon size={18} color={PALETTE.primary} />
-            </View>
-            <View style={styles.menuTextBox}>
-              <Text style={styles.menuTitle}>Role & Module Permissions</Text>
-              <Text style={styles.menuSubtitle}>{spec.permissions.length} operational privileges</Text>
-            </View>
-            <ChevronRightIcon />
-          </TouchableOpacity>
-          <View style={styles.rowDivider} />
-
-          {/* Security & Password */}
-          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentView('security')} activeOpacity={0.7}>
-            <View style={[styles.menuIconBox, { backgroundColor: PALETTE.amberLight }]}>
-              <KeyIcon size={18} color={PALETTE.amber} />
-            </View>
-            <View style={styles.menuTextBox}>
-              <Text style={styles.menuTitle}>Security & Biometrics</Text>
-              <Text style={styles.menuSubtitle}>Password, 2FA & Face ID / Fingerprint</Text>
-            </View>
-            <ChevronRightIcon />
-          </TouchableOpacity>
-          <View style={styles.rowDivider} />
-
-          {/* Preferences & Notifications */}
-          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentView('preferences')} activeOpacity={0.7}>
-            <View style={[styles.menuIconBox, { backgroundColor: PALETTE.purpleLight }]}>
-              <BellIcon size={18} color={PALETTE.purple} />
-            </View>
-            <View style={styles.menuTextBox}>
-              <Text style={styles.menuTitle}>Alert Preferences & Language</Text>
-              <Text style={styles.menuSubtitle}>{selectedLanguage} · {spec.alertTypes.length} alert channels active</Text>
-            </View>
-            <ChevronRightIcon />
-          </TouchableOpacity>
-          <View style={styles.rowDivider} />
-
-          {/* Support & Diagnostics */}
-          <TouchableOpacity style={styles.menuRow} onPress={() => setCurrentView('support')} activeOpacity={0.7}>
-            <View style={[styles.menuIconBox, { backgroundColor: PALETTE.blueLight }]}>
-              <SlidersIcon size={18} color={PALETTE.blue} />
-            </View>
-            <View style={styles.menuTextBox}>
-              <Text style={styles.menuTitle}>Helpdesk & Diagnostics</Text>
-              <Text style={styles.menuSubtitle}>Platform v1.0.4 · Direct {spec.badgeLabel} desk</Text>
-            </View>
-            <ChevronRightIcon />
-          </TouchableOpacity>
-        </View>
-
-        {/* Section 3: Sign Out Action */}
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOutConfirm} activeOpacity={0.8}>
-          <LogOutIcon size={18} color={PALETTE.danger} />
-          <Text style={styles.signOutButtonText}>Sign Out of {spec.badgeLabel}</Text>
-        </TouchableOpacity>
-
-        <Text style={styles.footerVersion}>TOHFA Unified Agriculture Platform · Build 2026.09.24</Text>
+        <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Switch Role Confirmation Modal */}
+      <Modal
+        visible={switchRoleModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSwitchRoleModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheetBox}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalSheetTitle}>Switch Role</Text>
+              <TouchableOpacity onPress={() => setSwitchRoleModalVisible(false)} activeOpacity={0.7}>
+                <CloseIcon size={20} color={adminColors.ink} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSheetBodyText}>
+              Switch to <Text style={{ fontWeight: '800' }}>{rbac.switchRoleTarget}</Text>? Switching refreshes your navigation, dashboard and permissions together. Your {rbac.idLabel} and profile stay the same.
+            </Text>
+
+            <View style={styles.roleOptionCardActive}>
+              <Text style={styles.roleOptionTitle}>{rbac.switchRoleTarget}</Text>
+              <Text style={styles.roleOptionSub}>{rbac.switchRoleDesc}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.primarySaveBtn}
+              onPress={handleConfirmRoleSwitch}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.primarySaveBtnText}>Switch to {rbac.switchRoleTarget}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.cancelNeutralBtn}
+              onPress={() => setSwitchRoleModalVisible(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.cancelNeutralBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── STYLES (Strictly conforming to Admin Theme Tokens) ─────────────────────
+
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    backgroundColor: adminColors.canvas,
   },
   header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
+    paddingBottom: adminSpacing.lg,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: PALETTE.cardBg,
-    borderBottomWidth: 1,
-    borderBottomColor: PALETTE.border,
   },
-  headerBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: PALETTE.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerPlaceholder: {
-    width: 38,
+  backBtn: {
+    paddingRight: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    marginRight: 6,
   },
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: PALETTE.ink,
-    letterSpacing: -0.2,
-  },
-  headerActionBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    backgroundColor: PALETTE.primary,
-    borderRadius: 8,
-  },
-  headerActionText: {
-    fontSize: 14,
-    fontWeight: '700',
+    ...adminType.title,
     color: adminColors.onBrand,
+    fontWeight: '800',
+  },
+  headerSubtitle: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.onBrand,
+    opacity: 0.95,
+    marginTop: 6,
+    fontWeight: '500',
   },
   scroll: {
     flex: 1,
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+  scrollPad: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.md,
   },
 
-  // Hero Card
-  heroCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    ...adminShadow.sm,
-    shadowColor: adminColors.ink,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    marginBottom: 16,
+  // Toast Banner
+  feedbackToastBanner: {
+    backgroundColor: adminColors.brandTint,
+    paddingVertical: 8,
+    paddingHorizontal: adminSpacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
   },
-  avatarWrapper: {
-    position: 'relative',
-    marginBottom: 12,
-  },
-  avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: PALETTE.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: PALETTE.cardBg,
-  },
-  avatarEditBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: PALETTE.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: PALETTE.cardBg,
-  },
-  heroName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: PALETTE.ink,
-    marginBottom: 2,
-  },
-  heroEmail: {
-    fontSize: 13,
-    color: PALETTE.labelMuted,
-    marginBottom: 10,
-  },
-  roleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: PALETTE.primaryLight,
-    borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
-    gap: 6,
-    marginBottom: 16,
-  },
-  roleBadgeText: {
-    fontSize: 12,
+  feedbackToastText: {
+    ...adminType.caption,
     fontWeight: '700',
-    color: PALETTE.primary,
-    letterSpacing: 0.2,
+    color: adminColors.brandDeep,
+    textAlign: 'center',
   },
-  metricsBar: {
+
+  // Cards
+  card: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+  },
+
+  // Profile Header Card
+  profileHeaderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    width: '100%',
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: PALETTE.border,
+    marginBottom: 16,
   },
-  metricItem: {
+  avatarCircleLarge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
   },
-  metricVal: {
-    fontSize: 15,
+  avatarInitialLarge: {
+    ...adminType.title,
     fontWeight: '800',
-    color: PALETTE.ink,
+    color: adminColors.brandDeep,
   },
-  metricLbl: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
+  profileNameWrap: {
+    flex: 1,
+  },
+  profileNameText: {
+    ...adminType.sectionHead,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  profileIdText: {
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
-  metricDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: PALETTE.border,
-  },
-
-  // Section Card
-  sectionCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    ...adminShadow.sm,
-    shadowColor: adminColors.ink,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: PALETTE.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+  profileTwoColGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 12,
   },
+  gridCol: {
+    flex: 1,
+  },
+  gridLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  gridValueBold: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  statusDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  statusDotGreen: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: adminColors.success.text,
+  },
+  editProfileOutlineBtn: {
+    height: 44,
+    borderRadius: adminRadius.full,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    marginTop: 6,
+  },
+  editProfileOutlineBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.brand,
+  },
+
+  // Section Headers
+  sectionHeader: {
+    ...adminType.sectionHead,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+
+  // Personal Information Rows
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  infoRowLabel: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    flex: 1,
+  },
+  infoRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  infoRowValue: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  readOnlyPillBadge: {
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  readOnlyPillBadgeText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  lockedPillBadge: {
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  lockedPillBadgeText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  editablePillBadge: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.success.border,
+  },
+  editablePillBadgeText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    fontWeight: '700',
+  },
+
+  // Controlled Notice Card
+  noticeCard: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  noticeCardText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    lineHeight: 18,
+  },
+
+  // Account Information Table
+  tableRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
   },
-  infoLabel: {
-    fontSize: 13,
-    color: PALETTE.labelMuted,
+  tableLabel: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
-  infoValue: {
-    fontSize: 13,
-    color: PALETTE.ink,
-    fontWeight: '500',
-    maxWidth: '60%',
-    textAlign: 'right',
+  tableValueBold: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
-  infoValueBold: {
-    fontSize: 13,
-    color: PALETTE.ink,
+
+  // Switch Role & Security Buttons
+  switchRoleOutlineBtn: {
+    height: 44,
+    borderRadius: adminRadius.full,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    marginBottom: 10,
+  },
+  switchRoleOutlineBtnText: {
+    ...adminType.body,
     fontWeight: '800',
+    color: adminColors.brand,
+  },
+  prohibitionNoticeCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: 10,
+  },
+  prohibitionNoticeText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
+  },
+  securityPreferencesBtn: {
+    height: 44,
+    borderRadius: adminRadius.full,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    marginBottom: 16,
+  },
+  securityPreferencesBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.brand,
+  },
+
+  // Security & Preferences Screen
+  changePasswordOutlineBtn: {
+    height: 44,
+    borderRadius: adminRadius.full,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    marginBottom: 14,
+  },
+  changePasswordOutlineBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.brand,
+  },
+  languageNoticeText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    lineHeight: 18,
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  langOptionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  langText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '500',
+  },
+  langTextActive: {
+    fontWeight: '700',
+    color: adminColors.brandDeep,
   },
   rowDivider: {
     height: 1,
-    backgroundColor: PALETTE.borderLight,
-    marginVertical: 4,
+    backgroundColor: adminColors.border,
   },
-
-  // Menu Rows
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    gap: 12,
-  },
-  menuIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuTextBox: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: PALETTE.ink,
-  },
-  menuSubtitle: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: 1,
-  },
-
-  // Buttons
-  primaryButton: {
-    backgroundColor: PALETTE.primary,
-    borderRadius: 12,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 16,
-    marginBottom: 10,
-    shadowColor: PALETTE.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  primaryButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: adminColors.onBrand,
-    letterSpacing: 0.2,
-  },
-  signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PALETTE.dangerLight,
-    borderWidth: 1,
-    borderColor: adminColors.danger.border,
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    marginTop: 8,
-  },
-  signOutButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.danger,
-  },
-  footerVersion: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: PALETTE.labelMuted,
-    marginTop: 18,
-  },
-
-  // Form Inputs
-  roleHeaderTag: {
-    alignSelf: 'center',
-    backgroundColor: PALETTE.primaryLight,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
-    marginBottom: 14,
-  },
-  roleHeaderTagText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.primary,
-  },
-  formCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.labelMuted,
-    marginBottom: 6,
-    marginTop: 8,
-  },
-  input: {
-    backgroundColor: PALETTE.inputBg,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: PALETTE.ink,
-    marginBottom: 6,
-  },
-  successToast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.greenLight,
-    padding: 12,
-    borderRadius: 10,
-    gap: 8,
+  notificationCardHeader: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
     marginBottom: 12,
   },
-  successToastText: {
-    fontSize: 13,
-    color: PALETTE.green,
-    fontWeight: '600',
+
+  // Custom Pill Switch
+  pillSwitchBase: {
+    width: 38,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.8,
+    backgroundColor: adminColors.card,
+    paddingHorizontal: 2,
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  pillSwitchOn: {
+    borderColor: adminColors.success.text,
+    alignItems: 'flex-end',
+  },
+  pillSwitchOff: {
+    borderColor: adminColors.muted,
+    alignItems: 'flex-start',
+  },
+  pillSwitchThumb: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  pillSwitchThumbOn: {
+    backgroundColor: adminColors.success.text,
+  },
+  pillSwitchThumbOff: {
+    backgroundColor: adminColors.muted,
   },
 
-  // Permissions Sub-Screen
-  heroSummaryCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    padding: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    marginBottom: 16,
-  },
-  heroSummarySub: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: PALETTE.ink,
-    marginTop: 8,
-  },
-  heroSummaryDept: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  permRow: {
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    gap: 12,
   },
-  checkIconWrapper: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: PALETTE.primaryLight,
+  toggleLabel: {
+    ...adminType.body,
+    color: adminColors.ink,
+    flex: 1,
+  },
+  notificationFooterNotice: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    lineHeight: 18,
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
+  prefActionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: adminSpacing.md,
+  },
+  savePreferencesBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  permText: {
-    fontSize: 13,
-    color: PALETTE.ink,
+  savePreferencesBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  resetPreferencesBtn: {
     flex: 1,
-    lineHeight: 18,
-    fontWeight: '500',
+    height: 44,
+    borderRadius: adminRadius.full,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
   },
-  infoBanner: {
-    backgroundColor: PALETTE.primaryLight,
-    borderWidth: 1,
-    borderColor: PALETTE.primaryBorder,
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 20,
+  resetPreferencesBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
-  infoBannerText: {
-    fontSize: 12,
-    color: PALETTE.primaryDark,
+  roleNoticeText: {
+    ...adminType.caption,
+    color: adminColors.muted,
     lineHeight: 18,
+    marginBottom: 12,
+  },
+  roleRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    gap: 10,
+  },
+  roleRadioTextBold: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+  },
+  roleRadioText: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.ink,
   },
 
-  // Switches
-  switchRow: {
+  // Solid Sign Out Button
+  solidSignOutBtn: {
+    height: 44,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.danger.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  solidSignOutBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  signOutConfirmCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    marginBottom: adminSpacing.md,
+    gap: 10,
+  },
+  signOutConfirmTitle: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+  },
+  signOutConfirmActionBtn: {
+    height: 40,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.danger.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  signOutConfirmActionBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  signOutConfirmCancelBtn: {
+    height: 40,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  signOutConfirmCancelBtnText: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.muted,
+  },
+
+  // Edit Profile Screen Styles
+  fieldLabel: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 6,
+  },
+  textInputBox: {
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  textInputField: {
+    ...adminType.body,
+    color: adminColors.ink,
+    padding: 0,
+  },
+  readOnlyInputBox: {
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 10,
   },
-  switchTitle: {
-    fontSize: 14,
+  readOnlyInputText: {
+    ...adminType.body,
+    color: adminColors.muted,
+  },
+  editLanguageRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  langChip: {
+    flex: 1,
+    height: 40,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  langChipActive: {
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+  },
+  langChipText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '600',
+  },
+  langChipTextActive: {
+    color: adminColors.brandDeep,
+    fontWeight: '800',
+  },
+  editActionButtonsContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  primarySaveBtn: {
+    height: 46,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primarySaveBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+  cancelNeutralBtn: {
+    height: 46,
+    borderRadius: adminRadius.full,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  cancelNeutralBtnText: {
+    ...adminType.body,
     fontWeight: '700',
-    color: PALETTE.ink,
+    color: adminColors.muted,
   },
-  switchSub: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
+
+  // Password Requirements
+  reqItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 3,
+  },
+  reqBullet: {
+    fontSize: 16,
+    color: adminColors.muted,
+    marginRight: 8,
+    fontWeight: '800',
+  },
+  reqBulletMet: {
+    color: adminColors.success.text,
+  },
+  reqText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  reqTextMet: {
+    color: adminColors.success.text,
+    fontWeight: '700',
+  },
+  passwordErrorText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+
+  // Confirm Password Screen Styles
+  confirmPasswordCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  lockIconContainer: {
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmPasswordTitle: {
+    ...adminType.sectionHead,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  confirmPasswordSubtitle: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.muted,
+    textAlign: 'center',
+    lineHeight: 19,
+    paddingHorizontal: 6,
+  },
+
+  // Success View Styles
+  successContainer: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: adminSpacing.xl,
+    paddingTop: 56,
+  },
+  successIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: adminColors.success.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    ...adminType.title,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: 6,
+  },
+  successSubtitle: {
+    ...adminType.body,
+    color: adminColors.muted,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  backToProfileBtn: {
+    backgroundColor: adminColors.brand,
+    height: 48,
+    borderRadius: adminRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    marginTop: 8,
+  },
+  backToProfileBtnText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.onBrand,
+  },
+
+  // Switch Role Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'flex-end',
+  },
+  modalSheetBox: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    gap: 12,
+    ...adminShadow.lg,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalSheetTitle: {
+    ...adminType.sectionHead,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  modalSheetBodyText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    lineHeight: 20,
+  },
+  roleOptionCardActive: {
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+  },
+  roleOptionTitle: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  roleOptionSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
     marginTop: 2,
   },
 
-  // Languages (English & Tamil only)
-  langSelectorRow: {
-    flexDirection: 'row',
-    gap: 12,
+  // Activity Timeline (Warehouse Admins)
+  activityContainer: {
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
-  langOptionCard: {
+  activityRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  activityDotCol: {
+    alignItems: 'center',
+    width: 20,
+    marginRight: 12,
+  },
+  activityDot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: adminColors.success.text,
+  },
+  activityLine: {
+    width: 2,
+    height: 24,
+    backgroundColor: adminColors.success.text,
+    marginVertical: 3,
+  },
+  activityContent: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
-    borderWidth: 1.5,
-    borderColor: PALETTE.border,
-    borderRadius: 12,
-    padding: 14,
-    position: 'relative',
+    paddingTop: 0,
   },
-  langOptionCardActive: {
-    backgroundColor: PALETTE.primaryLight,
-    borderColor: PALETTE.primary,
-  },
-  langOptionTitle: {
+  activityTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: PALETTE.ink,
-    marginBottom: 2,
-  },
-  langOptionTitleActive: {
-    color: PALETTE.primary,
-  },
-  langOptionSub: {
-    fontSize: 11,
-    color: PALETTE.labelMuted,
-  },
-  langCheckBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-  },
-
-  // Diagnostics
-  diagRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  diagLabel: {
-    fontSize: 13,
-    color: PALETTE.labelMuted,
-  },
-  diagVal: {
-    fontSize: 13,
-    color: PALETTE.ink,
-    fontWeight: '700',
-  },
-  badgeSuccess: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: PALETTE.greenLight,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    gap: 5,
-  },
-  dotSuccess: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: PALETTE.green,
-  },
-  badgeSuccessText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: PALETTE.green,
-  },
-  supportOrgName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: PALETTE.ink,
-    marginBottom: 6,
-  },
-  supportLine: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
+    color: adminColors.ink,
     lineHeight: 18,
   },
 });

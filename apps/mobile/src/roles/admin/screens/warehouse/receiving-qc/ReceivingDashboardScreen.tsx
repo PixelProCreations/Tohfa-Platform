@@ -521,14 +521,14 @@ export function ReceivingDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            {/* View Incoming Shipments Button */}
+            {/* Incoming Shipments Button */}
             <TouchableOpacity
               style={styles.viewIncomingBtn}
-              onPress={onViewIncomingShipments ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
+              onPress={() => onOpenShipments('All')}
               activeOpacity={0.85}
+              accessibilityRole="button"
             >
-              <TruckDeliveryIcon size={20} color={adminColors.onBrand} />
-              <Text style={styles.viewIncomingBtnText}>View Incoming Shipments</Text>
+              <Text style={styles.viewIncomingBtnText}>Incoming Shipments</Text>
             </TouchableOpacity>
           </>
         ) : (
@@ -547,14 +547,14 @@ export function ReceivingDashboardScreen({
               ))}
             </View>
 
-            {canRecord ? (
-              <TouchableOpacity style={styles.startButton} onPress={onStartReceiving} activeOpacity={0.85} accessibilityRole="button">
-                <CrateInventoryIcon size={20} color={adminColors.onBrand} />
-                <Text style={styles.startButtonText}>Shipment Arrived</Text>
-              </TouchableOpacity>
-            ) : (
-              <PermissionNote message="Recording a goods receipt needs the goods receipt permission." />
-            )}
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={() => onOpenShipments('All')}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <Text style={styles.startButtonText}>Incoming Shipments</Text>
+            </TouchableOpacity>
 
             {effectiveIssues.length > 0 ? (
               <>

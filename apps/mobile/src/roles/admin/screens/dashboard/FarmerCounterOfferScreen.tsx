@@ -83,6 +83,9 @@ export interface FarmerCounterOfferScreenProps {
   receivedKg?: number;
   initialTab?: 'fairPrice' | 'counterOffer' | 'history';
   isTohfaAdminApproved?: boolean;
+  round?: number;
+  maxRounds?: number;
+  initialCounterCount?: number;
   onBack: () => void;
   onAcceptOffer?: () => void;
   onRejectOffer?: () => void;
@@ -97,6 +100,9 @@ export function FarmerCounterOfferScreen({
   receivedKg = 145,
   initialTab = 'fairPrice',
   isTohfaAdminApproved = true,
+  round: propRound = 2,
+  maxRounds = 3,
+  initialCounterCount = 0,
   onBack,
   onAcceptOffer,
   onRejectOffer,
@@ -105,11 +111,24 @@ export function FarmerCounterOfferScreen({
   onBackToListing,
 }: FarmerCounterOfferScreenProps) {
   const [activeTab, setActiveTab] = useState<'fairPrice' | 'counterOffer' | 'history'>(initialTab);
-  const [isApproved, setIsApproved] = useState<boolean>(isTohfaAdminApproved);
+  const [currentRound, setCurrentRound] = useState<number>(propRound);
+  const [continuousCount, setContinuousCount] = useState<number>(initialCounterCount);
+  const [isApproved, setIsApproved] = useState<boolean>(
+    initialCounterCount >= 3 ? false : isTohfaAdminApproved
+  );
 
   React.useEffect(() => {
-    setIsApproved(isTohfaAdminApproved);
-  }, [isTohfaAdminApproved]);
+    setCurrentRound(propRound);
+  }, [propRound]);
+
+  React.useEffect(() => {
+    setContinuousCount(initialCounterCount);
+    if (initialCounterCount >= 3) {
+      setIsApproved(false);
+    } else {
+      setIsApproved(isTohfaAdminApproved);
+    }
+  }, [initialCounterCount, isTohfaAdminApproved]);
 
   // Counter offer state (Screenshot 2 Right)
   const [proposedPrice, setProposedPrice] = useState('33.00');
@@ -134,7 +153,7 @@ export function FarmerCounterOfferScreen({
   const handlePermissionRestrictedPress = () => {
     Alert.alert(
       'Permission Restricted',
-      'This counter offer requires Tohfa Admin approval first before counter offer actions can be initiated. Would you like to simulate Tohfa Admin approval now?',
+      'Counter offer has been submitted 3 times continuously. Further counter offers are restricted pending Tohfa Admin approval.',
       [
         { text: 'Keep Pending', style: 'cancel' },
         {
@@ -142,6 +161,8 @@ export function FarmerCounterOfferScreen({
           style: 'default',
           onPress: () => {
             setIsApproved(true);
+            setContinuousCount(0);
+            setCurrentRound(1);
             Alert.alert('Approved by Tohfa Admin', 'Counter offer actions are now unlocked.');
           },
         },
@@ -150,7 +171,7 @@ export function FarmerCounterOfferScreen({
   };
 
   const handleMakeOffer = () => {
-    if (!isApproved) {
+    if (!isApproved || continuousCount >= 3) {
       handlePermissionRestrictedPress();
       return;
     }
@@ -163,8 +184,15 @@ export function FarmerCounterOfferScreen({
           text: 'Send Offer',
           style: 'default',
           onPress: () => {
+            const nextCount = continuousCount + 1;
+            setContinuousCount(nextCount);
+            const nextRound = Math.min(currentRound + 1, maxRounds);
+            setCurrentRound(nextRound);
+            if (nextCount >= 3) {
+              setIsApproved(false);
+            }
             if (onSubmitCounter) onSubmitCounter(parsedPrice);
-            setActiveTab('history');
+            setActiveTab('fairPrice');
           },
         },
       ]
@@ -237,7 +265,7 @@ export function FarmerCounterOfferScreen({
         {/* Expiry & Round Banner Pill */}
         <View style={styles.expiryPill}>
           <ClockOutlineIcon size={14} color={adminColors.onBrand} />
-          <Text style={styles.expiryPillText}>Expires in 18h 42m · Round 2 of 3</Text>
+          <Text style={styles.expiryPillText}>{`Expires in 18h 42m · Round ${currentRound} of ${maxRounds}`}</Text>
         </View>
       </View>
 

@@ -29,6 +29,7 @@ import { EMPTY_RECEIVING_FILTERS, findReceivingRecord, findShipment, isMainScope
 import { GoodsReceivingWizardScreen } from './GoodsReceivingWizardScreen';
 import { TransferReceivingScreen, TransferDetailScreen } from '../transfers';
 import { IncomingShipmentsScreen, PendingQueueScreen, ReceivingActivityScreen } from './IncomingShipmentsScreen';
+import { FarmerCounterOfferScreen } from '../../dashboard/FarmerCounterOfferScreen';
 import { QualityIssuesScreen } from './QualityIssuesScreen';
 import { ReceivingDashboardScreen } from './ReceivingDashboardScreen';
 import { ReceivingHistoryDetailScreen } from './ReceivingHistoryDetailScreen';
@@ -136,6 +137,7 @@ export function ReceivingFlow({
 }: ReceivingFlowProps) {
   const [stack, setStack] = useState<ReceivingStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   const [filters, setFilters] = useState<ReceivingFilters>(EMPTY_RECEIVING_FILTERS);
+  const [shipmentOfferCounts, setShipmentOfferCounts] = useState<Record<string, number>>({});
 
   // A host that re-targets the module restarts the stack (keyed on values so
   // inline params do not reset it on every render).
@@ -209,8 +211,7 @@ export function ReceivingFlow({
           onOpenShipments={(statusTab) => navigate('Shipments', { statusTab })}
           onSelectShipment={(shipmentId) => navigate('ShipmentDetail', { shipmentId })}
           onViewIncomingShipments={() => {
-            const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
-            navigate('ShipmentDetail', { shipmentId: s?.code ?? 'SHP-000124' });
+            navigate('Shipments', { statusTab: 'All' });
           }}
           onOpenDamageReport={() => {
             const s = shipmentsInScope(scope).find((x) => x.code === 'SHP-000124') ?? firstShipment();
@@ -268,16 +269,61 @@ export function ReceivingFlow({
           filters={filters}
           onOpenFilters={() => navigate('SearchFilters')}
           onClearFilters={() => setFilters(EMPTY_RECEIVING_FILTERS)}
-          onSelectShipment={(shipmentId) => {
-            if (shipmentId === 'GR-1021' || shipmentId === 'SHP-000121') {
-              openWizard('damage_mismatch', shipmentId);
+          onSelectShipment={(shipmentId, shipment) => {
+            const s = shipment ?? shipmentsInScope(scope).find((x) => x.code === shipmentId);
+            const status = s?.status;
+
+            if (status === 'Approved' || status === 'Arrived' || status === 'Awaiting QC' || status === 'Expected') {
+              // Redirect to Image 2 (ShipmentDetailScreen) and its continuation
+              navigate('ShipmentDetail', { shipmentId: s?.code ?? shipmentId });
+            } else if (status === 'Pending offer') {
+              // Redirect to Counter Offer screen with negotiation
+              navigate('CounterOffer', { shipmentId: s?.code ?? shipmentId, shipment: s });
+            } else if (status === 'Pending for view') {
+              // Redirect to Counter Offer on Fair Price view
+              navigate('CounterOffer', { shipmentId: s?.code ?? shipmentId, shipment: s, initialTab: 'fairPrice' });
+            } else if (status === 'Rejected') {
+              // Redirect to Counter Offer with Permission Restricted (Image 3)
+              navigate('CounterOffer', { shipmentId: s?.code ?? shipmentId, shipment: s, isRestricted: true });
+            } else if (status === 'Mismatch') {
+              // Redirect to Damage / Mismatch Report wizard
+              openWizard('damage_mismatch', s?.code ?? shipmentId);
+            } else if (status === 'Completed') {
+              // Redirect to Receiving History Detail
+              navigate('HistoryDetail', { receiptId: 'GRN-000842' });
             } else {
-              navigate('ShipmentDetail', { shipmentId });
+              // Default fallback
+              navigate('ShipmentDetail', { shipmentId: s?.code ?? shipmentId });
             }
           }}
           onTabChange={onTabChange}
         />
       );
+    case 'CounterOffer': {
+      const shipment = params.shipment ?? shipmentsInScope(scope).find((x) => x.code === params.shipmentId);
+      const shipmentId = params.shipmentId ?? shipment?.code ?? 'GR-1024';
+      const count = shipmentOfferCounts[shipmentId] ?? (shipment?.status === 'Rejected' ? 3 : 0);
+      const isRestricted = params.isRestricted ?? (count >= 3);
+
+      return (
+        <FarmerCounterOfferScreen
+          cropName={shipment?.produce ?? 'Tomato'}
+          grade={shipment?.grade ?? 'Grade 1'}
+          receivedKg={shipment?.receivedQty ?? shipment?.expectedQty ?? 145}
+          isTohfaAdminApproved={!isRestricted}
+          round={isRestricted ? 3 : Math.min(count + 2, 3)}
+          initialCounterCount={count}
+          onBack={back}
+          onSubmitCounter={(_newPrice) => {
+            setShipmentOfferCounts((prev) => {
+              const currentCount = prev[shipmentId] ?? (shipment?.status === 'Rejected' ? 3 : 0);
+              return { ...prev, [shipmentId]: currentCount + 1 };
+            });
+          }}
+          onBackToListing={back}
+        />
+      );
+    }
     case 'SearchFilters':
       return (
         <ReceivingSearchFiltersScreen

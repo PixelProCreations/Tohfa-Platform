@@ -14,6 +14,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   CategoryBadge,
+  FILTER_CATEGORIES,
   FILTER_LABEL,
   NOTIFICATION_FILTERS,
   TARGET_ROW_LABEL,
@@ -80,8 +81,30 @@ export function NotificationsScreen({
   const [filter, setFilter] = useState<NotificationFilter>(initialFilter);
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(undefined);
 
-  // All category tabs are always available for horizontal scrolling
-  const filters = NOTIFICATION_FILTERS;
+  const availableFilters = useMemo(() => {
+    const activeCategories = new Set(notifications.map((n) => n.category));
+    const list: NotificationFilter[] = ['All'];
+    const candidates: NotificationFilter[] = [
+      'Orders',
+      'Inventory',
+      'Receiving',
+      'Finance',
+      'Returns',
+      'Quality',
+      'Farmers',
+      'Disputes',
+      'Audits',
+      'System',
+      'Messages',
+    ];
+    for (const c of candidates) {
+      const cats = FILTER_CATEGORIES[c as keyof typeof FILTER_CATEGORIES];
+      if (!cats || cats.some((cat) => activeCategories.has(cat))) {
+        list.push(c);
+      }
+    }
+    return list;
+  }, [notifications]);
 
   const visible = useMemo(() => {
     return notifications.filter((n) => matchesFilter(n, filter));
@@ -93,7 +116,11 @@ export function NotificationsScreen({
 
   const openItem = (item: NotificationItem) => {
     if (!item.isRead) onMarkAsRead(item.id);
-    onSelectNotification(item);
+    if (item.target !== undefined && onOpenTarget !== undefined && canOpenTarget(can, item.target)) {
+      onOpenTarget(item.target, item);
+    } else {
+      onSelectNotification(item);
+    }
   };
 
   return (
@@ -124,40 +151,37 @@ export function NotificationsScreen({
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Notifications</Text>
             </View>
-
-            {onOpenSettings ? (
-              <TouchableOpacity
-                style={styles.settingsBtn}
-                onPress={onOpenSettings}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Notification Settings"
-              >
-                <SettingsGearIcon />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={onMarkAllAsRead}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                activeOpacity={0.7}
-                accessibilityRole="button"
-                accessibilityLabel="Mark all as read"
-              >
-                <Text style={styles.markAllReadText}>Mark all read</Text>
-              </TouchableOpacity>
-            )}
           </View>
 
-          {/* Warehouse Selector Pill under Title */}
-          <View style={styles.selectorWrapper}>
-            <WarehouseSelector
-              scope={scope}
-              selectedId={selectedWarehouseId}
-              onSelect={setSelectedWarehouseId}
-            />
-          </View>
+          {/* Warehouse selector omitted - notifications are viewer's own notifications per design */}
         </SafeAreaView>
+      </View>
+
+      {/* Category Filter Options (Horizontal Scroll like 2nd screen) */}
+      <View style={styles.filterBarContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {availableFilters.map((opt) => {
+            const active = opt === filter;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={[styles.filterPill, active && styles.filterPillActive]}
+                onPress={() => setFilter(opt)}
+                activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+              >
+                <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
+                  {FILTER_LABEL[opt] ?? opt}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       {/* Notifications List with Unread Subheader */}
@@ -187,8 +211,6 @@ export function NotificationsScreen({
           </View>
         ) : (
           visible.map((item) => {
-            const showAction =
-              item.target !== undefined && onOpenTarget !== undefined && canOpenTarget(can, item.target);
             return (
               <TouchableOpacity
                 key={item.id}
@@ -199,7 +221,7 @@ export function NotificationsScreen({
               >
                 {/* Category Icon Badge */}
                 <View style={styles.cardIconWrap}>
-                  <CategoryBadge category={item.category} size={38} />
+                  <CategoryBadge category={item.category} size={42} />
                 </View>
 
                 {/* Content */}
@@ -212,20 +234,6 @@ export function NotificationsScreen({
                     {item.message}
                   </Text>
                   <Text style={styles.itemTimestamp}>{item.timestamp}</Text>
-
-                  {showAction && item.target !== undefined ? (
-                    <TouchableOpacity
-                      style={styles.actionLinkBtn}
-                      onPress={() => {
-                        if (!item.isRead) onMarkAsRead(item.id);
-                        if (item.target !== undefined) onOpenTarget?.(item.target, item);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.actionLinkText}>{TARGET_ROW_LABEL[item.target]} →</Text>
-                    </TouchableOpacity>
-                  ) : null}
                 </View>
               </TouchableOpacity>
             );
@@ -240,6 +248,39 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: adminColors.canvas,
+  },
+  filterBarContainer: {
+    backgroundColor: adminColors.canvas,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.xs,
+  },
+  filterScrollContent: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.xs,
+    gap: adminSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  filterPill: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  filterPillActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  filterPillText: {
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.muted,
+  },
+  filterPillTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
   },
   header: {
     backgroundColor: adminColors.brand,
@@ -324,8 +365,7 @@ const styles = StyleSheet.create({
   },
   itemCardUnread: {
     borderColor: adminColors.brand,
-    borderLeftWidth: 4,
-    borderLeftColor: adminColors.brand,
+    borderWidth: 1.5,
   },
   cardIconWrap: {
     marginRight: adminSpacing.md,

@@ -15,7 +15,8 @@ import {
   adminType,
 } from '../../theme';
 import { OverviewDashboardCard } from '../../components';
-import { MainWarehouseListScreen, type WarehouseListItem } from './MainWarehouseListScreen';
+import { MainWarehouseListScreen, resolveWarehouseScopeId, type WarehouseListItem } from './MainWarehouseListScreen';
+import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
 import { MainWarehouseDetailScreen } from './MainWarehouseDetailScreen';
 import { MainWarehouseAddScreen, type AddedWarehouseData } from './MainWarehouseAddScreen';
 import { MainWarehouseManageSWAsScreen } from './MainWarehouseManageSWAsScreen';
@@ -209,7 +210,15 @@ const INITIAL_WAREHOUSES: WarehouseListItem[] = [
   },
 ];
 
-export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
+export { resolveWarehouseScopeId };
+
+export function MainWarehouseAdminScreen({
+  onBack,
+  onTabChange,
+}: {
+  onBack: () => void;
+  onTabChange?: ((tab: any) => void) | undefined;
+}) {
   const [showWarehouseOverview, setShowWarehouseOverview] = useState(false);
   const [showList, setShowList] = useState(false);
   const [showAddScreen, setShowAddScreen] = useState(false);
@@ -284,7 +293,18 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
   }
 
   if (selectedWarehouse) {
-    return <MainWarehouseDetailScreen onBack={() => setSelectedWarehouse(null)} warehouse={selectedWarehouse} />;
+    const matchedWarehouseId = resolveWarehouseScopeId(selectedWarehouse);
+
+    return (
+      <ProfileFlow
+        scope={MAIN_SCOPE}
+        can={() => true}
+        initialScreen="WarehouseProfile"
+        initialWarehouseId={matchedWarehouseId}
+        onBack={() => setSelectedWarehouse(null)}
+        onTabChange={onTabChange}
+      />
+    );
   }
 
   if (showManageSWAs) {
@@ -317,7 +337,13 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
   }
 
   if (showList) {
-    return <MainWarehouseListScreen onBack={() => setShowList(false)} warehouses={warehouses} />;
+    return (
+      <MainWarehouseListScreen
+        onBack={() => setShowList(false)}
+        warehouses={warehouses}
+        onTabChange={onTabChange}
+      />
+    );
   }
 
   // Filtered warehouses based on dropdown selection
@@ -456,10 +482,6 @@ export function MainWarehouseAdminScreen({ onBack }: { onBack: () => void }) {
 
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            <TouchableOpacity style={styles.actionCard} onPress={() => setShowAddScreen(true)} activeOpacity={0.8}>
-              <View style={styles.actionIconWrap}><AddWarehouseIcon /></View>
-              <Text style={styles.actionLabel}>Add Warehouse</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionCard}
               onPress={() => {

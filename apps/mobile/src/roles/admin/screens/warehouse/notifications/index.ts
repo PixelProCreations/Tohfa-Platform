@@ -8,9 +8,11 @@ export { NotificationsFlow, type NotificationsFlowProps, type NotificationsStack
 export { DEFAULT_TAG, NOTIFICATION_CODES, canOpenAlertRecord, canOpenTarget, tagOf } from './NotificationParts';
 export {
   APPROVAL_ALERTS,
+  FARMER_NOTIFICATIONS,
   MAIN_NOTIFICATIONS,
   NOTIFICATION_WAREHOUSES,
   SUB_NOTIFICATIONS,
+  TOHFA_NOTIFICATIONS,
   defaultNotifications,
 } from './fixtures';
 export type {

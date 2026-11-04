@@ -412,7 +412,7 @@ export function InventoryDashboardScreen({
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Top Stock Products</Text>
-                <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => onNavigate?.('M3S07')} activeOpacity={0.7}>
                   <Text style={styles.viewAllLink}>View All Stock</Text>
                 </TouchableOpacity>
               </View>

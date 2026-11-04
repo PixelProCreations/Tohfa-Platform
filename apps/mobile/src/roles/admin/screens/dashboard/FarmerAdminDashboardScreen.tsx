@@ -18,6 +18,7 @@ import { adminColors, adminRadius, adminSpacing, adminType, adminShadow, adminOv
 import { t } from '../../i18n';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
+import { ProfileFlow } from '../warehouse/profile-settings';
 
 
 import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
@@ -31,7 +32,11 @@ import { HandoverHistoryScreen } from './HandoverHistoryScreen';
 import { HandoverConfirmationScreen } from './HandoverConfirmationScreen';
 import { HandoverDetailsScreen } from './HandoverDetailsScreen';
 import { AdminActivityLogsScreen } from './AdminActivityLogsScreen';
-import { TohfaAdminNotificationsScreen } from './TohfaAdminNotificationsScreen';
+import {
+  NotificationsFlow,
+  FARMER_NOTIFICATIONS,
+  type NotificationItem,
+} from '../warehouse/notifications';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
 import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
 import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
@@ -2158,6 +2163,8 @@ export function FarmerAdminDashboardScreen({
   initialTab = 'Home',
 }: FarmerAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<FarmerAdminTab>(initialTab);
+  const [farmerNotifications, setFarmerNotifications] = useState<readonly NotificationItem[]>(FARMER_NOTIFICATIONS);
+  const unreadFarmerNotifCount = farmerNotifications.filter((n) => !n.isRead).length;
   const [_user, setUser] = useState<UserMe | null>(null);
 
   // Accordion state: both collapsed by default as in left design mockup
@@ -2774,24 +2781,41 @@ export function FarmerAdminDashboardScreen({
   // If currently in Notifications subview
   if (subView === 'notifications') {
     return (
-      <TohfaAdminNotificationsScreen
-        role="FARMER_ADMIN"
+      <NotificationsFlow
+        scope={{ warehouseId: 'farmer-admin', warehouseName: 'Farmer Admin' }}
+        can={() => true}
+        notifications={farmerNotifications}
+        onMarkAsRead={(id) =>
+          setFarmerNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+          )
+        }
+        onMarkAllAsRead={() =>
+          setFarmerNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+        }
+        onClearAll={() => setFarmerNotifications([])}
         onBack={() => goBack()}
-        onViewListing={() => pushNavigation({ subView: 'product_listings' })}
-        onViewAudit={() => {
-          pushNavigation({ tab: 'Audits' });
-        }}
-        onViewDispute={() => {
-          pushNavigation({
-            subView: 'dispute_detail',
-            selectedDispute: INITIAL_DISPUTES[0],
-          });
-        }}
         onTabChange={(tab) => {
           setNavStack([]);
           setSubView('none');
           setMoreSubScreen('menu');
-          setActiveTab(tab);
+          setActiveTab(tab as FarmerAdminTab);
+        }}
+        onOpenTarget={(target) => {
+          if (target === 'FarmerListing') {
+            pushNavigation({ subView: 'product_listings' });
+          } else if (target === 'FarmerCounterOffer') {
+            pushNavigation({ subView: 'counter_offer' });
+          } else if (target === 'FarmerDispute') {
+            pushNavigation({
+              subView: 'dispute_detail',
+              selectedDispute: INITIAL_DISPUTES[0],
+            });
+          } else if (target === 'FarmerAudit') {
+            pushNavigation({ tab: 'Audits' });
+          } else if (target === 'FarmerRegistration') {
+            pushNavigation({ subView: 'farmer_ratings' });
+          }
         }}
       />
     );
@@ -2802,17 +2826,15 @@ export function FarmerAdminDashboardScreen({
   // Module: Farmer Admin Settings & Profile subview (Screenshot 2)
   if (subView === 'settings') {
     return (
-      <TohfaAdminSettingsScreen
-        role="FARMER_ADMIN"
+      <ProfileFlow
+        scope={{ warehouseId: 'farmer-admin', warehouseName: 'Coonoor' }}
+        subtitle="Farmer Admin · Coonoor"
+        adminRole="FARMER_ADMIN"
+        can={() => true}
+        initialScreen="Settings"
         onBack={() => goBack()}
-        onNavigateProfile={() => pushNavigation({ subView: 'profile' })}
-        onNavigateHome={() => {
-          setNavStack([]);
-          setSubView('none');
-          setActiveTab('Home');
-        }}
-        onNavigateMore={() => goBack()}
         onLogout={onSignOut}
+        onSwitchRole={handleSwitchToFarmerApp}
       />
     );
   }
@@ -3084,6 +3106,7 @@ export function FarmerAdminDashboardScreen({
       <View style={{ flex: 1, backgroundColor: adminColors.canvas }}>
         <MarketPricingHomeScreen
           role="FARMER_ADMIN"
+          onBack={() => goBack()}
           onNavigateToFairPrice={() => pushNavigation({ subView: 'fair_price' })}
           onNavigateToCategories={() => pushNavigation({ subView: 'categories_grades' })}
           onNavigateToPriceHistory={() => pushNavigation({ subView: 'price_history' })}

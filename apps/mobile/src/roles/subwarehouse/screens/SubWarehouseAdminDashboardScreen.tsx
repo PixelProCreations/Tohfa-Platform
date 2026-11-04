@@ -1916,6 +1916,8 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <ProfileFlow
         scope={scope}
+        adminRole="SUB_WH_ADMIN"
+        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen="StorageInfo"
         onBack={() => {
@@ -2176,6 +2178,8 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <ProfileFlow
         scope={scope}
+        adminRole="SUB_WH_ADMIN"
+        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen={profileInitialScreen}
         onBack={() => {
@@ -2544,6 +2548,8 @@ export function SubWarehouseAdminDashboardScreen({
     return (
       <ProfileFlow
         scope={scope}
+        adminRole="SUB_WH_ADMIN"
+        subtitle="Sub Warehouse Admin · Coonoor Warehouse"
         can={can}
         initialScreen="Settings"
         onBack={() => {

@@ -145,9 +145,7 @@ export function OrderDetailScreen({
             </View>
           </View>
 
-          <TouchableOpacity style={styles.moreButton} activeOpacity={0.7} onPress={() => setShowMenu(true)}>
-            <MoreDotsIcon />
-          </TouchableOpacity>
+{/* Top 3 dots removed per request */}
         </View>
 
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
