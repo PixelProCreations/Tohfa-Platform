@@ -45,7 +45,7 @@ function GreenCheckboxIcon() {
       <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
         <Path
           d="M20 6L9 17l-5-5"
-          stroke="#FFFFFF"
+          stroke={adminColors.onBrand}
           strokeWidth="3.2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -62,8 +62,8 @@ function EmptyCheckboxIcon() {
 function InfoCircleIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#0284C7" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#0284C7" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.warehouse.infoIcon} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.warehouse.infoIcon} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -71,10 +71,10 @@ function InfoCircleIcon() {
 function DeliveryTruckIcon() {
   return (
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="1" y="3" width="14" height="13" rx="1" stroke="#FFFFFF" strokeWidth="2" />
-      <Path d="M15 8h4l3 3v5h-7V8z" stroke="#FFFFFF" strokeWidth="2" strokeLinejoin="round" />
-      <Circle cx="5.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
-      <Circle cx="18.5" cy="18.5" r="2.5" stroke="#FFFFFF" strokeWidth="2" />
+      <Rect x="1" y="3" width="14" height="13" rx="1" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Path d="M15 8h4l3 3v5h-7V8z" stroke={adminColors.onBrand} strokeWidth="2" strokeLinejoin="round" />
+      <Circle cx="5.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
+      <Circle cx="18.5" cy="18.5" r="2.5" stroke={adminColors.onBrand} strokeWidth="2" />
     </Svg>
   );
 }
@@ -192,7 +192,7 @@ export function DeliveryPreparationScreen({
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: adminColors.brand },
-  container: { flex: 1, backgroundColor: '#FBF8F2' },
+  container: { flex: 1, backgroundColor: adminColors.warehouse.warmCanvas },
   header: {
     backgroundColor: adminColors.brand,
     flexDirection: 'row',
@@ -203,66 +203,66 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backButton: { width: 32, height: 32, justifyContent: 'center', alignItems: 'flex-start' },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.3 },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: adminColors.onBrand, letterSpacing: -0.3 },
   content: { flex: 1 },
   contentContainer: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 20 },
   scrollTail: { height: 20 },
   orderIdTop: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#9A7150',
+    color: adminColors.warehouse.warmSubtitle,
     paddingLeft: 34,
     marginBottom: 10,
   },
   sectionTitleFirst: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1E293B',
+    color: adminColors.warehouse.slateText,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#1E293B',
+    color: adminColors.warehouse.slateText,
     marginTop: 18,
     marginBottom: 10,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.warehouse.slateCardBorder,
     paddingHorizontal: 16,
     paddingVertical: 16,
   },
-  fieldLabel: { fontSize: 13, color: '#64748B', marginBottom: 4 },
-  fieldValueBold: { fontSize: 15, fontWeight: '700', color: '#1E293B', lineHeight: 20 },
+  fieldLabel: { fontSize: 13, color: adminColors.platform.slate500, marginBottom: 4 },
+  fieldValueBold: { fontSize: 15, fontWeight: '700', color: adminColors.warehouse.slateText, lineHeight: 20 },
   slotsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
   slotPill: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.warehouse.slateCardBorder,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
   slotPillActive: {
-    backgroundColor: '#FDF4EC',
+    backgroundColor: adminColors.warehouse.slotActiveBg,
     borderWidth: 1.5,
-    borderColor: '#C27038',
+    borderColor: adminColors.warehouse.slotActiveBorder,
   },
   slotPillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#475569',
+    color: adminColors.warehouse.slateSubtext,
   },
   slotPillTextActive: {
-    color: '#8A421D',
+    color: adminColors.warehouse.slotActiveText,
   },
   infoBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.platform.infoLight,
     borderWidth: 1,
-    borderColor: '#93C5FD',
+    borderColor: adminColors.warehouse.infoBorder,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -271,12 +271,12 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 4,
   },
-  infoText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#0369A1', lineHeight: 18 },
+  infoText: { flex: 1, fontSize: 13, fontWeight: '600', color: adminColors.warehouse.infoText, lineHeight: 18 },
   packingCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.warehouse.slateCardBorder,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -284,12 +284,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   packingCardSpaced: { marginTop: 10 },
-  packingCardText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  packingCardText: { fontSize: 15, fontWeight: '700', color: adminColors.warehouse.slateText },
   checklistCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: adminColors.warehouse.slateCardBorder,
     overflow: 'hidden',
   },
   checklistItem: {
@@ -299,12 +299,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     gap: 12,
   },
-  checklistItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  checklistItemBorder: { borderBottomWidth: 1, borderBottomColor: adminColors.warehouse.slateDivider },
   greenCheckbox: {
     width: 24,
     height: 24,
     borderRadius: 6,
-    backgroundColor: '#1E824C',
+    backgroundColor: adminColors.warehouse.checkGreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -313,19 +313,19 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
+    borderColor: adminColors.warehouse.slateBorder,
+    backgroundColor: adminColors.card,
   },
-  checklistText: { fontSize: 15, fontWeight: '700', color: '#1E293B' },
+  checklistText: { fontSize: 15, fontWeight: '700', color: adminColors.warehouse.slateText },
   bottomBar: {
-    backgroundColor: '#FBF8F2',
+    backgroundColor: adminColors.warehouse.warmCanvas,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F1ECE4',
+    borderTopColor: adminColors.warehouse.footerBorder,
   },
   dispatchBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 52,
     flexDirection: 'row',
@@ -333,5 +333,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  dispatchBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  dispatchBtnText: { fontSize: 16, fontWeight: '700', color: adminColors.onBrand },
 });

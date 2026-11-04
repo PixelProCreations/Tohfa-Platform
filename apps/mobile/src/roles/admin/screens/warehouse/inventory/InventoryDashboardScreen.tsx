@@ -4,7 +4,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Pla
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { OverviewDashboardCard } from '../../../components';
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminSpacing, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
 import { isAreaAvailable } from '../availability';
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -425,9 +425,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.headerPillBorder,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,

@@ -93,6 +93,107 @@ export const adminColors = {
     text: neutral('white'),
     icon: hex('adminSuccessOnDark'),
   },
+
+  /** shadowColor for hand-tuned shadows that are not one of adminShadow.* (same black as the token shadows). */
+  shadow: neutral('black'),
+
+  /**
+   * Platform tokens (tokens.json, not the admin PDF) that the Main/Sub
+   * dashboards draw with. Exposed here so screens never call hex() directly.
+   */
+  platform: {
+    error: hex('error'),
+    warning: hex('warning'),
+    info: hex('info'),
+    neutral100: neutral('neutral100'),
+    neutral600: neutral('neutral600'),
+    neutral700: neutral('neutral700'),
+    infoLight: hex('infoLight'),
+    slate500: neutral('slate500'),
+  },
+
+  /**
+   * Owner-approved 2026-11-03 for the admin Main/Sub warehouse dashboards; not
+   * in the admin PDF. Values were taken verbatim from the literals they replaced
+   * (tokens.json $adminDashboardColorNote).
+   */
+  dashboard: {
+    orangeDark: hex('adminOrangeDark'),
+    greenText: hex('adminGreenText'),
+    redBorder: hex('adminRedBorder'),
+    goldProgress: hex('adminGoldProgress'),
+    greenProgress: hex('adminGreenProgress'),
+    goldBg: hex('adminGoldBg'),
+    greenPillBg: hex('adminGreenPillBg'),
+    brandBrown: hex('adminBrandBrown'),
+    alertIcon: hex('adminAlertIcon'),
+    badgeRing: hex('adminBadgeRing'),
+    greenBadgeBg: hex('adminGreenBadgeBg'),
+    greenBadgeText: hex('adminGreenBadgeText'),
+    attentionBorder: hex('adminAttentionBorder'),
+    overviewIcon: hex('adminOverviewIcon'),
+    overviewIconBg: hex('adminOverviewIconBg'),
+    pressedTint: hex('adminPressedTint'),
+    headerGreeting: hex('adminHeaderGreeting'),
+    headerDate: hex('adminHeaderDate'),
+    countBadgeBg: hex('adminCountBadgeBg'),
+    countBadgeBorder: hex('adminCountBadgeBorder'),
+    borderLight: neutral('adminBorderLight'),
+    track: neutral('adminTrack'),
+    divider: neutral('adminDivider'),
+    subtextMuted: neutral('adminSubtextMuted'),
+    inkWarm: neutral('adminInkWarm'),
+    mutedWarm: neutral('adminMutedWarm'),
+    overviewCanvas: neutral('adminOverviewCanvas'),
+    overviewBorder: neutral('adminOverviewBorder'),
+    chipText: neutral('adminChipText'),
+    overviewMeta: neutral('adminOverviewMeta'),
+  },
+
+  /**
+   * Owner-approved 2026-11-03 for the admin warehouse screens (Delivery
+   * Preparation, Report Issue, Order Detail); not in the admin PDF. Values were
+   * taken verbatim from the literals they replaced (tokens.json
+   * $colourLiteralCleanupNote).
+   */
+  warehouse: {
+    infoIcon: hex('adminInfoCardIcon'),
+    infoBorder: hex('adminInfoCardBorder'),
+    infoText: hex('adminInfoCardText'),
+    warmSubtitle: hex('adminWarmSubtitle'),
+    slotActiveBg: hex('adminSlotActiveBg'),
+    slotActiveBorder: hex('adminSlotActiveBorder'),
+    slotActiveText: hex('adminSlotActiveText'),
+    checkGreen: hex('adminCheckGreen'),
+    slateText: neutral('adminSlateText'),
+    slateSubtext: neutral('adminSlateSubtext'),
+    slateBorder: neutral('adminSlateBorder'),
+    slateCardBorder: neutral('adminSlateCardBorder'),
+    slateDivider: neutral('adminSlateDivider'),
+    warmCanvas: neutral('adminWarmCanvas'),
+    footerBorder: neutral('adminFooterBorder'),
+  },
+} as const;
+
+/**
+ * Translucent overlays (rgba tokens). Kept out of adminColors because every
+ * adminColors leaf is a 6-digit hex (tests/adminTheme.test.ts).
+ */
+export const adminOverlay = {
+  /** 22% white pill overlay for header icon buttons on brand orange headers. */
+  whitePill: hex('adminWhitePillOverlay'),
+  /** 45% dark scrim for modal backdrops. */
+  scrim: hex('adminScrim'),
+  /** 18% white fill of the assigned-warehouse pill on the orange header. */
+  headerPill: hex('adminHeaderPillOverlay'),
+  /** 35% white stroke of the assigned-warehouse pill on the orange header. */
+  headerPillBorder: hex('adminHeaderPillBorderOverlay'),
+  /** 88% white subtitle text on the orange header. */
+  headerSubtitle: hex('adminHeaderSubtitleOverlay'),
+  /** 90% white secondary text on the orange header. */
+  headerText: hex('adminHeaderTextOverlay'),
+  /** 25% white fill of the round more button on the orange order-detail header. */
+  headerMoreButton: hex('adminHeaderMoreButtonOverlay'),
 } as const;
 
 export type AdminColors = typeof adminColors;

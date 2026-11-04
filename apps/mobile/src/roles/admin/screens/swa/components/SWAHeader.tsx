@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
-import { adminColors, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
 import { Icon } from '@tohfa/mobile-ui';
 import { SWAGradient } from './SWAGradient';
@@ -210,7 +210,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.headerPillBorder,
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 5,

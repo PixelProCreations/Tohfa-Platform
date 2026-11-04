@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { adminColors, adminSpacing, adminType } from '../../theme';
+import { adminColors, adminOverlay, adminSpacing, adminType } from '../../theme';
 import { OverviewDashboardCard } from '../../components';
 import { fetchMe, hasSessionCredentials, type UserMe } from '../../../farmer/api/auth';
 import {
@@ -140,14 +140,14 @@ export type ReceivingSubView =
   | 'transfer_receiving_inspection';
 
 // ─── Design Tokens (Exact match to TOHFA Admin App Design System v1.0 PDF) ───
-// Entries that have a token in the admin theme point at it (same value, no visual
-// change); the rest are literals still waiting for one (admin_theme_guard ratchet).
+// Every entry points at a token in the admin theme (same value as the old literal, no
+// visual change).
 const PALETTE = {
   // Brand Palette (Page 1)
   primary: adminColors.brand, // Orange - Primary actions, active states, icons
   headerBg: adminColors.brand, // Brand Terracotta Orange
-  headerBgDark: '#D9481E',
-  headerPillBg: 'rgba(255, 255, 255, 0.22)',
+  headerBgDark: adminColors.dashboard.orangeDark,
+  headerPillBg: adminOverlay.whitePill,
   headerText: adminColors.onBrand,
 
   orangeDeep: adminColors.brandDeep, // Orange Deep - Section headings, emphasis text
@@ -159,7 +159,7 @@ const PALETTE = {
   textSecondary: adminColors.muted, // Muted - Secondary text
   textMuted: adminColors.muted, // Muted text
   border: adminColors.border, // Border - Card and input borders
-  borderLight: '#F8F3ED',
+  borderLight: adminColors.dashboard.borderLight,
   cardBg: adminColors.card, // Card - Card surfaces
   primaryBorder: adminColors.border,
 
@@ -168,23 +168,23 @@ const PALETTE = {
   amberBg: adminColors.warning.bg, // Warning BG (#FEF3E2)
   green: adminColors.success.text, // Success (#173404)
   greenBg: adminColors.success.bg, // Success BG (#EAF3DE)
-  greenText: '#1E8E5A',
+  greenText: adminColors.dashboard.greenText,
 
   red: adminColors.danger.text, // Danger (#E24B4A)
   redBg: adminColors.danger.bg, // Danger BG (#FCEBEB)
-  redBorder: '#FCA5A5',
+  redBorder: adminColors.dashboard.redBorder,
 
   tabInactive: adminColors.muted,
   tabActive: adminColors.brand,
   tabBorder: adminColors.border,
-  goldProgress: '#B8860B',
-  greenProgress: '#0D684D',
-  trackBg: '#EBE5DC',
-  divider: '#F2ECE5',
-  goldBg: '#FEF9E7',
-  greenPillBg: '#E6F7F2',
-  brandBrown: '#5C3D2E',
-  subTextMuted: '#8C827A',
+  goldProgress: adminColors.dashboard.goldProgress,
+  greenProgress: adminColors.dashboard.greenProgress,
+  trackBg: adminColors.dashboard.track,
+  divider: adminColors.dashboard.divider,
+  goldBg: adminColors.dashboard.goldBg,
+  greenPillBg: adminColors.dashboard.greenPillBg,
+  brandBrown: adminColors.dashboard.brandBrown,
+  subTextMuted: adminColors.dashboard.subtextMuted,
 };
 
 /**
@@ -277,7 +277,7 @@ function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: n
   );
 }
 
-function BellOutlineIcon({ size = 20, color = '#1E1612' }: { size?: number; color?: string }) {
+function BellOutlineIcon({ size = 20, color = adminColors.dashboard.inkWarm }: { size?: number; color?: string }) {
   // Lucide Bell (exact match to notification bell)
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -337,7 +337,7 @@ function ChevronDownWhiteIcon({ size = 14, color = adminColors.onBrand }: { size
   );
 }
 
-function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number; color?: string }) {
+function ChevronRightGrayIcon({ size = 16, color = adminColors.dashboard.mutedWarm }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
@@ -345,7 +345,7 @@ function ChevronRightGrayIcon({ size = 16, color = '#9E9690' }: { size?: number;
   );
 }
 
-function WarningTriangleIcon({ size = 20, color = '#EF4444' }: { size?: number; color?: string }) {
+function WarningTriangleIcon({ size = 20, color = adminColors.dashboard.alertIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -3457,7 +3457,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3466,7 +3466,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -3475,7 +3475,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 2,
     right: 2,
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.platform.error,
     borderRadius: 8,
     minWidth: 15,
     height: 15,
@@ -3483,7 +3483,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: '#EA580C',
+    borderColor: adminColors.dashboard.badgeRing,
   },
   notificationBadgeText: {
     color: adminColors.onBrand,
@@ -3493,7 +3493,7 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 12.5,
     fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.88)',
+    color: adminOverlay.headerSubtitle,
     marginTop: 4,
   },
   whFilterPill: {
@@ -3555,7 +3555,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 14,
     alignItems: 'flex-start',
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -3621,7 +3621,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3857,7 +3857,7 @@ const styles = StyleSheet.create({
   // ─── Filter Modal ───
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
@@ -3902,7 +3902,7 @@ const styles = StyleSheet.create({
 
   // ─── Sales View Specific Styles ───
   greenBadgePill: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: adminColors.dashboard.greenBadgeBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -3910,13 +3910,13 @@ const styles = StyleSheet.create({
   greenBadgeText: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#0D6B4F',
+    color: adminColors.dashboard.greenBadgeText,
   },
   needsAttentionAlertCard: {
     backgroundColor: PALETTE.cardBg,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: '#FDBA74',
+    borderColor: adminColors.dashboard.attentionBorder,
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -3991,7 +3991,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -4068,7 +4068,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -4087,7 +4087,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
@@ -4119,7 +4119,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderWidth: 1,
     borderColor: PALETTE.borderLight,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,

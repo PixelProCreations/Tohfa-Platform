@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import type { ScrollViewInstance } from 'react-native';
+import { hex, neutral } from '@tohfa/design-tokens';
 import { useTheme } from './theme';
 
 export interface DatePickerProps {
@@ -260,7 +261,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
     onClose();
   };
 
-  const primaryColor = theme.colors.primary || '#2E7D32';
+  const primaryColor = theme.colors.primary || hex('datePickerFallbackPrimary');
   const isPrevDisabled =
     currentMode === 'year'
       ? viewYear - 10 < minYear
@@ -312,7 +313,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   accessibilityLabel="Close date picker"
                   style={styles.closeBtn}
                 >
-                  <Text style={[styles.closeIcon, { color: theme.colors.onSurfaceVariant ?? '#666' }]}>
+                  <Text style={[styles.closeIcon, { color: theme.colors.onSurfaceVariant ?? neutral('datePickerFallbackMuted') }]}>
                     ✕
                   </Text>
                 </TouchableOpacity>
@@ -331,7 +332,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <Text
                     style={[
                       styles.navArrow,
-                      { color: isPrevDisabled ? '#DDD' : primaryColor },
+                      { color: isPrevDisabled ? neutral('datePickerDisabledArrow') : primaryColor },
                     ]}
                   >
                     ‹
@@ -345,7 +346,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                     style={[
                       styles.selectorPill,
                       currentMode === 'month' && {
-                        backgroundColor: '#E8F5E9',
+                        backgroundColor: hex('primaryLight'),
                         borderColor: primaryColor,
                       },
                     ]}
@@ -368,7 +369,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                     style={[
                       styles.selectorPill,
                       currentMode === 'year' && {
-                        backgroundColor: '#E8F5E9',
+                        backgroundColor: hex('primaryLight'),
                         borderColor: primaryColor,
                       },
                     ]}
@@ -397,7 +398,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <Text
                     style={[
                       styles.navArrow,
-                      { color: isNextDisabled ? '#DDD' : primaryColor },
+                      { color: isNextDisabled ? neutral('datePickerDisabledArrow') : primaryColor },
                     ]}
                   >
                     ›
@@ -412,7 +413,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   <View style={styles.weekdayRow}>
                     {WEEKDAY_NAMES.map((wd) => (
                       <View key={wd} style={styles.weekdayCell}>
-                        <Text style={[styles.weekdayText, { color: theme.colors.onSurfaceVariant ?? '#888' }]}>
+                        <Text style={[styles.weekdayText, { color: theme.colors.onSurfaceVariant ?? neutral('datePickerWeekdayFallback') }]}>
                           {wd}
                         </Text>
                       </View>
@@ -457,7 +458,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                                       color: selected
                                         ? theme.colors.white
                                         : disabled
-                                          ? '#CCC'
+                                          ? neutral('datePickerDisabledDay')
                                           : theme.colors.onSurface,
                                       fontWeight: selected || today ? '700' : '500',
                                     },
@@ -548,7 +549,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Cancel"
                 >
-                  <Text style={[styles.footerBtnText, { color: theme.colors.onSurfaceVariant ?? '#666' }]}>
+                  <Text style={[styles.footerBtnText, { color: theme.colors.onSurfaceVariant ?? neutral('datePickerFallbackMuted') }]}>
                     Cancel
                   </Text>
                 </TouchableOpacity>
@@ -575,7 +576,7 @@ export const DatePicker: React.FC<DatePickerProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: hex('datePickerScrim'),
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -586,7 +587,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 20,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: neutral('black'),
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
@@ -614,7 +615,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EEE6',
+    borderBottomColor: neutral('datePickerDivider'),
   },
   navArrow: {
     fontSize: 28,
@@ -632,8 +633,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#E8E6DD',
-    backgroundColor: '#FAFAF8',
+    borderColor: neutral('datePickerCellBorder'),
+    backgroundColor: neutral('datePickerCellBg'),
   },
   navLabelText: {
     fontSize: 14,
@@ -691,8 +692,8 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E8E6DD',
-    backgroundColor: '#FAFAF8',
+    borderColor: neutral('datePickerCellBorder'),
+    backgroundColor: neutral('datePickerCellBg'),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -715,8 +716,8 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E8E6DD',
-    backgroundColor: '#FAFAF8',
+    borderColor: neutral('datePickerCellBorder'),
+    backgroundColor: neutral('datePickerCellBg'),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -732,7 +733,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F0EEE6',
+    borderTopColor: neutral('datePickerDivider'),
   },
   footerBtn: {
     paddingVertical: 8,
