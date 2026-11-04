@@ -2679,7 +2679,12 @@ export function FarmerAdminDashboardScreen({
       <AdminFarmerDetailScreen
         role="FARMER_ADMIN"
         farmer={{
+          id: 'FR-00241',
+          code: 'FR-00241',
           farmerId: 'FR-00241',
+          initials: 'RK',
+          location: 'Coonoor',
+          status: 'ACTIVE',
           name: 'Ramesh Kumar',
           zone: 'Coonoor',
           farmingMethod: 'Organic',
@@ -2687,7 +2692,7 @@ export function FarmerAdminDashboardScreen({
           certification: 'Certified',
           farmCount: 1,
           listingCount: 18,
-          rating: '4.6 ★',
+          rating: 4.6,
           auditStatus: 'Upcoming',
         }}
         onBack={() => goBack()}
@@ -2707,10 +2712,12 @@ export function FarmerAdminDashboardScreen({
     return farmerAdminSelectedApp ? (
       <AdminApplicationDetailScreen
         application={farmerAdminSelectedApp}
+        role="FARMER_ADMIN"
         onBack={() => setFarmerAdminSelectedApp(null)}
       />
     ) : farmerAdminSelectedFarmer ? (
       <AdminFarmerDetailScreen
+        role="FARMER_ADMIN"
         farmer={farmerAdminSelectedFarmer}
         onBack={() => setFarmerAdminSelectedFarmer(null)}
       />
@@ -3814,18 +3821,35 @@ export function FarmerAdminDashboardScreen({
 
         {/* ─── Farmers Tab (Matching Screenshot 1) ─── */}
         {activeTab === 'Farmers' && (
-          <AdminAllFarmersScreen
-            role="FARMER_ADMIN"
-            onBack={() => goBack('Home')}
-            onViewChange={(view) => setFarmersInternalView(view)}
-            onNavigateAuditHistory={() => {
-              pushNavigation({
-                subView: 'audit_schedule',
-                auditInitialFilter: 'history',
-                auditInitialView: 'history',
-              });
-            }}
-          />
+          farmerAdminSelectedFarmer ? (
+            <AdminFarmerDetailScreen
+              role="FARMER_ADMIN"
+              farmer={farmerAdminSelectedFarmer}
+              onBack={() => setFarmerAdminSelectedFarmer(null)}
+              onNavigateAuditHistory={() => {
+                pushNavigation({
+                  subView: 'audit_schedule',
+                  auditInitialFilter: 'history',
+                  auditInitialView: 'history',
+                });
+              }}
+            />
+          ) : (
+            <AdminAllFarmersScreen
+              role="FARMER_ADMIN"
+              onBack={() => goBack('Home')}
+              onSelectFarmer={(f) => setFarmerAdminSelectedFarmer(f)}
+              onReviewApplication={(app) => setFarmerAdminSelectedApp(app)}
+              onViewChange={(view) => setFarmersInternalView(view)}
+              onNavigateAuditHistory={() => {
+                pushNavigation({
+                  subView: 'audit_schedule',
+                  auditInitialFilter: 'history',
+                  auditInitialView: 'history',
+                });
+              }}
+            />
+          )
         )}
 
         {/* ─── Produce Calendar Tab ─── */}

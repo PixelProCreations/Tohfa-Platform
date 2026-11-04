@@ -96,6 +96,8 @@ const MOCK_ACTIVITY: AdminActivityEntry[] = [
 export interface AdminActivityLogsScreenProps {
   adminId?: string | undefined;
   onBack?: (() => void) | undefined;
+  role?: string | undefined;
+  onNavigateToListings?: (() => void) | undefined;
 }
 
 export function AdminActivityLogsScreen({ adminId, onBack }: AdminActivityLogsScreenProps) {

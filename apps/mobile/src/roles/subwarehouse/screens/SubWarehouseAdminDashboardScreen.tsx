@@ -35,6 +35,13 @@ import {
   type NotificationsRouteParams,
 } from '../../admin/screens/warehouse/notifications';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
+import {
+  AdminAllFarmersScreen,
+  AdminFarmMapScreen,
+  AdminRatingScorecardScreen,
+  type FarmerListItem,
+} from '../../admin/screens/farmers/AdminAllFarmersScreen';
+import { AdminFarmerDetailScreen } from '../../admin/screens/farmers/AdminFarmerDetailScreen';
 import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import {
@@ -278,6 +285,17 @@ function StockVerifyActionIcon({ color = PALETTE.primary }: { color?: string }) 
       <Rect x="4" y="4" width="16" height="17" rx="2.5" stroke={color} strokeWidth="1.8" />
       <Path d="M9 2h6a1 1 0 0 1 1 1v2H8V3a1 1 0 0 1 1-1z" stroke={color} strokeWidth="1.6" />
       <Path d="M8.5 12.5l2.5 2.5 5-5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FarmersActionIcon({ color = PALETTE.primary }: { color?: string }) {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -1350,6 +1368,9 @@ export function SubWarehouseAdminDashboardScreen({
   const setShowNotifications = (open: boolean) => setNotificationsEntry(open ? { screen: 'Notifications' } : null);
   const [returnToNotificationsOnBack, setReturnToNotificationsOnBack] = useState(false);
   const [showSalesScreen, setShowSalesScreen] = useState(false);
+  const [showFarmManagement, setShowFarmManagement] = useState(false);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'map' | 'scorecard' | null>(null);
   // The open Home-tab module: HomeFlow (warehouse snapshot, tasks) owns its stack (W4).
   const [homeEntry, setHomeEntry] = useState<{ screen: HomeRoute; params?: HomeRouteParams | undefined } | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -2845,6 +2866,18 @@ export function SubWarehouseAdminDashboardScreen({
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
                 </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
+                  onPress={() => {
+                    setSelectedFarmer(null);
+                    setFarmerSubScreen(null);
+                    setShowFarmManagement(true);
+                  }}
+                >
+                  <FarmersActionIcon />
+                  <Text style={styles.quickActionLabel}>Farmers</Text>
+                </Pressable>
               </View>
 
               {/* 4. Needs Attention */}
@@ -3419,8 +3452,43 @@ export function SubWarehouseAdminDashboardScreen({
           />
         )}
 
+        {/* ─── Farm Management Subview (Shared Screen) ─── */}
+        {showFarmManagement && (
+          farmerSubScreen === 'map' && selectedFarmer ? (
+            <AdminFarmMapScreen
+              farmer={selectedFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+            />
+          ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
+            <AdminRatingScorecardScreen
+              farmer={selectedFarmer}
+              onBack={() => setFarmerSubScreen(null)}
+              onOpenComplianceTiers={() => {}}
+            />
+          ) : selectedFarmer ? (
+            <AdminFarmerDetailScreen
+              farmer={selectedFarmer}
+              can={can}
+              role="SUB_WH_ADMIN"
+              userScope={scope.warehouseId ? { warehouseId: scope.warehouseId } : undefined}
+              onBack={() => setSelectedFarmer(null)}
+              onOpenFarmMap={() => setFarmerSubScreen('map')}
+              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+            />
+          ) : (
+            <AdminAllFarmersScreen
+              showBottomNav={false}
+              can={can}
+              role="SUB_WH_ADMIN"
+              userScope={{ warehouseId: scope.warehouseId }}
+              onBack={() => setShowFarmManagement(false)}
+              onSelectFarmer={(f: FarmerListItem) => setSelectedFarmer(f)}
+            />
+          )
+        )}
+
         {/* ─── More Modules Directory Tab (Modules 5 to 16) ─── */}
-        {activeTab === 'More' && !showOrdersModule && (
+        {activeTab === 'More' && !showOrdersModule && !showFarmManagement && (
           <MoreScreen
             scope={scope}
             can={can}
@@ -3453,6 +3521,11 @@ export function SubWarehouseAdminDashboardScreen({
             onNavigateToOrders={() => {
               setReturnToTabOnBack('More');
               setShowOrdersModule(true);
+            }}
+            onNavigateToFarmManagement={() => {
+              setSelectedFarmer(null);
+              setFarmerSubScreen(null);
+              setShowFarmManagement(true);
             }}
             onNavigateToSales={() => {
               if (onNavigate) onNavigate('SubWarehouseSales');

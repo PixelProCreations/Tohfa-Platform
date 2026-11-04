@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import React, { useState } from 'react';
 import {
   Modal,
@@ -31,13 +32,28 @@ function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?:
   );
 }
 
-function FarmersManagementHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
+function FarmersManagementHeaderIcon({ size = 24, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
       <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function FarmerAvatarSilhouetteIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="2" />
     </Svg>
   );
 }
@@ -78,7 +94,7 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
   );
 }
 
-// Bottom Nav Icons matching Image 1
+// Bottom Nav Icons matching Image 1 (Home, Farmers, Produce, Audits, More)
 function NavHomeIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -87,36 +103,37 @@ function NavHomeIcon({ size = 20, color = adminColors.muted }: { size?: number; 
   );
 }
 
-function NavWorkQueueIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+function NavFarmersIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 11l3 3L22 4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
+      <Path d="M23 21v-2a4 4 0 0 0-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 3.13a4 4 0 0 1 0 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function NavOperationsIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+function NavProduceIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="18" y1="20" x2="18" y2="10" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Line x1="12" y1="20" x2="12" y2="4" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Line x1="6" y1="20" x2="6" y2="14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M12 2a4 4 0 0 0-4 4v1a6 6 0 1 0 8 0V6a4 4 0 0 0-4-4z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function NavFinanceIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
+function NavAuditsIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="2" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-      <Path d="M2 10h20" stroke={color} strokeWidth="1.5" />
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function NavMoreIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+function NavMoreIcon({ size = 20, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="5" cy="5" r="1.8" fill={color} />
@@ -135,14 +152,14 @@ function NavMoreIcon({ size = 20, color = adminColors.brand }: { size?: number; 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
 export interface FarmerListItem {
-  id: string;
+  id?: string;
   name: string;
-  code: string;
-  initials: string;
+  code?: string;
+  initials?: string;
   farmName?: string;
-  location: string;
-  status: 'ACTIVE' | 'DISABLED';
-  rating: number | null;
+  location?: string;
+  status?: 'ACTIVE' | 'DISABLED';
+  rating?: number | string | null;
   ratingTier?: string;
   mobile?: string;
   aadhaar?: string;
@@ -162,6 +179,15 @@ export interface FarmerListItem {
   farmingType?: string;
   kycVerifiedText?: string;
   hasExpiredCert?: boolean;
+  farmerId?: string;
+  zone?: string;
+  farmingMethod?: string;
+  accountStatus?: string;
+  certification?: string;
+  farmCount?: number;
+  listingCount?: number;
+  auditStatus?: string;
+  [key: string]: any;
 }
 
 export interface ApplicationListItem {
@@ -178,7 +204,8 @@ export interface ApplicationListItem {
   submittedDate: string;
   approvedDate?: string;
   kycStatus: string;
-  docsCount: string;
+  farmSize: string;
+  soilType: string;
   landArea: string;
   fmbSketch: string;
   reviewNotes: string;
@@ -190,14 +217,14 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
   {
     id: 'fmr-00124',
     name: 'Ramesh Kumar',
-    code: 'FMR-00124',
+    code: 'FR-00124',
     initials: 'RK',
     farmName: 'Mixed vegetable farm.',
     location: 'Coonoor',
-    farmingType: 'Natural',
+    farmingType: 'Organic',
     status: 'ACTIVE',
-    rating: 3.0,
-    ratingTier: 'Good',
+    rating: 4.6,
+    ratingTier: 'Excellent',
     mobile: '+91 90000 20000',
     aadhaar: 'XXXX XXXX 4821',
     memberSince: '10 Jan 2026',
@@ -208,28 +235,64 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
   {
     id: 'fmr-00131',
     name: 'Selvi',
-    code: 'FMR-00131',
+    code: 'FR-00131',
     initials: 'S',
     farmName: 'Organic Tea & Veggies',
     location: 'Coonoor',
     farmingType: 'Organic',
     status: 'ACTIVE',
-    rating: 4.0,
+    rating: 4.3,
     ratingTier: 'Excellent',
     mobile: '+91 98765 43211',
     aadhaar: 'XXXX XXXX 1928',
     memberSince: '15 Feb 2026',
     subscription: 'Active · Paid',
-    kycVerifiedText: 'KYC Pending',
+    kycVerifiedText: 'KYC Verified',
+    hasExpiredCert: false,
+  },
+  {
+    id: 'fmr-00118',
+    name: 'Kumar',
+    code: 'FR-00118',
+    initials: 'K',
+    farmName: 'Ooty Hills Organic',
+    location: 'Ooty',
+    farmingType: 'Organic',
+    status: 'ACTIVE',
+    rating: 4.1,
+    ratingTier: 'Good',
+    mobile: '+91 98765 11800',
+    aadhaar: 'XXXX XXXX 7701',
+    memberSince: '05 Jan 2026',
+    subscription: 'Pending',
+    kycVerifiedText: 'KYC Verified',
+    hasExpiredCert: false,
+  },
+  {
+    id: 'fmr-00140',
+    name: 'Vijay Anand',
+    code: 'FR-00140',
+    initials: 'VA',
+    farmName: 'Wild Eden Organic Farms',
+    location: 'Ooty',
+    farmingType: 'Natural',
+    status: 'ACTIVE',
+    rating: 4.5,
+    ratingTier: 'Excellent',
+    mobile: '+91 98765 43210',
+    aadhaar: 'XXXX XXXX 7654',
+    memberSince: 'Mar 2025',
+    subscription: 'Active · Paid',
+    kycVerifiedText: 'KYC Verified',
     hasExpiredCert: false,
   },
   {
     id: 'fmr-00109',
     name: 'Revathi',
-    code: 'FMR-00109',
+    code: 'FR-00109',
     initials: 'R',
-    farmName: 'Ooty Hills Organic',
-    location: 'Ooty',
+    farmName: 'Kotagiri Tea Estate',
+    location: 'Kotagiri',
     farmingType: 'Organic',
     status: 'DISABLED',
     rating: 3.5,
@@ -241,83 +304,90 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     kycVerifiedText: 'KYC Verified',
     hasExpiredCert: false,
   },
-  {
-    id: 'fmr-00140',
-    name: 'Vijay Anand',
-    code: 'FMR-00140',
-    initials: 'VA',
-    farmName: 'Wild Eden Organic Farms',
-    location: 'Ooty',
-    farmingType: 'Organic',
-    status: 'ACTIVE',
-    rating: 4.5,
-    ratingTier: 'Excellent',
-    mobile: '+91 98765 43210',
-    aadhaar: 'XXXX XXXX 7654',
-    memberSince: 'Mar 2025',
-    subscription: 'Active · Paid',
-    kycVerifiedText: 'KYC Verified',
-    hasExpiredCert: false,
-  },
 ];
 
 export const DEMO_APPLICATIONS: ApplicationListItem[] = [
   {
     id: 'app-2026-0101',
-    name: 'Sathish Kumar Farm',
+    name: 'Sathish Kumar',
     applicantName: 'Sathish Kumar',
     code: 'APP-2026-0101',
     status: 'Pending',
     phone: '+91 99801 00100',
     address: 'Thottam Street, Ooty',
-    zone: 'Ooty, zone A',
+    zone: 'Ooty',
     farmingType: 'Natural',
     crops: 'Carrot, Cabbage',
     submittedDate: '05 Oct 2026',
-    kycStatus: 'KYC Pending',
-    docsCount: 'Docs 0/3',
-    landArea: '1.8 acres',
-    fmbSketch: 'Missing',
+    approvedDate: '10 Oct 2026',
+    kycStatus: 'Pending Verification',
+    farmSize: '2.0 acre',
+    soilType: 'Loam',
+    landArea: '2.0 acre',
+    fmbSketch: 'fmb-0101.pdf',
     reviewNotes: 'Waiting on document verification.',
     identityProofNumber: 'XXXX XXXX 4821',
     identityProofStatus: 'Pending',
   },
   {
-    id: 'app-2026-0105',
-    name: 'Hari Organic',
-    applicantName: 'Hari Organic',
-    code: 'APP-2026-0105',
-    status: 'Correction Required',
-    phone: '+91 99801 00105',
-    address: 'Green Valley, Coonoor',
-    zone: 'Coonoor, zone B',
+    id: 'app-001',
+    name: 'Nagaraj S',
+    applicantName: 'Nagaraj S',
+    code: 'APP-2026-089',
+    status: 'Pending',
+    phone: '+91 98765 12340',
+    address: 'Plot 45, Ketti Valley, Nilgiris',
+    zone: 'Coonoor',
     farmingType: 'Organic',
-    crops: 'Potato, Beetroot',
-    submittedDate: '29 Sep 2026',
-    kycStatus: 'KYC Pending',
-    docsCount: 'Docs 2/3',
-    landArea: '2.5 acres',
-    fmbSketch: 'Provided',
-    reviewNotes: 'Correction required in bank passbook.',
-    identityProofNumber: 'XXXX XXXX 3390',
+    crops: 'Carrot, Potato, Cabbage',
+    submittedDate: '12 Feb 2026',
+    kycStatus: 'Pending Verification',
+    farmSize: '2.5 acre',
+    soilType: 'Red Loam',
+    landArea: '2.5 acre',
+    fmbSketch: 'fmb-0089.pdf',
+    reviewNotes: 'Aadhaar submitted. Patta verification pending with VAO.',
+    identityProofNumber: 'XXXX XXXX 3341',
     identityProofStatus: 'Pending',
   },
   {
-    id: 'app-2026-0107',
-    name: 'Prakash Farmer',
-    applicantName: 'Prakash Farmer',
-    code: 'APP-2026-0107',
+    id: 'app-002',
+    name: 'Priya Dharshini',
+    applicantName: 'Priya Dharshini',
+    code: 'APP-2026-092',
+    status: 'Correction Required',
+    phone: '+91 98765 89012',
+    address: 'Hill View Farm, Lovedale, Ooty',
+    zone: 'Ooty',
+    farmingType: 'Natural',
+    crops: 'Broccoli, Lettuce, Strawberry',
+    submittedDate: '10 Feb 2026',
+    kycStatus: 'Needs Attention',
+    farmSize: '1.2 acre',
+    soilType: 'Black Clay',
+    landArea: '1.2 acre',
+    fmbSketch: 'fmb-0092.pdf',
+    reviewNotes: 'Bank passbook copy is blurred. Re-upload requested.',
+    identityProofNumber: 'XXXX XXXX 9902',
+    identityProofStatus: 'Pending',
+  },
+  {
+    id: 'app-003',
+    name: 'Murugan K',
+    applicantName: 'Murugan K',
+    code: 'APP-2026-101',
     status: 'Approved',
-    phone: '+91 99801 00107',
-    address: 'Hill Top, Kotagiri',
-    zone: 'Kotagiri, zone C',
-    farmingType: 'Organic',
-    crops: 'Broccoli, Lettuce',
-    submittedDate: '20 Sep 2026',
-    approvedDate: '10 Oct 2026',
-    kycStatus: 'KYC Verified',
-    docsCount: 'Docs 3/3',
-    landArea: '2.0 acre',
+    phone: '+91 98765 67890',
+    address: 'Solada Farm, Kotagiri Road',
+    zone: 'Kotagiri',
+    farmingType: 'Conventional',
+    crops: 'Tea, Pepper, Cardamom',
+    submittedDate: '01 Feb 2026',
+    approvedDate: '14 Feb 2026',
+    kycStatus: 'Fully Verified',
+    farmSize: '5.0 acre',
+    soilType: 'Forest Loam',
+    landArea: '5.0 acre',
     fmbSketch: 'fmb-0101.pdf',
     reviewNotes: 'All requirements met. Ready for approval.',
     identityProofNumber: 'XXXX XXXX 0000',
@@ -325,14 +395,24 @@ export const DEMO_APPLICATIONS: ApplicationListItem[] = [
   },
 ];
 
-interface Props {
+export interface AdminAllFarmersScreenProps {
   onBack?: () => void;
-  onSelectFarmer: (farmer: FarmerListItem) => void;
+  onSelectFarmer?: (farmer: FarmerListItem) => void;
   onReviewApplication?: (application: ApplicationListItem) => void;
-  onNavigateTab?: (tab: 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile') => void;
+  onNavigateTab?: (tab: 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More' | 'Dashboard' | 'Sales' | 'Reports' | 'Profile') => void;
   showBottomNav?: boolean;
   initialTab?: 'farmers' | 'applications';
+  can?: Can;
+  role?: string;
+  userScope?: {
+    zoneId?: string | undefined;
+    warehouseId?: string | undefined;
+  } | undefined;
+  onViewChange?: (view: 'list' | 'search_filter' | 'profile') => void;
+  onNavigateAuditHistory?: () => void;
 }
+
+type Props = AdminAllFarmersScreenProps;
 
 export const AdminAllFarmersScreen: React.FC<Props> = ({
   onBack,
@@ -341,10 +421,22 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
   onNavigateTab,
   showBottomNav = false,
   initialTab = 'farmers',
+  can,
+  role,
+  userScope,
+  onViewChange,
 }) => {
   const [activeMainTab, setActiveMainTab] = useState<'farmers' | 'applications'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('All');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('All');
+
+  // RBAC checks
+  const effectiveRole = role ?? 'TOHFA_ADMIN';
+  const canViewApplications = can
+    ? (can('farmer.application.view') || can('farmer.application.list_pending') || effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN')
+    : (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'FARMER_ADMIN' || effectiveRole === 'SUPER_ADMIN');
 
   React.useEffect(() => {
     if (initialTab) {
@@ -354,12 +446,23 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
 
   // Filtered farmers
   const filteredFarmers = DEMO_ALL_FARMERS.filter((f) => {
+    // Zone filter
+    if (selectedZoneFilter !== 'All' && f.location && f.location.toLowerCase() !== selectedZoneFilter.toLowerCase()) {
+      return false;
+    }
+    // Status filter
+    if (selectedStatusFilter !== 'All') {
+      if (selectedStatusFilter === 'Active' && f.status !== 'ACTIVE') return false;
+      if (selectedStatusFilter === 'Inactive' && f.status !== 'DISABLED') return false;
+      if (selectedStatusFilter === 'Pending' && f.subscription !== 'Pending') return false;
+    }
+    // Search query
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
       f.name.toLowerCase().includes(q) ||
-      f.code.toLowerCase().includes(q) ||
-      f.location.toLowerCase().includes(q) ||
+      (f.code && f.code.toLowerCase().includes(q)) ||
+      (f.location && f.location.toLowerCase().includes(q)) ||
       (f.farmingType && f.farmingType.toLowerCase().includes(q))
     );
   });
@@ -380,7 +483,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header Banner in Brand Orange #F0562A ─── */}
+      {/* ─── Header Banner in Brand Orange #F0562A (Image 1) ─── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           {onBack && (
@@ -396,15 +499,23 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
           )}
 
           <View style={styles.headerTitleBox}>
-            {activeMainTab === 'farmers' ? (
-              <FarmersManagementHeaderIcon />
-            ) : (
-              <FarmApplicationsHeaderIcon />
-            )}
-            <Text style={styles.headerTitle}>
-              {activeMainTab === 'farmers' ? 'Farmers Management' : 'Farm Applications'}
-            </Text>
+            <FarmersManagementHeaderIcon size={24} color={adminColors.onBrand} />
+            <View style={styles.headerTitleTextCol}>
+              <Text style={styles.headerTitle}>Farmers</Text>
+              <Text style={styles.headerSubtitle}>Farmer Community</Text>
+            </View>
           </View>
+
+          {/* Top-right Filter Icon Button */}
+          <TouchableOpacity
+            style={styles.headerFilterBtn}
+            onPress={() => setShowFilterModal(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Filter Farmers"
+          >
+            <FilterSlidersIcon size={18} color={adminColors.onBrand} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -413,144 +524,152 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── 4 Summary Metric Cards (using reusable OverviewDashboardCard) ─── */}
-        <OverviewCardsGrid style={{ marginBottom: adminSpacing.sm }}>
+        {/* ─── 4 Summary Metric Cards (Image 1) ─── */}
+        <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
           <OverviewDashboardCard
             value="245"
-            title="All Farmers"
+            title="ALL FARMERS"
             icon="users"
-            titlePosition="bottom"
+            titlePosition="top"
           />
           <OverviewDashboardCard
             value="221"
-            title="Active"
+            title="ACTIVE"
             icon="users"
             tone="success"
-            titlePosition="bottom"
+            titlePosition="top"
           />
           <OverviewDashboardCard
             value="12"
-            title="Pending Approval"
+            title="PENDING APPLICATION"
             icon="clipboard"
             tone="warning"
-            titlePosition="bottom"
+            titlePosition="top"
+            onPress={() => {
+              if (canViewApplications) {
+                setActiveMainTab('applications');
+              }
+            }}
           />
           <OverviewDashboardCard
             value="12"
-            title="Inactive"
+            title="INACTIVE"
             icon="alert"
-            titlePosition="bottom"
+            titlePosition="top"
           />
         </OverviewCardsGrid>
 
-        {/* ─── Tab Switcher: [Farmers] | [Applications] ─── */}
-        <View style={styles.tabToggleContainer}>
-          <TouchableOpacity
-            style={[
-              styles.tabToggleButton,
-              activeMainTab === 'farmers' && styles.tabToggleButtonActive,
-            ]}
-            onPress={() => setActiveMainTab('farmers')}
-            activeOpacity={0.8}
-          >
-            <Text
+        {/* ─── Tab Switcher: [Farmers] | [Applications] (RBAC-aware: only if allowed) ─── */}
+        {canViewApplications && (
+          <View style={styles.tabToggleContainer}>
+            <TouchableOpacity
               style={[
-                styles.tabToggleText,
-                activeMainTab === 'farmers' && styles.tabToggleTextActive,
+                styles.tabToggleButton,
+                activeMainTab === 'farmers' && styles.tabToggleButtonActive,
               ]}
+              onPress={() => setActiveMainTab('farmers')}
+              activeOpacity={0.8}
             >
-              Farmers
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.tabToggleText,
+                  activeMainTab === 'farmers' && styles.tabToggleTextActive,
+                ]}
+              >
+                Farmers
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.tabToggleButton,
-              activeMainTab === 'applications' && styles.tabToggleButtonActive,
-            ]}
-            onPress={() => setActiveMainTab('applications')}
-            activeOpacity={0.8}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.tabToggleText,
-                activeMainTab === 'applications' && styles.tabToggleTextActive,
+                styles.tabToggleButton,
+                activeMainTab === 'applications' && styles.tabToggleButtonActive,
               ]}
+              onPress={() => setActiveMainTab('applications')}
+              activeOpacity={0.8}
             >
-              Applications
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  styles.tabToggleText,
+                  activeMainTab === 'applications' && styles.tabToggleTextActive,
+                ]}
+              >
+                Applications
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {/* ─── Search Bar with Filter Icon ─── */}
+        {/* ─── Search Bar (Image 1: "Search by Farmer ID, name or zone") ─── */}
         <View style={styles.searchBarRow}>
           <View style={styles.searchInputBox}>
             <SearchMagnifierIcon />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search common or scientific name"
+              placeholder="Search by Farmer ID, name or zone"
               placeholderTextColor={adminColors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
-
-          <TouchableOpacity
-            style={styles.filterBtn}
-            onPress={() => setShowFilterModal(true)}
-            activeOpacity={0.7}
-          >
-            <FilterSlidersIcon />
-          </TouchableOpacity>
         </View>
 
-        {/* ─── Content for FARMERS tab ─── */}
+        {/* ─── Content for FARMERS tab (Matching Image 1) ─── */}
         {activeMainTab === 'farmers' && (
           <View style={styles.tabContentSection}>
-            <Text style={styles.countText}>24 of 24 farmers</Text>
-
             <View style={styles.cardsList}>
               {filteredFarmers.map((farmer) => {
-                const isActive = farmer.status === 'ACTIVE';
+                const isActive = farmer.status === 'ACTIVE' && farmer.subscription !== 'Pending';
                 return (
                   <TouchableOpacity
                     key={farmer.id}
                     style={styles.farmerCard}
                     activeOpacity={0.8}
-                    onPress={() => onSelectFarmer(farmer)}
+                    onPress={() => {
+                      onViewChange?.('profile');
+                      onSelectFarmer?.(farmer);
+                    }}
                   >
-                    <View style={styles.cardHeaderRow}>
-                      <Text style={styles.cardName}>{farmer.name}</Text>
-                      <View
-                        style={[
-                          styles.statusBadge,
-                          isActive ? styles.statusBadgeActive : styles.statusBadgeInactive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusBadgeText,
-                            isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive,
-                          ]}
-                        >
-                          {isActive ? 'Active' : 'Inactive'}
+                    {/* Top Row: Avatar + Name + ID/Zone */}
+                    <View style={styles.cardTopRow}>
+                      <View style={styles.cardAvatarCircle}>
+                        <FarmerAvatarSilhouetteIcon size={20} color={adminColors.brand} />
+                      </View>
+                      <View style={styles.cardIdentityCol}>
+                        <Text style={styles.cardFarmerName}>{farmer.name}</Text>
+                        <Text style={styles.cardFarmerCodeZone}>
+                          {farmer.code} · {farmer.location}
                         </Text>
                       </View>
                     </View>
 
-                    <Text style={styles.cardSubText}>
-                      {farmer.code} · {farmer.location} · {farmer.farmingType ?? 'Natural'}
-                    </Text>
+                    {/* Divider */}
+                    <View style={styles.cardDivider} />
 
-                    <Text style={styles.cardDetailText}>
-                      {farmer.kycVerifiedText ?? 'KYC Verified'} · ★ {farmer.rating?.toFixed(1) ?? '3.0'}
-                    </Text>
-
-                    {farmer.hasExpiredCert && (
-                      <View style={styles.expiredBadge}>
-                        <Text style={styles.expiredBadgeText}>Certification expired</Text>
+                    {/* Bottom Stats Row: Farming | Rating | Status */}
+                    <View style={styles.cardStatsRow}>
+                      <View style={styles.cardStatCol}>
+                        <Text style={styles.cardStatLabel}>Farming</Text>
+                        <Text style={styles.cardStatValue}>{farmer.farmingType ?? 'Organic'}</Text>
                       </View>
-                    )}
+                      <View style={styles.cardStatCol}>
+                        <Text style={styles.cardStatLabel}>Rating</Text>
+                        <Text style={styles.cardStatValue}>
+                          {farmer.rating != null ? (typeof farmer.rating === 'number' ? `${farmer.rating.toFixed(1)} ★` : `${farmer.rating}`) : '4.6 ★'}
+                        </Text>
+                      </View>
+                      <View style={styles.cardStatCol}>
+                        <Text style={styles.cardStatLabel}>Status</Text>
+                        <Text
+                          style={[
+                            styles.cardStatValue,
+                            isActive ? styles.statusActiveText : styles.statusPendingText,
+                          ]}
+                        >
+                          {isActive ? 'Active' : 'Pending'}
+                        </Text>
+                      </View>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -561,13 +680,12 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
         {/* ─── Content for APPLICATIONS tab ─── */}
         {activeMainTab === 'applications' && (
           <View style={styles.tabContentSection}>
-            <Text style={styles.countText}>8 application</Text>
+            <Text style={styles.countText}>{filteredApplications.length} applications</Text>
 
             <View style={styles.cardsList}>
               {filteredApplications.map((app) => {
                 const isPending = app.status === 'Pending';
                 const isCorrection = app.status === 'Correction Required';
-                const isApproved = app.status === 'Approved';
 
                 return (
                   <TouchableOpacity
@@ -604,47 +722,30 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
                     </View>
 
                     <Text style={styles.cardSubText}>
-                      {app.code} · {app.phone} · {app.farmingType}
+                      {app.code} · {app.zone} · {app.crops}
                     </Text>
 
                     <Text style={styles.cardDetailText}>
-                      Submitted {app.submittedDate} · {app.kycStatus} · {app.docsCount}
+                      Submitted {app.submittedDate} · {app.kycStatus}
                     </Text>
-
-                    {!isApproved && (
-                      <TouchableOpacity
-                        style={styles.reviewAppBtn}
-                        onPress={() => onReviewApplication?.(app)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.reviewAppBtnText}>Review Application</Text>
-                      </TouchableOpacity>
-                    )}
                   </TouchableOpacity>
                 );
               })}
             </View>
           </View>
         )}
-
-        <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
 
-      {/* ─── Optional Standalone Bottom Navigation Bar ─── */}
+      {/* ─── Bottom Navigation Bar (Image 1: Home, Farmers, Produce, Audits, More) ─── */}
       {showBottomNav && (
-        <View style={styles.bottomNav}>
+        <View style={styles.bottomNavContainer}>
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => onNavigateTab?.('Dashboard')}
+            onPress={() => onNavigateTab?.('Home')}
             activeOpacity={0.7}
           >
             <NavHomeIcon />
             <Text style={styles.navTabLabel}>Home</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navTabItem} activeOpacity={0.7}>
-            <NavWorkQueueIcon />
-            <Text style={styles.navTabLabel}>Work Queue</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -652,42 +753,97 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             onPress={() => onNavigateTab?.('Farmers')}
             activeOpacity={0.7}
           >
-            <NavOperationsIcon />
-            <Text style={styles.navTabLabel}>Operations</Text>
+            <NavFarmersIcon />
+            <Text style={[styles.navTabLabel, styles.navTabLabelActive]}>Farmers</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => onNavigateTab?.('Sales')}
+            onPress={() => onNavigateTab?.('Produce')}
             activeOpacity={0.7}
           >
-            <NavFinanceIcon />
-            <Text style={styles.navTabLabel}>Finance</Text>
+            <NavProduceIcon />
+            <Text style={styles.navTabLabel}>Produce</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.navTabItem}
-            onPress={() => onNavigateTab?.('Profile')}
+            onPress={() => onNavigateTab?.('Audits')}
+            activeOpacity={0.7}
+          >
+            <NavAuditsIcon />
+            <Text style={styles.navTabLabel}>Audits</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.navTabItem}
+            onPress={() => onNavigateTab?.('More')}
             activeOpacity={0.7}
           >
             <NavMoreIcon />
-            <Text style={[styles.navTabLabel, styles.navTabLabelActive]}>More</Text>
+            <Text style={styles.navTabLabel}>More</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Filter Modal */}
+      {/* ─── Filter Modal ─── */}
       <Modal visible={showFilterModal} transparent animationType="fade">
         <View style={styles.filterModalOverlay}>
           <View style={styles.filterModalCard}>
-            <Text style={styles.filterModalTitle}>Filter Options</Text>
-            <Text style={styles.filterModalBody}>Filter by zone, farming method, KYC state, or compliance tier.</Text>
+            <Text style={styles.filterModalTitle}>Filter Farmers</Text>
+            
+            <Text style={styles.filterSectionLabel}>Zone</Text>
+            <View style={styles.filterChipRow}>
+              {['All', 'Coonoor', 'Ooty', 'Kotagiri'].map((zone) => (
+                <TouchableOpacity
+                  key={zone}
+                  style={[
+                    styles.filterChip,
+                    selectedZoneFilter === zone && styles.filterChipActive,
+                  ]}
+                  onPress={() => setSelectedZoneFilter(zone)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      selectedZoneFilter === zone && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {zone}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.filterSectionLabel}>Status</Text>
+            <View style={styles.filterChipRow}>
+              {['All', 'Active', 'Pending', 'Inactive'].map((status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filterChip,
+                    selectedStatusFilter === status && styles.filterChipActive,
+                  ]}
+                  onPress={() => setSelectedStatusFilter(status)}
+                >
+                  <Text
+                    style={[
+                      styles.filterChipText,
+                      selectedStatusFilter === status && styles.filterChipTextActive,
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
             <TouchableOpacity
               style={styles.filterModalCloseBtn}
               onPress={() => setShowFilterModal(false)}
               activeOpacity={0.8}
             >
-              <Text style={styles.filterModalCloseBtnText}>Done</Text>
+              <Text style={styles.filterModalCloseBtnText}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -706,28 +862,46 @@ const styles = StyleSheet.create({
   headerBanner: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: 6,
-    paddingBottom: adminSpacing.sm,
+    paddingTop: 8,
+    paddingBottom: adminSpacing.md,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.sm,
+    justifyContent: 'space-between',
   },
   backButton: {
-    padding: 4,
-    marginRight: 4,
+    padding: 6,
+    marginRight: 6,
   },
   headerTitleBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.sm,
+    flex: 1,
+  },
+  headerTitleTextCol: {
+    marginLeft: 12,
   },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
+    lineHeight: 24,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginTop: 1,
+  },
+  headerFilterBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scroll: {
     flex: 1,
@@ -737,35 +911,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.md,
     paddingBottom: adminSpacing.xxxl,
-  },
-  metricsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: adminSpacing.sm,
-    marginBottom: adminSpacing.md,
-  },
-  metricCard: {
-    flex: 1,
-    minWidth: '46%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-  },
-  metricLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: adminColors.muted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  metricValue: {
-    fontSize: 22,
-    fontWeight: '800',
   },
   tabToggleContainer: {
     flexDirection: 'row',
@@ -796,7 +941,6 @@ const styles = StyleSheet.create({
   searchBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.sm,
     marginBottom: adminSpacing.md,
   },
   searchInputBox: {
@@ -806,7 +950,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: 9,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: adminColors.border,
     gap: adminSpacing.sm,
@@ -818,16 +962,6 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     padding: 0,
   },
-  filterBtn: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-  },
   tabContentSection: {},
   countText: {
     fontSize: 11,
@@ -836,15 +970,72 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.sm,
   },
   cardsList: {
-    gap: adminSpacing.sm,
+    gap: adminSpacing.md,
   },
   farmerCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
+    borderRadius: 16,
     padding: adminSpacing.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     ...adminShadow.sm,
+  },
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEEAE3',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  cardIdentityCol: {
+    flex: 1,
+  },
+  cardFarmerName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  cardFarmerCodeZone: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: adminSpacing.md,
+  },
+  cardStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardStatCol: {
+    flex: 1,
+  },
+  cardStatLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  cardStatValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  statusActiveText: {
+    color: '#16A34A',
+  },
+  statusPendingText: {
+    color: '#D97706',
   },
   applicationCard: {
     backgroundColor: adminColors.card,
@@ -907,7 +1098,7 @@ const styles = StyleSheet.create({
     color: '#757575',
   },
   statusBadgeTextPending: {
-    color: '#D97706',
+    color: '#E65100',
   },
   statusBadgeTextCorrection: {
     color: '#1565C0',
@@ -915,54 +1106,27 @@ const styles = StyleSheet.create({
   statusBadgeTextApproved: {
     color: '#2E7D32',
   },
-  expiredBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFEBEE',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: adminRadius.full,
-    marginTop: 2,
-  },
-  expiredBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#D32F2F',
-  },
-  reviewAppBtn: {
-    marginTop: adminSpacing.md,
-    backgroundColor: adminColors.card,
-    borderWidth: 1.2,
-    borderColor: adminColors.brand,
-    borderRadius: adminRadius.md,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reviewAppBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.brand,
-  },
-  bottomNav: {
+  bottomNavContainer: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 10,
     backgroundColor: adminColors.card,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
-    paddingTop: 8,
-    paddingBottom: 10,
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    ...adminShadow.md,
   },
   navTabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    gap: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
   },
   navTabLabel: {
     fontSize: 10,
     fontWeight: '600',
     color: adminColors.muted,
+    marginTop: 4,
   },
   navTabLabelActive: {
     color: adminColors.brand,
@@ -970,37 +1134,75 @@ const styles = StyleSheet.create({
   },
   filterModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.45)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: adminSpacing.xl,
+    padding: adminSpacing.lg,
   },
   filterModalCard: {
+    width: '100%',
+    maxWidth: 340,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     padding: adminSpacing.xl,
-    width: '100%',
-    maxWidth: 340,
-    gap: adminSpacing.md,
+    ...adminShadow.lg,
   },
   filterModalTitle: {
-    ...adminType.sectionHead,
-    fontSize: 16,
+    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
+  },
+  filterSectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: adminSpacing.sm,
+    marginBottom: 6,
+  },
+  filterChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: adminSpacing.sm,
+  },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  filterChipActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: adminColors.ink,
   },
-  filterModalBody: {
-    ...adminType.body,
-    fontSize: 13,
-    color: adminColors.muted,
+  filterChipTextActive: {
+    color: adminColors.onBrand,
   },
   filterModalCloseBtn: {
     backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,
-    paddingVertical: 10,
+    paddingVertical: 11,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.lg,
   },
   filterModalCloseBtnText: {
     color: adminColors.onBrand,
+    fontSize: 14,
     fontWeight: '700',
   },
 });
+
+export default AdminAllFarmersScreen;
+
+export { AdminFarmMapScreen } from './AdminFarmMapScreen';
+export { AdminRatingScorecardScreen } from './AdminRatingScorecardScreen';

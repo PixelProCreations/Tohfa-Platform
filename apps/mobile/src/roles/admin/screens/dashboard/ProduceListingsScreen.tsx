@@ -200,6 +200,10 @@ export interface ProduceListingsScreenProps {
   onBack: () => void;
   initialFilter?: 'all' | 'pending' | 'counter';
   onSelectListing?: (item: ListingCardItem) => void;
+  role?: string;
+  completedProduceNames?: string[];
+  onSelectFarmerDetails?: (group: any, item: any) => void;
+  onSelectFarmerProduce?: (group: any, item: any) => void;
 }
 
 export function ProduceListingsScreen({

@@ -393,6 +393,7 @@ export type FairPriceItem = FairPriceCeilingRecord;
 
 export interface FairPriceCeilingScreenProps {
   onBack: () => void;
+  role?: string | undefined;
   onNavigateToRetailPricing?: (() => void) | undefined;
   onNavigateToBreakdown?: ((item?: any) => void) | undefined;
   onNavigateToHistory?: ((item?: any) => void) | undefined;

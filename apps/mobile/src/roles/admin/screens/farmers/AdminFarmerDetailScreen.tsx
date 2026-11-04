@@ -25,6 +25,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { type Can } from '../../permissions/can';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
 
@@ -112,6 +113,12 @@ export const DEFAULT_CATEGORY_RATINGS: CategoryRating[] = [
 export interface AdminFarmerDetailScreenProps {
   farmer: FarmerListItem;
   onBack: () => void;
+  can?: Can;
+  role?: string;
+  userScope?: {
+    zoneId?: string | undefined;
+    warehouseId?: string | undefined;
+  } | undefined;
   onEdit?: (currentTab: FarmerDetailTabType) => void;
   onDisable?: () => void;
   onOpenFarmMap?: () => void;
@@ -119,6 +126,7 @@ export interface AdminFarmerDetailScreenProps {
   onOpenRatingScorecard?: () => void;
   initialTab?: FarmerDetailTabType;
   onTabChange?: (tab: FarmerDetailTabType) => void;
+  onNavigateAuditHistory?: () => void;
 }
 
 type Props = AdminFarmerDetailScreenProps;
@@ -126,6 +134,9 @@ type Props = AdminFarmerDetailScreenProps;
 export const AdminFarmerDetailScreen: React.FC<Props> = ({
   farmer,
   onBack,
+  can,
+  role,
+  userScope,
   onEdit,
   onDisable,
   onOpenFarmMap,
@@ -140,10 +151,15 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     return tab;
   };
 
+  const [currentFarmer, setCurrentFarmer] = useState<FarmerListItem>(farmer);
   const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(normalizeTab(initialTab));
   const [accountStatus, setAccountStatus] = useState<'Active' | 'Inactive' | 'Disabled' | 'Terminated'>(
     farmer.status === 'DISABLED' ? 'Disabled' : 'Active'
   );
+
+  useEffect(() => {
+    setCurrentFarmer(farmer);
+  }, [farmer]);
 
   // Edit Farm Rating & Profile states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -152,6 +168,13 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   const [expandedCategory, setExpandedCategory] = useState<string | null>('cert');
 
   const totalRatingScore = categoryRatings.reduce((sum, item) => sum + item.score, 0);
+
+  // RBAC: Edit access in Farmer Management is STRICTLY for Tohfa Admin only.
+  // Other admins (Farmer Admin, Main WH Admin, Sub WH Admin) have NO edit access.
+  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
+  const canEditProfile = isTohfaAdmin;
+  const canEditRating = isTohfaAdmin;
+  const canDisableAccount = isTohfaAdmin;
 
   useEffect(() => {
     setActiveTab(normalizeTab(initialTab));
@@ -306,9 +329,12 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   if (isEditingProfile) {
     return (
       <AdminEditFarmerScreen
-        farmer={farmer}
+        farmer={currentFarmer}
         onBack={() => setIsEditingProfile(false)}
-        onSave={() => {
+        onSave={(updatedFarmer) => {
+          if (updatedFarmer) {
+            setCurrentFarmer(updatedFarmer);
+          }
           setIsEditingProfile(false);
         }}
       />
@@ -351,7 +377,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
               <View style={styles.profileDetailsCol}>
                 <View style={styles.nameBadgeRow}>
-                  <Text style={styles.farmerName}>{farmer.name || 'Ramesh Kumar'}</Text>
+                  <Text style={styles.farmerName}>{currentFarmer.name || 'Ramesh Kumar'}</Text>
                   <View
                     style={[
                       styles.activePill,
@@ -372,7 +398,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 </View>
 
                 <Text style={styles.farmerIdPhone}>
-                  {farmer.code || 'FMR-00124'} · {farmer.mobile || '+91 90000 20000'}
+                  {farmer.code || 'FMR-00124'} · {currentFarmer.mobile || '+91 90000 20000'}
                 </Text>
               </View>
             </View>
@@ -526,30 +552,31 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <BackArrowWhiteIcon />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Farmer Profile</Text>
-          <TouchableOpacity
-            style={[styles.backButton, { marginLeft: 'auto' }]}
-            onPress={() => setIsEditingProfile(true)}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Edit Farmer Profile"
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+          {canEditProfile && (
+            <TouchableOpacity
+              style={styles.headerEditCircleButton}
+              onPress={() => {
+                if (onEdit) {
+                  onEdit(activeTab);
+                } else {
+                  setIsEditingProfile(true);
+                }
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Farmer Profile"
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+                  stroke={adminColors.onBrand}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -567,7 +594,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
             <View style={styles.profileDetailsCol}>
               <View style={styles.nameBadgeRow}>
-                <Text style={styles.farmerName}>{farmer.name || 'Ramesh Kumar'}</Text>
+                <Text style={styles.farmerName}>{currentFarmer.name || 'Ramesh Kumar'}</Text>
                 <View
                   style={[
                     styles.activePill,
@@ -588,7 +615,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               </View>
 
               <Text style={styles.farmerIdPhone}>
-                {farmer.code || 'FMR-00124'} · {farmer.mobile || '+91 90000 20000'}
+                {farmer.code || 'FMR-00124'} · {currentFarmer.mobile || '+91 90000 20000'}
               </Text>
             </View>
           </View>
@@ -699,7 +726,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.detailsCard}>
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Name</Text>
-                <Text style={styles.tableValue}>{farmer.name || 'Ramesh Kumar'}</Text>
+                <Text style={styles.tableValue}>{currentFarmer.name || 'Ramesh Kumar'}</Text>
               </View>
 
               <View style={styles.tableRow}>
@@ -709,7 +736,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Phone</Text>
-                <Text style={styles.tableValue}>{farmer.mobile || '+91 90000 20000'}</Text>
+                <Text style={styles.tableValue}>{currentFarmer.mobile || '+91 90000 20000'}</Text>
               </View>
 
               <View style={styles.tableRow}>
@@ -719,7 +746,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Zone</Text>
-                <Text style={styles.tableValue}>{farmer.location || 'Coonoor'}</Text>
+                <Text style={styles.tableValue}>{currentFarmer.location || 'Coonoor'}</Text>
               </View>
 
               <View style={styles.tableRow}>
@@ -746,7 +773,8 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             </View>
 
             {/* Action Buttons Row */}
-            <View style={styles.actionButtonsRow}>
+            {canDisableAccount && (
+              <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 style={styles.deactivateBtn}
                 onPress={handleOpenDeactivateModal}
@@ -763,6 +791,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 <Text style={styles.terminateBtnText}>Disable Account</Text>
               </TouchableOpacity>
             </View>
+            )}
           </>
         )}
 
@@ -1081,7 +1110,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
       </ScrollView>
 
       {/* ─── Sticky Bottom Action Bar: Edit Rating (Only in Ratings tab - Image 2) ─── */}
-      {activeTab === 'Ratings' && (
+      {activeTab === 'Ratings' && canEditRating && (
         <View style={styles.ratingsBottomBar}>
           <TouchableOpacity
             style={styles.editRatingBottomBtn}
@@ -1134,7 +1163,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.summaryTableCard}>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Name</Text>
-                <Text style={styles.summaryTableValue}>{farmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
+                <Text style={styles.summaryTableValue}>{currentFarmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
               </View>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Action</Text>
@@ -1215,7 +1244,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.summaryTableCard}>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Name</Text>
-                <Text style={styles.summaryTableValue}>{farmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
+                <Text style={styles.summaryTableValue}>{currentFarmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
               </View>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Action</Text>
@@ -1488,6 +1517,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: adminSpacing.sm,
+  },
+  headerEditCircleButton: {
+    marginLeft: 'auto',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   backButton: {
     padding: 4,

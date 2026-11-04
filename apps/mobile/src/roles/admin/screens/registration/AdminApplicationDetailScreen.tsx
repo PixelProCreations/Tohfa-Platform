@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -46,9 +46,12 @@ function DocumentPdfIcon({ size = 38, color = '#6E6258' }: { size?: number; colo
 interface Props {
   application?: any;
   onBack: () => void;
-  onApprove?: () => void;
+  onApprove?: (updatedApp?: any) => void;
   onReject?: () => void;
   onRequestMoreInfo?: () => void;
+  can?: (code: string) => boolean;
+  role?: string;
+  userRole?: string;
 }
 
 export const AdminApplicationDetailScreen: React.FC<Props> = ({
@@ -57,7 +60,21 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
   onApprove,
   onReject,
   onRequestMoreInfo,
+  can,
+  role,
+  userRole,
 }) => {
+  const effectiveRole = role ?? userRole ?? 'TOHFA_ADMIN';
+  // RBAC checks based on docs/rbac.json:
+  // farmer.application.approve: TOHFA_ADMIN: all, SUPER_ADMIN: all, FARMER_ADMIN: view, MAIN_WH_ADMIN: none, SUB_WH_ADMIN: none
+  // farmer.application.reject: TOHFA_ADMIN: all, SUPER_ADMIN: all, FARMER_ADMIN: none, MAIN_WH_ADMIN: none, SUB_WH_ADMIN: none
+  const canApprove =
+    (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN') &&
+    (can ? can('farmer.application.approve') : true);
+  const canReject =
+    (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN') &&
+    (can ? can('farmer.application.reject') : true);
+
   const initialStatus = application.status ?? 'Pending';
   const isInitiallyApproved = initialStatus === 'Approved';
 
@@ -72,7 +89,17 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
       : 'Waiting on document verification.'
   );
   const [showPreviewModal, setShowPreviewModal] = useState<boolean>(false);
-  const [bottomActionView, setBottomActionView] = useState<'scheduleAudit' | 'decision'>('scheduleAudit');
+
+  useEffect(() => {
+    if (application.status === 'Approved') {
+      setCurrentStatus('Approved');
+      setDocVerified(true);
+      setFmbMissing(false);
+      setReviewNotes('All requirements met. Ready for approval.');
+    } else if (application.status === 'Pending') {
+      setCurrentStatus('Pending');
+    }
+  }, [application.status]);
 
   const applicantName = application.applicantName ?? application.name ?? 'Sathish Kumar';
   const appCode = application.code ?? 'APP-2026-0101';
@@ -85,65 +112,53 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
 
   const handleMarkVerified = () => {
     setDocVerified(true);
+    setFmbMissing(false);
+    setReviewNotes('All requirements met. Ready for approval.');
     setShowPreviewModal(false);
-    Alert.alert('Document Verified', 'Identity proof has been marked as verified.');
+    Alert.alert('Document Verified', 'Identity proof and FMB requirements marked as verified.');
   };
 
   const handleSaveProgress = () => {
     Alert.alert('Progress Saved', 'Review notes and verification progress saved successfully.');
   };
 
-  const handleScheduleAudit = () => {
-    Alert.alert(
-      'Schedule Audit',
-      'Audit has been scheduled for Sathish Kumar Farm. Ready to review decision.',
-      [
-        {
-          text: 'Proceed to Decision',
-          onPress: () => setBottomActionView('decision'),
-        },
-        {
-          text: 'OK',
-          onPress: () => setBottomActionView('decision'),
-        },
-      ]
-    );
+  const performApproval = () => {
+    setDocVerified(true);
+    setFmbMissing(false);
+    setReviewNotes('All requirements met. Ready for approval.');
+    setCurrentStatus('Approved');
+
+    const updatedApp = {
+      ...application,
+      status: 'Approved',
+      approvedDate: '10 Oct 2026',
+      reviewNotes: 'All requirements met. Ready for approval.',
+    };
+
+    onApprove?.(updatedApp);
   };
 
   const handleApprove = () => {
-    if (isBlocked) {
+    if (!canApprove) {
       Alert.alert(
-        'Approval Blocked',
-        'Identity proof is unverified or the FMB sketch is missing. Would you like to mark all requirements verified and approve?',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Verify & Approve',
-            onPress: () => {
-              setDocVerified(true);
-              setFmbMissing(false);
-              setReviewNotes('All requirements met. Ready for approval.');
-              setCurrentStatus('Approved');
-              onApprove?.();
-            },
-          },
-        ]
+        'Permission Denied',
+        `Your role (${effectiveRole.replace('_', ' ')}) has view-only rights. Approval requires Tohfa Admin authority.`
       );
       return;
     }
 
-    setCurrentStatus('Approved');
-    Alert.alert('Application Approved', `${applicantName}'s application has been approved.`, [
-      {
-        text: 'OK',
-        onPress: () => {
-          onApprove?.();
-        },
-      },
-    ]);
+    performApproval();
   };
 
   const handleReject = () => {
+    if (!canReject) {
+      Alert.alert(
+        'Permission Denied',
+        `Your role (${effectiveRole.replace('_', ' ')}) cannot reject applications.`
+      );
+      return;
+    }
+
     Alert.alert(
       'Reject Application',
       `Are you sure you want to reject ${applicantName}'s application?`,
@@ -506,34 +521,49 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
           </View>
         )}
 
+        {isApproved && (
+          <Text style={styles.screenCaption}>
+            M3-S03b · Application Review (Approved states)
+          </Text>
+        )}
+
         <View style={{ height: adminSpacing.xxxl }} />
       </ScrollView>
 
       {/* ─── Sticky Bottom Action Bar (Pending State) ─── */}
       {!isApproved && (
         <View style={styles.bottomActionBar}>
-          {bottomActionView === 'scheduleAudit' ? (
-            <TouchableOpacity
-              style={styles.scheduleAuditBtn}
-              onPress={handleScheduleAudit}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.scheduleAuditBtnText}>Schedule Audit</Text>
-            </TouchableOpacity>
-          ) : (
+          {canApprove ? (
             <>
               <TouchableOpacity
-                style={[styles.approveBtn, isBlocked ? styles.approveBtnDisabled : styles.approveBtnEnabled]}
+                style={[
+                  styles.approveBtn,
+                  isBlocked ? styles.approveBtnDisabled : styles.approveBtnEnabled,
+                ]}
                 onPress={handleApprove}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Approve Application"
               >
                 <Text style={styles.approveBtnText}>Approve</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.rejectBtn} onPress={handleReject} activeOpacity={0.8}>
+              <TouchableOpacity
+                style={styles.rejectBtn}
+                onPress={handleReject}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Reject Application"
+              >
                 <Text style={styles.rejectBtnText}>Reject</Text>
               </TouchableOpacity>
             </>
+          ) : (
+            <View style={styles.readOnlyNoticeBox}>
+              <Text style={styles.readOnlyNoticeText}>
+                Read-only review mode ({effectiveRole.replace('_', ' ')}). Application approval requires Tohfa Admin authority.
+              </Text>
+            </View>
           )}
         </View>
       )}
@@ -973,6 +1003,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#D32F2F',
   },
+  readOnlyNoticeBox: {
+    flex: 1,
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    borderRadius: adminRadius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readOnlyNoticeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#B78103',
+    textAlign: 'center',
+  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.48)',
@@ -1098,5 +1145,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: adminColors.ink,
+  },
+  screenCaption: {
+    fontSize: 11,
+    color: '#8A8178',
+    textAlign: 'center',
+    marginTop: adminSpacing.xl,
+    fontWeight: '500',
   },
 });

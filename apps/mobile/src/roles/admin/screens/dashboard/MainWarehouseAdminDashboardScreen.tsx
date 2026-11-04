@@ -28,6 +28,13 @@ import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
+import {
+  AdminAllFarmersScreen,
+  type FarmerListItem,
+} from '../farmers/AdminAllFarmersScreen';
+import { AdminFarmerDetailScreen } from '../farmers/AdminFarmerDetailScreen';
+import { AdminFarmMapScreen } from '../farmers/AdminFarmMapScreen';
+import { AdminRatingScorecardScreen } from '../farmers/AdminRatingScorecardScreen';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import { FinanceFlow } from '../warehouse/finance-expenses';
 import { ReportsScreen } from '../warehouse/reports';
@@ -176,9 +183,21 @@ type WarehouseSubView =
   // Module 7: Customers (the shared CustomersFlow owns its own sub-screens, W4)
   | 'customers_list'
   // Module 9: Billing & Invoices (the shared BillingFlow owns its own sub-screens, W4)
-  | 'billing_invoices';
+  | 'billing_invoices'
+  | 'farm_management';
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
+
+function Users4Icon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M23 21v-2a4 4 0 00-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 3.13a4 4 0 010 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide LayoutDashboard (exact match to design top-left greeting icon)
@@ -744,7 +763,7 @@ const INVENTORY_ENTRY = {
  * MainWarehouseMoreScreen rendered these itself as local fallbacks; the shared
  * MoreScreen is role-neutral, so this shell supplies them via onNavigateTo*.
  */
-type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings';
+type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings' | 'farm_management';
 
 const MAIN_HOME_KPIS: Record<string, {
   totalStock: string;
@@ -821,6 +840,8 @@ export function MainWarehouseAdminDashboardScreen({
   const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
   const [returnToMoreSubScreen, setReturnToMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(initialMoreSubScreen || null);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'map' | 'scorecard' | null>(null);
   const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string | undefined>(
     initialInventoryScreen || 'M3S01'
   );
@@ -2435,6 +2456,21 @@ export function MainWarehouseAdminDashboardScreen({
                   <BuildingWarehouseIcon size={26} color={PALETTE.primary} />
                   <Text style={styles.quickActionLabel}>Manage Warehouses</Text>
                 </TouchableOpacity>
+
+                {/* 3. Farmers Management */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => {
+                    setSelectedFarmer(null);
+                    setFarmerSubScreen(null);
+                    setMoreSubScreen('farm_management');
+                    setActiveTab('More');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Users4Icon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Farmers</Text>
+                </TouchableOpacity>
               </View>
 
               <View style={{ height: 16 }} />
@@ -2520,7 +2556,37 @@ export function MainWarehouseAdminDashboardScreen({
 
         {/* ─── More Tab ─── */}
         {activeTab === 'More' && whSubView === 'overview' && moreSubScreen !== null && (
-          moreSubScreen === 'wallet' ? (
+          moreSubScreen === 'farm_management' ? (
+            farmerSubScreen === 'map' && selectedFarmer ? (
+              <AdminFarmMapScreen
+                farmer={selectedFarmer}
+                onBack={() => setFarmerSubScreen(null)}
+              />
+            ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
+              <AdminRatingScorecardScreen
+                farmer={selectedFarmer}
+                onBack={() => setFarmerSubScreen(null)}
+                onOpenComplianceTiers={() => {}}
+              />
+            ) : selectedFarmer ? (
+              <AdminFarmerDetailScreen
+                farmer={selectedFarmer}
+                can={can}
+                role="MAIN_WH_ADMIN"
+                onBack={() => setSelectedFarmer(null)}
+                onOpenFarmMap={() => setFarmerSubScreen('map')}
+                onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+              />
+            ) : (
+              <AdminAllFarmersScreen
+                showBottomNav={false}
+                can={can}
+                role="MAIN_WH_ADMIN"
+                onBack={() => setMoreSubScreen(null)}
+                onSelectFarmer={(f) => setSelectedFarmer(f)}
+              />
+            )
+          ) : moreSubScreen === 'wallet' ? (
             <WalletFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
@@ -2638,6 +2704,11 @@ export function MainWarehouseAdminDashboardScreen({
             onNavigateToSales={() => navigateWh('sales')}
             onNavigateToCustomers={() => navigateWh('customers_list')}
             onNavigateToBilling={() => navigateWh('billing_invoices')}
+            onNavigateToFarmManagement={() => {
+              setSelectedFarmer(null);
+              setFarmerSubScreen(null);
+              setMoreSubScreen('farm_management');
+            }}
             onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
             onNavigateToProfile={() => navigateWh('warehouse_profile')}
             onNavigateToWarehouseProfile={() => navigateWh('warehouse_profile')}

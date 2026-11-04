@@ -186,6 +186,7 @@ export const GRADES_DATA: GradeDetailItem[] = [
 
 export interface CategoriesGradesScreenProps {
   onBack: () => void;
+  role?: string | undefined;
 }
 
 export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) {

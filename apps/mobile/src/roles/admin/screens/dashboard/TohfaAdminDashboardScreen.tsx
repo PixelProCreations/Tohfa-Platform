@@ -11095,10 +11095,13 @@ export function TohfaAdminDashboardScreen({
                 selectedAdminApplication ? (
                   <AdminApplicationDetailScreen
                     application={selectedAdminApplication}
+                    can={can}
+                    role="TOHFA_ADMIN"
                     onBack={() => setSelectedAdminApplication(null)}
-                    onApprove={() => {
-                      setSelectedAdminApplication(null);
-                      Alert.alert('Approved', 'Application has been approved successfully.');
+                    onApprove={(updatedApp) => {
+                      if (updatedApp) {
+                        setSelectedAdminApplication(updatedApp);
+                      }
                     }}
                     onReject={() => {
                       setSelectedAdminApplication(null);
@@ -11756,10 +11759,13 @@ export function TohfaAdminDashboardScreen({
               selectedAdminApplication ? (
                 <AdminApplicationDetailScreen
                   application={selectedAdminApplication}
+                  can={can}
+                  role="TOHFA_ADMIN"
                   onBack={() => setSelectedAdminApplication(null)}
-                  onApprove={() => {
-                    setSelectedAdminApplication(null);
-                    Alert.alert('Approved', 'Application has been approved successfully.');
+                  onApprove={(updatedApp) => {
+                    if (updatedApp) {
+                      setSelectedAdminApplication(updatedApp);
+                    }
                   }}
                   onReject={() => {
                     setSelectedAdminApplication(null);
@@ -11768,18 +11774,20 @@ export function TohfaAdminDashboardScreen({
                 />
               ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
                 <AdminFarmMapScreen
-                  farmer={selectedAdminFarmer}
+                  farmer={selectedAdminFarmer!}
                   onBack={() => setFarmerSubScreen(null)}
                 />
               ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
                 <AdminRatingScorecardScreen
-                  farmer={selectedAdminFarmer}
+                  farmer={selectedAdminFarmer!}
                   onBack={() => setFarmerSubScreen(null)}
                   onOpenComplianceTiers={() => { }}
                 />
               ) : selectedAdminFarmer ? (
                 <AdminFarmerDetailScreen
-                  farmer={selectedAdminFarmer}
+                  farmer={selectedAdminFarmer!}
+                  role="TOHFA_ADMIN"
+                  can={can}
                   onBack={() => setSelectedAdminFarmer(null)}
                   onOpenFarmMap={() => setFarmerSubScreen('map')}
                   onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
@@ -11787,6 +11795,8 @@ export function TohfaAdminDashboardScreen({
               ) : (
                 <AdminAllFarmersScreen
                   showBottomNav={false}
+                  role="TOHFA_ADMIN"
+                  can={can}
                   initialTab={farmersMainTab}
                   onBack={() => setActiveTab(farmersReturnTab)}
                   onSelectFarmer={(f) => {
@@ -12528,8 +12538,7 @@ export function TohfaAdminDashboardScreen({
                   setFarmersMainTab('farmers');
                   setSelectedAdminFarmer(null);
                   setSelectedAdminApplication(null);
-                  if (onNavigate) onNavigate('AdminAllFarmers');
-                  else setActiveTab('Farmers');
+                  setActiveTab('Farmers');
                 } else if (optionId === 'produce') {
                   setProduceControlScreen('calendar');
                 } else if (optionId === 'audit') {
@@ -12556,7 +12565,7 @@ export function TohfaAdminDashboardScreen({
                 } else if (optionId === 'settings' || optionId === 'profile') {
                   setActiveTab('Settings');
                 } else if (optionId === 'logout') {
-                  onSignOut();
+                  onSignOut?.();
                 }
               }}
             />

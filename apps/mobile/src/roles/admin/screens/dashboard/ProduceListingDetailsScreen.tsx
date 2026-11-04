@@ -111,6 +111,10 @@ export interface ProduceListingDetailsScreenProps {
   onViewFullHistory?: () => void;
   onReviewListing?: () => void;
   onNavigateToVerification?: () => void;
+  role?: string | undefined;
+  completedProduceNames?: string[] | undefined;
+  onApproveAll?: (() => void) | undefined;
+  onNavigateToCounterOffer?: ((item: any, isApproved: any) => void) | undefined;
 }
 
 export function ProduceListingDetailsScreen({

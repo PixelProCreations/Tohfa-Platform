@@ -50,6 +50,9 @@ export interface MarkupPricingBreakdownScreenProps {
   customerDiscount?: string | undefined;
   finalCustomerPrice?: string | undefined;
   expenseList?: Array<{ name: string; amount: string }> | undefined;
+  ceilingPrice?: string | undefined;
+  record?: any;
+  role?: string | undefined;
 }
 
 // ─── Default Data Matching Target Design ──────────────────────────────────────

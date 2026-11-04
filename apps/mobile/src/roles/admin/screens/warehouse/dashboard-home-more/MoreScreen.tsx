@@ -979,6 +979,9 @@ export function MoreScreen({
       return (
         <AdminFarmerDetailScreen
           farmer={selectedFarmer}
+          can={can}
+          role={isMain ? 'MAIN_WH_ADMIN' : 'SUB_WH_ADMIN'}
+          userScope={scope.warehouseId ? { warehouseId: scope.warehouseId } : undefined}
           onBack={() => setSelectedFarmer(null)}
           onOpenFarmMap={() => setFarmerSubScreen('map')}
           onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
@@ -988,6 +991,9 @@ export function MoreScreen({
     return (
       <AdminAllFarmersScreen
         showBottomNav={false}
+        can={can}
+        role={isMain ? 'MAIN_WH_ADMIN' : 'SUB_WH_ADMIN'}
+        userScope={scope.warehouseId ? { warehouseId: scope.warehouseId } : undefined}
         initialTab={farmersMainTab}
         onBack={() => setShowFarmManagementScreen(false)}
         onSelectFarmer={(farmer) => setSelectedFarmer(farmer)}

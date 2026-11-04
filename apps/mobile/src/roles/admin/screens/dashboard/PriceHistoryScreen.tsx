@@ -269,6 +269,7 @@ export const SAMPLE_PRICE_HISTORY = PRICE_HISTORY_FIXTURES;
 
 export interface PriceHistoryScreenProps {
   onBack: () => void;
+  role?: string | undefined;
   itemName?: string | undefined;
   category?: string | undefined;
   currentPrice?: number | undefined;
