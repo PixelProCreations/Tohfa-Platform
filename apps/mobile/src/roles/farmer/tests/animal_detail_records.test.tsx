@@ -44,7 +44,7 @@ vi.mock('@tohfa/mobile-ui', () => ({
   Skeleton: 'Skeleton',
 }));
 
-vi.mock('react-native-document-picker', () => ({
+vi.mock('../native/documentPicker', () => ({
   default: { pickSingle: vi.fn(), isCancel: () => false, types: { pdf: 'pdf', images: 'images' } },
 }));
 

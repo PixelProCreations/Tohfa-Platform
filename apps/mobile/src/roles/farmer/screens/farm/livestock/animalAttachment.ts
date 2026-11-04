@@ -9,7 +9,7 @@
  * Purpose: there is no livestock-specific UploadPurpose on the server, so the
  * generic FARMER_DOCUMENT purpose is used (reported as a spec gap).
  */
-import DocumentPicker from 'react-native-document-picker';
+import DocumentPicker from '../../../native/documentPicker';
 import { signUpload } from '../../../api/registration';
 import { uploadWithResume } from '../../../api/uploader';
 
