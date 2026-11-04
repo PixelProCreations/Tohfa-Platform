@@ -3,10 +3,12 @@ import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { isCalendarDate } from '../certifications/certifications.schema.js';
 import {
   cropInputsRepo,
   type CropInputCursor,
   type CropInputsRepo,
+  type FarmCropInputCursor,
 } from './crop-inputs.repo.js';
 import type {
   CreateCropInputBody,
@@ -14,6 +16,8 @@ import type {
   CropNpkContributionResponse,
   ListCropInputsQuery,
   ListCropInputsResponse,
+  ListFarmCropInputsQuery,
+  ListFarmCropInputsResponse,
   InputUnit,
   UpdateCropInputBody,
 } from './crop-inputs.schema.js';
@@ -65,6 +69,32 @@ function decodeCursor(raw: string): CropInputCursor {
   throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
 }
 
+function encodeFarmCursor(cursor: FarmCropInputCursor): string {
+  return Buffer.from(JSON.stringify([cursor.appliedOn, cursor.createdAt, cursor.id]), 'utf8').toString('base64url');
+}
+
+/** Every component is checked here so a hand-edited cursor is a 422, never a Postgres cast error (a 500). */
+function decodeFarmCursor(raw: string): FarmCropInputCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      typeof parsed[0] === 'string' &&
+      isCalendarDate(parsed[0]) &&
+      typeof parsed[1] === 'string' &&
+      !Number.isNaN(Date.parse(parsed[1])) &&
+      typeof parsed[2] === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed[2])
+    ) {
+      return { appliedOn: parsed[0], createdAt: parsed[1], id: parsed[2] };
+    }
+  } catch {
+    // fall through
+  }
+  throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
+}
+
 /** UNAPPROVED DEFAULTS pending owner decision (not in docs/rules.md): BAG = 50 kg, ML and GRAM = 0.001 kg, LITRE and OTHER = 1 kg. */
 const UNAPPROVED_UNIT_TO_KG_DEFAULTS: Record<InputUnit, number> = {
   TONNE: 1000,
@@ -92,6 +122,14 @@ export interface CropInputsService {
     farmCropId: string,
     query: ListCropInputsQuery,
   ): Promise<ListCropInputsResponse>;
+  /**
+   * BR-56h: the caller's own inputs across every own crop (live, HARVESTED or FAILED), newest appliedOn
+   * first. There is no farmCropId to own-check, so a farmer with nothing to show gets an empty page.
+   */
+  listFarmCropInputs(
+    scope: ResolvedScope,
+    query: ListFarmCropInputsQuery,
+  ): Promise<ListFarmCropInputsResponse>;
   getCropInput(
     scope: ResolvedScope,
     farmCropId: string,
@@ -175,6 +213,25 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
         items,
         page: {
           nextCursor: next === null ? null : encodeCursor(next),
+          hasMore: next !== null,
+        },
+      };
+    },
+
+    async listFarmCropInputs(scope, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = query.cursor ? decodeFarmCursor(query.cursor) : undefined;
+      const filters = {
+        ...(query.inputType !== undefined ? { inputType: query.inputType } : {}),
+        ...(query.from !== undefined ? { from: query.from } : {}),
+        ...(query.to !== undefined ? { to: query.to } : {}),
+      };
+      const { items, next } = await repo.listFarmerCropInputs(db, farmerId, filters, query.limit, cursor);
+
+      return {
+        items,
+        page: {
+          nextCursor: next === null ? null : encodeFarmCursor(next),
           hasMore: next !== null,
         },
       };

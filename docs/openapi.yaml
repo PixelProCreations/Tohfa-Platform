@@ -6955,6 +6955,51 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/crop-inputs:
+    get:
+      tags: [Crops]
+      operationId: listMyFarmCropInputs
+      summary: List inputs applied across all own crops
+      description: |
+        Returns the caller farmer's own input applications across every crop they own, including
+        HARVESTED and FAILED crops, newest `appliedOn` first (ties broken by `createdAt`, then `id`,
+        descending, so the cursor is stable across pages) (BR-56h). Each item is a `CropInput` plus
+        the `cropName` and `plotName` it was applied to. The farmer always comes from the token: a
+        `farmerId` parameter is rejected (422), and a farmer with no inputs gets an empty page, never
+        a 403 or 404. Inputs on soft-deleted crops, plots or farms are excluded, as on the per-crop routes.
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: inputType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+        - name: from
+          in: query
+          required: false
+          description: Earliest `appliedOn` to include (inclusive). A real calendar date; must be on or before `to` (422 otherwise).
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Latest `appliedOn` to include (inclusive). A real calendar date.
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Paginated list of the farmer's crop inputs across all own crops.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmCropInputsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/me/crops/{farmCropId}/inputs:
     get:
       tags: [Crops]
@@ -17653,6 +17698,31 @@ components:
         page:
           type: object
           required: [hasMore]
+          properties:
+            nextCursor: { type: [string, 'null'] }
+            hasMore: { type: boolean }
+
+    FarmCropInput:
+      description: A `CropInput` plus the crop and plot it was applied to (BR-56h). The farmer's own data only.
+      allOf:
+        - $ref: '#/components/schemas/CropInput'
+        - type: object
+          required: [cropName, plotName]
+          properties:
+            cropName: { type: string }
+            plotName: { type: string }
+
+    FarmCropInputsListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmCropInput'
+        page:
+          type: object
+          required: [nextCursor, hasMore]
           properties:
             nextCursor: { type: [string, 'null'] }
             hasMore: { type: boolean }

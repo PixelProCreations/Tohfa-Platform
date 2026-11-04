@@ -82,6 +82,25 @@ export const listCropInputsQuery = z
   .strict();
 export type ListCropInputsQuery = z.infer<typeof listCropInputsQuery>;
 
+/**
+ * GET /farmers/me/crop-inputs (BR-56h). Strict, so a `farmerId` parameter is a 422 rather than silently
+ * ignored: the farmer always comes from the resolved scope. `from`/`to` bound `appliedOn`, both inclusive.
+ */
+export const listFarmCropInputsQuery = z
+  .object({
+    cursor: z.string().max(512).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    inputType: inputTypeEnum.optional(),
+    from: isoDate.optional(),
+    to: isoDate.optional(),
+  })
+  .strict()
+  .refine((q) => q.from === undefined || q.to === undefined || q.from <= q.to, {
+    message: 'from must be on or before to',
+    path: ['from'],
+  });
+export type ListFarmCropInputsQuery = z.infer<typeof listFarmCropInputsQuery>;
+
 export const cropInputResponse = z.object({
   id: z.string().uuid(),
   farmerId: z.string().uuid(),
@@ -110,6 +129,22 @@ export const listCropInputsResponse = z.object({
   }),
 });
 export type ListCropInputsResponse = z.infer<typeof listCropInputsResponse>;
+
+/** One row of the farm-wide list: the per-crop item plus the crop and plot it was applied to. */
+export const farmCropInputResponse = cropInputResponse.extend({
+  cropName: z.string(),
+  plotName: z.string(),
+});
+export type FarmCropInputResponse = z.infer<typeof farmCropInputResponse>;
+
+export const listFarmCropInputsResponse = z.object({
+  items: z.array(farmCropInputResponse),
+  page: z.object({
+    nextCursor: z.string().nullable(),
+    hasMore: z.boolean(),
+  }),
+});
+export type ListFarmCropInputsResponse = z.infer<typeof listFarmCropInputsResponse>;
 
 export const cropNpkContributionResponse = z.object({
   farmCropId: z.string().uuid(),
