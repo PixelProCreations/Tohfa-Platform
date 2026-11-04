@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import {
+  ActivityIndicator,
+  Image,
+  Modal,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  View,
   TouchableOpacity,
-  Image,
+  View,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { authPalette as P, colors, typography } from '../../theme';
+import { t, type TranslationKey } from '../../../../i18n/farmer';
+import { authPalette as P, colors, radius, spacing, typography } from '../../theme';
+import { formatCommunityKg, type CommunityPlantingQuery } from '../../api/community';
+import { useCommunityPlanting } from './useCommunityPlanting';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -63,16 +69,8 @@ const CROP_IMAGES: Record<string, string> = {
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
-const CROP_DATA = [
-  { name: 'Potato',        farmers: 46, quantity: 12800 },
-  { name: 'Carrot',        farmers: 38, quantity: 9400  },
-  { name: 'Cabbage',       farmers: 32, quantity: 7800  },
-  { name: 'Tomato',        farmers: 29, quantity: 6200  },
-  { name: 'French Beans',  farmers: 21, quantity: 3900  },
-  { name: 'Beetroot',      farmers: 14, quantity: 1800  },
-  { name: 'Cauliflower',   farmers: 9,  quantity: 600   },
-];
-
+// Still static: there is no wishlist table or endpoint (docs/rules.md BR-136
+// "Not built"), so this list is deliberately not fabricated from another source.
 const WISHLIST_DATA = [
   { rank: 1, name: 'Carrot',       customers: 62, quantity: '8,400 kg' },
   { rank: 2, name: 'Tomato',       customers: 54, quantity: '7,200 kg' },
@@ -84,26 +82,275 @@ const WISHLIST_DATA = [
 // Rank number colors (earthy warm tones)
 const RANK_COLORS = [colors.brandGreen, P.green700, P.green600, P.greenDeep7, P.greenDeep6];
 
+// Gradient-like greens for each crop bar, by rank; rows past the end reuse the last.
+const BAR_COLORS = [colors.brandGreen, P.green700, P.green600, P.green500, P.leafGreen, P.green300, P.green200];
+
+// The server sends months as integers 1-12; labels come from the i18n catalogue.
+const MONTH_KEYS: readonly TranslationKey[] = [
+  'farmer.weather.month.jan',
+  'farmer.weather.month.feb',
+  'farmer.weather.month.mar',
+  'farmer.weather.month.apr',
+  'farmer.weather.month.may',
+  'farmer.weather.month.jun',
+  'farmer.weather.month.jul',
+  'farmer.weather.month.aug',
+  'farmer.weather.month.sep',
+  'farmer.weather.month.oct',
+  'farmer.weather.month.nov',
+  'farmer.weather.month.dec',
+];
+
+function monthLabel(month: number): string {
+  const key = MONTH_KEYS[month - 1];
+  return key === undefined ? String(month) : t(key);
+}
+
+/** Bar width as a percentage of the largest row, rounded to one decimal. */
+function barPercent(value: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.round((value / max) * 1000) / 10;
+}
+
+type Metric = 'Farmers' | 'Quantity';
+type FilterKind = 'crop' | 'month' | 'region';
+
+interface FilterOption {
+  /** testID suffix and React key; 'all' clears the filter. */
+  id: string;
+  label: string;
+  selected: boolean;
+  apply: (query: CommunityPlantingQuery) => CommunityPlantingQuery;
+}
+
+interface BarRow {
+  id: string;
+  testKey: string;
+  label: string;
+  farmers: number;
+  quantityKg: number;
+  color: string;
+}
+
 interface TohfaCalendarScreenProps {
   onNavigateBack: () => void;
   onNavigateToCropInsight?: () => void;
 }
 
 export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }: TohfaCalendarScreenProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<'Farmers' | 'Quantity'>('Farmers');
-  const maxFarmers = Math.max(...CROP_DATA.map(c => c.farmers));
-  const maxQuantity = Math.max(...CROP_DATA.map(c => c.quantity));
+  const [activeTab, setActiveTab] = useState<Metric>('Farmers');
+  const [openFilter, setOpenFilter] = useState<FilterKind | null>(null);
+  const community = useCommunityPlanting();
+  const { query, summary, filterOptions } = community;
+
+  // ── Filter chips ──
+  const selectedCropName =
+    query.crop === null
+      ? null
+      : filterOptions?.crops.find((c) => c.cropMasterId === query.crop)?.cropName ??
+        summary?.byCrop.find((c) => c.cropMasterId === query.crop)?.cropName ??
+        null;
+  const cropChipLabel = selectedCropName ?? t('farmer.tohfaCalendar.filter.allCrops');
+  // Unset chips keep the design's labels ("All crops", "Month", "Region").
+  const monthChipLabel = query.month === null ? t('farmer.tohfaCalendar.filter.monthChip') : monthLabel(query.month);
+  const regionChipLabel = query.region ?? t('farmer.tohfaCalendar.filter.regionChip');
+
+  const optionsFor = (kind: FilterKind): FilterOption[] => {
+    if (kind === 'crop') {
+      return [
+        { id: 'all', label: t('farmer.tohfaCalendar.filter.allCrops'), selected: query.crop === null, apply: (q) => ({ ...q, crop: null }) },
+        ...(filterOptions?.crops ?? []).map((c) => ({
+          id: c.cropMasterId,
+          label: c.cropName,
+          selected: query.crop === c.cropMasterId,
+          apply: (q: CommunityPlantingQuery) => ({ ...q, crop: c.cropMasterId }),
+        })),
+      ];
+    }
+    if (kind === 'month') {
+      return [
+        { id: 'all', label: t('farmer.tohfaCalendar.filter.allMonths'), selected: query.month === null, apply: (q) => ({ ...q, month: null }) },
+        ...(filterOptions?.months ?? []).map((m) => ({
+          id: String(m),
+          label: monthLabel(m),
+          selected: query.month === m,
+          apply: (q: CommunityPlantingQuery) => ({ ...q, month: m }),
+        })),
+      ];
+    }
+    return [
+      { id: 'all', label: t('farmer.tohfaCalendar.filter.allRegions'), selected: query.region === null, apply: (q) => ({ ...q, region: null }) },
+      ...(filterOptions?.regions ?? []).map((r) => ({
+        id: r,
+        label: r,
+        selected: query.region === r,
+        apply: (q: CommunityPlantingQuery) => ({ ...q, region: r }),
+      })),
+    ];
+  };
+
+  const filterTitle: Record<FilterKind, TranslationKey> = {
+    crop: 'farmer.tohfaCalendar.filter.cropTitle',
+    month: 'farmer.tohfaCalendar.filter.monthTitle',
+    region: 'farmer.tohfaCalendar.filter.regionTitle',
+  };
+
+  const chooseOption = (option: FilterOption) => {
+    setOpenFilter(null);
+    community.setQuery(option.apply(query));
+  };
+
+  // ── Bars: byCrop as released, plus the unnamed `other` group when present ──
+  const rows: BarRow[] = (summary?.byCrop ?? []).map((crop, idx) => ({
+    id: crop.cropMasterId,
+    testKey: crop.cropMasterId,
+    label: crop.cropName,
+    farmers: crop.farmers,
+    quantityKg: crop.quantityKg,
+    color: BAR_COLORS[Math.min(idx, BAR_COLORS.length - 1)] ?? colors.brandGreen,
+  }));
+  if (summary?.other) {
+    rows.push({
+      id: 'other',
+      testKey: 'other',
+      label: t('farmer.tohfaCalendar.byCrop.otherCrops', { count: summary.other.crops }),
+      farmers: summary.other.farmers,
+      quantityKg: summary.other.quantityKg,
+      color: P.twGray400,
+    });
+  }
+  const maxFarmers = Math.max(0, ...rows.map((r) => r.farmers));
+  const maxQuantity = Math.max(0, ...rows.map((r) => r.quantityKg));
+
+  const renderSummary = (): React.JSX.Element => {
+    if (community.state === 'loading') {
+      return (
+        <View style={styles.stateCard}>
+          <ActivityIndicator testID="tohfaCalendar.loading" color={colors.brandGreen} />
+          <Text style={styles.stateText}>{t('farmer.common.loading')}</Text>
+        </View>
+      );
+    }
+    if (community.state === 'unavailable') {
+      // Switched off server-side pending an owner decision (403 / 503); Retry cannot help.
+      return (
+        <View testID="tohfaCalendar.unavailable" style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('farmer.tohfaCalendar.unavailable')}</Text>
+        </View>
+      );
+    }
+    if (community.state === 'error' || summary === null) {
+      return (
+        <View style={styles.stateCard}>
+          <Text style={styles.stateText}>{t('farmer.tohfaCalendar.loadError')}</Text>
+          <TouchableOpacity testID="tohfaCalendar.retry" style={styles.retryButton} onPress={community.retry} activeOpacity={0.7}>
+            <Text style={styles.retryButtonText}>{t('farmer.common.retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+    return (
+      <>
+        {/* Stat Cards */}
+        <View style={styles.statRow}>
+          <View style={styles.statCard}>
+            <Text testID="tohfaCalendar.stat.farmers" style={styles.statValue}>{String(summary.totals.farmers)}</Text>
+            <Text style={styles.statLabel}>{t('farmer.tohfaCalendar.stats.farmers')}</Text>
+          </View>
+          <View style={[styles.statCard, styles.statCardHighlight]}>
+            <Text testID="tohfaCalendar.stat.totalKg" style={styles.statValueHighlight}>
+              {formatCommunityKg(summary.totals.totalPlantedKg)}
+              <Text style={styles.statUnit}>{t('farmer.tohfaCalendar.stats.kgUnit')}</Text>
+            </Text>
+            <Text style={styles.statLabelHighlight}>{t('farmer.tohfaCalendar.stats.totalPlanted')}</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text testID="tohfaCalendar.stat.crops" style={styles.statValue}>{String(summary.totals.crops)}</Text>
+            <Text style={styles.statLabel}>{t('farmer.tohfaCalendar.stats.crops')}</Text>
+          </View>
+        </View>
+
+        {/* BY CROP Section */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>{t('farmer.tohfaCalendar.byCrop.title')}</Text>
+          <View style={styles.tabPills}>
+            <TouchableOpacity
+              testID="tohfaCalendar.metric.farmers"
+              style={[styles.tabPill, activeTab === 'Farmers' && styles.tabPillActive]}
+              onPress={() => setActiveTab('Farmers')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabPillText, activeTab === 'Farmers' && styles.tabPillTextActive]}>
+                {t('farmer.tohfaCalendar.byCrop.metricFarmers')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="tohfaCalendar.metric.quantity"
+              style={[styles.tabPill, activeTab === 'Quantity' && styles.tabPillActive]}
+              onPress={() => setActiveTab('Quantity')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabPillText, activeTab === 'Quantity' && styles.tabPillTextActive]}>
+                {t('farmer.tohfaCalendar.byCrop.metricQuantity')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Crop Bars Card */}
+        <View style={styles.cropBarsCard}>
+          {rows.length === 0 ? (
+            <Text style={styles.stateText}>{t('farmer.tohfaCalendar.empty', { count: summary.minGroupSize })}</Text>
+          ) : (
+            rows.map((row, idx) => {
+              const isFarmers = activeTab === 'Farmers';
+              const percent = isFarmers ? barPercent(row.farmers, maxFarmers) : barPercent(row.quantityKg, maxQuantity);
+              const valueText = isFarmers
+                ? String(row.farmers)
+                : t('farmer.tohfaCalendar.byCrop.quantityValue', { qty: formatCommunityKg(row.quantityKg) });
+              return (
+                <View
+                  key={row.id}
+                  testID={`tohfaCalendar.row.${row.testKey}`}
+                  style={[styles.cropBarRow, idx < rows.length - 1 && styles.cropBarBorder]}
+                >
+                  <View style={styles.cropBarTop}>
+                    <Text style={styles.cropBarName}>{row.label}</Text>
+                    <Text testID={`tohfaCalendar.value.${row.testKey}`} style={styles.cropBarValue}>{valueText}</Text>
+                  </View>
+                  <View style={styles.cropBarTrack}>
+                    <View
+                      testID={`tohfaCalendar.bar.${row.testKey}`}
+                      style={[styles.cropBarFill, { width: `${percent}%`, backgroundColor: row.color }]}
+                    />
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </>
+    );
+  };
+
+  const sheetOptions = openFilter === null ? [] : optionsFor(openFilter);
 
   return (
     <SafeAreaView style={styles.screen}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onNavigateBack} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={onNavigateBack}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.common.back')}
+        >
           <ChevronLeft />
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>TOHFA Calendar</Text>
-          <Text style={styles.headerSubtitle}>What the community is growing</Text>
+          <Text style={styles.headerTitle}>{t('farmer.tohfaCalendar.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('farmer.tohfaCalendar.subtitle')}</Text>
         </View>
       </View>
 
@@ -111,6 +358,14 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={community.refreshing}
+            onRefresh={community.refresh}
+            colors={[colors.brandGreen]}
+            tintColor={colors.brandGreen}
+          />
+        }
       >
         {/* Community View Info Banner */}
         <View style={styles.infoBanner}>
@@ -118,94 +373,34 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
             <CommunityIcon />
           </View>
           <Text style={styles.infoBannerText}>
-            <Text style={styles.infoBannerBold}>Community view.</Text> This spans all TOHFA farmers — not just your farm — to help you plan what to plant next.
+            <Text style={styles.infoBannerBold}>{t('farmer.tohfaCalendar.banner.bold')}</Text>
+            {' '}
+            {t('farmer.tohfaCalendar.banner.body')}
           </Text>
         </View>
 
         {/* Filter Chips Row */}
         <View style={styles.filterRow}>
-          <TouchableOpacity style={styles.filterChip} activeOpacity={0.7}>
-            <Text style={styles.filterChipText}>All crops</Text>
+          <TouchableOpacity testID="tohfaCalendar.filter.crop" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('crop')}>
+            <Text style={styles.filterChipText} numberOfLines={1}>{cropChipLabel}</Text>
             <ChevronDown size={12} color={P.twGray600} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip} activeOpacity={0.7}>
-            <Text style={styles.filterChipText}>Month</Text>
+          <TouchableOpacity testID="tohfaCalendar.filter.month" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('month')}>
+            <Text style={styles.filterChipText} numberOfLines={1}>{monthChipLabel}</Text>
             <ChevronDown size={12} color={P.twGray600} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip} activeOpacity={0.7}>
-            <Text style={styles.filterChipText}>Region</Text>
+          <TouchableOpacity testID="tohfaCalendar.filter.region" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('region')}>
+            <Text style={styles.filterChipText} numberOfLines={1}>{regionChipLabel}</Text>
             <ChevronDown size={12} color={P.twGray600} />
           </TouchableOpacity>
         </View>
 
-        {/* Stat Cards */}
-        <View style={styles.statRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>128</Text>
-            <Text style={styles.statLabel}>Farmers</Text>
-          </View>
-          <View style={[styles.statCard, styles.statCardHighlight]}>
-            <Text style={styles.statValueHighlight}>
-              42,600<Text style={styles.statUnit}>kg</Text>
-            </Text>
-            <Text style={styles.statLabelHighlight}>Total planted</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>7</Text>
-            <Text style={styles.statLabel}>Crops</Text>
-          </View>
-        </View>
+        {renderSummary()}
 
-        {/* BY CROP Section */}
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>BY CROP</Text>
-          <View style={styles.tabPills}>
-            <TouchableOpacity
-              style={[styles.tabPill, activeTab === 'Farmers' && styles.tabPillActive]}
-              onPress={() => setActiveTab('Farmers')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabPillText, activeTab === 'Farmers' && styles.tabPillTextActive]}>Farmers</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tabPill, activeTab === 'Quantity' && styles.tabPillActive]}
-              onPress={() => setActiveTab('Quantity')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabPillText, activeTab === 'Quantity' && styles.tabPillTextActive]}>Quantity</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Crop Bars Card */}
-        <View style={styles.cropBarsCard}>
-          {CROP_DATA.map((crop, idx) => {
-            const value = activeTab === 'Farmers' ? crop.farmers : crop.quantity;
-            const max = activeTab === 'Farmers' ? maxFarmers : maxQuantity;
-            const barPercent = (value / max) * 100;
-            // Gradient-like greens for each bar
-            const barColor = idx === 0 ? colors.brandGreen : idx === 1 ? P.green700 : idx === 2 ? P.green600 : idx === 3 ? P.green500 : idx === 4 ? P.leafGreen : idx === 5 ? P.green300 : P.green200;
-
-            return (
-              <View key={crop.name} style={[styles.cropBarRow, idx < CROP_DATA.length - 1 && styles.cropBarBorder]}>
-                <View style={styles.cropBarTop}>
-                  <Text style={styles.cropBarName}>{crop.name}</Text>
-                  <Text style={styles.cropBarValue}>
-                    {activeTab === 'Farmers' ? value : value.toLocaleString()}
-                  </Text>
-                </View>
-                <View style={styles.cropBarTrack}>
-                  <View style={[styles.cropBarFill, { width: `${barPercent}%`, backgroundColor: barColor }]} />
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Customer Wishlist Demand */}
+        {/* Customer Wishlist Demand — static, see WISHLIST_DATA */}
         <View style={styles.wishlistHeader}>
           <HeartIcon />
-          <Text style={styles.wishlistTitle}>CUSTOMER WISHLIST DEMAND</Text>
+          <Text style={styles.wishlistTitle}>{t('farmer.tohfaCalendar.wishlist.title')}</Text>
         </View>
 
         <View style={styles.wishlistCard}>
@@ -220,26 +415,61 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
                 />
                 <Text style={styles.wishlistCropName}>{item.name}</Text>
               </View>
-              <Text style={styles.wishlistCustomers}>{item.customers} customers</Text>
+              <Text style={styles.wishlistCustomers}>{t('farmer.tohfaCalendar.wishlist.customers', { count: item.customers })}</Text>
               <Text style={styles.wishlistQty}>{item.quantity}</Text>
             </View>
           ))}
-          <Text style={styles.wishlistFootnote}>
-            Wishlist is a global demand snapshot — not sliced by the filters above.
-          </Text>
+          <Text style={styles.wishlistFootnote}>{t('farmer.tohfaCalendar.wishlist.footnote')}</Text>
         </View>
 
         {/* Bottom spacer for sticky button */}
-        <View style={{ height: 80 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
 
       {/* Sticky Bottom Button */}
       <View style={styles.stickyBottom}>
         <TouchableOpacity style={styles.ctaButton} activeOpacity={0.8} onPress={onNavigateToCropInsight}>
           <SeedlingIcon />
-          <Text style={styles.ctaButtonText}>See crop planning insight</Text>
+          <Text style={styles.ctaButtonText}>{t('farmer.tohfaCalendar.cta')}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Filter picker sheet (same Modal + backdrop pattern as AddPlantingScreen's date sheet) */}
+      {openFilter !== null ? (
+        <Modal transparent visible animationType="fade" onRequestClose={() => setOpenFilter(null)}>
+          <View style={styles.sheetOverlay}>
+            <View style={[StyleSheet.absoluteFill, styles.sheetScrim]} pointerEvents="none" />
+            <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setOpenFilter(null)} />
+            <View style={styles.sheet}>
+              <View style={styles.sheetHeader}>
+                <Text style={styles.sheetTitle}>{t(filterTitle[openFilter])}</Text>
+                <TouchableOpacity onPress={() => setOpenFilter(null)}>
+                  <Text style={styles.sheetCancelText}>{t('farmer.common.cancel')}</Text>
+                </TouchableOpacity>
+              </View>
+              {community.filtersState === 'error' ? (
+                <Text style={styles.stateText}>{t('farmer.tohfaCalendar.filter.loadError')}</Text>
+              ) : null}
+              {community.filtersState === 'loading' ? <ActivityIndicator color={colors.brandGreen} /> : null}
+              <ScrollView style={styles.sheetList}>
+                {sheetOptions.map((option) => (
+                  <TouchableOpacity
+                    key={option.id}
+                    testID={`tohfaCalendar.option.${option.id}`}
+                    style={[styles.sheetOption, option.selected && styles.sheetOptionSelected]}
+                    onPress={() => chooseOption(option)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.sheetOptionText, option.selected && styles.sheetOptionTextSelected]}>
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -588,5 +818,92 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.weatherCloudWhite,
     letterSpacing: 0.3,
+  },
+
+  // Spacer so the last card clears the sticky CTA (was an inline 80).
+  bottomSpacer: {
+    height: spacing.modalGap + spacing.lg,
+  },
+
+  // Loading / error / empty
+  stateCard: {
+    backgroundColor: P.weatherCloudWhite,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    marginBottom: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  stateText: {
+    fontSize: typography.body,
+    color: colors.textSubtle,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: colors.brandGreen,
+    borderRadius: radius.button,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+  },
+  retryButtonText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.weatherCloudWhite,
+  },
+
+  // Filter picker sheet
+  sheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  // Positioned by StyleSheet.absoluteFill at the call site.
+  sheetScrim: {
+    backgroundColor: P.black,
+    opacity: 0.4,
+  },
+  sheet: {
+    backgroundColor: P.white,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+    maxHeight: '70%',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  sheetTitle: {
+    fontSize: typography.bodyLarge,
+    fontWeight: '700',
+    color: colors.textDark,
+  },
+  sheetCancelText: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.twGray500,
+  },
+  sheetList: {
+    flexGrow: 0,
+  },
+  sheetOption: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+  },
+  sheetOptionSelected: {
+    backgroundColor: P.paleMintBg,
+  },
+  sheetOptionText: {
+    fontSize: typography.body,
+    color: colors.textDark,
+  },
+  sheetOptionTextSelected: {
+    fontWeight: '700',
+    color: colors.brandGreen,
   },
 });
