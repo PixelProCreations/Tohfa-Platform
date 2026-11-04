@@ -117,6 +117,8 @@ export const ErrorCode = {
   COUNTER_SALE_NOT_REASSIGNABLE: 'COUNTER_SALE_NOT_REASSIGNABLE',
   /** The requested role code is not defined in docs/rbac.json, so it cannot be assigned. HTTP 422. */
   ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
+  /** The community planting summary's minimum group size (system_config.community_planting_min_farmers) is missing or unusable; there is no fallback (BR-136). HTTP 503. */
+  COMMUNITY_PLANTING_NOT_CONFIGURED: 'COMMUNITY_PLANTING_NOT_CONFIGURED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

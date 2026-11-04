@@ -1021,6 +1021,21 @@
       "source": "specification gap \u2014 added for M6 Tohfa Calendar (BR-58)"
     },
     {
+      "code": "farmer.community.view_planting_summary",
+      "module": "Farmers Management",
+      "description": "View the community planting summary (TOHFA Calendar 'What the community is growing'): per-crop counts of distinct farmers and summed expected yield across ALL approved farmers' active plantings, plus its filter options. The response is an anonymised aggregate only (no farmer, farm, plot, village or GPS field; allow-list serializer) and every released group has at least system_config.community_planting_min_farmers distinct farmers (BR-136). Granted to NO role until the owner decides: a cross-farmer view conflicts with BR-36 (rules.md open contradiction 34).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "specification gap \u2014 added 2026-11-03 for the TOHFA Calendar community view (BR-136); no source document has a row for a cross-farmer aggregate and BR-36 states no cross-user visibility, so no role is granted it pending an owner decision (rules.md open contradiction 34)"
+    },
+    {
       "code": "platform.event.manage",
       "module": "Farmers Management",
       "description": "Create, edit, view and soft-delete platform events and calendar notices.",
@@ -3713,6 +3728,13 @@
       "roleMatrix": "not specified \u2014 \u00a79 lists certification verification for SUPER_ADMIN/TOHFA_ADMIN only, with no edit/delete row",
       "precedence": "neither document \u2014 specification gap, conservative default",
       "decision": "`certification.manage_any` = all for SUPER_ADMIN and TOHFA_ADMIN, none for every other role (same grants as certification.view / certification.mark_verified). The edit resets verification to UNVERIFIED and the delete is soft, exactly as for the farmer (BR-49, BR-50, BR-51), so staff cannot use it to verify by editing. Open: whether FARMER_ADMIN should edit certificates of farmers in their own zone (would need the OWN_ZONE_ONLY predicate). Confirm with client."
+    },
+    {
+      "topic": "Community planting aggregate for farmers (farmer.community.view_planting_summary)",
+      "reqsCh6": "not available in this repository — no Ch.6 row for a cross-farmer view",
+      "roleMatrix": "Matrix P8 (BR-36): 'no cross-user visibility in either app, in any direction'; no row for a community aggregate",
+      "precedence": "neither document — specification gap; the mobile TOHFA Calendar screen ('What the community is growing') is the only source",
+      "decision": "Not decided. The endpoint is built as an anonymised k-anonymous aggregate (BR-136), but the permission is granted to NO role, and system_config.community_planting_min_farmers (k) is not shipped, so the endpoints answer 403 to everyone (and 503 COMMUNITY_PLANTING_NOT_CONFIGURED if granted without k). Owner to decide: whether the view is allowed under BR-36, which roles get it (the rejected PR proposed FARMER, FARMER_ADMIN, TOHFA_ADMIN and SUPER_ADMIN = all), and the value of k (rules.md open contradiction 34)."
     }
   ],
   "conflictPrecedence": "Requirements Document Ch.6 is authoritative. The Role & Feature Matrix supplies additional features Ch.6 omits, but never overrides a value Ch.6 states."

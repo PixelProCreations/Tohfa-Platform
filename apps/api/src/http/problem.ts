@@ -95,6 +95,7 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   SALE_CHANNEL_NOT_SUPPORTED: 501,
   COUNTER_SALE_NOT_REASSIGNABLE: 409,
   ROLE_NOT_FOUND: 422,
+  COMMUNITY_PLANTING_NOT_CONFIGURED: 503,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -161,6 +162,7 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   SALE_CHANNEL_NOT_SUPPORTED: 'Sales channel not supported yet',
   COUNTER_SALE_NOT_REASSIGNABLE: 'Counter sales cannot be moved to another warehouse',
   ROLE_NOT_FOUND: 'Role is not defined',
+  COMMUNITY_PLANTING_NOT_CONFIGURED: 'Community planting summary is not configured',
 };
 
 /**
