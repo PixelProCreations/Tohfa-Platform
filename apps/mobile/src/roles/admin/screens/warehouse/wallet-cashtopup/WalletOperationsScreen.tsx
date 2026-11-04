@@ -25,6 +25,7 @@
 import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -136,12 +137,17 @@ export function WalletOperationsScreen({
               <AdminErrorState error={report.error} onRetry={report.refresh} />
             ) : report.kpis === undefined ? null : (
               <>
-                <KpiRow
-                  items={[
-                    { value: String(report.kpis.todayCount), label: t('wallet.hub.kpi.todayCount') },
-                    { value: money(report.kpis.todayTotalPaise), label: t('wallet.hub.kpi.todayTotal'), tone: 'success' },
-                  ]}
-                />
+                {/* Design (mod1213farmadmin M8-S01): today's total and count on the shared
+                    card, in the design's order. The month row has no design card and stays a KpiRow. */}
+                <View style={styles.kpiGrid}>
+                  <OverviewDashboardCard
+                    value={money(report.kpis.todayTotalPaise)}
+                    title={t('wallet.hub.kpi.todayTotal')}
+                    icon="cash"
+                    tone="success"
+                  />
+                  <OverviewDashboardCard value={String(report.kpis.todayCount)} title={t('wallet.hub.kpi.todayCount')} icon="orders" />
+                </View>
                 <KpiRow
                   items={[
                     { value: String(report.kpis.monthCount), label: t('wallet.hub.kpi.monthCount') },
@@ -220,4 +226,12 @@ const styles = StyleSheet.create({
   actionTitle: { ...adminType.rowTitle, color: adminColors.ink },
   actionHint: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
   divider: { height: 1, backgroundColor: adminColors.border, marginVertical: adminSpacing.xs },
+  // Design grid (mod1213farmadmin `mainKpiGrid`): the card sets its own 48.5% width.
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: adminSpacing.lg,
+  },
 });

@@ -4,7 +4,6 @@ import {
   Alert,
   Image,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';

@@ -36,8 +36,8 @@
  * batchId / batchCode) and is hidden when it names none.
  */
 import React from 'react';
-import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { t } from '../../../i18n';

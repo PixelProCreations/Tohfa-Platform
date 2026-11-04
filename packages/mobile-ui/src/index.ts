@@ -12,3 +12,4 @@ export * from './FarmBoundaryMap';
 export * from './pointInRing';
 export * from './DatePicker';
 export * from './SystemBars';
+export * from './SafeAreaView';

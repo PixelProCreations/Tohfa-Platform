@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import {
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
   ScreenStatusBar,
+  SafeAreaView,
 } from '@tohfa/mobile-ui';
 import { colors, useTheme, typography } from '../../theme';
 import { authPalette as P } from '../../theme';

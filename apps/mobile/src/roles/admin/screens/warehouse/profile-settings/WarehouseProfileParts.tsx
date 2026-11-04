@@ -14,7 +14,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { isAllWarehouses, LockIcon } from '../wallet-cashtopup/WalletParts';
 import type { WarehouseScope } from './types';
 
@@ -320,9 +320,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.headerPillBorder,
   },
   lockedPillText: { ...adminType.rowTitle, color: adminColors.onBrand },
   chipRow: { gap: adminSpacing.sm, marginTop: adminSpacing.md },
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
   },
   chipActive: { backgroundColor: adminColors.card },
   chipText: { ...adminType.rowTitle, color: adminColors.onBrand },

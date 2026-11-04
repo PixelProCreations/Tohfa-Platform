@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Button, Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getLocale, setLocale, t } from '../../../../i18n/farmer';
@@ -53,12 +53,13 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNavigate }) => {
   return (
     <View style={styles.container}>
       <ScreenStatusBar barStyle="light-content" translucent />
-      <ImageBackground
-        source={welcomeFarmerVeggies}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-        accessibilityLabel={t('farmer.auth.welcome.subtitle')}
-      >
+      <View style={StyleSheet.absoluteFill}>
+        <Image
+          source={welcomeFarmerVeggies}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          accessibilityLabel={t('farmer.auth.welcome.subtitle')}
+        />
         <GradientOverlay stops={WELCOME_GRADIENT_STOPS} bands={150} />
 
         {/* Top bar: wordmark + language pill */}
@@ -122,7 +123,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onNavigate }) => {
             <Text style={styles.legalLink}>{t('farmer.auth.welcome.privacy')}</Text>
           </Text>
         </View>
-      </ImageBackground>
+      </View>
     </View>
   );
 };

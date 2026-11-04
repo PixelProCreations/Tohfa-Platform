@@ -24,7 +24,7 @@
  * password, locale switching, onboarding) stay in that role's own screens.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   Button,
   ErrorState,
@@ -33,6 +33,7 @@ import {
   buildThemeForRole,
   defaultMobileTheme,
   useTheme,
+  SafeAreaView,
 } from '@tohfa/mobile-ui';
 import { OtpPurpose, type RoleAssignment, type RoleCode } from '@tohfa/shared-types';
 import { ApiError, NetworkError } from '../api/client';

@@ -8,7 +8,7 @@
 import React, { useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { WarehouseScope } from './types';
 
 function BuildingWarehouseIcon({ color = adminColors.onBrand }: { color?: string }) {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'center',
     paddingHorizontal: adminSpacing.xl,
   },

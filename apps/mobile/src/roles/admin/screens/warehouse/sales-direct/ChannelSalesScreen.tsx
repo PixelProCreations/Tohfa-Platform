@@ -15,14 +15,13 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';
@@ -385,10 +384,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: adminColors.info.text,
   },
+  // Tile styles below restored to the design (mod1213farmadmin ChannelSalesScreen):
+  // 14 vertical padding, radius 16 boxes, letter-spaced captions. Dev's
+  // textAlign on kpiLabel stays because its group labels may wrap to 2 lines.
   mainKpiRow: {
     flexDirection: 'row',
     gap: adminSpacing.md,
-    marginBottom: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
   },
   mainKpiCardHalf: {
     flex: 1,
@@ -396,13 +398,14 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
+    paddingVertical: 14,
     paddingHorizontal: adminSpacing.lg,
     ...adminShadow.sm,
   },
   mainKpiLabel: {
     ...adminType.caption,
     color: adminColors.muted,
+    letterSpacing: 0.5,
     marginBottom: adminSpacing.xs,
   },
   mainKpiValue: {
@@ -412,27 +415,27 @@ const styles = StyleSheet.create({
   kpiRow: {
     flexDirection: 'row',
     gap: adminSpacing.sm,
-    marginBottom: adminSpacing.xs,
+    marginBottom: adminSpacing.sm,
   },
   kpiBox: {
     flex: 1,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.xs,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   kpiNumber: {
     ...adminType.kpiValue,
     color: adminColors.ink,
-    marginBottom: 2,
+    marginBottom: adminSpacing.xs,
   },
   kpiLabel: {
     ...adminType.caption,
     color: adminColors.muted,
+    letterSpacing: 0.3,
     textAlign: 'center',
   },
   loadedNote: {

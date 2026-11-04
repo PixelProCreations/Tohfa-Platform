@@ -28,7 +28,8 @@
  * offer the entry for one (orderInvoiceEntry), so only a deep link lands there.
  */
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../../../i18n';

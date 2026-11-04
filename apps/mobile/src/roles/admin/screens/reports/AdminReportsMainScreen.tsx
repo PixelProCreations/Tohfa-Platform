@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { RecentReportDetailScreen } from './RecentReportDetailScreen';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 

@@ -36,7 +36,8 @@
  * never completed at this step, only the OTP check hands it over.
  */
 import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import type { TextInputInstance } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { BackHandler, SafeAreaView, StyleSheet } from 'react-native';
-import { ThemeProvider, buildThemeForRole, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { BackHandler, StyleSheet } from 'react-native';
+import { ThemeProvider, buildThemeForRole, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { RoleCode } from '@tohfa/shared-types';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../shell/api/queryClient';

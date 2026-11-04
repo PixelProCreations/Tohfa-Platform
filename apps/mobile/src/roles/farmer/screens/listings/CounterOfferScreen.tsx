@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -23,7 +22,7 @@ import {
   type Listing,
 } from '../../api/listings';
 import { formatMoneyAmount } from '../../api/wallet';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { gradeLabel, kgLabel, moneyOrDash, pricePerKgLabel, timeLeftLabel, tk } from './listingFormat';

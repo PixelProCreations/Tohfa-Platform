@@ -13,7 +13,6 @@
  */
 import React from 'react';
 import {
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -22,12 +21,12 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { adminErrorKey } from '../../../api/errors';
 import { t } from '../../../i18n';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
 import { WarehouseSelector } from '../inventory';
 import type { InvoiceStatus, WarehouseScope } from './types';
 
@@ -470,7 +469,7 @@ const styles = StyleSheet.create({
     width: HEADER_ICON_BUTTON,
     height: HEADER_ICON_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -487,9 +486,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.headerPillBorder,
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.full,

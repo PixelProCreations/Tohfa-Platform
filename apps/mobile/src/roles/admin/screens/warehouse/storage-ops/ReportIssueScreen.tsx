@@ -19,7 +19,7 @@ import {
 } from './fixtures';
 import type { IssueSeverity, ReportIssueMode, WarehouseScreenBaseProps } from './types';
 
-function CameraIcon({ size = 22, color = '#64748B' }: { size?: number; color?: string }) {
+function CameraIcon({ size = 22, color = adminColors.platform.slate500 }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -34,7 +34,7 @@ function CameraIcon({ size = 22, color = '#64748B' }: { size?: number; color?: s
   );
 }
 
-function InfoCircleIcon({ size = 18, color = '#0284C7' }: { size?: number; color?: string }) {
+function InfoCircleIcon({ size = 18, color = adminColors.warehouse.infoIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
@@ -334,7 +334,7 @@ export function ReportIssueScreen({
           activeOpacity={0.75}
           accessibilityRole="button"
         >
-          <CameraIcon size={22} color={hasPhoto ? adminColors.brand : '#64748B'} />
+          <CameraIcon size={22} color={hasPhoto ? adminColors.brand : adminColors.platform.slate500} />
           <Text style={[styles.photoButtonText, hasPhoto && styles.photoButtonTextActive]}>
             {hasPhoto ? 'Photo Added' : 'Add Photo'}
           </Text>
@@ -342,7 +342,7 @@ export function ReportIssueScreen({
 
         <Text style={[styles.labelTitle, { marginTop: adminSpacing.lg }]}>Priority</Text>
         <View style={styles.infoCard}>
-          <InfoCircleIcon size={18} color="#0284C7" />
+          <InfoCircleIcon size={18} color={adminColors.warehouse.infoIcon} />
           <Text style={styles.infoCardText}>
             Priority levels are backend-defined — this app doesn't invent a High/Medium/Low scale unless the API provides one.
           </Text>
@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   labelTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1E293B',
+    color: adminColors.warehouse.slateText,
     marginBottom: 8,
   },
   requiredText: {
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     color: adminColors.placeholder,
   },
   dropdownList: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderWidth: 1,
     borderColor: adminColors.border,
     borderRadius: adminRadius.md,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   dropdownOptionText: {
     fontSize: 15,
-    color: '#1E293B',
+    color: adminColors.warehouse.slateText,
   },
   textAreaBox: {
     backgroundColor: adminColors.card,
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#CBD5E1',
+    borderColor: adminColors.warehouse.slateBorder,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   photoButtonText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: adminColors.warehouse.slateSubtext,
   },
   photoButtonTextActive: {
     color: adminColors.brand,
@@ -449,9 +449,9 @@ const styles = StyleSheet.create({
   infoCard: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.platform.infoLight,
     borderWidth: 1,
-    borderColor: '#93C5FD',
+    borderColor: adminColors.warehouse.infoBorder,
     borderRadius: 12,
     padding: 14,
     alignItems: 'flex-start',
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 18,
-    color: '#0369A1',
+    color: adminColors.warehouse.infoText,
     fontWeight: '500',
   },
   dropdownOptionActive: {
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   },
   faqCardExpanded: {
     borderColor: adminColors.brandSoft.border,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
   },
   faqRow: {
     flexDirection: 'row',

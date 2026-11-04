@@ -5,7 +5,6 @@
  */
 import React, { useState, useRef } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +13,7 @@ import {
   PanResponder,
 } from 'react-native';
 import type { ScrollViewInstance } from 'react-native';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 const P = {
   pageBg: '#FAF8F5',
