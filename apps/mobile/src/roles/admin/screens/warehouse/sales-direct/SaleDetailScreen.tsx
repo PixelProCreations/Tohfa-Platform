@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminType, adminShadow } from '../../../theme';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { SaleRecord, WarehouseScreenBaseProps } from './types';
@@ -281,7 +281,7 @@ export function SaleDetailScreen({
             onPress={handleViewInvoice}
             activeOpacity={0.82}
           >
-            <InvoiceReceiptIcon size={18} color="#92400E" />
+            <InvoiceReceiptIcon size={18} color={adminColors.warning.text} />
             <Text style={styles.viewInvoiceOutlineBtnText}>View Invoice</Text>
           </TouchableOpacity>
         )}
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   completedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
   completedBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#15803D',
+    color: adminColors.success.text,
   },
   scroll: {
     flex: 1,
@@ -461,14 +461,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 13,
     borderWidth: 1.5,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     gap: 8,
     marginBottom: 10,
   },
   viewInvoiceOutlineBtnText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#92400E',
+    color: adminColors.brandDeep,
   },
   timelineCard: {
     backgroundColor: adminColors.card,
@@ -491,13 +491,13 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#16A34A',
+    backgroundColor: adminColors.success.text,
     marginTop: 3,
   },
   timelineVerticalLine: {
     width: 2,
     flex: 1,
-    backgroundColor: '#BBF7D0',
+    backgroundColor: adminColors.success.border,
     marginVertical: 3,
   },
   timelineContent: {

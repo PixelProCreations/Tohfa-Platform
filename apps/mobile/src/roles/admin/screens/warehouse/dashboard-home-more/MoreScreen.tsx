@@ -29,7 +29,7 @@ import { CustomersFlow } from '../customers';
 import { StaffFlow } from '../staff-attendance';
 import { MainWarehouseAdminScreen } from '../../dashboard/MainWarehouseAdminScreen';
 import { WarehouseAdminFlow } from '../warehouse-admin';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MoreOptionItem, OptionGroup } from './types';

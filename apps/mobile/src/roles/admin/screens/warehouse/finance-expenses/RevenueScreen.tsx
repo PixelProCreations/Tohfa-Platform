@@ -41,7 +41,7 @@ import {
 } from '../wallet-cashtopup/WalletParts';
 import { FINANCE_WAREHOUSES, SAMPLE_REVENUE_RECORDS } from './fixtures';
 import { warehouseNameOf } from '../wallet-cashtopup/fixtures';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import { FINANCE_CODES, FinanceNotAvailable, rupees, scopeLabel } from './FinanceParts';
 import { RevenueDetailScreen } from './RevenueDetailScreen';
 import type { RevenueRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';

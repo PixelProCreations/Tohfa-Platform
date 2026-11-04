@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   stepperWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandSoft.bg,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,

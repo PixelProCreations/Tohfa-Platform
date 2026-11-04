@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing } from '../../theme';
-import type { PurchaseOrderRecord } from './PurchaseSalesOrdersScreen';
+import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -164,7 +164,7 @@ export function PurchaseOrderReceiptScreen({
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Receipt notes</Text>
-            <Text style={[styles.detailValueBold, { color: '#786F68', fontWeight: '500' }]}>
+            <Text style={[styles.detailValueBold, { color: adminColors.muted, fontWeight: '500' }]}>
               (placeholder)
             </Text>
           </View>
@@ -314,14 +314,14 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#8A4A00',
+    color: adminColors.brandDeep,
     marginBottom: 10,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     paddingHorizontal: 16,
     paddingVertical: 4,
     ...adminShadow.sm,
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 9.5,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3EFE9',
+    borderBottomColor: adminColors.border,
     borderStyle: 'dashed',
   },
   detailRowLast: {
@@ -341,28 +341,28 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#786F68',
+    color: adminColors.muted,
     flex: 1,
   },
   detailValueBold: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F1714',
+    color: adminColors.ink,
     textAlign: 'right',
     flexShrink: 1,
   },
   qualityCheckTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: '#1F1714',
+    color: adminColors.ink,
     paddingTop: 10,
     paddingBottom: 4,
   },
   infoBanner: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginTop: 12,
@@ -370,21 +370,21 @@ const styles = StyleSheet.create({
   infoBannerText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1F1714',
+    color: adminColors.ink,
   },
   payoutButton: {
     height: 48,
     borderWidth: 1.5,
-    borderColor: '#D97706',
+    borderColor: adminColors.brand,
     borderRadius: adminRadius?.md ?? 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     marginTop: 18,
   },
   payoutButtonText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#D97706',
+    color: adminColors.brand,
   },
 });

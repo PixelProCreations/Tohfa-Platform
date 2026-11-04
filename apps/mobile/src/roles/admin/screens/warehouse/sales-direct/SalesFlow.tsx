@@ -30,7 +30,8 @@ import { SaleDetailScreen } from './SaleDetailScreen';
 import { SaleSummaryScreen } from './SaleSummaryScreen';
 import { SalesHistoryScreen } from './SalesHistoryScreen';
 import { SalesFiltersScreen, type SalesFilterState, DEFAULT_SALES_FILTERS } from './SalesFiltersScreen';
-import { SalesScreen } from './SalesScreen';
+import { SalesScreen as SalesScreenNamed, default as SalesScreenDefault } from './SalesScreen';
+const SalesScreen = SalesScreenNamed || SalesScreenDefault;
 import { SALE_WAREHOUSES } from './SalesParts';
 import { SelectCustomerScreen } from './SelectCustomerScreen';
 import { SelectProductsScreen } from './SelectProductsScreen';
@@ -38,7 +39,7 @@ import { PurchaseOrdersListScreen, INITIAL_PO_LIST } from './PurchaseOrdersListS
 import { PurchaseOrderDetailScreen } from '../../sales/PurchaseOrderDetailScreen';
 import { PurchaseOrderReceiptScreen } from '../../sales/PurchaseOrderReceiptScreen';
 import { PurchaseOrderPayoutScreen } from '../../sales/PurchaseOrderPayoutScreen';
-import type { PurchaseOrderRecord } from '../../sales/PurchaseSalesOrdersScreen';
+import type { PurchaseOrderRecord } from './types';
 import type {
   PermissionCheck,
   SaleCustomer,

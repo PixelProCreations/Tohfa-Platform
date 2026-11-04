@@ -1,26 +1,75 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { adminColors, adminType, adminShadow } from '../../../theme';
+import { adminColors, adminType, adminShadow, adminOverlay } from '../../../theme';
 import { OverviewCardsGrid, OverviewDashboardCard } from '../../../components';
 
-import { SALE_WAREHOUSES, isAllWarehouses } from './SalesParts';
-import { WarehouseSelector } from '../inventory';
+import { SALE_WAREHOUSES } from './SalesParts';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { SalesChannel, WarehouseScreenBaseProps } from './types';
-import { BellRingIcon, HeaderIconButton } from '../wallet-cashtopup/WalletParts';
+
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
+
+function BellRingIcon({ size = 24, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13.73 21a2 2 0 0 1-3.46 0"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function HeaderIconButton({
+  onPress,
+  accessibilityLabel,
+  children,
+}: {
+  onPress: () => void;
+  accessibilityLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: adminOverlay.whitePill,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {children}
+    </TouchableOpacity>
+  );
+}
+
 
 function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -69,46 +118,13 @@ function MoneyCardIcon({ color = adminColors.warning.text }: { color?: string })
   );
 }
 
-function StorefrontCardIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 8a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V4H3v4z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M4 10.2V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function CalendarActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function CutleryCardIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 3v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V3M8 11v10M17 3v18M14 3v5a3 3 0 0 0 3 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function BuildingCardIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M15 10h4a2 2 0 0 1 2 2v9M9 7h2M9 11h2M9 15h2M18 14h1M18 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+
+
+
+
 
 function ExclamationCircleCardIcon({ color = adminColors.danger.text }: { color?: string }) {
   return (
@@ -153,15 +169,7 @@ function StoreActionIcon({ size = 22, color = adminColors.brand }: { size?: numb
   );
 }
 
-function HistoryClockActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 3v5h5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+
 
 function CutleryActionIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -289,23 +297,9 @@ function BillingInvoicesActionIcon({ size = 22, color = adminColors.brand }: { s
   );
 }
 
-function InvoicesCountCardIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M14 2H6a2 2 0 0 0-2 2v16l3-2 3 2 3-2 3 2 3-2 3 2V8z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M14 2v6h6M8 13h8" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function InvoiceValueCardIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="3" stroke={color} strokeWidth="1.8" />
-      <Path d="M2 10h20M6 15h4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
+
+
 
 function ChevronRightIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
@@ -345,7 +339,7 @@ export function SalesScreen({
   scope,
   role,
   onBack,
-  onTabChange,
+  onTabChange: _onTabChange,
   onNavigateToNotifications,
   onNavigateToNewSale,
   onNavigateToSalesHistory,
@@ -360,7 +354,7 @@ export function SalesScreen({
   onNavigateToPurchaseOrdersList,
   onNavigateToInvoiceDetail,
 }: SalesScreenProps) {
-  const isMain = isAllWarehouses(scope);
+  // const isMain = isAllWarehouses(scope);
   const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
 
   const isTohfaAdmin = role === 'TOHFA_ADMIN';
@@ -792,7 +786,7 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('payment_pending')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#EAB308' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.warning.text }]} />
             <View style={styles.alertIconBox}>
               <MoneyCardIcon color={adminColors.warning.text} />
             </View>
@@ -808,7 +802,7 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('stock_issue')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#EF4444' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.danger.text }]} />
             <View style={styles.alertIconBox}>
               <StockBoxIcon color={adminColors.danger.text} />
             </View>
@@ -824,7 +818,7 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('failed_sale')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#EF4444' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.danger.text }]} />
             <View style={styles.alertIconBox}>
               <ExclamationCircleCardIcon color={adminColors.danger.text} />
             </View>
@@ -840,7 +834,7 @@ export function SalesScreen({
             onPress={() => handleOpenNeedsAttention('invoice_issue')}
             activeOpacity={0.75}
           >
-            <View style={[styles.alertAccentBar, { backgroundColor: '#EAB308' }]} />
+            <View style={[styles.alertAccentBar, { backgroundColor: adminColors.warning.text }]} />
             <View style={styles.alertIconBox}>
               <InvoiceDocumentIcon color={adminColors.warning.text} />
             </View>
@@ -897,7 +891,7 @@ const styles = StyleSheet.create({
   warehouseBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -1042,7 +1036,7 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   paidBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1050,10 +1044,10 @@ const styles = StyleSheet.create({
   paidBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#15803D',
+    color: adminColors.success.text,
   },
   closedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1061,7 +1055,7 @@ const styles = StyleSheet.create({
   closedBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#15803D',
+    color: adminColors.success.text,
   },
   recentSaleCustomer: {
     fontSize: 13.5,
@@ -1105,11 +1099,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F4EFEA',
+    borderTopColor: adminColors.border,
   },
   poLinkText: {
     ...adminType.rowMeta,
-    color: '#D97706',
+    color: adminColors.brand,
     fontWeight: '700',
   },
   // ── Recent Invoices ──
@@ -1123,7 +1117,7 @@ const styles = StyleSheet.create({
     ...adminShadow.sm,
   },
   generatedBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -1131,7 +1125,7 @@ const styles = StyleSheet.create({
   generatedBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#15803D',
+    color: adminColors.success.text,
   },
   invoiceMidRow: {
     flexDirection: 'row',
@@ -1155,9 +1149,9 @@ const styles = StyleSheet.create({
   },
   invoiceActionPill: {
     flex: 1,
-    backgroundColor: '#FDE8CD',
+    backgroundColor: adminColors.brandSoft.bg,
     borderWidth: 1,
-    borderColor: '#E8D5BC',
+    borderColor: adminColors.brandSoft.border,
     paddingVertical: 9,
     borderRadius: 9,
     alignItems: 'center',
@@ -1166,7 +1160,7 @@ const styles = StyleSheet.create({
   invoiceActionPillText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#8A4A00',
+    color: adminColors.brandDeep,
   },
   // ── Needs Attention ──
   needsAttentionHeader: {
@@ -1224,3 +1218,5 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
+
+export default SalesScreen;

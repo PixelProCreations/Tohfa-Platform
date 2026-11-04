@@ -23,7 +23,7 @@
 import React, { useState } from 'react';
 import { Alert, Linking, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   EmptyState,
   HeaderIconButton,
@@ -258,9 +258,9 @@ const styles = StyleSheet.create({
     width: HERO_ICON,
     height: HERO_ICON,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.whitePillActive,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: adminSpacing.md,
@@ -304,9 +304,9 @@ const styles = StyleSheet.create({
   mapCoords: { ...adminType.sectionHead, color: adminColors.ink },
   mapAddress: { ...adminType.body, color: adminColors.muted, textAlign: 'center' },
   infoBox: {
-    backgroundColor: '#E8F1FC',
+    backgroundColor: adminColors.info.bg,
     borderWidth: 1,
-    borderColor: '#B9D5F8',
+    borderColor: adminColors.info.border,
     borderRadius: adminRadius.lg,
     padding: adminSpacing.md,
     marginTop: adminSpacing.md,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   infoBoxText: {
     ...adminType.caption,
-    color: '#1A56DB',
+    color: adminColors.info.text,
     lineHeight: 18,
   },
 });

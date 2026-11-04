@@ -212,7 +212,7 @@ const STATUS_TONE: Record<OrderStatus, { bg: string; text: string }> = {
   Packing: adminColors.warning,
   'Ready for Pickup': adminColors.success,
   Completed: adminColors.success,
-  Delivered: { bg: '#DCFCE7', text: '#15803D' },
+  Delivered: adminColors.success,
   'Quantity Issue': adminColors.danger,
 };
 

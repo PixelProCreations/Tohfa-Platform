@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
   changeValue: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#16A34A',
+    color: adminColors.success.text,
   },
   paymentSummaryCard: {
     flexDirection: 'row',

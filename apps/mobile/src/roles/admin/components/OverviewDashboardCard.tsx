@@ -356,7 +356,7 @@ export function OverviewDashboardCard({
 }: OverviewDashboardCardProps) {
   const isDanger = tone === 'danger';
   const effectiveIconColor = iconColor ?? (isDanger ? adminColors.danger.text : adminColors.brandDeep);
-  const effectiveIconBg = iconBgColor ?? (isDanger ? '#FEE2E2' : adminColors.brandTint);
+  const effectiveIconBg = iconBgColor ?? (isDanger ? adminColors.danger.bg : adminColors.brandTint);
   const isWarning = tone === 'warning';
   const isSuccess = tone === 'success';
 

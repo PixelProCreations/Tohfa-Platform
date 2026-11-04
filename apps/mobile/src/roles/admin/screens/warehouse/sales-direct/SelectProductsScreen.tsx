@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   filterChipActive: {
     borderColor: adminColors.brand,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandSoft.bg,
   },
   filterChipText: {
     fontSize: 12.5,
@@ -465,20 +465,20 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   badgeAvailable: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
   },
   badgeAvailableText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#15803D',
+    color: adminColors.success.text,
   },
   badgeLowStock: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: adminColors.danger.bg,
   },
   badgeLowStockText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#DC2626',
+    color: adminColors.danger.text,
   },
   badgeText: {
     fontSize: 11,
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF7ED',
+    backgroundColor: adminColors.brandSoft.bg,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: adminColors.brand,

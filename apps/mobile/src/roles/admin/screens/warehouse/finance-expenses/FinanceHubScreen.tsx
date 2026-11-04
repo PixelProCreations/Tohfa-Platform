@@ -33,7 +33,7 @@ import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'rea
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import {
   BellRingIcon,
   HeaderIconButton,

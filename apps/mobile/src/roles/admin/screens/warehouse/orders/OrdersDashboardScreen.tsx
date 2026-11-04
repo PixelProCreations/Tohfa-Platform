@@ -19,7 +19,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { OrderScreenBaseProps } from './types';
 
 interface WarehouseOption {

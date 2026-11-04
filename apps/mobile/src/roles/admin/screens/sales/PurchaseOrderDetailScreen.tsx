@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { adminColors, adminRadius, adminShadow, adminSpacing } from '../../theme';
-import type { PurchaseOrderRecord } from './PurchaseSalesOrdersScreen';
+import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (

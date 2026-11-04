@@ -23,7 +23,6 @@ import {
   inScope,
   isAllWarehouses,
   SearchField,
-  StatTiles,
   StatusBadge,
 } from './CustomersParts';
 import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
@@ -31,7 +30,7 @@ import { CustomerFiltersScreen, type CustomerFilterStatus, type CustomerFilterVa
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 
 export interface CustomersListScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((customer: CustomerRecord) => void) | undefined;
@@ -50,8 +49,8 @@ export function CustomersListScreen({
   onBack,
   onTabChange: _onTabChange,
   onSelectCustomer,
-  onNavigateToSearch,
-  onNavigateToNotifications,
+  onNavigateToSearch: _onNavigateToSearch,
+  onNavigateToNotifications: _onNavigateToNotifications,
   onOpenFilters,
   warehouseOptions = CUSTOMER_WAREHOUSES,
   customers = INITIAL_CUSTOMERS,

@@ -11,7 +11,7 @@
 import React, { useMemo, useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { TOP_UP_HISTORY, WALLET_WAREHOUSES, sampleProcessedBy, warehouseNameOf } from './fixtures';
 import type { TopUpHistoryRow, TopUpStatus, WalletTransactionRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import {
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
 
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: adminOverlay.scrim,
     justifyContent: 'flex-end',
   },
   modalContent: {

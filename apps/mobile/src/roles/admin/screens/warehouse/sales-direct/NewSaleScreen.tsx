@@ -57,8 +57,8 @@ function EmptyCartIcon({ size = 56, color = adminColors.border }: { size?: numbe
 function InfoCircleBlueIcon({ size = 16 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#2563EB" strokeWidth="2" />
-      <Path d="M12 16v-4M12 8h.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.info.text} strokeWidth="2" />
+      <Path d="M12 16v-4M12 8h.01" stroke={adminColors.info.text} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -445,20 +445,20 @@ const styles = StyleSheet.create({
   channelInfoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: adminColors.info.bg,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
     gap: 8,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: adminColors.info.border,
     marginTop: 6,
     marginBottom: 6,
   },
   channelInfoText: {
     flex: 1,
     fontSize: 12,
-    color: '#1E40AF',
+    color: adminColors.info.text,
     lineHeight: 16,
   },
 });

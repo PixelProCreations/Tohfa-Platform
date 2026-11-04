@@ -89,6 +89,7 @@ import { TransactionHistoryScreen } from '../finance/TransactionHistoryScreen';
 import { CustomerWalletOverviewScreen } from '../finance/CustomerWalletOverviewScreen';
 import { ReportsExportScreen } from '../finance/ReportsExportScreen';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
+import { InventoryFlow } from '../warehouse/inventory';
 import { StockLedgerBatchesScreen } from './StockLedgerBatchesScreen';
 import { StockVerificationScreen } from './StockVerificationScreen';
 import { InterWarehouseTransfersScreen } from './InterWarehouseTransfersScreen';
@@ -122,7 +123,6 @@ import {
   GenerateAuditReportScreen,
   AuditReportsTierConfigScreen,
   AuditReportHistoryScreen,
-  AuditReportDetailsScreen,
 } from '../audits';
 import {
   MarketPricingHomeScreen,
@@ -7144,7 +7144,6 @@ export function TohfaAdminDashboardScreen({
     | 'generateAuditReport'
     | 'auditReportsTierConfig'
     | 'auditReportHistory'
-    | 'auditReportDetails'
     | 'support'
     | 'reportBuilder'
     | 'pendingApplications'
@@ -7205,6 +7204,13 @@ export function TohfaAdminDashboardScreen({
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
   const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | null>(null);
+  const [selectedWarehouseScope, setSelectedWarehouseScope] = useState<{
+    warehouseId: string;
+    warehouseName: string;
+  }>({
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
+  });
   const [operationsReturnTab, setOperationsReturnTab] = useState<'Home' | 'Inventory' | 'Operations' | null>(null);
   const [workforceReturnTab, setWorkforceReturnTab] = useState<'Home' | 'Workforce' | 'More' | null>(null);
   const [financeReturnTab, setFinanceReturnTab] = useState<'Home' | 'Finance' | 'More' | null>(null);
@@ -11057,16 +11063,6 @@ export function TohfaAdminDashboardScreen({
         ) : dashboardSubScreen === 'auditReportHistory' ? (
           <AuditReportHistoryScreen
             onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
-            onOpenReportDetails={(_reportId) => {
-              setDashboardSubScreen('auditReportDetails');
-            }}
-          />
-        ) : dashboardSubScreen === 'auditReportDetails' ? (
-          <AuditReportDetailsScreen
-            onBack={() => setDashboardSubScreen('auditReportHistory')}
-            onDownload={() => {
-              Alert.alert('Download Complete', 'Audit Summary Report has been downloaded.');
-            }}
           />
         ) : (
           <>
@@ -11702,12 +11698,38 @@ export function TohfaAdminDashboardScreen({
            ══════════════════════════════════════════════════════════════════════ */}
             {(activeTab === 'Inventory' || activeTab === 'Operations') && (
               operationsSubScreen === 'stockLedger' ? (
-                <StockLedgerBatchesScreen
+                <InventoryFlow
+                  scope={{
+                    warehouseId: selectedWarehouseScope?.warehouseId || 'WH-COON',
+                    warehouseName: selectedWarehouseScope?.warehouseName || 'Coonoor Warehouse',
+                  }}
+                  can={can}
+                  initialScreen="M3S02"
                   onBack={handleOperationsBack}
+                  onInitiateTransfer={() => setOperationsSubScreen('transfers')}
+                  warehouseOptions={[
+                    { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (WH-MAIN)' },
+                    { warehouseId: 'WH-COON', warehouseName: 'Coonoor (WH-SUB1)' },
+                    { warehouseId: 'WH-KOT', warehouseName: 'Kotagiri (WH-SUB2)' },
+                    { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
+                  ]}
                 />
               ) : operationsSubScreen === 'stockVerification' ? (
-                <StockVerificationScreen
+                <InventoryFlow
+                  scope={{
+                    warehouseId: selectedWarehouseScope?.warehouseId || 'WH-COON',
+                    warehouseName: selectedWarehouseScope?.warehouseName || 'Coonoor Warehouse',
+                  }}
+                  can={can}
+                  initialScreen="M3S10"
                   onBack={handleOperationsBack}
+                  onInitiateTransfer={() => setOperationsSubScreen('transfers')}
+                  warehouseOptions={[
+                    { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (WH-MAIN)' },
+                    { warehouseId: 'WH-COON', warehouseName: 'Coonoor (WH-SUB1)' },
+                    { warehouseId: 'WH-KOT', warehouseName: 'Kotagiri (WH-SUB2)' },
+                    { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
+                  ]}
                 />
               ) : operationsSubScreen === 'transfers' ? (
                 <InterWarehouseTransfersScreen
@@ -11725,11 +11747,35 @@ export function TohfaAdminDashboardScreen({
                   onExportReports={() => {
                     Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
                   }}
-                  onNavigateToStockLedger={() => setOperationsSubScreen('stockLedger')}
-                  onNavigateToStockVerification={() => setOperationsSubScreen('stockVerification')}
+                  onNavigateToStockLedger={() => {
+                    setSelectedWarehouseScope({
+                      warehouseId: 'WH-COON',
+                      warehouseName: 'Coonoor Warehouse',
+                    });
+                    setOperationsSubScreen('stockLedger');
+                  }}
+                  onNavigateToStockVerification={() => {
+                    setSelectedWarehouseScope({
+                      warehouseId: 'WH-COON',
+                      warehouseName: 'Coonoor Warehouse',
+                    });
+                    setOperationsSubScreen('stockVerification');
+                  }}
                   onNavigateToTransfers={() => setOperationsSubScreen('transfers')}
                   onPlusAction={() => setOperationsSubScreen('addWarehouse')}
-                  onSelectWarehouse={() => setOperationsSubScreen('addWarehouse')}
+                  onSelectWarehouse={(whId) => {
+                    const map: Record<string, { warehouseId: string; warehouseName: string }> = {
+                      wh_main: { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (WH-MAIN)' },
+                      wh_sub1: { warehouseId: 'WH-COON', warehouseName: 'Coonoor (WH-SUB1)' },
+                      wh_sub2: { warehouseId: 'WH-KOT', warehouseName: 'Kotagiri (WH-SUB2)' },
+                      wh_sub3: { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
+                    };
+                    setSelectedWarehouseScope(map[whId] || {
+                      warehouseId: 'WH-COON',
+                      warehouseName: 'Coonoor Warehouse',
+                    });
+                    setOperationsSubScreen('stockLedger');
+                  }}
                   onNavigateToFarmers={() => {
                     setFarmersReturnTab(activeTab === 'Inventory' ? 'Inventory' : 'Operations');
                     setFarmersMainTab('farmers');

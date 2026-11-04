@@ -2452,7 +2452,6 @@ export function MainWarehouseAdminDashboardScreen({
             <TransfersFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
-              role="MAIN_WH_ADMIN"
               initialScreen="TransferReceiving"
               onBack={() => setReceivingSubView('dashboard')}
             />

@@ -29,7 +29,7 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function SearchIcon({ size = 18, color = '#786F68' }: { size?: number; color?: string }) {
+function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
@@ -51,7 +51,7 @@ function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: nu
   );
 }
 
-import type { PurchaseOrderRecord } from '../../sales/PurchaseSalesOrdersScreen';
+import type { PurchaseOrderRecord } from './types';
 
 // ─── PO Record Interface ────────────────────────────────────────────────────
 
@@ -252,11 +252,11 @@ export function PurchaseOrdersListScreen({
       >
         {/* ── Search & Filter Bar ── */}
         <View style={styles.searchBarContainer}>
-          <SearchIcon size={18} color="#786F68" />
+          <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search..."
-            placeholderTextColor="#786F68"
+            placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCorrect={false}
@@ -421,10 +421,10 @@ const styles = StyleSheet.create({
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.md,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     paddingHorizontal: 12,
     height: 44,
     marginBottom: 12,
@@ -443,14 +443,14 @@ const styles = StyleSheet.create({
   },
   counterText: {
     ...adminType.rowMeta,
-    color: '#786F68',
+    color: adminColors.muted,
     marginBottom: 12,
   },
   poCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: '#EDE8E0',
+    borderColor: adminColors.border,
     padding: 14,
     marginBottom: 12,
     ...adminShadow.sm,
@@ -476,26 +476,26 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   badgeGreen: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
   },
   badgeAmber: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.warning.bg,
   },
   badgeGray: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.canvas,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: '700',
   },
   badgeTextGreen: {
-    color: '#166534',
+    color: adminColors.success.text,
   },
   badgeTextAmber: {
-    color: '#92400E',
+    color: adminColors.warning.text,
   },
   badgeTextGray: {
-    color: '#4B5563',
+    color: adminColors.muted,
   },
   poDetailLine: {
     ...adminType.body,
@@ -510,11 +510,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#F4EFEA',
+    borderTopColor: adminColors.border,
   },
   poActionText: {
     ...adminType.rowMeta,
-    color: '#D97706',
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

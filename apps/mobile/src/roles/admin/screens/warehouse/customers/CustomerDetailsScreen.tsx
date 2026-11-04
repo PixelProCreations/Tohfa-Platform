@@ -26,7 +26,6 @@ import {
   InfoGrid,
   isAllWarehouses,
   LinkButton,
-  NoteBox,
   resolveCustomer,
   SectionHeading,
   StatTiles,

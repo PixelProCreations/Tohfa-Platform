@@ -35,7 +35,7 @@ import {
   type NotificationsRouteParams,
 } from '../../admin/screens/warehouse/notifications';
 import { ReportsScreen } from '../../admin/screens/warehouse/reports';
-import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
+import { SalesFlow } from '../../admin/screens/warehouse/sales-direct/SalesFlow';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import {
   HOME_CODES,
@@ -57,7 +57,6 @@ import {
   type StorageRoute,
   type StorageRouteParams,
 } from '../../admin/screens/warehouse/storage-ops';
-import { DEMO_ROLE_PERMISSIONS } from '../../admin/permissions/demoGrants';
 import {
   ExpenseDetailScreen,
   FinanceFlow,
@@ -1286,11 +1285,7 @@ export function SubWarehouseAdminDashboardScreen({
   const [returnToTabOnBack, setReturnToTabOnBack] = useState<SubWHTab | null>(null);
   const effectiveCan = useMemo<PermissionCheck>(() => {
     return (code: string) => {
-      if (can && can(code)) return true;
-      if (__DEV__) {
-        return DEMO_ROLE_PERMISSIONS.SUB_WH_ADMIN.includes(code);
-      }
-      return false;
+      return Boolean(can && can(code));
     };
   }, [can]);
 

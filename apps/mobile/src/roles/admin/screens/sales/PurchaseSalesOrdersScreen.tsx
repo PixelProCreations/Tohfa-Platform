@@ -132,25 +132,8 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 // ─── Data Types ──────────────────────────────────────────────────────────────
 
-export interface PurchaseOrderRecord {
-  id: string;
-  poNumber: string;
-  listingCode: string;
-  farmerName: string;
-  produceName: string;
-  grade: string;
-  quantityKg: number;
-  unitPrice: number;
-  totalPrice: number;
-  warehouse: string;
-  dateStr: string;
-  purchaseStatus: 'Closed' | 'Open' | 'Receipt in progress';
-  receiptStatus: 'Completed' | 'Partial' | 'Not received';
-  payoutId?: string;
-  farmerId?: string;
-  goodsReceiptId?: string;
-  payoutStatus?: string;
-}
+import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
+export type { PurchaseOrderRecord };
 
 const PURCHASE_ORDERS_DATA: PurchaseOrderRecord[] = [
   {

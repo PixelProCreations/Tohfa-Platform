@@ -15,15 +15,15 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
+import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import type { WarehouseScreenBaseProps } from '../finance-expenses';
 import { ChannelOrderDetailScreen } from './ChannelOrderDetailScreen';
 import { CHANNEL_COPY, CHANNEL_KPIS, CHANNEL_ORDERS } from './fixtures';
 import { SALE_WAREHOUSES, isAllWarehouses } from './SalesParts';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import { WarehouseTabBar } from '../wallet-cashtopup/WalletParts';
 import type { WarehouseTab } from '../wallet-cashtopup/types';
-import type { ChannelOrderItem, ChannelOrderLine, SalesChannel } from './types';
+import type { ChannelOrderItem, SalesChannel } from './types';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -41,20 +41,7 @@ function ArrowBackIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
   );
 }
 
-function EyeMonitorIcon({ size = 18, color = adminColors.info.text }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
+
 
 function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
@@ -65,21 +52,9 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
   );
 }
 
-function BuildingIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M15 10h4a2 2 0 0 1 2 2v9M9 7h2M9 11h2M9 15h2M18 14h1M18 17h1" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function ChevronDownIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
+
+
 
 function CheckmarkIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -134,13 +109,6 @@ function ClipboardCheckIcon({ size = 20, color = adminColors.onBrand }: { size?:
   );
 }
 
-const WAREHOUSE_OPTIONS = [
-  { id: undefined, name: 'All Warehouses' },
-  { id: 'OOTY', name: 'Ooty' },
-  { id: 'COONOOR', name: 'Coonoor' },
-  { id: 'KOTAGIRI', name: 'Kotagiri' },
-  { id: 'GUDALUR', name: 'Gudalur' },
-] as const;
 
 // ─── Component Props ─────────────────────────────────────────────────────────
 
@@ -170,7 +138,7 @@ export function ChannelSalesScreen({
 
   // Main Warehouse Filters & State
   const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
-  const [showWarehouseModal, setShowWarehouseModal] = useState(false);
+  // showWarehouseModal removed
 
   // Create Order Flow State
   const [creatingOrder, setCreatingOrder] = useState(false);
@@ -209,8 +177,8 @@ export function ChannelSalesScreen({
   const copy = CHANNEL_COPY[channel];
   const kpis = CHANNEL_KPIS[channel];
 
-  const pickedWarehouseObj = WAREHOUSE_OPTIONS.find((w) => w.id === pickedWarehouse);
-  const pickedWarehouseName = pickedWarehouseObj?.name ?? 'All Warehouses';
+  
+  // pickedWarehouseName removed
 
   // Main-specific sample orders matching M6-11 and M6-12 screenshots
   const mainOrders: ChannelOrderItem[] =
@@ -1047,8 +1015,7 @@ export function ChannelSalesScreen({
           <TouchableOpacity
             style={styles.createOrderBottomBtn}
             onPress={() => {
-              setCreatingOrder(true);
-              setCreateStep(1);
+              Alert.alert('Not Supported', '501 Not Implemented: Channel order creation for HORECA and B2B is not supported (SALE_CHANNEL_NOT_SUPPORTED, BR-13/BR-15b).');
             }}
             activeOpacity={0.85}
           >

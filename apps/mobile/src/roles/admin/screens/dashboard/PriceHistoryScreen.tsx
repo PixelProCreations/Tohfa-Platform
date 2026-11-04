@@ -1,7 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
   Modal,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -11,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import {
   adminColors,
@@ -41,9 +40,7 @@ function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: numb
 function HorizontalSlidersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="4" y1="6" x2="20" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="12" x2="20" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="18" x2="20" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M4 6h16M4 12h16M4 18h16" stroke={color} strokeWidth="2" strokeLinecap="round" />
       <Circle cx="8" cy="6" r="2.2" fill={color} />
       <Circle cx="16" cy="12" r="2.2" fill={color} />
       <Circle cx="10" cy="18" r="2.2" fill={color} />
@@ -55,7 +52,7 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
-      <Line x1="16.5" y1="16.5" x2="21" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16.5 16.5L21 21" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -98,13 +95,13 @@ export interface PriceHistoryItem {
 
 export interface CounterOfferItem {
   id: string; // e.g. 'CO-0001'
-  listing: string; // e.g. 'LST-2004'
+  listing: string; // e.g. 'LST-2001'
   product: string;
   grade: string;
   quantity: string;
   originalPrice: string;
   counterPrice: string;
-  offerRound: string; // 'Offer 2 of 3'
+  offerRound: string; // '1 of 3' or 'Offer 2 of 3'
   offeredDate: string;
   deadline: string;
   farmerName: string;
@@ -136,8 +133,8 @@ export const PRICE_HISTORY_FIXTURES: PriceHistoryItem[] = [
     product: 'Tomato',
     grade: 'Grade 1',
     priceType: 'Retail Price',
-    previousValue: '₹52.00',
-    newValue: '₹55.00',
+    previousValue: '₹52.00/kg',
+    newValue: '₹55.00/kg',
     changeReason: 'Seasonal adjustment',
     changedBy: 'Priya Nair',
     recorded: '10 Oct 2026, 09:30',
@@ -151,8 +148,8 @@ export const PRICE_HISTORY_FIXTURES: PriceHistoryItem[] = [
     product: 'Carrot',
     grade: 'Grade 1',
     priceType: 'Retail Price',
-    previousValue: '₹70.00',
-    newValue: '₹74.00',
+    previousValue: '₹70.00/kg',
+    newValue: '₹74.00/kg',
     changeReason: 'Price increase attempt',
     changedBy: 'Priya Nair',
     recorded: '9 Oct 2026, 14:15',
@@ -217,7 +214,7 @@ export const COUNTER_OFFER_FIXTURES: CounterOfferItem[] = [
     product: 'Carrot',
     grade: 'Grade 1',
     quantity: '50 kg',
-    originalPrice: '₹68.00',
+    originalPrice: '₹60.00',
     counterPrice: '₹69.00',
     offerRound: 'Offer 1 of 3',
     offeredDate: '12 Oct 2026, 11:00',
@@ -259,97 +256,110 @@ export const COUNTER_OFFER_FIXTURES: CounterOfferItem[] = [
     recordedResponse: 'No response in 24h',
     decisionRecorded: '9 Oct 2026, 14:01',
   },
+  {
+    id: 'CO-0005',
+    listing: 'LST-2024',
+    product: 'Beans',
+    grade: 'Grade 1',
+    quantity: '60 kg',
+    originalPrice: '₹70.00',
+    counterPrice: '₹72.00',
+    offerRound: 'Offer 1 of 3',
+    offeredDate: '7 Oct 2026, 08:30',
+    deadline: '8 Oct 2026, 08:30',
+    farmerName: 'Anand',
+    status: 'Pending',
+    recordedResponse: 'None yet',
+    decisionRecorded: '—',
+  },
+  {
+    id: 'CO-0006',
+    listing: 'LST-2028',
+    product: 'Beetroot',
+    grade: 'Grade 2',
+    quantity: '75 kg',
+    originalPrice: '₹35.00',
+    counterPrice: '₹38.00',
+    offerRound: 'Offer 2 of 3',
+    offeredDate: '6 Oct 2026, 16:00',
+    deadline: '7 Oct 2026, 16:00',
+    farmerName: 'Kavitha',
+    status: 'Accepted',
+    recordedResponse: 'Accepted counter',
+    decisionRecorded: '7 Oct 2026, 10:00',
+  },
+  {
+    id: 'CO-0007',
+    listing: 'LST-2032',
+    product: 'Garlic',
+    grade: 'Grade 1',
+    quantity: '40 kg',
+    originalPrice: '₹140.00',
+    counterPrice: '₹150.00',
+    offerRound: 'Offer 1 of 3',
+    offeredDate: '5 Oct 2026, 12:00',
+    deadline: '6 Oct 2026, 12:00',
+    farmerName: 'Govind',
+    status: 'Pending',
+    recordedResponse: 'None yet',
+    decisionRecorded: '—',
+  },
+  {
+    id: 'CO-0008',
+    listing: 'LST-2001',
+    product: 'Tomato',
+    grade: 'Grade 1',
+    quantity: '120 kg',
+    originalPrice: '₹58.00/kg',
+    counterPrice: '₹54.00/kg',
+    offerRound: '1 of 3',
+    offeredDate: '14 Oct 2026, 09:00',
+    deadline: '15 Oct 2026, 09:00',
+    farmerName: 'Ramesh Kumar',
+    status: 'Pending',
+    recordedResponse: 'None yet',
+    decisionRecorded: '—',
+  },
 ];
-
-// Backward-compatible aliases
-export type PriceHistoryRecord = PriceHistoryItem;
-export const SAMPLE_PRICE_HISTORY = PRICE_HISTORY_FIXTURES;
-
-// ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface PriceHistoryScreenProps {
   onBack: () => void;
-  itemName?: string | undefined;
-  category?: string | undefined;
-  currentPrice?: number | undefined;
 }
 
 export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
-  // Navigation / Tab state
-  const [activeTab, setActiveTab] = useState<'history' | 'counter_offers'>('history');
-
-  // Search state
+  // Search filter query
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Selected details modal state
+  // Status Filter: All, Pending, Accepted, Valid, Failed
+  const [appliedStatusFilter, setAppliedStatusFilter] = useState<string>('All');
+  const [draftStatusFilter, setDraftStatusFilter] = useState<string>('All');
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+
+  // Filter Bottom Sheet Modal Visibility
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+
+  // Selected item for Detail Bottom Sheet Modal
   const [selectedHistory, setSelectedHistory] = useState<PriceHistoryItem | null>(null);
   const [selectedOffer, setSelectedOffer] = useState<CounterOfferItem | null>(null);
 
-  // Filter popup modal state
-  const [filterModalVisible, setFilterModalVisible] = useState(false);
-
-  // Filter states for History
-  const [appliedHistStatus, setAppliedHistStatus] = useState<'All' | 'Valid' | 'Failed'>('All');
-  const [draftHistStatus, setDraftHistStatus] = useState<'All' | 'Valid' | 'Failed'>('All');
-  const [histStatusDropdownOpen, setHistStatusDropdownOpen] = useState(false);
-
-  // Filter states for Counter-offers
-  const [appliedOfferStatus, setAppliedOfferStatus] = useState<
-    'All' | 'Pending' | 'Accepted' | 'Rejected' | 'Expired'
-  >('All');
-  const [draftOfferStatus, setDraftOfferStatus] = useState<
-    'All' | 'Pending' | 'Accepted' | 'Rejected' | 'Expired'
-  >('All');
-  const [offerStatusDropdownOpen, setOfferStatusDropdownOpen] = useState(false);
-
   const openFilterModal = () => {
-    setDraftHistStatus(appliedHistStatus);
-    setDraftOfferStatus(appliedOfferStatus);
-    setHistStatusDropdownOpen(false);
-    setOfferStatusDropdownOpen(false);
+    setDraftStatusFilter(appliedStatusFilter);
+    setStatusDropdownOpen(false);
     setFilterModalVisible(true);
   };
 
   const handleApplyFilter = () => {
-    setAppliedHistStatus(draftHistStatus);
-    setAppliedOfferStatus(draftOfferStatus);
+    setAppliedStatusFilter(draftStatusFilter);
     setFilterModalVisible(false);
   };
 
   const handleResetFilter = () => {
-    if (activeTab === 'history') {
-      setDraftHistStatus('All');
-      setAppliedHistStatus('All');
-    } else {
-      setDraftOfferStatus('All');
-      setAppliedOfferStatus('All');
-    }
+    setDraftStatusFilter('All');
+    setAppliedStatusFilter('All');
     setFilterModalVisible(false);
   };
 
-  // Filtered History Records
-  const filteredHistory = useMemo(() => {
-    return PRICE_HISTORY_FIXTURES.filter((rec) => {
-      const q = searchQuery.toLowerCase().trim();
-      if (q) {
-        const matches =
-          rec.product.toLowerCase().includes(q) ||
-          rec.grade.toLowerCase().includes(q) ||
-          rec.id.toLowerCase().includes(q) ||
-          rec.changedBy.toLowerCase().includes(q) ||
-          rec.auditRef.toLowerCase().includes(q);
-        if (!matches) return false;
-      }
-
-      if (appliedHistStatus !== 'All' && rec.status !== appliedHistStatus) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [searchQuery, appliedHistStatus]);
-
-  // Filtered Counter-Offers
+  // Filtered Counter-Offers (Image 1 Left Phone)
   const filteredOffers = useMemo(() => {
     return COUNTER_OFFER_FIXTURES.filter((off) => {
       const q = searchQuery.toLowerCase().trim();
@@ -362,19 +372,41 @@ export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
         if (!matches) return false;
       }
 
-      if (appliedOfferStatus !== 'All' && off.status !== appliedOfferStatus) {
+      if (appliedStatusFilter !== 'All' && off.status !== appliedStatusFilter) {
         return false;
       }
 
       return true;
     });
-  }, [searchQuery, appliedOfferStatus]);
+  }, [searchQuery, appliedStatusFilter]);
+
+  // Filtered Price History
+  const filteredHistory = useMemo(() => {
+    return PRICE_HISTORY_FIXTURES.filter((item) => {
+      const q = searchQuery.toLowerCase().trim();
+      if (q) {
+        const matches =
+          item.product.toLowerCase().includes(q) ||
+          item.grade.toLowerCase().includes(q) ||
+          item.changedBy.toLowerCase().includes(q) ||
+          item.auditRef.toLowerCase().includes(q) ||
+          item.id.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+
+      if (appliedStatusFilter !== 'All' && item.status !== appliedStatusFilter) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [searchQuery, appliedStatusFilter]);
 
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ── Orange Gradient Header Matching Image 1 ── */}
+      {/* ── Orange Header Banner strictly conforming to adminTheme ── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -399,55 +431,12 @@ export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* Segmented Control Switch Matching Image 1 */}
-        <View style={styles.segmentedContainer}>
-          <TouchableOpacity
-            style={[
-              styles.segmentBtn,
-              activeTab === 'history' && styles.segmentBtnActive,
-            ]}
-            onPress={() => setActiveTab('history')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.segmentBtnText,
-                activeTab === 'history' && styles.segmentBtnTextActive,
-              ]}
-            >
-              History
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.segmentBtn,
-              activeTab === 'counter_offers' && styles.segmentBtnActive,
-            ]}
-            onPress={() => setActiveTab('counter_offers')}
-            activeOpacity={0.8}
-          >
-            <Text
-              style={[
-                styles.segmentBtnText,
-                activeTab === 'counter_offers' && styles.segmentBtnTextActive,
-              ]}
-            >
-              Counter-Offers
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Search Bar with Filter Sliders Icon */}
+        {/* Search Bar with Filter Sliders Icon (Matching Image 1 Left Phone) */}
         <View style={styles.searchBarContainer}>
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder={
-              activeTab === 'history'
-                ? 'Search common or scientific name'
-                : 'Search by offer, listing or product'
-            }
+            placeholder="Search common or scientific name"
             placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -462,434 +451,411 @@ export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
           </TouchableOpacity>
         </View>
 
-        {/* Dynamic Counter Subtitle */}
-        <Text style={styles.recordCountText}>
-          {activeTab === 'history'
-            ? `${filteredHistory.length} history records${
-                appliedHistStatus !== 'All' ? ` · ${appliedHistStatus}` : ''
-              }`
-            : `${filteredOffers.length} counter-offers${
-                appliedOfferStatus !== 'All' ? ` · ${appliedOfferStatus}` : ''
-              }`}
+        {/* ── Section 1: Counter-Offers List (Image 1 Left Phone) ── */}
+        <Text style={styles.sectionHeaderTitle}>
+          {filteredOffers.length} counter-offers
         </Text>
 
-        {/* ── History Records List (Image 1 Left) ── */}
-        {activeTab === 'history' &&
-          filteredHistory.map((item) => {
-            const isValid = item.status === 'Valid';
+        {filteredOffers.map((offer) => {
+          const isPending = offer.status === 'Pending';
+          const isAccepted = offer.status === 'Accepted';
 
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.itemCard}
-                onPress={() => setSelectedHistory(item)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>
-                    {item.product} · {item.grade} · {item.priceType}
-                  </Text>
-                  <View
-                    style={[
-                      styles.badgePill,
-                      isValid ? styles.badgeValid : styles.badgeFailed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        isValid ? styles.badgeValidText : styles.badgeFailedText,
-                      ]}
-                    >
-                      {item.status}
-                    </Text>
-                  </View>
-                </View>
-
-                {item.attemptNote ? (
-                  <Text style={styles.cardSubtitle1}>{item.attemptNote}</Text>
-                ) : (
-                  <Text style={styles.cardSubtitle1}>
-                    {item.previousValue} → {item.newValue} · effective {item.effectiveDate}
-                  </Text>
-                )}
-
-                <Text style={styles.cardSubtitle2}>
-                  {item.changedBy}
-                  {item.changeReason ? ` · "${item.changeReason}"` : ''} · {item.auditRef}
+          return (
+            <TouchableOpacity
+              key={offer.id}
+              style={styles.itemCard}
+              onPress={() => setSelectedOffer(offer)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>
+                  {offer.listing} · {offer.product}
                 </Text>
-              </TouchableOpacity>
-            );
-          })}
-
-        {/* ── Counter-Offers List (Image 1 Right) ── */}
-        {activeTab === 'counter_offers' &&
-          filteredOffers.map((offer) => {
-            const isPending = offer.status === 'Pending';
-            const isAccepted = offer.status === 'Accepted';
-
-            return (
-              <TouchableOpacity
-                key={offer.id}
-                style={styles.itemCard}
-                onPress={() => setSelectedOffer(offer)}
-                activeOpacity={0.85}
-              >
-                <View style={styles.cardHeaderRow}>
-                  <Text style={styles.cardTitle}>
-                    {offer.listing} · {offer.product}
-                  </Text>
-                  <View
+                <View
+                  style={[
+                    styles.badgePill,
+                    isPending && styles.badgePending,
+                    isAccepted && styles.badgeAccepted,
+                    offer.status === 'Rejected' && styles.badgeRejected,
+                    offer.status === 'Expired' && styles.badgeExpired,
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.badgePill,
-                      isPending && styles.badgePending,
-                      isAccepted && styles.badgeAccepted,
-                      offer.status === 'Rejected' && styles.badgeRejected,
-                      offer.status === 'Expired' && styles.badgeExpired,
+                      styles.badgeText,
+                      isPending && styles.badgePendingText,
+                      isAccepted && styles.badgeAcceptedText,
+                      offer.status === 'Rejected' && styles.badgeRejectedText,
+                      offer.status === 'Expired' && styles.badgeExpiredText,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.badgeText,
-                        isPending && styles.badgePendingText,
-                        isAccepted && styles.badgeAcceptedText,
-                        offer.status === 'Rejected' && styles.badgeRejectedText,
-                        offer.status === 'Expired' && styles.badgeExpiredText,
-                      ]}
-                    >
-                      {offer.status}
-                    </Text>
-                  </View>
+                    {offer.status}
+                  </Text>
                 </View>
+              </View>
 
+              <Text style={styles.cardSubtitle1}>
+                Original {offer.originalPrice} · Counter {offer.counterPrice} · {offer.offerRound}
+              </Text>
+              <Text style={styles.cardSubtitle2}>
+                {offer.deadline ? `Deadline ${offer.deadline} · ` : ''}
+                {offer.farmerName}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+
+        {/* ── Section 2: Price History Records (Content details in same screen) ── */}
+        <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.md }]}>
+          {filteredHistory.length} history records
+        </Text>
+
+        {filteredHistory.map((item) => {
+          const isValid = item.status === 'Valid';
+
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.itemCard}
+              onPress={() => setSelectedHistory(item)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>
+                  {item.product} · {item.grade} · {item.priceType}
+                </Text>
+                <View
+                  style={[
+                    styles.badgePill,
+                    isValid ? styles.badgeValid : styles.badgeFailed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.badgeText,
+                      isValid ? styles.badgeValidText : styles.badgeFailedText,
+                    ]}
+                  >
+                    {item.status}
+                  </Text>
+                </View>
+              </View>
+
+              {item.attemptNote ? (
+                <Text style={styles.cardSubtitle1}>{item.attemptNote}</Text>
+              ) : (
                 <Text style={styles.cardSubtitle1}>
-                  Original {offer.originalPrice} → Counter {offer.counterPrice} · {offer.offerRound}
+                  {item.previousValue} → {item.newValue} · effective {item.effectiveDate}
                 </Text>
-                <Text style={styles.cardSubtitle2}>
-                  {offer.deadline ? `Deadline ${offer.deadline} · ` : ''}
-                  {offer.farmerName}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+              )}
+
+              <Text style={styles.cardSubtitle2}>
+                {item.changedBy}
+                {item.changeReason ? ` · "${item.changeReason}"` : ''} · {item.auditRef}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
 
         <View style={{ height: 48 }} />
       </ScrollView>
 
-      {/* ─── Price Change Details Bottom Sheet Modal (Image 2 Middle) ─── */}
+      {/* ─── Price Change Details Bottom Sheet Modal (Image 1 Middle Phone) ─── */}
       <Modal
         visible={selectedHistory !== null}
         transparent
         animationType="slide"
         onRequestClose={() => setSelectedHistory(null)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setSelectedHistory(null)}
-        >
-          <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetTitle}>
-              Price change {selectedHistory?.id || 'PH-0034'}
-            </Text>
-
-            {/* Spec Card with Dotted Dividers */}
-            <View style={styles.detailCard}>
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Product and grade</Text>
-                <Text style={styles.specValBold}>
-                  {selectedHistory?.product} · {selectedHistory?.grade}
-                </Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Price type</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.priceType}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Previous value</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.previousValue}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>New value</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.newValue}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Change reason</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.changeReason}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Changed by</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.changedBy}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Recorded</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.recorded}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Effective date</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.effectiveDate}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Status</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.status}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Validation</Text>
-                <Text
-                  style={[
-                    styles.specValBold,
-                    { flex: 1, textAlign: 'right', marginLeft: 16 },
-                  ]}
-                  numberOfLines={2}
-                >
-                  {selectedHistory?.validation}
-                </Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Audit-log reference</Text>
-                <Text style={styles.specValBold}>{selectedHistory?.auditRef}</Text>
-              </View>
-            </View>
-
-            {/* Lock Pill Notice */}
-            <View style={styles.lockNoticePill}>
-              <LockIcon size={15} color={adminColors.brandDeep} />
-              <Text style={styles.lockNoticeText}>
-                This record cannot be edited or deleted.
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setSelectedHistory(null)}
+          />
+          <View style={styles.sheetContainer}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+              <Text style={styles.sheetTitle}>
+                Price change {selectedHistory?.id || 'PH-0034'}
               </Text>
-            </View>
 
-            {/* Close Button */}
-            <TouchableOpacity
-              style={styles.sheetCloseBtn}
-              onPress={() => setSelectedHistory(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.sheetCloseText}>Close</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+              {/* Spec Card with Dotted Dividers */}
+              <View style={styles.detailCard}>
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Product and grade</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedHistory?.product} · {selectedHistory?.grade}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Price type</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.priceType}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Previous value</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.previousValue}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>New value</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.newValue}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Change reason</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.changeReason}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Changed by</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.changedBy}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Recorded</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.recorded}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Effective date</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.effectiveDate}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Status</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedHistory?.status === 'Valid' ? 'Applied' : selectedHistory?.status}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Validation</Text>
+                  <Text
+                    style={[
+                      styles.specValBold,
+                      { flex: 1, textAlign: 'right', marginLeft: 16 },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {selectedHistory?.validation}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Audit-log reference</Text>
+                  <Text style={styles.specValBold}>{selectedHistory?.auditRef}</Text>
+                </View>
+              </View>
+
+              {/* Lock Pill Notice */}
+              <View style={styles.lockNoticePill}>
+                <LockIcon size={15} color={adminColors.brandDeep} />
+                <Text style={styles.lockNoticeText}>
+                  This record cannot be edited or deleted.
+                </Text>
+              </View>
+
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.sheetCloseBtn}
+                onPress={() => setSelectedHistory(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.sheetCloseText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
 
-      {/* ─── Counter-Offer Details Bottom Sheet Modal (Image 2 Right) ─── */}
+      {/* ─── Counter-Offer Details Bottom Sheet Modal (Image 1 Right Phone) ─── */}
       <Modal
         visible={selectedOffer !== null}
         transparent
         animationType="slide"
         onRequestClose={() => setSelectedOffer(null)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setSelectedOffer(null)}
-        >
-          <Pressable style={styles.sheetContainer} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.sheetTitle}>
-              Counter-offer {selectedOffer?.id || 'CO-0001'}
-            </Text>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setSelectedOffer(null)}
+          />
+          <View style={styles.sheetContainer}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+              <Text style={styles.sheetTitle}>
+                Counter-offer {selectedOffer?.id || 'CO-0001'}
+              </Text>
 
-            {/* Spec Card with Dotted Dividers */}
-            <View style={styles.detailCard}>
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Listing</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.listing}</Text>
+              {/* Spec Card with Dotted Dividers */}
+              <View style={styles.detailCard}>
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Listing</Text>
+                  <Text style={styles.specValBold}>{selectedOffer?.listing}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Product and grade</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedOffer?.product} · {selectedOffer?.grade}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Quantity</Text>
+                  <Text style={styles.specValBold}>{selectedOffer?.quantity}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Original listing price</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedOffer?.originalPrice.includes('/kg')
+                      ? selectedOffer?.originalPrice
+                      : `${selectedOffer?.originalPrice}/kg`}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Counter-offer price</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedOffer?.counterPrice.includes('/kg')
+                      ? selectedOffer?.counterPrice
+                      : `${selectedOffer?.counterPrice}/kg`}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Counter-offer</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedOffer?.offerRound.replace(/^Offer\s+/i, '')}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Offered</Text>
+                  <Text style={styles.specValBold}>{selectedOffer?.offeredDate}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Response deadline</Text>
+                  <Text style={styles.specValBold}>{selectedOffer?.deadline}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Current status</Text>
+                  <Text style={styles.specValBold}>{selectedOffer?.status}</Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Recorded response</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedOffer?.recordedResponse || 'None yet'}
+                  </Text>
+                </View>
+                <View style={styles.dottedDivider} />
+
+                <View style={styles.specRow}>
+                  <Text style={styles.specKey}>Decision recorded</Text>
+                  <Text style={styles.specValBold}>
+                    {selectedOffer?.decisionRecorded || '—'}
+                  </Text>
+                </View>
               </View>
-              <View style={styles.dottedDivider} />
 
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Product and grade</Text>
-                <Text style={styles.specValBold}>
-                  {selectedOffer?.product} · {selectedOffer?.grade}
+              {/* Lock Pill Notice */}
+              <View style={styles.lockNoticePill}>
+                <LockIcon size={15} color={adminColors.brandDeep} />
+                <Text style={styles.lockNoticeText}>
+                  This record cannot be edited or deleted.
                 </Text>
               </View>
-              <View style={styles.dottedDivider} />
 
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Quantity</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.quantity}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Original listing price</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.originalPrice}/kg</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Counter-offer price</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.counterPrice}/kg</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Counter-offer</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.offerRound}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Offered</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.offeredDate}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Response deadline</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.deadline}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Current status</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.status}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Recorded response</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.recordedResponse}</Text>
-              </View>
-              <View style={styles.dottedDivider} />
-
-              <View style={styles.specRow}>
-                <Text style={styles.specKey}>Decision recorded</Text>
-                <Text style={styles.specValBold}>{selectedOffer?.decisionRecorded}</Text>
-              </View>
-            </View>
-
-            {/* Lock Pill Notice */}
-            <View style={styles.lockNoticePill}>
-              <LockIcon size={15} color={adminColors.brandDeep} />
-              <Text style={styles.lockNoticeText}>
-                This record cannot be edited or deleted.
-              </Text>
-            </View>
-
-            {/* Close Button */}
-            <TouchableOpacity
-              style={styles.sheetCloseBtn}
-              onPress={() => setSelectedOffer(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.sheetCloseText}>Close</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+              {/* Close Button */}
+              <TouchableOpacity
+                style={styles.sheetCloseBtn}
+                onPress={() => setSelectedOffer(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.sheetCloseText}>Close</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
       </Modal>
 
-      {/* ─── Filters Bottom Sheet Modal ─── */}
+      {/* ─── Filter Bottom Sheet Modal ─── */}
       <Modal
         visible={filterModalVisible}
         transparent
         animationType="slide"
         onRequestClose={() => setFilterModalVisible(false)}
       >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setFilterModalVisible(false)}
-        >
-          <Pressable style={styles.filterSheetContainer} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setFilterModalVisible(false)}
+          />
+          <View style={styles.filterSheetContainer}>
             <Text style={styles.filterSheetHeading}>Filters</Text>
 
-            {activeTab === 'history' ? (
-              <>
-                <Text style={styles.filterFieldLabel}>Status</Text>
-                <TouchableOpacity
-                  style={styles.dropdownBox}
-                  onPress={() => setHistStatusDropdownOpen(!histStatusDropdownOpen)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.dropdownSelectedText}>{draftHistStatus}</Text>
-                  <ChevronDownIcon size={18} color={adminColors.ink} />
-                </TouchableOpacity>
+            <Text style={styles.filterFieldLabel}>Status</Text>
+            <TouchableOpacity
+              style={styles.dropdownBox}
+              onPress={() => setStatusDropdownOpen(!statusDropdownOpen)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.dropdownSelectedText}>{draftStatusFilter}</Text>
+              <ChevronDownIcon size={18} color={adminColors.ink} />
+            </TouchableOpacity>
 
-                {histStatusDropdownOpen && (
-                  <View style={styles.dropdownMenu}>
-                    {(['All', 'Valid', 'Failed'] as const).map((opt) => {
-                      const isSelected = draftHistStatus === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          style={[styles.dropdownOption, isSelected && styles.dropdownOptionSelected]}
-                          onPress={() => {
-                            setDraftHistStatus(opt);
-                            setHistStatusDropdownOpen(false);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownOptionText,
-                              isSelected && styles.dropdownOptionTextSelected,
-                            ]}
-                          >
-                            {opt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </>
-            ) : (
-              <>
-                <Text style={styles.filterFieldLabel}>Status</Text>
-                <TouchableOpacity
-                  style={styles.dropdownBox}
-                  onPress={() => setOfferStatusDropdownOpen(!offerStatusDropdownOpen)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.dropdownSelectedText}>{draftOfferStatus}</Text>
-                  <ChevronDownIcon size={18} color={adminColors.ink} />
-                </TouchableOpacity>
-
-                {offerStatusDropdownOpen && (
-                  <View style={styles.dropdownMenu}>
-                    {(['All', 'Pending', 'Accepted', 'Rejected', 'Expired'] as const).map((opt) => {
-                      const isSelected = draftOfferStatus === opt;
-                      return (
-                        <TouchableOpacity
-                          key={opt}
-                          style={[styles.dropdownOption, isSelected && styles.dropdownOptionSelected]}
-                          onPress={() => {
-                            setDraftOfferStatus(opt);
-                            setOfferStatusDropdownOpen(false);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text
-                            style={[
-                              styles.dropdownOptionText,
-                              isSelected && styles.dropdownOptionTextSelected,
-                            ]}
-                          >
-                            {opt}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
-              </>
+            {statusDropdownOpen && (
+              <View style={styles.dropdownMenu}>
+                {['All', 'Pending', 'Accepted', 'Valid', 'Failed'].map((opt) => {
+                  const isSelected = draftStatusFilter === opt;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.dropdownOption, isSelected && styles.dropdownOptionSelected]}
+                      onPress={() => {
+                        setDraftStatusFilter(opt);
+                        setStatusDropdownOpen(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.dropdownOptionText,
+                          isSelected && styles.dropdownOptionTextSelected,
+                        ]}
+                      >
+                        {opt}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             )}
 
             {/* Filter Action Buttons */}
@@ -910,14 +876,14 @@ export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
                 <Text style={styles.resetBtnText}>Reset</Text>
               </TouchableOpacity>
             </View>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── Styles strictly conforming to adminTheme ────────────────────────────────
+// ─── Styles strictly conforming to adminColors theme ─────────────────────────
 
 const styles = StyleSheet.create({
   root: {
@@ -957,57 +923,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollPad: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.md,
   },
 
-  noticeCard: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    marginBottom: adminSpacing.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-  },
-  noticeText: {
-    ...adminType.body,
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: adminColors.muted,
-  },
-
-  // Segmented Switch
-  segmentedContainer: {
-    flexDirection: 'row',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    marginBottom: adminSpacing.md,
-    ...adminShadow.sm,
-  },
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    borderRadius: adminRadius.md,
-  },
-  segmentBtnActive: {
-    backgroundColor: adminColors.brand,
-  },
-  segmentBtnText: {
-    ...adminType.rowTitle,
-    fontSize: 14,
-    fontWeight: '700',
-    color: adminColors.ink,
-  },
-  segmentBtnTextActive: {
-    color: adminColors.onBrand,
-  },
-
-  // Search Bar
+  // Search Bar (Image 1 Left Phone)
   searchBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1032,9 +952,10 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 
-  recordCountText: {
+  sectionHeaderTitle: {
     ...adminType.caption,
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '700',
     color: adminColors.muted,
     marginBottom: adminSpacing.sm,
   },
@@ -1044,7 +965,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     padding: adminSpacing.md,
-    marginBottom: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
     borderWidth: 1,
     borderColor: adminColors.border,
     ...adminShadow.sm,
@@ -1112,13 +1033,13 @@ const styles = StyleSheet.create({
 
   cardSubtitle1: {
     ...adminType.body,
-    fontSize: 12,
+    fontSize: 12.5,
     color: adminColors.muted,
     marginTop: 2,
   },
   cardSubtitle2: {
     ...adminType.caption,
-    fontSize: 11,
+    fontSize: 11.5,
     color: adminColors.muted,
     marginTop: 2,
   },
@@ -1170,16 +1091,18 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   dottedDivider: {
-    height: 1,
-    borderWidth: 0.5,
+    height: 0,
+    borderTopWidth: 1,
     borderColor: adminColors.border,
     borderStyle: 'dashed',
-    marginVertical: 2,
+    marginVertical: 3,
   },
   lockNoticePill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.brandTint,
+    borderWidth: 1,
+    borderColor: adminColors.border,
     borderRadius: adminRadius.md,
     paddingVertical: 9,
     paddingHorizontal: adminSpacing.md,
@@ -1198,6 +1121,7 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.md,
     paddingVertical: 12,
     alignItems: 'center',
+    backgroundColor: adminColors.card,
   },
   sheetCloseText: {
     ...adminType.rowTitle,
@@ -1281,17 +1205,17 @@ const styles = StyleSheet.create({
   applyBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: adminColors.brand,
     borderRadius: adminRadius.full,
     paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: adminColors.card,
+    backgroundColor: adminColors.brand,
   },
   applyBtnText: {
     ...adminType.rowTitle,
     fontSize: 14,
     fontWeight: '700',
-    color: adminColors.brandDeep,
+    color: adminColors.onBrand,
   },
   resetBtn: {
     flex: 1,

@@ -17,10 +17,10 @@ import type { WarehouseScope, WarehouseScreenBaseProps } from './types';
 function SuccessCheckIcon({ size = 32 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <Circle cx="16" cy="16" r="14" stroke="#15803D" strokeWidth="2.5" />
+      <Circle cx="16" cy="16" r="14" stroke={adminColors.success.text} strokeWidth="2.5" />
       <Path
         d="M10 16.5l4 4 8-8"
-        stroke="#15803D"
+        stroke={adminColors.success.text}
         strokeWidth="2.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: adminColors.success.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
