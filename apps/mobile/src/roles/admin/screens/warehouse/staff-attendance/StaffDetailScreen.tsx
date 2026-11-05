@@ -254,12 +254,6 @@ export function StaffDetailScreen({
               accessibilityRole="button"
             >
               <View style={styles.dropdownValueRow}>
-                <View
-                  style={[
-                    styles.statusIndicatorDot,
-                    { backgroundColor: getStatusColor(currentStatusDisplay) },
-                  ]}
-                />
                 <Text style={styles.dropdownSelectedText}>
                   {currentStatusDisplay}
                 </Text>
@@ -274,8 +268,6 @@ export function StaffDetailScreen({
               <View style={styles.dropdownMenu}>
                 {STATUS_OPTIONS.map((statusOption, idx) => {
                   const isSelected = currentStatusDisplay === statusOption;
-                  const optionColor = getStatusColor(statusOption);
-
                   return (
                     <TouchableOpacity
                       key={statusOption}
@@ -295,7 +287,6 @@ export function StaffDetailScreen({
                       activeOpacity={0.7}
                     >
                       <View style={styles.dropdownItemLeft}>
-                        <View style={[styles.statusIndicatorDot, { backgroundColor: optionColor }]} />
                         <Text
                           style={[
                             styles.dropdownMenuItemText,
