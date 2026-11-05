@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   BackHandler,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import {
@@ -121,35 +120,36 @@ import {
   walletLayout,
 } from '../warehouse/wallet-cashtopup/WalletParts';
 import { t } from '../../i18n';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import { OverviewDashboardCard } from '../../components';
 
 // ─── Design Tokens (TOHFA Admin App Design System) ───────────────────────────
 const PALETTE = {
-  primary: '#F0562A',
-  primaryDark: '#7A2E14',
-  primarySoft: '#FDF3F0',
-  primaryBorder: '#EEDCD3',
-  pageBg: '#F3EFE9',
-  cardBg: '#FFFFFF',
-  textInk: '#1A1A1A',
-  textSecondary: '#5F5E5A',
-  textMuted: '#5F5E5A',
-  border: '#EEDCD3',
-  divider: '#EEDCD3',
-  greenBadge: '#EAF3DE',
-  greenText: '#173404',
-  greenDot: '#173404',
-  amberBadge: '#FEF3E2',
-  amberText: '#854F0B',
-  amberIconBg: '#FEF3E2',
-  redBadge: '#FCEBEB',
-  redText: '#E24B4A',
-  redIconBg: '#FCEBEB',
-  tealBadge: '#E6F1FB',
-  tealText: '#0C447C',
-  tabInactive: '#5F5E5A',
-  tabBorder: '#EEDCD3',
-  linkText: '#F0562A',
+  primary: adminColors.brand,
+  primaryDark: adminColors.brandDeep,
+  primarySoft: adminColors.brandTint,
+  primaryBorder: adminColors.border,
+  pageBg: adminColors.canvas,
+  cardBg: adminColors.card,
+  textInk: adminColors.ink,
+  textSecondary: adminColors.muted,
+  textMuted: adminColors.muted,
+  border: adminColors.border,
+  divider: adminColors.border,
+  greenBadge: adminColors.success.bg,
+  greenText: adminColors.success.text,
+  greenDot: adminColors.success.text,
+  amberBadge: adminColors.warning.bg,
+  amberText: adminColors.warning.text,
+  amberIconBg: adminColors.warning.bg,
+  redBadge: adminColors.danger.bg,
+  redText: adminColors.danger.text,
+  redIconBg: adminColors.danger.bg,
+  tealBadge: adminColors.info.bg,
+  tealText: adminColors.info.text,
+  tabInactive: adminColors.muted,
+  tabBorder: adminColors.border,
+  linkText: adminColors.brand,
 };
 
 type SubWHTab = 'Home' | 'Receiving' | 'Inventory' | 'More';
@@ -161,12 +161,12 @@ function WarehouseHeaderIcon() {
     <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
       <Path
         d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M9 21V12h6v9" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 21V12h6v9" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -176,7 +176,7 @@ function BellIcon() {
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
       <Path
         d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -190,7 +190,7 @@ function ProfileHeaderIcon() {
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
       <Path
         d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
-        stroke="#FFFFFF"
+        stroke={adminColors.onBrand}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -202,19 +202,8 @@ function ProfileHeaderIcon() {
 function LockBadgeIcon() {
   return (
     <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="11" width="18" height="11" rx="2" stroke="#FFFFFF" strokeWidth="2.2" />
-      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#FFFFFF" strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ClipboardClockIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.8" />
-      <Circle cx="16" cy="16" r="5" stroke={color} strokeWidth="1.8" fill="#FFF" />
-      <Path d="M16 14v2l1.5 1.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Rect x="3" y="11" width="18" height="11" rx="2" stroke={adminColors.onBrand} strokeWidth="2.2" />
+      <Path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={adminColors.onBrand} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -236,37 +225,6 @@ function DeliveryTruckIcon({ color = PALETTE.primary }: { color?: string }) {
       <Path d="M15 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="5.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
       <Circle cx="18.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function BoxIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="2" />
-      <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BanknotesIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill="#FFF" />
-      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
-      <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function WalletIcon({ color = PALETTE.primary }: { color?: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -340,7 +298,7 @@ function ActivityHistoryActionIcon({ color = PALETTE.primary }: { color?: string
   );
 }
 
-function WarningTriangleIcon({ color = '#D97706', size = 16 }: { color?: string; size?: number }) {
+function WarningTriangleIcon({ color = adminColors.platform.warning, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -354,7 +312,7 @@ function WarningTriangleIcon({ color = '#D97706', size = 16 }: { color?: string;
   );
 }
 
-function InfoCircleIcon({ color = '#2563EB', size = 16 }: { color?: string; size?: number }) {
+function InfoCircleIcon({ color = adminColors.platform.info, size = 16 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
@@ -366,7 +324,7 @@ function InfoCircleIcon({ color = '#2563EB', size = 16 }: { color?: string; size
 function FlaskIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Path d="M10 2v7.31L4.69 19.34A2 2 0 0 0 6.44 22h11.12a2 2 0 0 0 1.75-2.66L14 9.31V2M8.5 2h7M7 16h10" stroke="#D97706" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M10 2v7.31L4.69 19.34A2 2 0 0 0 6.44 22h11.12a2 2 0 0 0 1.75-2.66L14 9.31V2M8.5 2h7M7 16h10" stroke={adminColors.platform.warning} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -374,8 +332,8 @@ function FlaskIcon() {
 function ExclamationCircleIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="10" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M12 8v4M12 16h.01" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" />
+      <Circle cx="12" cy="12" r="10" stroke={adminColors.platform.error} strokeWidth="2" />
+      <Path d="M12 8v4M12 16h.01" stroke={adminColors.platform.error} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -383,8 +341,8 @@ function ExclamationCircleIcon() {
 function BrokenCrateIcon() {
   return (
     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="18" height="18" rx="2" stroke="#DC2626" strokeWidth="2" />
-      <Path d="M8 8l3 4-2 4 5-3 2 5" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="3" y="3" width="18" height="18" rx="2" stroke={adminColors.platform.error} strokeWidth="2" />
+      <Path d="M8 8l3 4-2 4 5-3 2 5" stroke={adminColors.platform.error} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -575,7 +533,7 @@ export function OrdersModule({
   );
 }
 
-function OverviewTruckIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewTruckIcon({ size = 20, color = adminColors.dashboard.overviewIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="1" y="5" width="14" height="12" rx="2" stroke={color} strokeWidth="1.8" />
@@ -586,7 +544,7 @@ function OverviewTruckIcon({ size = 20, color = '#8B4513' }: { size?: number; co
   );
 }
 
-function OverviewReceiptIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewReceiptIcon({ size = 20, color = adminColors.dashboard.overviewIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 3 2V2l-3 2-3-2-3 2-3-2-3 2-3-2z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -595,7 +553,7 @@ function OverviewReceiptIcon({ size = 20, color = '#8B4513' }: { size?: number; 
   );
 }
 
-function OverviewBoxIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewBoxIcon({ size = 20, color = adminColors.dashboard.overviewIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
@@ -604,7 +562,7 @@ function OverviewBoxIcon({ size = 20, color = '#8B4513' }: { size?: number; colo
   );
 }
 
-function OverviewRegisterIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewRegisterIcon({ size = 20, color = adminColors.dashboard.overviewIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
@@ -614,7 +572,7 @@ function OverviewRegisterIcon({ size = 20, color = '#8B4513' }: { size?: number;
   );
 }
 
-function OverviewCashIcon({ size = 20, color = '#8B4513' }: { size?: number; color?: string }) {
+function OverviewCashIcon({ size = 20, color = adminColors.dashboard.overviewIcon }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="1.8" />
@@ -656,9 +614,9 @@ function SubWarehouseTodayOverviewView({
   const categories = ['All', 'Receiving', 'Orders', 'Inventory', 'Sales', 'Cash Top-Up'];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F0562A' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: adminColors.brand }}>
       <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
-      <View style={{ backgroundColor: '#F0562A', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
+      <View style={{ backgroundColor: adminColors.brand, paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <TouchableOpacity
             onPress={onBack}
@@ -669,17 +627,17 @@ function SubWarehouseTodayOverviewView({
             style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
           >
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path d="M19 12H5M12 19l-7-7 7-7" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M19 12H5M12 19l-7-7 7-7" stroke={adminColors.onBrand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: '#FFFFFF' }}>Today's Overview</Text>
-            <Text style={{ fontSize: 13, color: 'rgba(255, 255, 255, 0.9)', marginTop: 2 }}>{warehouseLabel ? `Assigned Warehouse · ${warehouseLabel}` : 'Warehouse Overview'}</Text>
+            <Text style={{ fontSize: 20, fontWeight: '700', color: adminColors.onBrand }}>Today's Overview</Text>
+            <Text style={{ fontSize: 13, color: adminOverlay.headerText, marginTop: 2 }}>{warehouseLabel ? `Assigned Warehouse · ${warehouseLabel}` : 'Warehouse Overview'}</Text>
           </View>
         </View>
       </View>
 
-      <View style={{ flex: 1, backgroundColor: '#F8F5F0' }}>
+      <View style={{ flex: 1, backgroundColor: adminColors.dashboard.overviewCanvas }}>
         <View style={{ paddingVertical: 12 }}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}>
             {categories.map((cat) => {
@@ -690,15 +648,15 @@ function SubWarehouseTodayOverviewView({
                   onPress={() => setActiveCategory(cat)}
                   activeOpacity={0.8}
                   style={{
-                    backgroundColor: active ? '#F0562A' : '#FFFFFF',
+                    backgroundColor: active ? adminColors.brand : adminColors.card,
                     borderRadius: 20,
                     paddingHorizontal: 18,
                     paddingVertical: 8,
                     borderWidth: 1,
-                    borderColor: active ? '#F0562A' : '#ECE8E3',
+                    borderColor: active ? adminColors.brand : adminColors.dashboard.overviewBorder,
                   }}
                 >
-                  <Text style={{ color: active ? '#FFFFFF' : '#4A4A4A', fontWeight: '700', fontSize: 13 }}>{cat}</Text>
+                  <Text style={{ color: active ? adminColors.onBrand : adminColors.dashboard.chipText, fontWeight: '700', fontSize: 13 }}>{cat}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -711,24 +669,24 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenReceiving}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: adminColors.card,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.dashboard.overviewBorder,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: adminColors.dashboard.overviewIconBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <OverviewTruckIcon size={20} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Receiving</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: adminColors.ink }}>Receiving</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.qcPending).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>pending QC</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{taskCounts ? String(taskCounts.qcPending).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>pending QC</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -739,28 +697,28 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenOrders}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: adminColors.card,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.dashboard.overviewBorder,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: adminColors.dashboard.overviewIconBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <OverviewReceiptIcon size={20} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Orders</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: adminColors.ink }}>Orders</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.ordersActionable).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>actionable</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{taskCounts ? String(taskCounts.ordersActionable).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>actionable</Text>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{taskCounts ? String(taskCounts.readyForPickup).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>ready pickup</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{taskCounts ? String(taskCounts.readyForPickup).padStart(2, '0') : t('dashboardHome.noValue')}</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>ready pickup</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -771,28 +729,28 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenInventory}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: adminColors.card,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.dashboard.overviewBorder,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: adminColors.dashboard.overviewIconBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <OverviewBoxIcon size={20} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Inventory</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: adminColors.ink }}>Inventory</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
                   {warehouseId !== undefined ? (
-                    <SubLowStockCount warehouseId={warehouseId} style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }} />
+                    <SubLowStockCount warehouseId={warehouseId} style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }} />
                   ) : (
-                    <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{t('dashboardHome.noValue')}</Text>
+                    <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{t('dashboardHome.noValue')}</Text>
                   )}
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>low stock</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>low stock</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -803,28 +761,28 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenSales}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: adminColors.card,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.dashboard.overviewBorder,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: adminColors.dashboard.overviewIconBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <OverviewRegisterIcon size={20} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Sales</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: adminColors.ink }}>Sales</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesTxnCountText ?? t('dashboardHome.noValue')}</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>transactions</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{salesTxnCountText ?? t('dashboardHome.noValue')}</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>transactions</Text>
                 </View>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{salesRevenueText ?? t('dashboardHome.noValue')}</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{salesRevenueText ?? t('dashboardHome.noValue')}</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -835,24 +793,24 @@ function SubWarehouseTodayOverviewView({
               activeOpacity={0.85}
               onPress={onOpenCash}
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: adminColors.card,
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: '#ECE8E3',
+                borderColor: adminColors.dashboard.overviewBorder,
                 padding: 16,
                 marginBottom: 12,
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: '#FDF1E8', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: adminColors.dashboard.overviewIconBg, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                   <OverviewCashIcon size={20} />
                 </View>
-                <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A1A1A' }}>Cash Top-Up</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: adminColors.ink }}>Cash Top-Up</Text>
               </View>
               <View style={{ flexDirection: 'row' }}>
                 <View style={{ flex: 1.5 }}>
-                  <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1A1A' }}>{cashTopUpText ?? t('dashboardHome.noValue')}</Text>
-                  <Text style={{ fontSize: 13, color: '#666666', marginTop: 2 }}>today's total</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: adminColors.ink }}>{cashTopUpText ?? t('dashboardHome.noValue')}</Text>
+                  <Text style={{ fontSize: 13, color: adminColors.dashboard.overviewMeta, marginTop: 2 }}>today's total</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -992,6 +950,25 @@ function SubLowStockCount({ warehouseId, style }: { warehouseId: string; style: 
   const alerts = useLowStockAlerts(warehouseId);
   const count = alerts.isLoading || alerts.error ? null : alerts.items.length;
   return <Text style={style}>{countLabel(count)}</Text>;
+}
+
+/**
+ * The Today's Overview "Low Stock Items" card. Same live count as
+ * SubLowStockCount above (LOW_STOCK alerts, BR-77; the dash until it loads),
+ * handed to the shared card as its value instead of drawn as a bare Text.
+ */
+function SubLowStockOverviewCard({ warehouseId }: { warehouseId: string }) {
+  const alerts = useLowStockAlerts(warehouseId);
+  const count = alerts.isLoading || alerts.error ? null : alerts.items.length;
+  return (
+    <OverviewDashboardCard
+      value={countLabel(count)}
+      title="Low Stock Items"
+      subtitle="Needs attention"
+      icon="inventory"
+      tone="danger"
+    />
+  );
 }
 
 /**
@@ -2178,80 +2155,64 @@ export function SubWarehouseAdminDashboardScreen({
                 {canOrders ? (
                 <>
                 {/* 1. Pending Orders */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <ClipboardClockIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.ordersActionable)}</Text>
-                  <Text style={styles.overviewTitle}>Pending Orders</Text>
-                  <Text style={styles.overviewSub}>{taskCounts.ordersActionable} need action</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={taskCountText(taskCounts.ordersActionable)}
+                  title="Pending Orders"
+                  subtitle={`${taskCounts.ordersActionable} need action`}
+                  icon="orders"
+                />
 
                 {/* 2. Ready for Pickup */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <PersonCheckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.readyForPickup)}</Text>
-                  <Text style={styles.overviewTitle}>Ready for Pickup</Text>
-                  <Text style={styles.overviewSub}>{taskCounts.readyForPickup} customers expected</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={taskCountText(taskCounts.readyForPickup)}
+                  title="Ready for Pickup"
+                  subtitle={`${taskCounts.readyForPickup} customers expected`}
+                  icon="pickup"
+                />
                 </>
                 ) : null}
 
                 {/* 3. Today's Receiving */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <DeliveryTruckIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{taskCountText(taskCounts.qcPending)}</Text>
-                  <Text style={styles.overviewTitle}>Today's Receiving</Text>
-                  <Text style={styles.overviewSub}>{taskCounts.qcPending} awaiting QC</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={taskCountText(taskCounts.qcPending)}
+                  title="Today's Receiving"
+                  subtitle={`${taskCounts.qcPending} awaiting QC`}
+                  icon="receiving"
+                />
 
                 {/* 4. Low Stock Items */}
                 {canStock ? (
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <BoxIcon color={PALETTE.primary} />
-                  </View>
-                  {/* LOW_STOCK is an alert, not a task type: the count is the live alert list (BR-77). */}
-                  {scope.warehouseId !== undefined ? (
-                    <SubLowStockCount warehouseId={scope.warehouseId} style={[styles.overviewNumber, styles.overviewNumberDanger]} />
-                  ) : null}
-                  <Text style={styles.overviewTitle}>Low Stock Items</Text>
-                  <Text style={[styles.overviewSub, { color: '#E11D48' }]}>Needs attention</Text>
-                </View>
+                  scope.warehouseId !== undefined ? (
+                    <SubLowStockOverviewCard warehouseId={scope.warehouseId} />
+                  ) : (
+                    <OverviewDashboardCard value="" title="Low Stock Items" subtitle="Needs attention" icon="inventory" tone="danger" />
+                  )
                 ) : null}
 
                 {/* 5. Today's Sales */}
                 {canSales ? (
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <BanknotesIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{salesRevenueText}</Text>
-                  <Text style={styles.overviewTitle}>Today's Sales</Text>
-                  <Text style={styles.overviewSub}>{salesTxnCountText}</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={salesRevenueText}
+                  title="Today's Sales"
+                  subtitle={salesTxnCountText}
+                  icon="sales"
+                />
                 ) : null}
 
                 {/* 6. Cash Top-Ups */}
-                <View style={styles.overviewCard}>
-                  <View style={styles.overviewIconWrap}>
-                    <WalletIcon />
-                  </View>
-                  <Text style={styles.overviewNumber}>{cashTopUpText}</Text>
-                  <Text style={styles.overviewTitle}>Cash Top-Ups</Text>
-                  <Text style={styles.overviewSub}>Daily total</Text>
-                </View>
+                <OverviewDashboardCard
+                  value={cashTopUpText}
+                  title="Cash Top-Ups"
+                  subtitle="Daily total"
+                  icon="cash"
+                />
               </View>
 
               {/* 3. Quick Actions */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
               <View style={styles.quickActionsGrid}>
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
                   onPress={() => openReceiving('Shipments')}
                 >
                   <ReceiveGoodsActionIcon />
@@ -2259,7 +2220,7 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
 
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseSales');
@@ -2274,7 +2235,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 {canOrders ? (
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
                   onPress={() => setShowOrdersModule(true)}
                 >
                   <ViewOrdersActionIcon />
@@ -2283,7 +2244,7 @@ export function SubWarehouseAdminDashboardScreen({
                 ) : null}
 
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
                   onPress={() => {
                     if (onNavigate) {
                       onNavigate('SubWarehouseCashTopUp');
@@ -2298,7 +2259,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 {canStock ? (
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
                   onPress={() => setActiveTab('Inventory')}
                 >
                   <StockVerifyActionIcon />
@@ -2308,7 +2269,7 @@ export function SubWarehouseAdminDashboardScreen({
 
                 {isAreaAvailable('warehouseActivity', can) ? (
                 <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: '#F0562A', borderWidth: 1, backgroundColor: '#FFF5F0' }]}
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
                   onPress={() => setShowRecentActivity(true)}
                 >
                   <ActivityHistoryActionIcon />
@@ -2319,7 +2280,7 @@ export function SubWarehouseAdminDashboardScreen({
 
               {/* 4. Needs Attention */}
               <View style={styles.sectionHeaderRow}>
-                <WarningTriangleIcon color="#D97706" size={17} />
+                <WarningTriangleIcon color={adminColors.platform.warning} size={17} />
                 <Text style={[styles.sectionHeading, { marginTop: 0, marginBottom: 0 }]}>Needs Attention</Text>
                 {openTasks.length > 0 ? (
                   <View style={styles.countBadge}>
@@ -2627,14 +2588,14 @@ export function SubWarehouseAdminDashboardScreen({
               <Text style={styles.sectionHeading}>Warehouse Alerts</Text>
               <View style={styles.alertsContainerCard}>
                 <View style={styles.alertBulletRow}>
-                  <WarningTriangleIcon color="#D97706" size={16} />
+                  <WarningTriangleIcon color={adminColors.platform.warning} size={16} />
                   <Text style={styles.alertBulletText}>
                     {taskCounts.qcPending} QC check{taskCounts.qcPending === 1 ? '' : 's'} pending
                   </Text>
                 </View>
                 {canStock ? (
                   <View style={styles.alertBulletRow}>
-                    <WarningTriangleIcon color="#D97706" size={16} />
+                    <WarningTriangleIcon color={adminColors.platform.warning} size={16} />
                     <Text style={styles.alertBulletText}>
                       {scope.warehouseId !== undefined ? <SubLowStockCount warehouseId={scope.warehouseId} style={styles.alertBulletText} /> : null}
                       {' '}{t('mainDashboard.sub.lowStockProducts')}
@@ -2643,7 +2604,7 @@ export function SubWarehouseAdminDashboardScreen({
                 ) : null}
                 {canOrders ? (
                   <View style={styles.alertBulletRow}>
-                    <InfoCircleIcon color="#2563EB" size={16} />
+                    <InfoCircleIcon color={adminColors.platform.info} size={16} />
                     <Text style={styles.alertBulletText}>
                       {taskCounts.readyForPickup} pickup{taskCounts.readyForPickup === 1 ? '' : 's'} scheduled today
                     </Text>
@@ -2915,7 +2876,7 @@ const styles = StyleSheet.create({
   headerGreeting: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#FFF2EE',
+    color: adminColors.dashboard.headerGreeting,
     marginBottom: 3,
   },
   warehouseNameRow: {
@@ -2926,7 +2887,7 @@ const styles = StyleSheet.create({
   warehouseNameText: {
     fontSize: 19,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     letterSpacing: -0.4,
   },
   headerActions: {
@@ -2938,7 +2899,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -2947,7 +2908,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 3,
     right: 3,
-    backgroundColor: '#DC2626',
+    backgroundColor: adminColors.platform.error,
     borderRadius: 8,
     minWidth: 15,
     height: 15,
@@ -2960,11 +2921,11 @@ const styles = StyleSheet.create({
   notifBadgeText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   headerDate: {
     fontSize: 12,
-    color: '#FFE2D9',
+    color: adminColors.dashboard.headerDate,
     marginTop: 5,
     marginBottom: 8,
   },
@@ -2973,17 +2934,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.headerPillBorder,
     paddingHorizontal: 11,
     paddingVertical: 4.5,
   },
   assignedWarehouseText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
 
   // ─── Status Card ───────────────────────────────────────────────────────────
@@ -2997,7 +2958,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: PALETTE.border,
     marginBottom: 14,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3097,7 +3058,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3149,7 +3110,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: PALETTE.border,
-    shadowColor: '#000',
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 3,
@@ -3443,9 +3404,9 @@ const styles = StyleSheet.create({
     color: PALETTE.textInk,
   },
   countBadge: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: adminColors.dashboard.countBadgeBg,
     borderWidth: 1,
-    borderColor: '#FDE68A',
+    borderColor: adminColors.dashboard.countBadgeBorder,
     borderRadius: 10,
     paddingHorizontal: 7,
     paddingVertical: 1,
@@ -3454,7 +3415,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#D97706',
+    color: adminColors.platform.warning,
   },
   taskCardHeaderRow: {
     flexDirection: 'row',
@@ -3463,7 +3424,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   taskTypeBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: adminColors.platform.neutral100,
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -3471,7 +3432,7 @@ const styles = StyleSheet.create({
   taskTypeBadgeText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#4B5563',
+    color: adminColors.platform.neutral700,
   },
   taskFooterRow: {
     flexDirection: 'row',
@@ -3481,7 +3442,7 @@ const styles = StyleSheet.create({
   },
   taskDueText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: adminColors.platform.neutral600,
     fontWeight: '500',
   },
   taskDoneBtn: {
@@ -3496,7 +3457,7 @@ const styles = StyleSheet.create({
   taskDoneBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   emptyTasksCard: {
     backgroundColor: PALETTE.cardBg,

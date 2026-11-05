@@ -3,7 +3,6 @@ import {
   Animated,
   Easing,
   Image,
-  ImageBackground,
   StyleSheet,
   Text,
   View,
@@ -131,12 +130,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
   return (
     <View style={styles.container}>
       <ScreenStatusBar barStyle="light-content" translucent />
-      <ImageBackground
-        source={splashTeaGarden}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-        accessibilityLabel={t('farmer.auth.splash.tagline')}
-      >
+      <View style={StyleSheet.absoluteFill}>
+        <Image
+          source={splashTeaGarden}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+          accessibilityLabel={t('farmer.auth.splash.tagline')}
+        />
         {/* Bottom-weighted dark gradient so text stays readable over the photo. */}
         <GradientOverlay stops={SPLASH_GRADIENT_STOPS} />
 
@@ -184,7 +184,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
 
         {/* Build tag */}
         <Text style={[styles.version, { marginBottom: insets.bottom }]}>{APP_VERSION}</Text>
-      </ImageBackground>
+      </View>
     </View>
   );
 };

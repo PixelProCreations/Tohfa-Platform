@@ -22,6 +22,7 @@ vi.mock('@tohfa/mobile-ui', () => ({
   Button: 'Button',
   Badge: 'Badge',
   Icon: 'Icon',
+  SafeAreaView: 'SafeAreaView',
 }));
 
 vi.mock('react-native-safe-area-context', () => ({

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +18,7 @@ import {
   type Certification,
 } from '../../api/farmer';
 import { certificationDisplayName } from './certificationForm';
-import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 

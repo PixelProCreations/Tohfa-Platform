@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity, SafeAreaView } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
 import { useTheme, authPalette as P, typography } from '../../theme';
 import { fetchApplicationStatus, type ApplicationStatusResponse } from '../../api/auth';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { t } from '../../../../i18n/farmer';
 

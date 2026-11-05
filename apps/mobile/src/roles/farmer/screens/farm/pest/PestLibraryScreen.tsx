@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { Skeleton } from '@tohfa/mobile-ui';
+import { Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';

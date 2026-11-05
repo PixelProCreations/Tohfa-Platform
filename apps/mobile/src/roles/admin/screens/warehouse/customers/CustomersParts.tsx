@@ -12,7 +12,6 @@
 import React from 'react';
 import {
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,10 +19,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
 import type { WarehouseScope } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
@@ -502,7 +501,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -519,7 +518,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.md,
     paddingVertical: adminSpacing.xs,
     borderRadius: adminRadius.xs,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
   },
   headerTextButtonText: { ...adminType.caption, color: adminColors.onBrand },
   body: { flex: 1, backgroundColor: adminColors.canvas },

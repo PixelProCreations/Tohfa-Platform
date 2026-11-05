@@ -1,6 +1,7 @@
 // Design id: M3S04
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
 import { adminColors, adminType } from '../../../theme';

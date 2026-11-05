@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
 } from 'react-native';
 import DocumentPicker from '../../native/documentPicker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
-import { DatePicker, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { DatePicker, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import {

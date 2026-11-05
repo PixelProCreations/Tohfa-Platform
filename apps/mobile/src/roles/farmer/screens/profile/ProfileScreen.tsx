@@ -3,7 +3,6 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
@@ -13,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { ErrorState, FarmBoundaryMap, Icon, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ErrorState, FarmBoundaryMap, Icon, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { logout } from '../../api/auth';
 import {
   deriveFarmRatingView,

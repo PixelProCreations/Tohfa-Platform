@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../../i18n/farmer';
 import { ApiError, extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { parseMoney, toPaise } from '@tohfa/shared-types';

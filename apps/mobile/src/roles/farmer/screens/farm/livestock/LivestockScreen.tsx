@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,7 +10,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
-import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import {
   listAnimals,
   type AnimalResponse,

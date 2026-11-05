@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,7 +7,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { formatSafeDate } from '../../../polyfills';

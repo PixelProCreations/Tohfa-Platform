@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,7 +9,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { InlineDatePicker, formatDisplay } from './ScheduleNewAuditScreen';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────

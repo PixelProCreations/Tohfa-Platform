@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   BackHandler,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect, Polygon } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import { getFarms, getPlots } from '../../../api/farms';

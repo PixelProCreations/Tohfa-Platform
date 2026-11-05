@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   BackHandler,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 import telephoneIconAsset from '../../assets/images/telephone.png';

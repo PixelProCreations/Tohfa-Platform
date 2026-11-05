@@ -4,13 +4,13 @@ import {
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, radius, spacing, typography } from '../../theme';

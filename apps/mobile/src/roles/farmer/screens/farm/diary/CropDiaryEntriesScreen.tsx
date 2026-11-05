@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   BackHandler,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from '../crops/ProduceCalendarScreen';
