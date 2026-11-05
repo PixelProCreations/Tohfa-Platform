@@ -72,9 +72,9 @@ const CARROT = '22222222-2222-4222-8222-222222222222';
 
 interface SummaryOverrides {
   minGroupSize?: number;
-  totals?: { farmers: number; totalPlantedKg: number; crops: number };
+  totals?: { farmers: number | null; totalPlantedKg: number; crops: number };
   byCrop?: Array<{ cropMasterId: string; cropName: string; farmers: number; quantityKg: number }>;
-  other?: { crops: number; farmers: number; quantityKg: number } | null;
+  other?: { farmers: number; quantityKg: number } | null;
 }
 
 function summary(overrides: SummaryOverrides = {}): unknown {
@@ -200,13 +200,13 @@ describe('TohfaCalendarScreen — community planting summary (BR-136)', () => {
     expect(JSON.stringify(carrotQtyFill.props.style)).toContain('"width":"34.5%"');
   });
 
-  it('BR-136: renders a released `other` group as one unnamed "Other crops" row', async () => {
+  it('BR-136i: renders a released `other` group as one unnamed "Other crops" row with no crop count', async () => {
     routeApi(() =>
       Promise.resolve(
         summary({
-          totals: { farmers: 46, totalPlantedKg: 15800, crops: 4 },
+          totals: { farmers: 46, totalPlantedKg: 15800, crops: 1 },
           byCrop: [{ cropMasterId: POTATO, cropName: 'Highland Potato', farmers: 40, quantityKg: 15200 }],
-          other: { crops: 3, farmers: 6, quantityKg: 600 },
+          other: { farmers: 6, quantityKg: 600 },
         }),
       ),
     );
@@ -214,8 +214,28 @@ describe('TohfaCalendarScreen — community planting summary (BR-136)', () => {
 
     const otherRow = tree.root.findAllByProps({ testID: 'tohfaCalendar.row.other' });
     expect(otherRow.length).toBe(1);
-    expect(textOf(tree)).toContain(t('farmer.tohfaCalendar.byCrop.otherCrops', { count: 3 }));
+    const label = t('farmer.tohfaCalendar.byCrop.otherCrops');
+    expect(textOf(tree)).toContain(label);
+    // The server no longer says how many crops are folded, and the label asks for no count.
+    expect(label).not.toMatch(/\{\{|\d/);
+    expect(farmerEn['farmer.tohfaCalendar.byCrop.otherCrops']).not.toContain('{{');
+    expect(farmerTa['farmer.tohfaCalendar.byCrop.otherCrops']).not.toContain('{{');
     expect(tree.root.findByProps({ testID: 'tohfaCalendar.value.other' }).props.children).toBe('6');
+  });
+
+  it('BR-136i: a withheld farmer total (null) renders the withheld marker, never "null" or 0', async () => {
+    routeApi(() =>
+      Promise.resolve(summary({ totals: { farmers: null, totalPlantedKg: 20450.5, crops: 2 } })),
+    );
+    const tree = await mount();
+
+    const farmers = tree.root.findByProps({ testID: 'tohfaCalendar.stat.farmers' }).props.children;
+    expect(farmers).toBe(t('farmer.tohfaCalendar.stats.withheld'));
+    expect(farmerEn['farmer.tohfaCalendar.stats.withheld']).toBeTruthy();
+    expect(farmerTa['farmer.tohfaCalendar.stats.withheld']).toBeTruthy();
+    expect(textOf(tree)).not.toContain('null');
+    // The other tiles still render their released values.
+    expect(tree.root.findByProps({ testID: 'tohfaCalendar.stat.crops' }).props.children).toBe('2');
   });
 
   it('BR-136: shows an empty state naming minGroupSize when nothing was released', async () => {

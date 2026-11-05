@@ -220,7 +220,7 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
     rows.push({
       id: 'other',
       testKey: 'other',
-      label: t('farmer.tohfaCalendar.byCrop.otherCrops', { count: summary.other.crops }),
+      label: t('farmer.tohfaCalendar.byCrop.otherCrops'),
       farmers: summary.other.farmers,
       quantityKg: summary.other.quantityKg,
       color: P.twGray400,
@@ -261,7 +261,10 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
         {/* Stat Cards */}
         <View style={styles.statRow}>
           <View style={styles.statCard}>
-            <Text testID="tohfaCalendar.stat.farmers" style={styles.statValue}>{String(summary.totals.farmers)}</Text>
+            {/* null = withheld by the server (BR-136i), not zero. */}
+            <Text testID="tohfaCalendar.stat.farmers" style={styles.statValue}>
+              {summary.totals.farmers === null ? t('farmer.tohfaCalendar.stats.withheld') : String(summary.totals.farmers)}
+            </Text>
             <Text style={styles.statLabel}>{t('farmer.tohfaCalendar.stats.farmers')}</Text>
           </View>
           <View style={[styles.statCard, styles.statCardHighlight]}>
