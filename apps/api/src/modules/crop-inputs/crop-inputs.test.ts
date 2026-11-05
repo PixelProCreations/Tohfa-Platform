@@ -1,15 +1,29 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import express from 'express';
+import request from 'supertest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { parseMoney, RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
+import { errorHandler, notFoundHandler } from '../../http/errorHandler.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import type { IdempotencyStore } from '../../http/idempotency.js';
 import { aScope, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import type {
   CropInputCursor,
   CropInputRecord,
   CropInputsRepo,
+  FarmCropInputCursor,
+  FarmCropInputFilters,
+  FarmCropInputRecord,
 } from './crop-inputs.repo.js';
-import { createCropInputBody, updateCropInputBody } from './crop-inputs.schema.js';
-import { createCropInputsService } from './crop-inputs.service.js';
+import { cropInputsRouter } from './crop-inputs.routes.js';
+import {
+  createCropInputBody,
+  listFarmCropInputsQuery,
+  updateCropInputBody,
+} from './crop-inputs.schema.js';
+import { createCropInputsService, cropInputsService } from './crop-inputs.service.js';
 
 function todayIst(): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -30,6 +44,25 @@ const FARMER_A = IDS.farmer;
 const FARMER_B = '30000000-0000-4000-8000-000000000002';
 const CROP_A = '50000000-0000-4000-8000-000000000001';
 const CROP_B = '50000000-0000-4000-8000-000000000002';
+/** A second crop of FARMER_A that has already been HARVESTED (no longer active). */
+const CROP_A_HARVESTED = '50000000-0000-4000-8000-000000000003';
+
+/** Display names the fake repo joins on, standing in for crop_master.name / plots.name. */
+const FAKE_CROP_PLOT: Record<string, { cropName: string; plotName: string }> = {
+  [CROP_A]: { cropName: 'Carrot', plotName: 'North Terrace' },
+  [CROP_B]: { cropName: 'Beans', plotName: 'B Plot' },
+  [CROP_A_HARVESTED]: { cropName: 'Cabbage', plotName: 'South Terrace' },
+};
+
+/** Tuple comparison (appliedOn, createdAt, id), descending: positive when `a` sorts AFTER `b`. */
+function compareNewestFirst(
+  a: { appliedOn: string; createdAt: string; id: string },
+  b: { appliedOn: string; createdAt: string; id: string },
+): number {
+  if (a.appliedOn !== b.appliedOn) return b.appliedOn.localeCompare(a.appliedOn);
+  if (a.createdAt !== b.createdAt) return b.createdAt.localeCompare(a.createdAt);
+  return b.id.localeCompare(a.id);
+}
 
 function farmerScope(farmerId: string, permission = 'farmer.crop_input.manage_own'): ResolvedScope {
   return aScope({
@@ -45,6 +78,8 @@ interface FakeDbState {
   inputs: Map<string, CropInputRecord & { deletedAt: string | null }>;
   audits: unknown[][];
   lockedFarmers: string[];
+  /** Every call to listFarmerCropInputs, so a test can see what the service asked the repo for. */
+  farmListCalls: Array<{ farmerId: string; filters: FarmCropInputFilters; limit: number; cursor: FarmCropInputCursor | undefined }>;
 }
 
 function createFakeRepo(state: FakeDbState): CropInputsRepo {
@@ -54,8 +89,30 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
     },
 
     async checkFarmCropBelongsToFarmer(_db, farmerId, farmCropId) {
-      return (farmerId === FARMER_A && farmCropId === CROP_A) ||
+      return (farmerId === FARMER_A && (farmCropId === CROP_A || farmCropId === CROP_A_HARVESTED)) ||
              (farmerId === FARMER_B && farmCropId === CROP_B);
+    },
+
+    async listFarmerCropInputs(_db, farmerId, filters, limit, cursor) {
+      state.farmListCalls.push({ farmerId, filters: { ...filters }, limit, cursor });
+      const all: FarmCropInputRecord[] = Array.from(state.inputs.values())
+        .filter((r) => r.farmerId === farmerId && r.deletedAt === null)
+        .filter((r) => filters.inputType === undefined || r.inputType === filters.inputType)
+        .filter((r) => filters.from === undefined || r.appliedOn >= filters.from)
+        .filter((r) => filters.to === undefined || r.appliedOn <= filters.to)
+        .map(({ deletedAt: _deletedAt, ...r }) => ({
+          ...r,
+          cropName: FAKE_CROP_PLOT[r.farmCropId]?.cropName ?? '?',
+          plotName: FAKE_CROP_PLOT[r.farmCropId]?.plotName ?? '?',
+        }))
+        .sort(compareNewestFirst);
+      const after = cursor ? all.filter((r) => compareNewestFirst(r, cursor) > 0) : all;
+      const hasMore = after.length > limit;
+      const items = hasMore ? after.slice(0, limit) : after;
+      const last = items[items.length - 1];
+      const next: FarmCropInputCursor | null =
+        hasMore && last ? { appliedOn: last.appliedOn, createdAt: last.createdAt, id: last.id } : null;
+      return { items, next };
     },
 
     async findCropInputById(_db, farmerId, farmCropId, id) {
@@ -116,6 +173,9 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
         applicationMethod: data.applicationMethod ?? null,
         costInr: data.costInr === undefined ? null : parseMoney(data.costInr),
         notes: data.notes ?? null,
+        purpose: data.purpose ?? null,
+        targetPest: data.targetPest ?? null,
+        appliedBy: data.appliedBy ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: null,
         deletedAt: null,
@@ -140,6 +200,9 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
       if ('applicationMethod' in patch) rec.applicationMethod = patch.applicationMethod ?? null;
       if ('costInr' in patch) rec.costInr = patch.costInr === null || patch.costInr === undefined ? null : parseMoney(patch.costInr);
       if ('notes' in patch) rec.notes = patch.notes ?? null;
+      if ('purpose' in patch) rec.purpose = patch.purpose ?? null;
+      if ('targetPest' in patch) rec.targetPest = patch.targetPest ?? null;
+      if ('appliedBy' in patch) rec.appliedBy = patch.appliedBy ?? null;
       rec.updatedAt = new Date().toISOString();
       return { ...rec };
     },
@@ -161,11 +224,12 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
   };
 }
 
-function createTestContext() {
+function createTestContext(idempotency: IdempotencyStore = createInMemoryIdempotencyStore()) {
   const state: FakeDbState = {
     inputs: new Map(),
     audits: [],
     lockedFarmers: [],
+    farmListCalls: [],
   };
   const repo = createFakeRepo(state);
   const fakeTx: Executor = {
@@ -178,9 +242,10 @@ function createTestContext() {
     repo,
     db: fakeTx,
     runTx: async (fn) => fn(fakeTx),
+    idempotency,
   });
 
-  return { state, repo, service, audits: state.audits };
+  return { state, repo, service, audits: state.audits, idempotency };
 }
 
 const VALID_BODY = {
@@ -449,6 +514,343 @@ describe('Crop Inputs (BR-56)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// BR-56i..k: idempotent create, the FERTIGATION type, purpose / target pest / applied-by
+// ---------------------------------------------------------------------------
+
+describe('Crop input create is idempotent when an Idempotency-Key is sent (BR-56i)', () => {
+  it('BR-56i: replaying a key with the same body creates one row and one audit entry, and returns the original', async () => {
+    const { service, state, audits } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+    const first = await service.createCropInput(scope, CROP_A, body, 'key-1');
+    const replay = await service.createCropInput(scope, CROP_A, { ...body }, 'key-1');
+
+    expect(replay).toEqual(first);
+    expect(state.inputs.size).toBe(1);
+    expect(audits.filter((a) => a[3] === 'crop_input.create')).toHaveLength(1);
+  });
+
+  it('BR-56i: the same key with a different body or a different crop is 409 IDEMPOTENCY_KEY_REUSED and writes nothing', async () => {
+    const { service, state } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+    await service.createCropInput(scope, CROP_A, body, 'key-1');
+
+    await expectAppError(service.createCropInput(scope, CROP_A, { ...body, quantity: 11 }, 'key-1'), 'IDEMPOTENCY_KEY_REUSED', 409);
+    await expectAppError(service.createCropInput(scope, CROP_A_HARVESTED, body, 'key-1'), 'IDEMPOTENCY_KEY_REUSED', 409);
+    expect(state.inputs.size).toBe(1);
+  });
+
+  it('BR-56i: without a key (or with a blank one) every call creates a row, as before, and no key is claimed', async () => {
+    const { service, state, idempotency } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+    await service.createCropInput(scope, CROP_A, body);
+    await service.createCropInput(scope, CROP_A, body, undefined);
+    await service.createCropInput(scope, CROP_A, body, '   ');
+
+    expect(state.inputs.size).toBe(3);
+    expect((idempotency as ReturnType<typeof createInMemoryIdempotencyStore>).size()).toBe(0);
+  });
+
+  it('BR-56i: keys are scoped to the acting user, so another farmer reusing the string creates their own row', async () => {
+    const { service, state } = createTestContext();
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+    await service.createCropInput(farmerScope(FARMER_A), CROP_A, body, 'shared-key');
+    await service.createCropInput(farmerScope(FARMER_B), CROP_B, body, 'shared-key');
+
+    expect(state.inputs.size).toBe(2);
+  });
+
+  it('BR-56i: a key over 255 characters is 422 VALIDATION_FAILED before anything is written', async () => {
+    const { service, state } = createTestContext();
+    await expectAppError(
+      service.createCropInput(farmerScope(FARMER_A), CROP_A, { ...VALID_BODY, appliedOn: todayIst() }, 'k'.repeat(256)),
+      'VALIDATION_FAILED',
+      422,
+    );
+    expect(state.inputs.size).toBe(0);
+  });
+
+  describe('route', () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/v1/farmers/me', cropInputsRouter);
+    app.use(notFoundHandler);
+    app.use(errorHandler);
+    const auth = `Bearer ${signAccessToken({ sub: newId(), roles: [{ code: RoleCode.FARMER }], farmerId: FARMER_A, customerId: null })}`;
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('BR-56i: POST passes the Idempotency-Key header to the service, and omits it when absent', async () => {
+      const spy = vi.spyOn(cropInputsService, 'createCropInput').mockResolvedValue({} as never);
+      const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+      const withKey = await request(app)
+        .post(`/v1/farmers/me/crops/${CROP_A}/inputs`)
+        .set('Authorization', auth)
+        .set('Idempotency-Key', 'abc-123')
+        .send(body);
+      expect(withKey.status).toBe(201);
+      expect(spy.mock.calls[0]?.[3]).toBe('abc-123');
+
+      const withoutKey = await request(app)
+        .post(`/v1/farmers/me/crops/${CROP_A}/inputs`)
+        .set('Authorization', auth)
+        .send(body);
+      expect(withoutKey.status).toBe(201);
+      expect(spy.mock.calls[1]?.[3]).toBeUndefined();
+    });
+  });
+});
+
+describe('FERTIGATION input type (BR-56j)', () => {
+  it('BR-56j: FERTIGATION is accepted on create, update and the farm-wide list filter; legacy OTHER still is', async () => {
+    expect(createCropInputBody.safeParse({ ...VALID_BODY, inputType: 'FERTIGATION', appliedOn: '2026-01-01' }).success).toBe(true);
+    expect(createCropInputBody.safeParse({ ...VALID_BODY, inputType: 'OTHER', appliedOn: '2026-01-01' }).success).toBe(true);
+    expect(updateCropInputBody.safeParse({ inputType: 'FERTIGATION' }).success).toBe(true);
+    expect(listFarmCropInputsQuery.safeParse({ inputType: 'FERTIGATION' }).success).toBe(true);
+
+    const { service } = createTestContext();
+    const created = await service.createCropInput(farmerScope(FARMER_A), CROP_A, {
+      ...VALID_BODY,
+      inputType: 'FERTIGATION',
+      inputName: '19:19:19 via drip',
+      appliedOn: todayIst(),
+    });
+    expect(created.inputType).toBe('FERTIGATION');
+  });
+});
+
+describe('Purpose, target pest and applied-by are persisted (BR-56k)', () => {
+  it('BR-56k: create stores purpose, targetPest and appliedBy; absent ones read back as null', async () => {
+    const { service } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+
+    const full = await service.createCropInput(scope, CROP_A, {
+      ...VALID_BODY,
+      inputType: 'PESTICIDE',
+      appliedOn: todayIst(),
+      purpose: 'PEST_CONTROL',
+      targetPest: 'APHIDS',
+      appliedBy: 'Self',
+    });
+    expect(full).toMatchObject({ purpose: 'PEST_CONTROL', targetPest: 'APHIDS', appliedBy: 'Self' });
+
+    const bare = await service.createCropInput(scope, CROP_A, { ...VALID_BODY, appliedOn: todayIst() });
+    expect(bare).toMatchObject({ purpose: null, targetPest: null, appliedBy: null });
+
+    const cleared = await service.updateCropInput(scope, CROP_A, full.id, { targetPest: null, appliedBy: 'Muthu' });
+    expect(cleared).toMatchObject({ purpose: 'PEST_CONTROL', targetPest: null, appliedBy: 'Muthu' });
+  });
+
+  it('BR-56k: the schema trims, caps purpose at 100 and targetPest/appliedBy at 200, and allows null only on PATCH', () => {
+    const base = { ...VALID_BODY, appliedOn: '2026-01-01' };
+    expect(createCropInputBody.parse({ ...base, appliedBy: '  Self  ' }).appliedBy).toBe('Self');
+    expect(createCropInputBody.safeParse({ ...base, purpose: 'p'.repeat(100) }).success).toBe(true);
+    expect(createCropInputBody.safeParse({ ...base, purpose: 'p'.repeat(101) }).success).toBe(false);
+    expect(createCropInputBody.safeParse({ ...base, targetPest: 't'.repeat(201) }).success).toBe(false);
+    expect(createCropInputBody.safeParse({ ...base, appliedBy: 'a'.repeat(201) }).success).toBe(false);
+    expect(createCropInputBody.safeParse({ ...base, appliedBy: null }).success).toBe(false);
+    expect(updateCropInputBody.safeParse({ purpose: null, targetPest: null, appliedBy: null }).success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// BR-56h: GET /farmers/me/crop-inputs — the farm-wide list across all own crops
+// ---------------------------------------------------------------------------
+
+function seedInput(
+  state: FakeDbState,
+  fields: Partial<CropInputRecord> & Pick<CropInputRecord, 'farmerId' | 'farmCropId' | 'appliedOn'>,
+): CropInputRecord {
+  const rec: CropInputRecord & { deletedAt: string | null } = {
+    id: newId(),
+    inputType: 'FERTILIZER',
+    inputName: 'Urea',
+    quantity: 10,
+    unit: 'KG',
+    nitrogenPct: null,
+    phosphorusPct: null,
+    potassiumPct: null,
+    applicationMethod: null,
+    costInr: null,
+    notes: null,
+    purpose: null,
+    targetPest: null,
+    appliedBy: null,
+    createdAt: '2026-01-01T00:00:00.000000Z',
+    updatedAt: null,
+    ...fields,
+    deletedAt: null,
+  };
+  state.inputs.set(rec.id, rec);
+  return rec;
+}
+
+describe('Farm-wide crop input list (BR-56h)', () => {
+  it('BR-56h: lists only the caller farmer\'s own inputs, across every own crop including a HARVESTED one, with cropName and plotName', async () => {
+    const { service, state } = createTestContext();
+    const live = seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-03-02', costInr: parseMoney('120.50') });
+    const harvested = seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A_HARVESTED, appliedOn: '2026-01-15' });
+    const other = seedInput(state, { farmerId: FARMER_B, farmCropId: CROP_B, appliedOn: '2026-03-03' });
+
+    const page = await service.listFarmCropInputs(farmerScope(FARMER_A), { limit: 20 });
+
+    expect(page.items.map((i) => i.id)).toEqual([live.id, harvested.id]);
+    expect(page.items.some((i) => i.id === other.id)).toBe(false);
+    expect(page.items[0]).toMatchObject({
+      farmCropId: CROP_A,
+      cropName: 'Carrot',
+      plotName: 'North Terrace',
+      costInr: '120.50',
+    });
+    expect(page.items[1]).toMatchObject({ farmCropId: CROP_A_HARVESTED, cropName: 'Cabbage', plotName: 'South Terrace' });
+    expect(page.page).toEqual({ nextCursor: null, hasMore: false });
+    // The farmer id comes from the resolved scope, never from the request.
+    expect(state.farmListCalls.map((c) => c.farmerId)).toEqual([FARMER_A]);
+  });
+
+  it('BR-56h: newest appliedOn first, ties broken by createdAt then id, and the cursor pages without gaps or repeats', async () => {
+    const { service, state } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const sameInstant = '2026-02-10T08:00:00.123456Z';
+    const seeded = [
+      seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-02-01', createdAt: '2026-02-01T00:00:00.000000Z' }),
+      seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-02-10', createdAt: sameInstant }),
+      seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A_HARVESTED, appliedOn: '2026-02-10', createdAt: sameInstant }),
+      seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-02-10', createdAt: '2026-02-11T00:00:00.000000Z' }),
+      seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A_HARVESTED, appliedOn: '2026-01-05', createdAt: '2026-03-01T00:00:00.000000Z' }),
+    ];
+    const expected = [...seeded].sort(compareNewestFirst).map((r) => r.id);
+
+    const seen: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = await service.listFarmCropInputs(scope, { limit: 2, ...(cursor ? { cursor } : {}) });
+      seen.push(...page.items.map((i) => i.id));
+      expect(page.page.hasMore).toBe(page.page.nextCursor !== null);
+      cursor = page.page.nextCursor ?? undefined;
+      pages += 1;
+    } while (cursor !== undefined && pages < 10);
+
+    expect(pages).toBe(3);
+    expect(seen).toEqual(expected);
+    // appliedOn dominates createdAt: the 2026-01-05 row created last is still last.
+    expect(seen[seen.length - 1]).toBe(seeded[4]!.id);
+    // The opaque cursor decodes back to exactly the (appliedOn, createdAt, id) the repo returned.
+    const second = state.farmListCalls[1]!.cursor!;
+    const firstPageLast = expected[1]!;
+    expect(second.id).toBe(firstPageLast);
+    expect(second.appliedOn).toBe(state.inputs.get(firstPageLast)!.appliedOn);
+    expect(second.createdAt).toBe(state.inputs.get(firstPageLast)!.createdAt);
+  });
+
+  it('BR-56h: inputType, from and to filter the list (both bounds inclusive)', async () => {
+    const { service, state } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const jan = seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-01-31', inputType: 'MANURE' });
+    const feb1 = seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A_HARVESTED, appliedOn: '2026-02-01', inputType: 'PESTICIDE' });
+    const feb28 = seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-02-28', inputType: 'MANURE' });
+    seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-03-01', inputType: 'MANURE' });
+
+    const feb = await service.listFarmCropInputs(scope, { limit: 20, from: '2026-02-01', to: '2026-02-28' });
+    expect(feb.items.map((i) => i.id)).toEqual([feb28.id, feb1.id]);
+
+    const manureToFeb = await service.listFarmCropInputs(scope, { limit: 20, inputType: 'MANURE', to: '2026-02-28' });
+    expect(manureToFeb.items.map((i) => i.id)).toEqual([feb28.id, jan.id]);
+
+    expect(state.farmListCalls[1]!.filters).toEqual({ inputType: 'MANURE', to: '2026-02-28' });
+  });
+
+  it('BR-56h: a farmer with no inputs (or another farmer\'s only) gets an empty page, not a 403 or 404', async () => {
+    const { service, state } = createTestContext();
+    seedInput(state, { farmerId: FARMER_A, farmCropId: CROP_A, appliedOn: '2026-02-01' });
+
+    const page = await service.listFarmCropInputs(farmerScope(FARMER_B), { limit: 20 });
+    expect(page).toEqual({ items: [], page: { nextCursor: null, hasMore: false } });
+  });
+
+  it('BR-56h: a scope with no farmer identity is 403 FORBIDDEN, and a tampered cursor is 422 VALIDATION_FAILED', async () => {
+    const { service } = createTestContext();
+    const noFarmer = aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.FARMER, permission: 'farmer.crop_input.manage_own' });
+    await expectAppError(service.listFarmCropInputs(noFarmer, { limit: 20 }), 'FORBIDDEN', 403);
+
+    const scope = farmerScope(FARMER_A);
+    for (const cursor of ['not-a-cursor', Buffer.from('["2026-02-30","2026-01-01T00:00:00Z","x"]').toString('base64url')]) {
+      await expectAppError(service.listFarmCropInputs(scope, { limit: 20, cursor }), 'VALIDATION_FAILED', 422);
+    }
+  });
+
+  it('BR-56h: the query is strict: limit 1..100 (default 20), real calendar dates, from <= to, a known inputType, no farmerId', () => {
+    const ok = (q: Record<string, unknown>) => listFarmCropInputsQuery.safeParse(q).success;
+
+    expect(listFarmCropInputsQuery.parse({})).toEqual({ limit: 20 });
+    expect(ok({ limit: '100', inputType: 'BIO_INPUT', from: '2026-02-01', to: '2026-02-01' })).toBe(true);
+    expect(ok({ limit: '0' })).toBe(false);
+    expect(ok({ limit: '101' })).toBe(false);
+    expect(ok({ from: '2026-02-30' })).toBe(false);
+    expect(ok({ to: '2026/02/01' })).toBe(false);
+    expect(ok({ from: '2026-03-01', to: '2026-02-01' })).toBe(false);
+    expect(ok({ inputType: 'SEED' })).toBe(false);
+    expect(ok({ farmerId: FARMER_B })).toBe(false);
+  });
+
+  describe('route', () => {
+    const app = express();
+    app.use('/v1/farmers/me', cropInputsRouter);
+    app.use(notFoundHandler);
+    app.use(errorHandler);
+    const PATH = '/v1/farmers/me/crop-inputs';
+    const token = (code: RoleCode, farmerId: string | null = null) =>
+      `Bearer ${signAccessToken({ sub: newId(), roles: [{ code }], farmerId, customerId: null })}`;
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('BR-56h: 401 without a token; 403 for CUSTOMER and every admin role (farmer.crop_input.manage_own = none)', async () => {
+      const spy = vi.spyOn(cropInputsService, 'listFarmCropInputs');
+      expect((await request(app).get(PATH)).status).toBe(401);
+      for (const code of [RoleCode.CUSTOMER, RoleCode.SUPER_ADMIN, RoleCode.TOHFA_ADMIN, RoleCode.FARMER_ADMIN]) {
+        const res = await request(app).get(PATH).set('Authorization', token(code));
+        expect(res.status, code).toBe(403);
+        expect(res.body.code).toBe('FORBIDDEN');
+      }
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('BR-56h: a FARMER is served with the farmerId from their own token and the parsed query; a bad query is 422', async () => {
+      const body = { items: [], page: { nextCursor: null, hasMore: false } };
+      const spy = vi.spyOn(cropInputsService, 'listFarmCropInputs').mockResolvedValue(body);
+      const auth = token(RoleCode.FARMER, FARMER_A);
+
+      const res = await request(app)
+        .get(`${PATH}?limit=5&inputType=MANURE&from=2026-01-01&to=2026-02-01`)
+        .set('Authorization', auth);
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(body);
+      expect(spy).toHaveBeenCalledTimes(1);
+      const [scope, query] = spy.mock.calls[0]!;
+      expect(scope.farmerId).toBe(FARMER_A);
+      expect(query).toEqual({ limit: 5, inputType: 'MANURE', from: '2026-01-01', to: '2026-02-01' });
+
+      for (const bad of ['limit=101', 'from=2026-02-30', 'inputType=SEED', `farmerId=${FARMER_B}`, 'from=2026-03-01&to=2026-02-01']) {
+        const r = await request(app).get(`${PATH}?${bad}`).set('Authorization', auth);
+        expect(r.status, bad).toBe(422);
+      }
+      expect(spy).toHaveBeenCalledTimes(1);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // PostgreSQL: the SQL itself (owner join, cost as text), not a fake repo
 // ---------------------------------------------------------------------------
 
@@ -572,6 +974,176 @@ describeIfDatabase('Crop Inputs (PostgreSQL)', () => {
 
       const cleared = await service.updateCropInput(scope, a.farmCropId, first.id, { costInr: null });
       expect(cleared.costInr).toBeNull();
+    });
+  });
+
+  it('BR-56j/BR-56k (PostgreSQL): FERTIGATION and purpose/targetPest/appliedBy round-trip through the real columns', async () => {
+    if (!ready) return;
+    const { cropInputsRepo } = await import('./crop-inputs.repo.js');
+    await inRolledBackTx(async (tx) => {
+      const a = await seedFarmCrop(tx, 'K');
+      const service = createCropInputsService({ repo: cropInputsRepo, db: tx, runTx: async (fn) => fn(tx) });
+      const scope = farmerScope(a.farmerId);
+      scope.userId = a.userId;
+
+      const created = await service.createCropInput(scope, a.farmCropId, {
+        ...VALID_BODY,
+        inputType: 'FERTIGATION',
+        appliedOn: '2026-01-02',
+        purpose: 'GROWTH',
+        targetPest: 'APHIDS',
+        appliedBy: 'Self',
+      });
+      expect(created).toMatchObject({ inputType: 'FERTIGATION', purpose: 'GROWTH', targetPest: 'APHIDS', appliedBy: 'Self' });
+
+      const read = await service.getCropInput(scope, a.farmCropId, created.id);
+      expect(read).toMatchObject({ purpose: 'GROWTH', targetPest: 'APHIDS', appliedBy: 'Self' });
+
+      const patched = await service.updateCropInput(scope, a.farmCropId, created.id, { targetPest: null });
+      expect(patched.targetPest).toBeNull();
+
+      const farmWide = await service.listFarmCropInputs(scope, { limit: 20, inputType: 'FERTIGATION' });
+      expect(farmWide.items.map((i) => i.id)).toEqual([created.id]);
+      expect(farmWide.items[0]).toMatchObject({ purpose: 'GROWTH', appliedBy: 'Self' });
+    });
+  });
+
+  it('BR-56i (PostgreSQL): a replayed Idempotency-Key against the real idempotency_keys table creates one row', async () => {
+    if (!ready) return;
+    const { cropInputsRepo } = await import('./crop-inputs.repo.js');
+    const { idempotencyStore } = await import('../../http/idempotency.js');
+    await inRolledBackTx(async (tx) => {
+      const a = await seedFarmCrop(tx, 'I');
+      const service = createCropInputsService({
+        repo: cropInputsRepo,
+        db: tx,
+        runTx: async (fn) => fn(tx),
+        idempotency: idempotencyStore,
+      });
+      const scope = farmerScope(a.farmerId);
+      scope.userId = a.userId;
+      const key = newId();
+
+      const first = await service.createCropInput(scope, a.farmCropId, { ...VALID_BODY, appliedOn: '2026-01-02' }, key);
+      const again = await service.createCropInput(scope, a.farmCropId, { ...VALID_BODY, appliedOn: '2026-01-02' }, key);
+      expect(again.id).toBe(first.id);
+
+      const page = await service.listCropInputs(scope, a.farmCropId, { limit: 20 });
+      expect(page.items).toHaveLength(1);
+    });
+  });
+
+  /** A second planting on an existing plot (status HARVESTED by default: no longer an active crop). */
+  async function addFarmCrop(tx: Executor, plotId: string, status = 'HARVESTED'): Promise<string> {
+    const row = await tx.query<{ id: string }>(
+      `INSERT INTO farm_crops (plot_id, crop_id, planted_on, actual_harvest_on, status)
+       VALUES ($1, (SELECT id FROM crop_master ORDER BY slug LIMIT 1), '2025-06-01', '2025-12-01', $2) RETURNING id`,
+      [plotId, status],
+    );
+    return row.rows[0]!.id;
+  }
+
+  /** Inserts directly so created_at can be pinned; inside one transaction now() is constant, which is exactly the tie we want to page across. */
+  async function insertInput(
+    tx: Executor,
+    farmerId: string,
+    farmCropId: string,
+    appliedOn: string,
+    opts: { inputType?: string; createdAt?: string; costInr?: string } = {},
+  ): Promise<string> {
+    const row = await tx.query<{ id: string }>(
+      `INSERT INTO crop_inputs (farmer_id, farm_crop_id, input_type, input_name, applied_on, quantity, unit, cost_inr, created_at)
+       VALUES ($1, $2, $3, 'Fixture input', $4, 1, 'KG', $5, COALESCE($6::timestamptz, now())) RETURNING id`,
+      [farmerId, farmCropId, opts.inputType ?? 'FERTILIZER', appliedOn, opts.costInr ?? null, opts.createdAt ?? null],
+    );
+    return row.rows[0]!.id;
+  }
+
+  it('BR-56h (PostgreSQL): own rows only, across live and HARVESTED crops, with cropName/plotName, newest first and stable across pages', async () => {
+    if (!ready) return;
+    const { cropInputsRepo } = await import('./crop-inputs.repo.js');
+    await inRolledBackTx(async (tx) => {
+      const a = await seedFarmCrop(tx, 'A');
+      const b = await seedFarmCrop(tx, 'B');
+      const harvestedCropId = await addFarmCrop(tx, a.plotId);
+      const service = createCropInputsService({ repo: cropInputsRepo, db: tx, runTx: async (fn) => fn(tx) });
+      const scopeA = farmerScope(a.farmerId);
+      scopeA.userId = a.userId;
+
+      // Three rows share appliedOn AND created_at (now() in this tx): only the id separates them.
+      const tied = [
+        await insertInput(tx, a.farmerId, a.farmCropId, '2026-02-10'),
+        await insertInput(tx, a.farmerId, harvestedCropId, '2026-02-10'),
+        await insertInput(tx, a.farmerId, a.farmCropId, '2026-02-10'),
+      ];
+      const newerCreated = await insertInput(tx, a.farmerId, a.farmCropId, '2026-02-10', { createdAt: '2099-01-01T00:00:00Z' });
+      const oldest = await insertInput(tx, a.farmerId, harvestedCropId, '2025-07-01', { costInr: '0.1' });
+      const newest = await insertInput(tx, a.farmerId, a.farmCropId, '2026-03-01');
+      const deleted = await insertInput(tx, a.farmerId, a.farmCropId, '2026-03-02');
+      await tx.query(`UPDATE crop_inputs SET deleted_at = now() WHERE id = $1`, [deleted]);
+      const otherFarmers = await insertInput(tx, b.farmerId, b.farmCropId, '2026-03-05');
+
+      const expected = [newest, newerCreated, ...[...tied].sort().reverse(), oldest];
+
+      const seen: string[] = [];
+      const pages: Array<Awaited<ReturnType<typeof service.listFarmCropInputs>>> = [];
+      let cursor: string | undefined;
+      do {
+        const page = await service.listFarmCropInputs(scopeA, { limit: 2, ...(cursor ? { cursor } : {}) });
+        pages.push(page);
+        seen.push(...page.items.map((i) => i.id));
+        cursor = page.page.nextCursor ?? undefined;
+      } while (cursor !== undefined && pages.length < 10);
+
+      expect(seen).toEqual(expected);
+      expect(pages.map((p) => p.page.hasMore)).toEqual([true, true, false]);
+      expect(seen).not.toContain(otherFarmers);
+      expect(seen).not.toContain(deleted);
+
+      const all = pages.flatMap((p) => p.items);
+      const harvestedRow = all.find((i) => i.id === oldest)!;
+      expect(harvestedRow).toMatchObject({
+        farmerId: a.farmerId,
+        farmCropId: harvestedCropId,
+        plotName: 'CI plot',
+        appliedOn: '2025-07-01',
+        costInr: '0.10',
+      });
+      expect(typeof harvestedRow.cropName).toBe('string');
+      expect(harvestedRow.cropName.length).toBeGreaterThan(0);
+
+      // B, asking the same farm-wide endpoint, sees only its own row: never A's, never a 403.
+      const scopeB = farmerScope(b.farmerId);
+      expect((await service.listFarmCropInputs(scopeB, { limit: 20 })).items.map((i) => i.id)).toEqual([otherFarmers]);
+    });
+  });
+
+  it('BR-56h (PostgreSQL): inputType and inclusive from/to filters, and an empty page for a farmer with no inputs', async () => {
+    if (!ready) return;
+    const { cropInputsRepo } = await import('./crop-inputs.repo.js');
+    await inRolledBackTx(async (tx) => {
+      const a = await seedFarmCrop(tx, 'A');
+      const empty = await seedFarmCrop(tx, 'E');
+      const harvestedCropId = await addFarmCrop(tx, a.plotId);
+      const service = createCropInputsService({ repo: cropInputsRepo, db: tx, runTx: async (fn) => fn(tx) });
+      const scope = farmerScope(a.farmerId);
+
+      const jan31 = await insertInput(tx, a.farmerId, a.farmCropId, '2026-01-31', { inputType: 'MANURE' });
+      const feb1 = await insertInput(tx, a.farmerId, harvestedCropId, '2026-02-01', { inputType: 'PESTICIDE' });
+      const feb28 = await insertInput(tx, a.farmerId, harvestedCropId, '2026-02-28', { inputType: 'MANURE' });
+      await insertInput(tx, a.farmerId, a.farmCropId, '2026-03-01', { inputType: 'MANURE' });
+
+      const ids = async (q: Parameters<typeof service.listFarmCropInputs>[1]) =>
+        (await service.listFarmCropInputs(scope, q)).items.map((i) => i.id);
+
+      expect(await ids({ limit: 20, from: '2026-02-01', to: '2026-02-28' })).toEqual([feb28, feb1]);
+      expect(await ids({ limit: 20, inputType: 'MANURE', to: '2026-02-28' })).toEqual([feb28, jan31]);
+      expect(await ids({ limit: 20, inputType: 'BIO_INPUT' })).toEqual([]);
+
+      expect(await service.listFarmCropInputs(farmerScope(empty.farmerId), { limit: 20 })).toEqual({
+        items: [],
+        page: { nextCursor: null, hasMore: false },
+      });
     });
   });
 });

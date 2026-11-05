@@ -109,8 +109,8 @@ export interface UpdatePlotInput {
  * `listMyFarms` / `FarmListItem`) -- unwrapped here so every caller in this app just works
  * with `Farm[]`.
  */
-export async function getFarms(): Promise<Farm[]> {
-  const { items } = await api.get<{ items: Farm[] }>('/farms');
+export async function getFarms(signal?: AbortSignal): Promise<Farm[]> {
+  const { items } = await api.get<{ items: Farm[] }>('/farms', signal);
   return items;
 }
 
@@ -132,8 +132,8 @@ export async function deleteFarm(farmId: string): Promise<void> {
  * Also wire-wrapped as `{ items: Plot[] }` (docs/openapi.yaml's `listMyFarmPlots`), unwrapped
  * here for the same reason as `getFarms()`.
  */
-export async function getPlots(farmId: string): Promise<Plot[]> {
-  const { items } = await api.get<{ items: Plot[] }>(`/farms/${farmId}/plots`);
+export async function getPlots(farmId: string, signal?: AbortSignal): Promise<Plot[]> {
+  const { items } = await api.get<{ items: Plot[] }>(`/farms/${farmId}/plots`, signal);
   return items;
 }
 

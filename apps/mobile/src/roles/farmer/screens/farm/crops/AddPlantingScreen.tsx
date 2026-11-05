@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Modal,
   ScrollView,
@@ -12,13 +12,17 @@ import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
-import { authPalette as P, colors, typography } from '../../../theme';
+import { authPalette as P, colors, spacing, typography } from '../../../theme';
 import { formatSafeDate } from '../../../polyfills';
 import {
   dateFromCalendarDay,
   toCalendarDateString,
   todayCalendarDateString,
 } from '../toolPurchaseDate';
+import { t } from '../../../../../i18n/farmer';
+import { formatErrorMessage } from '../../../../../shell/api/client';
+import { createIdempotencyKeyCache } from '../../../../../shell/api/idempotency';
+import { createTreePlanting } from '../../../api/treePlantings';
 
 const CALENDAR_THEME = {
   calendarBackground: colors.white,
@@ -103,6 +107,12 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   const [showCalendar, setShowCalendar] = useState(false);
   const [zone, setZone] = useState('');
   const [purpose, setPurpose] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  // One Idempotency-Key per logical save (BR-55h): retrying the same body after a
+  // failure replays the key, so a lost response cannot create a second planting;
+  // an edited body gets a fresh key (re-using one would be 409 IDEMPOTENCY_KEY_REUSED).
+  const idempotencyRef = useRef(createIdempotencyKeyCache());
 
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
   const calendarStartDate = toCalendarDateString(plantedDate ?? new Date());
@@ -111,6 +121,39 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   function handleDateSelected(day: DateData): void {
     setPlantedDate(dateFromCalendarDay(day));
     setShowCalendar(false);
+  }
+
+  async function handleSave(): Promise<void> {
+    const trimmedSpecies = speciesName.trim();
+    if (!trimmedSpecies || isSaving) return;
+    // BR-55a: a whole number of trees, 1 or more. Checked here so "2.5" is not
+    // silently truncated to 2; the API enforces the same rule.
+    const trimmedCount = treeCount.trim();
+    const count = Number(trimmedCount);
+    if (!/^\d+$/.test(trimmedCount) || !Number.isSafeInteger(count) || count < 1) {
+      setSaveError(t('farmer.trees.countInvalid'));
+      return;
+    }
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      // Only what the farmer entered: blank optional fields are left out, not defaulted.
+      const body = {
+        speciesName: trimmedSpecies,
+        treeCount: count,
+        ...(plantedDate ? { plantedOn: toCalendarDateString(plantedDate) } : {}),
+        ...(zone.trim() ? { zoneName: zone.trim() } : {}),
+        ...(purpose.trim() ? { purpose: purpose.trim() } : {}),
+      };
+      await createTreePlanting(body, idempotencyRef.current.keyFor(JSON.stringify(body)));
+      idempotencyRef.current.reset();
+      onSave?.();
+      onNavigateBack();
+    } catch (err: unknown) {
+      setSaveError(formatErrorMessage(err, t('farmer.trees.addError')));
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -218,6 +261,12 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
             Perennial plantings count towards biomass index and organic certification canopy standards.
           </Text>
         </View>
+
+        {saveError ? (
+          <Text style={styles.saveErrorText} testID="add-planting-error">
+            {saveError}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {/* Calendar Modal */}
@@ -264,12 +313,12 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
       {/* Sticky Save Button */}
       <View style={styles.stickyBottom}>
         <TouchableOpacity
-          style={[styles.saveButton, (!speciesName || !treeCount) && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (!speciesName || !treeCount || isSaving) && styles.saveButtonDisabled]}
           activeOpacity={0.8}
+          disabled={isSaving}
           onPress={() => {
             if (speciesName && treeCount) {
-              onSave?.();
-              onNavigateBack();
+              void handleSave();
             }
           }}
         >
@@ -483,5 +532,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray500,
+  },
+  // Save error (new; token values only)
+  saveErrorText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed600,
+    marginTop: spacing.md,
   },
 });
