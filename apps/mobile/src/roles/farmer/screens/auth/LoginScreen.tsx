@@ -167,6 +167,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           challengeId: otpRes.challengeId,
           resendAvailableAt: otpRes.resendAvailableAt,
           attemptsRemaining: otpRes.attemptsRemaining,
+          mockCode: otpRes._mockCode,
           purpose: 'LOGIN',
           linkToken: outcome.linkToken,
         });
