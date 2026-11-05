@@ -3050,9 +3050,9 @@ export default function App(): React.JSX.Element {
             onNavigateBack={goBack}
             onConfirmRemove={async () => {
               // canDeleteAsset is the single source of truth for which categories have no
-              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
-              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
-              // not the gate itself.
+              // backend delete endpoint (see RemoveItemScreen.tsx; currently none) --
+              // RemoveItemScreen already refuses to call onConfirmRemove for those, so this
+              // is belt-and-braces, not the gate itself. Trees delete via BR-55d.
               if (
                 selectedItemForRemove?.id &&
                 canDeleteAsset(selectedItemForRemove.category)

@@ -120,16 +120,15 @@ export interface RemoveItemData {
 }
 
 /**
- * Categories with no backend entity to delete against (farm-assets only
- * knows TOOL/EQUIPMENT/MACHINERY — see api/farmAssets.ts). Trees/plantings
- * are a known, separately-tracked spec gap, not something a screen can wire
- * up on its own. This is the single source of truth for that special case —
- * RemoveItemScreen, EditPlantingScreen and App.tsx's confirm handler all read
- * it here instead of each re-encoding "Trees" independently.
+ * Categories with no backend endpoint to delete against. Currently none:
+ * Tools/Equipment/Machinery delete through farm-assets (api/farmAssets.ts) and
+ * Trees through DELETE /farmers/me/tree-plantings/:id (BR-55d,
+ * farmer.tree_planting.manage_own; api/treePlantings.ts deleteTreePlanting,
+ * which App.tsx's confirm handler calls for 'Trees'). Kept as the single
+ * source of truth — RemoveItemScreen, EditPlantingScreen and App.tsx all read
+ * it — so a future category without a delete endpoint is gated in one place.
  */
-export const CATEGORIES_WITHOUT_DELETE_SUPPORT: ReadonlySet<RemoveCategoryType> = new Set<RemoveCategoryType>([
-  'Trees',
-]);
+export const CATEGORIES_WITHOUT_DELETE_SUPPORT: ReadonlySet<RemoveCategoryType> = new Set<RemoveCategoryType>();
 
 export function canDeleteAsset(category: RemoveCategoryType): boolean {
   return !CATEGORIES_WITHOUT_DELETE_SUPPORT.has(category);
@@ -261,8 +260,8 @@ export function RemoveItemScreen({
           {/* ── Action Buttons ── */}
           <View style={styles.actionButtonsContainer}>
             {/* Red Remove Permanently Button — stays visible but visually
-                muted and inert for Trees, since there's no real delete to
-                perform for that category yet. */}
+                muted and inert for a category in
+                CATEGORIES_WITHOUT_DELETE_SUPPORT (none at present). */}
             <TouchableOpacity
               style={[
                 styles.removePermanentlyButton,
