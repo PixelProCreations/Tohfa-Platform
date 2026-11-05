@@ -9,8 +9,9 @@
  * released — `other` as an unnamed row, an empty slice as an honest empty
  * state that names the server's minGroupSize — and to send the filters.
  *
- * The customer wishlist section has no backend (rules.md BR-136 "Not built")
- * and stays static; one test pins that it is still there.
+ * The customer wishlist section has no backend (rules.md BR-136 "Not built");
+ * its static rows were invented placeholder figures, so it is hidden and one
+ * test pins that none of it renders.
  *
  * Until the owner decides (rules.md open contradiction 34) the server answers
  * 403 to every role, or 503 COMMUNITY_PLANTING_NOT_CONFIGURED without k: the
@@ -342,13 +343,17 @@ describe('TohfaCalendarScreen — community planting summary (BR-136)', () => {
     expect(textOf(tree)).toContain('Highland Potato');
   });
 
-  it('keeps the static customer wishlist section and its footnote (no backend exists for it)', async () => {
+  it('BR-136: hides the customer wishlist section, which has no backend, so no invented demand figures reach farmers', async () => {
     routeApi(() => Promise.resolve(summary()));
     const tree = await mount();
     const text = textOf(tree);
 
-    expect(text).toContain(t('farmer.tohfaCalendar.wishlist.title'));
-    expect(text).toContain(t('farmer.tohfaCalendar.wishlist.footnote'));
+    expect(text).not.toContain(t('farmer.tohfaCalendar.wishlist.title'));
+    expect(text).not.toContain(t('farmer.tohfaCalendar.wishlist.footnote'));
+    // The former static placeholder rows (e.g. "62 customers" / "8,400 kg").
+    expect(text).not.toContain(t('farmer.tohfaCalendar.wishlist.customers', { count: 62 }));
+    expect(text).not.toContain('8,400 kg');
+    expect(tree.root.findAllByType('Image' as unknown as React.ElementType).length).toBe(0);
     // No request is made for wishlist data.
     expect(apiGet.mock.calls.every((c) => [SUMMARY_PATH, FILTERS_PATH].includes(c[0] as string))).toBe(true);
   });

@@ -71,6 +71,13 @@ const CROP_IMAGES: Record<string, string> = {
 
 // Still static: there is no wishlist table or endpoint (docs/rules.md BR-136
 // "Not built"), so this list is deliberately not fabricated from another source.
+//
+// The rows below are design placeholders, not real demand. Showing them would
+// tell farmers that customers want quantities nobody measured, so the section
+// is hidden until a wishlist data source exists (rules.md open contradiction
+// 34). Turn this on only together with replacing WISHLIST_DATA by real data.
+const SHOW_STATIC_WISHLIST_DEMAND = false as boolean;
+
 const WISHLIST_DATA = [
   { rank: 1, name: 'Carrot',       customers: 62, quantity: '8,400 kg' },
   { rank: 2, name: 'Tomato',       customers: 54, quantity: '7,200 kg' },
@@ -397,30 +404,34 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
 
         {renderSummary()}
 
-        {/* Customer Wishlist Demand — static, see WISHLIST_DATA */}
-        <View style={styles.wishlistHeader}>
-          <HeartIcon />
-          <Text style={styles.wishlistTitle}>{t('farmer.tohfaCalendar.wishlist.title')}</Text>
-        </View>
-
-        <View style={styles.wishlistCard}>
-          {WISHLIST_DATA.map((item, idx) => (
-            <View key={item.rank} style={[styles.wishlistRow, idx < WISHLIST_DATA.length - 1 && styles.wishlistRowBorder]}>
-              <Text style={[styles.wishlistRank, { color: RANK_COLORS[idx] || colors.brandGreen }]}>{item.rank}</Text>
-              <View style={styles.wishlistCropWrap}>
-                <Image
-                  source={{ uri: CROP_IMAGES[item.name] }}
-                  style={styles.wishlistCropImage}
-                  resizeMode="cover"
-                />
-                <Text style={styles.wishlistCropName}>{item.name}</Text>
-              </View>
-              <Text style={styles.wishlistCustomers}>{t('farmer.tohfaCalendar.wishlist.customers', { count: item.customers })}</Text>
-              <Text style={styles.wishlistQty}>{item.quantity}</Text>
+        {/* Customer Wishlist Demand — static placeholders, hidden: see SHOW_STATIC_WISHLIST_DEMAND */}
+        {SHOW_STATIC_WISHLIST_DEMAND && (
+          <>
+            <View style={styles.wishlistHeader}>
+              <HeartIcon />
+              <Text style={styles.wishlistTitle}>{t('farmer.tohfaCalendar.wishlist.title')}</Text>
             </View>
-          ))}
-          <Text style={styles.wishlistFootnote}>{t('farmer.tohfaCalendar.wishlist.footnote')}</Text>
-        </View>
+
+            <View style={styles.wishlistCard}>
+              {WISHLIST_DATA.map((item, idx) => (
+                <View key={item.rank} style={[styles.wishlistRow, idx < WISHLIST_DATA.length - 1 && styles.wishlistRowBorder]}>
+                  <Text style={[styles.wishlistRank, { color: RANK_COLORS[idx] || colors.brandGreen }]}>{item.rank}</Text>
+                  <View style={styles.wishlistCropWrap}>
+                    <Image
+                      source={{ uri: CROP_IMAGES[item.name] }}
+                      style={styles.wishlistCropImage}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.wishlistCropName}>{item.name}</Text>
+                  </View>
+                  <Text style={styles.wishlistCustomers}>{t('farmer.tohfaCalendar.wishlist.customers', { count: item.customers })}</Text>
+                  <Text style={styles.wishlistQty}>{item.quantity}</Text>
+                </View>
+              ))}
+              <Text style={styles.wishlistFootnote}>{t('farmer.tohfaCalendar.wishlist.footnote')}</Text>
+            </View>
+          </>
+        )}
 
         {/* Bottom spacer for sticky button */}
         <View style={styles.bottomSpacer} />
