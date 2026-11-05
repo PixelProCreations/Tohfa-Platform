@@ -336,7 +336,7 @@ export function WarehouseOperationsScreen({
         ) : (
           <>
             <SectionTitle>Quick Actions</SectionTitle>
-            <View style={styles.grid}>
+            <View style={styles.quickActionsGrid}>
               {quickActions.map((qa) => (
                 <TouchableOpacity key={qa.label} style={styles.actionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
                   {qa.icon}
@@ -346,7 +346,7 @@ export function WarehouseOperationsScreen({
             </View>
 
             <SectionTitle>{"Today's Operational Status"}</SectionTitle>
-            <View style={styles.grid}>
+            <View style={styles.operationalStatusGrid}>
               {(
                 [
                   ['RECEIVING · SHIPMENTS', total('receivingShipments')],
@@ -406,8 +406,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 12,
-    marginBottom: adminSpacing.md,
+    rowGap: 16,
+    marginBottom: adminSpacing.lg,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+    marginBottom: 26,
+  },
+  operationalStatusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+    marginBottom: adminSpacing.lg,
   },
   dropdownButton: {
     flexDirection: 'row',
