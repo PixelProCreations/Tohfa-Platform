@@ -75,9 +75,10 @@ const DISCUSSION_PERMISSIONS = ['Select', 'All members', 'Verified farmers only'
 export interface CreateCommunityScreenProps {
   onBack: () => void;
   onSubmitSuccess?: () => void;
+  isEditing?: boolean;
 }
 
-export function CreateCommunityScreen({ onBack, onSubmitSuccess }: CreateCommunityScreenProps) {
+export function CreateCommunityScreen({ onBack, onSubmitSuccess, isEditing = false }: CreateCommunityScreenProps) {
   // Community Details State (Screenshot 1)
   const [communityName, setCommunityName] = useState('');
   const [shortDescription, setShortDescription] = useState('');
@@ -122,8 +123,8 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess }: CreateCommuni
     }
 
     Alert.alert(
-      'Community Created',
-      `Community "${communityName}" has been successfully created.`,
+      isEditing ? 'Community Updated' : 'Community Created',
+      isEditing ? `Community "${communityName}" updated successfully.` : `Community "${communityName}" has been successfully created.`,
       [
         {
           text: 'OK',
@@ -151,7 +152,7 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess }: CreateCommuni
           >
             <BackArrowWhiteIcon size={20} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Community</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Community' : 'Create Community'}</Text>
         </View>
       </View>
 
@@ -367,7 +368,7 @@ export function CreateCommunityScreen({ onBack, onSubmitSuccess }: CreateCommuni
           onPress={handleCreateCommunity}
           activeOpacity={0.8}
         >
-          <Text style={styles.footerBtnText}>Create Community</Text>
+          <Text style={styles.footerBtnText}>{isEditing ? 'Save Changes' : 'Create Community'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

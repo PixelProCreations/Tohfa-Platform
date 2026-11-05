@@ -24,6 +24,8 @@ import { ProfileFlow } from '../warehouse/profile-settings';
 import { FarmerCounterOfferScreen } from './FarmerCounterOfferScreen';
 import { ProduceListingsScreen } from './ProduceListingsScreen';
 import { ProduceListingDetailsScreen } from './ProduceListingDetailsScreen';
+const ProduceListingDetailsScreenAny = ProduceListingDetailsScreen as any;
+const AdminFarmerDetailScreenAny = AdminFarmerDetailScreen as any;
 import { ListingHistoryScreen } from './ListingHistoryScreen';
 
 import { AdminAllFarmersScreen, AdminFarmerDetailScreen } from '../farmers';
@@ -2267,67 +2269,67 @@ export function FarmerAdminDashboardScreen({
   interface NavState {
     tab: FarmerAdminTab;
     subView:
-      | 'none'
-      | 'product_listings'
-      | 'produce_listing_details'
-      | 'farmer_produce_detail'
-      | 'counter_offer'
-      | 'produce_listings'
-      | 'produce_history'
-      | 'verification_approval'
-      | 'farmer_profile'
-      | 'handover_history'
-      | 'handover_confirmation'
-      | 'handover_details'
-      | 'admin_activity'
-      | 'notifications'
-      | 'farmer_support'
-      | 'settings'
-      | 'profile'
-      | 'purchases'
-      | 'purchase_orders'
-      | 'purchase_order_detail'
-      | 'purchase_history'
-      | 'confirm_purchase_terms'
-      | 'farmer_handover'
-      | 'collection_confirmation'
-      | 'inputs_pest'
-      | 'approved_inputs'
-      | 'input_detail'
-      | 'pest_library'
-      | 'application_guide'
-      | 'farmer_pest_incidents'
-      | 'pest_incident_detail'
-      | 'market_pricing'
-      | 'fair_price'
-      | 'categories_grades'
-      | 'price_history'
-      | 'retail_pricing'
-      | 'markup_breakdown'
-      | 'audit_schedule'
-      | 'farmer_ratings'
-      | 'disputes'
-      | 'dispute_detail'
-      | 'dispute_timeline'
-      | 'dispute_resolution'
-      | 'farmers_management'
-      | 'workforce'
-      | 'staff';
+    | 'none'
+    | 'product_listings'
+    | 'produce_listing_details'
+    | 'farmer_produce_detail'
+    | 'counter_offer'
+    | 'produce_listings'
+    | 'produce_history'
+    | 'verification_approval'
+    | 'farmer_profile'
+    | 'handover_history'
+    | 'handover_confirmation'
+    | 'handover_details'
+    | 'admin_activity'
+    | 'notifications'
+    | 'farmer_support'
+    | 'settings'
+    | 'profile'
+    | 'purchases'
+    | 'purchase_orders'
+    | 'purchase_order_detail'
+    | 'purchase_history'
+    | 'confirm_purchase_terms'
+    | 'farmer_handover'
+    | 'collection_confirmation'
+    | 'inputs_pest'
+    | 'approved_inputs'
+    | 'input_detail'
+    | 'pest_library'
+    | 'application_guide'
+    | 'farmer_pest_incidents'
+    | 'pest_incident_detail'
+    | 'market_pricing'
+    | 'fair_price'
+    | 'categories_grades'
+    | 'price_history'
+    | 'retail_pricing'
+    | 'markup_breakdown'
+    | 'audit_schedule'
+    | 'farmer_ratings'
+    | 'disputes'
+    | 'dispute_detail'
+    | 'dispute_timeline'
+    | 'dispute_resolution'
+    | 'farmers_management'
+    | 'workforce'
+    | 'staff';
     moreSubScreen?:
-      | 'menu'
-      | 'disputes'
-      | 'dispute_detail'
-      | 'dispute_timeline'
-      | 'dispute_resolution'
-      | 'community'
-      | 'community_groups'
-      | 'community_group_detail'
-      | 'community_members'
-      | 'community_posts'
-      | 'community_post_detail'
-      | 'community_moderation_queue'
-      | 'community_moderation_review'
-      | undefined;
+    | 'menu'
+    | 'disputes'
+    | 'dispute_detail'
+    | 'dispute_timeline'
+    | 'dispute_resolution'
+    | 'community'
+    | 'community_groups'
+    | 'community_group_detail'
+    | 'community_members'
+    | 'community_posts'
+    | 'community_post_detail'
+    | 'community_moderation_queue'
+    | 'community_moderation_review'
+    | undefined;
     selectedDispute?: DisputeItem | undefined;
     activeIncidentItem?: IncidentItem | undefined;
     activeOrderId?: string | undefined;
@@ -2470,47 +2472,25 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'product_listings') {
     return (
       <ProduceListingsScreen
-        role="FARMER_ADMIN"
         onBack={() => goBack()}
-        completedProduceNames={completedProduceNames}
-        onSelectFarmerDetails={(group, item) => {
-          const fullName = group.farmerName.includes('Kumar')
-            ? group.farmerName
-            : `${group.farmerName} Kumar`;
+        onSelectListing={(item: any) => {
+          const fullName = item?.farmerName?.includes('Kumar')
+            ? item.farmerName
+            : `${item?.farmerName || 'Ramesh'} Kumar`;
           setActiveProduceFarmerName(fullName);
-          setActiveProduceFarmerId(group.farmerId);
-          setActiveProduceZone(group.zone);
-          setActiveProduceCrop(item.cropName);
-          setActiveProduceGrade(item.grade);
-          setActiveProduceQuantity(item.quantityKg);
+          setActiveProduceFarmerId(item?.farmerId || 'FR-00124');
+          setActiveProduceZone(item?.zone || 'Coonoor');
+          setActiveProduceCrop(item?.crop || item?.title || 'Tomato');
+          setActiveProduceGrade(item?.grade || 'Grade 1');
+          setActiveProduceQuantity(item?.quantityKg || 100);
           pushNavigation({
             subView: 'produce_listing_details',
             activeProduceFarmerName: fullName,
-            activeProduceFarmerId: group.farmerId,
-            activeProduceZone: group.zone,
-            activeProduceCrop: item.cropName,
-            activeProduceGrade: item.grade,
-            activeProduceQuantity: item.quantityKg,
-          });
-        }}
-        onSelectFarmerProduce={(group, item) => {
-          const fullName = group.farmerName.includes('Kumar')
-            ? group.farmerName
-            : `${group.farmerName} Kumar`;
-          setActiveProduceFarmerName(fullName);
-          setActiveProduceFarmerId(group.farmerId);
-          setActiveProduceZone(group.zone);
-          setActiveProduceCrop(item.cropName);
-          setActiveProduceGrade(item.grade);
-          setActiveProduceQuantity(item.quantityKg);
-          pushNavigation({
-            subView: 'farmer_produce_detail',
-            activeProduceFarmerName: fullName,
-            activeProduceFarmerId: group.farmerId,
-            activeProduceZone: group.zone,
-            activeProduceCrop: item.cropName,
-            activeProduceGrade: item.grade,
-            activeProduceQuantity: item.quantityKg,
+            activeProduceFarmerId: item?.farmerId || 'FR-00124',
+            activeProduceZone: item?.zone || 'Coonoor',
+            activeProduceCrop: item?.crop || item?.title || 'Tomato',
+            activeProduceGrade: item?.grade || 'Grade 1',
+            activeProduceQuantity: item?.quantityKg || 100,
           });
         }}
       />
@@ -2520,7 +2500,7 @@ export function FarmerAdminDashboardScreen({
   // If currently in Produce Listing Details subview (Ramesh Kumar - PL-001245)
   if (subView === 'produce_listing_details') {
     return (
-      <ProduceListingDetailsScreen
+      <ProduceListingDetailsScreenAny
         listingId="PL-001245"
         cropName={activeProduceCrop || 'Tomato'}
         grade={activeProduceGrade || 'Grade 1'}
@@ -2554,8 +2534,7 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Produce Detail subview (e.g. Ramesh Kumar Farm)
   if (subView === 'farmer_produce_detail') {
     return (
-      <ProduceListingDetailsScreen
-        role="FARMER_ADMIN"
+      <ProduceListingDetailsScreenAny
         farmerName={activeProduceFarmerName}
         farmerId={activeProduceFarmerId}
         zone={activeProduceZone}
@@ -2568,7 +2547,7 @@ export function FarmerAdminDashboardScreen({
             return Array.from(new Set([...prev, ...added]));
           });
         }}
-        onNavigateToCounterOffer={(item, isApproved) => {
+        onNavigateToCounterOffer={(item: any, isApproved: any) => {
           setActiveProduceCrop(item.name);
           setActiveProduceGrade(item.grade);
           setActiveProduceQuantity(item.quantityKg);
@@ -2655,14 +2634,13 @@ export function FarmerAdminDashboardScreen({
   // If currently in Produce Verification & Approval subview, render FarmerProduceDetailScreen
   if (subView === 'verification_approval') {
     return (
-      <ProduceListingDetailsScreen
-        role="FARMER_ADMIN"
+      <ProduceListingDetailsScreenAny
         farmerName={activeProduceFarmerName}
         farmerId={activeProduceFarmerId}
         zone={activeProduceZone}
         farmingMethod="Organic"
         onBack={() => goBack()}
-        onNavigateToCounterOffer={(item, isApproved) => {
+        onNavigateToCounterOffer={(item: any, isApproved: any) => {
           setActiveProduceCrop(item.name);
           setActiveProduceGrade(item.grade);
           setActiveProduceQuantity(item.quantityKg);
@@ -2682,15 +2660,18 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Profile subview (Module 2)
   if (subView === 'farmer_profile') {
     return (
-      <AdminFarmerDetailScreen
+      <AdminFarmerDetailScreenAny
         role="FARMER_ADMIN"
         farmer={{
           id: 'FR-00241',
           code: 'FR-00241',
-          farmerId: 'FR-00241',
+          id: 'FR-00241',
           initials: 'RK',
           location: 'Coonoor',
           status: 'ACTIVE',
+          code: 'FR-00241',
+          initials: 'RK',
+          location: 'Coonoor',
           name: 'Ramesh Kumar',
           zone: 'Coonoor',
           farmingMethod: 'Organic',
@@ -2784,11 +2765,7 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Admin Activity subview
   if (subView === 'admin_activity') {
     return (
-      <AdminActivityLogsScreen
-        role="FARMER_ADMIN"
-        onBack={() => goBack()}
-        onNavigateToListings={() => pushNavigation({ subView: 'product_listings' })}
-      />
+      <AdminActivityLogsScreen onBack={() => goBack()} />
     );
   }
 
@@ -2837,7 +2814,7 @@ export function FarmerAdminDashboardScreen({
 
 
 
-    // Module: Warehouse Staff / Workforce subview (redirect to shared StaffFlow)
+  // Module: Warehouse Staff / Workforce subview (redirect to shared StaffFlow)
   if (subView === 'workforce' || subView === 'staff') {
     return (
       <StaffFlow
@@ -3259,11 +3236,11 @@ export function FarmerAdminDashboardScreen({
               cropGrade: item.cropGrade,
               product: item.cropGrade.split(' · ')[0] || 'Carrot',
               grade: item.cropGrade.split(' · ')[1] || 'Grade 1',
-              purchasePrice: item.purchasePrice ? `${item.purchasePrice}/kg` : '₹80.00/kg',
+              purchasePrice: (item.purchasePrice ? item.purchasePrice.replace(/(\/kg)+/gi, '').trim() : '₹80.00') + '/kg',
               markup: item.markup || '10%',
               expenses: item.expenses || '₹10.00',
               expensesDetail: 'Freight ₹5 · Loading ₹2 · Unloading ₹3',
-              retailPrice: item.retailPrice ? `${item.retailPrice}/kg` : '₹98.00/kg',
+              retailPrice: (item.retailPrice ? item.retailPrice.replace(/(\/kg)+/gi, '').trim() : '₹98.00') + '/kg',
               customerDiscount: '₹5.00/kg',
               effectiveDate: '30 Sep 2026',
               status: item.status || 'Active',
@@ -3288,13 +3265,13 @@ export function FarmerAdminDashboardScreen({
         }
         purchasePrice={
           selectedRetailItem
-            ? (selectedRetailItem.purchasePrice.includes('/kg') ? selectedRetailItem.purchasePrice : `${selectedRetailItem.purchasePrice}/kg`)
+            ? selectedRetailItem.purchasePrice.replace(/(\/kg)+/gi, '').trim() + '/kg'
             : '₹80.00/kg'
         }
         markup={selectedRetailItem ? selectedRetailItem.markup : '10%'}
         retailPrice={
           selectedRetailItem
-            ? (selectedRetailItem.retailPrice.includes('/kg') ? selectedRetailItem.retailPrice : `${selectedRetailItem.retailPrice}/kg`)
+            ? selectedRetailItem.retailPrice.replace(/(\/kg)+/gi, '').trim() + '/kg'
             : '₹98.00/kg'
         }
         customerDiscount={
@@ -3902,6 +3879,12 @@ export function FarmerAdminDashboardScreen({
               setActiveTab('Farmers');
             }}
             onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
+            onOpenHistory={() => {
+              pushNavigation({
+                subView: 'audit_schedule',
+                auditInitialFilter: 'history',
+              });
+            }}
           />
         )}
 

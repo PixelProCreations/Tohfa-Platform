@@ -16,17 +16,13 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  BellIcon,
   cardStyles,
   CustomersScreen,
   EmptyState,
   FilterIcon,
-  HeaderIconButton,
   inScope,
   isAllWarehouses,
   SearchField,
-  SearchIcon,
-  StatTiles,
   StatusBadge,
 } from './CustomersParts';
 import { CUSTOMER_WAREHOUSES, INITIAL_CUSTOMERS, SUB_CUSTOMER_KPIS } from './fixtures';
@@ -34,7 +30,7 @@ import { CustomerFiltersScreen, type CustomerFilterStatus, type CustomerFilterVa
 import type { CustomerRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
 import { adminColors, adminRadius, adminShadow, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 
 export interface CustomersListScreenProps extends WarehouseScreenBaseProps {
   onSelectCustomer?: ((customer: CustomerRecord) => void) | undefined;
@@ -53,8 +49,8 @@ export function CustomersListScreen({
   onBack,
   onTabChange: _onTabChange,
   onSelectCustomer,
-  onNavigateToSearch,
-  onNavigateToNotifications,
+  onNavigateToSearch: _onNavigateToSearch,
+  onNavigateToNotifications: _onNavigateToNotifications,
   onOpenFilters,
   warehouseOptions = CUSTOMER_WAREHOUSES,
   customers = INITIAL_CUSTOMERS,
@@ -122,22 +118,12 @@ export function CustomersListScreen({
     );
   });
 
-  const headerRight = allWarehouses ? (
-    <HeaderIconButton label="Search customers" onPress={onNavigateToSearch}>
-      <SearchIcon color={adminColors.onBrand} />
-    </HeaderIconButton>
-  ) : (
-    <HeaderIconButton label="Notifications" onPress={onNavigateToNotifications}>
-      <BellIcon />
-    </HeaderIconButton>
-  );
 
   return (
     <CustomersScreen
       title="Customers"
       subtitle={allWarehouses ? undefined : scope.warehouseName}
       onBack={onBack}
-      headerRight={headerRight}
       headerExtra={
         allWarehouses ? (
           <WarehouseSelector
@@ -196,7 +182,6 @@ export function CustomersListScreen({
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder={allWarehouses ? 'Search by name, Customer ID or mobile' : 'Search customers...'}
-        onFocus={onNavigateToSearch}
         right={
           <TouchableOpacity
             onPress={handleOpenFilters}

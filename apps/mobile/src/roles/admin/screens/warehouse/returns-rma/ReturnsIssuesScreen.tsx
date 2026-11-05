@@ -20,16 +20,14 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
-import { SWABottomNav } from '../../swa/components';
-import { WarehouseSelector } from '../inventory';
-import { INITIAL_RMA_ITEMS, RMA_CATEGORY_COUNTS, RMA_STATUS_COUNTS } from './fixtures';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
+import { INITIAL_RMA_ITEMS, RMA_CATEGORY_COUNTS } from './fixtures';
 import {
   ReturnsFiltersScreen,
   type RmaFilterDate,
   type RmaFilterReason,
   type RmaFilterRefundMethod,
   type RmaFilterStatus,
-  type RmaFilterValues,
 } from './ReturnsFiltersScreen';
 import { inScope, isAllWarehouses, ReturnsScreen } from './ReturnsParts';
 import type { RmaRecord, WarehouseScope, WarehouseScreenBaseProps } from './types';
@@ -44,26 +42,7 @@ export interface ReturnsIssuesScreenProps extends WarehouseScreenBaseProps {
   items?: readonly RmaRecord[] | undefined;
 }
 
-function BellIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M13.73 21a2 2 0 0 1-3.46 0"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
+
 
 function LockIcon() {
   return (
@@ -83,25 +62,9 @@ function HistoryClockIcon() {
   );
 }
 
-function CheckCircleIcon({ color }: { color: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Path d="M8 12l2.5 2.5 5.5-5.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
 
-function PendingDotsIcon({ color }: { color: string }) {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Circle cx="8" cy="12" r="1.2" fill={color} />
-      <Circle cx="12" cy="12" r="1.2" fill={color} />
-      <Circle cx="16" cy="12" r="1.2" fill={color} />
-    </Svg>
-  );
-}
+
+
 
 function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
@@ -120,28 +83,17 @@ function FilterSlidersIcon({ size = 18, color = adminColors.muted }: { size?: nu
   );
 }
 
-interface MetricTile {
-  key: string;
-  label: string;
-  value: number;
-  icon: 'check' | 'pending';
-  alert?: boolean;
-}
 
-const METRICS: MetricTile[] = [
-  { key: 'new', label: 'New Requests', value: RMA_STATUS_COUNTS.newRequests, icon: 'check' },
-  { key: 'review', label: 'Under Review', value: RMA_STATUS_COUNTS.underReview, icon: 'pending' },
-  { key: 'approved', label: 'Approved', value: RMA_STATUS_COUNTS.approved, icon: 'check' },
-  { key: 'pending', label: 'Pending Resolution', value: RMA_STATUS_COUNTS.pendingResolution, icon: 'pending', alert: true },
-];
+
+// METRICS removed
 
 export function ReturnsIssuesScreen({
   scope,
   onBack,
-  onTabChange,
+  onTabChange: _onTabChange,
   onSelectRma,
   onNavigateToHistory,
-  onNavigateToNotifications,
+  onNavigateToNotifications: _onNavigateToNotifications,
   warehouseOptions,
   items = INITIAL_RMA_ITEMS,
 }: ReturnsIssuesScreenProps) {
@@ -277,19 +229,6 @@ export function ReturnsIssuesScreen({
       <ReturnsScreen
         title="Returns & Issues"
         onBack={onBack}
-        headerRight={
-          onNavigateToNotifications ? (
-            <TouchableOpacity
-              style={styles.mainBellBtn}
-              onPress={onNavigateToNotifications}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Notifications"
-            >
-              <BellIcon />
-            </TouchableOpacity>
-          ) : null
-        }
         headerExtra={
           <WarehouseSelector
             scope={scope}
@@ -407,19 +346,6 @@ export function ReturnsIssuesScreen({
     <ReturnsScreen
       title="Returns & Issues"
       onBack={onBack}
-      headerRight={
-        onNavigateToNotifications ? (
-          <TouchableOpacity
-            style={styles.bellButton}
-            onPress={onNavigateToNotifications}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-          >
-            <BellIcon />
-          </TouchableOpacity>
-        ) : null
-      }
       headerExtra={headerExtra}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -522,7 +448,7 @@ export function ReturnsIssuesScreen({
 }
 
 // Bell bubble diameter: an icon size, not spacing.
-const BELL_SIZE = 38;
+
 
 const styles = StyleSheet.create({
   bellButton: {

@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import {
   ADMIN_BUTTON_HEIGHT,
   adminColors,
@@ -51,15 +51,12 @@ function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?:
 function FilterSlidersWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="4" y1="21" x2="4" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="10" x2="4" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="12" y1="21" x2="12" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="12" y1="8" x2="12" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="20" y1="21" x2="20" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="20" y1="12" x2="20" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="1" y1="14" x2="7" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="9" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="17" y1="16" x2="23" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path
+        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -100,8 +97,12 @@ function WarehouseHeaderIcon({ size = 22, color = adminColors.onBrand }: { size?
 function PlusHeaderIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="12" y1="5" x2="12" y2="19" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      <Line x1="5" y1="12" x2="19" y2="12" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
+      <Path
+        d="M12 5v14M5 12h14"
+        stroke={color}
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -131,7 +132,7 @@ function SearchGrayIcon({ size = 18, color = '#6B7280' }: { size?: number; color
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="6.5" stroke={color} strokeWidth="2" />
-      <Line x1="16" y1="16" x2="21" y2="21" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M16 16l5 5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -139,12 +140,12 @@ function SearchGrayIcon({ size = 18, color = '#6B7280' }: { size?: number; color
 function FilterSlidersOrangeIcon({ size = 18, color = '#D97736' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="3" y1="6.5" x2="21" y2="6.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="15" y1="4" x2="15" y2="9" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Line x1="3" y1="12" x2="21" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="8" y1="9.5" x2="8" y2="14.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      <Line x1="3" y1="17.5" x2="21" y2="17.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="16" y1="15" x2="16" y2="20" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M3 6.5h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M15 4v5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M3 12h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M8 9.5v5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M3 17.5h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M16 15v5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -154,7 +155,7 @@ function StockLedgerBoxIcon({ size = 26, color = adminColors.brand }: { size?: n
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="4" y="4.5" width="16" height="4.5" rx="1.2" stroke={color} strokeWidth="2" fill="none" />
       <Rect x="5" y="9" width="14" height="11" rx="1.2" stroke={color} strokeWidth="2" fill="none" />
-      <Line x1="10" y1="13" x2="14" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 13h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -163,8 +164,8 @@ function StockVerificationCheckIcon({ size = 24, color = adminColors.brand }: { 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3.5" y="4" width="17" height="15.5" rx="2.5" stroke={color} strokeWidth="1.8" fill="none" />
-      <Line x1="6.5" y1="9" x2="10" y2="9" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Line x1="6.5" y1="13.5" x2="10" y2="13.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6.5 9h3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path d="M6.5 13.5h3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
       <Path
         d="M13 11.5L15 13.5L18.8 9.2"
         stroke={color}
@@ -179,9 +180,9 @@ function StockVerificationCheckIcon({ size = 24, color = adminColors.brand }: { 
 function InterWarehouseArrowsIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="7" y1="8.5" x2="17" y2="8.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M7 8.5h10" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       <Path d="M13.5 5.2L17 8.5L13.5 11.8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-      <Line x1="17" y1="15.5" x2="7" y2="15.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path d="M17 15.5H7" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       <Path d="M10.5 12.2L7 15.5L10.5 18.8" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
@@ -863,18 +864,7 @@ export function AdminOperationsOverviewScreen({
             <View style={styles.tileIconContainer}>
               <StockLedgerBoxIcon />
             </View>
-            <Text style={styles.tileLabel}>Stock Ledger & Batches</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickNavTile}
-            onPress={onNavigateToStockVerification}
-            activeOpacity={0.75}
-          >
-            <View style={styles.tileIconContainer}>
-              <StockVerificationCheckIcon />
-            </View>
-            <Text style={styles.tileLabel}>Stock Verification</Text>
+            <Text style={styles.tileLabel}>Stock Ledger, Batches & Verify</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

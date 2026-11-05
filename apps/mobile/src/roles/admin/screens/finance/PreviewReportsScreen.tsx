@@ -16,16 +16,18 @@ import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 
-interface PreviewReportsScreenProps {
+export interface PreviewReportData {
+  reportName?: string;
+  category?: string;
+  period?: string;
+  warehouse?: string;
+  format?: string;
+}
+
+export interface PreviewReportsScreenProps {
   onBack: () => void;
   onDownload?: () => void;
-  reportData?: {
-    reportName?: string;
-    category?: string;
-    period?: string;
-    warehouse?: string;
-    format?: string;
-  };
+  reportData?: PreviewReportData | null | undefined;
 }
 
 interface ExpenseRow {

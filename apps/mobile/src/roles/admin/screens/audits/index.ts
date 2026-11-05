@@ -15,4 +15,3 @@ export * from './AuditHistoryComplianceScreen';
 export * from './GenerateAuditReportScreen';
 export * from './AuditReportsTierConfigScreen';
 export * from './AuditReportHistoryScreen';
-export * from './AuditReportDetailsScreen';

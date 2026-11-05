@@ -63,18 +63,35 @@ function CheckboxPendingIcon({ size = 18, color = adminColors.muted }: { size?: 
   );
 }
 
+function SpeedometerIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 2a10 10 0 0 0-7.07 17.07l1.41-1.41A8 8 0 1 1 12 20v2a10 10 0 0 0 0-20z"
+        fill={color}
+      />
+      <Path
+        d="M12 6a1 1 0 0 0-1 1v5.586l3.707 3.707a1 1 0 0 0 1.414-1.414L13 11.414V7a1 1 0 0 0-1-1z"
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
 // ─── Component Props ──────────────────────────────────────────────────────────
 
 export interface FarmerInspectionFindingsScreenProps {
   record?: AuditScheduleRecord | undefined;
   onBack: () => void;
   onNavigateSupportAudit: () => void;
+  onStartResume?: () => void;
 }
 
 export function FarmerInspectionFindingsScreen({
   record: propRecord,
   onBack,
   onNavigateSupportAudit,
+  onStartResume,
 }: FarmerInspectionFindingsScreenProps) {
   const record = propRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
 
@@ -270,7 +287,7 @@ export function FarmerInspectionFindingsScreen({
         <Text style={styles.sectionHeader}>Audit Rating</Text>
         <View style={styles.ratingCard}>
           <View style={styles.scoreRow}>
-            <Text style={styles.scoreNumber}>82</Text>
+            <Text style={styles.scoreNumber}>0</Text>
             <Text style={styles.scoreTotal}> / 100</Text>
           </View>
           <Text style={styles.scoreCaption}>AUDIT SCORE — VIEW ONLY</Text>
@@ -283,10 +300,11 @@ export function FarmerInspectionFindingsScreen({
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.supportAuditBtn}
-          onPress={onNavigateSupportAudit}
+          onPress={onStartResume || onNavigateSupportAudit}
           activeOpacity={0.85}
         >
-          <Text style={styles.supportAuditBtnText}>Support Audit</Text>
+          <SpeedometerIcon size={18} color={adminColors.onBrand} />
+          <Text style={styles.supportAuditBtnText}>Start / Resume</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -577,6 +595,8 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     borderRadius: adminRadius.lg,
     alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
     justifyContent: 'center',
   },
   supportAuditBtnText: {

@@ -27,7 +27,7 @@ import {
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../../theme';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { InvoiceStatus, WarehouseScope } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };

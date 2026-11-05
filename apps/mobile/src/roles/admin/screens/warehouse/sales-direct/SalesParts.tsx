@@ -10,11 +10,16 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { WALLET_WAREHOUSES } from '../wallet-cashtopup';
+
 import type { WarehouseScope } from './types';
 
 /** The four warehouses a Main admin can pick from (owner decision: Main `own` = all four). */
-export const SALE_WAREHOUSES: readonly WarehouseScope[] = WALLET_WAREHOUSES;
+export const SALE_WAREHOUSES: readonly WarehouseScope[] = [
+  { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (Main Warehouse)' },
+  { warehouseId: 'WH-SUB1', warehouseName: 'Coonoor Warehouse' },
+  { warehouseId: 'WH-SUB2', warehouseName: 'Kotagiri Warehouse' },
+  { warehouseId: 'WH-SUB3', warehouseName: 'Gudalur Market' },
+] as const;
 
 /** True when the viewer sees every warehouse (the Main view). */
 export function isAllWarehouses(scope: WarehouseScope): boolean {

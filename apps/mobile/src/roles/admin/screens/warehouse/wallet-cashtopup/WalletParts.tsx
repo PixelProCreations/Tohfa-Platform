@@ -17,7 +17,7 @@ import { SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity,
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT, type AdminTone } from '../../../theme';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import type { WarehouseScope, WarehouseTab } from './types';
 
 const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };

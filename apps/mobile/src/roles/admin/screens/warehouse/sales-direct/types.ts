@@ -117,13 +117,38 @@ export type SalesRoute =
   | 'SaleDetail'
   | 'MarketDaySales'
   | 'ChannelSales'
+  | 'PurchaseOrdersList'
+  | 'PurchaseOrderDetail'
+  | 'PurchaseOrderReceipt'
+  | 'PurchaseOrderPayout'
   | 'Invoice';
 
 export interface SalesRouteParams {
   sale?: SaleRecord | undefined;
   channel?: SalesChannel | undefined;
+  poNumber?: string | undefined;
   /** Customer preselected by the caller (e.g. a customer's "New Sale"). */
   customerName?: string | undefined;
   customerCode?: string | undefined;
 }
 
+
+export interface PurchaseOrderRecord {
+  id: string;
+  poNumber: string;
+  listingCode: string;
+  farmerName: string;
+  produceName: string;
+  grade: string;
+  quantityKg: number;
+  unitPrice: number;
+  totalPrice: number;
+  warehouse: string;
+  dateStr: string;
+  purchaseStatus: 'Closed' | 'Open' | 'Receipt in progress';
+  receiptStatus: 'Completed' | 'Partial' | 'Not received';
+  payoutId?: string;
+  farmerId?: string;
+  goodsReceiptId?: string;
+  payoutStatus?: string;
+}

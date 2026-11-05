@@ -186,10 +186,11 @@ export const GRADES_DATA: GradeDetailItem[] = [
 
 export interface CategoriesGradesScreenProps {
   onBack: () => void;
-  role?: string | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
 }
 
-export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) {
+export function CategoriesGradesScreen({ onBack, role = 'TOHFA_ADMIN' }: CategoriesGradesScreenProps) {
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
   // Navigation / Tab state
   const [activeTab, setActiveTab] = useState<'categories' | 'grades'>('categories');
   const [selectedCategory, setSelectedCategory] = useState<CategoryDetailItem | null>(null);
@@ -316,6 +317,92 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
       onBack();
     }
   };
+
+  if (isFarmerAdmin) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Header ── */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Categories & Grades</Text>
+          </View>
+        </View>
+
+        {/* ── Content Matching Image 1 Right Phone (M7-S03) ── */}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Section 1: Category List */}
+          <Text style={styles.sectionHeading}>Category List</Text>
+
+          {/* Vegetables Card */}
+          <View style={styles.faCard}>
+            <View style={styles.faCardTopRow}>
+              <Text style={styles.faCardTitle}>Vegetables</Text>
+              <View style={styles.activePill}>
+                <Text style={styles.activePillText}>Active</Text>
+              </View>
+            </View>
+            <Text style={styles.faCardSub}>Carrot, Cabbage, Radish, Beans</Text>
+          </View>
+
+          {/* Fruits Card */}
+          <View style={styles.faCard}>
+            <View style={styles.faCardTopRow}>
+              <Text style={styles.faCardTitle}>Fruits</Text>
+              <View style={styles.activePill}>
+                <Text style={styles.activePillText}>Active</Text>
+              </View>
+            </View>
+            <Text style={styles.faCardSub}>Apple, Orange, Banana</Text>
+          </View>
+
+          {/* Section 2: Grade Reference */}
+          <Text style={[styles.sectionHeading, { marginTop: adminSpacing.lg }]}>Grade Reference</Text>
+
+          {/* Grade 1 */}
+          <View style={styles.faCard}>
+            <Text style={styles.faCardTitle}>Grade 1</Text>
+            <Text style={styles.faCardSub}>Premium quality</Text>
+          </View>
+
+          {/* Grade 2 */}
+          <View style={styles.faCard}>
+            <Text style={styles.faCardTitle}>Grade 2</Text>
+            <Text style={styles.faCardSub}>Standard quality</Text>
+          </View>
+
+          {/* Grade 3 */}
+          <View style={styles.faCard}>
+            <Text style={styles.faCardTitle}>Grade 3</Text>
+            <Text style={styles.faCardSub}>Configured lower grade</Text>
+          </View>
+
+          {/* Reject */}
+          <View style={styles.faCard}>
+            <Text style={styles.faCardTitle}>Reject</Text>
+            <Text style={styles.faCardSub}>
+              Not eligible for normal approved produce sale where applicable
+            </Text>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -846,6 +933,42 @@ export function CategoriesGradesScreen({ onBack }: CategoriesGradesScreenProps) 
 // ─── Styles strictly conforming to adminTheme ────────────────────────────────
 
 const styles = StyleSheet.create({
+  faCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.card,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  faCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  activePill: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 2,
+    borderRadius: adminRadius.full,
+  },
+  activePillText: {
+    color: '#2E7D32',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  faCardTitle: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    color: adminColors.ink,
+  },
+  faCardSub: {
+    ...adminType.body,
+    fontSize: 12,
+    color: adminColors.muted,
+    marginTop: 4,
+  },
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
@@ -867,10 +990,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    fontSize: 21,
-    lineHeight: 27,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: '800',
-    flex: 1,
+    includeFontPadding: false,
+    paddingBottom: 2,
   },
 
   scroll: {

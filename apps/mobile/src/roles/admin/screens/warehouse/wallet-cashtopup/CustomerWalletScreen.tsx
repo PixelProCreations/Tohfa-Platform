@@ -42,16 +42,17 @@ import {
   walletLayout,
 } from './WalletParts';
 
-export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope' | 'can'> {
+export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope'> {
   onBack: () => void;
   scope?: WarehouseScope | undefined;
-  can?: PermissionCheck | undefined;
   subtitle?: string | undefined;
   customer?: WalletCustomer | undefined;
   transactions?: readonly WalletTransactionRecord[] | undefined;
   /** Start a cash top-up for this customer. */
   onCashTopUp?: ((customer: WalletCustomer) => void) | undefined;
   onOpenTransaction?: ((transaction: WalletTransactionRecord) => void) | undefined;
+  /** Hide the bottom cash top-up button (e.g. for TOHFA Admin view-only mode). */
+  hideCashTopUp?: boolean | undefined;
 }
 
 function isDebit(tx: WalletTransactionRecord): boolean {
@@ -67,6 +68,7 @@ export function CustomerWalletScreen({
   transactions = CUSTOMER_WALLET_TRANSACTIONS,
   onCashTopUp,
   onOpenTransaction,
+  hideCashTopUp = false,
 }: CustomerWalletScreenProps) {
   const active: ResolvedWalletCustomer = {
     name: customer?.name ?? SAMPLE_WALLET_CUSTOMER.name,
@@ -77,7 +79,7 @@ export function CustomerWalletScreen({
     totalUsed: customer?.totalUsed ?? SAMPLE_WALLET_CUSTOMER.totalUsed,
   };
   const visible = transactions.filter((tx) => inScope(scope, tx.warehouseId));
-  const showTopUp = Boolean(can('wallet.cash_topup.process') && onCashTopUp !== undefined);
+  const showTopUp = Boolean(!hideCashTopUp && can('wallet.cash_topup.process') && onCashTopUp !== undefined);
 
   return (
     <WalletScreen

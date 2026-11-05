@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Line, Path, Rect } from 'react-native-svg';
+import Svg, { Path, Rect } from 'react-native-svg';
 import {
   adminColors,
   adminRadius,
@@ -53,12 +53,12 @@ function SearchIcon({ size = 18, color = adminColors.muted }: { size?: number; c
 function HorizontalFilterIcon({ size = 19, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      {/* Top slider bar with vertical pip */}
-      <Line x1="3.5" y1="8" x2="20.5" y2="8" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
-      <Line x1="16" y1="4.5" x2="16" y2="11.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-      {/* Bottom slider bar with vertical pip */}
-      <Line x1="3.5" y1="16" x2="20.5" y2="16" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
-      <Line x1="8" y1="12.5" x2="8" y2="19.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Path
+        d="M3.5 8h17M16 4.5v7M3.5 16h17M8 12.5v7"
+        stroke={color}
+        strokeWidth="2.1"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -75,9 +75,12 @@ function CalendarInputIcon({ size = 18, color = adminColors.muted }: { size?: nu
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.9" />
-      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
-      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
-      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="1.9" />
+      <Path
+        d="M16 2v4M8 2v4M3 10h18"
+        stroke={color}
+        strokeWidth="1.9"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -91,17 +94,14 @@ export interface ReportHistoryItem {
   timestamp: string;
   filtersText: string;
   note?: string;
-  allowPreview?: boolean;
 }
 
 export interface AuditReportHistoryScreenProps {
   onBack: () => void;
-  onOpenReportDetails?: (reportId: string) => void;
 }
 
 export function AuditReportHistoryScreen({
   onBack,
-  onOpenReportDetails,
 }: AuditReportHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -118,7 +118,6 @@ export function AuditReportHistoryScreen({
       status: 'Ready',
       timestamp: 'Generated 14 Oct 2026, 10:00 · Demo TOHFA Admin',
       filtersText: 'Filters: None · 42 audits',
-      allowPreview: true,
     },
     {
       id: 'farmer_history',
@@ -126,7 +125,6 @@ export function AuditReportHistoryScreen({
       status: 'Ready',
       timestamp: 'Generated 10 Oct 2026, 15:20 · Demo TOHFA Admin',
       filtersText: 'Filters: Farmer = Ramesh Kumar · 6 audits',
-      allowPreview: true,
     },
     {
       id: 'quarterly_coverage',
@@ -134,7 +132,6 @@ export function AuditReportHistoryScreen({
       status: 'Ready',
       timestamp: 'Generated 3 Oct 2026, 09:05 · Demo TOHFA Admin',
       filtersText: 'Filters: Zone = Coonoor · Q3 2026',
-      allowPreview: true,
     },
     {
       id: 'findings_violations',
@@ -142,8 +139,7 @@ export function AuditReportHistoryScreen({
       status: 'Generating',
       timestamp: 'Requested 14 Oct 2026, 11:42 · Demo TOHFA Admin',
       filtersText: 'Filters: Status = Major findings',
-      note: 'Preview and download are available once generation finishes.',
-      allowPreview: false,
+      note: 'Download is available once generation finishes.',
     },
     {
       id: 'compliance_summary',
@@ -152,7 +148,6 @@ export function AuditReportHistoryScreen({
       timestamp: 'Requested 1 Oct 2026, 08:15 · Demo TOHFA Admin',
       filtersText: '',
       note: 'Compliance-tier configuration is missing, so this report could not be completed.',
-      allowPreview: false,
     },
   ]);
 
@@ -177,10 +172,10 @@ export function AuditReportHistoryScreen({
       prev.map((r) =>
         r.id === report.id
           ? {
-              ...r,
-              status: 'Generating' as const,
-              note: 'Regenerating report data in the background...',
-            }
+            ...r,
+            status: 'Generating' as const,
+            note: 'Regenerating report data in the background...',
+          }
           : r
       )
     );
@@ -284,22 +279,9 @@ export function AuditReportHistoryScreen({
                   <Text style={styles.noteText}>{report.note}</Text>
                 ) : null}
 
-                {/* Action Links Row */}
+                {/* Action Links Row (Preview removed as requested) */}
                 {report.status === 'Ready' ? (
                   <View style={styles.actionsRow}>
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (onOpenReportDetails) onOpenReportDetails(report.id);
-                        else {
-                          Alert.alert('Report Details', `Opening ${report.title}`);
-                        }
-                      }}
-                      activeOpacity={0.7}
-                      style={styles.actionBtn}
-                    >
-                      <Text style={styles.actionBtnText}>Preview</Text>
-                    </TouchableOpacity>
-
                     <TouchableOpacity
                       onPress={() => handleDownloadCsv(report)}
                       activeOpacity={0.7}
@@ -348,103 +330,97 @@ export function AuditReportHistoryScreen({
             {/* 1. Report Type Filter */}
             <Text style={styles.modalFilterSectionLabel}>Report type</Text>
             <View style={styles.filterPillsRow}>
-              {(['All', 'Audit Summary', 'Farmer History', 'Quarterly', 'Findings', 'Compliance'] as const).map((typeOpt) => (
+                    {['All', 'Summary', 'Farmer', 'Coverage', 'Findings', 'Compliance'].map((t) => {
+                      const isActive = selectedTypeFilter === t;
+                      return (
+                        <TouchableOpacity
+                          key={t}
+                          style={[styles.filterPill, isActive && styles.filterPillActive]}
+                          onPress={() => setSelectedTypeFilter(t)}
+                          activeOpacity={0.7}
+                        >
+              <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                {t}
+              </Text>
+            </TouchableOpacity>
+            );
+              })}
+          </View>
+
+          {/* 2. Status Filter */}
+          <Text style={styles.modalFilterSectionLabel}>Status</Text>
+          <View style={styles.filterPillsRow}>
+            {(['All', 'Ready', 'Generating', 'Failed'] as const).map((s) => {
+              const isActive = selectedStatusFilter === s;
+              return (
                 <TouchableOpacity
-                  key={typeOpt}
-                  style={[
-                    styles.filterPill,
-                    selectedTypeFilter === typeOpt && styles.filterPillActive,
-                  ]}
-                  onPress={() => setSelectedTypeFilter(typeOpt)}
-                  activeOpacity={0.8}
+                  key={s}
+                  style={[styles.filterPill, isActive && styles.filterPillActive]}
+                  onPress={() => setSelectedStatusFilter(s)}
+                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      selectedTypeFilter === typeOpt && styles.filterPillTextActive,
-                    ]}
-                  >
-                    {typeOpt}
+                  <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                    {s}
                   </Text>
                 </TouchableOpacity>
-              ))}
+              );
+            })}
+          </View>
+
+          {/* 3. Date Range */}
+          <Text style={styles.modalFilterSectionLabel}>Date Range</Text>
+          <View style={styles.modalDateRow}>
+            <View style={styles.modalDateInputWrap}>
+              <TextInput
+                style={styles.modalDateInput}
+                placeholder="From (YYYY-MM-DD)"
+                placeholderTextColor={adminColors.placeholder}
+                value={dateFrom}
+                onChangeText={setDateFrom}
+              />
+              <CalendarInputIcon />
             </View>
 
-            {/* 2. Date Range */}
-            <Text style={styles.modalFilterSectionLabel}>Date range</Text>
-            <View style={styles.modalDateRow}>
-              <View style={styles.modalDateInputWrap}>
-                <TextInput
-                  style={styles.modalDateInput}
-                  placeholder="Date from (dd-mm-yyyy)"
-                  placeholderTextColor={adminColors.placeholder}
-                  value={dateFrom}
-                  onChangeText={setDateFrom}
-                />
-                <CalendarInputIcon />
-              </View>
-
-              <View style={styles.modalDateInputWrap}>
-                <TextInput
-                  style={styles.modalDateInput}
-                  placeholder="Date to (dd-mm-yyyy)"
-                  placeholderTextColor={adminColors.placeholder}
-                  value={dateTo}
-                  onChangeText={setDateTo}
-                />
-                <CalendarInputIcon />
-              </View>
-            </View>
-
-            {/* 3. Status Filter */}
-            <Text style={styles.modalFilterSectionLabel}>Status</Text>
-            <View style={styles.filterPillsRow}>
-              {(['All', 'Ready', 'Generating', 'Failed'] as const).map((st) => (
-                <TouchableOpacity
-                  key={st}
-                  style={[
-                    styles.filterPill,
-                    selectedStatusFilter === st && styles.filterPillActive,
-                  ]}
-                  onPress={() => setSelectedStatusFilter(st)}
-                  activeOpacity={0.8}
-                >
-                  <Text
-                    style={[
-                      styles.filterPillText,
-                      selectedStatusFilter === st && styles.filterPillTextActive,
-                    ]}
-                  >
-                    {st}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.modalActionButtonsRow}>
-              <TouchableOpacity
-                style={styles.resetModalBtn}
-                onPress={() => {
-                  setSelectedStatusFilter('All');
-                  setFilterModalVisible(false);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.resetModalBtnText}>Reset</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.applyModalBtn}
-                onPress={() => setFilterModalVisible(false)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.applyModalBtnText}>Apply</Text>
-              </TouchableOpacity>
+            <View style={styles.modalDateInputWrap}>
+              <TextInput
+                style={styles.modalDateInput}
+                placeholder="To (YYYY-MM-DD)"
+                placeholderTextColor={adminColors.placeholder}
+                value={dateTo}
+                onChangeText={setDateTo}
+              />
+              <CalendarInputIcon />
             </View>
           </View>
+
+          {/* Modal Action Buttons */}
+          <View style={styles.modalActionButtonsRow}>
+            <TouchableOpacity
+              style={styles.resetModalBtn}
+              onPress={() => {
+                setSelectedTypeFilter('All');
+                setSelectedStatusFilter('All');
+                setDateFrom('');
+                setDateTo('');
+                setFilterModalVisible(false);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.resetModalBtnText}>Reset</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.applyModalBtn}
+              onPress={() => setFilterModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.applyModalBtnText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </Modal>
-    </SafeAreaView>
+      </View>
+    </Modal>
+    </SafeAreaView >
   );
 }
 

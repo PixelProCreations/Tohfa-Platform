@@ -26,7 +26,6 @@ import {
   InfoGrid,
   isAllWarehouses,
   LinkButton,
-  NoteBox,
   resolveCustomer,
   SectionHeading,
   StatTiles,
@@ -47,6 +46,8 @@ export interface CustomerDetailsScreenProps extends WarehouseScreenBaseProps {
   onNavigateToNewSale?: (() => void) | undefined;
   /** Rendered only with can('wallet.cash_topup.process'). */
   onNavigateToCashTopUp?: (() => void) | undefined;
+  /** Hide the quick actions section at bottom (e.g. for TOHFA Admin or view-only mode) */
+  hideQuickActions?: boolean;
 }
 
 type DetailTab = 'Overview' | 'Orders' | 'Purchases' | 'Wallet' | 'Issues' | 'Support';
@@ -149,6 +150,7 @@ export function CustomerDetailsScreen({
   onNavigateToSupport,
   onNavigateToNewSale,
   onNavigateToCashTopUp,
+  hideQuickActions = false,
 }: CustomerDetailsScreenProps) {
   const [activeTab, setActiveTab] = useState<DetailTab>('Overview');
   const allWarehouses = isAllWarehouses(scope);
@@ -215,7 +217,7 @@ export function CustomerDetailsScreen({
         ]}
       />
 
-      <ChipRow options={DETAIL_TABS} selected={activeTab} onSelect={setActiveTab} scroll />
+      <ChipRow options={DETAIL_TABS} selected={activeTab} onSelect={(val) => setActiveTab(val as DetailTab)} scroll />
 
       {activeTab === 'Overview' ? (
         <>
@@ -240,12 +242,16 @@ export function CustomerDetailsScreen({
             ]}
           />
 
-          <SectionHeading>Quick Actions</SectionHeading>
-          <View style={styles.actionsRow}>
-            {canNewSale ? <QuickAction label="New Sale" icon={<CartIcon />} onPress={onNavigateToNewSale} /> : null}
-            {canCashTopUp ? <QuickAction label="Cash Top-Up" icon={<CashIcon />} onPress={onNavigateToCashTopUp} /> : null}
-            <QuickAction label="View Issues" icon={<AlertIcon />} onPress={onNavigateToIssues} />
-          </View>
+          {!hideQuickActions && (
+            <>
+              <SectionHeading>Quick Actions</SectionHeading>
+              <View style={styles.actionsRow}>
+                {canNewSale ? <QuickAction label="New Sale" icon={<CartIcon />} onPress={onNavigateToNewSale} /> : null}
+                {canCashTopUp ? <QuickAction label="Cash Top-Up" icon={<CashIcon />} onPress={onNavigateToCashTopUp} /> : null}
+                <QuickAction label="View Issues" icon={<AlertIcon />} onPress={onNavigateToIssues} />
+              </View>
+            </>
+          )}
         </>
       ) : null}
 

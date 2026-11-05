@@ -11,7 +11,7 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminSpacing, adminType } from '../../theme';
-import type { ExpenseManagementRecord } from './ExpenseManagementScreen';
+import type { ExpenseManagementRecord } from './fixtures';
 
 export interface ExpenseRecordDetailScreenProps {
   expense: ExpenseManagementRecord;

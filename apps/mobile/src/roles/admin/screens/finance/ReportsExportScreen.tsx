@@ -13,13 +13,13 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
-import { CreateExportReportScreen } from './CreateExportReportScreen';
-import { ExpenseRecordDetailScreen } from './ExpenseDetailScreen';
-import { EXPENSES_LIST, type ExpenseManagementRecord } from './ExpenseManagementScreen';
+import { PreviewReportsScreen } from './PreviewReportsScreen';
+import { ReportsScreen } from '../warehouse/reports';
 
-interface ReportsExportScreenProps {
+export interface ReportsExportScreenProps {
   onBack: () => void;
   onNavigateToExport?: () => void;
+  can?: (code: string) => boolean;
 }
 
 interface ExportRecord {
@@ -79,10 +79,16 @@ const SAMPLE_EXPORTS: ExportRecord[] = [
   },
 ];
 
-export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExportScreenProps) {
+export function ReportsExportScreen({ onBack, onNavigateToExport, can }: ReportsExportScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentView, setCurrentView] = useState<'list' | 'create'>('list');
-  const [selectedExpense, setSelectedExpense] = useState<ExpenseManagementRecord | null>(null);
+  const [currentView, setCurrentView] = useState<'list' | 'create' | 'preview'>('list');
+  const [selectedPreviewReport, setSelectedPreviewReport] = useState<{
+    reportName: string;
+    category: string;
+    period: string;
+    warehouse: string;
+    format: string;
+  } | null>(null);
 
   const filteredExports = useMemo(() => {
     if (!searchQuery.trim()) return SAMPLE_EXPORTS;
@@ -95,42 +101,62 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
     );
   }, [searchQuery]);
 
-  const handleDownload = (exp: ExportRecord) => {
-    Alert.alert(
-      'Download Report',
-      `Downloading ${exp.code} · ${exp.title} (${exp.format})... File saved to device downloads.`,
-      [{ text: 'OK' }]
-    );
+  const handleDownloadClick = (exp?: ExportRecord) => {
+    // RBAC check: must have report.export.file permission
+    if (can && !can('report.export.file')) {
+      Alert.alert(
+        'Access Restricted',
+        'Your role lacks permission to export finance reports (report.export.file).'
+      );
+      return;
+    }
+    if (onNavigateToExport) {
+      onNavigateToExport();
+    } else {
+      setCurrentView('create');
+    }
   };
 
   const handleViewDetails = (exp: ExportRecord) => {
-    const match = exp.code.match(/(\d+)/);
-    const numStr = match ? match[1] : '';
-    const found = EXPENSES_LIST.find(
-      (e) =>
-        (numStr && e.expenseCode.includes(numStr)) ||
-        e.id === exp.id ||
-        e.expenseCode.toLowerCase() === exp.id.toLowerCase() ||
-        e.expenseCode.toLowerCase() === exp.code.toLowerCase().replace('-req', '')
-    );
-    setSelectedExpense(
-      found || EXPENSES_LIST.find((e) => e.expenseCode === 'EXP-0002') || EXPENSES_LIST[0] || null
-    );
+    // RBAC check: view permission
+    if (can && !can('report.export.file') && !can('finance.pnl.view')) {
+      Alert.alert(
+        'Access Restricted',
+        'Your role lacks permission to view finance reports.'
+      );
+      return;
+    }
+    setSelectedPreviewReport({
+      reportName: exp.title,
+      category: exp.category,
+      period: exp.period,
+      warehouse: exp.warehouses,
+      format: exp.format,
+    });
+    setCurrentView('preview');
   };
 
-  if (selectedExpense) {
+  if (currentView === 'preview') {
     return (
-      <ExpenseRecordDetailScreen
-        expense={selectedExpense}
-        onBack={() => setSelectedExpense(null)}
+      <PreviewReportsScreen
+        onBack={() => {
+          setCurrentView('list');
+          setSelectedPreviewReport(null);
+        }}
+        reportData={selectedPreviewReport}
+        onDownload={() => handleDownloadClick()}
       />
     );
   }
 
   if (currentView === 'create') {
     return (
-      <CreateExportReportScreen
+      <ReportsScreen
+        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+        can={can || ((() => true) as any)}
+        canExport={can ? can('report.export.file') : true}
         onBack={() => setCurrentView('list')}
+        initialScreen="export_report"
       />
     );
   }
@@ -152,7 +178,7 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
             <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M19 12H5M12 19l-7-7 7-7"
-                stroke="#FFFFFF"
+                stroke={adminColors.onBrand}
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -162,13 +188,7 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
           <Text style={styles.headerTitle}>Reports & Export</Text>
           <TouchableOpacity
             style={styles.headerExportButton}
-            onPress={() => {
-              if (onNavigateToExport) {
-                onNavigateToExport();
-              } else {
-                setCurrentView('create');
-              }
-            }}
+            onPress={() => handleDownloadClick()}
             activeOpacity={0.8}
             accessibilityRole="button"
             accessibilityLabel="Create export report"
@@ -176,7 +196,7 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M12 3v12M12 15l4-4M12 15l-4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"
-                stroke="#FFFFFF"
+                stroke={adminColors.onBrand}
                 strokeWidth="2.2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -194,13 +214,13 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
         {/* Search Bar */}
         <View style={styles.searchBar}>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Circle cx="11" cy="11" r="8" stroke="#9CA3AF" strokeWidth="2" />
-            <Path d="M21 21l-4.35-4.35" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
+            <Circle cx="11" cy="11" r="8" stroke={adminColors.muted} strokeWidth="2" />
+            <Path d="M21 21l-4.35-4.35" stroke={adminColors.muted} strokeWidth="2" strokeLinecap="round" />
           </Svg>
           <TextInput
             style={styles.searchInput}
             placeholder="Search..."
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={adminColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -274,7 +294,7 @@ export function ReportsExportScreen({ onBack, onNavigateToExport }: ReportsExpor
 
                   {isReady && (
                     <TouchableOpacity
-                      onPress={() => handleDownload(exp)}
+                      onPress={() => handleDownloadClick(exp)}
                       activeOpacity={0.7}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
@@ -299,7 +319,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
-    paddingTop: adminSpacing.sm, // 8px compact header
+    paddingTop: adminSpacing.sm,
     paddingBottom: adminSpacing.md,
   },
   headerRow: {
@@ -316,14 +336,14 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     flex: 1,
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
     fontWeight: '700',
   },
   headerExportButton: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },

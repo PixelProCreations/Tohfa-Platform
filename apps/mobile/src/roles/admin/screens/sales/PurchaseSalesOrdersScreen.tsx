@@ -20,7 +20,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
-import { OverviewDashboardCard } from '../../components';
+import { OverviewCardsGrid, OverviewDashboardCard } from '../../components';
 import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseOrderReceiptScreen } from './PurchaseOrderReceiptScreen';
 import { PurchaseOrderPayoutScreen } from './PurchaseOrderPayoutScreen';
@@ -132,25 +132,8 @@ function getFirstDayOfWeek(year: number, month: number) {
 
 // ─── Data Types ──────────────────────────────────────────────────────────────
 
-export interface PurchaseOrderRecord {
-  id: string;
-  poNumber: string;
-  listingCode: string;
-  farmerName: string;
-  produceName: string;
-  grade: string;
-  quantityKg: number;
-  unitPrice: number;
-  totalPrice: number;
-  warehouse: string;
-  dateStr: string;
-  purchaseStatus: 'Closed' | 'Open' | 'Receipt in progress';
-  receiptStatus: 'Completed' | 'Partial' | 'Not received';
-  payoutId?: string;
-  farmerId?: string;
-  goodsReceiptId?: string;
-  payoutStatus?: string;
-}
+import type { PurchaseOrderRecord } from '../warehouse/sales-direct/types';
+export type { PurchaseOrderRecord };
 
 const PURCHASE_ORDERS_DATA: PurchaseOrderRecord[] = [
   {
@@ -825,80 +808,57 @@ export function PurchaseSalesOrdersScreen({ onBack, onNavigateOrder }: PurchaseS
         showsVerticalScrollIndicator={false}
       >
         {/* ── 2. Top Stats: 8 KPI Cards (Reusing OverviewDashboardCard) ── */}
-        <View style={styles.kpiGrid}>
+        <OverviewCardsGrid style={{ marginBottom: 12 }}>
           <OverviewDashboardCard
             value="9"
             title="Purchase Orders"
-            titlePosition="bottom"
+            icon="orders"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="11"
             title="Sales Orders"
-            titlePosition="bottom"
+            icon="sales"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="1"
             title="Receipts Awaiting Inspection"
-            titlePosition="bottom"
+            icon="receiving"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="2"
             title="Quality Issues / Rejected"
-            titlePosition="bottom"
+            icon="alert"
+            tone="warning"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="3"
             title="Orders Awaiting Fulfilment"
-            titlePosition="bottom"
+            icon="clipboard"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="1"
             title="Invoices Pending Action"
-            titlePosition="bottom"
+            icon="invoice"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="2"
             title="Open Returns / RMA"
-            titlePosition="bottom"
+            icon="box"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
           <OverviewDashboardCard
             value="3"
             title="Farmer Payouts Pending"
-            titlePosition="bottom"
+            icon="wallet"
             preserveCase
-            style={styles.kpiCard}
-            valueStyle={styles.kpiValue}
-            titleStyle={styles.kpiTitle}
           />
-        </View>
+        </OverviewCardsGrid>
 
         {/* ── 3. Segmented Toggle (Purchase | Sales) ── */}
         <View style={styles.segmentedToggleContainer}>

@@ -915,9 +915,16 @@ export default function App(): React.JSX.Element {
   // every action anyway (CLAUDE.md 2.1).
   // The same /auth/me also yields the Sub admin's own warehouse (roles[] ->
   // SUB_WH_ADMIN warehouseId/warehouseName, BR-30); see renderWithSubScope.
+  const adminShell = adminShellForRole(params['adminRole']);
   const warehousePermissions = useWarehousePermissions({
     enabled: shouldLoadWarehousePermissions(screen, params),
-    adminRole: lastAdminRole,
+    adminRole:
+      lastAdminRole ??
+      (adminShell === 'SUB_WH_ADMIN' || screen.startsWith('SubWarehouse')
+        ? 'SUB_WH_ADMIN'
+        : adminShell === 'MAIN_WH_ADMIN' || screen.startsWith('MainWarehouse')
+          ? 'MAIN_WH_ADMIN'
+          : undefined),
     isDev: __DEV__,
     loadPermissions: async () => (await fetchMe()).permissions ?? [],
     hasCredentials: hasSessionCredentials,
@@ -1292,7 +1299,6 @@ export default function App(): React.JSX.Element {
   // The admin shell AdminMain renders, from the role the server returned at
   // sign-in. null (unknown or missing) renders no admin shell: AdminMain falls
   // through to the 'Unsupported' branch below instead of the Super Admin one.
-  const adminShell = adminShellForRole(params['adminRole']);
 
   const isSubWarehouse =
     screen.startsWith('SubWarehouse') ||

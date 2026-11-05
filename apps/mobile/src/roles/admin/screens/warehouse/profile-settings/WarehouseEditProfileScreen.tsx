@@ -1584,7 +1584,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: adminRadius.sm,
-    backgroundColor: 'rgba(235, 94, 40, 0.1)',
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },

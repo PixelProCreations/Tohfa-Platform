@@ -451,21 +451,21 @@ export function MarketPricingHomeScreen({
             ) : null}
 
             <StorefrontIcon size={22} color={adminColors.onBrand} />
-            <Text style={styles.headerTitle}>{t('marketPricingHome.title')}</Text>
+            <Text style={styles.headerTitle}>Market & Pricing</Text>
           </View>
 
           <TouchableOpacity
             style={styles.notificationBtn}
             onPress={onOpenNotifications}
             activeOpacity={0.8}
-            accessibilityLabel={t('marketPricingHome.notifications')}
+            accessibilityLabel="Notifications"
           >
             <BellIcon size={19} color={adminColors.onBrand} />
           </TouchableOpacity>
         </View>
 
         <Text style={[styles.headerSubtitle, onBack ? { paddingLeft: 34 } : null]}>
-          {t('marketPricingHome.subtitle')}
+          Market & Pricing Dashboard
         </Text>
       </View>
 
@@ -479,28 +479,28 @@ export function MarketPricingHomeScreen({
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.lg }}>
           <OverviewDashboardCard
             value="124"
-            title="Active Fair Prices"
+            title="ACTIVE FAIR PRICES"
             icon="sales"
             titlePosition="bottom"
             onPress={onNavigateToFairPrice}
           />
           <OverviewDashboardCard
             value="12"
-            title="Product Categories"
+            title="PRODUCT CATEGORIES"
             icon="inventory"
             titlePosition="bottom"
             onPress={onNavigateToCategories}
           />
           <OverviewDashboardCard
             value="18"
-            title="Price Updates"
+            title="PRICE UPDATES"
             icon="orders"
             titlePosition="bottom"
             onPress={onNavigateToPriceHistory}
           />
           <OverviewDashboardCard
             value="124"
-            title="Retail Price Records"
+            title="RETAIL PRICE RECORDS"
             icon="cash"
             titlePosition="bottom"
             onPress={onNavigateToRetailPricing}
@@ -542,49 +542,73 @@ export function MarketPricingHomeScreen({
           <View style={styles.snapshotDivider} />
 
           <View style={styles.snapshotRow}>
-            <Text style={styles.snapshotLabel}>Status</Text>
-            <View style={styles.compliantBadge}>
-              <Text style={styles.compliantBadgeText}>Compliant</Text>
-            </View>
+            <Text style={styles.snapshotLabel}>Price Status</Text>
+            <Text style={styles.activeStatusText}>Active</Text>
           </View>
         </View>
 
-        {/* Section 2: Fresh Produce Ceiling Prices Card */}
-        <View style={styles.ceilingCard}>
-          <View style={styles.ceilingCardHeader}>
-            <Text style={styles.ceilingCardTitle}>Fresh Produce Ceiling Prices</Text>
+        {/* Section 2: Recently Updated Prices */}
+        <Text style={[styles.sectionHeading, { marginTop: adminSpacing.lg }]}>Recently Updated Prices</Text>
+
+        {/* Card 1: Carrot · Grade 1 */}
+        <View style={styles.recentPriceCard}>
+          <View style={styles.recentPriceHeaderRow}>
+            <Text style={styles.recentPriceCropTitle}>Carrot · Grade 1</Text>
             <View style={styles.activePill}>
               <Text style={styles.activePillText}>Active</Text>
             </View>
           </View>
-
-          <View style={styles.priceColsRow}>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Min Fair Price</Text>
-              <Text style={styles.priceColValue}>₹50.00</Text>
+          <View style={styles.recentPriceColsRow}>
+            <View style={styles.recentPriceCol}>
+              <Text style={styles.recentPriceLabel}>Fair Price</Text>
+              <Text style={styles.recentPriceValue}>₹100/kg</Text>
             </View>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Max Fair Price</Text>
-              <Text style={styles.priceColValue}>₹120.00</Text>
+            <View style={styles.recentPriceCol}>
+              <Text style={styles.recentPriceLabel}>Retail Price</Text>
+              <Text style={styles.recentPriceValue}>₹120/kg</Text>
             </View>
-            <View style={styles.priceCol}>
-              <Text style={styles.priceColLabel}>Retail Avg</Text>
-              <Text style={styles.priceColValue}>₹95.00</Text>
+            <View style={styles.recentPriceCol}>
+              <Text style={styles.recentPriceLabel}>Effective</Text>
+              <Text style={styles.recentPriceValue}>30 Sep</Text>
             </View>
           </View>
         </View>
 
-        {/* Section 3: View Price History Button */}
+        {/* Card 2: Cabbage · Grade 2 */}
+        <View style={styles.recentPriceCard}>
+          <View style={styles.recentPriceHeaderRow}>
+            <Text style={styles.recentPriceCropTitle}>Cabbage · Grade 2</Text>
+            <View style={styles.activePill}>
+              <Text style={styles.activePillText}>Active</Text>
+            </View>
+          </View>
+          <View style={styles.recentPriceColsRow}>
+            <View style={styles.recentPriceCol}>
+              <Text style={styles.recentPriceLabel}>Fair Price</Text>
+              <Text style={styles.recentPriceValue}>₹60/kg</Text>
+            </View>
+            <View style={styles.recentPriceCol}>
+              <Text style={styles.recentPriceLabel}>Retail Price</Text>
+              <Text style={styles.recentPriceValue}>₹75/kg</Text>
+            </View>
+            <View style={styles.recentPriceCol}>
+              <Text style={styles.recentPriceLabel}>Effective</Text>
+              <Text style={styles.recentPriceValue}>29 Sep</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* View History Outline Button */}
         <TouchableOpacity
-          style={styles.viewHistoryBtn}
+          style={styles.viewHistoryOutlineBtn}
           onPress={onNavigateToPriceHistory}
           activeOpacity={0.8}
         >
-          <Text style={styles.viewHistoryBtnText}>View Price History →</Text>
+          <Text style={styles.viewHistoryOutlineBtnText}>View History</Text>
         </TouchableOpacity>
 
-        {/* Section 4: Quick Actions 2x2 Grid */}
-        <Text style={styles.sectionHeading}>Quick Actions</Text>
+        {/* Section 3: Quick Actions 2x2 Grid */}
+        <Text style={[styles.sectionHeading, { marginTop: adminSpacing.lg }]}>Quick Actions</Text>
         <View style={styles.quickGrid}>
           <View style={styles.quickRow}>
             <TouchableOpacity
@@ -602,7 +626,7 @@ export function MarketPricingHomeScreen({
               activeOpacity={0.75}
             >
               <CategoryShapesIcon size={26} color={adminColors.brand} />
-              <Text style={styles.quickCardLabel}>Quality Grades</Text>
+              <Text style={styles.quickCardLabel}>Categories & Grades</Text>
             </TouchableOpacity>
           </View>
 
@@ -625,14 +649,6 @@ export function MarketPricingHomeScreen({
               <Text style={styles.quickCardLabel}>Retail Pricing</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Section 5: Bottom Disclaimer Note */}
-        <View style={styles.disclaimerCard}>
-          <BlockCircleIcon size={18} color={adminColors.muted} />
-          <Text style={styles.disclaimerText}>
-            Fair price ceilings are set based on agricultural mandi index data and local transport assessments.
-          </Text>
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -868,6 +884,64 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontWeight: '700',
     color: adminColors.success.text,
+  },
+
+  activeStatusText: {
+    ...adminType.rowTitle,
+    fontWeight: '700',
+    color: adminColors.success.text,
+  },
+  recentPriceCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.card,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  recentPriceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.sm,
+  },
+  recentPriceCropTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+  recentPriceColsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  recentPriceCol: {
+    flex: 1,
+  },
+  recentPriceLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  recentPriceValue: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 13,
+  },
+  viewHistoryOutlineBtn: {
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.sm,
+  },
+  viewHistoryOutlineBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
   },
 
   // Ceiling Prices Card (Farmer Admin)

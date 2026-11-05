@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing } from '../../theme';
-import { ExpenseRecordDetailScreen } from './ExpenseDetailScreen';
-import { EXPENSES_LIST, type ExpenseManagementRecord } from './ExpenseManagementScreen';
+import { ExpenseDetailScreen } from '../warehouse/finance-expenses/ExpenseDetailScreen';
+import { EXPENSES_LIST, type ExpenseManagementRecord } from './fixtures';
 import { SalesOrderDetailScreen, type SalesOrderRecord } from '../sales/SalesOrderDetailScreen';
 import { PurchaseOrderPayoutScreen } from '../sales/PurchaseOrderPayoutScreen';
 import type { PurchaseOrderRecord } from '../sales/PurchaseSalesOrdersScreen';
@@ -218,10 +218,11 @@ const SAMPLE_PAYOUT_RECORD: PurchaseOrderRecord = {
 };
 
 export interface TransactionHistoryScreenProps {
+  can?: any;
   onBack: () => void;
 }
 
-export function TransactionHistoryScreen({ onBack }: TransactionHistoryScreenProps) {
+export function TransactionHistoryScreen({ onBack, can }: TransactionHistoryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [selectedExpense, setSelectedExpense] = useState<ExpenseManagementRecord | null>(null);
@@ -398,8 +399,19 @@ export function TransactionHistoryScreen({ onBack }: TransactionHistoryScreenPro
 
   if (selectedExpense) {
     return (
-      <ExpenseRecordDetailScreen
-        expense={selectedExpense}
+      <ExpenseDetailScreen
+        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+        can={can || (() => true)}
+        expenseId={selectedExpense.expenseCode}
+        amount={selectedExpense.amountFormatted}
+        category={selectedExpense.category}
+        date={selectedExpense.dateStr}
+        description={selectedExpense.description}
+        paymentMethod={selectedExpense.paymentMethod}
+        vendorPayee={selectedExpense.payee}
+        warehouse={selectedExpense.warehouse}
+        createdBy={selectedExpense.createdBy}
+        status={selectedExpense.paymentStatus}
         onBack={() => setSelectedExpense(null)}
       />
     );

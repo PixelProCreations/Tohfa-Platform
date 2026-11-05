@@ -1301,6 +1301,11 @@ export function SubWarehouseAdminDashboardScreen({
   }, [initialShowRecentActivity]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
   const [returnToTabOnBack, setReturnToTabOnBack] = useState<SubWHTab | null>(null);
+  const effectiveCan = useMemo<PermissionCheck>(() => {
+    return (code: string) => {
+      return Boolean(can && can(code));
+    };
+  }, [can]);
 
   const onTabChangeRef = useRef(onTabChange);
   onTabChangeRef.current = onTabChange;
@@ -2256,6 +2261,7 @@ export function SubWarehouseAdminDashboardScreen({
       <SalesFlow
         scope={scope}
         can={can}
+        role="SUB_WH_ADMIN"
         onBack={() => {
           setShowSalesScreen(false);
           setActiveTab(returnToTabOnBack || 'More');
@@ -2366,6 +2372,7 @@ export function SubWarehouseAdminDashboardScreen({
               <SalesFlow
                 scope={scope}
                 can={can}
+                role="SUB_WH_ADMIN"
                 initialScreen="NewSale"
                 initialParams={{ customerName: c?.name, customerCode: c?.code }}
                 onBack={nav.back}
@@ -2548,7 +2555,7 @@ export function SubWarehouseAdminDashboardScreen({
       // Shared finance flow (W4), scope-locked to this warehouse.
       <FinanceFlow
         scope={scope}
-        can={can}
+        can={effectiveCan}
         onBack={() => {
           setShowFinanceScreen(false);
           setActiveTab(returnToTabOnBack || 'More');
@@ -3499,7 +3506,7 @@ export function SubWarehouseAdminDashboardScreen({
         {activeTab === 'More' && !showOrdersModule && !showFarmManagement && (
           <MoreScreen
             scope={scope}
-            can={can}
+            can={effectiveCan}
             onBack={() => setActiveTab('Home')}
             onNavigateToDashboard={() => setActiveTab('Home')}
             onTabChange={(tab) => {

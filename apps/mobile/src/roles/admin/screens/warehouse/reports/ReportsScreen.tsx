@@ -40,9 +40,10 @@ import {
 } from 'react-native';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { OverviewDashboardCard } from '../../../components';
+import { PreviewReportsScreen } from '../../finance/PreviewReportsScreen';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
-import { WarehouseSelector } from '../inventory';
+import { WarehouseSelector } from '../inventory/WarehouseSelector';
 import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './fixtures';
 import type { ReportCode, ReportScreenType } from './types';
 import {
@@ -81,6 +82,7 @@ export interface ReportsScreenProps extends WarehouseScreenBaseProps {
   onSelectReport?: ((reportKey: string) => void) | undefined;
   /** Warehouses offered by the Main (all-warehouses) selector. */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
+  initialScreen?: ReportScreenType | undefined;
 }
 
 // `onTabChange` (WarehouseScreenBaseProps) is accepted but unused: the screen
@@ -93,8 +95,10 @@ export function ReportsScreen({
   can,
   canExport,
   warehouseOptions = REPORT_WAREHOUSES,
+  initialScreen = 'main',
 }: ReportsScreenProps) {
-  const [currentScreen, setCurrentScreen] = useState<ReportScreenType>('main');
+  const [currentScreen, setCurrentScreen] = useState<ReportScreenType>(initialScreen || 'main');
+  const [showPreviewScreen, setShowPreviewScreen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [timeFilter, setTimeFilter] = useState<'Today' | 'Week' | 'Month'>('Today');
 
@@ -708,6 +712,21 @@ export function ReportsScreen({
   );
 
   // ═══════════════════════════════════════════════════════════════════════════
+  if (showPreviewScreen) {
+    return (
+      <PreviewReportsScreen
+        onBack={() => setShowPreviewScreen(false)}
+        reportData={{
+          reportName: selectedExportReport || 'Inventory & Stock Report',
+          category: selectedExportReport?.includes('Expense') ? 'Expenses' : selectedExportReport?.includes('Sales') ? 'Sales' : 'Inventory',
+          period: '01 Oct 2026 – 31 Oct 2026',
+          warehouse: warehouseLabel,
+          format: exportFormat === 'Excel' ? 'XLSX' : exportFormat === 'PDF' ? 'PDF' : 'CSV',
+        }}
+      />
+    );
+  }
+
   // SCREEN 1: SALES REPORT (M12-S02)
   // ═══════════════════════════════════════════════════════════════════════════
   if (currentScreen === 'sales_report') {
@@ -3703,12 +3722,20 @@ export function ReportsScreen({
       } else if (exportStep === 'generating') {
         setExportStep(5);
       } else if (exportStep === 'ready') {
-        setExportStep(1);
-        setCurrentScreen('main');
+        if (initialScreen === 'export_report' && onBack) {
+          onBack();
+        } else {
+          setExportStep(1);
+          setCurrentScreen('main');
+        }
       } else if (typeof exportStep === 'number' && exportStep > 1) {
         setExportStep((prev) => (Number(prev) - 1) as 1 | 2 | 3 | 4 | 5);
       } else {
-        setCurrentScreen('main');
+        if (initialScreen === 'export_report' && onBack) {
+          onBack();
+        } else {
+          setCurrentScreen('main');
+        }
       }
     };
 
@@ -3976,6 +4003,50 @@ export function ReportsScreen({
                   <Text style={{ ...adminType.rowTitle, color: adminColors.ink }}>1,248</Text>
                 </View>
               </View>
+            </View>
+
+            {/* Action Buttons: Download & Preview Report matching Figma */}
+            <View style={{ width: '100%', marginTop: adminSpacing.lg, gap: adminSpacing.sm }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: adminColors.brand,
+                  borderRadius: adminRadius.md,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'row',
+                  gap: 8,
+                }}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Alert.alert(
+                    'Download Report',
+                    `Report "${selectedExportReport || 'Inventory & Stock Report'}" (${exportFormat === 'Excel' ? 'XLSX' : exportFormat}) downloaded successfully. File saved to device downloads.`,
+                    [{ text: 'OK' }]
+                  );
+                }}
+              >
+                <DownloadIcon size={18} color={adminColors.onBrand} />
+                <Text style={{ ...adminType.rowTitle, fontSize: 14, color: adminColors.onBrand, fontWeight: '700' }}>Download</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: adminColors.card,
+                  borderRadius: adminRadius.md,
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: adminColors.brand,
+                }}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setShowPreviewScreen(true);
+                }}
+              >
+                <Text style={{ ...adminType.rowTitle, fontSize: 14, color: adminColors.brand, fontWeight: '700' }}>Preview Report</Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         )}
