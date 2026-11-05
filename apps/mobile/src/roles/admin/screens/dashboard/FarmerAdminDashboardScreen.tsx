@@ -38,6 +38,7 @@ import {
   type NotificationItem,
 } from '../warehouse/notifications';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
+import { StaffFlow } from '../warehouse/staff-attendance';
 import { FarmerDisputesMediationScreen } from './FarmerDisputesMediationScreen';
 import { FarmerDisputeDetailScreen } from './FarmerDisputeDetailScreen';
 import { FarmerDisputeTimelineScreen } from './FarmerDisputeTimelineScreen';
@@ -2823,6 +2824,22 @@ export function FarmerAdminDashboardScreen({
 
 
 
+    // Module: Warehouse Staff / Workforce subview (redirect to shared StaffFlow)
+  if (subView === 'workforce' || subView === 'staff') {
+    return (
+      <StaffFlow
+        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+        can={() => true}
+        initialScreen="Staff"
+        onBack={() => goBack()}
+        onTabChange={(tab: any) => {
+          goBack();
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
   // Module: Farmer Admin Settings & Profile subview (Screenshot 2)
   if (subView === 'settings') {
     return (
@@ -3889,6 +3906,11 @@ export function FarmerAdminDashboardScreen({
             onNavigateProfile={() => pushNavigation({ subView: 'settings' })}
             onNavigateSettingsAndProfile={() => pushNavigation({ subView: 'settings' })}
             onNavigateNotifications={() => pushNavigation({ subView: 'notifications' })}
+            onSelectOption={(optionId) => {
+              if (optionId === 'workforce' || optionId === 'staff') {
+                pushNavigation({ subView: 'workforce' });
+              }
+            }}
             onSwitchRole={() =>
               setModalItem({
                 title: 'Switch Role',
@@ -3897,7 +3919,9 @@ export function FarmerAdminDashboardScreen({
               })
             }
             onItemSelect={(title) => {
-              if (title === 'Inputs & Pest Management') {
+              if (title === 'Workforce & Staff' || title === 'Warehouse Staff') {
+                pushNavigation({ subView: 'workforce' });
+              } else if (title === 'Inputs & Pest Management') {
                 pushNavigation({ subView: 'inputs_pest' });
               } else if (title === 'Market & Pricing') {
                 pushNavigation({ subView: 'market_pricing' });

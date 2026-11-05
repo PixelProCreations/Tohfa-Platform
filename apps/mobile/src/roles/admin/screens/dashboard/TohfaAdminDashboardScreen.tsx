@@ -12524,14 +12524,61 @@ export function TohfaAdminDashboardScreen({
               }}
             />
           ) : workforceActive ? (
-            workforceSubScreen === 'management' ? (
-              renderWorkforceManagementScreen()
-            ) : workforceSubScreen === 'create' ? (
-              renderWorkforceCreateScreen()
-            ) : workforceSubScreen === 'attendance' ? (
-              renderWorkforceAttendanceScreen()
+            workforceSubScreen === 'attendance' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                initialScreen="Attendance"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
             ) : workforceSubScreen === 'details' ? (
-              renderWorkforceDetailsScreen()
+              <StaffDetailScreen
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                staff={
+                  selectedStaffDetails
+                    ? {
+                        id: selectedStaffDetails.id,
+                        name: selectedStaffDetails.name,
+                        staffId: selectedStaffDetails.employeeId || selectedStaffDetails.id,
+                        type: selectedStaffDetails.role?.toLowerCase().includes('driver') ? 'driver' : 'warehouse',
+                        role: selectedStaffDetails.role,
+                        status: (selectedStaffDetails.status as any) || 'Active',
+                        attendance: (selectedStaffDetails.todayAttendance as any) || 'Present',
+                        phone: selectedStaffDetails.mobile,
+                        email: selectedStaffDetails.email,
+                      }
+                    : undefined
+                }
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onEditProfile={() => setWorkforceSubScreen('create')}
+              />
+            ) : workforceSubScreen === 'management' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                initialScreen="Staff"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
+            ) : workforceSubScreen === 'create' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                initialScreen="EditStaffProfile"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
             ) : (
               renderWorkforceDashboardScreen()
             )
@@ -13357,7 +13404,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: 6,
-    paddingBottom: 56,
+    paddingBottom: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -13418,7 +13465,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     marginHorizontal: adminSpacing.lg,
-    marginTop: -48,
+    marginTop: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.lg,
     paddingBottom: adminSpacing.md,
