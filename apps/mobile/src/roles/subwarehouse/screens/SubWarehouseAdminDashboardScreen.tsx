@@ -39,9 +39,9 @@ import {
   AdminAllFarmersScreen,
   AdminFarmMapScreen,
   AdminRatingScorecardScreen,
+  AdminFarmerDetailScreen,
   type FarmerListItem,
-} from '../../admin/screens/farmers/AdminAllFarmersScreen';
-import { AdminFarmerDetailScreen } from '../../admin/screens/farmers/AdminFarmerDetailScreen';
+} from '../../admin/screens/farmers';
 import { SalesFlow } from '../../admin/screens/warehouse/sales-direct';
 import { WalletFlow, walletParamsForCustomer } from '../../admin/screens/warehouse/wallet-cashtopup';
 import {
@@ -2276,9 +2276,9 @@ export function SubWarehouseAdminDashboardScreen({
         onNavigateToNeedsAttention={
           onNavigate
             ? (category) => {
-                setShowSalesScreen(false);
-                onNavigate('SubWarehouseNeedsAttention', category ? { category } : undefined);
-              }
+              setShowSalesScreen(false);
+              onNavigate('SubWarehouseNeedsAttention', category ? { category } : undefined);
+            }
             : undefined
         }
       />
@@ -2588,7 +2588,7 @@ export function SubWarehouseAdminDashboardScreen({
       <StatusBar barStyle="light-content" backgroundColor={PALETTE.primary} />
 
       <View style={{ flex: 1 }}>
-        {activeTab === 'Home' && !showOrdersModule && (
+        {activeTab === 'Home' && !showOrdersModule && !showFarmManagement && (
           <ScrollView
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
@@ -2819,16 +2819,16 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
 
                 {canOrders ? (
-                <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setShowOrdersModule(true);
-                  }}
-                >
-                  <ViewOrdersActionIcon />
-                  <Text style={styles.quickActionLabel}>View Orders</Text>
-                </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
+                    onPress={() => {
+                      setReturnToTabOnBack('Home');
+                      setShowOrdersModule(true);
+                    }}
+                  >
+                    <ViewOrdersActionIcon />
+                    <Text style={styles.quickActionLabel}>View Orders</Text>
+                  </Pressable>
                 ) : null}
 
                 <Pressable
@@ -2843,17 +2843,17 @@ export function SubWarehouseAdminDashboardScreen({
                 </Pressable>
 
                 {canStock ? (
-                <Pressable
-                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S10');
-                    setActiveTab('Inventory');
-                  }}
-                >
-                  <StockVerifyActionIcon />
-                  <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
-                </Pressable>
+                  <Pressable
+                    style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
+                    onPress={() => {
+                      setReturnToTabOnBack('Home');
+                      setInventoryInitialScreen('M3S10');
+                      setActiveTab('Inventory');
+                    }}
+                  >
+                    <StockVerifyActionIcon />
+                    <Text style={[styles.quickActionLabel, { color: PALETTE.textInk }]}>Stock Verify</Text>
+                  </Pressable>
                 ) : null}
 
                 <Pressable
@@ -2870,6 +2870,7 @@ export function SubWarehouseAdminDashboardScreen({
                 <Pressable
                   style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.brandTint }]}
                   onPress={() => {
+                    setReturnToTabOnBack('Home');
                     setSelectedFarmer(null);
                     setFarmerSubScreen(null);
                     setShowFarmManagement(true);
@@ -2933,35 +2934,35 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
 
                 {canOrders ? (
-                <View style={styles.alertCard}>
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <ClockIcon />
+                  <View style={styles.alertCard}>
+                    <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
+                      <ClockIcon />
+                    </View>
+                    <View style={styles.alertCardTextWrap}>
+                      <Text style={styles.alertCardTitle}>Pickup Pending</Text>
+                      <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
+                    </View>
                   </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Pickup Pending</Text>
-                    <Text style={styles.alertCardSub}>3 customers are waiting for order pickup</Text>
-                  </View>
-                </View>
                 ) : null}
 
                 {canStock ? (
-                <TouchableOpacity
-                  style={styles.alertCard}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S10');
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
-                    <BoxIcon color={adminColors.warning.text} />
-                  </View>
-                  <View style={styles.alertCardTextWrap}>
-                    <Text style={styles.alertCardTitle}>Low Stock</Text>
-                    <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.alertCard}
+                    onPress={() => {
+                      setReturnToTabOnBack('Home');
+                      setInventoryInitialScreen('M3S10');
+                      setActiveTab('Inventory');
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.alertIconCircle, { backgroundColor: PALETTE.amberIconBg }]}>
+                      <BoxIcon color={adminColors.warning.text} />
+                    </View>
+                    <View style={styles.alertCardTextWrap}>
+                      <Text style={styles.alertCardTitle}>Low Stock</Text>
+                      <Text style={styles.alertCardSub}>Carrot — Grade 1 · Available 12 KG</Text>
+                    </View>
+                  </TouchableOpacity>
                 ) : null}
               </View>
 
@@ -3022,13 +3023,13 @@ export function SubWarehouseAdminDashboardScreen({
 
               {/* 6. Today's Orders + 7. Order Status Summary: order.list.view_all */}
               {canOrders ? (
-              <>
-              <View style={styles.sectionHeaderBetween}>
-                <Text style={styles.sectionHeading}>Today's Orders</Text>
-                <Text style={styles.sectionHeaderSub}>12 Orders</Text>
-              </View>
+                <>
+                  <View style={styles.sectionHeaderBetween}>
+                    <Text style={styles.sectionHeading}>Today's Orders</Text>
+                    <Text style={styles.sectionHeaderSub}>12 Orders</Text>
+                  </View>
 
-              <View style={styles.cardStack}>
+                  <View style={styles.cardStack}>
                     <TouchableOpacity
                       style={styles.orderReceivingCard}
                       onPress={() => {
@@ -3040,33 +3041,33 @@ export function SubWarehouseAdminDashboardScreen({
                       activeOpacity={0.75}
                       accessibilityRole="button"
                     >
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.itemCodeBold}>#ORD-10245</Text>
-                    <View style={styles.readyPickupBadge}>
-                      <Text style={styles.readyPickupText}>Ready for Pickup</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.produceTitle}>Rahul Kumar · 3 Items</Text>
-                  <Text style={styles.detailText}>₹850 · Pickup Today · 4:00 PM</Text>
+                      <View style={styles.cardHeaderRow}>
+                        <Text style={styles.itemCodeBold}>#ORD-10245</Text>
+                        <View style={styles.readyPickupBadge}>
+                          <Text style={styles.readyPickupText}>Ready for Pickup</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.produceTitle}>Rahul Kumar · 3 Items</Text>
+                      <Text style={styles.detailText}>₹850 · Pickup Today · 4:00 PM</Text>
                     </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.linkButton}
+                    <TouchableOpacity
+                      style={styles.linkButton}
                       onPress={() => {
                         setReturnToTabOnBack('Home');
                         setOrdersInitialScreen('M5S02');
                         setOrdersInitialParams(null);
                         setShowOrdersModule(true);
                       }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View All Orders →</Text>
-                </TouchableOpacity>
-              </View>
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.linkButtonText}>View All Orders →</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* 7. Order Status Summary */}
-              <Text style={styles.sectionHeading}>Order Status Summary</Text>
-              <View style={styles.statusSummaryGrid}>
+                  {/* 7. Order Status Summary */}
+                  <Text style={styles.sectionHeading}>Order Status Summary</Text>
+                  <View style={styles.statusSummaryGrid}>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
                       onPress={() => {
@@ -3077,8 +3078,8 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                  <Text style={styles.statusSummaryNum}>04</Text>
-                  <Text style={styles.statusSummaryLabel}>NEW</Text>
+                      <Text style={styles.statusSummaryNum}>04</Text>
+                      <Text style={styles.statusSummaryLabel}>NEW</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
@@ -3090,8 +3091,8 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                  <Text style={styles.statusSummaryNum}>03</Text>
-                  <Text style={styles.statusSummaryLabel}>PACKING</Text>
+                      <Text style={styles.statusSummaryNum}>03</Text>
+                      <Text style={styles.statusSummaryLabel}>PACKING</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
@@ -3103,8 +3104,8 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                  <Text style={styles.statusSummaryNum}>08</Text>
-                  <Text style={styles.statusSummaryLabel}>READY</Text>
+                      <Text style={styles.statusSummaryNum}>08</Text>
+                      <Text style={styles.statusSummaryLabel}>READY</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.statusSummaryTile}
@@ -3116,136 +3117,136 @@ export function SubWarehouseAdminDashboardScreen({
                       }}
                       activeOpacity={0.75}
                     >
-                  <Text style={styles.statusSummaryNum}>27</Text>
-                  <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
+                      <Text style={styles.statusSummaryNum}>27</Text>
+                      <Text style={styles.statusSummaryLabel}>COMPLETED</Text>
                     </TouchableOpacity>
-              </View>
-              </>
+                  </View>
+                </>
               ) : null}
 
               {/* 8. Inventory Snapshot + 9. Stock Allocation: inventory.batch.view */}
               {canStock ? (
-              <>
-              <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Available Stock</Text>
-                  <Text style={styles.infoTableValue}>1,245 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Reserved</Text>
-                  <Text style={styles.infoTableValue}>320 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Allocated</Text>
-                  <Text style={styles.infoTableValue}>580 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Low Stock</Text>
-                  <Text style={[styles.infoTableValue, { color: adminColors.danger.text }]}>05</Text>
-                </View>
-                {/* Ported from the absorbed Today's Overview (Inventory card). */}
-                <TouchableOpacity
-                  style={[styles.infoTableRow, { borderBottomWidth: 0 }]}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S10');
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.infoTableLabel}>Verification Pending</Text>
-                  <Text style={styles.infoTableValue}>02</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S10');
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Inventory →</Text>
-                </TouchableOpacity>
-              </View>
+                <>
+                  <Text style={styles.sectionHeading}>Inventory Snapshot</Text>
+                  <View style={styles.infoTableCard}>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>Available Stock</Text>
+                      <Text style={styles.infoTableValue}>1,245 KG</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>Reserved</Text>
+                      <Text style={styles.infoTableValue}>320 KG</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>Allocated</Text>
+                      <Text style={styles.infoTableValue}>580 KG</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>Low Stock</Text>
+                      <Text style={[styles.infoTableValue, { color: adminColors.danger.text }]}>05</Text>
+                    </View>
+                    {/* Ported from the absorbed Today's Overview (Inventory card). */}
+                    <TouchableOpacity
+                      style={[styles.infoTableRow, { borderBottomWidth: 0 }]}
+                      onPress={() => {
+                        setReturnToTabOnBack('Home');
+                        setInventoryInitialScreen('M3S10');
+                        setActiveTab('Inventory');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.infoTableLabel}>Verification Pending</Text>
+                      <Text style={styles.infoTableValue}>02</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.tableLinkButton}
+                      onPress={() => {
+                        setReturnToTabOnBack('Home');
+                        setInventoryInitialScreen('M3S10');
+                        setActiveTab('Inventory');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.linkButtonText}>View Inventory →</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* 9. Stock Allocation */}
-              <Text style={styles.sectionHeading}>Stock Allocation</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>ONLINE</Text>
-                  <Text style={styles.infoTableValue}>420 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>LIVE MARKET</Text>
-                  <Text style={styles.infoTableValue}>120 KG</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>RESERVE</Text>
-                  <Text style={styles.infoTableValue}>80 KG</Text>
-                </View>
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>BUFFER</Text>
-                  <Text style={styles.infoTableValue}>60 KG</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => {
-                    setReturnToTabOnBack('Home');
-                    setInventoryInitialScreen('M3S02');
-                    setInventoryInitialParams({ initialTab: 'Allocation' });
-                    setActiveTab('Inventory');
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
-                </TouchableOpacity>
-              </View>
-              </>
+                  {/* 9. Stock Allocation */}
+                  <Text style={styles.sectionHeading}>Stock Allocation</Text>
+                  <View style={styles.infoTableCard}>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>ONLINE</Text>
+                      <Text style={styles.infoTableValue}>420 KG</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>LIVE MARKET</Text>
+                      <Text style={styles.infoTableValue}>120 KG</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>RESERVE</Text>
+                      <Text style={styles.infoTableValue}>80 KG</Text>
+                    </View>
+                    <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                      <Text style={styles.infoTableLabel}>BUFFER</Text>
+                      <Text style={styles.infoTableValue}>60 KG</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.tableLinkButton}
+                      onPress={() => {
+                        setReturnToTabOnBack('Home');
+                        setInventoryInitialScreen('M3S02');
+                        setInventoryInitialParams({ initialTab: 'Allocation' });
+                        setActiveTab('Inventory');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.linkButtonText}>View Allocation Detail →</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               ) : null}
 
               {/* 10. Today's Sales Summary: finance.sales_income.view */}
               {canSales ? (
-              <>
-              <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
-              <View style={styles.infoTableCard}>
-                <View style={styles.salesHeaderRow}>
-                  <Text style={styles.salesTotalAmount}>₹24,850</Text>
-                  <Text style={styles.salesTxnCount}>42 transactions</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Online</Text>
-                  <Text style={styles.infoTableValue}>₹12,400</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>Market</Text>
-                  <Text style={styles.infoTableValue}>₹7,250</Text>
-                </View>
-                <View style={styles.infoTableRow}>
-                  <Text style={styles.infoTableLabel}>HORECA</Text>
-                  <Text style={styles.infoTableValue}>₹3,200</Text>
-                </View>
-                <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoTableLabel}>B2B</Text>
-                  <Text style={styles.infoTableValue}>₹2,000</Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.tableLinkButton}
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('SubWarehouseSales');
-                    } else {
-                      setReturnToTabOnBack('Home');
-                      setShowSalesScreen(true);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.linkButtonText}>View Sales Report →</Text>
-                </TouchableOpacity>
-              </View>
-              </>
+                <>
+                  <Text style={styles.sectionHeading}>Today's Sales Summary</Text>
+                  <View style={styles.infoTableCard}>
+                    <View style={styles.salesHeaderRow}>
+                      <Text style={styles.salesTotalAmount}>₹24,850</Text>
+                      <Text style={styles.salesTxnCount}>42 transactions</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>Online</Text>
+                      <Text style={styles.infoTableValue}>₹12,400</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>Market</Text>
+                      <Text style={styles.infoTableValue}>₹7,250</Text>
+                    </View>
+                    <View style={styles.infoTableRow}>
+                      <Text style={styles.infoTableLabel}>HORECA</Text>
+                      <Text style={styles.infoTableValue}>₹3,200</Text>
+                    </View>
+                    <View style={[styles.infoTableRow, { borderBottomWidth: 0 }]}>
+                      <Text style={styles.infoTableLabel}>B2B</Text>
+                      <Text style={styles.infoTableValue}>₹2,000</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.tableLinkButton}
+                      onPress={() => {
+                        if (onNavigate) {
+                          onNavigate('SubWarehouseSales');
+                        } else {
+                          setReturnToTabOnBack('Home');
+                          setShowSalesScreen(true);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.linkButtonText}>View Sales Report →</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
               ) : null}
 
               {/* 11. Cash Operations */}
@@ -3306,21 +3307,21 @@ export function SubWarehouseAdminDashboardScreen({
                 </TouchableOpacity>
 
                 {canOrders ? (
-                <>
-                <View style={styles.cardDivider} />
+                  <>
+                    <View style={styles.cardDivider} />
 
-                {/* Activity 2 */}
-                <View style={styles.activityItemRow}>
-                  <View style={styles.activityIconBox}>
-                    <PackageBagIcon />
-                  </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.activityItemTitle}>Order Packed</Text>
-                    <Text style={styles.activityItemSub}>ORD-10242</Text>
-                    <Text style={styles.activityTimeText}>10:20 AM</Text>
-                  </View>
-                </View>
-                </>
+                    {/* Activity 2 */}
+                    <View style={styles.activityItemRow}>
+                      <View style={styles.activityIconBox}>
+                        <PackageBagIcon />
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 8 }}>
+                        <Text style={styles.activityItemTitle}>Order Packed</Text>
+                        <Text style={styles.activityItemSub}>ORD-10242</Text>
+                        <Text style={styles.activityTimeText}>10:20 AM</Text>
+                      </View>
+                    </View>
+                  </>
                 ) : null}
 
                 <View style={styles.cardDivider} />
@@ -3365,7 +3366,7 @@ export function SubWarehouseAdminDashboardScreen({
         )}
 
         {/* ─── Receiving Tab: the shared receiving flow (W4) ─── */}
-        {activeTab === 'Receiving' && !showOrdersModule && (
+        {activeTab === 'Receiving' && !showOrdersModule && !showFarmManagement && (
           <ReceivingFlow
             scope={scope}
             can={can}
@@ -3390,7 +3391,7 @@ export function SubWarehouseAdminDashboardScreen({
         )}
 
         {/* ─── Inventory Tab ─── */}
-        {activeTab === 'Inventory' && !showOrdersModule && (
+        {activeTab === 'Inventory' && !showOrdersModule && !showFarmManagement && (
           <InventoryModule
             scope={scope}
             can={can}
@@ -3452,7 +3453,7 @@ export function SubWarehouseAdminDashboardScreen({
           />
         )}
 
-        {/* ─── Farm Management Subview (Shared Screen) ─── */}
+        {/* ─── Farm Management Subview (Shared Full-Screen) ─── */}
         {showFarmManagement && (
           farmerSubScreen === 'map' && selectedFarmer ? (
             <AdminFarmMapScreen
@@ -3463,7 +3464,7 @@ export function SubWarehouseAdminDashboardScreen({
             <AdminRatingScorecardScreen
               farmer={selectedFarmer}
               onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => {}}
+              onOpenComplianceTiers={() => { }}
             />
           ) : selectedFarmer ? (
             <AdminFarmerDetailScreen
@@ -3481,7 +3482,13 @@ export function SubWarehouseAdminDashboardScreen({
               can={can}
               role="SUB_WH_ADMIN"
               userScope={{ warehouseId: scope.warehouseId }}
-              onBack={() => setShowFarmManagement(false)}
+              onBack={() => {
+                setShowFarmManagement(false);
+                if (returnToTabOnBack) {
+                  setActiveTab(returnToTabOnBack);
+                  setReturnToTabOnBack(null);
+                }
+              }}
               onSelectFarmer={(f: FarmerListItem) => setSelectedFarmer(f)}
             />
           )
@@ -3523,6 +3530,7 @@ export function SubWarehouseAdminDashboardScreen({
               setShowOrdersModule(true);
             }}
             onNavigateToFarmManagement={() => {
+              setReturnToTabOnBack('More');
               setSelectedFarmer(null);
               setFarmerSubScreen(null);
               setShowFarmManagement(true);
@@ -3617,52 +3625,52 @@ export function SubWarehouseAdminDashboardScreen({
       </View>
 
       {/* ─── Bottom Navigation Bar (Home, More ONLY — Receiving and Inventory render their own) ─── */}
-      {((activeTab === 'Home' && !showOrdersModule) ||
-        (activeTab === 'More' && !showOrdersModule)) && (
-        <View style={styles.bottomTabBar}>
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigateTo('Home')}
-            accessibilityRole="tab"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <HomeTabIcon active={activeTab === 'Home'} />
-            <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
-          </TouchableOpacity>
+      {((activeTab === 'Home' && !showOrdersModule && !showFarmManagement) ||
+        (activeTab === 'More' && !showOrdersModule && !showFarmManagement)) && (
+          <View style={styles.bottomTabBar}>
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => navigateTo('Home')}
+              accessibilityRole="tab"
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <HomeTabIcon active={activeTab === 'Home'} />
+              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigateTo('Receiving')}
-            accessibilityRole="tab"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <ReceivingTabIcon active={(activeTab as string) === 'Receiving'} />
-            <Text style={[styles.tabLabel, (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => navigateTo('Receiving')}
+              accessibilityRole="tab"
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <ReceivingTabIcon active={(activeTab as string) === 'Receiving'} />
+              <Text style={[styles.tabLabel, (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
+            </TouchableOpacity>
 
-          <Pressable
-            style={styles.tabItem}
-            onPress={() => navigateTo('Inventory')}
-            accessibilityRole="tab"
-          >
-            <InventoryTabIcon active={(activeTab as string) === 'Inventory'} />
-            <Text style={[styles.tabLabel, (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
-          </Pressable>
+            <Pressable
+              style={styles.tabItem}
+              onPress={() => navigateTo('Inventory')}
+              accessibilityRole="tab"
+            >
+              <InventoryTabIcon active={(activeTab as string) === 'Inventory'} />
+              <Text style={[styles.tabLabel, (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+            </Pressable>
 
-          <TouchableOpacity
-            style={styles.tabItem}
-            onPress={() => navigateTo('More')}
-            accessibilityRole="tab"
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <MoreTabIcon active={activeTab === 'More'} />
-            <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+            <TouchableOpacity
+              style={styles.tabItem}
+              onPress={() => navigateTo('More')}
+              accessibilityRole="tab"
+              activeOpacity={0.7}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MoreTabIcon active={activeTab === 'More'} />
+              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+            </TouchableOpacity>
+          </View>
+        )}
     </SafeAreaView>
   );
 }

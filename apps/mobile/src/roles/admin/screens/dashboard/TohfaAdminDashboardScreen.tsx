@@ -94,6 +94,8 @@ import { StockVerificationScreen } from './StockVerificationScreen';
 import { InterWarehouseTransfersScreen } from './InterWarehouseTransfersScreen';
 import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
+import { ReportsScreen } from '../warehouse/reports';
+import { StaffFlow, StaffDetailScreen } from '../warehouse/staff-attendance';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
 import { ApprovedInputsScreen, AddNewInputScreen, type CatalogInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
@@ -7228,6 +7230,7 @@ export function TohfaAdminDashboardScreen({
 
   // Workforce & Staff State (Screenshots M14-S01, M14-S02, M14-S04, M14-S02b)
   const [workforceActive, setWorkforceActive] = useState(false);
+  const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [workforceSubScreen, setWorkforceSubScreen] = useState<
     'dashboard' | 'management' | 'create' | 'attendance' | 'details'
   >('dashboard');
@@ -10870,6 +10873,20 @@ export function TohfaAdminDashboardScreen({
     );
   };
 
+  if (showReportsScreen) {
+    return (
+      <ReportsScreen
+        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+        can={() => true}
+        onBack={() => setShowReportsScreen(false)}
+        onTabChange={(tab: any) => {
+          setShowReportsScreen(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.root, isBrandHeaderActive && { backgroundColor: adminColors.brand }]}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -12517,14 +12534,61 @@ export function TohfaAdminDashboardScreen({
               }}
             />
           ) : workforceActive ? (
-            workforceSubScreen === 'management' ? (
-              renderWorkforceManagementScreen()
-            ) : workforceSubScreen === 'create' ? (
-              renderWorkforceCreateScreen()
-            ) : workforceSubScreen === 'attendance' ? (
-              renderWorkforceAttendanceScreen()
+            workforceSubScreen === 'attendance' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                initialScreen="Attendance"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
             ) : workforceSubScreen === 'details' ? (
-              renderWorkforceDetailsScreen()
+              <StaffDetailScreen
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                staff={
+                  selectedStaffDetails
+                    ? {
+                        id: selectedStaffDetails.id,
+                        name: selectedStaffDetails.name,
+                        staffId: selectedStaffDetails.employeeId || selectedStaffDetails.id,
+                        type: selectedStaffDetails.role?.toLowerCase().includes('driver') ? 'driver' : 'warehouse',
+                        role: selectedStaffDetails.role,
+                        status: (selectedStaffDetails.status as any) || 'Active',
+                        attendance: (selectedStaffDetails.todayAttendance as any) || 'Present',
+                        phone: selectedStaffDetails.mobile,
+                        email: selectedStaffDetails.email,
+                      }
+                    : undefined
+                }
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onEditProfile={() => setWorkforceSubScreen('create')}
+              />
+            ) : workforceSubScreen === 'management' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                initialScreen="Staff"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
+            ) : workforceSubScreen === 'create' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                initialScreen="EditStaffProfile"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
             ) : (
               renderWorkforceDashboardScreen()
             )
@@ -12554,6 +12618,8 @@ export function TohfaAdminDashboardScreen({
                   setCustomerScreen('management');
                 } else if (optionId === 'finance') {
                   setActiveTab('Finance');
+                } else if (optionId === 'reports') {
+                  setShowReportsScreen(true);
                 } else if (optionId === 'workforce') {
                   setWorkforceActive(true);
                   setWorkforceSubScreen('dashboard');
@@ -12577,47 +12643,12 @@ export function TohfaAdminDashboardScreen({
             REPORTS TAB
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Reports' && (
-              reportsSubScreen === 'analytics' ? (
-                <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'pl' ? (
-                <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'farmerPerformance' ? (
-                <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'warehouseOps' ? (
-                <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'allRecent' ? (
-                <AllRecentReportsScreen
-                  onBack={() => setReportsSubScreen(null)}
-                  onOpenPLReport={() => setReportsSubScreen('pl')}
-                  onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-                  onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-                />
-              ) : reportsSubScreen === 'builder' ? (
-                <ReportBuilderScreen
-                  onBack={() => setReportsSubScreen(null)}
-                  onGenerate={(type) => {
-                    if (type === 'pl') setReportsSubScreen('pl');
-                    else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
-                    else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
-                  }}
-                />
-              ) : reportsSubScreen === 'alerts' ? (
-                <SystemAlertsScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'announcements' ? (
-                <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
-              ) : (
-                <AdminReportsMainScreen
-                  onBack={() => setActiveTab('Home')}
-                  onOpenPLReport={() => setReportsSubScreen('pl')}
-                  onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-                  onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-                  onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
-                  onOpenReportBuilder={() => setReportsSubScreen('builder')}
-                  onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
-                  onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
-                  onOpenAnnouncements={() => setReportsSubScreen('announcements')}
-                />
-              )
+              <ReportsScreen
+                scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                can={() => true}
+                onBack={() => setActiveTab('Home')}
+                onTabChange={(tab: any) => setActiveTab(tab)}
+              />
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
@@ -13382,7 +13413,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: 6,
-    paddingBottom: 56,
+    paddingBottom: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -13443,7 +13474,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     marginHorizontal: adminSpacing.lg,
-    marginTop: -48,
+    marginTop: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.lg,
     paddingBottom: adminSpacing.md,
