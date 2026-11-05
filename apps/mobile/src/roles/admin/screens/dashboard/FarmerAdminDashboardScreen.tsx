@@ -2729,6 +2729,7 @@ export function FarmerAdminDashboardScreen({
     ) : (
       <AdminAllFarmersScreen
         showBottomNav={false}
+        role="FARMER_ADMIN"
         onBack={() => setSubView('none')}
         onSelectFarmer={(f) => setFarmerAdminSelectedFarmer(f)}
         onReviewApplication={(app) => setFarmerAdminSelectedApp(app)}

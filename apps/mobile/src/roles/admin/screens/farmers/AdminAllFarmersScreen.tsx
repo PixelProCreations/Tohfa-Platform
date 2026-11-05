@@ -304,6 +304,42 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     kycVerifiedText: 'KYC Verified',
     hasExpiredCert: false,
   },
+  {
+    id: 'fmr-00145',
+    name: 'Murugan P',
+    code: 'FR-00145',
+    initials: 'MP',
+    farmName: 'Coonoor Valley Spices',
+    location: 'Coonoor',
+    farmingType: 'Natural',
+    status: 'ACTIVE',
+    rating: 4.2,
+    ratingTier: 'Good',
+    mobile: '+91 98765 22334',
+    aadhaar: 'XXXX XXXX 3341',
+    memberSince: '20 Jan 2026',
+    subscription: 'Pending',
+    kycVerifiedText: 'KYC Verified',
+    hasExpiredCert: false,
+  },
+  {
+    id: 'fmr-00152',
+    name: 'Lakshmi Narayanan',
+    code: 'FR-00152',
+    initials: 'LN',
+    farmName: 'Highland Organic Estate',
+    location: 'Coonoor',
+    farmingType: 'Organic',
+    status: 'DISABLED',
+    rating: 3.8,
+    ratingTier: 'Good',
+    mobile: '+91 98765 77665',
+    aadhaar: 'XXXX XXXX 9912',
+    memberSince: '12 Dec 2025',
+    subscription: 'Inactive',
+    kycVerifiedText: 'KYC Verified',
+    hasExpiredCert: false,
+  },
 ];
 
 export const DEMO_APPLICATIONS: ApplicationListItem[] = [
@@ -434,6 +470,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
 
   // RBAC checks
   const effectiveRole = role ?? 'TOHFA_ADMIN';
+  const isSubWarehouse = effectiveRole === 'SUB_WH_ADMIN' || Boolean(userScope?.warehouseId && !userScope?.warehouseId.toLowerCase().includes('main'));
   const canViewApplications = can
     ? (can('farmer.application.view') || can('farmer.application.list_pending') || effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN')
     : (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'FARMER_ADMIN' || effectiveRole === 'SUPER_ADMIN');
@@ -444,10 +481,25 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
     }
   }, [initialTab]);
 
+  // Base list of farmers: Sub Warehouse Admin is strictly scoped to Coonoor warehouse farmers only.
+  // TOHFA Admin, Main Warehouse Admin, and Farmer Admin see farmers across all warehouses.
+  const scopedFarmers = isSubWarehouse
+    ? DEMO_ALL_FARMERS.filter(
+        (f) =>
+          f.location?.toLowerCase() === 'coonoor' ||
+          f.zone?.toLowerCase() === 'coonoor'
+      )
+    : DEMO_ALL_FARMERS;
+
   // Filtered farmers
-  const filteredFarmers = DEMO_ALL_FARMERS.filter((f) => {
-    // Zone filter
-    if (selectedZoneFilter !== 'All' && f.location && f.location.toLowerCase() !== selectedZoneFilter.toLowerCase()) {
+  const filteredFarmers = scopedFarmers.filter((f) => {
+    // Zone filter (only applicable for TOHFA Admin, Main Warehouse, and Farmer Admin)
+    if (
+      !isSubWarehouse &&
+      selectedZoneFilter !== 'All' &&
+      f.location &&
+      f.location.toLowerCase() !== selectedZoneFilter.toLowerCase()
+    ) {
       return false;
     }
     // Status filter
@@ -527,20 +579,20 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
         {/* ─── 4 Summary Metric Cards (Image 1) ─── */}
         <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
           <OverviewDashboardCard
-            value="245"
+            value={isSubWarehouse ? "68" : "245"}
             title="ALL FARMERS"
             icon="users"
             titlePosition="top"
           />
           <OverviewDashboardCard
-            value="221"
+            value={isSubWarehouse ? "62" : "221"}
             title="ACTIVE"
             icon="users"
             tone="success"
             titlePosition="top"
           />
           <OverviewDashboardCard
-            value="12"
+            value={isSubWarehouse ? "3" : "12"}
             title="PENDING APPLICATION"
             icon="clipboard"
             tone="warning"
@@ -552,7 +604,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             }}
           />
           <OverviewDashboardCard
-            value="12"
+            value={isSubWarehouse ? "3" : "12"}
             title="INACTIVE"
             icon="alert"
             titlePosition="top"
@@ -792,28 +844,32 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
           <View style={styles.filterModalCard}>
             <Text style={styles.filterModalTitle}>Filter Farmers</Text>
             
-            <Text style={styles.filterSectionLabel}>Zone</Text>
-            <View style={styles.filterChipRow}>
-              {['All', 'Coonoor', 'Ooty', 'Kotagiri'].map((zone) => (
-                <TouchableOpacity
-                  key={zone}
-                  style={[
-                    styles.filterChip,
-                    selectedZoneFilter === zone && styles.filterChipActive,
-                  ]}
-                  onPress={() => setSelectedZoneFilter(zone)}
-                >
-                  <Text
-                    style={[
-                      styles.filterChipText,
-                      selectedZoneFilter === zone && styles.filterChipTextActive,
-                    ]}
-                  >
-                    {zone}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {!isSubWarehouse && (
+              <>
+                <Text style={styles.filterSectionLabel}>Zone</Text>
+                <View style={styles.filterChipRow}>
+                  {['All', 'Coonoor', 'Ooty', 'Kotagiri'].map((zone) => (
+                    <TouchableOpacity
+                      key={zone}
+                      style={[
+                        styles.filterChip,
+                        selectedZoneFilter === zone && styles.filterChipActive,
+                      ]}
+                      onPress={() => setSelectedZoneFilter(zone)}
+                    >
+                      <Text
+                        style={[
+                          styles.filterChipText,
+                          selectedZoneFilter === zone && styles.filterChipTextActive,
+                        ]}
+                      >
+                        {zone}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             <Text style={styles.filterSectionLabel}>Status</Text>
             <View style={styles.filterChipRow}>
