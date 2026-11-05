@@ -281,6 +281,50 @@ describe('TohfaCalendarScreen — community planting summary (BR-136)', () => {
     expect(tree.root.findAllByProps({ testID: 'tohfaCalendar.retry' }).length).toBe(0);
   });
 
+  it('BR-136: a 403 on both endpoints hides the filter chips, so no sheet can say the options failed to load', async () => {
+    const forbidden = (): Promise<unknown> =>
+      Promise.reject(new ApiError({ type: 'about:blank', title: 'Not permitted', status: 403, code: 'FORBIDDEN' }));
+    routeApi(forbidden, forbidden);
+    const tree = await mount();
+
+    for (const id of ['tohfaCalendar.filter.crop', 'tohfaCalendar.filter.month', 'tohfaCalendar.filter.region']) {
+      expect(tree.root.findAllByProps({ testID: id }).length, id).toBe(0);
+    }
+    expect(tree.root.findAllByType('Modal' as unknown as React.ElementType).length).toBe(0);
+    expect(textOf(tree)).not.toContain(t('farmer.tohfaCalendar.filter.loadError'));
+    expect(textOf(tree)).toContain(t('farmer.tohfaCalendar.unavailable'));
+  });
+
+  it('BR-136: a 503 COMMUNITY_PLANTING_NOT_CONFIGURED from the filters endpoint alone also hides the filter chips', async () => {
+    routeApi(
+      () => Promise.resolve(summary()),
+      () =>
+        Promise.reject(
+          new ApiError({
+            type: 'about:blank',
+            title: 'Community planting summary is not configured',
+            status: 503,
+            code: 'COMMUNITY_PLANTING_NOT_CONFIGURED',
+          }),
+        ),
+    );
+    const tree = await mount();
+
+    expect(tree.root.findAllByProps({ testID: 'tohfaCalendar.filter.crop' }).length).toBe(0);
+    expect(textOf(tree)).not.toContain(t('farmer.tohfaCalendar.filter.loadError'));
+  });
+
+  it('a non-permission failure of the filters endpoint still keeps the chips and shows the load error in the sheet', async () => {
+    routeApi(
+      () => Promise.resolve(summary()),
+      () => Promise.reject(new Error('network down')),
+    );
+    const tree = await mount();
+
+    await press(tree, 'tohfaCalendar.filter.crop');
+    expect(textOf(tree)).toContain(t('farmer.tohfaCalendar.filter.loadError'));
+  });
+
   it('unset filter chips keep the design labels (All crops / Month / Region)', async () => {
     routeApi(() => Promise.resolve(summary()));
     const tree = await mount();

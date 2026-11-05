@@ -341,6 +341,7 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
   };
 
   const sheetOptions = openFilter === null ? [] : optionsFor(openFilter);
+  const filtersUnavailable = community.state === 'unavailable' || community.filtersState === 'unavailable';
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -386,21 +387,25 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
           </Text>
         </View>
 
-        {/* Filter Chips Row */}
-        <View style={styles.filterRow}>
-          <TouchableOpacity testID="tohfaCalendar.filter.crop" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('crop')}>
-            <Text style={styles.filterChipText} numberOfLines={1}>{cropChipLabel}</Text>
-            <ChevronDown size={12} color={P.twGray600} />
-          </TouchableOpacity>
-          <TouchableOpacity testID="tohfaCalendar.filter.month" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('month')}>
-            <Text style={styles.filterChipText} numberOfLines={1}>{monthChipLabel}</Text>
-            <ChevronDown size={12} color={P.twGray600} />
-          </TouchableOpacity>
-          <TouchableOpacity testID="tohfaCalendar.filter.region" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('region')}>
-            <Text style={styles.filterChipText} numberOfLines={1}>{regionChipLabel}</Text>
-            <ChevronDown size={12} color={P.twGray600} />
-          </TouchableOpacity>
-        </View>
+        {/* Filter Chips Row — hidden while the view is switched off (403/503):
+            there is nothing to filter, and the sheet would only report a
+            "could not load" error that Retry cannot fix. */}
+        {filtersUnavailable ? null : (
+          <View style={styles.filterRow}>
+            <TouchableOpacity testID="tohfaCalendar.filter.crop" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('crop')}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{cropChipLabel}</Text>
+              <ChevronDown size={12} color={P.twGray600} />
+            </TouchableOpacity>
+            <TouchableOpacity testID="tohfaCalendar.filter.month" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('month')}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{monthChipLabel}</Text>
+              <ChevronDown size={12} color={P.twGray600} />
+            </TouchableOpacity>
+            <TouchableOpacity testID="tohfaCalendar.filter.region" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('region')}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{regionChipLabel}</Text>
+              <ChevronDown size={12} color={P.twGray600} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {renderSummary()}
 
@@ -446,7 +451,7 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
       </View>
 
       {/* Filter picker sheet (same Modal + backdrop pattern as AddPlantingScreen's date sheet) */}
-      {openFilter !== null ? (
+      {openFilter !== null && !filtersUnavailable ? (
         <Modal transparent visible animationType="fade" onRequestClose={() => setOpenFilter(null)}>
           <View style={styles.sheetOverlay}>
             <View style={[StyleSheet.absoluteFill, styles.sheetScrim]} pointerEvents="none" />
