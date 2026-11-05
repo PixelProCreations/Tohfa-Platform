@@ -835,18 +835,12 @@ export function AdminProfileScreen({
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Mobile Number</Text>
             <View style={styles.readOnlyInputBox}>
               <Text style={styles.readOnlyInputText}>{mobileNumber}</Text>
-              <View style={styles.lockedPillBadge}>
-                <Text style={styles.lockedPillBadgeText}>Locked</Text>
-              </View>
             </View>
 
             {/* Email Address - Locked (BR-83) */}
             <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Email Address</Text>
             <View style={styles.readOnlyInputBox}>
               <Text style={styles.readOnlyInputText}>{emailAddress}</Text>
-              <View style={styles.lockedPillBadge}>
-                <Text style={styles.lockedPillBadgeText}>Locked</Text>
-              </View>
             </View>
 
             {/* Language Selection */}
@@ -975,72 +969,37 @@ export function AdminProfileScreen({
         <View style={styles.card}>
           <View style={styles.infoRow}>
             <Text style={styles.infoRowLabel}>Full name</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{fullName}</Text>
-              <View style={styles.editablePillBadge}>
-                <Text style={styles.editablePillBadgeText}>Editable</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValue}>{fullName}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoRowLabel}>Mobile number</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{mobileNumber}</Text>
-              <View style={styles.lockedPillBadge}>
-                <Text style={styles.lockedPillBadgeText}>Locked</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValueLocked}>{mobileNumber}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoRowLabel}>Email address</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{emailAddress}</Text>
-              <View style={styles.lockedPillBadge}>
-                <Text style={styles.lockedPillBadgeText}>Locked</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValueLocked}>{emailAddress}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoRowLabel}>Language</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{language}</Text>
-              <View style={styles.editablePillBadge}>
-                <Text style={styles.editablePillBadgeText}>Editable</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValue}>{language}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoRowLabel}>{rbac.idLabel}</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{farmerId}</Text>
-              <View style={styles.readOnlyPillBadge}>
-                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValueLocked}>{farmerId}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoRowLabel}>Assigned zone</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{assignedZone}</Text>
-              <View style={styles.readOnlyPillBadge}>
-                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValueLocked}>{assignedZone}</Text>
           </View>
 
           <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
             <Text style={styles.infoRowLabel}>Account status</Text>
-            <View style={styles.infoRowRight}>
-              <Text style={styles.infoRowValue}>{accountStatus}</Text>
-              <View style={styles.readOnlyPillBadge}>
-                <Text style={styles.readOnlyPillBadgeText}>Read-only</Text>
-              </View>
-            </View>
+            <Text style={styles.infoRowValueLocked}>{accountStatus}</Text>
           </View>
         </View>
 
@@ -1404,7 +1363,15 @@ const styles = StyleSheet.create({
   },
   infoRowValue: {
     ...adminType.body,
+    fontWeight: '600',
     color: adminColors.ink,
+    textAlign: 'right',
+  },
+  infoRowValueLocked: {
+    ...adminType.body,
+    fontWeight: '500',
+    color: adminColors.muted,
+    textAlign: 'right',
   },
   readOnlyPillBadge: {
     backgroundColor: adminColors.canvas,
