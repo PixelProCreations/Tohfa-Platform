@@ -90,9 +90,17 @@ export function StaffDetailScreen({
 
   const member = staff ?? DEFAULT_STAFF_MEMBER;
   const isDriver = member.type === 'driver' || member.role.toLowerCase().includes('driver');
-  const isMain = isAllWarehouses(scope);
   const isTohfa = isTohfaAdminUser(can, role);
-  const hasUpdateStatus = isTohfa || can('admin.staff.status_update') || can('warehouse.staff.update_status');
+  const isSubWH = role === 'SUB_WH_ADMIN';
+  const isMainWH =
+    !isSubWH &&
+    (role === 'MAIN_WH_ADMIN' ||
+      isAllWarehouses(scope) ||
+      (can ? can('admin.staff.attendance.mark') || can('admin.staff.manage') : false));
+
+  // RBAC: "Update active status *" dropdown is enabled for TOHFA_ADMIN and MAIN_WH_ADMIN only,
+  // strictly hidden for SUB_WH_ADMIN per RBAC shared-screen specifications.
+  const hasUpdateStatus = !isSubWH && (isTohfa || isMainWH);
   const canDeactivate = isTohfa;
   const canEdit = isTohfa && !!onEditProfile;
 
@@ -233,6 +241,10 @@ export function StaffDetailScreen({
                     onPress={() => {
                       setSelectedStatus(statusOption);
                       setShowStatusDropdown(false);
+                      Alert.alert(
+                        'Status Updated',
+                        `Active status for ${member.name} has been updated to "${statusOption}".`
+                      );
                     }}
                     activeOpacity={0.7}
                   >
@@ -480,9 +492,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     marginTop: adminSpacing.xs,
-    width: '60%',
-    ...adminShadow.sm,
+    alignSelf: 'flex-end',
+    width: '55%',
+    ...adminShadow.md,
     elevation: 4,
+    zIndex: 10,
   },
   dropdownMenuItem: {
     paddingVertical: 12,

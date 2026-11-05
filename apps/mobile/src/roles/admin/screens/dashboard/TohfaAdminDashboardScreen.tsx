@@ -8222,7 +8222,7 @@ export function TohfaAdminDashboardScreen({
             return {
               ...item,
               name: fullName,
-              avatarInitials: initials || item.avatarInitials,
+              avatarInitials: initials || item.avatarInitials || '',
               role: createStaffRole,
               assignedRole: createStaffRole,
               warehouse: finalWarehouse,
