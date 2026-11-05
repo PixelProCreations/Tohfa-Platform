@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
+  Alert,
+  Modal,
   SafeAreaView,
+  TextInput,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -17,6 +20,7 @@ import Svg, {
 } from 'react-native-svg';
 import {
   adminColors,
+  adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
@@ -70,6 +74,16 @@ function FieldLandscapeBanner() {
   );
 }
 
+
+function PencilWhiteIcon({ size = 18, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 // ─── Thread Data Model ────────────────────────────────────────────────────────
 
 export interface MessageThread {
@@ -110,13 +124,28 @@ export interface ArticleDetailsScreenProps {
   onBack: () => void;
   onOpenChatThread?: (threadId: string) => void;
   onOpenContentDetails?: () => void;
+  onEditArticle?: () => void;
 }
 
 export function ArticleDetailsScreen({
   onBack,
   onOpenChatThread,
   onOpenContentDetails,
+  onEditArticle,
 }: ArticleDetailsScreenProps) {
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [articleTitle, setArticleTitle] = useState('Mulching for water retention');
+  const [articleStatus, setArticleStatus] = useState<'Approved' | 'Pending Review' | 'Draft'>('Approved');
+
+  const handleSaveEdit = () => {
+    if (!articleTitle.trim()) {
+      Alert.alert('Required Field', 'Please enter an article title.');
+      return;
+    }
+    setShowEditModal(false);
+    Alert.alert('Success', 'Article details updated successfully.');
+  };
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -124,16 +153,28 @@ export function ArticleDetailsScreen({
       {/* ─── Top Terracotta Header (Screenshot 1 right: "Artical details") ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
+          <View style={styles.headerLeftRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon size={20} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Artical details</Text>
+          </View>
+
           <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            style={styles.headerEditBtn}
+            onPress={() => setShowEditModal(true)}
+            activeOpacity={0.8}
+            accessibilityLabel="Edit article"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <BackArrowWhiteIcon size={20} />
+            <PencilWhiteIcon size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Artical details</Text>
         </View>
       </View>
 
@@ -151,10 +192,10 @@ export function ArticleDetailsScreen({
           <FieldLandscapeBanner />
           <View style={styles.bannerInfo}>
             <View style={styles.bannerTitleRow}>
-              <Text style={styles.bannerTitle}>Mulching for water retention</Text>
+              <Text style={styles.bannerTitle}>{articleTitle}</Text>
               <View style={styles.badgeGroup}>
                 <View style={styles.approvedBadge}>
-                  <Text style={styles.approvedBadgeText}>Approved</Text>
+                  <Text style={styles.approvedBadgeText}>{articleStatus}</Text>
                 </View>
                 <View style={styles.articleBadge}>
                   <Text style={styles.articleBadgeText}>Article</Text>
@@ -214,6 +255,86 @@ export function ArticleDetailsScreen({
       >
         <SendArrowIcon size={20} color={adminColors.onBrand} />
       </TouchableOpacity>
+      {/* ─── Edit Article Popup Modal (Design M15-S02b) ─── */}
+      <Modal
+        visible={showEditModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowEditModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowEditModal(false)}
+        >
+          <TouchableOpacity
+            style={styles.modalCard}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Edit Article</Text>
+              <TouchableOpacity
+                onPress={() => setShowEditModal(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Article Title *</Text>
+            <TextInput
+              style={styles.textInput}
+              value={articleTitle}
+              onChangeText={setArticleTitle}
+              placeholder="Article title"
+              placeholderTextColor={adminColors.placeholder}
+            />
+
+            <Text style={styles.inputLabel}>Status</Text>
+            <View style={styles.statusChipsRow}>
+              {(['Approved', 'Pending Review', 'Draft'] as const).map((st) => {
+                const isSelected = articleStatus === st;
+                return (
+                  <TouchableOpacity
+                    key={st}
+                    style={[styles.statusChip, isSelected && styles.statusChipSelected]}
+                    onPress={() => setArticleStatus(st)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.statusChipText, isSelected && styles.statusChipTextSelected]}>
+                      {st}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.modalActions}>
+              {onEditArticle && (
+                <TouchableOpacity
+                  style={styles.editorActionBtn}
+                  onPress={() => {
+                    setShowEditModal(false);
+                    onEditArticle();
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.editorActionBtnText}>Open Full Editor</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.saveActionBtn}
+                onPress={handleSaveEdit}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.saveActionBtnText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -236,7 +357,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
   },
   backBtn: {
     width: 32,
@@ -411,14 +532,135 @@ const styles = StyleSheet.create({
   // ─── Floating Action Button ───
   fabBtn: {
     position: 'absolute',
-    right: 20,
     bottom: 24,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    right: 20,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     ...adminShadow.md,
+  },
+  headerLeftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerEditBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: adminColors.headerIcon.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    ...adminShadow.md,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  modalCloseText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: adminColors.muted,
+  },
+  inputLabel: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    ...adminType.body,
+    fontSize: 14,
+    color: adminColors.ink,
+    backgroundColor: adminColors.canvas,
+  },
+  statusChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  statusChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.canvas,
+  },
+  statusChipSelected: {
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
+  },
+  statusChipText: {
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.muted,
+  },
+  statusChipTextSelected: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  modalActions: {
+    gap: 10,
+    marginTop: 10,
+  },
+  editorActionBtn: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editorActionBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  saveActionBtn: {
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveActionBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.onBrand,
   },
 });

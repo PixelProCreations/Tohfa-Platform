@@ -146,24 +146,19 @@ export function ChannelSalesScreen({
   const [showAddItemModal, setShowAddItemModal] = useState(false);
 
   // Form Field State
-  const [businessType, setBusinessType] = useState(channel === 'B2B' ? 'Retailer' : 'Hotel');
-  const [businessName, setBusinessName] = useState(channel === 'B2B' ? 'Green Valley Retail Pvt Ltd' : 'Hilltop Resort & Restaurant');
-  const [contactPerson, setContactPerson] = useState('Rajesh Sharma');
-  const [phone, setPhone] = useState('9876543210');
+  const [businessType, setBusinessType] = useState('Hotel');
+  const [businessName, setBusinessName] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
+  const [phone, setPhone] = useState('');
   const [fulfillingWarehouse, setFulfillingWarehouse] = useState('Ooty');
   const [fulfilmentMode, setFulfilmentMode] = useState<'Delivery' | 'Pickup'>('Delivery');
-  const [deliveryDate, setDeliveryDate] = useState('24/09/2026');
-  const [deliveryAddress, setDeliveryAddress] = useState('12 Market Road, Ooty');
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'Bank Transfer' | 'UPI' | 'Cash'>('Bank Transfer');
   const [notes, setNotes] = useState('');
 
   // Order Items in Creation
-  const [orderItems, setOrderItems] = useState<Array<{ name: string; grade: string; qty: number; unitPrice: number; lineTotal: number }>>([
-    { name: 'Tomato', grade: 'Grade 1', qty: 10, unitPrice: 100, lineTotal: 1000 },
-    { name: 'Tomato', grade: 'Grade 1', qty: 10, unitPrice: 100, lineTotal: 1000 },
-    { name: 'Tomato', grade: 'Grade 1', qty: 10, unitPrice: 100, lineTotal: 1000 },
-    { name: 'Tomato', grade: 'Grade 1', qty: 10, unitPrice: 100, lineTotal: 1000 },
-  ]);
+  const [orderItems, setOrderItems] = useState<Array<{ name: string; grade: string; qty: number; unitPrice: number; lineTotal: number }>>([]);
 
   // Add Item Modal Inputs
   const [modalProduct, setModalProduct] = useState('Tomato');
@@ -578,7 +573,7 @@ export function ChannelSalesScreen({
             <TouchableOpacity style={styles.backBtn} onPress={() => setCreatingOrder(false)} activeOpacity={0.8}>
               <ArrowBackIcon size={24} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{channel === 'B2B' ? 'Create B2B Order' : 'Create HORECA Order'}</Text>
+            <Text style={styles.headerTitle}>Create HORECA / B2B Orders</Text>
             <View style={styles.stepPillBadge}>
               <Text style={styles.stepPillText}>STEP 1 OF 2</Text>
             </View>
@@ -590,19 +585,27 @@ export function ChannelSalesScreen({
           <Text style={styles.formSectionHeader}>Business Details</Text>
           <View style={styles.formCard}>
             <Text style={styles.inputFieldLabel}>Existing business (tap to prefill)</Text>
-            <View style={styles.textInputBox}>
-              <TextInput
-                style={styles.inputTextInput}
-                value={businessName}
-                onChangeText={setBusinessName}
-                placeholder="Business Name"
-                placeholderTextColor={adminColors.placeholder}
-              />
-            </View>
+            <TouchableOpacity
+              style={styles.textInputBox}
+              activeOpacity={0.75}
+              onPress={() => {
+                setBusinessName('Hilltop Resort & Restaurant');
+                setBusinessType('Hotel');
+                setContactPerson('Rajesh Sharma');
+                setPhone('9876543210');
+                setDeliveryAddress('12 Market Road, Ooty');
+                setDeliveryDate('24/09/2026');
+                setFulfillingWarehouse('Ooty');
+              }}
+            >
+              <Text style={{ fontSize: 13.5, color: adminColors.ink, fontWeight: '500' }}>
+                Hilltop Resort & Restaurant
+              </Text>
+            </TouchableOpacity>
 
             <Text style={[styles.inputFieldLabel, { marginTop: 12 }]}>Business Type</Text>
             <View style={styles.chipRowWrap}>
-              {(channel === 'B2B' ? ['Retailer', 'Distributor', 'Wholesaler', 'Other'] : ['Hotel', 'Restaurant', 'Resort', 'Other']).map((t) => (
+              {['Hotel', 'Restaurant', 'Catering', 'Other'].map((t) => (
                 <TouchableOpacity
                   key={t}
                   style={[styles.typeChip, businessType === t && styles.typeChipActive]}
@@ -690,7 +693,7 @@ export function ChannelSalesScreen({
                 style={styles.inputTextInput}
                 value={deliveryDate}
                 onChangeText={setDeliveryDate}
-                placeholder="mm/dd/yyyy"
+                placeholder="dd - mm - yyyy"
                 placeholderTextColor={adminColors.placeholder}
               />
               <CalendarIcon size={18} color={adminColors.muted} />
@@ -1015,7 +1018,8 @@ export function ChannelSalesScreen({
           <TouchableOpacity
             style={styles.createOrderBottomBtn}
             onPress={() => {
-              Alert.alert('Not Supported', '501 Not Implemented: Channel order creation for HORECA and B2B is not supported (SALE_CHANNEL_NOT_SUPPORTED, BR-13/BR-15b).');
+              setCreatingOrder(true);
+              setCreateStep(1);
             }}
             activeOpacity={0.85}
           >

@@ -82,16 +82,21 @@ import {
 } from '../finance';
 import { PurchaseDuesPayoutsScreen } from '../finance/PurchaseDuesPayoutsScreen';
 import { SalesIncomeRevenueScreen } from '../finance/SalesIncomeRevenueScreen';
-import { ExpenseManagementScreen } from '../finance/ExpenseManagementScreen';
+
+import { FinanceFlow } from '../warehouse/finance-expenses';
 import { InvoicesGstBillingScreen } from '../finance/InvoicesGstBillingScreen';
 import { ReturnsRmaRefundsScreen } from '../finance/ReturnsRmaRefundsScreen';
 import { TransactionHistoryScreen } from '../finance/TransactionHistoryScreen';
-import { CustomerWalletOverviewScreen } from '../finance/CustomerWalletOverviewScreen';
+
+import { CustomerWalletScreen } from '../warehouse/wallet-cashtopup';
 import { ReportsExportScreen } from '../finance/ReportsExportScreen';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
+import { AdminSalesFinanceOverviewScreen } from './AdminSalesFinanceOverviewScreen';
+import { ReportsScreen } from '../warehouse/reports';
 import { InventoryFlow } from '../warehouse/inventory';
-import { StockLedgerBatchesScreen } from './StockLedgerBatchesScreen';
-import { StockVerificationScreen } from './StockVerificationScreen';
+import { CustomersFlow, CUSTOMER_WAREHOUSES } from '../warehouse/customers';
+
+
 import { InterWarehouseTransfersScreen } from './InterWarehouseTransfersScreen';
 import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
@@ -101,6 +106,8 @@ import { InputDetailScreen } from './InputDetailScreen';
 import { PestLibraryScreen, AddNewPestScreen } from './PestLibraryScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
+import { AddNewGuideScreen } from './AddNewGuideScreen';
+import { ApplicationTreatmentGuidesScreen } from './ApplicationTreatmentGuidesScreen';
 import { CommunityKnowledgeHomeScreen } from './CommunityKnowledgeHomeScreen';
 import { CreateContentScreen, type ContentTypeOption, type CreateContentInitialData } from './CreateContentScreen';
 import { CreateGroupScreen } from './CreateGroupScreen';
@@ -114,6 +121,7 @@ import { ArticleDetailsScreen } from './ArticleDetailsScreen';
 import { ContentItemDetailScreen } from './ContentItemDetailScreen';
 import { ContentPendingReviewScreen } from './ContentPendingReviewScreen';
 import { KnowledgeLibraryScreen } from './KnowledgeLibraryScreen';
+import { AuditScheduleScreen } from './AuditScheduleScreen';
 import {
   AuditManagementScreen,
   AuditScheduleAssignmentScreen,
@@ -4668,10 +4676,12 @@ function CustomersManagementScreen({
   onBack,
   onOpenDirectory,
   onOpenGstBusiness,
+  onSelectCustomer,
 }: {
   onBack: () => void;
   onOpenDirectory: () => void;
   onOpenGstBusiness: () => void;
+  onSelectCustomer?: (customer: { id: string; name: string }) => void;
 }) {
   const [search, setSearch] = useState('');
   const [showPeriodModal, setShowPeriodModal] = useState(false);
@@ -4784,7 +4794,13 @@ function CustomersManagementScreen({
 
         {/* Recent customers */}
         <Text style={customerStyles.sectionHeading}>Recent customers</Text>
-        <View style={customerStyles.recentCustomerCard}>
+        <TouchableOpacity
+          style={customerStyles.recentCustomerCard}
+          activeOpacity={0.75}
+          onPress={() => onSelectCustomer?.({ id: 'CUS-1011', name: 'Lakshmi Narayan' })}
+          accessibilityRole="button"
+          accessibilityLabel="Customer CUS-1011 Lakshmi Narayan"
+        >
           <View style={customerStyles.cardTopRow}>
             <Text style={customerStyles.customerCardTitle}>CUS-1011 · Lakshmi Narayan</Text>
             <View style={customerStyles.badgePending}>
@@ -4794,9 +4810,15 @@ function CustomersManagementScreen({
           <Text style={customerStyles.customerCardSubtext}>
             Individual · +91 ••••• 0164 · Reg. 13 Oct 2026 · No preferred warehouse · No orders yet
           </Text>
-        </View>
+        </TouchableOpacity>
 
-        <View style={customerStyles.recentCustomerCard}>
+        <TouchableOpacity
+          style={customerStyles.recentCustomerCard}
+          activeOpacity={0.75}
+          onPress={() => onSelectCustomer?.({ id: 'CUS-1007', name: 'Priya Nair' })}
+          accessibilityRole="button"
+          accessibilityLabel="Customer CUS-1007 Priya Nair"
+        >
           <View style={customerStyles.cardTopRow}>
             <Text style={customerStyles.customerCardTitle}>CUS-1007 · Priya Nair</Text>
             <View style={customerStyles.badgeActive}>
@@ -4806,7 +4828,7 @@ function CustomersManagementScreen({
           <Text style={customerStyles.customerCardSubtext}>
             Individual · +91 ••••• 0157 · Reg. 12 Oct 2026 · No preferred warehouse · No orders yet
           </Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Quick actions */}
         <Text style={customerStyles.sectionHeading}>Quick actions</Text>
@@ -7053,7 +7075,7 @@ export function TohfaAdminDashboardScreen({
 
   // Inputs & Pest Management Module State (Image 1/2: home, Image 3: catalog, Images 1-3: add_input, Image 5: input_detail, Image 1: pest_library, Images 2-5: add_pest, Image 1: pest_incidents, Image 2-4: incident_detail)
   const [inputsPestScreen, setInputsPestScreen] = useState<
-    'home' | 'catalog' | 'add_input' | 'input_detail' | 'pest_library' | 'add_pest' | 'pest_incidents' | 'incident_detail' | null
+    'home' | 'catalog' | 'add_input' | 'input_detail' | 'pest_library' | 'add_pest' | 'pest_incidents' | 'incident_detail' | 'application_guides' | 'add_guide' | null
   >(null);
   const [selectedCatalogInput, setSelectedCatalogInput] = useState<CatalogInputItem | undefined>(undefined);
   const [selectedIncident, setSelectedIncident] = useState<IncidentItem | undefined>(undefined);
@@ -7072,7 +7094,9 @@ export function TohfaAdminDashboardScreen({
   const [createContentInitialType, setCreateContentInitialType] = useState<ContentTypeOption>('Article');
   const [createContentInitialData, setCreateContentInitialData] = useState<CreateContentInitialData | undefined>(undefined);
   const [groupNavOrigin, setGroupNavOrigin] = useState<'home' | 'all_groups'>('home');
-  const [communityNavOrigin, setCommunityNavOrigin] = useState<'home' | 'all_communities'>('home');
+  const [communityNavOrigin, setCommunityNavOrigin] = useState<'home' | 'all_communities' | 'community_details'>('home');
+  const [communityIsEditing, setCommunityIsEditing] = useState(false);
+  const [groupIsEditing, setGroupIsEditing] = useState(false);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('comm-1');
   const [articleNavOrigin, setArticleNavOrigin] = useState<'home' | 'content_item_detail' | 'content_pending_review'>('content_item_detail');
 
@@ -7138,6 +7162,7 @@ export function TohfaAdminDashboardScreen({
     | 'listingApproval'
     | 'scheduleAudit'
     | 'auditScheduleAssignment'
+    | 'auditDetailFieldVisit'
     | 'auditDetailsRecord'
     | 'scheduleAuditForm'
     | 'auditHistoryCompliance'
@@ -7155,7 +7180,13 @@ export function TohfaAdminDashboardScreen({
     | 'categoriesGrades'
     | 'retailPricing'
     | 'priceHistory'
+    | 'operationsOverview'
+    | 'salesFinanceOverview'
+    | 'exportReport'
     | null
+  >(null);
+  const [exportReportReturnSubScreen, setExportReportReturnSubScreen] = useState<
+    'operationsOverview' | 'salesFinanceOverview' | null
   >(null);
   const [pricingRecords, setPricingRecords] = useState<PricingRecordItem[]>(INITIAL_PRICING_RECORDS);
   const [selectedPricingRecord, setSelectedPricingRecord] = useState<PricingRecordItem | null>(null);
@@ -8029,15 +8060,6 @@ export function TohfaAdminDashboardScreen({
       },
     },
     {
-      id: 'qa_support',
-      label: 'Customer support and refunds',
-      icon: <QuickSupportIcon size={26} />,
-      action: () => {
-        setActiveTab('Home');
-        setDashboardSubScreen('support');
-      },
-    },
-    {
       id: 'qa_finance',
       label: 'Review finance and payouts',
       icon: <QuickWalletIcon size={26} />,
@@ -8055,15 +8077,6 @@ export function TohfaAdminDashboardScreen({
         setInputsPestReturnTab('Home');
         setInputsPestScreen('home');
         setActiveTab('More');
-      },
-    },
-    {
-      id: 'qa_reports',
-      label: 'Open operational reports',
-      icon: <QuickDocIcon size={26} />,
-      action: () => {
-        setReportsSubScreen(null);
-        setActiveTab('Reports');
       },
     },
     {
@@ -10991,7 +11004,7 @@ export function TohfaAdminDashboardScreen({
             onViewSchedule={(schedule) => {
               setSelectedAuditId(schedule.code);
               setAuditDetailsReturnScreen('auditScheduleAssignment');
-              setDashboardSubScreen('auditDetailsRecord');
+              setDashboardSubScreen('auditDetailFieldVisit');
             }}
             onEditSchedule={(schedule) => {
               setSelectedAuditId(schedule.code);
@@ -11003,6 +11016,12 @@ export function TohfaAdminDashboardScreen({
               setScheduleAuditFormReturnScreen('auditScheduleAssignment');
               setDashboardSubScreen('scheduleAuditForm');
             }}
+          />
+        ) : dashboardSubScreen === 'auditDetailFieldVisit' ? (
+          <AuditScheduleScreen
+            initialView="detail"
+            initialAuditId={selectedAuditId}
+            onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
           />
         ) : dashboardSubScreen === 'auditDetailsRecord' ? (
           <AuditDetailsFarmerRecordsScreen
@@ -11110,6 +11129,104 @@ export function TohfaAdminDashboardScreen({
                     }}
                   />
                 )
+              ) : dashboardSubScreen === 'operationsOverview' ? (
+                <AdminOperationsOverviewScreen
+                  initialViewMode="overview"
+                  onBack={() => setDashboardSubScreen(null)}
+                  onExportReports={() => {
+                    if (can('report.export.file') || !user) {
+                      setExportReportReturnSubScreen('operationsOverview');
+                      setDashboardSubScreen('exportReport');
+                    } else {
+                      Alert.alert(
+                        'Access Restricted',
+                        'Your role lacks permission to export reports (report.export.file).'
+                      );
+                    }
+                  }}
+                  onNavigateToFarmers={() => {
+                    setActiveTab('Farmers');
+                  }}
+                  onNavigateToApplications={() => {
+                    setDashboardSubScreen('pendingApplications');
+                  }}
+                  onNavigateToProduce={() => {
+                    setProduceControlScreen('calendar');
+                    setActiveTab('More');
+                  }}
+                  onNavigateToStockLedger={() => {
+                    setSelectedWarehouseScope({
+                      warehouseId: 'WH-COON',
+                      warehouseName: 'Coonoor Warehouse',
+                    });
+                    setOperationsSubScreen('stockLedger');
+                    setActiveTab('Inventory');
+                  }}
+                  onNavigateToStockVerification={() => {
+                    setSelectedWarehouseScope({
+                      warehouseId: 'WH-COON',
+                      warehouseName: 'Coonoor Warehouse',
+                    });
+                    setOperationsSubScreen('stockVerification');
+                    setActiveTab('Inventory');
+                  }}
+                  onNavigateToTransfers={() => {
+                    setOperationsSubScreen('transfers');
+                    setActiveTab('Inventory');
+                  }}
+                  onSelectWarehouse={(whId) => {
+                    const map: Record<string, { warehouseId: string; warehouseName: string }> = {
+                      wh_main: { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (WH-MAIN)' },
+                      wh_sub1: { warehouseId: 'WH-COON', warehouseName: 'Coonoor (WH-SUB1)' },
+                      wh_sub2: { warehouseId: 'WH-KOT', warehouseName: 'Kotagiri (WH-SUB2)' },
+                      wh_sub3: { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
+                    };
+                    setSelectedWarehouseScope(map[whId] || {
+                      warehouseId: 'WH-COON',
+                      warehouseName: 'Coonoor Warehouse',
+                    });
+                    setOperationsSubScreen('stockLedger');
+                    setActiveTab('Inventory');
+                  }}
+                />
+              ) : dashboardSubScreen === 'salesFinanceOverview' ? (
+                <AdminSalesFinanceOverviewScreen
+                  onBack={() => setDashboardSubScreen(null)}
+                  onExportReports={() => {
+                    if (can('report.export.file') || !user) {
+                      setExportReportReturnSubScreen('salesFinanceOverview');
+                      setDashboardSubScreen('exportReport');
+                    } else {
+                      Alert.alert(
+                        'Access Restricted',
+                        'Your role lacks permission to export reports (report.export.file).'
+                      );
+                    }
+                  }}
+                  onNavigateCustomers={() => {
+                    setCustomerScreen('management');
+                    setActiveTab('More');
+                  }}
+                  onNavigatePricing={() => {
+                    setPricingReturnTab('Home');
+                    setDashboardSubScreen('marketPricingHome');
+                  }}
+                  onNavigateFinance={() => {
+                    setActiveTab('Finance');
+                  }}
+                />
+              ) : dashboardSubScreen === 'exportReport' ? (
+                <ReportsScreen
+                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                  can={can}
+                  canExport={can ? can('report.export.file') : true}
+                  onBack={() => {
+                    const ret = exportReportReturnSubScreen;
+                    setExportReportReturnSubScreen(null);
+                    setDashboardSubScreen(ret);
+                  }}
+                  initialScreen="export_report"
+                />
               ) : (
                 <ScrollView
                   style={styles.scroll}
@@ -11357,14 +11474,22 @@ export function TohfaAdminDashboardScreen({
                     <View style={styles.sectionHeaderRow}>
                       <Text style={styles.sectionHeading}>Operations summary</Text>
                       <TouchableOpacity
-                        onPress={() => setActiveTab('Inventory')}
+                        onPress={() => setDashboardSubScreen('operationsOverview')}
                         activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open Operations Overview"
                       >
                         <Text style={styles.sectionOpenLink}>Open →</Text>
                       </TouchableOpacity>
                     </View>
 
-                    <View style={styles.summaryListCard}>
+                    <TouchableOpacity
+                      style={styles.summaryListCard}
+                      onPress={() => setDashboardSubScreen('operationsOverview')}
+                      activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Operations Summary Card"
+                    >
                       <View style={styles.summaryRow}>
                         <Text style={styles.summaryRowLabel}>Farmers · active / registered</Text>
                         <Text style={styles.summaryRowValue}>20 / 24</Text>
@@ -11393,7 +11518,7 @@ export function TohfaAdminDashboardScreen({
                         <Text style={styles.summaryRowLabel}>Warehouse · discrepancies</Text>
                         <Text style={styles.summaryRowValue}>2</Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   </View>
 
                   {/* 8. Sales & Finance Summary Section */}
@@ -11401,8 +11526,10 @@ export function TohfaAdminDashboardScreen({
                     <View style={styles.sectionHeaderRow}>
                       <Text style={styles.sectionHeading}>Sales & Finance summary</Text>
                       <TouchableOpacity
-                        onPress={() => setActiveTab('Finance')}
+                        onPress={() => setDashboardSubScreen('salesFinanceOverview')}
                         activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel="Open Sales & Finance Overview"
                       >
                         <Text style={styles.sectionOpenLink}>Open →</Text>
                       </TouchableOpacity>
@@ -11411,8 +11538,10 @@ export function TohfaAdminDashboardScreen({
                     {/* Sales Breakdown Card */}
                     <TouchableOpacity
                       style={styles.summaryListCard}
-                      onPress={() => setActiveTab('Finance')}
+                      onPress={() => setDashboardSubScreen('salesFinanceOverview')}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Sales & Finance Summary Card"
                     >
                       <View style={styles.summaryRow}>
                         <Text style={styles.summaryRowLabel}>Order value (30 days)</Text>
@@ -11745,7 +11874,15 @@ export function TohfaAdminDashboardScreen({
                   initialViewMode="warehouses"
                   onBack={() => setActiveTab('Home')}
                   onExportReports={() => {
-                    Alert.alert('Export Reports', 'Reports exported successfully in PDF and Excel formats.');
+                    if (can('report.export.file') || !user) {
+                      setExportReportReturnSubScreen(null);
+                      setDashboardSubScreen('exportReport');
+                    } else {
+                      Alert.alert(
+                        'Access Restricted',
+                        'Your role lacks permission to export reports (report.export.file).'
+                      );
+                    }
                   }}
                   onNavigateToStockLedger={() => {
                     setSelectedWarehouseScope({
@@ -11869,7 +12006,10 @@ export function TohfaAdminDashboardScreen({
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'expenses' ? (
-                <ExpenseManagementScreen
+                <FinanceFlow
+                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                  can={can}
+                  initialScreen="Expenses"
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'invoicesGst' ? (
@@ -11878,18 +12018,24 @@ export function TohfaAdminDashboardScreen({
                 />
               ) : financeSubScreen === 'reviewReturns' ? (
                 <ReturnsRmaRefundsScreen
+                  can={can}
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'transactionHistory' ? (
                 <TransactionHistoryScreen
+                  can={can}
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'customerWallet' ? (
-                <CustomerWalletOverviewScreen
+                <CustomerWalletScreen
+                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                  can={can}
+                  hideCashTopUp={true}
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'reportExport' ? (
                 <ReportsExportScreen
+                  can={can}
                   onBack={handleFinanceBack}
                 />
               ) : (
@@ -12278,17 +12424,47 @@ export function TohfaAdminDashboardScreen({
               customerScreen === 'management' ? (
                 <CustomersManagementScreen
                   onBack={() => setCustomerScreen(null)}
-                  onOpenDirectory={() => setCustomerScreen('directory')}
+                  onOpenDirectory={() => {
+                    if (can('customer.list.view') || can('customer.detail.view') || !user) {
+                      setCustomerScreen('directory');
+                    } else {
+                      Alert.alert(
+                        'Access Restricted',
+                        'Your role lacks permission to access Customer Directory (customer.list.view).'
+                      );
+                    }
+                  }}
+                  onSelectCustomer={(cust) => {
+                    if (can('customer.detail.view') || !user) {
+                      setSelectedCustomer({
+                        id: cust.id,
+                        name: cust.name,
+                        type: 'Individual',
+                        phone: '+91 ••••• 0164',
+                        email: 'customer@example.com',
+                        status: 'Active',
+                        preferredWarehouse: 'WH-COON',
+                        registrationDate: '13 Oct 2026',
+                      });
+                      setCustomerScreen('customer_detail');
+                    } else {
+                      Alert.alert(
+                        'Access Restricted',
+                        'Your role lacks permission to view customer details (customer.detail.view).'
+                      );
+                    }
+                  }}
                   onOpenGstBusiness={() => setCustomerScreen('gst_business')}
                 />
               ) : customerScreen === 'directory' ? (
-                <CustomerDirectoryScreen
+                <CustomersFlow
+                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                  warehouseOptions={CUSTOMER_WAREHOUSES}
+                  can={can}
+                  initialScreen="CustomerDetails"
+                  initialParams={{ customer: undefined }}
+                  hideQuickActions={true}
                   onBack={() => setCustomerScreen('management')}
-                  onSelectCustomer={(cust) => {
-                    setSelectedCustomer(cust);
-                    setCustomerScreen('customer_detail');
-                  }}
-                  onAddNewCustomer={() => setCustomerScreen('add_customer')}
                 />
               ) : customerScreen === 'add_customer' ? (
                 <AddCustomerScreen
@@ -12299,9 +12475,14 @@ export function TohfaAdminDashboardScreen({
                   }}
                 />
               ) : customerScreen === 'customer_detail' ? (
-                <CustomerDetailScreen
-                  customer={selectedCustomer}
-                  onBack={() => setCustomerScreen('directory')}
+                <CustomersFlow
+                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                  warehouseOptions={CUSTOMER_WAREHOUSES}
+                  can={can}
+                  initialScreen="CustomerDetails"
+                  initialParams={{ customer: selectedCustomer ? { name: selectedCustomer.name, id: selectedCustomer.id, code: selectedCustomer.id } : undefined }}
+                  hideQuickActions={true}
+                  onBack={() => setCustomerScreen('management')}
                 />
               ) : customerScreen === 'gst_business' ? (
                 <GstBusinessScreen
@@ -12369,9 +12550,20 @@ export function TohfaAdminDashboardScreen({
                   }}
                   onNavigateApprovedInputs={() => setInputsPestScreen('catalog')}
                   onNavigatePestLibrary={() => setInputsPestScreen('pest_library')}
-                  onNavigateApplicationGuides={() => Alert.alert('Application Guides', 'Create Application Guide module.')}
+                  onNavigateApplicationGuides={() => setInputsPestScreen('application_guides')}
                   onNavigatePestIncidents={() => setInputsPestScreen('pest_incidents')}
                   onAddInput={() => setInputsPestScreen('add_input')}
+                />
+              ) : inputsPestScreen === 'application_guides' ? (
+                <ApplicationTreatmentGuidesScreen
+                  onBack={() => setInputsPestScreen('home')}
+                  onAddNewGuide={() => setInputsPestScreen('add_guide')}
+                  onEditGuide={() => setInputsPestScreen('add_guide')}
+                />
+              ) : inputsPestScreen === 'add_guide' ? (
+                <AddNewGuideScreen
+                  onBack={() => setInputsPestScreen('application_guides')}
+                  onSave={() => setInputsPestScreen('application_guides')}
                 />
               ) : inputsPestScreen === 'catalog' ? (
                 <ApprovedInputsScreen
@@ -12432,13 +12624,15 @@ export function TohfaAdminDashboardScreen({
                 />
               ) : communitySubScreen === 'create_group' ? (
                 <CreateGroupScreen
+                  isEditing={groupIsEditing}
                   onBack={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
                   onSubmitSuccess={() => setCommunitySubScreen(groupNavOrigin === 'all_groups' ? 'all_groups' : 'home')}
                 />
               ) : communitySubScreen === 'create_community' ? (
                 <CreateCommunityScreen
-                  onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
-                  onSubmitSuccess={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
+                  isEditing={communityIsEditing}
+                  onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : communityNavOrigin === 'community_details' ? 'community_details' : 'home')}
+                  onSubmitSuccess={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : communityNavOrigin === 'community_details' ? 'community_details' : 'home')}
                 />
               ) : communitySubScreen === 'add_video' ? (
                 <AddVideoScreen
@@ -12453,6 +12647,14 @@ export function TohfaAdminDashboardScreen({
                   communityId={selectedCommunityId}
                   onBack={() => setCommunitySubScreen(communityNavOrigin === 'all_communities' ? 'all_communities' : 'home')}
                   onNavigateKnowledgeDetail={() => setCommunitySubScreen('article_details')}
+                  onNavigateEditCommunity={() => {
+                    setCommunityNavOrigin('community_details');
+                    setCommunityIsEditing(true);
+                    setCommunitySubScreen('create_community');
+                  }}
+                  onNavigateCreatePost={() => {
+                    setCommunitySubScreen('create_content');
+                  }}
                 />
               ) : communitySubScreen === 'all_communities' ? (
                 <CommunitiesListScreen
@@ -12464,7 +12666,18 @@ export function TohfaAdminDashboardScreen({
                   }}
                   onNavigateCreateCommunity={() => {
                     setCommunityNavOrigin('all_communities');
+                    setCommunityIsEditing(false);
                     setCommunitySubScreen('create_community');
+                  }}
+                  onNavigateEditCommunity={(commId) => {
+                    setCommunityNavOrigin('all_communities');
+                    if (commId) setSelectedCommunityId(commId);
+                    setCommunityIsEditing(true);
+                    setCommunitySubScreen('create_community');
+                  }}
+                  onNavigateCreatePost={(commId) => {
+                    if (commId) setSelectedCommunityId(commId);
+                    setCommunitySubScreen('create_content');
                   }}
                 />
               ) : communitySubScreen === 'all_groups' ? (
@@ -12593,7 +12806,16 @@ export function TohfaAdminDashboardScreen({
                       setPricingReturnTab('More');
                       setDashboardSubScreen('marketPricingHome');
                     } else if (optionId === 'purchase_sales') {
-                      setActiveTab('Finance');
+                      if (can('sales.channel.manage') || can('order.list.view') || can('sales.order.create') || !user) {
+                        setFinanceReturnTab('More');
+                        setFinanceSubScreen('purchaseSales');
+                        setActiveTab('Finance');
+                      } else {
+                        Alert.alert(
+                          'Access Restricted',
+                          'Your role lacks permission to access Purchase & Sales (sales.channel.manage).'
+                        );
+                      }
                     } else if (optionId === 'customers') {
                       setCustomerScreen('management');
                     } else if (optionId === 'finance') {
@@ -12609,7 +12831,7 @@ export function TohfaAdminDashboardScreen({
                     } else if (optionId === 'settings' || optionId === 'profile') {
                       setActiveTab('Settings');
                     } else if (optionId === 'logout') {
-                      onSignOut();
+                      onSignOut?.();
                     }
                   }}
                 />
@@ -12779,6 +13001,8 @@ export function TohfaAdminDashboardScreen({
         inputsPestScreen !== 'add_pest' &&
         inputsPestScreen !== 'pest_incidents' &&
         inputsPestScreen !== 'incident_detail' &&
+        inputsPestScreen !== 'application_guides' &&
+        inputsPestScreen !== 'add_guide' &&
         customerScreen !== 'directory' &&
         customerScreen !== 'customer_detail' &&
         customerScreen !== 'add_customer' &&

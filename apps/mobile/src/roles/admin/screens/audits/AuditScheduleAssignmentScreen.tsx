@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import {
   adminColors,
   adminOverlay,
@@ -35,6 +35,17 @@ export interface AuditScheduleItem {
 }
 
 const INITIAL_SCHEDULES: AuditScheduleItem[] = [
+  {
+    id: '0',
+    code: 'AUD-2026-0042',
+    farmerName: 'Ramesh Kumar',
+    farmLocation: 'Ooty Farm 01',
+    zone: 'Zone B',
+    type: 'Internal',
+    dateStr: '15 Oct 2026',
+    auditor: 'Assigned Auditor',
+    status: 'In Progress',
+  },
   {
     id: '1',
     code: 'AUD-2026-0053',
@@ -164,6 +175,60 @@ function CloseIcon({ size = 20, color = adminColors.ink }: { size?: number; colo
   );
 }
 
+function CalendarIcon({ size = 17, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="1.9" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="1.9" />
+    </Svg>
+  );
+}
+
+function ChevronIcon({ isOpen, size = 16, color = adminColors.muted }: { isOpen?: boolean; size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {isOpen ? (
+        <Path d="M18 15l-6-6-6 6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+    </Svg>
+  );
+}
+
+const FARMER_OPTIONS = [
+  'All',
+  'FMR-00124 · Ramesh Kumar',
+  'FMR-00131 · Selvi',
+  'FMR-00177 · Meena',
+  'FMR-00203 · Lakshmi',
+  'FMR-00098 · Kumar',
+  'FMR-00215 · Arun',
+  'FMR-00152 · Vijay',
+  'FMR-00221 · Priya',
+  'FMR-00104 · Ganesan',
+  'FMR-00118 · Kavitha',
+  'FMR-00127 · Senthil',
+  'FMR-00146 · Sundar',
+];
+
+const ZONE_OPTIONS = [
+  'All',
+  'Zone A',
+  'Zone B',
+  'Zone C',
+  'Zone D',
+];
+
+const AUDIT_TYPE_OPTIONS = [
+  'All',
+  'Internal',
+  'External',
+  'Field Visit',
+];
+
 export interface AuditScheduleAssignmentScreenProps {
   onBack: () => void;
   onViewSchedule?: (schedule: AuditScheduleItem) => void;
@@ -182,34 +247,67 @@ export function AuditScheduleAssignmentScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
 
-  // Filter States
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Scheduled' | 'Completed' | 'In Progress' | 'Past scheduled date'>('All');
-  const [typeFilter, setTypeFilter] = useState<'All' | 'Internal' | 'External' | 'Field Visit'>('All');
-  const [zoneFilter, setZoneFilter] = useState<'All' | 'Zone A' | 'Zone B' | 'Zone C' | 'Zone D'>('All');
+  // Filter States (M5-S05a)
+  const [selectedFarmer, setSelectedFarmer] = useState('All');
+  const [selectedZone, setSelectedZone] = useState('All');
+  const [selectedAuditType, setSelectedAuditType] = useState('All');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [minScore, setMinScore] = useState('');
+  const [maxScore, setMaxScore] = useState('');
 
   // Temporary staging filter states inside modal
-  const [tempStatus, setTempStatus] = useState(statusFilter);
-  const [tempType, setTempType] = useState(typeFilter);
-  const [tempZone, setTempZone] = useState(zoneFilter);
+  const [tempFarmer, setTempFarmer] = useState(selectedFarmer);
+  const [tempZone, setTempZone] = useState(selectedZone);
+  const [tempType, setTempType] = useState(selectedAuditType);
+  const [tempDateFrom, setTempDateFrom] = useState(dateFrom);
+  const [tempDateTo, setTempDateTo] = useState(dateTo);
+  const [tempMinScore, setTempMinScore] = useState(minScore);
+  const [tempMaxScore, setTempMaxScore] = useState(maxScore);
+  const [openDropdown, setOpenDropdown] = useState<'farmer' | 'zone' | 'auditType' | null>(null);
 
   const openFilterModal = () => {
-    setTempStatus(statusFilter);
-    setTempType(typeFilter);
-    setTempZone(zoneFilter);
+    setTempFarmer(selectedFarmer);
+    setTempZone(selectedZone);
+    setTempType(selectedAuditType);
+    setTempDateFrom(dateFrom);
+    setTempDateTo(dateTo);
+    setTempMinScore(minScore);
+    setTempMaxScore(maxScore);
+    setOpenDropdown(null);
     setIsFilterModalVisible(true);
   };
 
   const applyFilters = () => {
-    setStatusFilter(tempStatus);
-    setTypeFilter(tempType);
-    setZoneFilter(tempZone);
+    setSelectedFarmer(tempFarmer);
+    setSelectedZone(tempZone);
+    setSelectedAuditType(tempType);
+    setDateFrom(tempDateFrom);
+    setDateTo(tempDateTo);
+    setMinScore(tempMinScore);
+    setMaxScore(tempMaxScore);
     setIsFilterModalVisible(false);
   };
 
   const resetFilters = () => {
-    setTempStatus('All');
-    setTempType('All');
+    setTempFarmer('All');
     setTempZone('All');
+    setTempType('All');
+    setTempDateFrom('');
+    setTempDateTo('');
+    setTempMinScore('');
+    setTempMaxScore('');
+    setOpenDropdown(null);
+  };
+
+  const clearAppliedFilters = () => {
+    setSelectedFarmer('All');
+    setSelectedZone('All');
+    setSelectedAuditType('All');
+    setDateFrom('');
+    setDateTo('');
+    setMinScore('');
+    setMaxScore('');
   };
 
   // Filtered schedule list
@@ -226,26 +324,34 @@ export function AuditScheduleAssignmentScreen({
         if (!matchesQuery) return false;
       }
 
-      // Status filter
-      if (statusFilter !== 'All' && item.status !== statusFilter) {
+      // Farmer filter
+      if (selectedFarmer !== 'All') {
+        const fName = selectedFarmer.includes('·') ? selectedFarmer.split('·')[1].trim().toLowerCase() : selectedFarmer.toLowerCase();
+        if (!item.farmerName.toLowerCase().includes(fName)) return false;
+      }
+
+      // Zone filter
+      if (selectedZone !== 'All' && item.zone !== selectedZone) {
         return false;
       }
 
       // Type filter
-      if (typeFilter !== 'All' && item.type !== typeFilter) {
-        return false;
-      }
-
-      // Zone filter
-      if (zoneFilter !== 'All' && item.zone !== zoneFilter) {
+      if (selectedAuditType !== 'All' && item.type !== selectedAuditType) {
         return false;
       }
 
       return true;
     });
-  }, [searchQuery, statusFilter, typeFilter, zoneFilter]);
+  }, [searchQuery, selectedFarmer, selectedZone, selectedAuditType]);
 
-  const isAnyFilterActive = statusFilter !== 'All' || typeFilter !== 'All' || zoneFilter !== 'All';
+  const isAnyFilterActive =
+    selectedFarmer !== 'All' ||
+    selectedZone !== 'All' ||
+    selectedAuditType !== 'All' ||
+    dateFrom !== '' ||
+    dateTo !== '' ||
+    minScore !== '' ||
+    maxScore !== '';
 
   return (
     <SafeAreaView style={styles.root}>
@@ -296,11 +402,7 @@ export function AuditScheduleAssignmentScreen({
           </Text>
           {isAnyFilterActive ? (
             <TouchableOpacity
-              onPress={() => {
-                setStatusFilter('All');
-                setTypeFilter('All');
-                setZoneFilter('All');
-              }}
+              onPress={clearAppliedFilters}
               activeOpacity={0.7}
             >
               <Text style={styles.clearFilterText}>Reset filter</Text>
@@ -332,7 +434,7 @@ export function AuditScheduleAssignmentScreen({
               : adminColors.warning.text;
 
             return (
-              <View key={schedule.id} style={styles.scheduleCard}>
+              <TouchableOpacity key={schedule.id} style={styles.scheduleCard} activeOpacity={0.85} onPress={() => onViewSchedule?.(schedule)}>
                 {/* Header Row: Title & Badge */}
                 <View style={styles.cardHeaderRow}>
                   <Text style={styles.cardTitle} numberOfLines={1}>
@@ -387,17 +489,17 @@ export function AuditScheduleAssignmentScreen({
                     </TouchableOpacity>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
       </ScrollView>
 
-      {/* ── Filter Popup Modal (Matching requirements) ── */}
+      {/* ── M5-S05a: Filters Popup Modal ── */}
       <Modal
         visible={isFilterModalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setIsFilterModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
@@ -410,7 +512,7 @@ export function AuditScheduleAssignmentScreen({
           <View style={styles.modalSheet}>
             {/* Modal Header */}
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filter Audit Schedules</Text>
+              <Text style={styles.modalTitle}>Filters</Text>
               <TouchableOpacity
                 onPress={() => setIsFilterModalVisible(false)}
                 activeOpacity={0.7}
@@ -420,75 +522,217 @@ export function AuditScheduleAssignmentScreen({
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
-              {/* Category 1: Status */}
-              <Text style={styles.filterSectionTitle}>Status</Text>
-              <View style={styles.chipRow}>
-                {(['All', 'Scheduled', 'Completed', 'In Progress', 'Past scheduled date'] as const).map((st) => (
-                  <TouchableOpacity
-                    key={st}
-                    style={[styles.filterChip, tempStatus === st && styles.filterChipActive]}
-                    onPress={() => setTempStatus(st)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.filterChipText, tempStatus === st && styles.filterChipTextActive]}>
-                      {st}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Category 2: Audit Type */}
-              <Text style={styles.filterSectionTitle}>Audit Type</Text>
-              <View style={styles.chipRow}>
-                {(['All', 'Internal', 'External', 'Field Visit'] as const).map((tp) => (
-                  <TouchableOpacity
-                    key={tp}
-                    style={[styles.filterChip, tempType === tp && styles.filterChipActive]}
-                    onPress={() => setTempType(tp)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.filterChipText, tempType === tp && styles.filterChipTextActive]}>
-                      {tp}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Category 3: Zone */}
-              <Text style={styles.filterSectionTitle}>Zone / Location</Text>
-              <View style={styles.chipRow}>
-                {(['All', 'Zone A', 'Zone B', 'Zone C', 'Zone D'] as const).map((zn) => (
-                  <TouchableOpacity
-                    key={zn}
-                    style={[styles.filterChip, tempZone === zn && styles.filterChipActive]}
-                    onPress={() => setTempZone(zn)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.filterChipText, tempZone === zn && styles.filterChipTextActive]}>
-                      {zn === 'Zone A' ? 'Zone A (Coonoor)' : zn === 'Zone B' ? 'Zone B (Ooty)' : zn === 'Zone C' ? 'Zone C (Kotagiri)' : zn === 'Zone D' ? 'Zone D (Gudalur)' : 'All Zones'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-            {/* Modal Bottom Buttons */}
-            <View style={styles.modalButtonRow}>
+            <ScrollView
+              style={styles.modalScroll}
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Field 1: Farmer */}
+              <Text style={styles.fieldLabel}>Farmer</Text>
               <TouchableOpacity
-                style={styles.modalResetBtn}
-                onPress={resetFilters}
+                style={styles.dropdownField}
+                onPress={() => setOpenDropdown(openDropdown === 'farmer' ? null : 'farmer')}
                 activeOpacity={0.7}
               >
-                <Text style={styles.modalResetBtnText}>Reset</Text>
+                <Text style={styles.dropdownValue}>{tempFarmer}</Text>
+                <ChevronIcon isOpen={openDropdown === 'farmer'} />
               </TouchableOpacity>
+              {openDropdown === 'farmer' && (
+                <View style={styles.dropdownMenu}>
+                  <ScrollView
+                    style={styles.dropdownScrollView}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {FARMER_OPTIONS.map((opt, idx) => {
+                      const isSelected = tempFarmer === opt;
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          style={[
+                            styles.dropdownItem,
+                            isSelected && styles.dropdownItemActive,
+                            idx === FARMER_OPTIONS.length - 1 && styles.dropdownItemLast,
+                          ]}
+                          onPress={() => {
+                            setTempFarmer(opt);
+                            setOpenDropdown(null);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              isSelected && styles.dropdownItemTextActive,
+                            ]}
+                          >
+                            {opt}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
 
+              {/* Field 2: Zone */}
+              <Text style={styles.fieldLabel}>Zone</Text>
+              <TouchableOpacity
+                style={styles.dropdownField}
+                onPress={() => setOpenDropdown(openDropdown === 'zone' ? null : 'zone')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dropdownValue}>{tempZone}</Text>
+                <ChevronIcon isOpen={openDropdown === 'zone'} />
+              </TouchableOpacity>
+              {openDropdown === 'zone' && (
+                <View style={styles.dropdownMenu}>
+                  <ScrollView
+                    style={styles.dropdownScrollView}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {ZONE_OPTIONS.map((opt, idx) => {
+                      const isSelected = tempZone === opt;
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          style={[
+                            styles.dropdownItem,
+                            isSelected && styles.dropdownItemActive,
+                            idx === ZONE_OPTIONS.length - 1 && styles.dropdownItemLast,
+                          ]}
+                          onPress={() => {
+                            setTempZone(opt);
+                            setOpenDropdown(null);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              isSelected && styles.dropdownItemTextActive,
+                            ]}
+                          >
+                            {opt}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Field 3: Audit type */}
+              <Text style={styles.fieldLabel}>Audit type</Text>
+              <TouchableOpacity
+                style={styles.dropdownField}
+                onPress={() => setOpenDropdown(openDropdown === 'auditType' ? null : 'auditType')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.dropdownValue}>{tempType}</Text>
+                <ChevronIcon isOpen={openDropdown === 'auditType'} />
+              </TouchableOpacity>
+              {openDropdown === 'auditType' && (
+                <View style={styles.dropdownMenu}>
+                  <ScrollView
+                    style={styles.dropdownScrollView}
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator={true}
+                  >
+                    {AUDIT_TYPE_OPTIONS.map((opt, idx) => {
+                      const isSelected = tempType === opt;
+                      return (
+                        <TouchableOpacity
+                          key={opt}
+                          style={[
+                            styles.dropdownItem,
+                            isSelected && styles.dropdownItemActive,
+                            idx === AUDIT_TYPE_OPTIONS.length - 1 && styles.dropdownItemLast,
+                          ]}
+                          onPress={() => {
+                            setTempType(opt);
+                            setOpenDropdown(null);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dropdownItemText,
+                              isSelected && styles.dropdownItemTextActive,
+                            ]}
+                          >
+                            {opt}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {/* Field 4: Audit date from */}
+              <Text style={styles.fieldLabel}>Audit date from</Text>
+              <View style={styles.dateInputField}>
+                <TextInput
+                  style={styles.dateInputText}
+                  placeholder="dd-mm-yyyy"
+                  placeholderTextColor={adminColors.placeholder}
+                  value={tempDateFrom}
+                  onChangeText={setTempDateFrom}
+                />
+                <CalendarIcon />
+              </View>
+
+              {/* Field 5: Audit date to */}
+              <Text style={styles.fieldLabel}>Audit date to</Text>
+              <View style={styles.dateInputField}>
+                <TextInput
+                  style={styles.dateInputText}
+                  placeholder="dd-mm-yyyy"
+                  placeholderTextColor={adminColors.placeholder}
+                  value={tempDateTo}
+                  onChangeText={setTempDateTo}
+                />
+                <CalendarIcon />
+              </View>
+
+              {/* Field 6: Minimum score */}
+              <Text style={styles.fieldLabel}>Minimum score</Text>
+              <TextInput
+                style={styles.numericInput}
+                keyboardType="numeric"
+                value={tempMinScore}
+                onChangeText={setTempMinScore}
+              />
+
+              {/* Field 7: Maximum score */}
+              <Text style={styles.fieldLabel}>Maximum score</Text>
+              <TextInput
+                style={styles.numericInput}
+                keyboardType="numeric"
+                value={tempMaxScore}
+                onChangeText={setTempMaxScore}
+              />
+            </ScrollView>
+
+            {/* Bottom Modal Actions */}
+            <View style={styles.modalButtonRow}>
               <TouchableOpacity
                 style={styles.modalApplyBtn}
                 onPress={applyFilters}
                 activeOpacity={0.8}
               >
-                <Text style={styles.modalApplyBtnText}>Apply Filters</Text>
+                <Text style={styles.modalApplyBtnText}>Apply</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalResetBtn}
+                onPress={resetFilters}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalResetBtnText}>Reset</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -690,45 +934,116 @@ const styles = StyleSheet.create({
   modalScroll: {
     marginBottom: adminSpacing.md,
   },
-  filterSectionTitle: {
+  fieldLabel: {
     ...adminType.caption,
-    fontSize: 12.5,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     color: adminColors.ink,
-    marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
+    marginBottom: 6,
+    marginTop: 8,
   },
-  chipRow: {
+  dropdownField: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: adminRadius.full,
+    justifyContent: 'space-between',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
     backgroundColor: adminColors.card,
+    paddingHorizontal: adminSpacing.md,
+    height: 44,
+    marginBottom: adminSpacing.xs,
   },
-  filterChipActive: {
-    borderColor: adminColors.brand,
-    backgroundColor: adminColors.brandTint,
+  dropdownValue: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
   },
-  filterChipText: {
-    ...adminType.caption,
-    fontSize: 11.5,
-    color: adminColors.muted,
+  dropdownMenu: {
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    marginTop: 2,
+    marginBottom: adminSpacing.sm,
+    maxHeight: 200,
+    overflow: 'hidden',
+    ...adminShadow.sm,
+  },
+  dropdownScrollView: {
+    maxHeight: 200,
+  },
+  dropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: adminSpacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: adminColors.border,
+  },
+  dropdownItemLast: {
+    borderBottomWidth: 0,
+  },
+  dropdownItemActive: {
+    backgroundColor: adminColors.muted,
+  },
+  dropdownItemText: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  dropdownItemTextActive: {
+    color: adminColors.onBrand,
     fontWeight: '600',
   },
-  filterChipTextActive: {
-    color: adminColors.brandDeep,
-    fontWeight: '800',
+  dateInputField: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    paddingHorizontal: adminSpacing.md,
+    height: 44,
+    marginBottom: adminSpacing.xs,
+  },
+  dateInputText: {
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
+    flex: 1,
+  },
+  numericInput: {
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    paddingHorizontal: adminSpacing.md,
+    height: 44,
+    marginBottom: adminSpacing.xs,
+    ...adminType.body,
+    fontSize: 13,
+    color: adminColors.ink,
   },
   modalButtonRow: {
     flexDirection: 'row',
-    columnGap: adminSpacing.md,
-    marginTop: adminSpacing.sm,
+    columnGap: 10,
+    marginTop: 6,
+  },
+  modalApplyBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalApplyBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
   },
   modalResetBtn: {
     flex: 1,
@@ -736,28 +1051,14 @@ const styles = StyleSheet.create({
     borderRadius: adminRadius.md,
     borderWidth: 1,
     borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: adminColors.card,
   },
   modalResetBtnText: {
     ...adminType.rowTitle,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
-    color: adminColors.muted,
-  },
-  modalApplyBtn: {
-    flex: 2,
-    height: 44,
-    borderRadius: adminRadius.md,
-    backgroundColor: adminColors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalApplyBtnText: {
-    ...adminType.rowTitle,
-    fontSize: 13.5,
-    fontWeight: '800',
-    color: adminColors.onBrand,
+    color: adminColors.ink,
   },
 });
