@@ -16,7 +16,8 @@ import {
   VaccineVialsIcon,
 } from './animalDetailIcons';
 import { SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
-import { daysBetween, formatDayMonth, localTodayIso, splitHealthRecords, type HealthRow } from './animalRecordView';
+import { daysBetween, formatDayMonth, splitHealthRecords, type HealthRow } from './animalRecordView';
+import { todayInKolkata } from '../../certifications/certificationForm';
 import { useAnimalHealthRecords } from './useAnimalRecords';
 
 export interface AnimalHealthSectionProps extends SectionProps {
@@ -31,7 +32,8 @@ const DATE_MARK = '\u0001';
 function withdrawalBodyParts(withdrawalUntil: string): Array<{ text: string; bold: boolean }> {
   const sentence = t('farmer.livestock.detail.health.withdrawalBody', {
     date: DATE_MARK,
-    count: Math.max(0, daysBetween(localTodayIso(), withdrawalUntil)),
+    // withdrawalUntil is an Asia/Kolkata date (the server's "today"), so count from the IST date.
+    count: Math.max(0, daysBetween(todayInKolkata(), withdrawalUntil)),
   });
   const date = formatDayMonth(withdrawalUntil);
   return sentence

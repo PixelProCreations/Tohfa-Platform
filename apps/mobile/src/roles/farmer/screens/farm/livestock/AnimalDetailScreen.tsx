@@ -29,6 +29,7 @@ import { AnimalFeedSection } from './AnimalFeedSection';
 import { AnimalHealthSection } from './AnimalHealthSection';
 import { AnimalHousingSection } from './AnimalHousingSection';
 import { formatRegisterFormDate } from './animalRecordView';
+import { todayInKolkata } from '../../certifications/certificationForm';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -219,8 +220,10 @@ function todayIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+// The server derives the withdrawal window on Asia/Kolkata dates (BR-138), so
+// "today" here is the IST date, not the device's local date.
 function isWithdrawalActive(withdrawalUntil: string | null): boolean {
-  return withdrawalUntil !== null && withdrawalUntil >= todayIso();
+  return withdrawalUntil !== null && withdrawalUntil >= todayInKolkata();
 }
 
 /** Short age label ("4 yr", "8 mo") computed client-side from `dateOfBirth`. */

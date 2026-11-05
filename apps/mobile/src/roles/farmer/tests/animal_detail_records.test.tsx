@@ -9,7 +9,7 @@
  *   GET /farmers/me/livestock/animals/:id/{feed-plans,feed-logs,housing-records,hygiene-logs}
  * The Production tab is Dev's own wiring and is not changed here.
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -50,7 +50,7 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
 });
 
 import { AnimalDetailScreen } from '../screens/farm/livestock/AnimalDetailScreen';
-import { localTodayIso } from '../screens/farm/livestock/animalRecordView';
+import { addDaysIso, todayInKolkata } from '../screens/certifications/certificationForm';
 import { setLocale, t } from '../../../i18n/farmer';
 
 const A = 'a0000000-0000-4000-8000-000000000001';
@@ -370,9 +370,7 @@ describe('Health tab', () => {
   });
 
   it('BR-138: the withdrawal banner is driven by the animal withdrawalUntil, with the days left', async () => {
-    const until = new Date();
-    until.setDate(until.getDate() + 6);
-    fx.animal = animal({ withdrawalUntil: localTodayIso(until) });
+    fx.animal = animal({ withdrawalUntil: addDaysIso(todayInKolkata(), 6) });
     const tree = await mount();
     const banner = textWithin(tree, 'animalDetail.withdrawalBanner');
     expect(banner).toContain(t('farmer.livestock.detail.health.withdrawalTitle'));
@@ -382,6 +380,36 @@ describe('Health tab', () => {
   it('BR-138: no withdrawal banner when the animal has no active withdrawal', async () => {
     const tree = await mount();
     expect(has(tree, 'animalDetail.withdrawalBanner')).toBe(false);
+  });
+
+  describe('BR-138: "today" is the Asia/Kolkata date, as on the server, not the device date', () => {
+    // 20:00 UTC on 12 Jul is 01:30 on 13 Jul in IST but still 12 Jul in Los Angeles.
+    const NOW = new Date('2026-07-12T20:00:00.000Z');
+    let savedTz: string | undefined;
+    beforeEach(() => {
+      savedTz = process.env.TZ;
+      process.env.TZ = 'America/Los_Angeles';
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(NOW);
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+      if (savedTz === undefined) delete process.env.TZ;
+      else process.env.TZ = savedTz;
+    });
+
+    it('BR-138: a withdrawal that ended yesterday in IST shows no banner, even where the device date is still that day', async () => {
+      fx.animal = animal({ withdrawalUntil: '2026-07-12' });
+      const tree = await mount();
+      expect(has(tree, 'animalDetail.withdrawalBanner')).toBe(false);
+    });
+
+    it('BR-138: the days left are counted from the IST date', async () => {
+      fx.animal = animal({ withdrawalUntil: '2026-07-14' });
+      const tree = await mount();
+      const banner = textWithin(tree, 'animalDetail.withdrawalBanner');
+      expect(banner).toContain(t('farmer.livestock.detail.health.withdrawalBody', { date: '14 Jul', count: 1 }));
+    });
   });
 });
 
