@@ -56,7 +56,7 @@ vi.mock('../api/crops', async (importOriginal) => ({
 }));
 
 import { CropMilestonesScreen } from '../screens/farm/crops/CropMilestonesScreen';
-import { t } from '../../../i18n/farmer';
+import { setLocale, t } from '../../../i18n/farmer';
 
 const CROP_ID = '50000000-0000-4000-8000-000000000001';
 
@@ -282,6 +282,42 @@ describe('CropMilestonesScreen (BR-57)', () => {
     expect(text).toContain('100%');
     expect(text).toContain(t('farmer.cropMilestones.doneBadge', { done: 2, total: 2 }));
     expect(text).toContain(t('farmer.cropMilestones.outcomeCompletedOn', { date: '2 Oct 2026' }));
+  });
+
+  it('BR-57c: un-completing a milestone PATCHes PENDING and clears completedOn', async () => {
+    // Only a COMPLETED milestone, so it is the one selected.
+    cropsApi.listCropMilestones.mockResolvedValue(list([milestone()], 1, 100));
+    cropsApi.updateCropMilestone.mockResolvedValue(milestone({ status: 'PENDING', completedOn: null }));
+    const tree = await mount(<CropMilestonesScreen crop={makeCrop()} />);
+
+    const markInProgress = tree.root
+      .findAllByType('TouchableOpacity' as unknown as React.ElementType)
+      .find((b) => b.props['accessibilityLabel'] === t('farmer.cropMilestones.markInProgressA11y'));
+    expect(markInProgress).toBeDefined();
+    await act(async () => {
+      (markInProgress!.props['onPress'] as () => void)();
+    });
+    await settle();
+
+    // A stale completion date must not survive the milestone going back to PENDING.
+    expect(cropsApi.updateCropMilestone).toHaveBeenCalledWith(CROP_ID, 'm-1', { status: 'PENDING', completedOn: null });
+  });
+
+  it('shows the stage category from the i18n catalogue (Tamil), falling back to the readable code', async () => {
+    setLocale('ta');
+    try {
+      cropsApi.listCropMilestones.mockResolvedValue(
+        list([milestone(), milestone({ id: 'm-9', stageCode: 'STAGE_CUSTOM_PHASE', status: 'PENDING', completedOn: null })], 1, 50),
+      );
+      const tree = await mount(<CropMilestonesScreen crop={makeCrop()} />);
+      const text = textOf(tree);
+      expect(t('farmer.cropMilestones.stage.STAGE_SOWING')).not.toBe('Sowing');
+      expect(text).toContain(t('farmer.cropMilestones.stage.STAGE_SOWING'));
+      // A stage code with no catalogue entry is still shown, made readable.
+      expect(text).toContain('Custom phase');
+    } finally {
+      setLocale('en');
+    }
   });
 
   it('BR-57c: a failed update leaves the server state on screen and says so', async () => {
