@@ -2222,6 +2222,7 @@ export function FarmerAdminDashboardScreen({
   >('none');
   const [farmerAdminSelectedFarmer, setFarmerAdminSelectedFarmer] = useState<any>(null);
   const [farmerAdminSelectedApp, setFarmerAdminSelectedApp] = useState<any>(null);
+  const [auditsIsRootView, setAuditsIsRootView] = useState<boolean>(true);
   const [moreSubScreen, setMoreSubScreen] = useState<
     | 'menu'
     | 'disputes'
@@ -3318,6 +3319,7 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'audit_schedule') {
     return (
       <AuditScheduleScreen
+        role="FARMER_ADMIN"
         initialTypeFilter={auditInitialFilter}
         initialAuditId={auditInitialId}
         initialView={auditInitialView}
@@ -3887,34 +3889,17 @@ export function FarmerAdminDashboardScreen({
 
         {/* ─── Audits Tab (Screenshots 1 & 2) ─── */}
         {activeTab === 'Audits' && (
-          <AuditManagementScreen
+          <AuditScheduleScreen
             role="FARMER_ADMIN"
+            isTabRoot={true}
+            initialView="calendar_view"
+            initialTypeFilter="calendar"
+            onViewModeChange={(isRoot) => setAuditsIsRootView(isRoot)}
             onBack={() => goBack('Home')}
-            onNavigateSchedule={(preFilter, auditId) => {
-              pushNavigation({
-                subView: 'audit_schedule',
-                auditInitialFilter:
-                  preFilter === 'calendar'
-                    ? 'calendar'
-                    : preFilter === 'field_visit'
-                      ? 'field_visit'
-                      : preFilter === 'history'
-                        ? 'history'
-                        : preFilter === 'report'
-                          ? 'report'
-                          : preFilter === 'calendar_view'
-                            ? 'calendar_view'
-                            : 'calendar',
-                auditInitialId: auditId,
-                auditInitialView:
-                  preFilter === 'report'
-                    ? 'audit_report'
-                    : preFilter === 'history'
-                      ? 'history'
-                      : preFilter === 'calendar_view'
-                        ? 'calendar_view'
-                        : 'calendar',
-              });
+            onNavigateTab={(tab) => setActiveTab(tab as any)}
+            onNavigateFarmerProfile={(_farmerId) => {
+              setFarmersInternalView('list');
+              setActiveTab('Farmers');
             }}
             onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
           />
@@ -4086,7 +4071,7 @@ export function FarmerAdminDashboardScreen({
         (activeTab === 'Home' ||
           (activeTab === 'Farmers' && farmersInternalView === 'list') ||
           activeTab === 'Produce' ||
-          activeTab === 'Audits' ||
+          (activeTab === 'Audits' && auditsIsRootView) ||
           (activeTab === 'More' && moreSubScreen === 'menu')) && (
           <View style={styles.tabBar}>
             <Pressable
@@ -4144,6 +4129,7 @@ export function FarmerAdminDashboardScreen({
                 setSubView('none');
                 setMoreSubScreen('menu');
                 setActiveTab('Audits');
+                setAuditsIsRootView(true);
               }}
               accessibilityRole="tab"
               accessibilityLabel="Audits"
