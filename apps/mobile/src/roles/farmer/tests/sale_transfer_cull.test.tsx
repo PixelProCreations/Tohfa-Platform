@@ -30,6 +30,7 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
 }));
 

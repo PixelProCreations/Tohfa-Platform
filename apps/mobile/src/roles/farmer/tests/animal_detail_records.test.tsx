@@ -40,6 +40,7 @@ vi.mock('react-native-svg', () => ({
 vi.mock('@tohfa/mobile-ui', () => ({
   ErrorState: 'ErrorState',
   Skeleton: 'Skeleton',
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
 }));
 
