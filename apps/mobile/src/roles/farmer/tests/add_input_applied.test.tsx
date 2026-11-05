@@ -30,8 +30,11 @@ vi.mock('react-native-svg', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  Button: 'Button',
+  ErrorState: 'ErrorState',
   SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
+  Skeleton: 'Skeleton',
 }));
 
 const apiPost = vi.hoisted(() => vi.fn());
@@ -191,8 +194,9 @@ describe('AddInputAppliedScreen (BR-56)', () => {
     expect(apiPost).toHaveBeenCalledTimes(1);
     const [p, body, key] = apiPost.mock.calls[0]!;
     expect(p).toBe(`/farmers/me/crops/${CARROT}/inputs`);
+    // BR-56j: a fertigation is now its own inputType (it used to be sent as OTHER).
     expect(body).toEqual({
-      inputType: 'OTHER',
+      inputType: 'FERTIGATION',
       inputName: 'Vermicompost Tea',
       appliedOn: '2026-07-12',
       quantity: 4.5,
@@ -330,6 +334,92 @@ describe('AddInputAppliedScreen (BR-56)', () => {
       expect(text).toContain(t('farmer.addInput.save'));
       expect(text).not.toContain('Add Input Applied');
       expect(text).not.toContain('Save Input');
+    } finally {
+      setLocale('en');
+    }
+  });
+});
+
+describe('AddInputAppliedScreen — inputType, purpose, target pest and applied by (BR-56j, BR-56k)', () => {
+  it('BR-56j: a fertigation from Add Input Applied is sent as inputType FERTIGATION, never OTHER', async () => {
+    const tree = await mount({ initialInputType: 'Fertigation' });
+    await fillValid(tree, '2026-07-12');
+    await pressLabel(tree, 'Save Input');
+    const body = apiPost.mock.calls[0]![1] as Record<string, unknown>;
+    expect(body['inputType']).toBe('FERTIGATION');
+  });
+
+  it('BR-56k: AddInputApplied sends the chosen purpose (stable code) and free-text applied by for a fertigation', async () => {
+    const tree = await mount({ initialInputType: 'Fertigation' });
+    await fillValid(tree, '2026-07-12');
+    await pressLabel(tree, t('farmer.addInput.purposeA11y'));
+    await pressTestId(tree, 'addInput.purposeOption.SOIL_FERTILITY');
+    await type(tree, t('farmer.addInput.appliedByA11y'), '  Lakshmi ');
+    expect(renderedText(tree.toJSON()).join('')).toContain(t('farmer.addInput.purposeOption.SOIL_FERTILITY'));
+    await pressLabel(tree, 'Save Input');
+
+    const body = apiPost.mock.calls[0]![1] as Record<string, unknown>;
+    expect(body['purpose']).toBe('SOIL_FERTILITY');
+    expect(body['appliedBy']).toBe('Lakshmi');
+    // The target pest field is not shown for a fertigation, so nothing is sent for it.
+    expect(body).not.toHaveProperty('targetPest');
+  });
+
+  it('BR-56k: AddInputApplied sends the chosen target pest (stable code) for a pest treatment, and no purpose', async () => {
+    const tree = await mount({ initialInputType: 'Pest Treatment' });
+    await type(tree, 'Product or Input Name', 'Neem Oil');
+    await type(tree, 'Quantity', '200');
+    await type(tree, 'Date and Time', '2026-07-11');
+    await pressLabel(tree, t('farmer.addInput.targetPestA11y'));
+    await pressTestId(tree, 'addInput.pestOption.FRUIT_BORER');
+    await type(tree, t('farmer.addInput.appliedByA11y'), 'Contract sprayer');
+    await pressLabel(tree, 'Save Input');
+
+    expect(apiPost.mock.calls[0]![1]).toEqual({
+      inputType: 'PESTICIDE',
+      inputName: 'Neem Oil',
+      appliedOn: '2026-07-11',
+      quantity: 200,
+      unit: 'ML',
+      targetPest: 'FRUIT_BORER',
+      appliedBy: 'Contract sprayer',
+    });
+  });
+
+  it('BR-56k: nothing is preselected and no invented worker is offered; untouched optional fields are not sent', async () => {
+    const tree = await mount({ initialInputType: 'Pest Treatment' });
+    const text = renderedText(tree.toJSON()).join('\n');
+    for (const invented of ['Raju', 'Mani', 'Self', 'Contractor']) {
+      expect(text, invented).not.toContain(invented);
+    }
+    // The target pest field shows "not specified", not a preselected pest. (The mocked Modal
+    // renders its option list even when closed, so the field itself is checked, not the screen.)
+    const pestField = tree.root.find(
+      (n) => (n.type as unknown) === 'TouchableOpacity' && n.props.accessibilityLabel === t('farmer.addInput.targetPestA11y'),
+    );
+    expect(pestField.findByType('Text' as unknown as React.ElementType).props.children).toBe(
+      t('farmer.addInput.optionNone'),
+    );
+    // Applied by is a free-text field, not a picker of made-up names.
+    expect(input(tree, t('farmer.addInput.appliedByA11y')).props.value).toBe('');
+    await type(tree, 'Product or Input Name', 'Neem Oil');
+    await type(tree, 'Quantity', '200');
+    await type(tree, 'Date and Time', '2026-07-11');
+    await pressLabel(tree, 'Save Input');
+    const body = apiPost.mock.calls[0]![1] as Record<string, unknown>;
+    expect(body).not.toHaveProperty('purpose');
+    expect(body).not.toHaveProperty('targetPest');
+    expect(body).not.toHaveProperty('appliedBy');
+  });
+
+  it('BR-56k: purpose and target pest option labels come from the i18n catalogue (Tamil)', async () => {
+    setLocale('ta');
+    try {
+      const tree = await mount({ initialInputType: 'Pest Treatment' });
+      await pressLabel(tree, t('farmer.addInput.targetPestA11y'));
+      const text = renderedText(tree.toJSON()).join('\n');
+      expect(text).toContain(t('farmer.addInput.pestOption.FRUIT_BORER'));
+      expect(text).not.toContain('Fruit Borer');
     } finally {
       setLocale('en');
     }

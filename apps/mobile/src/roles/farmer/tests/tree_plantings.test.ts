@@ -531,6 +531,98 @@ describe('AddPlantingScreen wired to POST /farmers/me/tree-plantings (BR-55)', (
     expect(onNavigateBack).not.toHaveBeenCalled();
     expect(tree.root.findAll((node) => isType(node, 'Text') && node.props.testID === 'add-planting-error')).toHaveLength(1);
   });
+
+  it('BR-55h: AddPlanting sends an Idempotency-Key that is stable across a retry', async () => {
+    const keys: Array<string | null> = [];
+    let attempt = 0;
+    global.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'idempotency-key');
+      keys.push(entry ? entry[1] : null);
+      attempt += 1;
+      // The first attempt fails (e.g. the response was lost); the retry succeeds.
+      return attempt === 1
+        ? jsonResponse({ type: 'about:blank', title: 'Server error', status: 500, code: 'INTERNAL' }, 500)
+        : jsonResponse(makePlanting({ id: 'created' }), 201);
+    }) as typeof fetch;
+    const onNavigateBack = vi.fn();
+
+    const tree = await mount(React.createElement(AddPlantingScreen, { onNavigateBack }));
+    await act(async () => {
+      inputWithPlaceholder(tree, 'e.g. Silver Oak / Guava').props.onChangeText('Teak');
+      inputWithPlaceholder(tree, 'e.g. 12').props.onChangeText('4');
+    });
+    await act(async () => {
+      buttonWithText(tree, 'Add planting').props.onPress();
+    });
+    await settle();
+    await act(async () => {
+      buttonWithText(tree, 'Add planting').props.onPress();
+    });
+    await settle();
+
+    expect(keys).toHaveLength(2);
+    expect(typeof keys[0]).toBe('string');
+    expect((keys[0] as string).length).toBeGreaterThan(0);
+    // Same body retried: same key, so the server creates one planting.
+    expect(keys[1]).toBe(keys[0]);
+    expect(onNavigateBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('BR-55h: a changed body after a failed save gets a new Idempotency-Key (never 409 IDEMPOTENCY_KEY_REUSED)', async () => {
+    const keys: Array<string | null> = [];
+    global.fetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const headers = (init?.headers ?? {}) as Record<string, string>;
+      const entry = Object.entries(headers).find(([k]) => k.toLowerCase() === 'idempotency-key');
+      keys.push(entry ? entry[1] : null);
+      return jsonResponse({ type: 'about:blank', title: 'Server error', status: 500, code: 'INTERNAL' }, 500);
+    }) as typeof fetch;
+
+    const tree = await mount(React.createElement(AddPlantingScreen, { onNavigateBack: vi.fn() }));
+    await act(async () => {
+      inputWithPlaceholder(tree, 'e.g. Silver Oak / Guava').props.onChangeText('Teak');
+      inputWithPlaceholder(tree, 'e.g. 12').props.onChangeText('4');
+    });
+    await act(async () => {
+      buttonWithText(tree, 'Add planting').props.onPress();
+    });
+    await settle();
+    await act(async () => {
+      inputWithPlaceholder(tree, 'e.g. 12').props.onChangeText('5');
+    });
+    await act(async () => {
+      buttonWithText(tree, 'Add planting').props.onPress();
+    });
+    await settle();
+
+    expect(keys).toHaveLength(2);
+    expect(typeof keys[0]).toBe('string');
+    expect(typeof keys[1]).toBe('string');
+    expect(keys[1]).not.toBe(keys[0]);
+  });
+});
+
+describe('Trees sample fallbacks are gone (BR-55)', () => {
+  it('BR-55: App.tsx and the catalogues carry no "Silver Oak" / "14 Jun 2019" / "Shade & windbreak" fallback; absent data reads "Not recorded"', () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../App.tsx'), 'utf8');
+    expect(source).not.toContain('farmer.trees.fallback.');
+    const en = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '../../../i18n/farmer.en.json'), 'utf8'),
+    ) as Record<string, string>;
+    const ta = JSON.parse(
+      fs.readFileSync(path.resolve(__dirname, '../../../i18n/farmer.ta.json'), 'utf8'),
+    ) as Record<string, string>;
+    for (const catalogue of [en, ta]) {
+      expect(Object.keys(catalogue).filter((k) => k.startsWith('farmer.trees.fallback.'))).toEqual([]);
+      const values = Object.values(catalogue).join('\n');
+      for (const sample of ['Silver Oak (12', '14 Jun 2019', 'Shade & windbreak', 'சில்வர் ஓக் (12']) {
+        expect(values, sample).not.toContain(sample);
+      }
+    }
+    expect(en['farmer.trees.notRecorded']).toBe('Not recorded');
+    expect(ta['farmer.trees.notRecorded']).toBeTruthy();
+    expect(ta['farmer.trees.notRecorded']).not.toBe(en['farmer.trees.notRecorded']);
+  });
 });
 
 describe('EditPlantingScreen wired to GET/PATCH /farmers/me/tree-plantings/:id (BR-55)', () => {

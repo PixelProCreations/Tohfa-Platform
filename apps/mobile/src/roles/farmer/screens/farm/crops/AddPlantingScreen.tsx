@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Modal,
   ScrollView,
@@ -21,6 +21,7 @@ import {
 } from '../toolPurchaseDate';
 import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
+import { createIdempotencyKeyCache } from '../../../../../shell/api/idempotency';
 import { createTreePlanting } from '../../../api/treePlantings';
 
 const CALENDAR_THEME = {
@@ -108,6 +109,10 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   const [purpose, setPurpose] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // One Idempotency-Key per logical save (BR-55h): retrying the same body after a
+  // failure replays the key, so a lost response cannot create a second planting;
+  // an edited body gets a fresh key (re-using one would be 409 IDEMPOTENCY_KEY_REUSED).
+  const idempotencyRef = useRef(createIdempotencyKeyCache());
 
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
   const calendarStartDate = toCalendarDateString(plantedDate ?? new Date());
@@ -133,13 +138,15 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
     setSaveError(null);
     try {
       // Only what the farmer entered: blank optional fields are left out, not defaulted.
-      await createTreePlanting({
+      const body = {
         speciesName: trimmedSpecies,
         treeCount: count,
         ...(plantedDate ? { plantedOn: toCalendarDateString(plantedDate) } : {}),
         ...(zone.trim() ? { zoneName: zone.trim() } : {}),
         ...(purpose.trim() ? { purpose: purpose.trim() } : {}),
-      });
+      };
+      await createTreePlanting(body, idempotencyRef.current.keyFor(JSON.stringify(body)));
+      idempotencyRef.current.reset();
       onSave?.();
       onNavigateBack();
     } catch (err: unknown) {

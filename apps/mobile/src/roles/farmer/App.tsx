@@ -59,6 +59,7 @@ import { InputManagementScreen } from './screens/farm/crops/InputManagementScree
 import { LogFertigationScreen } from './screens/farm/crops/LogFertigationScreen';
 import { LogPestTreatmentScreen } from './screens/farm/pest/LogPestTreatmentScreen';
 import { AddInputAppliedScreen } from './screens/farm/crops/AddInputAppliedScreen';
+import { EditInputAppliedScreen } from './screens/farm/crops/EditInputAppliedScreen';
 import { SoilManagementScreen } from './screens/farm/soil/SoilManagementScreen';
 import { SoilTestRecordsScreen } from './screens/farm/soil/SoilTestRecordsScreen';
 import { SoilHealthTrackerScreen } from './screens/farm/soil/SoilHealthTrackerScreen';
@@ -516,6 +517,7 @@ export type ScreenName =
   | 'CropDiaryEntries'
   | 'CropInputsApplied'
   | 'AddInputApplied'
+  | 'EditInputApplied'
   | 'CropWorkforceHours'
   | 'CropNPKContribution'
   | 'SoilManagement'
@@ -2512,6 +2514,8 @@ export default function App(): React.JSX.Element {
             crop={params['scope'] === 'all' ? null : selectedCrop}
             onBack={goBack}
             onNewInput={() => navigate('AddInputApplied', params['scope'] === 'all' ? { scope: 'all' } : {})}
+            // BR-56l: back from the edit screen remounts this list, which refetches.
+            onEditInput={(target) => navigate('EditInputApplied', { ...target })}
           />
         ) : screen === 'AddInputApplied' ? (
           <AddInputAppliedScreen
@@ -2521,6 +2525,16 @@ export default function App(): React.JSX.Element {
             initialInputType={params['initialInputType'] as 'Fertigation' | 'Pest Treatment' | undefined}
             onBack={goBack}
             onSave={goBack}
+          />
+        ) : screen === 'EditInputApplied' && typeof params['farmCropId'] === 'string' && typeof params['inputId'] === 'string' ? (
+          <EditInputAppliedScreen
+            farmCropId={params['farmCropId']}
+            inputId={params['inputId']}
+            cropName={typeof params['cropName'] === 'string' ? params['cropName'] : null}
+            zoneName={typeof params['zoneName'] === 'string' ? params['zoneName'] : null}
+            onBack={goBack}
+            onSaved={() => goBack()}
+            onDeleted={() => goBack()}
           />
         ) : screen === 'CropWorkforceHours' ? (
           <CropWorkforceHoursScreen
@@ -2988,10 +3002,11 @@ export default function App(): React.JSX.Element {
                 ? {
                   id: selectedTreeForEdit.id,
                   species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
-                  treeCount: selectedTreeForEdit.treeCount ?? 12,
+                  treeCount: selectedTreeForEdit.treeCount,
                   plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
                   locationZone: selectedTreeForEdit.zoneInfo,
-                  purpose: selectedTreeForEdit.purposeText ?? t('farmer.trees.fallback.purpose'),
+                  // A form prefill: no recorded purpose stays empty rather than becoming sample text.
+                  purpose: selectedTreeForEdit.purposeText,
                 }
                 : undefined
             }
@@ -3000,10 +3015,10 @@ export default function App(): React.JSX.Element {
             onRemove={() => {
               setSelectedItemForRemove({
                 id: selectedTreeForEdit?.id,
-                name: selectedTreeForEdit?.name || t('farmer.trees.fallback.name'),
+                name: selectedTreeForEdit?.name || t('farmer.trees.notRecorded'),
                 category: 'Trees',
                 dateInfo: t('farmer.trees.removeDateInfo', {
-                  date: selectedTreeForEdit?.plantedDate || t('farmer.trees.fallback.planted'),
+                  date: selectedTreeForEdit?.plantedDate || t('farmer.trees.notRecorded'),
                 }),
               });
               navigate('RemoveItem');
