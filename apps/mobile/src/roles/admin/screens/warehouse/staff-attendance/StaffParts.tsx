@@ -51,6 +51,15 @@ export function TruckIcon({ size = 20, color = adminColors.brand }: IconProps) {
   );
 }
 
+export function SearchIcon({ size = 18, color = adminColors.muted }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" />
+      <Path d="m21 21-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

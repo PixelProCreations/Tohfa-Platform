@@ -52,7 +52,7 @@ export function EditStaffProfileScreen({ scope, can, onBack, staff, onSave }: Ed
   const [step, setStep] = useState<EditStep>('form');
   const [name, setName] = useState(staff?.name ?? '');
   const [contact, setContact] = useState(staff?.phone ?? '');
-  const [status, setStatus] = useState<'Active' | 'Inactive'>(staff?.status ?? 'Active');
+  const [status, setStatus] = useState<'Active' | 'Inactive' | 'Pending activation'>(staff?.status ?? 'Active');
   const [vehicleDetails, setVehicleDetails] = useState(staff?.vehicleDetails ?? '');
   const [statusOpen, setStatusOpen] = useState(false);
 

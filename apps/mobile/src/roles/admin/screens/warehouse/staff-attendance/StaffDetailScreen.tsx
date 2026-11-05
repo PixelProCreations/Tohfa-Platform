@@ -27,7 +27,7 @@ import {
 } from './fixtures';
 import { ChevronDownIcon, PersonIcon } from './StaffParts';
 import { hasStaffRosterAccess } from './StaffScreen';
-import type { StaffMember, WarehouseScreenBaseProps } from './types';
+import type { PermissionCheck, StaffMember, WarehouseScreenBaseProps } from './types';
 
 function PencilIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
@@ -388,7 +388,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: adminSpacing.lg,
-    ...adminShadow.card,
+    ...adminShadow.sm,
   },
   avatarCircle: {
     width: 56,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     padding: adminSpacing.lg,
-    ...adminShadow.card,
+    ...adminShadow.sm,
   },
   gridRow: {
     flexDirection: 'row',
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    ...adminShadow.card,
+    ...adminShadow.sm,
   },
   dropdownPlaceholderText: {
     fontSize: 14,
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
     borderColor: adminColors.border,
     marginTop: adminSpacing.xs,
     width: '60%',
-    ...adminShadow.card,
+    ...adminShadow.sm,
     elevation: 4,
   },
   dropdownMenuItem: {
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: adminSpacing.lg,
     marginBottom: adminSpacing.xl,
-    ...adminShadow.card,
+    ...adminShadow.sm,
   },
   activateBtn: {
     backgroundColor: '#16A34A',
