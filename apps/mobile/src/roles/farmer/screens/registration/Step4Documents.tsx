@@ -18,13 +18,7 @@ import {
   FARM_DOC_SUB_TYPES,
   type Step4DocumentsData,
 } from '../../storage/registrationDraft';
-import {
-  signApplicationUpload,
-  createFarmerApplication,
-  saveFarmerApplicationStep,
-} from '../../api/registration';
-import { useRegistrationDraftStore } from '../../storage/registrationDraft';
-import { ApiError } from '../../../../shell/api/client';
+import { signApplicationUpload } from '../../api/registration';
 import { uploadWithResume } from '../../api/uploader';
 
 /** Which of the two gated rows a sub-type picker/selection belongs to. Certification has no
@@ -170,46 +164,12 @@ export const Step4Documents: React.FC<Step4Props> = ({ applicationId, initialDat
       // 2. Get presigned upload URL from the API. No account exists yet at this point in
       // registration, so this goes through the application-scoped, auth-free sibling of
       // signUpload rather than signUpload itself (which requires a Bearer token).
-      let signed;
-      try {
-        signed = await signApplicationUpload(applicationId, {
-          purpose: docType === 'CERTIFICATE' ? 'CERTIFICATE' : 'FARMER_DOCUMENT',
-          fileName: picked.name ?? `${docType.toLowerCase()}.pdf`,
-          contentType: picked.type ?? 'application/octet-stream',
-          sizeBytes: bytes.length,
-        });
-      } catch (signErr) {
-        if (signErr instanceof ApiError && signErr.is('NOT_FOUND')) {
-          // If the application doesn't exist on server (e.g. dev database was reset), try to re-create it from store
-          const draftStore = useRegistrationDraftStore.getState();
-          const s1 = draftStore.draft.step1;
-          if (s1?.mobile && s1?.fullName) {
-            const newApp = await createFarmerApplication({
-              mobile: s1.mobile,
-              fullName: s1.fullName,
-              preferredLocale: 'en',
-            });
-            if (newApp?.id) {
-              draftStore.setApplicationId(newApp.id);
-              if (draftStore.draft.step1) await saveFarmerApplicationStep(newApp.id, 1, draftStore.draft.step1).catch(() => {});
-              if (draftStore.draft.step2) await saveFarmerApplicationStep(newApp.id, 2, draftStore.draft.step2).catch(() => {});
-              if (draftStore.draft.step3) await saveFarmerApplicationStep(newApp.id, 3, draftStore.draft.step3).catch(() => {});
-              signed = await signApplicationUpload(newApp.id, {
-                purpose: docType === 'CERTIFICATE' ? 'CERTIFICATE' : 'FARMER_DOCUMENT',
-                fileName: picked.name ?? `${docType.toLowerCase()}.pdf`,
-                contentType: picked.type ?? 'application/octet-stream',
-                sizeBytes: bytes.length,
-              });
-            } else {
-              throw signErr;
-            }
-          } else {
-            throw signErr;
-          }
-        } else {
-          throw signErr;
-        }
-      }
+      const signed = await signApplicationUpload(applicationId, {
+        purpose: docType === 'CERTIFICATE' ? 'CERTIFICATE' : 'FARMER_DOCUMENT',
+        fileName: picked.name ?? `${docType.toLowerCase()}.pdf`,
+        contentType: picked.type ?? 'application/octet-stream',
+        sizeBytes: bytes.length,
+      });
 
       // 3. Upload with resumable support + progress tracking. `signed.headers`
       // (e.g. Azure's required `x-ms-blob-type: BlockBlob`) and `signed.method`

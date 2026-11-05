@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { View, StyleSheet, Text, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 import { BackButtonIcon } from '../../assets/icons/AssetIcons';
@@ -45,47 +45,6 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
   const goToStep = useRegistrationDraftStore((s) => s.goToStep);
   const goBackInStore = useRegistrationDraftStore((s) => s.goBack);
   const restoreFullDraft = useRegistrationDraftStore((s) => s.restoreFullDraft);
-
-  // Self-heal stale local applicationId if the server database was reset / application was deleted
-  useEffect(() => {
-    if (!hasHydrated) return;
-    const appId = draft.applicationId;
-    if (!appId || appId === 'draft-temp' || appId.startsWith('app-')) return;
-
-    let cancelled = false;
-    getFarmerApplicationDraft(appId).catch(async (err) => {
-      if (cancelled) return;
-      if (err instanceof ApiError && err.is('NOT_FOUND')) {
-        console.warn('Persisted application ID not found on server (DB may have been reset); re-creating...');
-        const s1 = draft.step1;
-        if (s1?.mobile && s1?.fullName) {
-          try {
-            const newApp = await createFarmerApplication({
-              mobile: s1.mobile,
-              fullName: s1.fullName,
-              preferredLocale: 'en',
-            });
-            if (!cancelled && newApp?.id) {
-              setApplicationId(newApp.id);
-              if (draft.step1) await saveFarmerApplicationStep(newApp.id, 1, draft.step1).catch(() => {});
-              if (draft.step2) await saveFarmerApplicationStep(newApp.id, 2, draft.step2).catch(() => {});
-              if (draft.step3) await saveFarmerApplicationStep(newApp.id, 3, draft.step3).catch(() => {});
-              if (draft.step4) await saveFarmerApplicationStep(newApp.id, 4, draft.step4).catch(() => {});
-            }
-          } catch (createErr) {
-            console.warn('Failed to re-create application on server:', createErr);
-          }
-        } else {
-          setApplicationId('draft-temp');
-          goToStep(1);
-        }
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasHydrated, draft.applicationId]);
 
   async function updateStepAndAdvance(step: number, payload: unknown) {
     let currentAppId = draft.applicationId;
@@ -171,26 +130,6 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
       try {
         await saveFarmerApplicationStep(currentAppId, step, payload);
       } catch (err) {
-        if (err instanceof ApiError && err.is('NOT_FOUND')) {
-          const s1 = (step === 1 ? payload : draft.step1) as Step1PersonalData | undefined;
-          if (s1?.mobile && s1?.fullName) {
-            try {
-              const appRes = await createFarmerApplication({
-                mobile: s1.mobile,
-                fullName: s1.fullName,
-                preferredLocale: 'en',
-              });
-              if (appRes?.id) {
-                currentAppId = appRes.id;
-                setApplicationId(currentAppId);
-                await saveFarmerApplicationStep(currentAppId, step, payload).catch(() => {});
-                return;
-              }
-            } catch (createErr) {
-              console.warn('Failed to re-create application after 404:', createErr);
-            }
-          }
-        }
         const msg = formatErrorMessage(err, `Failed to save Step ${step}. Your data is kept locally.`);
         setApiError(msg);
         console.warn(`saveFarmerApplicationStep ${step} failed:`, err);
