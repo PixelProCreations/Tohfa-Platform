@@ -9,6 +9,7 @@
 import { t, type TranslationKey } from '../../../../../i18n/farmer';
 import type {
   AnimalGender,
+  AnimalSpecies,
   BreedingMethod,
   CalvingOutcome,
   CheckupType,
@@ -153,6 +154,19 @@ const SPACE_UNIT_KEYS: Record<SpaceUnit, TranslationKey> = {
   ACRES: 'farmer.livestock.detail.spaceUnit.ACRES',
 };
 
+/**
+ * Species as it reads inside the housing welfare sentence. The Tamil values are
+ * the forms that take the template's case suffix (மாட்டு + க்கான), so they are
+ * keyed to that sentence rather than shared as a general species label.
+ */
+const WELFARE_SPECIES_KEYS: Record<AnimalSpecies, TranslationKey> = {
+  CATTLE: 'farmer.livestock.detail.housing.welfareSpecies.CATTLE',
+  BUFFALO: 'farmer.livestock.detail.housing.welfareSpecies.BUFFALO',
+  GOAT: 'farmer.livestock.detail.housing.welfareSpecies.GOAT',
+  POULTRY: 'farmer.livestock.detail.housing.welfareSpecies.POULTRY',
+  SHEEP: 'farmer.livestock.detail.housing.welfareSpecies.SHEEP',
+};
+
 /** Every key this module can resolve — for the i18n parity test. */
 export const VIEW_I18N_KEYS: readonly TranslationKey[] = [
   ...MONTH_KEYS,
@@ -166,10 +180,12 @@ export const VIEW_I18N_KEYS: readonly TranslationKey[] = [
   ...Object.values(CALVING_OUTCOME_KEYS),
   ...Object.values(GENDER_KEYS),
   ...Object.values(SPACE_UNIT_KEYS),
+  ...Object.values(WELFARE_SPECIES_KEYS),
 ];
 
 export const feedTypeLabel = (v: FeedType): string => t(FEED_TYPE_KEYS[v]);
 export const spaceUnitLabel = (v: SpaceUnit): string => t(SPACE_UNIT_KEYS[v]);
+export const welfareSpeciesLabel = (v: AnimalSpecies): string => t(WELFARE_SPECIES_KEYS[v]);
 
 export function grazingLabel(g: Measured<GrazingDurationUnit>): string {
   return t(GRAZING_KEYS[g.unit], { value: g.value });

@@ -51,7 +51,7 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
 
 import { AnimalDetailScreen } from '../screens/farm/livestock/AnimalDetailScreen';
 import { localTodayIso } from '../screens/farm/livestock/animalRecordView';
-import { t } from '../../../i18n/farmer';
+import { setLocale, t } from '../../../i18n/farmer';
 
 const A = 'a0000000-0000-4000-8000-000000000001';
 const BASE = `/farmers/me/livestock/animals/${A}`;
@@ -562,6 +562,25 @@ describe('Housing tab', () => {
     const tree = await mount();
     await press(tree, 'animalDetail.tab.Housing');
     expect(textWithin(tree, 'animalDetail.housing.verdict.meets')).toContain(t('farmer.livestock.detail.housing.welfareTitle'));
+  });
+
+  it('BR-141: the welfare banner names the species in the farmer locale (Tamil), not the English label', async () => {
+    fx.animal = animal({ species: 'BUFFALO' });
+    fx.housing = [housingRecord('h1', 14, true)];
+    setLocale('ta');
+    try {
+      const tree = await mount();
+      await press(tree, 'animalDetail.tab.Housing');
+      const banner = textWithin(tree, 'animalDetail.housing.verdict.meets');
+      expect(banner).toContain(
+        t('farmer.livestock.detail.housing.welfareSubtitle', {
+          species: t('farmer.livestock.detail.housing.welfareSpecies.BUFFALO'),
+        }),
+      );
+      expect(banner).not.toContain('buffalo');
+    } finally {
+      setLocale('en');
+    }
   });
 
   it('BR-141: a record below the standard shows no welfare banner (no client comparison, no invented warning)', async () => {

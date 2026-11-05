@@ -20,18 +20,20 @@ import {
   formatQuantity,
   housingStandardView,
   spaceUnitLabel,
+  welfareSpeciesLabel,
 } from './animalRecordView';
 import { useAnimalHousing, useAnimalHygieneLogs } from './useAnimalRecords';
+import type { AnimalSpecies } from '../../../api/livestock';
 
 export interface AnimalHousingSectionProps extends SectionProps {
   animalId: string;
-  /** Lower-case species name for the banner sentence ("cattle"). */
-  speciesName: string;
+  /** The animal's species; the banner sentence names it in the farmer's locale. */
+  species: AnimalSpecies;
 }
 
 export function AnimalHousingSection({
   animalId,
-  speciesName,
+  species,
   styles,
 }: AnimalHousingSectionProps): React.JSX.Element {
   const housingList = useAnimalHousing(animalId, true);
@@ -105,7 +107,7 @@ export function AnimalHousingSection({
                   {t('farmer.livestock.detail.housing.welfareTitle')}
                 </Text>
                 <Text style={styles.welfareNoticeSubtitle}>
-                  {t('farmer.livestock.detail.housing.welfareSubtitle', { species: speciesName })}
+                  {t('farmer.livestock.detail.housing.welfareSubtitle', { species: welfareSpeciesLabel(species) })}
                 </Text>
               </View>
             </View>

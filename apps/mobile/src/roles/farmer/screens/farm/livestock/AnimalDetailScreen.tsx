@@ -694,8 +694,8 @@ export function AnimalDetailScreen({
           )}
 
           {/* TAB 5: HOUSING — Dev's design, filled from housing-records / hygiene-logs (AnimalHousingSection). */}
-          {activeTab === 'Housing' && (
-            <AnimalHousingSection animalId={realAnimalId} speciesName={displaySpecies.toLowerCase()} styles={styles} />
+          {activeTab === 'Housing' && animal && (
+            <AnimalHousingSection animalId={realAnimalId} species={animal.species} styles={styles} />
           )}
         </ScrollView>
       </View>
