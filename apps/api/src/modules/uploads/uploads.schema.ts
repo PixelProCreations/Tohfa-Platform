@@ -24,6 +24,29 @@ export const UploadPurpose = {
 
 export type UploadPurpose = (typeof UploadPurpose)[keyof typeof UploadPurpose];
 
+/**
+ * The `uploads` table has no purpose column: the purpose an upload was signed
+ * for is recorded as the first segment of its storage key
+ * (`<purpose lower-cased>/<uuid><ext>`, uploads.service.ts). These two
+ * functions are the only place that encoding is written and read, so a
+ * consumer that must check what an upload was signed for (BR-137i) cannot
+ * drift from the signer.
+ */
+export function storageKeyPrefixFor(purpose: UploadPurpose): string {
+  return `${purpose.toLowerCase()}/`;
+}
+
+/** The purpose a storage key was signed for, or null when its prefix is not a known purpose. */
+export function uploadPurposeOfStorageKey(storageKey: string): UploadPurpose | null {
+  const slash = storageKey.indexOf('/');
+  if (slash <= 0) return null;
+  const prefix = storageKey.slice(0, slash);
+  for (const purpose of Object.values(UploadPurpose)) {
+    if (storageKeyPrefixFor(purpose) === `${prefix}/`) return purpose;
+  }
+  return null;
+}
+
 export const signUploadBody = z.object({
   purpose: z.enum([
     UploadPurpose.FARMER_DOCUMENT,

@@ -2575,9 +2575,9 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'AnimalDetail' ? (
           <AnimalDetailScreen
-            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
-            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
-            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
+            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : undefined}
+            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : undefined}
+            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : undefined}
             species={typeof params['species'] === 'string' ? params['species'] : 'Cattle'}
             breed={typeof params['breed'] === 'string' ? params['breed'] : 'Jersey cross'}
             gender={typeof params['gender'] === 'string' ? params['gender'] : 'Female'}
@@ -2587,9 +2587,9 @@ export default function App(): React.JSX.Element {
             onNavigateToEdit={(animalData) => navigate('EditAnimal', animalData || {})}
             onNavigateToSale={() =>
               navigate('SaleTransferCull', {
-                animalId: params['animalId'] || 'a1',
-                animalName: params['animalName'] || 'Lakshmi',
-                animalCode: params['animalCode'] || 'C-014',
+                animalId: params['animalId'],
+                animalName: params['animalName'],
+                animalCode: params['animalCode'],
               })
             }
           />
@@ -2602,9 +2602,9 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'SaleTransferCull' ? (
           <SaleTransferCullScreen
-            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : 'a1'}
-            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : 'Lakshmi'}
-            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : 'C-014'}
+            animalId={typeof params['animalId'] === 'string' ? params['animalId'] : undefined}
+            animalName={typeof params['animalName'] === 'string' ? params['animalName'] : undefined}
+            animalCode={typeof params['animalCode'] === 'string' ? params['animalCode'] : undefined}
             onBack={goBack}
             onSuccess={() => navigate('Livestock')}
           />

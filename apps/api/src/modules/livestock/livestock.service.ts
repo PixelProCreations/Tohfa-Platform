@@ -34,15 +34,41 @@
  * error `LIVESTOCK_ALREADY_EXITED`. It does not re-implement the check in
  * application code, because a check-then-write in the service would still
  * race two concurrent requests recording the same animal's exit.
+ *
+ * ANIMAL RECORDS (BR-137..BR-141). Health, breeding, feed plan, feed log,
+ * housing and hygiene records hang off one animal. Every create runs the
+ * same sequence inside one transaction: ownership (404) -> rule checks (422)
+ * -> attachment ownership (422) -> insert -> side effects. Ownership comes
+ * first so a foreign animal is indistinguishable from a missing one (BR-140b:
+ * 404 before the FEMALE-only 422). Lists never 404: a foreign animal is an
+ * empty page (BR-137b), which the repo's ownership join produces by itself.
+ *
+ * BR-138. A TREATMENT with a withdrawal window raises the animal's
+ * withdrawal_until in the SAME transaction as the insert — an animal whose
+ * treatment is recorded but whose withdrawal banner never appears is exactly
+ * the half-applied state that lets restricted milk be sold.
+ *
+ * BR-139. Production logged from an animal under withdrawal is stored
+ * restricted_from_sale = TRUE whatever the client sent.
+ *
+ * BR-141. The housing list says, per record, whether the indoor space per
+ * animal meets `system_config.livestock_min_indoor_space_sqft_per_animal`, and
+ * returns that standard. The comparison is exact integer maths (see
+ * meetsIndoorSpaceStandard); a missing or unusable standard gives NO verdict
+ * (spaceStandard and every verdict are null) and no fallback constant is ever
+ * substituted, the same stance as community planting (BR-136).
  */
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { farmsService, type FarmsService } from '../farms/farms.service.js';
+import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
 import {
   livestockRepo,
+  type AnimalRecordsPage,
   type CreateAnimalData,
   type CreateProductionLogData,
+  type DatedCursor,
   type ListCursor,
   type LivestockRepo,
   type UpdateAnimalPatch,
@@ -50,16 +76,41 @@ import {
 import type {
   AnimalResponse,
   CreateAnimalBody,
+  CreateBreedingRecordBody,
+  CreateFeedLogBody,
+  CreateFeedPlanBody,
+  CreateHealthRecordBody,
+  CreateHousingRecordBody,
+  CreateHygieneLogBody,
   CreateProductionLogBody,
   ListAdminAnimalsResponse,
   ListAnimalsQuery,
   ListAnimalsResponse,
+  ListBreedingRecordsQuery,
+  ListBreedingRecordsResponse,
+  ListFeedLogsQuery,
+  ListFeedLogsResponse,
+  ListFeedPlansQuery,
+  ListFeedPlansResponse,
+  ListHealthRecordsQuery,
+  ListHealthRecordsResponse,
+  ListHousingRecordsQuery,
+  ListHousingRecordsResponse,
+  ListHygieneLogsQuery,
+  ListHygieneLogsResponse,
   ListProductionLogsQuery,
   ListProductionLogsResponse,
+  LivestockBreedingRecord,
+  LivestockFeedLog,
+  LivestockFeedPlan,
+  LivestockHealthRecord,
+  LivestockHousingRecord,
+  LivestockHygieneLog,
   ProductionLogResponse,
   RecordLifecycleEventBody,
   UpdateAnimalBody,
 } from './livestock.schema.js';
+import { listHousingRecordsResponse } from './livestock.schema.js';
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
 
@@ -73,6 +124,64 @@ export interface LivestockServiceDeps {
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * BR-141 unit conversion, all exact. 1 ft = 0.3048 m by definition, so
+ * 1 sq.ft = 0.09290304 sq.m = 9_290_304 / 100_000_000; 1 acre = 43,560 sq.ft.
+ * Every value is compared in integer hundredths (numeric(10,2) on the column,
+ * at most two decimals on the standard) with BigInt, so a value sitting exactly
+ * on the threshold can never be pushed to the wrong side by float drift.
+ */
+const SQ_M_PER_SQ_FT_NUMERATOR = 9_290_304n;
+const SQ_M_PER_SQ_FT_DENOMINATOR = 100_000_000n;
+const SQ_FT_PER_ACRE = 43_560n;
+
+/** The usable standard: exact hundredths of a square foot, plus the same value as a JSON number. */
+interface IndoorSpaceStandard {
+  hundredthsSqFt: bigint;
+  sqFt: number;
+}
+
+/**
+ * Validates the raw JSON text of the standard (`value::text` from the repo).
+ * Only a plain non-negative JSON number literal is accepted (no string, null,
+ * boolean, object, sign or exponent); trailing zeros in the fraction are not
+ * precision, so `12.500` is 12.5, but a third significant decimal is refused.
+ * Anything unusable is null: the list then carries no verdict at all.
+ */
+function parseIndoorSpaceStandard(raw: string | undefined): IndoorSpaceStandard | null {
+  const match = raw === undefined ? null : /^(0|[1-9]\d*)(?:\.(\d+))?$/.exec(raw);
+  if (match === null) return null;
+  const fraction = (match[2] ?? '').replace(/0+$/, '');
+  if (fraction.length > 2) return null;
+  const hundredthsSqFt = BigInt(match[1]!) * 100n + BigInt(fraction.padEnd(2, '0'));
+  if (hundredthsSqFt <= 0n || hundredthsSqFt > BigInt(Number.MAX_SAFE_INTEGER)) return null;
+  // An exact integer divided by 100 is the correctly rounded double of the decimal, i.e. what JSON.parse would give.
+  return { hundredthsSqFt, sqFt: Number(hundredthsSqFt) / 100 };
+}
+
+/**
+ * Hundredths of a stored numeric(10,2) value. The repo hands it over as a JS
+ * number; toFixed(2) recovers the exact two-decimal literal it was parsed from
+ * (10 significant digits round-trip through a double without loss).
+ */
+function toHundredths(value: number): bigint {
+  return BigInt(value.toFixed(2).replace('.', ''));
+}
+
+/** BR-141: does `space` (per animal, in its own unit) reach the standard in square feet? Exact; equality meets. */
+export function meetsIndoorSpaceStandard(space: LivestockHousingRecord['indoorSpacePerAnimal'], standardHundredthsSqFt: bigint): boolean {
+  const v = toHundredths(space.value);
+  switch (space.unit) {
+    case 'SQ_FT':
+      return v >= standardHundredthsSqFt;
+    case 'SQ_M':
+      // v/100 sq.m >= t/100 sq.ft  <=>  v >= t * 0.09290304  <=>  v * 10^8 >= t * 9_290_304
+      return v * SQ_M_PER_SQ_FT_DENOMINATOR >= standardHundredthsSqFt * SQ_M_PER_SQ_FT_NUMERATOR;
+    case 'ACRES':
+      return v * SQ_FT_PER_ACRE >= standardHundredthsSqFt;
+  }
+}
 
 function ownFarmerId(scope: ResolvedScope): string {
   if (scope.farmerId === undefined) {
@@ -129,6 +238,99 @@ function decodeCursor(raw: string): ListCursor {
   throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
 }
 
+/**
+ * Animal-record lists page by (record date, createdAt, id) — see DatedCursor
+ * in livestock.repo.ts — so their cursor is a separate opaque triple rather
+ * than an extension of the two-part one above.
+ */
+function encodeDatedCursor(cursor: DatedCursor): string {
+  return Buffer.from(JSON.stringify([cursor.date, cursor.createdAt, cursor.id]), 'utf8').toString('base64url');
+}
+
+function decodeDatedCursor(raw: string): DatedCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      typeof parsed[0] === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(parsed[0]) &&
+      typeof parsed[1] === 'string' &&
+      !Number.isNaN(Date.parse(parsed[1])) &&
+      typeof parsed[2] === 'string' &&
+      /^[0-9a-f-]{36}$/i.test(parsed[2])
+    ) {
+      return { date: parsed[0], createdAt: parsed[1], id: parsed[2] };
+    }
+  } catch {
+    // fall through to the typed error below
+  }
+  throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
+}
+
+function optionalDatedCursor(raw: string | undefined): DatedCursor | undefined {
+  return raw !== undefined && raw.length > 0 ? decodeDatedCursor(raw) : undefined;
+}
+
+function toPage<T>(result: AnimalRecordsPage<T>): { items: T[]; page: { nextCursor: string | null; hasMore: boolean } } {
+  return {
+    items: result.items,
+    page: { nextCursor: result.next === null ? null : encodeDatedCursor(result.next), hasMore: result.next !== null },
+  };
+}
+
+/**
+ * Today's calendar date for the farmers this platform serves (Nilgiris,
+ * Asia/Kolkata) — the same derivation crop-inputs.service.ts uses. Used as
+ * the default production-log date so BR-139 compares against the date that
+ * is actually stored, not a server-timezone guess.
+ */
+function todayKolkata(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(
+    new Date(),
+  );
+}
+
+/** BR-140: breeding history only makes sense for a female animal. */
+function breedingRequiresFemale(animalId: string): AppError {
+  return new AppError('VALIDATION_FAILED', {
+    detail: `Animal ${animalId} is not FEMALE; breeding records can only be added to female animals (BR-140).`,
+  });
+}
+
+/**
+ * BR-137i. The upload purposes a livestock record attachment may carry. There
+ * is no livestock-specific UploadPurpose, so the farmer app signs its vet
+ * receipts, AI certificates and housing documents as FARMER_DOCUMENT (a
+ * non-public purpose). Default chosen, owner may revise (docs/rules.md BR-137).
+ */
+export const LIVESTOCK_ATTACHMENT_PURPOSES: readonly UploadPurpose[] = [UploadPurpose.FARMER_DOCUMENT];
+
+/**
+ * BR-139f. The guard any path that turns livestock produce into something
+ * sellable (a listing, an inventory intake, a goods receipt) MUST apply to the
+ * production logs it draws from. No such path exists yet: listings are keyed
+ * to crop_master and nothing reads livestock_production_logs outside this
+ * module, so today these helpers have no production caller. They exist so the
+ * first sale path cannot be written without a tested way to honour
+ * restricted_from_sale. 409 CONFLICT: the request is well-formed, the produce
+ * is in a state that forbids the action.
+ */
+export function assertProductionLogsSellable(logs: readonly Pick<ProductionLogResponse, 'id' | 'restrictedFromSale'>[]): void {
+  const restricted = logs.filter((log) => log.restrictedFromSale);
+  if (restricted.length > 0) {
+    throw new AppError('CONFLICT', {
+      status: 409,
+      detail: `Production log(s) ${restricted.map((log) => log.id).join(', ')} are restricted from sale: logged from an animal under medication withdrawal (BR-139).`,
+    });
+  }
+}
+
+/** BR-139f, the exclude form: only the logs that may be offered for sale, order kept. */
+export function excludeRestrictedFromSale<T extends Pick<ProductionLogResponse, 'restrictedFromSale'>>(logs: readonly T[]): T[] {
+  return logs.filter((log) => !log.restrictedFromSale);
+}
+
 // ---------------------------------------------------------------------------
 // Farmer-facing service
 // ---------------------------------------------------------------------------
@@ -141,6 +343,20 @@ export interface LivestockService {
   recordLifecycleEvent(scope: ResolvedScope, animalId: string, body: RecordLifecycleEventBody): Promise<AnimalResponse>;
   createProductionLog(scope: ResolvedScope, body: CreateProductionLogBody): Promise<ProductionLogResponse>;
   listProductionLogs(scope: ResolvedScope, query: ListProductionLogsQuery): Promise<ListProductionLogsResponse>;
+
+  // Animal records — GET lists never 404 (BR-137b); POST is 404 for a foreign animal (BR-137a).
+  listHealthRecords(scope: ResolvedScope, animalId: string, query: ListHealthRecordsQuery): Promise<ListHealthRecordsResponse>;
+  createHealthRecord(scope: ResolvedScope, animalId: string, body: CreateHealthRecordBody): Promise<LivestockHealthRecord>;
+  listBreedingRecords(scope: ResolvedScope, animalId: string, query: ListBreedingRecordsQuery): Promise<ListBreedingRecordsResponse>;
+  createBreedingRecord(scope: ResolvedScope, animalId: string, body: CreateBreedingRecordBody): Promise<LivestockBreedingRecord>;
+  listFeedPlans(scope: ResolvedScope, animalId: string, query: ListFeedPlansQuery): Promise<ListFeedPlansResponse>;
+  createFeedPlan(scope: ResolvedScope, animalId: string, body: CreateFeedPlanBody): Promise<LivestockFeedPlan>;
+  listFeedLogs(scope: ResolvedScope, animalId: string, query: ListFeedLogsQuery): Promise<ListFeedLogsResponse>;
+  createFeedLog(scope: ResolvedScope, animalId: string, body: CreateFeedLogBody): Promise<LivestockFeedLog>;
+  listHousingRecords(scope: ResolvedScope, animalId: string, query: ListHousingRecordsQuery): Promise<ListHousingRecordsResponse>;
+  createHousingRecord(scope: ResolvedScope, animalId: string, body: CreateHousingRecordBody): Promise<LivestockHousingRecord>;
+  listHygieneLogs(scope: ResolvedScope, animalId: string, query: ListHygieneLogsQuery): Promise<ListHygieneLogsResponse>;
+  createHygieneLog(scope: ResolvedScope, animalId: string, body: CreateHygieneLogBody): Promise<LivestockHygieneLog>;
 }
 
 export function createLivestockService(deps: Partial<LivestockServiceDeps> = {}): LivestockService {
@@ -157,6 +373,57 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
       throw new AppError('NOT_FOUND', { detail: 'No farm found for the current actor. Register a farm first.' });
     }
     return primary.id;
+  }
+
+  /**
+   * An attachment must be an upload the caller made — the same semantics as
+   * pest.service.ts#requireOwnUpload. 422, not 404: the path resource exists,
+   * it is a body field that is invalid (BR-137c).
+   */
+  async function requireOwnUpload(tx: Executor, scope: ResolvedScope, uploadId: string): Promise<void> {
+    const upload = await repo.findAttachmentUpload(tx, uploadId);
+    if (upload === undefined) {
+      throw new AppError('VALIDATION_FAILED', { status: 422, detail: 'attachmentUploadId does not reference an existing upload.' });
+    }
+    if (upload.uploadedBy !== scope.userId) {
+      throw new AppError('VALIDATION_FAILED', { status: 422, detail: 'attachmentUploadId does not reference an upload you own.' });
+    }
+    // BR-137i: an own upload signed for another feature (a public listing or
+    // profile photo, a worker's ID proof ...) is not a livestock document.
+    const purpose = uploadPurposeOfStorageKey(upload.storageKey);
+    if (purpose === null || !LIVESTOCK_ATTACHMENT_PURPOSES.includes(purpose)) {
+      throw new AppError('VALIDATION_FAILED', {
+        status: 422,
+        detail: `attachmentUploadId must be an upload signed with purpose ${LIVESTOCK_ATTACHMENT_PURPOSES.join(' or ')} (BR-137i).`,
+      });
+    }
+  }
+
+  /**
+   * The shared create sequence for every animal record, in one transaction:
+   * ownership (404) -> `check` (rule 422s, e.g. BR-140) -> attachment (422)
+   * -> `insert` -> `after` (side effects such as BR-138). The insert itself
+   * also re-checks ownership in SQL, so a null from it is still a 404.
+   */
+  async function createAnimalRecord<T>(
+    scope: ResolvedScope,
+    animalId: string,
+    attachmentUploadId: string | undefined,
+    insert: (tx: Executor, farmerId: string) => Promise<T | null>,
+    hooks: { check?: (animal: AnimalResponse) => void; after?: (tx: Executor) => Promise<void> } = {},
+  ): Promise<T> {
+    const farmerId = ownFarmerId(scope);
+    return runTx(async (tx) => {
+      const animal = await repo.findAnimal(tx, farmerId, animalId);
+      if (animal === null) throw animalNotFound(animalId);
+      hooks.check?.(animal);
+      if (attachmentUploadId !== undefined) await requireOwnUpload(tx, scope, attachmentUploadId);
+
+      const created = await insert(tx, farmerId);
+      if (created === null) throw animalNotFound(animalId);
+      if (hooks.after !== undefined) await hooks.after(tx);
+      return created;
+    });
   }
 
   return {
@@ -274,21 +541,38 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
       const farmerId = ownFarmerId(scope);
       const farmId = await ownPrimaryFarmId(scope);
 
-      // A production log naming an animalId must be one of the caller's own
-      // — cross-farmer resolution here would let a farmer attribute produce
-      // to livestock they do not own (root CLAUDE.md §2.1).
-      if (body.animalId !== undefined) {
-        const owned = await repo.findAnimal(db, farmerId, body.animalId);
-        if (owned === null) throw animalNotFound(body.animalId);
-      }
+      // The date is resolved here, not by the column default, so BR-139 below
+      // compares against exactly the date that gets stored.
+      const loggedOn = body.loggedOn ?? todayKolkata();
+      let restrictedFromSale = body.restrictedFromSale ?? false;
 
-      const data: CreateProductionLogData = { ...body, farmId };
-      const id = await repo.createProductionLog(db, data);
-      const created = await repo.findProductionLog(db, farmerId, id);
-      if (created === null) {
-        throw new AppError('NOT_FOUND', { detail: `Production log ${id} could not be re-read after insert.` });
-      }
-      return created;
+      // BR-139 is a read-then-write: the withdrawal date decides what gets
+      // stored. Both happen in ONE transaction with the animal row locked
+      // (SELECT ... FOR UPDATE), so a treatment being recorded at the same
+      // moment either commits first (this request then sees the new date) or
+      // waits for this insert. Reading through the pool and inserting
+      // separately would let produce be stored sellable after a withdrawal began.
+      return runTx(async (tx) => {
+        // A production log naming an animalId must be one of the caller's own
+        // — cross-farmer resolution here would let a farmer attribute produce
+        // to livestock they do not own (root CLAUDE.md §2.1).
+        if (body.animalId !== undefined) {
+          const owned = await repo.findAnimalForUpdate(tx, farmerId, body.animalId);
+          if (owned === null) throw animalNotFound(body.animalId);
+          // BR-139: produce from an animal still under withdrawal on that day
+          // (the end date inclusive) cannot be offered for sale. The client may
+          // flag more produce as restricted, never less.
+          if (owned.withdrawalUntil !== null && owned.withdrawalUntil >= loggedOn) restrictedFromSale = true;
+        }
+
+        const data: CreateProductionLogData = { ...body, farmId, loggedOn, restrictedFromSale };
+        const id = await repo.createProductionLog(tx, data);
+        const created = await repo.findProductionLog(tx, farmerId, id);
+        if (created === null) {
+          throw new AppError('NOT_FOUND', { detail: `Production log ${id} could not be re-read after insert.` });
+        }
+        return created;
+      });
     },
 
     async listProductionLogs(scope, query) {
@@ -307,6 +591,105 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
         items,
         page: { nextCursor: next === null ? null : encodeCursor(next), hasMore: next !== null },
       };
+    },
+
+    // --- animal records ------------------------------------------------------
+    // Lists: farmerId first (an actor with no farmer profile is NOT_FOUND, as
+    // on every /me endpoint), then the cursor (a bad one is 422 before any
+    // query), then the repo, whose ownership join turns a foreign animal into
+    // an empty page.
+
+    async listHealthRecords(scope, animalId, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = optionalDatedCursor(query.cursor);
+      return toPage(await repo.listHealthRecords(db, { farmerId, animalId, cursor, limit: query.limit, recordType: query.recordType }));
+    },
+
+    async createHealthRecord(scope, animalId, body) {
+      // BR-138: the latest end date of whichever windows were supplied.
+      const withdrawalEnds =
+        body.recordType === 'TREATMENT'
+          ? [body.milkWithdrawal?.endDate, body.meatWithdrawal?.endDate].filter((d): d is string => d !== undefined)
+          : [];
+      const withdrawalUntil = withdrawalEnds.length === 0 ? null : withdrawalEnds.reduce((a, b) => (a > b ? a : b));
+
+      return createAnimalRecord(scope, animalId, body.attachmentUploadId, (tx, farmerId) => repo.insertHealthRecord(tx, farmerId, animalId, body), {
+        after: async (tx) => {
+          if (withdrawalUntil !== null) await repo.extendAnimalWithdrawal(tx, animalId, withdrawalUntil);
+        },
+      });
+    },
+
+    async listBreedingRecords(scope, animalId, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = optionalDatedCursor(query.cursor);
+      return toPage(await repo.listBreedingRecords(db, { farmerId, animalId, cursor, limit: query.limit, recordType: query.recordType }));
+    },
+
+    async createBreedingRecord(scope, animalId, body) {
+      return createAnimalRecord(scope, animalId, body.attachmentUploadId, (tx, farmerId) => repo.insertBreedingRecord(tx, farmerId, animalId, body), {
+        check: (animal) => {
+          if (animal.gender !== 'FEMALE') throw breedingRequiresFemale(animalId); // BR-140a
+        },
+      });
+    },
+
+    async listFeedPlans(scope, animalId, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = optionalDatedCursor(query.cursor);
+      return toPage(await repo.listFeedPlans(db, { farmerId, animalId, cursor, limit: query.limit }));
+    },
+
+    async createFeedPlan(scope, animalId, body) {
+      return createAnimalRecord(scope, animalId, body.attachmentUploadId, (tx, farmerId) => repo.insertFeedPlan(tx, farmerId, animalId, body));
+    },
+
+    async listFeedLogs(scope, animalId, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = optionalDatedCursor(query.cursor);
+      return toPage(
+        await repo.listFeedLogs(db, { farmerId, animalId, cursor, limit: query.limit, dateFrom: query.dateFrom, dateTo: query.dateTo }),
+      );
+    },
+
+    async createFeedLog(scope, animalId, body) {
+      return createAnimalRecord(scope, animalId, undefined, (tx, farmerId) => repo.insertFeedLog(tx, farmerId, animalId, body));
+    },
+
+    async listHousingRecords(scope, animalId, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = optionalDatedCursor(query.cursor);
+      // BR-141: read the standard on every call, for every animal id, so a foreign or missing animal
+      // answers exactly like an own animal with no housing yet. Unconfigured = records without a verdict.
+      const standard = parseIndoorSpaceStandard(await repo.getMinIndoorSpaceSqFtPerAnimal(db));
+      const { items, page } = toPage(await repo.listHousingRecords(db, { farmerId, animalId, cursor, limit: query.limit }));
+      return listHousingRecordsResponse.parse({
+        items: items.map((item) => ({
+          ...item,
+          meetsIndoorSpaceStandard:
+            standard === null ? null : meetsIndoorSpaceStandard(item.indoorSpacePerAnimal, standard.hundredthsSqFt),
+        })),
+        page,
+        spaceStandard: standard === null ? null : { minIndoorSqFtPerAnimal: standard.sqFt },
+      });
+    },
+
+    async createHousingRecord(scope, animalId, body) {
+      return createAnimalRecord(scope, animalId, body.attachmentUploadId, (tx, farmerId) =>
+        repo.insertHousingRecord(tx, farmerId, animalId, body),
+      );
+    },
+
+    async listHygieneLogs(scope, animalId, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = optionalDatedCursor(query.cursor);
+      return toPage(
+        await repo.listHygieneLogs(db, { farmerId, animalId, cursor, limit: query.limit, dateFrom: query.dateFrom, dateTo: query.dateTo }),
+      );
+    },
+
+    async createHygieneLog(scope, animalId, body) {
+      return createAnimalRecord(scope, animalId, undefined, (tx, farmerId) => repo.insertHygieneLog(tx, farmerId, animalId, body));
     },
   };
 }
