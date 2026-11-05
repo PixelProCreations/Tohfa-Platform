@@ -23,10 +23,12 @@
  * GET /admin/orders.
  */
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, RefreshControl } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { orderToneColors } from './statusTone';
@@ -164,34 +166,6 @@ function BuildingWarehouseIcon({ color }: { color: string }) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function CheckCircleTickIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9.5" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Path d="M7.5 12l3 3 6-6" stroke={adminColors.ink} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function PackageBoxIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="2.5" y="5.5" width="19" height="14" rx="2" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Path d="M2.5 10h19M9.5 5.5v4.5" stroke={adminColors.ink} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ReadyPickupIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="9" cy="7" r="3" stroke={adminColors.ink} strokeWidth="1.8" />
-      <Path d="M3 19v-1.5a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4V19" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M15 11.5l2 2 4.5-4.5" stroke={adminColors.ink} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -403,16 +377,10 @@ export function OrdersDashboardScreen({
           // Main Warehouse Content (Matches M5-01 Customer Orders design)
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false} refreshControl={refreshControl}>
             {/* KPI cards: open order tasks. Total orders and issues have no API. */}
+            {/* Design (mod1213farmadmin M5-01): the shared card, design icons. */}
             <View style={styles.mainKpiGrid}>
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>NEW ORDERS</Text>
-                <Text style={styles.mainKpiValue}>{countText(counts?.toPack)}</Text>
-              </View>
-
-              <View style={styles.mainKpiCard}>
-                <Text style={styles.mainKpiLabel}>READY PICKUP</Text>
-                <Text style={styles.mainKpiValue}>{countText(counts?.awaitingPickup)}</Text>
-              </View>
+              <OverviewDashboardCard value={countText(counts?.toPack)} title="NEW ORDERS" icon="receiving" />
+              <OverviewDashboardCard value={countText(counts?.awaitingPickup)} title="READY PICKUP" icon="pickup" />
             </View>
             {countsState === 'error' ? <AdminErrorState error={error} onRetry={onRetry} /> : null}
 
@@ -482,38 +450,29 @@ export function OrdersDashboardScreen({
             </View>
 
             {/* Open order tasks. New orders (no separate state), delivery and issues have no API. */}
-            <View style={styles.statusGrid}>
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
+            {/* Design (mod1213farmadmin M5S01 Sub): the shared card in the design grid.
+                "Packed" has no design card; it uses the same shared card (owner, 2026-11-03). */}
+            <View style={styles.mainKpiGrid}>
+              <OverviewDashboardCard
+                value={countText(counts?.toPack)}
+                title="Confirmed"
+                icon="receiving"
                 onPress={() => onNavigate?.('M5S02', listParams({ status: 'CONFIRMED' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <CheckCircleTickIcon />
-                </View>
-                <Text style={styles.statusNumber}>{countText(counts?.toPack)}</Text>
-                <Text style={styles.statusLabel}>Confirmed</Text>
-              </TouchableOpacity>
+              />
 
-              <TouchableOpacity
-                style={styles.statusCard}
-                activeOpacity={0.75}
+              <OverviewDashboardCard
+                value={countText(counts?.toMarkReady)}
+                title={t('orders.status.packed')}
+                icon="box"
                 onPress={() => onNavigate?.('M5S02', listParams({ status: 'PACKED' }))}
-              >
-                <View style={styles.statusCardTop}>
-                  <PackageBoxIcon />
-                </View>
-                <Text style={styles.statusNumber}>{countText(counts?.toMarkReady)}</Text>
-                <Text style={styles.statusLabel}>{t('orders.status.packed')}</Text>
-              </TouchableOpacity>
+              />
 
-              <TouchableOpacity style={styles.statusCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S09')}>
-                <View style={styles.statusCardTop}>
-                  <ReadyPickupIcon />
-                </View>
-                <Text style={styles.statusNumber}>{countText(counts?.awaitingPickup)}</Text>
-                <Text style={styles.statusLabel}>Ready for Pickup</Text>
-              </TouchableOpacity>
+              <OverviewDashboardCard
+                value={countText(counts?.awaitingPickup)}
+                title="Ready for Pickup"
+                icon="pickup"
+                onPress={() => onNavigate?.('M5S09')}
+              />
             </View>
 
             <ScrollView
@@ -755,6 +714,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 10,
     marginBottom: 16,
   },
   mainKpiCard: {
@@ -891,30 +851,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginBottom: 14,
-  },
-  statusCard: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    padding: 14,
-    marginBottom: 10,
-    ...adminShadow.sm,
-  },
-  statusCardTop: {
-    height: 22,
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  statusNumber: {
-    ...adminType.kpiValue,
-    color: adminColors.ink,
-  },
-  statusLabel: {
-    ...adminType.body,
-    color: adminColors.muted,
-    marginTop: 1,
   },
   pillsScrollView: {
     marginBottom: 18,

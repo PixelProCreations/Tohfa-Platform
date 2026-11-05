@@ -26,12 +26,12 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   FlatList,
   RefreshControl,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import type { OrderListStatusFilter } from '../../../api/orders';

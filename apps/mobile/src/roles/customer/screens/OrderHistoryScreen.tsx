@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import { useOrders, useReorder } from '../api/orders';
 import { colors } from '../theme';
 import { neutral } from '@tohfa/design-tokens';

@@ -22,13 +22,13 @@
 import React, { useEffect } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { OverviewDashboardCard, type OverviewCardIcon } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { BellRingIcon, HeaderIconButton, SectionTitle, WalletScreen, WarehouseTabBar, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { isAreaAvailable, type WarehouseArea } from '../availability';
 import { countLabel, toCapacityView, type ActivityRow } from './mappers';
 import {
-  AlertCircleIcon,
   ChevronRightIcon,
   DonutIcon,
   HistoryIcon,
@@ -117,11 +117,12 @@ export function WarehouseOperationsScreen({
   const locationCount = locations.isLoading || locations.error ? none : countLabel(locations.items.length, locations.complete);
   const todayCount = today.isLoading || today.error ? none : countLabel(today.rows.length, today.complete);
 
-  const tiles: ({ label: string; value: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
-    { label: t('storageOps.hub.locations'), value: locationCount, icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
-    { label: t('storageOps.hub.utilization'), value: cap?.utilizationLabel ?? none, icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: t('storageOps.hub.openIssues'), value: unresolved, icon: <AlertCircleIcon size={22} />, onPress: onOpenIssues, area: 'operationalIssues' },
-    { label: t('storageOps.hub.todayActivity'), value: todayCount, icon: <HistoryIcon size={22} />, onPress: () => onOpenActivity('Today'), area: 'warehouseActivity' },
+  // Icons are the design's card keys (mod1213farmadmin M4-S01).
+  const tiles: ({ label: string; value: string; icon: OverviewCardIcon; onPress: () => void } & AreaTagged)[] = [
+    { label: t('storageOps.hub.locations'), value: locationCount, icon: 'box', onPress: () => onOpenModule('storage') },
+    { label: t('storageOps.hub.utilization'), value: cap?.utilizationLabel ?? none, icon: 'inventory', onPress: onOpenCapacity },
+    { label: t('storageOps.hub.openIssues'), value: unresolved, icon: 'alert', onPress: onOpenIssues, area: 'operationalIssues' },
+    { label: t('storageOps.hub.todayActivity'), value: todayCount, icon: 'receiving', onPress: () => onOpenActivity('Today'), area: 'warehouseActivity' },
   ];
 
   const quickActions: ({ label: string; icon: React.ReactNode; onPress: () => void } & AreaTagged)[] = [
@@ -163,13 +164,9 @@ export function WarehouseOperationsScreen({
           ) : null}
 
           <SectionTitle>{t('storageOps.hub.overview')}</SectionTitle>
-          <View style={styles.grid}>
+          <View style={styles.kpiGrid}>
             {tiles.filter(shown).map((tile) => (
-              <TouchableOpacity key={tile.label} style={styles.tile} onPress={tile.onPress} activeOpacity={0.75} accessibilityRole="button">
-                <View style={styles.tileIcon}>{tile.icon}</View>
-                <Text style={styles.tileValue}>{tile.value}</Text>
-                <Text style={styles.tileLabel}>{tile.label}</Text>
-              </TouchableOpacity>
+              <OverviewDashboardCard key={tile.label} value={tile.value} title={tile.label} icon={tile.icon} onPress={tile.onPress} />
             ))}
           </View>
 
@@ -239,6 +236,8 @@ const TILE_ICON = 36;
 
 const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm },
+  // Design grid (mod1213farmadmin `grid`): the card sets its own 48.5% width.
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.sm },
   linkRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: adminSpacing.xs, marginBottom: adminSpacing.sm },
   link: { ...adminType.caption, color: adminColors.brand },
   tile: {

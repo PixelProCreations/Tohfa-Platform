@@ -33,7 +33,7 @@ vi.mock('react-native-svg', () => ({
   Rect: 'Rect',
 }));
 
-vi.mock('@tohfa/mobile-ui', () => ({ Icon: 'Icon' }));
+vi.mock('@tohfa/mobile-ui', () => ({ Icon: 'Icon', SafeAreaView: 'SafeAreaView' }));
 
 const farmsApi = vi.hoisted(() => ({
   getFarms: vi.fn(),

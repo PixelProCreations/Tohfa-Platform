@@ -3,14 +3,13 @@ import {
   Alert,
   BackHandler,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Button, EmptyState, ErrorState, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
+import { Button, EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, spacing, typography } from '../../../theme';

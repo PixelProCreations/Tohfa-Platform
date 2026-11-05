@@ -409,8 +409,8 @@ describe('permission gating: a figure whose rbac code is missing is not fetched 
   });
 
   it('the Sales tile and the Pending Transfers tile are drawn only with their code', () => {
-    expect(MAIN).toMatch(/\{access\.sales \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('sales'\)/);
-    expect(MAIN).toMatch(/\{access\.transfers \? \(\s*<TouchableOpacity[\s\S]*?kpi\.pendingTransfers/);
+    expect(MAIN).toMatch(/\{access\.sales \? \(\s*<OverviewDashboardCard[\s\S]*?navigateWh\('sales'\)/);
+    expect(MAIN).toMatch(/\{access\.transfers \? \(\s*<OverviewDashboardCard[\s\S]*?kpi\.pendingTransfers/);
   });
 
   it('Initiate Stock Transfer is drawn only with transfer.inter_warehouse.initiate, never as a button that answers "Permission Denied"', () => {
@@ -439,7 +439,7 @@ describe('BR-103: Open Issues is the real operational-issue count, not the alert
 
   it('is fetched and drawn only with warehouse.issue.view, and the tile opens the issues list', () => {
     expect(MAIN).toContain('canAllView && access.issues');
-    expect(MAIN).toMatch(/\{access\.issues \? \(\s*<TouchableOpacity[\s\S]*?navigateWh\('operational_issues'\)/);
+    expect(MAIN).toMatch(/\{access\.issues \? \(\s*<OverviewDashboardCard[\s\S]*?navigateWh\('operational_issues'\)/);
   });
 });
 

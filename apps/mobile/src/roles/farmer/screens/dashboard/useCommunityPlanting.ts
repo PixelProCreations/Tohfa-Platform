@@ -26,7 +26,12 @@ export interface CommunityPlanting {
   summary: CommunityPlantingSummary | null;
   /** Filter options; null until loaded (or after a failed load). */
   filterOptions: CommunityPlantingFilters | null;
-  filtersState: CommunityLoadState;
+  /**
+   * Same `unavailable` meaning as `state`: the filters endpoint sits behind the
+   * same permission and k threshold, so a 403/503 there is "switched off", not
+   * a load failure to report.
+   */
+  filtersState: CommunitySummaryState;
   /** Refetch after an error (shows the loading state again). */
   retry: () => void;
   /** Pull-to-refresh: keeps the current data on screen while refetching. */
@@ -51,7 +56,7 @@ export function useCommunityPlanting(): CommunityPlanting {
   const refreshingRef = useRef(false);
 
   const [filterOptions, setFilterOptions] = useState<CommunityPlantingFilters | null>(null);
-  const [filtersState, setFiltersState] = useState<CommunityLoadState>('loading');
+  const [filtersState, setFiltersState] = useState<CommunitySummaryState>('loading');
   const [filtersReloadKey, setFiltersReloadKey] = useState(0);
 
   useEffect(() => {
@@ -87,9 +92,9 @@ export function useCommunityPlanting(): CommunityPlanting {
         setFilterOptions(result);
         setFiltersState('ready');
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (controller.signal.aborted) return;
-        setFiltersState('error');
+        setFiltersState(isCommunityPlantingUnavailable(error) ? 'unavailable' : 'error');
       });
     return () => controller.abort();
   }, [filtersReloadKey]);

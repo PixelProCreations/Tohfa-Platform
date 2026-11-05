@@ -4,7 +4,6 @@ import {
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,7 +28,7 @@ import { getMyListings, type Listing } from '../../api/listings';
 import { listNotifications } from '../../api/notifications';
 import { listMyAudits, shortMonthKey, type FarmerAuditSummary } from '../../api/audits';
 import { listAllActiveFarmCrops, type ActiveFarmCropsResult } from '../../api/crops';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { getLocale, t, type TranslationKey } from '../../../../i18n/farmer';
 
 import { authPalette as P, colors, typography } from '../../theme';

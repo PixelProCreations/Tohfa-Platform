@@ -11,14 +11,13 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { ReportsScreen } from '../reports';
@@ -29,7 +28,7 @@ import { CustomersFlow } from '../customers';
 import { isAreaAvailable } from '../availability';
 import type { WarehouseScreenBaseProps, WarehouseTab } from '../finance-expenses';
 import { t } from '../../../i18n';
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import { isMoreItemPermitted, MORE_OPTION_GROUPS } from './moreMenu';
 import type { MoreOptionItem, OptionGroup } from './types';
 
@@ -961,7 +960,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },

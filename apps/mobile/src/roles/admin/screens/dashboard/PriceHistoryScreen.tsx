@@ -5,14 +5,13 @@
  */
 import React from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 const P = {
   pageBg: '#FAF8F5',

@@ -1,14 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { EmptyState, ErrorState, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, radius, spacing, typography } from '../../../theme';
 import { t, type TranslationKey } from '../../../../../i18n/farmer';

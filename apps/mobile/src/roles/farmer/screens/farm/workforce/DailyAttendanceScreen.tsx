@@ -3,7 +3,6 @@ import {
   Alert,
   Image,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -12,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, Skeleton } from '@tohfa/mobile-ui';
+import { Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';

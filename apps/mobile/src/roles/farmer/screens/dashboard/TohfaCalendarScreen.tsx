@@ -4,13 +4,13 @@ import {
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../i18n/farmer';
 import { authPalette as P, colors, radius, spacing, typography } from '../../theme';
@@ -71,6 +71,13 @@ const CROP_IMAGES: Record<string, string> = {
 
 // Still static: there is no wishlist table or endpoint (docs/rules.md BR-136
 // "Not built"), so this list is deliberately not fabricated from another source.
+//
+// The rows below are design placeholders, not real demand. Showing them would
+// tell farmers that customers want quantities nobody measured, so the section
+// is hidden until a wishlist data source exists (rules.md open contradiction
+// 34). Turn this on only together with replacing WISHLIST_DATA by real data.
+const SHOW_STATIC_WISHLIST_DEMAND = false as boolean;
+
 const WISHLIST_DATA = [
   { rank: 1, name: 'Carrot',       customers: 62, quantity: '8,400 kg' },
   { rank: 2, name: 'Tomato',       customers: 54, quantity: '7,200 kg' },
@@ -334,6 +341,7 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
   };
 
   const sheetOptions = openFilter === null ? [] : optionsFor(openFilter);
+  const filtersUnavailable = community.state === 'unavailable' || community.filtersState === 'unavailable';
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -379,48 +387,56 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
           </Text>
         </View>
 
-        {/* Filter Chips Row */}
-        <View style={styles.filterRow}>
-          <TouchableOpacity testID="tohfaCalendar.filter.crop" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('crop')}>
-            <Text style={styles.filterChipText} numberOfLines={1}>{cropChipLabel}</Text>
-            <ChevronDown size={12} color={P.twGray600} />
-          </TouchableOpacity>
-          <TouchableOpacity testID="tohfaCalendar.filter.month" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('month')}>
-            <Text style={styles.filterChipText} numberOfLines={1}>{monthChipLabel}</Text>
-            <ChevronDown size={12} color={P.twGray600} />
-          </TouchableOpacity>
-          <TouchableOpacity testID="tohfaCalendar.filter.region" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('region')}>
-            <Text style={styles.filterChipText} numberOfLines={1}>{regionChipLabel}</Text>
-            <ChevronDown size={12} color={P.twGray600} />
-          </TouchableOpacity>
-        </View>
+        {/* Filter Chips Row — hidden while the view is switched off (403/503):
+            there is nothing to filter, and the sheet would only report a
+            "could not load" error that Retry cannot fix. */}
+        {filtersUnavailable ? null : (
+          <View style={styles.filterRow}>
+            <TouchableOpacity testID="tohfaCalendar.filter.crop" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('crop')}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{cropChipLabel}</Text>
+              <ChevronDown size={12} color={P.twGray600} />
+            </TouchableOpacity>
+            <TouchableOpacity testID="tohfaCalendar.filter.month" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('month')}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{monthChipLabel}</Text>
+              <ChevronDown size={12} color={P.twGray600} />
+            </TouchableOpacity>
+            <TouchableOpacity testID="tohfaCalendar.filter.region" style={styles.filterChip} activeOpacity={0.7} onPress={() => setOpenFilter('region')}>
+              <Text style={styles.filterChipText} numberOfLines={1}>{regionChipLabel}</Text>
+              <ChevronDown size={12} color={P.twGray600} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {renderSummary()}
 
-        {/* Customer Wishlist Demand — static, see WISHLIST_DATA */}
-        <View style={styles.wishlistHeader}>
-          <HeartIcon />
-          <Text style={styles.wishlistTitle}>{t('farmer.tohfaCalendar.wishlist.title')}</Text>
-        </View>
-
-        <View style={styles.wishlistCard}>
-          {WISHLIST_DATA.map((item, idx) => (
-            <View key={item.rank} style={[styles.wishlistRow, idx < WISHLIST_DATA.length - 1 && styles.wishlistRowBorder]}>
-              <Text style={[styles.wishlistRank, { color: RANK_COLORS[idx] || colors.brandGreen }]}>{item.rank}</Text>
-              <View style={styles.wishlistCropWrap}>
-                <Image
-                  source={{ uri: CROP_IMAGES[item.name] }}
-                  style={styles.wishlistCropImage}
-                  resizeMode="cover"
-                />
-                <Text style={styles.wishlistCropName}>{item.name}</Text>
-              </View>
-              <Text style={styles.wishlistCustomers}>{t('farmer.tohfaCalendar.wishlist.customers', { count: item.customers })}</Text>
-              <Text style={styles.wishlistQty}>{item.quantity}</Text>
+        {/* Customer Wishlist Demand — static placeholders, hidden: see SHOW_STATIC_WISHLIST_DEMAND */}
+        {SHOW_STATIC_WISHLIST_DEMAND && (
+          <>
+            <View style={styles.wishlistHeader}>
+              <HeartIcon />
+              <Text style={styles.wishlistTitle}>{t('farmer.tohfaCalendar.wishlist.title')}</Text>
             </View>
-          ))}
-          <Text style={styles.wishlistFootnote}>{t('farmer.tohfaCalendar.wishlist.footnote')}</Text>
-        </View>
+
+            <View style={styles.wishlistCard}>
+              {WISHLIST_DATA.map((item, idx) => (
+                <View key={item.rank} style={[styles.wishlistRow, idx < WISHLIST_DATA.length - 1 && styles.wishlistRowBorder]}>
+                  <Text style={[styles.wishlistRank, { color: RANK_COLORS[idx] || colors.brandGreen }]}>{item.rank}</Text>
+                  <View style={styles.wishlistCropWrap}>
+                    <Image
+                      source={{ uri: CROP_IMAGES[item.name] }}
+                      style={styles.wishlistCropImage}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.wishlistCropName}>{item.name}</Text>
+                  </View>
+                  <Text style={styles.wishlistCustomers}>{t('farmer.tohfaCalendar.wishlist.customers', { count: item.customers })}</Text>
+                  <Text style={styles.wishlistQty}>{item.quantity}</Text>
+                </View>
+              ))}
+              <Text style={styles.wishlistFootnote}>{t('farmer.tohfaCalendar.wishlist.footnote')}</Text>
+            </View>
+          </>
+        )}
 
         {/* Bottom spacer for sticky button */}
         <View style={styles.bottomSpacer} />
@@ -435,7 +451,7 @@ export function TohfaCalendarScreen({ onNavigateBack, onNavigateToCropInsight }:
       </View>
 
       {/* Filter picker sheet (same Modal + backdrop pattern as AddPlantingScreen's date sheet) */}
-      {openFilter !== null ? (
+      {openFilter !== null && !filtersUnavailable ? (
         <Modal transparent visible animationType="fade" onRequestClose={() => setOpenFilter(null)}>
           <View style={styles.sheetOverlay}>
             <View style={[StyleSheet.absoluteFill, styles.sheetScrim]} pointerEvents="none" />

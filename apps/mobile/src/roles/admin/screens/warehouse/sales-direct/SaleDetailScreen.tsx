@@ -9,8 +9,8 @@
  * invoice detail only with the sale's real invoice uuid.
  */
 import React from 'react';
-import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import type { SaleStatus } from '../../../api/sales';
 import { t } from '../../../i18n';

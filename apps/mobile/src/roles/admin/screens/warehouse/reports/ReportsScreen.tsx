@@ -19,10 +19,11 @@
  *     has no file save / share mechanism (see constants.ts).
  */
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 import type { ReportChannel } from '../../../api/reports';
+import { OverviewDashboardCard, type OverviewCardIcon } from '../../../components';
 import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -221,7 +222,7 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
             <KpiGrid>
               <KpiTile label={t('reports.inventory.kpi.crops')} value={String(r.data.items.length)} />
               <KpiTile label={t('reports.inventory.kpi.batches')} value={String(r.data.totalBatchCount)} />
-              <KpiTile label={t('reports.inventory.kpi.quantity')} value={kg(r.data.totalQtyKg)} />
+              <KpiTile label={t('reports.inventory.kpi.quantity')} value={kg(r.data.totalQtyKg)} full />
             </KpiGrid>
             <SectionTitle>{t('reports.inventory.byCrop')}</SectionTitle>
             {items.length === 0 ? (
@@ -263,7 +264,7 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
             <KpiGrid>
               <KpiTile label={t('reports.receiving.kpi.total')} value={String(r.data.totalReceipts)} />
               <KpiTile label={t('reports.receiving.kpi.accepted')} value={String(r.data.acceptedCount)} />
-              <KpiTile label={t('reports.receiving.kpi.rejected')} value={String(r.data.rejectedCount)} />
+              <KpiTile label={t('reports.receiving.kpi.rejected')} value={String(r.data.rejectedCount)} full />
             </KpiGrid>
             <SectionTitle>{t('reports.receiving.byDay')}</SectionTitle>
             <RowStack>
@@ -512,20 +513,25 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
       ) : (
         <ScrollView style={reportStyles.scroll} contentContainerStyle={reportStyles.scrollContent}>
           {kpis.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.kpiStrip}>
+            // Design (mod1213farmadmin M12-S01): a 2-column grid of the shared
+            // card; an odd last card spans the row.
+            <View style={styles.kpiGrid}>
               {hubLoading ? (
                 <View style={styles.pickerLoading}>
                   <ActivityIndicator size="small" color={adminColors.brand} />
                 </View>
               ) : (
-                kpis.map((kpi) => (
-                  <View key={kpi.label} style={styles.hubKpiTile}>
-                    <Text style={styles.hubKpiLabel}>{kpi.label}</Text>
-                    <Text style={styles.hubKpiValue}>{kpi.value}</Text>
-                  </View>
+                kpis.map((kpi, idx) => (
+                  <OverviewDashboardCard
+                    key={kpi.label}
+                    value={kpi.value}
+                    title={kpi.label}
+                    icon={kpi.icon}
+                    style={idx === kpis.length - 1 && kpis.length % 2 === 1 ? styles.kpiCardFull : undefined}
+                  />
                 ))
               )}
-            </ScrollView>
+            </View>
           ) : null}
 
           {sections.map((section) => (
@@ -556,17 +562,21 @@ export function ReportsScreen({ onBack, onNavigateToNotifications, scope, can, w
   );
 }
 
-/** Hub KPI tiles: one per report the viewer may read and that has answered. */
-function hubKpis(data: ReportsData): { label: string; value: string }[] {
-  const out: { label: string; value: string }[] = [];
-  if (data.sales.data) out.push({ label: t('reports.hub.kpi.sales'), value: data.sales.data.totalFormatted });
-  if (data.inventory.data) out.push({ label: t('reports.hub.kpi.inventory'), value: kg(data.inventory.data.totalQtyKg) });
-  if (data.receiving.data) out.push({ label: t('reports.hub.kpi.received'), value: String(data.receiving.data.totalReceipts) });
-  if (data.customers.data) out.push({ label: t('reports.hub.kpi.customers'), value: String(data.customers.data.customersWithOrders) });
-  if (data.cashTopups.data) out.push({ label: t('reports.hub.kpi.cashTopup'), value: data.cashTopups.data.totalFormatted });
-  if (data.revenue.data) out.push({ label: t('reports.hub.kpi.revenue'), value: formatPaise(data.revenue.data.totalPaise) });
-  if (data.expense.data) out.push({ label: t('reports.hub.kpi.expenses'), value: formatPaise(data.expense.data.totalPaise) });
-  if (data.returns.data) out.push({ label: t('reports.hub.kpi.returns'), value: String(data.returns.data.totalReturns) });
+/**
+ * Hub KPI tiles: one per report the viewer may read and that has answered.
+ * The icon is the design's card icon for that report, chosen by report rather
+ * than by label text. Revenue has no card in the design; its icon is 'sales' (owner, 2026-11-03).
+ */
+function hubKpis(data: ReportsData): { label: string; value: string; icon?: OverviewCardIcon }[] {
+  const out: { label: string; value: string; icon?: OverviewCardIcon }[] = [];
+  if (data.sales.data) out.push({ label: t('reports.hub.kpi.sales'), value: data.sales.data.totalFormatted, icon: 'sales' });
+  if (data.inventory.data) out.push({ label: t('reports.hub.kpi.inventory'), value: kg(data.inventory.data.totalQtyKg), icon: 'box' });
+  if (data.receiving.data) out.push({ label: t('reports.hub.kpi.received'), value: String(data.receiving.data.totalReceipts), icon: 'receiving' });
+  if (data.customers.data) out.push({ label: t('reports.hub.kpi.customers'), value: String(data.customers.data.customersWithOrders), icon: 'orders' });
+  if (data.cashTopups.data) out.push({ label: t('reports.hub.kpi.cashTopup'), value: data.cashTopups.data.totalFormatted, icon: 'cash' });
+  if (data.revenue.data) out.push({ label: t('reports.hub.kpi.revenue'), value: formatPaise(data.revenue.data.totalPaise), icon: 'sales' });
+  if (data.expense.data) out.push({ label: t('reports.hub.kpi.expenses'), value: formatPaise(data.expense.data.totalPaise), icon: 'cash' });
+  if (data.returns.data) out.push({ label: t('reports.hub.kpi.returns'), value: String(data.returns.data.totalReturns), icon: 'alert' });
   return out;
 }
 
@@ -590,75 +600,98 @@ function SummaryView({ data, subtitle, onBack }: { data: ReportsData; subtitle: 
       emptySubtitle={t('reports.hub.empty.subtitle')}
     >
       {sales.data ? (
-        <>
-          <SectionTitle>{t('reports.summary.section.sales')}</SectionTitle>
-          <DataRow
-            title={t('reports.summary.totalSales')}
+        <SummarySection title={t('reports.summary.section.sales')}>
+          <SummaryItem
+            label={t('reports.summary.totalSales')}
             value={sales.data.totalFormatted}
             meta={t('reports.summary.salesMeta', { count: sales.data.count, average: sales.data.averageOrderValueFormatted })}
           />
-        </>
+        </SummarySection>
       ) : null}
       {inventory.data || receiving.data ? (
-        <>
-          <SectionTitle>{t('reports.summary.section.stock')}</SectionTitle>
-          <RowStack>
-            {inventory.data ? (
-              <DataRow
-                title={t('reports.summary.inventory')}
-                value={kg(inventory.data.totalQtyKg)}
-                meta={count('reports.count.batches', inventory.data.totalBatchCount)}
-              />
-            ) : null}
-            {receiving.data ? (
-              <DataRow title={t('reports.summary.received')} value={count('reports.count.receipts', receiving.data.totalReceipts)} />
-            ) : null}
-          </RowStack>
-        </>
+        <SummarySection title={t('reports.summary.section.stock')}>
+          {inventory.data ? (
+            <SummaryItem
+              label={t('reports.summary.inventory')}
+              value={kg(inventory.data.totalQtyKg)}
+              meta={count('reports.count.batches', inventory.data.totalBatchCount)}
+            />
+          ) : null}
+          {receiving.data ? (
+            <SummaryItem
+              label={t('reports.summary.received')}
+              value={count('reports.count.receipts', receiving.data.totalReceipts)}
+              right={inventory.data !== null}
+            />
+          ) : null}
+        </SummarySection>
       ) : null}
       {revenue.data || expense.data ? (
-        <>
-          <SectionTitle>{t('reports.summary.section.finance')}</SectionTitle>
-          <RowStack>
-            {revenue.data ? (
-              <DataRow
-                title={t('reports.summary.revenue')}
-                value={formatPaise(revenue.data.totalPaise)}
-                meta={count('reports.count.transactions', revenue.data.count)}
-              />
-            ) : null}
-            {expense.data ? (
-              <DataRow
-                title={t('reports.summary.expenses')}
-                value={formatPaise(expense.data.totalPaise)}
-                meta={count('reports.count.expenses', expense.data.count)}
-              />
-            ) : null}
-          </RowStack>
-        </>
+        <SummarySection title={t('reports.summary.section.finance')}>
+          {revenue.data ? (
+            <SummaryItem
+              label={t('reports.summary.revenue')}
+              value={formatPaise(revenue.data.totalPaise)}
+              meta={count('reports.count.transactions', revenue.data.count)}
+            />
+          ) : null}
+          {expense.data ? (
+            <SummaryItem
+              label={t('reports.summary.expenses')}
+              value={formatPaise(expense.data.totalPaise)}
+              meta={count('reports.count.expenses', expense.data.count)}
+              right={revenue.data !== null}
+            />
+          ) : null}
+        </SummarySection>
       ) : null}
       {cashTopups.data || returns.data ? (
-        <>
-          <SectionTitle>{t('reports.summary.section.cashReturns')}</SectionTitle>
-          <RowStack>
-            {cashTopups.data ? (
-              <DataRow
-                title={t('reports.summary.cashTopups')}
-                value={cashTopups.data.totalFormatted}
-                meta={count('reports.count.topups', cashTopups.data.count)}
-              />
-            ) : null}
-            {returns.data ? (
-              <DataRow
-                title={t('reports.summary.returns')}
-                value={returns.data.refundedTotalFormatted}
-                meta={count('reports.count.returns', returns.data.totalReturns)}
-              />
-            ) : null}
-          </RowStack>
-        </>
+        <SummarySection title={t('reports.summary.section.cashReturns')}>
+          {cashTopups.data ? (
+            <SummaryItem
+              label={t('reports.summary.cashTopups')}
+              value={cashTopups.data.totalFormatted}
+              meta={count('reports.count.topups', cashTopups.data.count)}
+            />
+          ) : null}
+          {returns.data ? (
+            <SummaryItem
+              label={t('reports.summary.returns')}
+              value={returns.data.refundedTotalFormatted}
+              meta={count('reports.count.returns', returns.data.totalReturns)}
+              right={cashTopups.data !== null}
+            />
+          ) : null}
+        </SummarySection>
       ) : null}
     </ReportView>
+  );
+}
+
+/**
+ * Design (mod1213farmadmin summary_report): each section is a titled card with
+ * a two-column label / value row. The meta line under a value is this app's
+ * own (counts and averages from the same query); the design has none.
+ */
+function SummarySection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <>
+      <Text style={styles.summarySectionTitle}>{title}</Text>
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryCardRow}>{children}</View>
+      </View>
+    </>
+  );
+}
+
+/** One cell of a summary card; `right` is the second column (right-aligned). */
+function SummaryItem({ label, value, meta, right = false }: { label: string; value: string; meta?: string; right?: boolean }) {
+  return (
+    <View style={right ? styles.summaryColRight : styles.summaryCol}>
+      <Text style={styles.summaryItemLabel}>{label}</Text>
+      <Text style={styles.summaryItemValue}>{value}</Text>
+      {meta !== undefined ? <Text style={[styles.summaryItemMeta, right && styles.summaryTextRight]}>{meta}</Text> : null}
+    </View>
   );
 }
 
@@ -691,18 +724,18 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, ...adminType.body, color: adminColors.ink, paddingVertical: 0 },
   noMatch: { ...adminType.rowMeta, color: adminColors.muted },
-  kpiStrip: { flexDirection: 'row', marginBottom: adminSpacing.lg },
-  hubKpiTile: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.md,
-    marginRight: adminSpacing.sm,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
+  // Design hub grid (mod1213farmadmin `kpiGrid`): the card sets its own 48.5%
+  // width. Row gap only: the design's column gap of 10 next to two 48.5% cards
+  // overflows a 328dp row (360dp phone) and would stack the cards; space-between
+  // already leaves the column gap.
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: adminSpacing.smMd,
+    marginBottom: adminSpacing.lg,
   },
-  hubKpiLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
-  hubKpiValue: { ...adminType.kpiValue, color: adminColors.ink },
+  kpiCardFull: { width: '100%' },
   sectionWrap: { marginBottom: adminSpacing.lg },
   sectionHeading: {
     ...adminType.sectionHead,
@@ -723,4 +756,30 @@ const styles = StyleSheet.create({
   reportCardTextWrap: { flex: 1 },
   reportCardTitle: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xs },
   reportCardSubtitle: { ...adminType.rowMeta, color: adminColors.muted },
+  // Summary layout from the design (mod1213farmadmin summarySectionTitle,
+  // summaryCard, summaryCardRow, summaryCol(Right), summaryItemLabel/Value).
+  summarySectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.xs,
+    marginLeft: 2,
+    letterSpacing: -0.2,
+  },
+  summaryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.mdLg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.mdLg,
+    ...adminShadow.sm,
+  },
+  summaryCardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  summaryCol: { flex: 1 },
+  summaryColRight: { flex: 1, alignItems: 'flex-end' },
+  summaryItemLabel: { ...adminType.caption, color: adminColors.muted, marginBottom: adminSpacing.xs },
+  summaryItemValue: { ...adminType.kpiValue, color: adminColors.ink, letterSpacing: -0.2 },
+  summaryItemMeta: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.xs },
+  summaryTextRight: { textAlign: 'right' },
 });

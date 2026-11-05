@@ -1,13 +1,12 @@
 import {
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import type { PendingApplicationItem } from './AdminPendingApplicationsScreen';
 import calendarIconAsset from '../../assets/images/calendar.png';

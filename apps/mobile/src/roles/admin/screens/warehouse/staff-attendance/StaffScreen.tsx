@@ -17,6 +17,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+import { OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
@@ -26,7 +27,6 @@ import {
   ChipGroup,
   HeaderIconButton,
   isAllWarehouses,
-  KpiRow,
   ScopeHeader,
   SearchBar,
   StatusBadge,
@@ -222,14 +222,13 @@ export function StaffScreen({
       ) : null}
 
       {attendanceAllowed ? (
-        <KpiRow
-          items={[
-            { value: kpi(summary?.total), label: t('staff.kpi.active') },
-            { value: kpi(summary?.present), label: t('staff.kpi.presentToday'), tone: 'success' },
-            { value: kpi(summary?.absent), label: t('staff.kpi.absent'), tone: 'danger' },
-            { value: kpi(summary?.leave), label: t('staff.kpi.leave'), tone: 'warning' },
-          ]}
-        />
+        // Design (mod1213farmadmin M14-S01): the shared card, 2x2.
+        <View style={styles.kpiGrid}>
+          <OverviewDashboardCard value={kpi(summary?.total)} title={t('staff.kpi.active')} icon="orders" />
+          <OverviewDashboardCard value={kpi(summary?.present)} title={t('staff.kpi.presentToday')} icon="pickup" tone="success" />
+          <OverviewDashboardCard value={kpi(summary?.absent)} title={t('staff.kpi.absent')} icon="alert" tone="danger" />
+          <OverviewDashboardCard value={kpi(summary?.leave)} title={t('staff.kpi.leave')} icon="receiving" tone="warning" />
+        </View>
       ) : null}
 
       <ChipGroup options={STATUS_FILTERS} value={statusFilter} onChange={setStatusFilter} labelOf={statusFilterLabel} />
@@ -271,6 +270,14 @@ const styles = StyleSheet.create({
   headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: adminSpacing.sm },
   headerTitleText: { ...adminType.title, color: adminColors.onBrand },
   gap: { height: adminSpacing.md },
+  // Design grid (mod1213farmadmin `kpiGrid`): the card sets its own 48.5% width.
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: adminSpacing.md,
+  },
   card: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

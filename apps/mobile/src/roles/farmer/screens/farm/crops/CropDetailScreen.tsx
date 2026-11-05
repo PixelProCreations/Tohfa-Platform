@@ -1,10 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
-  ImageBackground,
   Image,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -13,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { fromPaise, format as formatMoney } from '@tohfa/shared-types';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../../theme';
@@ -1457,11 +1455,11 @@ export function CropDetailScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* ── Top Hero Banner with Background Image ── */}
-        <ImageBackground
-          source={{ uri: heroImageUri }}
-          style={styles.heroBackground}
-          imageStyle={styles.heroBackgroundImage}
-        >
+        <View style={styles.heroBackground}>
+          <Image
+            source={{ uri: heroImageUri }}
+            style={[StyleSheet.absoluteFill, styles.heroBackgroundImage]}
+          />
           {/* Dark gradient overlay */}
           <View style={styles.heroOverlay}>
             <SafeAreaView style={styles.heroSafeArea}>
@@ -1522,7 +1520,7 @@ export function CropDetailScreen({
               </View>
             </SafeAreaView>
           </View>
-        </ImageBackground>
+        </View>
 
         {/* ── Content Body below Hero ── */}
         <View style={styles.bodyContent}>

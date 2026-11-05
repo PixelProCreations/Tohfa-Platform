@@ -1,6 +1,7 @@
 // Design id: M3S09
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { ADMIN_BUTTON_HEIGHT, adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';

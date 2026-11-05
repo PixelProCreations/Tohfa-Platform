@@ -4,7 +4,6 @@ import {
   BackHandler,
   Linking,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import { getFarms, getPlots } from '../../../api/farms';

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   BackHandler,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +8,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
-import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
+import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../theme';
 import { listFarmAssets } from '../../api/farmAssets';
 

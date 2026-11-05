@@ -21,9 +21,10 @@
  */
 // Design id: M7-S01
 import React from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { t } from '../../../i18n';
-import { adminColors } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
+import { adminColors, adminSpacing } from '../../../theme';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
 import {
@@ -36,7 +37,6 @@ import {
   LinkButton,
   SearchField,
   SearchIcon,
-  StatTiles,
   StatusBadge,
 } from './CustomersParts';
 import type { CustomerRow, CustomersLiveStateProps, CustomerSummary, WarehouseScreenBaseProps } from './types';
@@ -110,13 +110,23 @@ export function CustomersListScreen({
       onRefresh={onRefresh}
       isRefreshing={isRefreshing}
     >
-      <StatTiles
-        items={[
-          { label: t('customers.kpi.total'), value: countLabel(summary?.total) },
-          { label: t('customers.kpi.active'), value: countLabel(summary?.active) },
-          { label: t('customers.kpi.new'), value: countLabel(summary?.new) },
-        ]}
-      />
+      {/* Design (mod1213farmadmin M7-S01): the shared card in a 2-column grid. The
+          design's Total / Active icons are swapped between Main and Sub, so they
+          follow the scope. "New" has a design card on Sub only; Main shows it too
+          because the server sends it for both. */}
+      <View style={styles.kpiGrid}>
+        <OverviewDashboardCard
+          value={countLabel(summary?.total)}
+          title={t('customers.kpi.total')}
+          icon={allWarehouses ? 'pickup' : 'orders'}
+        />
+        <OverviewDashboardCard
+          value={countLabel(summary?.active)}
+          title={t('customers.kpi.active')}
+          icon={allWarehouses ? 'orders' : 'pickup'}
+        />
+        <OverviewDashboardCard value={countLabel(summary?.new)} title={t('customers.kpi.new')} icon="orders" />
+      </View>
 
       <SearchField
         value={searchText}
@@ -166,3 +176,14 @@ export function CustomersListScreen({
     </CustomersScreen>
   );
 }
+
+const styles = StyleSheet.create({
+  // Design grid (mod1213farmadmin `mainKpiGrid`): the card sets its own 48.5% width.
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 10,
+    marginBottom: adminSpacing.lg,
+  },
+});

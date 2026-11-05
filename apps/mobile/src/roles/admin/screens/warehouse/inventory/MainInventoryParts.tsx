@@ -12,7 +12,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { OverviewCardIcon } from '../../../components';
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
 import type { MainInventoryCardKey, QuickActionKey } from './mainInventoryMappers';
 import type { MovementDirection } from './types';
 
@@ -269,12 +269,15 @@ function DirectionIcon({ direction }: { direction: MovementDirection }) {
 }
 
 const styles = StyleSheet.create({
+  // Section header, list card, info note and movement row: look from the
+  // design reference's Inventory tab. 18, 2, 18 (line height) and 38 are the
+  // reference's own values; no token has them.
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: adminSpacing.input,
-    marginBottom: adminSpacing.md,
+    marginTop: 18,
+    marginBottom: adminSpacing.smMd,
   },
   sectionTitle: {
     ...adminType.sectionHead,
@@ -290,13 +293,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.xs,
+    paddingVertical: 2,
+    ...adminShadow.sm,
   },
   listRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: adminSpacing.md,
+    paddingVertical: adminSpacing.mdLg,
   },
   listRowDivider: {
     borderTopWidth: 1,
@@ -315,40 +319,44 @@ const styles = StyleSheet.create({
   infoNote: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.sm,
+    gap: adminSpacing.smMd,
     backgroundColor: adminColors.warning.bg,
     borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.warning.border,
     paddingVertical: adminSpacing.md,
     paddingHorizontal: adminSpacing.md,
-    marginTop: adminSpacing.md,
+    marginTop: adminSpacing.mdLg,
   },
   infoNoteText: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.warning.text,
     flex: 1,
+    lineHeight: 18,
   },
+  // Look from the design reference's Inventory Health card (card + grid in one view here).
   healthCard: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: adminSpacing.lg,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.sm,
-    paddingHorizontal: adminSpacing.sm,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
   },
   healthCell: {
-    width: '50%',
-    paddingVertical: adminSpacing.sm,
-    paddingHorizontal: adminSpacing.sm,
+    width: '48%',
   },
   healthLabel: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
+    marginBottom: adminSpacing.xs,
   },
   healthValue: {
     ...adminType.rowTitle,
-    marginTop: adminSpacing.xs,
   },
   toneSuccess: { color: adminColors.success.text },
   toneWarning: { color: adminColors.warning.text },
@@ -357,15 +365,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
+    padding: adminSpacing.mdLg,
     marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   movementBadge: {
-    width: adminSpacing.xxl,
-    height: adminSpacing.xxl,
+    width: 38,
+    height: 38,
     borderRadius: adminRadius.sm,
     backgroundColor: adminColors.warning.bg,
     alignItems: 'center',
@@ -380,8 +389,9 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
   movementSub: {
-    ...adminType.rowMeta,
+    ...adminType.caption,
     color: adminColors.muted,
+    marginTop: 2,
   },
   movementQty: {
     ...adminType.rowTitle,
@@ -390,25 +400,30 @@ const styles = StyleSheet.create({
   movementQtyOut: {
     color: adminColors.danger.text,
   },
+  // Look from the design reference's Quick Actions (2 columns). 18 and 10 are
+  // the reference's own values; no spacing token has either.
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: adminSpacing.md,
+    marginBottom: adminSpacing.lg,
   },
   quickTile: {
-    width: '31.5%',
+    width: '48.2%',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.lg,
-    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   quickLabel: {
-    ...adminType.caption,
+    ...adminType.rowTitle,
     color: adminColors.ink,
     textAlign: 'center',
   },

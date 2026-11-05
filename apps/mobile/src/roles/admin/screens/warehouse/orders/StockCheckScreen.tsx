@@ -12,8 +12,8 @@
  */
 // Design id: M5S05 (Stock Check), absorbs M5S06 (Stock Shortage)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow, ADMIN_BUTTON_HEIGHT } from '../../../theme';
