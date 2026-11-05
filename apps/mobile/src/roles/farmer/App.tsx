@@ -2515,7 +2515,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'AddInputApplied' ? (
           <AddInputAppliedScreen
-            // Opened from the farm-wide history there is no single crop to log against: never reuse a stale one.
+            // Opened from the farm-wide history there is no single crop to log against: never reuse a stale
+            // one. With crop=null the screen shows a crop picker and the farmer chooses the crop.
             crop={params['scope'] === 'all' ? null : selectedCrop}
             initialInputType={params['initialInputType'] as 'Fertigation' | 'Pest Treatment' | undefined}
             onBack={goBack}

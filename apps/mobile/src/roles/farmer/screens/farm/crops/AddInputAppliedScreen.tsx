@@ -24,6 +24,8 @@ import {
 import { todayInKolkata } from '../../certifications/certificationForm';
 import { authPalette as P, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import { useActiveCropItems } from './cropItems';
+import { parseQuantity } from './fertigationQuantity';
 import { parseAppliedOn } from './inputApplications';
 
 // ─────────────────────────────────────────────
@@ -100,6 +102,90 @@ const APPLIED_BY_OPTIONS = [
   'Contractor',
 ];
 
+/**
+ * The crop field shown when the screen is opened without a crop (Input
+ * Management → Full history → +, which is farm-wide). It is its own component
+ * so the active-crop list is only fetched on that path: opened from a crop,
+ * the crop is fixed and nothing extra is loaded. Nothing is preselected — an
+ * input is never recorded against a crop the farmer did not choose.
+ */
+function CropPickerField({
+  selected,
+  onSelect,
+}: {
+  selected: CropItem | null;
+  onSelect: (crop: CropItem) => void;
+}): React.JSX.Element {
+  const { items, loading, error, reload } = useActiveCropItems();
+  const [open, setOpen] = useState(false);
+
+  const label = selected
+    ? t('farmer.addInput.crop.option', { crop: selected.name, zone: selected.zoneShort || selected.zone })
+    : loading
+      ? t('farmer.addInput.crop.loading')
+      : error
+        ? t('farmer.addInput.crop.loadError')
+        : items.length === 0
+          ? t('farmer.addInput.crop.empty')
+          : t('farmer.addInput.crop.placeholder');
+
+  // While the list failed to load and nothing is chosen, the field is a retry
+  // (same behaviour as LogFertigationScreen's crop selector).
+  const handlePress = () => {
+    if (!selected && error) {
+      void reload();
+      return;
+    }
+    setOpen(true);
+  };
+
+  return (
+    <View style={styles.fieldSection}>
+      <View style={styles.fieldLabelRow}>
+        <Text style={styles.fieldLabel}>{t('farmer.addInput.crop.label')}</Text>
+        <Text style={styles.asterisk}> *</Text>
+      </View>
+      <TouchableOpacity
+        testID="addInput.cropPicker"
+        style={styles.dropdownBox}
+        onPress={handlePress}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={t('farmer.addInput.crop.selectA11y')}
+      >
+        <Text style={styles.dropdownText}>{label}</Text>
+        <ChevronDownIcon size={18} color={P.twGray500} />
+      </TouchableOpacity>
+
+      <Modal visible={open} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setOpen(false)}>
+          <View style={styles.pickerModalContent}>
+            <Text style={styles.pickerModalTitle}>{t('farmer.addInput.crop.title')}</Text>
+            {items.map((item) => {
+              const isSelected = selected?.id === item.id;
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  testID={`addInput.cropOption.${item.id}`}
+                  style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+                  onPress={() => {
+                    onSelect(item);
+                    setOpen(false);
+                  }}
+                >
+                  <Text style={[styles.modalItemText, isSelected && styles.modalItemTextSelected]}>
+                    {t('farmer.addInput.crop.option', { crop: item.name, zone: item.zoneShort || item.zone })}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+    </View>
+  );
+}
+
 export function AddInputAppliedScreen({
   crop,
   initialInputType,
@@ -119,12 +205,16 @@ export function AddInputAppliedScreen({
   }, [onBack]);
 
   // The real crop the input is recorded against; no sample crop is shown or saved to.
-  const cropZone = crop?.zoneShort || crop?.zone || '';
-  const subtitle = !crop?.id
+  // Opened from a crop it is fixed; opened farm-wide (no crop) the farmer picks one.
+  const hasFixedCrop = Boolean(crop?.id);
+  const [pickedCrop, setPickedCrop] = useState<CropItem | null>(null);
+  const targetCrop = hasFixedCrop ? (crop ?? null) : pickedCrop;
+  const cropZone = targetCrop?.zoneShort || targetCrop?.zone || '';
+  const subtitle = !targetCrop?.id
     ? t('farmer.inputHistory.placeholder')
-    : crop.variety
-      ? t('farmer.inputHistory.cropSubtitle', { crop: crop.name, variety: crop.variety, zone: cropZone })
-      : t('farmer.inputHistory.cropSubtitleNoVariety', { crop: crop.name, zone: cropZone });
+    : targetCrop.variety
+      ? t('farmer.inputHistory.cropSubtitle', { crop: targetCrop.name, variety: targetCrop.variety, zone: cropZone })
+      : t('farmer.inputHistory.cropSubtitleNoVariety', { crop: targetCrop.name, zone: cropZone });
 
   // Form states. Quantity and date start empty: the farmer types them (Dev's
   // "4 L" / "200 ml" and "17 Sep 2026, 09:20 AM" were sample values, kept only as placeholders).
@@ -175,15 +265,20 @@ export function AddInputAppliedScreen({
       Alert.alert(t('farmer.addInput.required.title'), t('farmer.addInput.required.body'));
       return;
     }
-    if (!crop?.id) {
+    if (!targetCrop?.id) {
       showError(t('farmer.addInput.error.noCrop'));
       return;
     }
-    const qty = Number(quantity.trim());
-    if (quantity.trim() === '' || !Number.isFinite(qty) || qty <= 0) {
+    const cropId = targetCrop.id;
+    // Same BR-56a check as LogFertigationScreen: crop_inputs.quantity is
+    // numeric(10,2), so more than 2 decimals, zero, a sign or an exponent is
+    // rejected here rather than sent.
+    const parsedQuantity = parseQuantity(quantity);
+    if (parsedQuantity === null) {
       showError(t('farmer.addInput.error.quantity'));
       return;
     }
+    const qty = Number(parsedQuantity);
     const date = parseAppliedOn(dateTime, todayInKolkata());
     if (!date.ok) {
       showError(date.reason === 'future' ? t('farmer.addInput.error.futureDate') : t('farmer.addInput.error.date'));
@@ -207,9 +302,9 @@ export function AddInputAppliedScreen({
     setSaving(true);
     try {
       await createCropInput(
-        crop.id,
+        cropId,
         body,
-        idempotencyRef.current.keyFor(JSON.stringify({ cropId: crop.id, body })),
+        idempotencyRef.current.keyFor(JSON.stringify({ cropId, body })),
       );
       idempotencyRef.current.reset();
       if (onSave) {
@@ -237,13 +332,13 @@ export function AddInputAppliedScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             accessibilityRole="button"
-            accessibilityLabel="Close and go back"
+            accessibilityLabel={t('farmer.addInput.closeA11y')}
           >
             <CloseIcon size={18} color={P.twGray800} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleGroup}>
-            <Text style={styles.headerTitle}>Add Input Applied</Text>
+            <Text style={styles.headerTitle}>{t('farmer.addInput.title')}</Text>
             <Text style={styles.headerSubtitle}>{subtitle}</Text>
           </View>
         </View>
@@ -254,10 +349,13 @@ export function AddInputAppliedScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── 0. Crop (only when opened farm-wide, without a crop) ── */}
+        {hasFixedCrop ? null : <CropPickerField selected={pickedCrop} onSelect={setPickedCrop} />}
+
         {/* ── 1. Input Type ── */}
         <View style={styles.fieldSection}>
           <View style={styles.fieldLabelRow}>
-            <Text style={styles.fieldLabel}>INPUT TYPE</Text>
+            <Text style={styles.fieldLabel}>{t('farmer.addInput.inputType')}</Text>
             <Text style={styles.asterisk}> *</Text>
           </View>
 
@@ -270,7 +368,7 @@ export function AddInputAppliedScreen({
               onPress={() => handleSelectType('Fertigation')}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Fertigation"
+              accessibilityLabel={t('farmer.addInput.type.fertigation')}
             >
               <Text
                 style={[
@@ -278,7 +376,7 @@ export function AddInputAppliedScreen({
                   inputType === 'Fertigation' && styles.segmentButtonTextActive,
                 ]}
               >
-                Fertigation
+                {t('farmer.addInput.type.fertigation')}
               </Text>
             </TouchableOpacity>
 
@@ -290,7 +388,7 @@ export function AddInputAppliedScreen({
               onPress={() => handleSelectType('Pest Treatment')}
               activeOpacity={0.85}
               accessibilityRole="button"
-              accessibilityLabel="Pest Treatment"
+              accessibilityLabel={t('farmer.addInput.type.pest')}
             >
               <Text
                 style={[
@@ -298,7 +396,7 @@ export function AddInputAppliedScreen({
                   inputType === 'Pest Treatment' && styles.segmentButtonTextActive,
                 ]}
               >
-                Pest Treatment
+                {t('farmer.addInput.type.pest')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -307,7 +405,7 @@ export function AddInputAppliedScreen({
         {/* ── 2. Product / Input Name ── */}
         <View style={styles.fieldSection}>
           <View style={styles.fieldLabelRow}>
-            <Text style={styles.fieldLabel}>PRODUCT / INPUT NAME</Text>
+            <Text style={styles.fieldLabel}>{t('farmer.addInput.productName')}</Text>
             <Text style={styles.asterisk}> *</Text>
           </View>
 
@@ -318,22 +416,20 @@ export function AddInputAppliedScreen({
               onChangeText={setProductName}
               placeholder={
                 inputType === 'Pest Treatment'
-                  ? 'e.g. Neem Oil, BT Spray'
-                  : 'e.g. Vermicompost Tea, Panchagavya'
+                  ? t('farmer.addInput.productPlaceholder.pest')
+                  : t('farmer.addInput.productPlaceholder.fertigation')
               }
               placeholderTextColor={P.twGray400}
-              accessibilityLabel="Product or Input Name"
+              accessibilityLabel={t('farmer.addInput.productNameA11y')}
             />
           </View>
-          <Text style={styles.helperText}>
-            Type to enter manually — suggestions come only from your own past entries.
-          </Text>
+          <Text style={styles.helperText}>{t('farmer.addInput.productHelper')}</Text>
         </View>
 
         {/* ── 3. Quantity ── */}
         <View style={styles.fieldSection}>
           <View style={styles.fieldLabelRow}>
-            <Text style={styles.fieldLabel}>QUANTITY</Text>
+            <Text style={styles.fieldLabel}>{t('farmer.addInput.quantity')}</Text>
             <Text style={styles.asterisk}> *</Text>
           </View>
 
@@ -344,9 +440,9 @@ export function AddInputAppliedScreen({
                 value={quantity}
                 onChangeText={setQuantity}
                 keyboardType="numeric"
-                placeholder="200"
+                placeholder={t('farmer.addInput.quantityPlaceholder')}
                 placeholderTextColor={P.twGray400}
-                accessibilityLabel="Quantity"
+                accessibilityLabel={t('farmer.addInput.quantityA11y')}
               />
             </View>
 
@@ -355,7 +451,7 @@ export function AddInputAppliedScreen({
               onPress={() => setShowUnitModal(true)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Select unit"
+              accessibilityLabel={t('farmer.addInput.selectUnitA11y')}
             >
               <Text style={styles.unitText}>{unit}</Text>
               <ChevronDownIcon size={18} color={P.twGray500} />
@@ -366,7 +462,7 @@ export function AddInputAppliedScreen({
         {/* ── 4. Date & Time ── */}
         <View style={styles.fieldSection}>
           <View style={styles.fieldLabelRow}>
-            <Text style={styles.fieldLabel}>DATE & TIME</Text>
+            <Text style={styles.fieldLabel}>{t('farmer.addInput.dateTime')}</Text>
             <Text style={styles.asterisk}> *</Text>
           </View>
 
@@ -375,19 +471,19 @@ export function AddInputAppliedScreen({
               style={styles.textInput}
               value={dateTime}
               onChangeText={setDateTime}
-              placeholder="17 Sep 2026, 09:20 AM"
+              placeholder={t('farmer.addInput.dateTimePlaceholder')}
               placeholderTextColor={P.twGray400}
-              accessibilityLabel="Date and Time"
+              accessibilityLabel={t('farmer.addInput.dateTimeA11y')}
             />
           </View>
-          <Text style={styles.helperText}>Entered manually — no auto-timestamping</Text>
+          <Text style={styles.helperText}>{t('farmer.addInput.dateTimeHelper')}</Text>
         </View>
 
         {/* ── 5. Target Pest / Issue (for Pest Treatment) OR Purpose (for Fertigation) ── */}
         {inputType === 'Pest Treatment' ? (
           <View style={styles.fieldSection}>
             <View style={styles.fieldLabelRow}>
-              <Text style={styles.fieldLabel}>TARGET PEST / ISSUE</Text>
+              <Text style={styles.fieldLabel}>{t('farmer.addInput.targetPest')}</Text>
               <Text style={styles.asterisk}> *</Text>
             </View>
 
@@ -396,7 +492,7 @@ export function AddInputAppliedScreen({
               onPress={() => setShowPestModal(true)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Select target pest or issue"
+              accessibilityLabel={t('farmer.addInput.targetPestA11y')}
             >
               <Text style={styles.dropdownText}>{targetPest}</Text>
               <ChevronDownIcon size={18} color={P.twGray500} />
@@ -404,14 +500,14 @@ export function AddInputAppliedScreen({
           </View>
         ) : (
           <View style={styles.fieldSection}>
-            <Text style={styles.fieldLabel}>PURPOSE</Text>
+            <Text style={styles.fieldLabel}>{t('farmer.addInput.purpose')}</Text>
 
             <TouchableOpacity
               style={styles.dropdownBox}
               onPress={() => setShowPurposeModal(true)}
               activeOpacity={0.8}
               accessibilityRole="button"
-              accessibilityLabel="Select purpose"
+              accessibilityLabel={t('farmer.addInput.purposeA11y')}
             >
               <Text style={styles.dropdownText}>{purpose}</Text>
               <ChevronDownIcon size={18} color={P.twGray500} />
@@ -421,14 +517,14 @@ export function AddInputAppliedScreen({
 
         {/* ── 6. Applied By ── */}
         <View style={styles.fieldSection}>
-          <Text style={styles.fieldLabel}>APPLIED BY</Text>
+          <Text style={styles.fieldLabel}>{t('farmer.addInput.appliedBy')}</Text>
 
           <TouchableOpacity
             style={styles.dropdownBox}
             onPress={() => setShowAppliedByModal(true)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Select applied by"
+            accessibilityLabel={t('farmer.addInput.appliedByA11y')}
           >
             <Text style={styles.dropdownText}>{appliedBy}</Text>
             <ChevronDownIcon size={18} color={P.twGray500} />
@@ -437,7 +533,7 @@ export function AddInputAppliedScreen({
 
         {/* ── 7. Notes ── */}
         <View style={styles.fieldSection}>
-          <Text style={styles.fieldLabel}>NOTES</Text>
+          <Text style={styles.fieldLabel}>{t('farmer.addInput.notes')}</Text>
 
           <TextInput
             style={styles.notesInput}
@@ -445,10 +541,10 @@ export function AddInputAppliedScreen({
             onChangeText={setNotes}
             multiline
             numberOfLines={3}
-            placeholder="Optional notes"
+            placeholder={t('farmer.addInput.notesPlaceholder')}
             placeholderTextColor={P.twGray400}
             textAlignVertical="top"
-            accessibilityLabel="Optional notes"
+            accessibilityLabel={t('farmer.addInput.notesA11y')}
           />
         </View>
 
@@ -459,9 +555,9 @@ export function AddInputAppliedScreen({
             onPress={onBack}
             activeOpacity={0.75}
             accessibilityRole="button"
-            accessibilityLabel="Cancel"
+            accessibilityLabel={t('farmer.addInput.cancel')}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>{t('farmer.addInput.cancel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -470,9 +566,9 @@ export function AddInputAppliedScreen({
             disabled={saving}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Save Input"
+            accessibilityLabel={t('farmer.addInput.save')}
           >
-            <Text style={styles.saveButtonText}>Save Input</Text>
+            <Text style={styles.saveButtonText}>{t('farmer.addInput.save')}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -485,7 +581,7 @@ export function AddInputAppliedScreen({
           onPress={() => setShowUnitModal(false)}
         >
           <View style={styles.pickerModalContent}>
-            <Text style={styles.pickerModalTitle}>Select Unit</Text>
+            <Text style={styles.pickerModalTitle}>{t('farmer.addInput.selectUnitTitle')}</Text>
             {UNITS.map((u) => {
               const isSelected = unit === u;
               return (
@@ -520,7 +616,7 @@ export function AddInputAppliedScreen({
           onPress={() => setShowPestModal(false)}
         >
           <View style={styles.pickerModalContent}>
-            <Text style={styles.pickerModalTitle}>Select Target Pest / Issue</Text>
+            <Text style={styles.pickerModalTitle}>{t('farmer.addInput.targetPestTitle')}</Text>
             {PEST_OPTIONS.map((p) => {
               const isSelected = targetPest === p;
               return (
@@ -555,7 +651,7 @@ export function AddInputAppliedScreen({
           onPress={() => setShowPurposeModal(false)}
         >
           <View style={styles.pickerModalContent}>
-            <Text style={styles.pickerModalTitle}>Select Purpose</Text>
+            <Text style={styles.pickerModalTitle}>{t('farmer.addInput.purposeTitle')}</Text>
             {PURPOSES.map((item) => {
               const isSelected = purpose === item;
               return (
@@ -590,7 +686,7 @@ export function AddInputAppliedScreen({
           onPress={() => setShowAppliedByModal(false)}
         >
           <View style={styles.pickerModalContent}>
-            <Text style={styles.pickerModalTitle}>Applied By</Text>
+            <Text style={styles.pickerModalTitle}>{t('farmer.addInput.appliedByTitle')}</Text>
             {APPLIED_BY_OPTIONS.map((item) => {
               const isSelected = appliedBy === item;
               return (
