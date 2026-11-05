@@ -1915,6 +1915,18 @@ export function AuditScheduleScreen({
 
           {/* ── Selected Date Section (Image 1) ── */}
           <View style={styles.calSelectedDateSection}>
+            {role === 'FARMER_ADMIN' && (
+              <View style={styles.fieldVisitHeaderRow}>
+                <Text style={styles.fieldVisitHeaderTitle}>Field visit</Text>
+                <TouchableOpacity
+                  onPress={() => setCalendarViewMode('List')}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.fieldVisitViewAllText}>View all</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <Text style={styles.calSelectedDateTitle}>{selectedCalDay} October 2026</Text>
             <Text style={styles.calSelectedDateCount}>
               {role === 'FARMER_ADMIN'
@@ -2164,7 +2176,7 @@ export function AuditScheduleScreen({
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Audit {record.id || 'AUD-2026-0042'}</Text>
             <Text style={styles.screenHeaderSub}>
-              Status: {record.badge === 'In Progress' ? 'In-progress' : record.badge || 'Upcoming'}
+              Status: {record.badge === 'In Progress' ? 'Inprogress' : record.badge || 'Upcoming'}
             </Text>
           </View>
         </View>
@@ -2424,7 +2436,9 @@ export function AuditScheduleScreen({
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Audit {record.id || 'AUD-2026-0042'}</Text>
-            <Text style={styles.screenHeaderSub}>Status: {record.badge || 'Upcoming'}</Text>
+            <Text style={styles.screenHeaderSub}>
+              Status: {role === 'FARMER_ADMIN' && (record.badge === 'Completed' || record.id === 'AUD-2026-0042' || record.id === 'AUD-2026-0049') ? 'completed' : record.badge?.toLowerCase() || 'completed'}
+            </Text>
           </View>
         </View>
 
@@ -9529,5 +9543,24 @@ const styles = StyleSheet.create({
     ...adminType.caption,
     fontWeight: '700',
     color: adminColors.info.text,
+  },
+  fieldVisitHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  fieldVisitHeaderTitle: {
+    ...adminType.sectionHead,
+    fontSize: 18,
+    lineHeight: 24,
+    color: adminColors.ink,
+    fontWeight: '700',
+  },
+  fieldVisitViewAllText: {
+    ...adminType.body,
+    fontSize: 14,
+    color: adminColors.brand,
+    fontWeight: '700',
   },
 });
