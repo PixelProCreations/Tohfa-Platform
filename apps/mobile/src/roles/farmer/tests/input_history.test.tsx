@@ -42,6 +42,7 @@ vi.mock('@tohfa/mobile-ui', () => ({
   Button: 'Button',
   EmptyState: 'EmptyState',
   ErrorState: 'ErrorState',
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
   Skeleton: 'Skeleton',
 }));
