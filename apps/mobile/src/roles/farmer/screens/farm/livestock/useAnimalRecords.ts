@@ -9,14 +9,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  getAnimal,
   listBreedingRecords,
   listFeedLogs,
   listFeedPlans,
   listHealthRecords,
   listHousingRecords,
   listHygieneLogs,
-  type AnimalResponse,
   type LivestockBreedingRecord,
   type LivestockFeedLog,
   type LivestockFeedPlan,
@@ -28,75 +26,6 @@ import {
 } from '../../../api/livestock';
 
 export type LoadState = 'idle' | 'loading' | 'ready' | 'error';
-
-// ── The animal itself ───────────────────────────────────────────────────────
-
-export interface AnimalState {
-  state: LoadState;
-  animal: AnimalResponse | null;
-  error: unknown;
-  /** Full reload with the loading state (after an error). */
-  retry: () => void;
-  /** Re-fetch keeping the current animal on screen (pull-to-refresh, after a withdrawal-moving save). */
-  refresh: () => void;
-}
-
-export class MissingAnimalIdError extends Error {
-  constructor() {
-    super('missing animal id');
-    this.name = 'MissingAnimalIdError';
-  }
-}
-
-export function useAnimal(animalId: string | undefined): AnimalState {
-  const [state, setState] = useState<LoadState>('loading');
-  const [animal, setAnimal] = useState<AnimalResponse | null>(null);
-  const [error, setError] = useState<unknown>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-  const silentRef = useRef(false);
-
-  useEffect(() => {
-    if (!animalId) {
-      setAnimal(null);
-      setError(new MissingAnimalIdError());
-      setState('error');
-      return undefined;
-    }
-    const controller = new AbortController();
-    if (!silentRef.current) setState('loading');
-    getAnimal(animalId, controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setAnimal(result);
-        setError(null);
-        setState('ready');
-      })
-      .catch((err: unknown) => {
-        if (controller.signal.aborted) return;
-        // A failed silent refresh keeps the animal already on screen.
-        if (!silentRef.current) {
-          setAnimal(null);
-          setError(err);
-          setState('error');
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) silentRef.current = false;
-      });
-    return () => controller.abort();
-  }, [animalId, reloadKey]);
-
-  const retry = useCallback(() => {
-    silentRef.current = false;
-    setReloadKey((k) => k + 1);
-  }, []);
-  const refresh = useCallback(() => {
-    silentRef.current = true;
-    setReloadKey((k) => k + 1);
-  }, []);
-
-  return { state, animal, error, retry, refresh };
-}
 
 // ── Generic paged list ──────────────────────────────────────────────────────
 
