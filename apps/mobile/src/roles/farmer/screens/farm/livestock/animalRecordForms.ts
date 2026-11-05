@@ -91,7 +91,12 @@ export type FieldSpec =
 
 // ── Option tables (enum value -> label key) ─────────────────────────────────
 
-const F = 'farmer.livestock.detail.form';
+/**
+ * Key prefix of the form strings. Written as a template so the i18n parity
+ * test's literal scan does not read the bare prefix as a key; the keys built
+ * from it are checked through `formI18nKeys()`.
+ */
+const F = `farmer.livestock.detail.${'form'}`;
 
 function options<V extends string>(values: readonly V[], key: (v: V) => TranslationKey): readonly ChoiceOption[] {
   return values.map((value) => ({ value, label: key(value) }));
@@ -349,11 +354,29 @@ export function formFields(kind: RecordFormKind, v: FormValues): readonly FieldS
     case 'production':
       return [
         choice('productType', true, O.productType),
-        num('quantity', true),
+        // Always KG (see buildProductionBody), so the label says so instead of offering a unit.
+        { ...num('quantity', true), label: label('quantityKg') },
         date('loggedOn', false),
         text('notes', false, PRODUCTION_NOTES_MAX, true),
       ];
   }
+}
+
+/**
+ * Every label key the forms can resolve (all variants, all options), for the
+ * en/ta parity test: these keys are built from enum values, so a source scan
+ * for string literals cannot see them.
+ */
+export function formI18nKeys(): TranslationKey[] {
+  const keys = new Set<TranslationKey>(Object.values(O).flatMap((opts) => opts.map((o) => o.label)));
+  const kinds: RecordFormKind[] = ['health', 'breeding', 'feedPlan', 'feedLog', 'housing', 'hygiene', 'production'];
+  const variants: Record<string, readonly string[]> = { health: HEALTH_RECORD_TYPES, breeding: BREEDING_RECORD_TYPES };
+  for (const kind of kinds) {
+    for (const recordType of variants[kind] ?? ['']) {
+      for (const field of formFields(kind, { recordType, followUpRequired: 'true' })) keys.add(field.label);
+    }
+  }
+  return [...keys];
 }
 
 /** health, breeding, feed plan and housing bodies take `attachmentUploadId` (BR-137c). */
@@ -545,10 +568,14 @@ class Reader {
 }
 
 /** Drops undefined keys so a strict server schema never sees an empty optional. */
-function compact<T extends Record<string, unknown>>(obj: T): T {
+type Compact<T> = { [K in keyof T as undefined extends T[K] ? never : K]: T[K] } & {
+  [K in keyof T as undefined extends T[K] ? K : never]?: Exclude<T[K], undefined>;
+};
+
+function compact<T extends Record<string, unknown>>(obj: T): Compact<T> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(obj)) if (value !== undefined) out[key] = value;
-  return out as T;
+  return out as Compact<T>;
 }
 
 // ── Builders ────────────────────────────────────────────────────────────────

@@ -20,10 +20,18 @@ import errorsTa from '../../../i18n/errors.ta.json';
 import farmerEn from '../../../i18n/farmer.en.json';
 import farmerTa from '../../../i18n/farmer.ta.json';
 import { VIEW_I18N_KEYS } from '../screens/farm/livestock/animalRecordView';
+import { formI18nKeys } from '../screens/farm/livestock/animalRecordForms';
 
 const DIR = path.resolve(__dirname, '../screens/farm/livestock');
-const SECTIONS = ['AnimalHealthSection.tsx', 'AnimalFeedSection.tsx', 'AnimalBreedingSection.tsx', 'AnimalHousingSection.tsx', 'animalDetailSectionParts.tsx'];
-const HELPERS = ['animalRecordView.ts', 'useAnimalRecords.ts'];
+const SECTIONS = [
+  'AnimalHealthSection.tsx',
+  'AnimalFeedSection.tsx',
+  'AnimalBreedingSection.tsx',
+  'AnimalHousingSection.tsx',
+  'animalDetailSectionParts.tsx',
+  'AnimalRecordFormModal.tsx',
+];
+const HELPERS = ['animalRecordView.ts', 'useAnimalRecords.ts', 'animalRecordForms.ts'];
 
 const read = (file: string): string => fs.readFileSync(path.join(DIR, file), 'utf8');
 
@@ -102,7 +110,7 @@ describe('farmer.livestock.detail.* keys: en/ta parity', () => {
   const ta: Record<string, string> = { ...errorsTa, ...farmerTa };
 
   it('every key used by the screen, its helpers and the option tables exists, non-empty, in en AND ta', () => {
-    const keys = new Set<string>([...VIEW_I18N_KEYS]);
+    const keys = new Set<string>([...VIEW_I18N_KEYS, ...formI18nKeys()]);
     for (const file of [...SECTIONS, ...HELPERS]) {
       for (const m of read(file).matchAll(/(['"`])((?:farmer|error)\.[A-Za-z0-9_.-]+)\1/g)) keys.add(m[2]!);
     }

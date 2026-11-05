@@ -9,10 +9,11 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ErrorState, Skeleton } from '@tohfa/mobile-ui';
-import { radius, spacing } from '../../../theme';
+import { colors, radius, spacing } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import type { AnimalDetailStyles } from './AnimalDetailScreen';
 import type { PagedRecords } from './useAnimalRecords';
+import { PlusCircleGreenIcon } from './animalDetailIcons';
 
 export interface SectionProps {
   styles: AnimalDetailStyles;
@@ -77,6 +78,31 @@ export function ShowMoreRow({
           ? t('farmer.livestock.detail.common.loadMoreFailed')
           : t('farmer.livestock.detail.common.showMore')}
       </Text>
+    </TouchableOpacity>
+  );
+}
+
+/**
+ * The "Add ..." entry point of a tab section: Dev's outlined green button
+ * (the Register offspring style), opening that section's add-record modal.
+ */
+export function AddRecordButton({
+  label,
+  onPress,
+  testID,
+  styles,
+}: SectionProps & { label: string; onPress: () => void; testID: string }): React.JSX.Element {
+  return (
+    <TouchableOpacity
+      style={styles.registerOffspringBtn}
+      onPress={onPress}
+      activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      testID={testID}
+    >
+      <PlusCircleGreenIcon size={spacing.lg} color={colors.brandGreen} />
+      <Text style={styles.registerOffspringBtnText}>{label}</Text>
     </TouchableOpacity>
   );
 }
