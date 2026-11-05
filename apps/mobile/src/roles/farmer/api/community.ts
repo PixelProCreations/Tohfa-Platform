@@ -46,8 +46,8 @@ export interface CommunityPlantingCrop {
   quantityKg: number;
 }
 
+/** Crops below k, folded. Names no crop and does not say how many crops it folds (BR-136i). */
 export interface CommunityPlantingOther {
-  crops: number;
   farmers: number;
   quantityKg: number;
 }
@@ -56,7 +56,12 @@ export interface CommunityPlantingSummary {
   generatedAt: string;
   filters: CommunityPlantingQuery;
   minGroupSize: number;
-  totals: { farmers: number; totalPlantedKg: number; crops: number };
+  /**
+   * `farmers` is null when the server withholds it (BR-136i: subtracting one
+   * released group from it would isolate fewer than minGroupSize farmers).
+   * `crops` counts the named byCrop rows only.
+   */
+  totals: { farmers: number | null; totalPlantedKg: number; crops: number };
   byCrop: CommunityPlantingCrop[];
   other: CommunityPlantingOther | null;
 }

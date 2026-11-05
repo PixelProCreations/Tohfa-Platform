@@ -6718,19 +6718,29 @@ paths:
         counts as a farmer but adds 0 kg), summed in integer grams.
 
         Filters (all optional, combined with AND): `crop` (a `crop_master` id), `month` (1-12:
-        the calendar month of `planted_on`, any year; a planting with no `planted_on` never
-        matches a month), `region` (the farm's taluk, compared trimmed and case-insensitively;
-        take values from `GET /farmers/community/planting-filters`).
+        the calendar month of `planted_on`, any year; a planting with no `planted_on`, such as
+        a PLANNED one, never matches a month, because no planned-sowing date exists),
+        `region` (the farm's taluk, or the farmer's profile taluk when the farm has none,
+        compared trimmed and case-insensitively; take values from
+        `GET /farmers/community/planting-filters`).
+
+        Region gate (BR-136h): a `region` that does not itself reach `minGroupSize` distinct
+        farmers (counted as the filters endpoint counts them) returns the same empty summary as
+        a region that does not exist; no planting is read for it.
 
         k-anonymity: `minGroupSize` is `system_config.community_planting_min_farmers`. A crop
         with fewer distinct farmers than that is not listed in `byCrop`; such crops are folded
         into `other`, which is returned only when the folded crops together reach
-        `minGroupSize` distinct farmers (otherwise `other` is null), and names no crop.
+        `minGroupSize` distinct farmers (otherwise `other` is null), and names no crop nor how
+        many crops it folds. Differencing (BR-136i): in a month- and/or region-filtered slice,
+        a group is withheld entirely (not listed, not folded, not in the totals) when the same
+        crops in a coarser slice (that filter dropped) add 1 to `minGroupSize`-1 farmers.
         `totals` cover the released groups only (`byCrop` plus `other` when present), so a
         suppressed crop cannot be recovered by subtraction; a farmer is counted once however
-        many crops they grow. No farmer, farm, plot, village or coordinate field is ever
-        returned. A slice with no data, and a slice whose every group is below the threshold,
-        both read as an empty summary.
+        many crops they grow, and `totals.farmers` is null when subtracting one released group
+        from it would isolate fewer than `minGroupSize` farmers. No farmer, farm, plot, village
+        or coordinate field is ever returned. A slice with no data, and a slice whose every
+        group is below the threshold, both read as an empty summary.
 
         A missing or unusable threshold (not a JSON integer >= 2) is 503
         `COMMUNITY_PLANTING_NOT_CONFIGURED`: there is no hard-coded fallback, and no value is
@@ -6778,8 +6788,8 @@ paths:
       description: |
         Options for the TOHFA Calendar community filters (BR-136): every active, undeleted crop
         in `crop_master`; the twelve calendar months as integers 1-12 (the client labels them
-        from its i18n catalogue; no English is sent); and the regions (normalised farm taluks)
-        that on their own have at least `minGroupSize` distinct farmers with an active planting.
+        from its i18n catalogue; no English is sent); and the regions (normalised farm taluks,
+        falling back to the farmer's profile taluk when the farm has none) that on their own have at least `minGroupSize` distinct farmers with an active planting.
         A region below the threshold is not listed and no region carries a count. Takes no
         parameters (an unknown one is 422). A missing or unusable threshold is 503 `COMMUNITY_PLANTING_NOT_CONFIGURED`.
       x-permission: farmer.community.view_planting_summary
@@ -22385,19 +22395,32 @@ components:
           description: Over released groups only (`byCrop` plus `other` when present).
           required: [farmers, totalPlantedKg, crops]
           properties:
-            farmers: { type: integer, minimum: 0, description: Distinct farmers across released groups. }
+            farmers:
+              type: [integer, 'null']
+              minimum: 0
+              description: |
+                Distinct farmers across released groups; null (withheld) when this total minus
+                any one released group (`byCrop` row or `other`) would be 1 to `minGroupSize`-1
+                farmers (BR-136i).
             totalPlantedKg: { type: number, minimum: 0, description: Summed expected yield, kg. }
-            crops: { type: integer, minimum: 0, description: Released crops, including those folded into `other`. }
+            crops:
+              type: integer
+              minimum: 0
+              description: Named `byCrop` rows only; how many crops are folded into `other` is not released (BR-136i).
         byCrop:
           type: array
-          description: Crops with at least `minGroupSize` farmers; farmers desc, then quantity desc, then name.
+          description: |
+            Crops with at least `minGroupSize` farmers that also pass the slice-differencing
+            check (BR-136i); farmers desc, then quantity desc, then name.
           items: { $ref: '#/components/schemas/CommunityPlantingCrop' }
         other:
           type: [object, 'null']
-          description: Crops below the threshold, folded; null unless together they reach `minGroupSize` farmers.
-          required: [crops, farmers, quantityKg]
+          description: |
+            Crops below the threshold, folded; null unless together they reach `minGroupSize`
+            farmers and pass the slice-differencing check. Names no crop and does not say how
+            many crops it folds.
+          required: [farmers, quantityKg]
           properties:
-            crops: { type: integer, minimum: 1 }
             farmers: { type: integer, minimum: 1 }
             quantityKg: { type: number, minimum: 0 }
 
