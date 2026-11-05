@@ -2519,6 +2519,7 @@ export function SubWarehouseAdminDashboardScreen({
       <StaffFlow
         scope={scope}
         can={can}
+        role="SUB_WH_ADMIN"
         initialScreen={staffEntry.screen}
         initialParams={{ attendanceFilter: staffEntry.filter }}
         onBack={() => {

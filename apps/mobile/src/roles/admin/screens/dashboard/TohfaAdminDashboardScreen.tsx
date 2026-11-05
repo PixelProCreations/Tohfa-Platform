@@ -96,6 +96,7 @@ import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
 import { ReportsScreen } from '../warehouse/reports';
 import { StaffFlow, StaffDetailScreen } from '../warehouse/staff-attendance';
+import { HistoryIcon } from '../warehouse/staff-attendance/StaffParts';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
 import { ApprovedInputsScreen, AddNewInputScreen, type CatalogInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
@@ -7232,7 +7233,7 @@ export function TohfaAdminDashboardScreen({
   const [workforceActive, setWorkforceActive] = useState(false);
   const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [workforceSubScreen, setWorkforceSubScreen] = useState<
-    'dashboard' | 'management' | 'create' | 'attendance' | 'details'
+    'dashboard' | 'management' | 'create' | 'attendance' | 'details' | 'history'
   >('dashboard');
   const [workforceSearch, setWorkforceSearch] = useState('');
   const [showWorkforceFilterModal, setShowWorkforceFilterModal] = useState(false);
@@ -7545,6 +7546,7 @@ export function TohfaAdminDashboardScreen({
   const [createStaffDocEducation, setCreateStaffDocEducation] = useState<string | null>(null);
   const [createStaffDocExperience, setCreateStaffDocExperience] = useState<string | null>(null);
   const [createStaffDocOther, setCreateStaffDocOther] = useState<string | null>(null);
+  const [editingStaff, setEditingStaff] = useState<any | null>(null);
 
   // Form Picker Modal State
   const [activeFormPicker, setActiveFormPicker] = useState<{
@@ -8083,6 +8085,98 @@ export function TohfaAdminDashboardScreen({
 
   // ─── Workforce & Staff Handlers & Renderers ─────────────────────────────────
 
+  const resetCreateStaffForm = () => {
+    setCreateStaffPhoto(null);
+    setCreateStaffFirstName('');
+    setCreateStaffMiddleName('');
+    setCreateStaffLastName('');
+    setCreateStaffDob('');
+    setCreateStaffGender('Select');
+    setCreateStaffMarital('Select');
+    setCreateStaffGuardian('');
+    setCreateStaffNationality('Indian');
+    setCreateStaffLanguage('Select');
+    setCreateStaffBloodGroup('Select');
+    setCreateStaffMobile('');
+    setCreateStaffAltMobile('');
+    setCreateStaffEmail('');
+    setCreateStaffAddress('');
+    setCreateStaffState('');
+    setCreateStaffDistrict('');
+    setCreateStaffCity('');
+    setCreateStaffPin('');
+    setIsSamePermanentAddress(true);
+    setCreateStaffIdType('Select...');
+    setCreateStaffIdNumber('');
+    setCreateStaffIdName('');
+    setCreateStaffAccountHolder('');
+    setCreateStaffBankName('');
+    setCreateStaffAccountNumber('');
+    setCreateStaffConfirmAccount('');
+    setCreateStaffIfsc('');
+    setCreateStaffBranch('');
+    setCreateStaffAccountType('Select...');
+    setShowAccountNumber(false);
+    setCreateStaffBankProof(null);
+    setCreateStaffId('');
+    setCreateStaffEmploymentType('Select...');
+    setCreateStaffDepartment('Select...');
+    setCreateStaffDesignation('Select...');
+    setCreateStaffEmploymentStatus('Select...');
+    setCreateStaffSalaryDetails('');
+    setCreateStaffWorkLocation('Select...');
+    setCreateStaffAccountAccess('login');
+    setCreateStaffApplicationRole('Select...');
+    setCreateStaffEmergencyName('');
+    setCreateStaffEmergencyRel('Select...');
+    setCreateStaffEmergencyPhone('');
+    setCreateStaffEmergencyAltPhone('');
+    setCreateStaffEmergencyAddress('');
+    setCreateStaffDocAddressProof(null);
+    setCreateStaffDocAppointmentLetter(null);
+    setCreateStaffDocAgreement(null);
+    setCreateStaffDocEducation(null);
+    setCreateStaffDocExperience(null);
+    setCreateStaffDocOther(null);
+  };
+
+  const loadStaffIntoCreateForm = (staff: any) => {
+    if (!staff) return;
+    setEditingStaff(staff);
+    const fullName = (staff.name || '').trim();
+    const nameParts = fullName.split(/\s+/);
+    if (nameParts.length > 2) {
+      setCreateStaffFirstName(nameParts[0] || '');
+      setCreateStaffMiddleName(nameParts.slice(1, -1).join(' '));
+      setCreateStaffLastName(nameParts[nameParts.length - 1] || '');
+    } else if (nameParts.length === 2) {
+      setCreateStaffFirstName(nameParts[0] || '');
+      setCreateStaffMiddleName('');
+      setCreateStaffLastName(nameParts[1] || '');
+    } else {
+      setCreateStaffFirstName(fullName);
+      setCreateStaffMiddleName('');
+      setCreateStaffLastName('');
+    }
+    const cleanPhone = (staff.phone || staff.mobile || '').replace('+91', '').trim();
+    setCreateStaffMobile(cleanPhone);
+    setCreateStaffEmail(staff.email || '');
+    setCreateStaffId(staff.staffId || staff.employeeId || staff.id || '');
+    if (staff.department) setCreateStaffDepartment(staff.department);
+    if (staff.designation || staff.role) {
+      setCreateStaffDesignation(staff.designation || staff.role);
+    }
+    if (staff.warehouse || staff.warehouseName || staff.assignedWarehouse) {
+      setCreateStaffWorkLocation(staff.warehouse || staff.warehouseName || staff.assignedWarehouse);
+    }
+    if (staff.gender) setCreateStaffGender(staff.gender);
+    if (staff.dateOfBirth) setCreateStaffDob(staff.dateOfBirth);
+    if (staff.emergencyContactName) setCreateStaffEmergencyName(staff.emergencyContactName);
+    if (staff.emergencyContactPhone) setCreateStaffEmergencyPhone(staff.emergencyContactPhone);
+    if (staff.currentAddress || staff.address) setCreateStaffAddress(staff.currentAddress || staff.address);
+    if (staff.city || staff.warehouseLocation) setCreateStaffCity(staff.city || staff.warehouseLocation);
+  };
+
   const handleCreateStaffAccount = () => {
     if (!createStaffFirstName.trim()) {
       Alert.alert('Required Field', 'Please enter the first name.');
@@ -8119,6 +8213,44 @@ export function TohfaAdminDashboardScreen({
           : 'Warehouse Staff (Pending activation)'
         : 'Warehouse Staff (no login)';
     const finalAccountStatus = createStaffAccountAccess === 'login' ? 'Pending activation' : 'No application access';
+
+    if (editingStaff) {
+      const updatedId = editingStaff.id || newId;
+      setWorkforceStaffList((prev) =>
+        prev.map((item) => {
+          if (item.id === editingStaff.id) {
+            return {
+              ...item,
+              name: fullName,
+              avatarInitials: initials || item.avatarInitials,
+              role: createStaffRole,
+              assignedRole: createStaffRole,
+              warehouse: finalWarehouse,
+              mobile: createStaffMobile.trim().startsWith('+91') ? createStaffMobile.trim() : `+91 ${createStaffMobile.trim()}`,
+              email: createStaffEmail.trim(),
+              department: finalDepartment,
+              designation: finalDesignation,
+            };
+          }
+          return item;
+        })
+      );
+      if (selectedStaffDetails && selectedStaffDetails.id === editingStaff.id) {
+        setSelectedStaffDetails({
+          ...selectedStaffDetails,
+          name: fullName,
+          role: createStaffRole,
+          mobile: createStaffMobile.trim().startsWith('+91') ? createStaffMobile.trim() : `+91 ${createStaffMobile.trim()}`,
+          email: createStaffEmail.trim(),
+          warehouse: finalWarehouse,
+        });
+      }
+      Alert.alert('Account Updated', `Staff account for ${fullName} (${updatedId}) has been updated successfully.`);
+      setEditingStaff(null);
+      resetCreateStaffForm();
+      setWorkforceSubScreen(selectedStaffDetails ? 'details' : 'management');
+      return;
+    }
 
     const docsList: Array<{
       name: string;
@@ -8204,59 +8336,7 @@ export function TohfaAdminDashboardScreen({
     setWorkforceStaffList((prev) => [newStaffItem, ...prev]);
     Alert.alert('Account Created', `Staff account for ${fullName} (${newId}) has been created successfully.`);
 
-    // Reset fields
-    setCreateStaffPhoto(null);
-    setCreateStaffFirstName('');
-    setCreateStaffMiddleName('');
-    setCreateStaffLastName('');
-    setCreateStaffDob('');
-    setCreateStaffGender('Select');
-    setCreateStaffMarital('Select');
-    setCreateStaffGuardian('');
-    setCreateStaffNationality('Indian');
-    setCreateStaffLanguage('Select');
-    setCreateStaffBloodGroup('Select');
-    setCreateStaffMobile('');
-    setCreateStaffAltMobile('');
-    setCreateStaffEmail('');
-    setCreateStaffAddress('');
-    setCreateStaffState('');
-    setCreateStaffDistrict('');
-    setCreateStaffCity('');
-    setCreateStaffPin('');
-    setIsSamePermanentAddress(true);
-    setCreateStaffIdType('Select...');
-    setCreateStaffIdNumber('');
-    setCreateStaffIdName('');
-    setCreateStaffAccountHolder('');
-    setCreateStaffBankName('');
-    setCreateStaffAccountNumber('');
-    setCreateStaffConfirmAccount('');
-    setCreateStaffIfsc('');
-    setCreateStaffBranch('');
-    setCreateStaffAccountType('Select...');
-    setShowAccountNumber(false);
-    setCreateStaffBankProof(null);
-    setCreateStaffId('');
-    setCreateStaffEmploymentType('Select...');
-    setCreateStaffDepartment('Select...');
-    setCreateStaffDesignation('Select...');
-    setCreateStaffEmploymentStatus('Select...');
-    setCreateStaffSalaryDetails('');
-    setCreateStaffWorkLocation('Select...');
-    setCreateStaffAccountAccess('login');
-    setCreateStaffApplicationRole('Select...');
-    setCreateStaffEmergencyName('');
-    setCreateStaffEmergencyRel('Select...');
-    setCreateStaffEmergencyPhone('');
-    setCreateStaffEmergencyAltPhone('');
-    setCreateStaffEmergencyAddress('');
-    setCreateStaffDocAddressProof(null);
-    setCreateStaffDocAppointmentLetter(null);
-    setCreateStaffDocAgreement(null);
-    setCreateStaffDocEducation(null);
-    setCreateStaffDocExperience(null);
-    setCreateStaffDocOther(null);
+    resetCreateStaffForm();
     setWorkforceSubScreen('management');
   };
 
@@ -8498,26 +8578,35 @@ export function TohfaAdminDashboardScreen({
             ))}
           </View>
 
-          {/* Quick Actions Section */}
+          {/* Quick Actions Section (Image 5) */}
           <View style={styles.workforceSection}>
             <Text style={styles.workforceSectionTitle}>Quick actions</Text>
-            <View style={styles.workforceQuickActionsRow}>
+            <View style={styles.workforceQuickActionsGrid}>
               <TouchableOpacity
-                style={styles.workforceQuickActionCard}
-                onPress={() => setWorkforceSubScreen('create')}
+                style={styles.workforceQuickActionTile}
+                onPress={() => setWorkforceSubScreen('management')}
                 activeOpacity={0.8}
               >
-                <QuickCreateStaffIcon size={24} color={adminColors.brand} />
-                <Text style={styles.workforceQuickActionLabel}>Create Staff Account</Text>
+                <QuickCreateStaffIcon size={26} color={adminColors.brand} />
+                <Text style={styles.workforceQuickActionLabel}>Staff Account</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.workforceQuickActionCard}
+                style={styles.workforceQuickActionTile}
                 onPress={() => setWorkforceSubScreen('attendance')}
                 activeOpacity={0.8}
               >
-                <QuickStaffAttendanceIcon size={24} color={adminColors.brand} />
-                <Text style={styles.workforceQuickActionLabel}>Staff Attendance</Text>
+                <QuickStaffAttendanceIcon size={26} color={adminColors.brand} />
+                <Text style={styles.workforceQuickActionLabel}>Today Attendance</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.workforceQuickActionTile}
+                onPress={() => setWorkforceSubScreen('history')}
+                activeOpacity={0.8}
+              >
+                <HistoryIcon size={26} color={adminColors.brand} />
+                <Text style={styles.workforceQuickActionLabel}>Attendance History</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -8776,10 +8865,10 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.workforceBackBtn}
               onPress={() => {
-                if (workforceReturnTab) {
-                  setActiveTab(workforceReturnTab);
-                  setWorkforceReturnTab(null);
-                  setWorkforceSubScreen('dashboard');
+                if (editingStaff) {
+                  setEditingStaff(null);
+                  resetCreateStaffForm();
+                  setWorkforceSubScreen(selectedStaffDetails ? 'details' : 'management');
                 } else {
                   setWorkforceSubScreen('management');
                 }
@@ -8788,7 +8877,9 @@ export function TohfaAdminDashboardScreen({
             >
               <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.workforceHeaderTitle}>Create account</Text>
+            <Text style={styles.workforceHeaderTitle}>
+              {editingStaff ? 'Edit account' : 'Create account'}
+            </Text>
           </View>
         </View>
 
@@ -10188,15 +10279,17 @@ export function TohfaAdminDashboardScreen({
               onPress={handleCreateStaffAccount}
               activeOpacity={0.85}
             >
-              <Text style={styles.workforceCreatePrimaryBtnText}>Create Account</Text>
+              <Text style={styles.workforceCreatePrimaryBtnText}>
+                {editingStaff ? 'Save Changes' : 'Create Account'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.workforceCreateCancelBtn}
               onPress={() => {
-                if (workforceReturnTab) {
-                  setActiveTab(workforceReturnTab);
-                  setWorkforceReturnTab(null);
-                  setWorkforceSubScreen('dashboard');
+                if (editingStaff) {
+                  setEditingStaff(null);
+                  resetCreateStaffForm();
+                  setWorkforceSubScreen(selectedStaffDetails ? 'details' : 'management');
                 } else {
                   setWorkforceSubScreen('management');
                 }
@@ -12538,7 +12631,20 @@ export function TohfaAdminDashboardScreen({
               <StaffFlow
                 scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
                 can={() => true}
+                role="TOHFA_ADMIN"
                 initialScreen="Attendance"
+                onBack={() => setWorkforceSubScreen('dashboard')}
+                onTabChange={(tab: any) => {
+                  setWorkforceActive(false);
+                  setActiveTab(tab);
+                }}
+              />
+            ) : workforceSubScreen === 'history' ? (
+              <StaffFlow
+                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                can={() => true}
+                role="TOHFA_ADMIN"
+                initialScreen="AttendanceHistory"
                 onBack={() => setWorkforceSubScreen('dashboard')}
                 onTabChange={(tab: any) => {
                   setWorkforceActive(false);
@@ -12549,6 +12655,7 @@ export function TohfaAdminDashboardScreen({
               <StaffDetailScreen
                 scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
                 can={() => true}
+                role="TOHFA_ADMIN"
                 staff={
                   selectedStaffDetails
                     ? {
@@ -12565,25 +12672,29 @@ export function TohfaAdminDashboardScreen({
                     : undefined
                 }
                 onBack={() => setWorkforceSubScreen('dashboard')}
-                onEditProfile={() => setWorkforceSubScreen('create')}
+                onEditProfile={(staff) => {
+                  loadStaffIntoCreateForm(staff ?? selectedStaffDetails);
+                  setWorkforceSubScreen('create');
+                }}
               />
+            ) : workforceSubScreen === 'create' ? (
+              renderWorkforceCreateScreen()
             ) : workforceSubScreen === 'management' ? (
               <StaffFlow
                 scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
                 can={() => true}
-                initialScreen="Staff"
+                role="TOHFA_ADMIN"
+                initialScreen="StaffList"
                 onBack={() => setWorkforceSubScreen('dashboard')}
-                onTabChange={(tab: any) => {
-                  setWorkforceActive(false);
-                  setActiveTab(tab);
+                onCreateAccount={() => {
+                  setEditingStaff(null);
+                  resetCreateStaffForm();
+                  setWorkforceSubScreen('create');
                 }}
-              />
-            ) : workforceSubScreen === 'create' ? (
-              <StaffFlow
-                scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
-                can={() => true}
-                initialScreen="EditStaffProfile"
-                onBack={() => setWorkforceSubScreen('dashboard')}
+                onEditStaff={(staff) => {
+                  loadStaffIntoCreateForm(staff);
+                  setWorkforceSubScreen('create');
+                }}
                 onTabChange={(tab: any) => {
                   setWorkforceActive(false);
                   setActiveTab(tab);
@@ -12737,14 +12848,76 @@ export function TohfaAdminDashboardScreen({
             WORKFORCE & STAFF TAB (Screenshots M14-S01, M14-S02, M14-S04)
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Workforce' && (
-          workforceSubScreen === 'management' ? (
-            renderWorkforceManagementScreen()
+          workforceSubScreen === 'attendance' ? (
+            <StaffFlow
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              initialScreen="Attendance"
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onTabChange={(tab: any) => {
+                setActiveTab(tab);
+              }}
+            />
+          ) : workforceSubScreen === 'history' ? (
+            <StaffFlow
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              initialScreen="AttendanceHistory"
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onTabChange={(tab: any) => {
+                setActiveTab(tab);
+              }}
+            />
           ) : workforceSubScreen === 'create' ? (
             renderWorkforceCreateScreen()
-          ) : workforceSubScreen === 'attendance' ? (
-            renderWorkforceAttendanceScreen()
+          ) : workforceSubScreen === 'management' ? (
+            <StaffFlow
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              initialScreen="StaffList"
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onCreateAccount={() => {
+                setEditingStaff(null);
+                resetCreateStaffForm();
+                setWorkforceSubScreen('create');
+              }}
+              onEditStaff={(staff) => {
+                loadStaffIntoCreateForm(staff);
+                setWorkforceSubScreen('create');
+              }}
+              onTabChange={(tab: any) => {
+                setActiveTab(tab);
+              }}
+            />
           ) : workforceSubScreen === 'details' ? (
-            renderWorkforceDetailsScreen()
+            <StaffDetailScreen
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              staff={
+                selectedStaffDetails
+                  ? {
+                      id: selectedStaffDetails.id,
+                      name: selectedStaffDetails.name,
+                      staffId: selectedStaffDetails.employeeId || selectedStaffDetails.id,
+                      type: selectedStaffDetails.role?.toLowerCase().includes('driver') ? 'driver' : 'warehouse',
+                      role: selectedStaffDetails.role,
+                      status: (selectedStaffDetails.status as any) || 'Active',
+                      attendance: (selectedStaffDetails.todayAttendance as any) || 'Present',
+                      phone: selectedStaffDetails.mobile,
+                      email: selectedStaffDetails.email,
+                    }
+                  : undefined
+              }
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onEditProfile={(staff) => {
+                loadStaffIntoCreateForm(staff ?? selectedStaffDetails);
+                setWorkforceSubScreen('create');
+              }}
+            />
           ) : (
             renderWorkforceDashboardScreen()
           )
@@ -14561,6 +14734,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 10,
+  },
+  workforceQuickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+  },
+  workforceQuickActionTile: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...adminShadow.sm,
   },
   workforceQuickActionCard: {
     flex: 1,

@@ -46,7 +46,7 @@ export interface StaffMember {
   staffId: string;
   type: StaffType;
   role: string;
-  status: 'Active' | 'Inactive';
+  status: 'Active' | 'Inactive' | 'Pending activation';
   attendance: 'Present' | 'Absent' | 'On Leave';
   deliveriesToday?: number | undefined;
   phone?: string | undefined;
@@ -54,6 +54,10 @@ export interface StaffMember {
   vehicleDetails?: string | undefined;
   /** Assigned warehouse; a Sub scope only ever lists its own. */
   warehouseId?: string | undefined;
+  warehouseName?: string | undefined;
+  workSection?: string | undefined;
+  joiningDate?: string | undefined;
+  activationNote?: string | undefined;
 }
 
 /** One person's attendance on one day: an Attendance row and the Attendance Detail record. */
@@ -97,7 +101,7 @@ export interface StaffMonthSummary {
 }
 
 /** Screens of the staff & attendance flow (old App.tsx keys without the 'SubWarehouse' prefix). */
-export type StaffRoute = 'Staff' | 'StaffDetail' | 'EditStaffProfile' | 'Attendance' | 'AttendanceDetail' | 'AttendanceHistory';
+export type StaffRoute = 'Staff' | 'StaffList' | 'StaffDetail' | 'EditStaffProfile' | 'Attendance' | 'AttendanceDetail' | 'AttendanceHistory';
 
 export interface StaffRouteParams {
   staff?: StaffMember | undefined;

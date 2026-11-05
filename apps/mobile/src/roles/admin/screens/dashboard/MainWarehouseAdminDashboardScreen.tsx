@@ -2648,6 +2648,7 @@ export function MainWarehouseAdminDashboardScreen({
             <StaffFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="Staff"
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
@@ -2858,6 +2859,7 @@ export function MainWarehouseAdminDashboardScreen({
             <StaffFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="Staff"
               onBack={goBackWh}
               onTabChange={handleMoreTabChange}
@@ -2876,6 +2878,7 @@ export function MainWarehouseAdminDashboardScreen({
             <StaffFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="Attendance"
               initialParams={ATTENDANCE_ALL_PARAMS}
               onBack={goBackWh}

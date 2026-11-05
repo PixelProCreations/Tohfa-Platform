@@ -53,7 +53,15 @@ const STATUS_OPTIONS = [
   'Week Off',
 ];
 
+export function isTohfaAdminUser(can?: PermissionCheck, role?: string): boolean {
+  if (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN') return true;
+  if (role === 'MAIN_WH_ADMIN' || role === 'SUB_WH_ADMIN') return false;
+  if (!can) return false;
+  return can('admin.farmer_admin.create') || can('admin.account.disable');
+}
+
 export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
+  role?: string | undefined;
   staff?: StaffMember | undefined;
   onEditProfile?: ((staff: StaffMember) => void) | undefined;
   onViewAttendance?: ((staff: StaffMember) => void) | undefined;
@@ -64,6 +72,7 @@ export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
 export function StaffDetailScreen({
   scope,
   can,
+  role,
   onBack,
   staff,
   onEditProfile,
@@ -82,9 +91,10 @@ export function StaffDetailScreen({
   const member = staff ?? DEFAULT_STAFF_MEMBER;
   const isDriver = member.type === 'driver' || member.role.toLowerCase().includes('driver');
   const isMain = isAllWarehouses(scope);
-  const hasUpdateStatus = isMain || can('admin.staff.status_update') || can('warehouse.staff.update_status');
-  const canDeactivate = isMain || can('admin.staff.deactivate') || can('warehouse.staff.deactivate') || can('warehouse.staff.manage');
-  const canEdit = isMain || can('warehouse.staff.edit') || can('admin.staff.edit') || !!onEditProfile;
+  const isTohfa = isTohfaAdminUser(can, role);
+  const hasUpdateStatus = isTohfa || can('admin.staff.status_update') || can('warehouse.staff.update_status');
+  const canDeactivate = isTohfa;
+  const canEdit = isTohfa && !!onEditProfile;
 
   const warehouseName = member.warehouseId ? staffWarehouseName(member.warehouseId) : scope.warehouseName ?? 'Coonoor';
   const summary = STAFF_ATTENDANCE_SUMMARY;
