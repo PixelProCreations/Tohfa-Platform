@@ -134,7 +134,7 @@ function HeaderCalendarIcon({ size = 20, color = adminColors.onBrand }: { size?:
   );
 }
 
-function ClockHistoryIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+function ClockHistoryIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
@@ -143,7 +143,7 @@ function ClockHistoryIcon({ size = 20, color = adminColors.brand }: { size?: num
   );
 }
 
-function ReportDocIcon({ size = 20, color = adminColors.brand }: { size?: number; color?: string }) {
+function ReportDocIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -2008,7 +2008,7 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.8}
                     >
-                      <ClockHistoryIcon size={20} color={adminColors.brand} />
+                      <ClockHistoryIcon size={24} color={adminColors.brand} />
                       <Text style={styles.quickActionBtnText}>Audit History</Text>
                     </TouchableOpacity>
 
@@ -2022,7 +2022,7 @@ export function AuditScheduleScreen({
                       }}
                       activeOpacity={0.8}
                     >
-                      <ReportDocIcon size={20} color={adminColors.brand} />
+                      <ReportDocIcon size={24} color={adminColors.brand} />
                       <Text style={styles.quickActionBtnText}>Reports</Text>
                     </TouchableOpacity>
                   </View>
@@ -9105,11 +9105,14 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   calSelectedDateTitle: {
-    ...adminType.title,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   calSelectedDateCount: {
-    ...adminType.body,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
     color: adminColors.muted,
     marginTop: 2,
@@ -9498,20 +9501,24 @@ const styles = StyleSheet.create({
   },
   quickActionBtn: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
     backgroundColor: adminColors.card,
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    minHeight: 88,
   },
   quickActionBtnText: {
-    ...adminType.rowTitle,
-    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
     color: adminColors.ink,
+    marginTop: 8,
+    textAlign: 'center',
   },
   permissionNoticeCard: {
     backgroundColor: adminColors.card,
@@ -9548,18 +9555,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   fieldVisitHeaderTitle: {
-    ...adminType.sectionHead,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 22,
+    lineHeight: 28,
     color: adminColors.ink,
-    fontWeight: '700',
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   fieldVisitViewAllText: {
     ...adminType.body,
-    fontSize: 14,
+    fontSize: 15,
     color: adminColors.brand,
     fontWeight: '700',
   },
