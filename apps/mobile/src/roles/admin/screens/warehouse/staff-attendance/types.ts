@@ -58,6 +58,17 @@ export interface StaffMember {
   workSection?: string | undefined;
   joiningDate?: string | undefined;
   activationNote?: string | undefined;
+  firstName?: string | undefined;
+  middleName?: string | undefined;
+  lastName?: string | undefined;
+  dob?: string | undefined;
+  gender?: string | undefined;
+  maritalStatus?: string | undefined;
+  guardianName?: string | undefined;
+  employeeId?: string | undefined;
+  accountAccess?: 'login' | 'no_login' | undefined;
+  loginEmail?: string | undefined;
+  [key: string]: any;
 }
 
 /** One person's attendance on one day: an Attendance row and the Attendance Detail record. */

@@ -2217,6 +2217,8 @@ export function FarmerAdminDashboardScreen({
     | 'dispute_timeline'
     | 'dispute_resolution'
     | 'farmers_management'
+    | 'workforce'
+    | 'staff'
   >('none');
   const [farmerAdminSelectedFarmer, setFarmerAdminSelectedFarmer] = useState<any>(null);
   const [farmerAdminSelectedApp, setFarmerAdminSelectedApp] = useState<any>(null);
@@ -2307,7 +2309,9 @@ export function FarmerAdminDashboardScreen({
       | 'dispute_detail'
       | 'dispute_timeline'
       | 'dispute_resolution'
-      | 'farmers_management';
+      | 'farmers_management'
+      | 'workforce'
+      | 'staff';
     moreSubScreen?:
       | 'menu'
       | 'disputes'

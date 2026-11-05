@@ -29,6 +29,34 @@ import { ChevronDownIcon, PersonIcon } from './StaffParts';
 import { hasStaffRosterAccess } from './StaffScreen';
 import type { PermissionCheck, StaffMember, WarehouseScreenBaseProps } from './types';
 
+function CheckmarkIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function getStatusColor(status?: string | null): string {
+  switch (status) {
+    case 'Present':
+    case 'Active':
+      return '#16A34A';
+    case 'Absent':
+      return '#DC2626';
+    case 'Late Arrival':
+    case 'Early Leave':
+    case 'Half Day':
+      return '#D97706';
+    case 'On Leave':
+      return '#E11D48';
+    case 'Week Off':
+      return '#6B7280';
+    default:
+      return adminColors.brand;
+  }
+}
+
 function PencilIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -217,40 +245,72 @@ export function StaffDetailScreen({
           <View style={styles.updateStatusContainer}>
             <Text style={styles.updateStatusLabel}>Update active status *</Text>
             <TouchableOpacity
-              style={styles.dropdownButton}
+              style={[
+                styles.dropdownButton,
+                showStatusDropdown && styles.dropdownButtonActive,
+              ]}
               onPress={() => setShowStatusDropdown((prev) => !prev)}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               accessibilityRole="button"
             >
-              <Text style={selectedStatus ? styles.dropdownSelectedText : styles.dropdownPlaceholderText}>
-                {selectedStatus || 'Select..'}
-              </Text>
-              <ChevronDownIcon size={18} color={adminColors.muted} />
+              <View style={styles.dropdownValueRow}>
+                <View
+                  style={[
+                    styles.statusIndicatorDot,
+                    { backgroundColor: getStatusColor(currentStatusDisplay) },
+                  ]}
+                />
+                <Text style={styles.dropdownSelectedText}>
+                  {currentStatusDisplay}
+                </Text>
+              </View>
+              <View style={{ transform: [{ rotate: showStatusDropdown ? '180deg' : '0deg' }] }}>
+                <ChevronDownIcon size={18} color={showStatusDropdown ? adminColors.brand : adminColors.muted} />
+              </View>
             </TouchableOpacity>
 
-            {/* Dropdown Menu List (Image 5) */}
+            {/* Dropdown Menu List with full width, status dots & checkmarks */}
             {showStatusDropdown && (
               <View style={styles.dropdownMenu}>
-                {STATUS_OPTIONS.map((statusOption, idx) => (
-                  <TouchableOpacity
-                    key={statusOption}
-                    style={[
-                      styles.dropdownMenuItem,
-                      idx === STATUS_OPTIONS.length - 1 && { borderBottomWidth: 0 },
-                    ]}
-                    onPress={() => {
-                      setSelectedStatus(statusOption);
-                      setShowStatusDropdown(false);
-                      Alert.alert(
-                        'Status Updated',
-                        `Active status for ${member.name} has been updated to "${statusOption}".`
-                      );
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.dropdownMenuItemText}>{statusOption}</Text>
-                  </TouchableOpacity>
-                ))}
+                {STATUS_OPTIONS.map((statusOption, idx) => {
+                  const isSelected = currentStatusDisplay === statusOption;
+                  const optionColor = getStatusColor(statusOption);
+
+                  return (
+                    <TouchableOpacity
+                      key={statusOption}
+                      style={[
+                        styles.dropdownMenuItem,
+                        isSelected && styles.dropdownMenuItemSelected,
+                        idx === STATUS_OPTIONS.length - 1 && { borderBottomWidth: 0 },
+                      ]}
+                      onPress={() => {
+                        setSelectedStatus(statusOption);
+                        setShowStatusDropdown(false);
+                        Alert.alert(
+                          'Status Updated',
+                          `Active status for ${member.name} has been updated to "${statusOption}".`
+                        );
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.dropdownItemLeft}>
+                        <View style={[styles.statusIndicatorDot, { backgroundColor: optionColor }]} />
+                        <Text
+                          style={[
+                            styles.dropdownMenuItemText,
+                            isSelected && styles.dropdownMenuItemTextSelected,
+                          ]}
+                        >
+                          {statusOption}
+                        </Text>
+                      </View>
+                      {isSelected && (
+                        <CheckmarkIcon size={16} color={adminColors.brand} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -453,10 +513,10 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
   },
 
-  // Update Status Dropdown Section (Main Warehouse Admin)
+  // Update Status Dropdown Section (Main Warehouse Admin & Tohfa Admin)
   updateStatusContainer: {
     marginTop: adminSpacing.md,
-    marginBottom: adminSpacing.xs,
+    marginBottom: adminSpacing.sm,
   },
   updateStatusLabel: {
     ...adminType.sectionHead,
@@ -466,9 +526,9 @@ const styles = StyleSheet.create({
     marginBottom: adminSpacing.sm,
   },
   dropdownButton: {
-    height: 48,
+    height: 50,
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
     paddingHorizontal: adminSpacing.lg,
@@ -477,37 +537,68 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     ...adminShadow.sm,
   },
+  dropdownButtonActive: {
+    borderColor: adminColors.brand,
+    borderBottomLeftRadius: 4,
+    borderBottomRightRadius: 4,
+  },
+  dropdownValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statusIndicatorDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
   dropdownPlaceholderText: {
     fontSize: 14,
     color: adminColors.muted,
   },
   dropdownSelectedText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: adminColors.ink,
   },
   dropdownMenu: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
+    borderRadius: adminRadius.lg,
+    borderTopLeftRadius: 4,
+    borderTopRightRadius: 4,
     borderWidth: 1,
     borderColor: adminColors.border,
-    marginTop: adminSpacing.xs,
-    alignSelf: 'flex-end',
-    width: '55%',
+    marginTop: 4,
+    width: '100%',
     ...adminShadow.md,
     elevation: 4,
-    zIndex: 10,
+    overflow: 'hidden',
   },
   dropdownMenuItem: {
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: adminSpacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dropdownMenuItemSelected: {
+    backgroundColor: '#FFF7ED',
+  },
+  dropdownItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   dropdownMenuItemText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: '#374151',
     fontWeight: '500',
+  },
+  dropdownMenuItemTextSelected: {
+    color: adminColors.brandDeep,
+    fontWeight: '700',
   },
 
   // Activity Timeline

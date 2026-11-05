@@ -1,13 +1,19 @@
 /**
- * Staff list screen (Image 3 & 4):
+ * Staff list screen (Image 1, 3, 4, 5):
  * Shared directory list of all workforce/staff members across warehouses.
  *
- * For Subwarehouse & Main Warehouse: Displays the list without the docked button (Image 3).
- * For Tohfa Admin: Displays the list with inline actions and docked "Create Account" button (Image 4).
+ * For Subwarehouse & Main Warehouse: Displays the list without the docked button.
+ * For Tohfa Admin: Displays the list with inline actions and docked "Create Account" button.
+ *
+ * Features:
+ * - Real-time keyword search across Name, ID, Role.
+ * - Interactive Filter Popup modal with Role, Status, and Warehouse filters (Image 5).
+ * - Dynamic count indicator showing matching admins, warehouse staff, and drivers.
  */
 import React, { useMemo, useState } from 'react';
 import {
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,10 +22,17 @@ import {
   View,
 } from 'react-native';
 
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+import {
+  adminColors,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+  ADMIN_BUTTON_HEIGHT,
+} from '../../../theme';
 import { EmptyState, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { STAFF_MEMBERS, staffWarehouseName } from './fixtures';
-import { FilterSlidersIcon, SearchIcon } from './StaffParts';
+import { CloseIcon, FilterSlidersIcon, SearchIcon } from './StaffParts';
 import { isTohfaAdminUser } from './StaffDetailScreen';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
@@ -30,6 +43,24 @@ export interface StaffListScreenProps extends WarehouseScreenBaseProps {
   onEditStaff?: ((staff: StaffMember) => void) | undefined;
   onCreateAccount?: (() => void) | undefined;
 }
+
+const ROLE_FILTER_OPTIONS = [
+  'All',
+  'Warehouse Staff',
+  'Driver',
+  'Sub Warehouse Admin',
+  'TOHFA Admin',
+] as const;
+
+const STATUS_FILTER_OPTIONS = ['All', 'Active', 'Pending activation', 'Inactive'] as const;
+
+const WAREHOUSE_FILTER_OPTIONS = [
+  { id: 'ALL', name: 'All Warehouses' },
+  { id: 'WH-COON', name: 'Coonoor Warehouse' },
+  { id: 'WH-OOTY', name: 'Main Warehouse, Ooty' },
+  { id: 'WH-KTYM', name: 'Kotagiri Warehouse' },
+  { id: 'WH-METP', name: 'Mettupalayam Warehouse' },
+] as const;
 
 export function StaffListScreen({
   scope,
@@ -45,17 +76,80 @@ export function StaffListScreen({
   const [staffList, setStaffList] = useState<StaffMember[]>(() => [...members]);
   const isTohfa = isTohfaAdminUser(can, role);
 
+  // ─── Filter Modal State (Image 5) ─────────────────────────────────────────
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedRoleFilter, setSelectedRoleFilter] = useState<string>('All');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('All');
+  const [selectedWarehouseFilter, setSelectedWarehouseFilter] = useState<string>('ALL');
+
+  const hasActiveFilters =
+    selectedRoleFilter !== 'All' ||
+    selectedStatusFilter !== 'All' ||
+    selectedWarehouseFilter !== 'ALL';
+
+  const handleClearFilters = () => {
+    setSelectedRoleFilter('All');
+    setSelectedStatusFilter('All');
+    setSelectedWarehouseFilter('ALL');
+  };
+
+  // ─── Filtered Staff List ──────────────────────────────────────────────────
   const filteredStaff = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     return staffList.filter((s) => {
-      if (!q) return true;
-      return (
-        s.name.toLowerCase().includes(q) ||
-        s.staffId.toLowerCase().includes(q) ||
-        s.role.toLowerCase().includes(q)
-      );
+      // 1. Search Query
+      if (q) {
+        const matchesQuery =
+          s.name.toLowerCase().includes(q) ||
+          s.staffId.toLowerCase().includes(q) ||
+          s.role.toLowerCase().includes(q);
+        if (!matchesQuery) return false;
+      }
+
+      // 2. Role Filter
+      if (selectedRoleFilter !== 'All') {
+        const roleLower = s.role.toLowerCase();
+        if (selectedRoleFilter === 'Warehouse Staff') {
+          if (!roleLower.includes('warehouse staff') && s.type !== 'warehouse') return false;
+        } else if (selectedRoleFilter === 'Driver') {
+          if (!roleLower.includes('driver') && s.type !== 'driver') return false;
+        } else if (selectedRoleFilter === 'Sub Warehouse Admin') {
+          if (!roleLower.includes('sub warehouse')) return false;
+        } else if (selectedRoleFilter === 'TOHFA Admin') {
+          if (!roleLower.includes('tohfa')) return false;
+        }
+      }
+
+      // 3. Status Filter
+      if (selectedStatusFilter !== 'All') {
+        if (s.status !== selectedStatusFilter) return false;
+      }
+
+      // 4. Warehouse Filter
+      if (selectedWarehouseFilter !== 'ALL') {
+        if (s.warehouseId && s.warehouseId !== selectedWarehouseFilter) return false;
+      }
+
+      return true;
     });
-  }, [staffList, searchQuery]);
+  }, [staffList, searchQuery, selectedRoleFilter, selectedStatusFilter, selectedWarehouseFilter]);
+
+  // Dynamic counts for subtitle
+  const adminCount = useMemo(
+    () => filteredStaff.filter((s) => s.role.toLowerCase().includes('admin')).length,
+    [filteredStaff]
+  );
+  const whCount = useMemo(
+    () =>
+      filteredStaff.filter(
+        (s) => s.role.toLowerCase().includes('warehouse') || s.type === 'warehouse'
+      ).length,
+    [filteredStaff]
+  );
+  const driverCount = useMemo(
+    () => filteredStaff.filter((s) => s.type === 'driver' || s.role.toLowerCase().includes('driver')).length,
+    [filteredStaff]
+  );
 
   const handleToggleDeactivate = (staff: StaffMember) => {
     const isInactive = staff.status === 'Inactive';
@@ -71,12 +165,12 @@ export function StaffListScreen({
           onPress: () => {
             setStaffList((prev) =>
               prev.map((item) =>
-                item.id === staff.id ? { ...item, status: nextStatus as any } : item,
-              ),
+                item.id === staff.id ? { ...item, status: nextStatus as any } : item
+              )
             );
           },
         },
-      ],
+      ]
     );
   };
 
@@ -100,8 +194,11 @@ export function StaffListScreen({
         ) : undefined
       }
     >
-      <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Search Bar matching Image 3 & 4 */}
+      <ScrollView
+        contentContainerStyle={walletLayout.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Search Bar matching Image 1 & 5 */}
         <View style={styles.searchWrapper}>
           <View style={styles.searchBox}>
             <SearchIcon size={18} color={adminColors.muted} />
@@ -112,19 +209,36 @@ export function StaffListScreen({
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
-            <TouchableOpacity activeOpacity={0.7}>
-              <FilterSlidersIcon size={18} color={adminColors.brand} />
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setShowFilterModal(true)}
+              style={styles.filterBtn}
+            >
+              <FilterSlidersIcon
+                size={18}
+                color={hasActiveFilters ? adminColors.brandDeep : adminColors.brand}
+              />
+              {hasActiveFilters && <View style={styles.filterActiveBadge} />}
             </TouchableOpacity>
           </View>
-          <Text style={styles.subCountText}>11 admin · 14 warehouse staff · 7 drivers</Text>
+          <Text style={styles.subCountText}>
+            {`${adminCount} admin · ${whCount} warehouse staff · ${driverCount} drivers`}
+          </Text>
         </View>
 
         {filteredStaff.length === 0 ? (
-          <EmptyState title="No staff found" subtitle="Try another search keyword." />
+          <EmptyState
+            title="No staff found"
+            subtitle="Try adjusting your search keyword or active filters."
+          />
         ) : (
           <View style={styles.cardsList}>
             {filteredStaff.map((staff) => {
-              const whName = staff.warehouseName ?? (staff.warehouseId ? staffWarehouseName(staff.warehouseId) : 'Main Warehouse, Ooty');
+              const whName =
+                staff.warehouseName ??
+                (staff.warehouseId
+                  ? staffWarehouseName(staff.warehouseId)
+                  : 'Main Warehouse, Ooty');
               const isPending = staff.status === 'Pending activation';
               const isActive = staff.status === 'Active';
 
@@ -179,20 +293,18 @@ export function StaffListScreen({
                       >
                         <Text style={styles.actionEdit}>Edit</Text>
                       </TouchableOpacity>
-
                       <TouchableOpacity
                         onPress={() => handleToggleDeactivate(staff)}
                         activeOpacity={0.7}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
                         <Text
-                          style={
-                            staff.status === 'Active'
-                              ? styles.actionDeactivate
-                              : styles.actionActivate
-                          }
+                          style={[
+                            styles.actionDeactivate,
+                            staff.status === 'Inactive' && styles.actionActivate,
+                          ]}
                         >
-                          {staff.status === 'Active' ? 'Deactivate' : 'Activate'}
+                          {staff.status === 'Inactive' ? 'Activate' : 'Deactivate'}
                         </Text>
                       </TouchableOpacity>
                     </View>
@@ -203,6 +315,112 @@ export function StaffListScreen({
           </View>
         )}
       </ScrollView>
+
+      {/* ─── Filter Options Popup Modal (Image 5) ─── */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <View style={styles.filterModalOverlay}>
+          <View style={styles.filterModalCard}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filter Staff</Text>
+              <View style={styles.filterHeaderActions}>
+                {hasActiveFilters && (
+                  <TouchableOpacity onPress={handleClearFilters} activeOpacity={0.7}>
+                    <Text style={styles.clearFiltersText}>Clear All</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => setShowFilterModal(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <CloseIcon size={20} color={adminColors.ink} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {/* Role Options */}
+              <Text style={styles.filterGroupTitle}>Role</Text>
+              <View style={styles.filterChipsRow}>
+                {ROLE_FILTER_OPTIONS.map((item) => {
+                  const active = selectedRoleFilter === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setSelectedRoleFilter(item)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                      >
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Status Options */}
+              <Text style={styles.filterGroupTitle}>Status</Text>
+              <View style={styles.filterChipsRow}>
+                {STATUS_FILTER_OPTIONS.map((item) => {
+                  const active = selectedStatusFilter === item;
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setSelectedStatusFilter(item)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                      >
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Warehouse Location Options */}
+              <Text style={styles.filterGroupTitle}>Warehouse Location</Text>
+              <View style={styles.filterChipsRow}>
+                {WAREHOUSE_FILTER_OPTIONS.map((item) => {
+                  const active = selectedWarehouseFilter === item.id;
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[styles.filterChip, active && styles.filterChipActive]}
+                      onPress={() => setSelectedWarehouseFilter(item.id)}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                      >
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+
+            {/* Apply Button */}
+            <TouchableOpacity
+              style={styles.applyFilterBtn}
+              onPress={() => setShowFilterModal(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.applyFilterBtnText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </WalletScreen>
   );
 }
@@ -215,38 +433,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.md,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
+    height: 46,
+    ...adminShadow.sm,
   },
   searchInput: {
     flex: 1,
+    marginLeft: adminSpacing.sm,
     ...adminType.body,
-    fontSize: 14,
     color: adminColors.ink,
-    paddingVertical: 0,
+    fontSize: 14,
+  },
+  filterBtn: {
+    padding: adminSpacing.xs,
+    position: 'relative',
+  },
+  filterActiveBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: adminColors.brand,
   },
   subCountText: {
     ...adminType.caption,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#666666',
+    color: adminColors.muted,
     marginTop: 8,
-    marginLeft: 2,
+    marginLeft: 4,
+    fontSize: 12,
   },
   cardsList: {
-    gap: adminSpacing.sm,
-    paddingBottom: adminSpacing.xl,
+    gap: adminSpacing.md,
+    paddingBottom: 80,
   },
   card: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
     borderColor: adminColors.border,
-    padding: adminSpacing.md,
+    padding: adminSpacing.lg,
     ...adminShadow.sm,
   },
   cardHeaderRow: {
@@ -256,91 +486,176 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   cardTitle: {
-    ...adminType.body,
-    fontSize: 14,
-    fontWeight: '800',
+    ...adminType.rowTitle,
     color: adminColors.ink,
+    fontWeight: '700',
+    fontSize: 15,
   },
   badge: {
-    paddingHorizontal: 10,
+    paddingHorizontal: adminSpacing.sm,
     paddingVertical: 3,
-    borderRadius: adminRadius.full,
+    borderRadius: adminRadius.sm,
   },
   badgeActive: {
-    backgroundColor: '#E6F4EA',
+    backgroundColor: '#E8F5E9',
   },
   badgePending: {
-    backgroundColor: '#FEF7E0',
+    backgroundColor: '#FFF8E1',
   },
   badgeInactive: {
-    backgroundColor: '#FCE8E6',
+    backgroundColor: '#FFEBEE',
   },
   badgeText: {
+    ...adminType.caption,
+    fontWeight: '600',
     fontSize: 11,
-    fontWeight: '700',
   },
   badgeTextActive: {
-    color: '#137333',
+    color: '#2E7D32',
   },
   badgeTextPending: {
-    color: '#B06000',
+    color: '#B78103',
   },
   badgeTextInactive: {
-    color: '#C5221F',
+    color: '#C62828',
   },
   cardSubtitle: {
     ...adminType.caption,
-    fontSize: 12,
-    lineHeight: 17,
     color: adminColors.muted,
-    marginBottom: 6,
+    fontSize: 12,
+    lineHeight: 18,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: adminColors.border,
+    alignItems: 'center',
+    gap: adminSpacing.lg,
+    marginTop: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#F3EFEA',
   },
   actionEdit: {
-    ...adminType.body,
+    ...adminType.rowTitle,
+    color: '#D9480F',
     fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.brand,
+    fontWeight: '600',
   },
   actionDeactivate: {
-    ...adminType.body,
+    ...adminType.rowTitle,
+    color: '#D9480F',
     fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.danger.text,
+    fontWeight: '600',
   },
   actionActivate: {
-    ...adminType.body,
-    fontSize: 13,
-    fontWeight: '700',
-    color: adminColors.success.text,
+    color: '#2E7D32',
   },
   dockedFooter: {
-    paddingHorizontal: adminSpacing.lg,
-    paddingVertical: adminSpacing.md,
     backgroundColor: adminColors.card,
     borderTopWidth: 1,
     borderTopColor: adminColors.border,
+    padding: adminSpacing.md,
   },
   createAccountBtn: {
+    height: ADMIN_BUTTON_HEIGHT,
     backgroundColor: adminColors.brand,
     borderRadius: adminRadius.md,
-    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     ...adminShadow.sm,
   },
   createAccountBtnText: {
-    ...adminType.body,
-    fontSize: 15,
-    fontWeight: '800',
+    ...adminType.sectionHead,
     color: adminColors.onBrand,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  // Filter Modal Styles
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  filterModalCard: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    maxHeight: '80%',
+    ...adminShadow.lg,
+  },
+  filterModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+    paddingBottom: adminSpacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  filterModalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontSize: 17,
+  },
+  filterHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  clearFiltersText: {
+    ...adminType.caption,
+    color: adminColors.brand,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  filterGroupTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    fontSize: 13,
+    marginTop: adminSpacing.md,
+    marginBottom: adminSpacing.xs,
+  },
+  filterChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: adminSpacing.xs,
+  },
+  filterChip: {
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 7,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: 4,
+  },
+  filterChipActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  filterChipText: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    fontWeight: '500',
+    fontSize: 12,
+  },
+  filterChipTextActive: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  applyFilterBtn: {
+    height: ADMIN_BUTTON_HEIGHT,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  applyFilterBtnText: {
+    ...adminType.sectionHead,
+    color: adminColors.onBrand,
+    fontSize: 15,
   },
 });
-
