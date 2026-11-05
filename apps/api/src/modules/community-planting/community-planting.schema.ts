@@ -27,8 +27,13 @@ export const plantingSummaryFilters = z.object({
   region: z.string().nullable(),
 });
 
+/**
+ * `farmers` is null when releasing it would let a caller subtract one released group from it and
+ * isolate fewer than k farmers (BR-136i). `crops` counts the named `byCrop` rows only: the number
+ * of crops folded into `other` is not released.
+ */
 export const plantingSummaryTotals = z.object({
-  farmers: z.number().int().nonnegative(),
+  farmers: z.number().int().nonnegative().nullable(),
   totalPlantedKg: z.number().nonnegative(),
   crops: z.number().int().nonnegative(),
 });
@@ -41,8 +46,8 @@ export const plantingSummaryCrop = z.object({
 });
 export type PlantingSummaryCrop = z.infer<typeof plantingSummaryCrop>;
 
+/** No crop is named and no count of the folded crops is released (BR-136i). */
 export const plantingSummaryOther = z.object({
-  crops: z.number().int().positive(),
   farmers: z.number().int().positive(),
   quantityKg: z.number().nonnegative(),
 });

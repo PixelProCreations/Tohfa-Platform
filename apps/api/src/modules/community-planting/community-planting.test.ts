@@ -48,13 +48,27 @@ const NAMES: Record<string, string> = { [CARROT]: 'Carrot', [POTATO]: 'Potato', 
 const SUMMARY_KEYS = ['byCrop', 'filters', 'generatedAt', 'minGroupSize', 'other', 'totals'];
 const TOTALS_KEYS = ['crops', 'farmers', 'totalPlantedKg'];
 const CROP_ROW_KEYS = ['cropMasterId', 'cropName', 'farmers', 'quantityKg'];
-const OTHER_KEYS = ['crops', 'farmers', 'quantityKg'];
+const OTHER_KEYS = ['farmers', 'quantityKg'];
 const FILTERS_ECHO_KEYS = ['crop', 'month', 'region'];
 const FILTERS_RESPONSE_KEYS = ['crops', 'minGroupSize', 'months', 'regions'];
 
-/** One (crop, farmer) row; `kg` is converted to integer grams the way the SQL does. */
-function row(cropMasterId: string, farmerKey: number, kg: number): CropFarmerPlantingRow {
-  return { cropMasterId, cropName: NAMES[cropMasterId] ?? 'Unknown', farmerKey, quantityGrams: Math.round(kg * 1000) };
+type Outside = Partial<Pick<CropFarmerPlantingRow, 'inSlice' | 'outsideMonth' | 'outsideRegion' | 'outsideSlice'>>;
+
+/**
+ * One (crop, farmer) row; `kg` is converted to integer grams the way the SQL does. By default
+ * the farmer's plantings of the crop all fall inside the requested slice (nothing outside it).
+ */
+function row(cropMasterId: string, farmerKey: number, kg: number, outside: Outside = {}): CropFarmerPlantingRow {
+  return {
+    cropMasterId,
+    cropName: NAMES[cropMasterId] ?? 'Unknown',
+    farmerKey,
+    quantityGrams: Math.round(kg * 1000),
+    inSlice: outside.inSlice ?? true,
+    outsideMonth: outside.outsideMonth ?? false,
+    outsideRegion: outside.outsideRegion ?? false,
+    outsideSlice: outside.outsideSlice ?? false,
+  };
 }
 
 interface FakeRepoInput {
@@ -62,6 +76,8 @@ interface FakeRepoInput {
   rows?: CropFarmerPlantingRow[];
   regions?: RegionFarmerCountRow[];
   crops?: FilterCropRow[];
+  /** Distinct active farmers in the requested region (the region gate); defaults to 99. */
+  regionFarmers?: number;
 }
 
 function fakeRepo(input: FakeRepoInput = {}) {
@@ -73,6 +89,7 @@ function fakeRepo(input: FakeRepoInput = {}) {
       return input.rows ?? [];
     }),
     listRegionFarmerCounts: vi.fn(async () => input.regions ?? []),
+    countRegionFarmers: vi.fn(async () => input.regionFarmers ?? 99),
     listActiveCrops: vi.fn(async () => input.crops ?? []),
   };
   return { repo, calls };
@@ -128,9 +145,11 @@ describe('community planting summary service (BR-136)', () => {
     });
     const res = await service.getPlantingSummary(farmerScope(), {});
     expect(res.byCrop.map((c) => c.cropMasterId)).toEqual([CARROT]);
-    // Other names no crop and carries no crop id: only how many crops, farmers and kg.
-    expect(res.other).toEqual({ crops: 2, farmers: 3, quantityKg: 60 });
-    expect(res.totals).toEqual({ farmers: 6, totalPlantedKg: 360, crops: 3 });
+    // Other names no crop, carries no crop id and no count of the crops folded into it
+    // (BR-136i): only farmers and kg.
+    expect(res.other).toEqual({ farmers: 3, quantityKg: 60 });
+    // totals.crops counts the named rows only; the folded crops are not counted (BR-136i).
+    expect(res.totals).toEqual({ farmers: 6, totalPlantedKg: 360, crops: 1 });
   });
 
   it('BR-136b: totals are computed over released groups only, so a suppressed crop cannot be recovered by subtraction', async () => {
@@ -149,14 +168,15 @@ describe('community planting summary service (BR-136)', () => {
       rows: [
         row(CARROT, 1, 10), row(CARROT, 2, 10), row(CARROT, 3, 10),
         row(POTATO, 1, 20), row(POTATO, 2, 20), row(POTATO, 3, 20), row(POTATO, 4, 20),
-        // Other = {1, 7, 8}: farmer 1 is also in the released crops.
-        row(BEANS, 1, 5), row(BEANS, 7, 5), row(LEEK, 8, 5),
+        // Other = {1, 7, 8, 9}: farmer 1 is also in the released crops. (Farmer 9 keeps every
+        // "total minus one group" at >= k, so the farmer total is released: see BR-136i.)
+        row(BEANS, 1, 5), row(BEANS, 7, 5), row(LEEK, 8, 5), row(LEEK, 9, 5),
       ],
     });
     const res = await service.getPlantingSummary(farmerScope(), {});
     expect(res.byCrop.map((c) => [c.cropMasterId, c.farmers])).toEqual([[POTATO, 4], [CARROT, 3]]);
-    expect(res.other).toEqual({ crops: 2, farmers: 3, quantityKg: 15 });
-    expect(res.totals).toEqual({ farmers: 6, totalPlantedKg: 125, crops: 4 });
+    expect(res.other).toEqual({ farmers: 4, quantityKg: 20 });
+    expect(res.totals).toEqual({ farmers: 7, totalPlantedKg: 130, crops: 2 });
   });
 
   it('BR-136: quantities are summed in integer grams, so 0.1 kg + 0.2 kg is exactly 0.3 kg', async () => {
@@ -278,6 +298,157 @@ describe('community planting summary service (BR-136)', () => {
     expect(res.regions).toEqual(['Coonoor', 'Kotagiri']);
     expect(res.crops).toEqual([{ cropMasterId: CARROT, cropName: 'Carrot' }, { cropMasterId: POTATO, cropName: 'Potato' }]);
     expect(res.minGroupSize).toBe(3);
+  });
+
+  // --- BR-136h: the region filter only matches a region that itself reaches k -----------------
+
+  it('BR-136h: a region below k answers exactly like a region that does not exist, and no planting is read', async () => {
+    const rows = [row(CARROT, 1, 10), row(CARROT, 2, 10), row(CARROT, 3, 10)];
+    const underK = serviceWith({ minGroupSize: 3, regionFarmers: 2, rows });
+    const unknown = serviceWith({ minGroupSize: 3, regionFarmers: 0, rows });
+
+    const a = await underK.service.getPlantingSummary(farmerScope(), { region: 'Tinyvillage' });
+    const b = await unknown.service.getPlantingSummary(farmerScope(), { region: 'Tinyvillage' });
+
+    const { generatedAt: _a, ...restA } = a;
+    const { generatedAt: _b, ...restB } = b;
+    expect(restA).toEqual(restB);
+    expect(restA).toEqual({
+      filters: { crop: null, month: null, region: 'Tinyvillage' },
+      minGroupSize: 3,
+      totals: { farmers: 0, totalPlantedKg: 0, crops: 0 },
+      byCrop: [],
+      other: null,
+    });
+    expect(underK.repo.listCropFarmerPlantings).not.toHaveBeenCalled();
+    expect(unknown.repo.listCropFarmerPlantings).not.toHaveBeenCalled();
+    expect(underK.repo.countRegionFarmers).toHaveBeenCalledWith(db, 'Tinyvillage');
+  });
+
+  it('BR-136h: a region at exactly k is queried; no region filter skips the gate', async () => {
+    const atK = serviceWith({ minGroupSize: 3, regionFarmers: 3, rows: [row(CARROT, 1, 1), row(CARROT, 2, 1), row(CARROT, 3, 1)] });
+    const res = await atK.service.getPlantingSummary(farmerScope(), { region: 'Kotagiri' });
+    expect(res.byCrop.map((c) => c.cropMasterId)).toEqual([CARROT]);
+
+    const noRegion = serviceWith({ minGroupSize: 3, regionFarmers: 0 });
+    await noRegion.service.getPlantingSummary(farmerScope(), { month: 4 });
+    expect(noRegion.repo.countRegionFarmers).not.toHaveBeenCalled();
+    expect(noRegion.repo.listCropFarmerPlantings).toHaveBeenCalled();
+  });
+
+  // --- BR-136i: no returned number lets a caller subtract its way to a group below k -----------
+
+  it('BR-136i: other carries no count of the crops folded into it, and totals.crops counts named rows only', async () => {
+    const { service } = serviceWith({
+      minGroupSize: 2,
+      rows: [
+        row(CARROT, 1, 1), row(CARROT, 2, 1),
+        row(BEANS, 3, 1), row(LEEK, 4, 1), row(POTATO, 5, 1),
+      ],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), {});
+    expect(res.other).toEqual({ farmers: 3, quantityKg: 3 });
+    expect(res.other).not.toHaveProperty('crops');
+    expect(res.totals.crops).toBe(1);
+    expect(res.totals.crops).toBe(res.byCrop.length);
+  });
+
+  it('BR-136i: a crop in a filtered slice is withheld when the same crop outside the slice is a group below k (slice differencing)', async () => {
+    // Carrot in the slice: farmers 1, 2, 3. Farmer 4 grows carrot only outside the slice, so
+    // "carrot everywhere (4) minus carrot here (3)" would isolate farmer 4.
+    const { service } = serviceWith({
+      minGroupSize: 3,
+      rows: [
+        row(CARROT, 1, 100), row(CARROT, 2, 100), row(CARROT, 3, 100),
+        row(CARROT, 4, 0, { inSlice: false, outsideRegion: true, outsideSlice: true }),
+      ],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), { region: 'Kotagiri' });
+    expect(res.byCrop).toEqual([]);
+    // Withheld means withheld everywhere: not folded into other, not in the totals.
+    expect(res.other).toBeNull();
+    expect(res.totals).toEqual({ farmers: 0, totalPlantedKg: 0, crops: 0 });
+  });
+
+  it('BR-136i: a farmer with a slice planting AND an outside planting of the crop still counts toward the outside group', async () => {
+    // Farmer 3's April carrot is in the slice, but their June carrot is outside it: "carrot all
+    // months minus carrot in April" isolates the June kg of farmer 3 alone.
+    const { service } = serviceWith({
+      minGroupSize: 3,
+      rows: [
+        row(CARROT, 1, 100), row(CARROT, 2, 100),
+        row(CARROT, 3, 100, { outsideMonth: true, outsideSlice: true }),
+      ],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), { month: 4 });
+    expect(res.byCrop).toEqual([]);
+  });
+
+  it('BR-136i: a crop is released in a slice when the outside group is empty or itself reaches k, for every coarser slice', async () => {
+    const outside = { outsideMonth: true, outsideRegion: true, outsideSlice: true };
+    const { service } = serviceWith({
+      minGroupSize: 3,
+      rows: [
+        // Carrot: nothing outside the slice -> released.
+        row(CARROT, 1, 10), row(CARROT, 2, 10), row(CARROT, 3, 10),
+        // Potato: three farmers outside the slice -> released.
+        row(POTATO, 1, 20), row(POTATO, 2, 20), row(POTATO, 3, 20),
+        row(POTATO, 4, 0, { inSlice: false, ...outside }),
+        row(POTATO, 5, 0, { inSlice: false, ...outside }),
+        row(POTATO, 6, 0, { inSlice: false, ...outside }),
+        // Leek: outside the region but inside the month for one farmer only -> withheld, even
+        // though the month-only and all-plantings complements look different.
+        row(LEEK, 1, 5), row(LEEK, 2, 5), row(LEEK, 3, 5),
+        row(LEEK, 7, 0, { inSlice: false, outsideRegion: true, outsideSlice: true }),
+        row(LEEK, 8, 0, { inSlice: false, outsideMonth: true, outsideSlice: true }),
+        row(LEEK, 9, 0, { inSlice: false, outsideMonth: true, outsideSlice: true }),
+      ],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), { month: 4, region: 'Kotagiri' });
+    expect(res.byCrop.map((c) => c.cropMasterId).sort()).toEqual([CARROT, POTATO].sort());
+    expect(res.totals.totalPlantedKg).toBe(90);
+  });
+
+  it('BR-136i: the folded other group is withheld when its own outside-the-slice group is below k', async () => {
+    const { service } = serviceWith({
+      minGroupSize: 3,
+      rows: [
+        row(CARROT, 1, 1), row(CARROT, 2, 1), row(CARROT, 3, 1),
+        // Beans + leek fold to {4, 5, 6} in the slice, but farmer 7 grows leek outside it.
+        row(BEANS, 4, 1), row(BEANS, 5, 1), row(LEEK, 6, 1),
+        row(LEEK, 7, 0, { inSlice: false, outsideMonth: true, outsideSlice: true }),
+      ],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), { month: 4 });
+    expect(res.byCrop.map((c) => c.cropMasterId)).toEqual([CARROT]);
+    expect(res.other).toBeNull();
+    expect(res.totals).toEqual({ farmers: 3, totalPlantedKg: 3, crops: 1 });
+  });
+
+  it('BR-136i: totals.farmers is withheld (null) when "total minus one released group" would be a group below k', async () => {
+    // Carrot {1,2,3}, potato {1,2,3,4}: the union is 4, and 4 - 3 = 1 isolates farmer 4 as "the
+    // one released farmer who grows potato but not carrot".
+    const { service } = serviceWith({
+      minGroupSize: 3,
+      rows: [
+        row(CARROT, 1, 1), row(CARROT, 2, 1), row(CARROT, 3, 1),
+        row(POTATO, 1, 1), row(POTATO, 2, 1), row(POTATO, 3, 1), row(POTATO, 4, 1),
+      ],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), {});
+    expect(res.byCrop.map((c) => c.farmers)).toEqual([4, 3]);
+    expect(res.totals.farmers).toBeNull();
+    // Kilograms are sums of released groups only, so they stay.
+    expect(res.totals.totalPlantedKg).toBe(7);
+  });
+
+  it('BR-136i: totals.farmers is released when every "total minus one group" is empty or at least k', async () => {
+    const { service } = serviceWith({
+      minGroupSize: 2,
+      rows: [row(CARROT, 1, 1), row(CARROT, 2, 1), row(POTATO, 1, 1), row(POTATO, 2, 1)],
+    });
+    const res = await service.getPlantingSummary(farmerScope(), {});
+    expect(res.totals.farmers).toBe(2);
   });
 });
 
@@ -403,15 +574,28 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
     deleted?: boolean;
   }
 
-  /** An approved (unless told otherwise) farmer with one farm in `taluk`, one plot per planting. */
+  interface FarmerOptions {
+    status?: 'APPROVED' | 'SUBMITTED';
+    /** farmers.taluk (the profile taluk the application-approval path fills); NULL by default. */
+    farmerTaluk?: string | null;
+  }
+
+  /**
+   * An approved (unless told otherwise) farmer with one farm whose farms.taluk is `taluk`, one
+   * plot per planting.
+   */
   async function farmer(
     tx: Executor,
     taluk: string | null,
     plantings: Planting[],
-    status: 'APPROVED' | 'SUBMITTED' = 'APPROVED',
+    options: FarmerOptions = {},
   ): Promise<{ farmerId: string; farmId: string }> {
     const fx = await insertFarmerWithPlot(tx);
-    await tx.query(`UPDATE farmers SET application_status = $2 WHERE id = $1`, [fx.farmerId, status]);
+    await tx.query(`UPDATE farmers SET application_status = $2, taluk = $3 WHERE id = $1`, [
+      fx.farmerId,
+      options.status ?? 'APPROVED',
+      options.farmerTaluk ?? null,
+    ]);
     await tx.query(`UPDATE farms SET taluk = $2, name = 'BR-136 Secret Farm' WHERE id = $1`, [fx.farmId, taluk]);
     for (const [i, p] of plantings.entries()) {
       const plotId = i === 0 ? fx.plotId : newId();
@@ -455,9 +639,10 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       await farmer(tx, taluk, [{ cropId: cropA, status: 'HARVESTED', plantedOn: '2026-04-11', yieldKg: 999 }]);
       await farmer(tx, taluk, [{ cropId: cropA, status: 'FAILED', plantedOn: '2026-04-11', yieldKg: 999 }]);
       await farmer(tx, taluk, [{ cropId: cropA, plantedOn: '2026-04-11', yieldKg: 999, deleted: true }]);
-      await farmer(tx, taluk, [{ cropId: cropA, plantedOn: '2026-04-11', yieldKg: 999 }], 'SUBMITTED');
-      // A region with a single farmer.
-      await farmer(tx, lonely, [{ cropId: cropA, plantedOn: '2026-04-12', yieldKg: 7 }]);
+      await farmer(tx, taluk, [{ cropId: cropA, plantedOn: '2026-04-11', yieldKg: 999 }], { status: 'SUBMITTED' });
+      // A region with a single farmer, growing a crop nobody in `taluk` grows.
+      const cropC = await insertCrop(tx);
+      await farmer(tx, lonely, [{ cropId: cropC, plantedOn: '2026-04-12', yieldKg: 7 }]);
 
       const service = createCommunityPlantingService({ db: tx });
       const scope = farmerScope();
@@ -476,14 +661,16 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       expect(may.byCrop).toEqual([]);
       expect(may.totals).toEqual({ farmers: 0, totalPlantedKg: 0, crops: 0 });
 
-      // Crop filter across every region: the lonely farmer joins crop A (4 farmers).
+      // Crop filter across every region.
       const byCropA = await service.getPlantingSummary(scope, { crop: cropA });
-      expect(byCropA.byCrop).toEqual([{ cropMasterId: cropA, cropName: 'Fixture Crop', farmers: 4, quantityKg: 607.5 }]);
+      expect(byCropA.byCrop).toEqual([{ cropMasterId: cropA, cropName: 'Fixture Crop', farmers: 3, quantityKg: 600.5 }]);
 
-      // Lowering k to 2 releases crop B in the region.
+      // Lowering k to 2 releases crop B in the region. The farmer total is then withheld:
+      // union {f1,f2,f3} minus crop B's {f1,f2} would isolate f3 (BR-136i).
       await setK(tx, 2);
       const k2 = await service.getPlantingSummary(scope, { region: taluk });
       expect(k2.byCrop.map((c) => [c.cropMasterId, c.farmers, c.quantityKg])).toEqual([[cropA, 3, 600.5], [cropB, 2, 100]]);
+      expect(k2.totals).toEqual({ farmers: null, totalPlantedKg: 700.5, crops: 2 });
       await setK(tx, 3);
 
       // Filter options: the region with 3 farmers is listed, the lonely one is not.
@@ -492,7 +679,17 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       expect(options.regions).not.toContain(lonely);
       expect(options.crops.map((c) => c.cropMasterId)).toEqual(expect.arrayContaining([cropA, cropB]));
 
-      const wire = JSON.stringify([region, april, byCropA, k2, options]);
+      // BR-136h: the lonely (under-k) region answers exactly like a region that does not exist
+      // (the same region name, after its only farm is moved away).
+      const underK = await service.getPlantingSummary(scope, { region: lonely });
+      await tx.query(`UPDATE farms SET taluk = $2 WHERE taluk = $1`, [lonely, `Fxt${letters(10)}`]);
+      const nowhere = await service.getPlantingSummary(scope, { region: lonely });
+      const strip = ({ generatedAt: _g, ...rest }: PlantingSummaryResponse) => rest;
+      expect(strip(underK)).toEqual(strip(nowhere));
+      expect(underK.byCrop).toEqual([]);
+      expect(underK.totals).toEqual({ farmers: 0, totalPlantedKg: 0, crops: 0 });
+
+      const wire = JSON.stringify([region, april, byCropA, k2, options, underK]);
       expect(wire).not.toContain(f1.farmerId);
       expect(wire).not.toContain(f1.farmId);
       expect(wire).not.toContain('Secret Farm');
@@ -502,6 +699,78 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       const error = await service.getPlantingSummary(scope, {}).catch((e: unknown) => e);
       expect((error as AppError).status).toBe(503);
       expect((error as AppError).code).toBe('COMMUNITY_PLANTING_NOT_CONFIGURED');
+    });
+  });
+
+  it('BR-136j (PostgreSQL): a farm with no taluk falls back to the farmer profile taluk, in both the summary and the filter options', async (ctx) => {
+    if (!ready) return ctx.skip();
+    await inRollback(async (tx) => {
+      await setK(tx, 3);
+      const crop = await insertCrop(tx);
+      const taluk = `Fxt${letters(10)}`;
+      const plant = [{ cropId: crop, plantedOn: '2026-04-10', yieldKg: 10 }];
+      // The application-approval path writes farms without a taluk, but fills farmers.taluk.
+      await farmer(tx, null, plant, { farmerTaluk: taluk });
+      await farmer(tx, '   ', plant, { farmerTaluk: taluk.toLowerCase() }); // blank farm taluk = none
+      await farmer(tx, taluk, plant); // farm taluk set, profile taluk NULL
+      // A farm taluk, when present, wins over the profile: this one is not in `taluk`.
+      await farmer(tx, `Fxt${letters(10)}`, plant, { farmerTaluk: taluk });
+
+      const service = createCommunityPlantingService({ db: tx });
+      const summary = await service.getPlantingSummary(farmerScope(), { region: taluk });
+      expect(summary.byCrop).toEqual([{ cropMasterId: crop, cropName: 'Fixture Crop', farmers: 3, quantityKg: 30 }]);
+
+      const options = await service.getPlantingFilters(farmerScope());
+      expect(options.regions).toContain(taluk);
+    });
+  });
+
+  it('BR-136k (PostgreSQL): a PLANNED planting with no planted_on counts in the unfiltered summary but matches no month (no planned sowing date exists)', async (ctx) => {
+    if (!ready) return ctx.skip();
+    await inRollback(async (tx) => {
+      await setK(tx, 3);
+      const crop = await insertCrop(tx);
+      const taluk = `Fxt${letters(10)}`;
+      for (let i = 0; i < 3; i += 1) {
+        await farmer(tx, taluk, [{ cropId: crop, status: 'PLANNED', plantedOn: null, yieldKg: 5 }]);
+      }
+      const service = createCommunityPlantingService({ db: tx });
+      const all = await service.getPlantingSummary(farmerScope(), { region: taluk });
+      expect(all.byCrop).toEqual([{ cropMasterId: crop, cropName: 'Fixture Crop', farmers: 3, quantityKg: 15 }]);
+      for (let month = 1; month <= 12; month += 1) {
+        const slice = await service.getPlantingSummary(farmerScope(), { region: taluk, month });
+        expect(slice.byCrop, `month ${month}`).toEqual([]);
+      }
+    });
+  });
+
+  it('BR-136i (PostgreSQL): a crop is withheld from a slice when the same crop outside the slice is a group below k', async (ctx) => {
+    if (!ready) return ctx.skip();
+    await inRollback(async (tx) => {
+      await setK(tx, 3);
+      const crop = await insertCrop(tx);
+      const taluk = `Fxt${letters(10)}`;
+      const elsewhere = `Fxt${letters(10)}`;
+      const april = { cropId: crop, plantedOn: '2026-04-10', yieldKg: 10 };
+      await farmer(tx, taluk, [april]);
+      await farmer(tx, taluk, [april]);
+      // In the slice AND (in June) outside it.
+      await farmer(tx, taluk, [april, { cropId: crop, plantedOn: '2026-06-10', yieldKg: 3 }]);
+      // The same crop in another taluk, one farmer.
+      const lone = await farmer(tx, elsewhere, [{ cropId: crop, plantedOn: '2026-04-10', yieldKg: 4 }]);
+
+      const service = createCommunityPlantingService({ db: tx });
+      // Region slice: crop everywhere minus crop here would isolate the lone farmer elsewhere.
+      expect((await service.getPlantingSummary(farmerScope(), { region: taluk })).byCrop).toEqual([]);
+      // Month slice: crop all months minus crop in April would isolate one farmer's June planting.
+      expect((await service.getPlantingSummary(farmerScope(), { month: 4, crop })).byCrop).toEqual([]);
+
+      // Move the lone farmer into the taluk: no outside-region group remains, but the June
+      // planting still blocks the month slice.
+      await tx.query(`UPDATE farms SET taluk = $2 WHERE id = $1`, [lone.farmId, taluk]);
+      const region = await service.getPlantingSummary(farmerScope(), { region: taluk });
+      expect(region.byCrop.map((c) => [c.cropMasterId, c.farmers, c.quantityKg])).toEqual([[crop, 4, 37]]);
+      expect((await service.getPlantingSummary(farmerScope(), { region: taluk, month: 4 })).byCrop).toEqual([]);
     });
   });
 
