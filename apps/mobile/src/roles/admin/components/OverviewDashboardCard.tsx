@@ -1,23 +1,35 @@
 /**
  * The shared admin stat card: a figure with an icon badge, a title and a
- * subtitle, half a grid row wide. Ported from the UI team's
- * OverviewDashboardCard on the admin-theme branch with the same props and
- * layout, but every colour, size and spacing now comes from the admin theme
- * (../theme). The tone -> token mapping lives in ./overviewDashboardCardStyle.ts
- * so it is unit-tested; see that file for which token replaced which of the
- * reference card's literals.
+ * subtitle, half a grid row wide.
  *
- * Differences from the reference, all forced by the theme having no matching
- * value: the type sizes are the nearest admin type styles (value 19 not 21,
- * title 13 not 13.5, subtitle 10.5 not 11.5) and the letter spacing is gone;
- * padding and grid gap are 12 (the reference used 14); the fixed 114 minimum
- * height is gone (cards in one grid row still stretch to the tallest).
+ * The visual spec is the UI team's card from origin/mod1213farmadmin
+ * (2e43ebab, refined from 4cb3d5ca / 32d8e0b1), restored as designed:
+ * radius 18, padding 14, minimum height 112, a 36px icon badge, value 25/30
+ * (21/26 for currency or long figures), title 13.5/17 bold over two lines in
+ * sentence case, subtitle 11.5/15. Every colour is an admin theme token with
+ * the same value the design used (the tone -> token mapping lives in
+ * ./overviewDashboardCardStyle.ts so it is unit-tested); no raw colour literal.
+ *
+ * `OverviewCardIcon` is exported because other admin screens type their icon
+ * maps with it (screens/warehouse/inventory/MainInventoryParts.tsx).
  */
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+  type TextStyle,
+} from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-
-import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../theme';
+import {
+  adminColors,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../theme';
 import {
   overviewCardA11yLabel,
   overviewCardIconColors,
@@ -28,40 +40,39 @@ import {
 export type OverviewCardIcon = 'orders' | 'pickup' | 'receiving' | 'inventory' | 'sales' | 'cash' | 'truck' | 'box' | 'alert';
 
 export interface OverviewDashboardCardProps {
-  /** Main figure, e.g. "12" or "1,200 kg"; the caller passes its placeholder until the figure has loaded. */
+  /** Main stat/number, e.g. "12", "08", "03", "05", "₹24,850" */
   value: string | number;
-  /** Primary label, e.g. "Pending Orders". */
+  /** Primary label/title, e.g. "Pending Orders", "Ready for Pickup" */
   title: string;
-  /** Secondary line, e.g. "8 need action". */
+  /** Secondary subtitle / counter, e.g. "8 need action", "3 customers expected" */
   subtitle?: string | undefined;
-  /** A built-in icon name, or any node for the top-right badge. */
+  /** Built-in icon name or custom React node for the top-right icon badge */
   icon?: OverviewCardIcon | React.ReactNode;
-  /** Icon tint; an admin theme colour. Defaults to Orange Deep. */
+  /** Optional custom icon tint or defaults to warm brown/tan from admin theme */
   iconColor?: string;
-  /** Icon badge background; an admin theme colour. Defaults to Orange Tint. */
+  /** Optional custom icon badge background or defaults to warm peach/cream from admin theme */
   iconBgColor?: string;
-  /** Paints value and subtitle with a semantic pair's text colour. */
+  /** If true or 'danger', highlights the value and subtitle with red/coral tone */
   tone?: OverviewCardTone;
+  /** Title placement: 'bottom' (default: value top, title bottom) or 'top' (title top, value middle, subtitle bottom) */
+  titlePosition?: 'top' | 'bottom';
+  /** Press handler */
   onPress?: (() => void) | undefined;
-  /** Outer card style override. */
+  /** Custom outer card container style override */
   style?: StyleProp<ViewStyle>;
-  /** Value text style override. */
+  /** Custom value style override */
   valueStyle?: StyleProp<TextStyle>;
+  /** Accessibility label */
   accessibilityLabel?: string;
+  /** Whether the card is disabled */
   disabled?: boolean;
 }
 
-/** Drawing size of the built-in SVG icons (geometry, not a theme value). */
-const ICON_SIZE = 18;
-/** Pressed feedback of a tappable card, as the reference card had it. */
-const PRESSED_OPACITY = 0.72;
-
-function renderBuiltinIcon(type: OverviewCardIcon, color: string) {
-  const fill = adminColors.card;
+function renderBuiltinIcon(type: string, color: string) {
   switch (type) {
     case 'orders':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Path
             d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
             stroke={color}
@@ -69,24 +80,41 @@ function renderBuiltinIcon(type: OverviewCardIcon, color: string) {
             strokeLinecap="round"
           />
           <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="1.9" />
-          <Circle cx="16" cy="16" r="4.5" stroke={color} strokeWidth="1.9" fill={fill} />
+          <Circle cx="16" cy="16" r="4.5" stroke={color} strokeWidth="1.9" fill={adminColors.card} />
           <Path d="M16 14.5v1.8l1.3 1.3" stroke={color} strokeWidth="1.9" strokeLinecap="round" />
         </Svg>
       );
     case 'pickup':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
-          <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
           <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
-          <Path d="M16 11l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path
+            d="M16 11l2 2 4-4"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </Svg>
       );
     case 'receiving':
     case 'truck':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Rect x="1" y="4" width="14" height="12" rx="2" stroke={color} strokeWidth="2" />
-          <Path d="M15 8h4l3 3v5h-7V8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <Path
+            d="M15 8h4l3 3v5h-7V8z"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
           <Circle cx="5.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
           <Circle cx="18.5" cy="19" r="2.5" stroke={color} strokeWidth="2" />
         </Svg>
@@ -94,16 +122,21 @@ function renderBuiltinIcon(type: OverviewCardIcon, color: string) {
     case 'inventory':
     case 'box':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Rect x="3" y="3" width="18" height="5" rx="1" stroke={color} strokeWidth="2" />
-          <Path d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8" stroke={color} strokeWidth="2" strokeLinecap="round" />
+          <Path
+            d="M5 8v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
           <Path d="M10 12h4" stroke={color} strokeWidth="2" strokeLinecap="round" />
         </Svg>
       );
     case 'sales':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
-          <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill={fill} />
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" fill={adminColors.card} />
           <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
           <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
           <Path d="M4 6V4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2" stroke={color} strokeWidth="2" strokeLinecap="round" />
@@ -111,7 +144,7 @@ function renderBuiltinIcon(type: OverviewCardIcon, color: string) {
       );
     case 'cash':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M18 12a2 2 0 0 0 0 4h4v-4Z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -119,7 +152,7 @@ function renderBuiltinIcon(type: OverviewCardIcon, color: string) {
       );
     case 'alert':
       return (
-        <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
           <Path d="M12 8v5M12 16h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
         </Svg>
@@ -129,10 +162,55 @@ function renderBuiltinIcon(type: OverviewCardIcon, color: string) {
   }
 }
 
-function isBuiltinIcon(icon: unknown): icon is OverviewCardIcon {
-  return typeof icon === 'string';
+export interface OverviewSectionHeaderProps {
+  title?: string;
+  actionLabel?: string;
+  onAction?: () => void;
+  style?: StyleProp<ViewStyle>;
 }
 
+/**
+ * Reusable section header matching the reference image ("Today's Overview" / "View All")
+ */
+export function OverviewSectionHeader({
+  title = "Today's Overview",
+  actionLabel = 'View All',
+  onAction,
+  style,
+}: OverviewSectionHeaderProps) {
+  return (
+    <View style={[styles.sectionHeaderRow, style]}>
+      <Text style={styles.sectionHeaderTitle}>{title}</Text>
+      {actionLabel && onAction ? (
+        <TouchableOpacity
+          onPress={onAction}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel={actionLabel}
+        >
+          <Text style={styles.sectionHeaderAction}>{actionLabel}</Text>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+export function toSentenceCase(str?: string): string {
+  if (!str) return '';
+  const trimmed = str.trim();
+  if (!trimmed) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+/**
+ * Reusable Overview Dashboard Card designed strictly following the TOHFA Admin design system
+ * and the exact design reference image:
+ * - 2-column card layout with pure white background, subtle warm border, smooth 18px corners
+ * - Top row: Prominent bold KPI statistic on left, warm peach rounded icon badge on right
+ * - Bottom block: Clean title (13.5px bold) and subtitle / meta (11.5px) grouped together
+ * - Tone support: 'danger' highlights the stat value & subtitle in red/coral (matching "Low Stock Items")
+ */
 export function OverviewDashboardCard({
   value,
   title,
@@ -141,90 +219,213 @@ export function OverviewDashboardCard({
   iconColor,
   iconBgColor,
   tone = 'default',
+  titlePosition = 'bottom',
   onPress,
   style,
   valueStyle,
   accessibilityLabel,
   disabled = false,
 }: OverviewDashboardCardProps) {
-  const colors = overviewCardToneColors(tone);
   const iconColors = overviewCardIconColors(iconColor, iconBgColor);
-  const renderedIcon = isBuiltinIcon(icon) ? renderBuiltinIcon(icon, iconColors.icon) : icon;
+  const effectiveIconColor = iconColors.icon;
+  const effectiveIconBg = iconColors.badge;
+
+  const toneColors = overviewCardToneColors(tone);
+  const toneValueColor = toneColors.value;
+  const toneSubColor = toneColors.subtitle;
+
+  const renderedIcon = typeof icon === 'string'
+    ? renderBuiltinIcon(icon, effectiveIconColor)
+    : icon;
+
+  const valStr = String(value);
+  const isCurrency = valStr.includes('₹') || valStr.length > 5;
+  const displayTitle = toSentenceCase(title);
 
   return (
     <TouchableOpacity
       style={[styles.card, style]}
       onPress={onPress}
-      activeOpacity={onPress ? PRESSED_OPACITY : 1}
+      activeOpacity={onPress ? 0.72 : 1}
       disabled={disabled || !onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={accessibilityLabel ?? overviewCardA11yLabel(title, value, subtitle)}
+      accessibilityLabel={accessibilityLabel || overviewCardA11yLabel(displayTitle, value, subtitle)}
     >
-      <View style={styles.topRow}>
-        <Text style={[styles.value, { color: colors.value }, valueStyle]} numberOfLines={1} adjustsFontSizeToFit>
-          {String(value)}
-        </Text>
-        {renderedIcon ? <View style={[styles.iconBadge, { backgroundColor: iconColors.badge }]}>{renderedIcon}</View> : null}
-      </View>
+      {titlePosition === 'top' ? (
+        <>
+          <View style={[styles.topRow, !renderedIcon && styles.topRowWithoutIcon]}>
+            <Text style={styles.title} numberOfLines={2}>
+              {displayTitle}
+            </Text>
+            {renderedIcon ? (
+              <View style={[styles.iconBadge, { backgroundColor: effectiveIconBg }]}>
+                {renderedIcon}
+              </View>
+            ) : null}
+          </View>
 
-      <Text style={styles.title} numberOfLines={1}>
-        {title}
-      </Text>
+          <Text
+            style={[
+              styles.value,
+              isCurrency && styles.currencyValue,
+              { color: toneValueColor },
+              valueStyle,
+            ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {valStr}
+          </Text>
 
-      {subtitle ? (
-        <Text style={[styles.subtitle, { color: colors.subtitle }]} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      ) : null}
+          {subtitle ? (
+            <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </>
+      ) : (
+        <>
+          {/* Top row: Value on left, warm rounded Icon Badge on right */}
+          <View style={styles.topRow}>
+            <Text
+              style={[
+                styles.value,
+                isCurrency && styles.currencyValue,
+                { color: toneValueColor },
+                valueStyle,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+            >
+              {valStr}
+            </Text>
+
+            {renderedIcon ? (
+              <View style={[styles.iconBadge, { backgroundColor: effectiveIconBg }]}>
+                {renderedIcon}
+              </View>
+            ) : null}
+          </View>
+
+          {/* Group title and subtitle cleanly below */}
+          <View style={styles.bottomBlock}>
+            <Text style={styles.title} numberOfLines={2}>
+              {displayTitle}
+            </Text>
+
+            {subtitle ? (
+              <Text style={[styles.subtitle, { color: toneSubColor }]} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+        </>
+      )}
     </TouchableOpacity>
   );
 }
 
-/** Two columns of OverviewDashboardCards. */
-export function OverviewCardsGrid({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
+/**
+ * Responsive 2-column Grid container helper for OverviewDashboardCards
+ */
+export function OverviewCardsGrid({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
   return <View style={[styles.grid, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: adminSpacing.md,
-  },
-  card: {
-    width: '48.5%',
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.xl,
-    padding: adminSpacing.md,
-    borderWidth: 1,
-    borderColor: adminColors.border,
-    ...adminShadow.sm,
-    justifyContent: 'space-between',
-  },
-  topRow: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: adminSpacing.sm,
   },
+  sectionHeaderTitle: {
+    ...adminType.title,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '800',
+    color: adminColors.ink,
+    letterSpacing: -0.3,
+  },
+  sectionHeaderAction: {
+    ...adminType.rowTitle,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
+    columnGap: 10,
+  },
+  card: {
+    width: '48.5%',
+    backgroundColor: adminColors.card,
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    justifyContent: 'space-between',
+    minHeight: 112,
+  },
+  topRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    minHeight: 36,
+  },
+  topRowWithoutIcon: {
+    minHeight: 0,
+    marginBottom: 2,
+  },
   value: {
     ...adminType.kpiValue,
-    flexShrink: 1,
+    fontSize: 25,
+    lineHeight: 30,
+    fontWeight: '800',
+    color: adminColors.ink,
+    letterSpacing: -0.4,
+    flex: 1,
+    paddingRight: 6,
+  },
+  currencyValue: {
+    fontSize: 21,
+    lineHeight: 26,
   },
   iconBadge: {
-    width: adminSpacing.xxl,
-    height: adminSpacing.xxl,
-    borderRadius: adminRadius.sm,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  bottomBlock: {
+    marginTop: 10,
+  },
   title: {
-    ...adminType.sectionHead,
+    ...adminType.rowTitle,
+    fontSize: 13.5,
+    lineHeight: 17,
+    fontWeight: '700',
     color: adminColors.ink,
+    letterSpacing: -0.1,
   },
   subtitle: {
     ...adminType.rowMeta,
-    marginTop: adminSpacing.xs,
+    fontSize: 11.5,
+    lineHeight: 15,
+    color: adminColors.muted,
+    marginTop: 2.5,
   },
 });

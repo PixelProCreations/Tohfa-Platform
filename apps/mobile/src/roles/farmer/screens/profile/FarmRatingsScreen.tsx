@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
-import { ErrorState, Icon, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import {
   deriveFarmRatingView,
   getMyFarmRating,

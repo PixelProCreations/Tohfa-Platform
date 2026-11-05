@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { FarmerListItem } from '../farmers/AdminAllFarmersScreen';
 
 // Custom SVG Rosette Ribbon matching exact design reference

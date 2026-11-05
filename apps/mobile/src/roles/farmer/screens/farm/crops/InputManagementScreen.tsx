@@ -3,14 +3,13 @@ import {
   BackHandler,
   Platform,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { EmptyState, ErrorState, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, spacing, typography } from '../../../theme';
@@ -314,6 +313,12 @@ export function InputManagementScreen({
         <Text testID="inputMgmt.reminders.fertigationUnavailable" style={styles.reminderSubtitleGray}>
           {t('farmer.inputManagement.reminders.fertigationUnavailable')}
         </Text>
+        {/* Some zone's pest data failed to load: what did load is shown, and this says so. */}
+        {data.partial ? (
+          <Text testID="inputMgmt.partial" style={styles.reminderSubtitleGray}>
+            {t('farmer.inputManagement.partial')}
+          </Text>
+        ) : null}
       </View>
     );
   };

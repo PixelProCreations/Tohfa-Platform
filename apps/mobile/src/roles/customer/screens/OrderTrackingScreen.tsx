@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import { useOrderTracking } from '../api/orders';
 import { colors } from '../theme';
 import { neutral } from '@tohfa/design-tokens';

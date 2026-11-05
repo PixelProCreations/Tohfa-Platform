@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, TextInput } from 'react-native';
+import { Alert, View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';

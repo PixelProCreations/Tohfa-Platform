@@ -7,8 +7,8 @@
  * are drawn once here, on the admin theme.
  */
 import React from 'react';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 
 import { adminErrorKey } from '../../../api/errors';

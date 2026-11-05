@@ -2,16 +2,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { EmptyState, ErrorState, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { t } from '../../../../../i18n/farmer';
+import { t, type TranslationKey } from '../../../../../i18n/farmer';
 import { authPalette as P, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 import {
@@ -152,11 +151,23 @@ function formatDate(iso: string | null | undefined): string {
 }
 
 /**
- * The category pill is the milestone's own stage code made readable
- * (`STAGE_FRUITING` -> `Fruiting`). It is derived from the server's code, not
- * looked up in a sample map; the stage name itself is the card title.
+ * The category pill is the milestone's own stage code, translated. The six
+ * codes seeded by migration 0036 have catalogue entries; any other code the
+ * server sends is still shown, made readable (`STAGE_FRUITING` -> `Fruiting`),
+ * rather than hidden. The stage name itself is the card title.
  */
+const STAGE_CATEGORY_KEY: Partial<Record<string, TranslationKey>> = {
+  STAGE_SOWING: 'farmer.cropMilestones.stage.STAGE_SOWING',
+  STAGE_VEGETATIVE: 'farmer.cropMilestones.stage.STAGE_VEGETATIVE',
+  STAGE_FLOWERING: 'farmer.cropMilestones.stage.STAGE_FLOWERING',
+  STAGE_FRUITING: 'farmer.cropMilestones.stage.STAGE_FRUITING',
+  STAGE_MATURITY: 'farmer.cropMilestones.stage.STAGE_MATURITY',
+  STAGE_HARVEST: 'farmer.cropMilestones.stage.STAGE_HARVEST',
+};
+
 function stageCategory(stageCode: string): string {
+  const key = STAGE_CATEGORY_KEY[stageCode];
+  if (key !== undefined) return t(key);
   const words = stageCode.replace(/^STAGE_/, '').replace(/_/g, ' ').toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
@@ -262,9 +273,14 @@ export function CropMilestonesScreen({
     setTogglingId(m.id);
     setUpdateFailed(false);
     try {
-      await updateCropMilestone(cropId, m.id, {
-        status: m.status === 'COMPLETED' ? 'PENDING' : 'COMPLETED',
-      });
+      // Going back to PENDING also clears completedOn: the PATCH schema accepts
+      // `completedOn: null` and the repo writes it, whereas a bare status change
+      // would leave the old completion date on a milestone that is no longer done.
+      await updateCropMilestone(
+        cropId,
+        m.id,
+        m.status === 'COMPLETED' ? { status: 'PENDING', completedOn: null } : { status: 'COMPLETED' },
+      );
       setSelectedMilestoneId(m.id);
       setData(await listCropMilestones(cropId));
     } catch {

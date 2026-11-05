@@ -4,7 +4,6 @@ import {
   BackHandler,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { DatePicker, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { DatePicker, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../theme';
 import { formatErrorMessage } from '../../../../shell/api/client';
 import { getPlots, type Plot } from '../../api/farms';

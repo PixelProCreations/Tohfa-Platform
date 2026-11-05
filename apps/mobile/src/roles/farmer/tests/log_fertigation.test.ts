@@ -34,7 +34,7 @@ vi.mock('react-native-svg', () => ({
   Path: 'Path',
   Rect: 'Rect',
 }));
-vi.mock('@tohfa/mobile-ui', () => ({ ScreenStatusBar: 'ScreenStatusBar' }));
+vi.mock('@tohfa/mobile-ui', () => ({ SafeAreaView: 'SafeAreaView', ScreenStatusBar: 'ScreenStatusBar' }));
 const cropItemsState = vi.hoisted(() => ({
   items: [] as unknown[],
   loading: false,

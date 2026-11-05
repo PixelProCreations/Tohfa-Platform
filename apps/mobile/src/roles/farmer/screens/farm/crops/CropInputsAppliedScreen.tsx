@@ -3,14 +3,13 @@ import {
   Alert,
   BackHandler,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Button, EmptyState, ErrorState, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
+import { Button, EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { authPalette as P, spacing, typography } from '../../../theme';
@@ -282,6 +281,12 @@ export function CropInputsAppliedScreen({
             {t('farmer.inputHistory.incomplete')}
           </Text>
         )}
+        {/* Some zone's pest treatment logs failed to load: the rest is shown, and this says so. */}
+        {data.partial ? (
+          <Text testID="inputHistory.partial" style={styles.inputSubtitle}>
+            {t('farmer.inputHistory.partial')}
+          </Text>
+        ) : null}
       </View>
     );
   };

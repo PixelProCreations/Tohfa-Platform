@@ -30,6 +30,7 @@ vi.mock('react-native-svg', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
 }));
 
@@ -39,10 +40,32 @@ vi.mock('../../../shell/api/client', async (importOriginal) => {
   return { ...actual, api: { post: apiPost } };
 });
 
+// The farm-wide entry point (no crop) offers the farmer's active crops; the
+// hook is stubbed so the only network call the screen makes is the POST.
+const cropItemsState = vi.hoisted(() => ({
+  items: [] as unknown[],
+  loading: false,
+  error: null as unknown,
+  reload: vi.fn(async () => undefined),
+  calls: 0,
+}));
+vi.mock('../screens/farm/crops/cropItems', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useActiveCropItems: () => {
+    cropItemsState.calls += 1;
+    return {
+      items: cropItemsState.items,
+      loading: cropItemsState.loading,
+      error: cropItemsState.error,
+      reload: cropItemsState.reload,
+    };
+  },
+}));
+
 import { AddInputAppliedScreen } from '../screens/farm/crops/AddInputAppliedScreen';
 import type { CropItem } from '../screens/farm/crops/cropItems';
 import { addDaysIso, todayInKolkata } from '../screens/certifications/certificationForm';
-import { t } from '../../../i18n/farmer';
+import { setLocale, t } from '../../../i18n/farmer';
 
 const CARROT = 'c0000000-0000-4000-8000-000000000001';
 const CARROT_ITEM: CropItem = {
@@ -110,7 +133,35 @@ async function fillValid(tree: renderer.ReactTestRenderer, date: string): Promis
   await type(tree, 'Optional notes', 'after rain');
 }
 
+const CABBAGE = 'c0000000-0000-4000-8000-000000000002';
+const CABBAGE_ITEM: CropItem = {
+  ...CARROT_ITEM,
+  id: CABBAGE,
+  name: 'Cabbage',
+  variety: 'Golden Acre',
+  zone: 'Zone 2 — Lower Slope',
+  zoneShort: 'Zone 2',
+};
+
+function testIds(tree: renderer.ReactTestRenderer): string[] {
+  return tree.root.findAll((n) => typeof n.props.testID === 'string').map((n) => n.props.testID as string);
+}
+
+async function pressTestId(tree: renderer.ReactTestRenderer, testID: string): Promise<void> {
+  const node = tree.root.find((n) => (n.type as unknown) === 'TouchableOpacity' && n.props.testID === testID);
+  await act(async () => {
+    (node.props as { onPress: () => void }).onPress();
+  });
+  await settle();
+}
+
 beforeEach(() => {
+  setLocale('en');
+  cropItemsState.items = [];
+  cropItemsState.loading = false;
+  cropItemsState.error = null;
+  cropItemsState.calls = 0;
+  cropItemsState.reload.mockClear();
   apiPost.mockReset();
   alert.mockReset();
   apiPost.mockImplementation((_path: string, body: Record<string, unknown>) =>
@@ -221,5 +272,66 @@ describe('AddInputAppliedScreen (BR-56)', () => {
     await pressLabel(tree, 'Save Input');
     expect(apiPost).not.toHaveBeenCalled();
     expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.noCrop'));
+  });
+
+  it('BR-56: opened farm-wide (no crop), the farmer picks the crop and Save posts against it', async () => {
+    cropItemsState.items = [CARROT_ITEM, CABBAGE_ITEM];
+    const onSave = vi.fn();
+    const tree = await mount({ crop: null, initialInputType: 'Fertigation', onSave });
+    expect(testIds(tree)).toContain('addInput.cropPicker');
+
+    await pressTestId(tree, 'addInput.cropPicker');
+    await pressTestId(tree, `addInput.cropOption.${CABBAGE}`);
+    expect(renderedText(tree.toJSON()).join('')).toContain('Cabbage — Golden Acre · Zone 2');
+
+    await fillValid(tree, '2026-07-12');
+    await pressLabel(tree, 'Save Input');
+    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect(apiPost.mock.calls[0]![0]).toBe(`/farmers/me/crops/${CABBAGE}/inputs`);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+
+  it('BR-56: farm-wide, a failed crop list turns the crop field into a retry', async () => {
+    cropItemsState.error = new Error('offline');
+    const tree = await mount({ crop: null, initialInputType: 'Fertigation' });
+    expect(renderedText(tree.toJSON()).join('')).toContain(t('farmer.addInput.crop.loadError'));
+    await pressTestId(tree, 'addInput.cropPicker');
+    expect(cropItemsState.reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('opened from a crop, the crop is fixed: no crop picker and no crop list is fetched', async () => {
+    const tree = await mount({ initialInputType: 'Fertigation' });
+    expect(testIds(tree)).not.toContain('addInput.cropPicker');
+    expect(cropItemsState.calls).toBe(0);
+  });
+
+  it('BR-56a: rejects a quantity with more than 2 decimal places (numeric(10,2)) without calling the API', async () => {
+    const tree = await mount({ initialInputType: 'Fertigation' });
+    await fillValid(tree, '2026-07-12');
+    for (const bad of ['4.555', '0.001', '1e3']) {
+      await type(tree, 'Quantity', bad);
+      await pressLabel(tree, 'Save Input');
+      expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.quantity'));
+    }
+    expect(apiPost).not.toHaveBeenCalled();
+
+    await type(tree, 'Quantity', '4.55');
+    await pressLabel(tree, 'Save Input');
+    expect(apiPost).toHaveBeenCalledTimes(1);
+    expect((apiPost.mock.calls[0]![1] as Record<string, unknown>)['quantity']).toBe(4.55);
+  });
+
+  it('renders its labels from the i18n catalogue (Tamil)', async () => {
+    setLocale('ta');
+    try {
+      const tree = await mount({ initialInputType: 'Fertigation' });
+      const text = renderedText(tree.toJSON()).join('\n');
+      expect(text).toContain(t('farmer.addInput.title'));
+      expect(text).toContain(t('farmer.addInput.save'));
+      expect(text).not.toContain('Add Input Applied');
+      expect(text).not.toContain('Save Input');
+    } finally {
+      setLocale('en');
+    }
   });
 });

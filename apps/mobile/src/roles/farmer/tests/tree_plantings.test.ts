@@ -17,6 +17,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import renderer, { act, type ReactTestInstance, type ReactTestRendererJSON } from 'react-test-renderer';
 
 // Only what the code under test imports from react-native (the screens, plus
@@ -47,6 +49,7 @@ vi.mock('react-native-calendars', () => ({ Calendar: 'Calendar' }));
 vi.mock('@tohfa/mobile-ui', () => ({
   EmptyState: 'EmptyState',
   ErrorState: 'ErrorState',
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
   Skeleton: 'Skeleton',
 }));
@@ -70,6 +73,7 @@ import { setLocale, t } from '../../../i18n/farmer';
 import { TreesListScreen } from '../screens/farm/assets/TreesListScreen';
 import { AddPlantingScreen } from '../screens/farm/crops/AddPlantingScreen';
 import { EditPlantingScreen } from '../screens/farm/crops/EditPlantingScreen';
+import { RemoveItemScreen, canDeleteAsset } from '../screens/farm/assets/RemoveItemScreen';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -424,6 +428,27 @@ describe('TreesListScreen wired to GET /farmers/me/tree-plantings (BR-55)', () =
     for (const fake of FAKE_SAMPLE_STRINGS) expect(text).not.toContain(fake);
   });
 
+  it('renders its labels from the i18n catalogue (Tamil)', async () => {
+    stubFetch(() => jsonResponse({ items: [makePlanting()], page: { nextCursor: null, hasMore: false } }));
+    setLocale('ta');
+    const tree = await mount(React.createElement(TreesListScreen, {}));
+    const text = renderedText(tree.toJSON()).join('\n');
+
+    for (const key of ['farmer.trees.title', 'farmer.trees.add', 'farmer.trees.filter.all', 'farmer.trees.filterTitle'] as const) {
+      expect(text, key).toContain(t(key));
+    }
+    for (const english of ['Add planting', 'All plantings', 'Filter Plantings']) {
+      expect(text, english).not.toContain(english);
+    }
+  });
+
+  it("App.tsx's Trees fallbacks come from the i18n catalogue, not inline English", () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../App.tsx'), 'utf8');
+    for (const literal of ["'Silver Oak (12 trees)'", "'Planted 14 Jun 2019'", "'Shade & windbreak'", '`Trees · ${']) {
+      expect(source, literal).not.toContain(literal);
+    }
+  });
+
   it('BR-55: shows ErrorState with retry when the list request fails', async () => {
     stubFetch(() =>
       jsonResponse({ type: 'about:blank', title: 'Server error', status: 500, code: 'INTERNAL' }, 500),
@@ -569,6 +594,45 @@ describe('EditPlantingScreen wired to GET/PATCH /farmers/me/tree-plantings/:id (
     });
     await settle();
     expect(calls.filter((c) => c.method === 'PATCH')).toHaveLength(0);
+  });
+
+  it('BR-55d: Trees can be deleted (DELETE /farmers/me/tree-plantings/:id exists), so Remove hands off to onRemove', async () => {
+    expect(canDeleteAsset('Trees')).toBe(true);
+    stubFetch(() => jsonResponse(makePlanting({ id })));
+    const onRemove = vi.fn();
+
+    const tree = await mount(
+      React.createElement(EditPlantingScreen, { planting: { id }, onNavigateBack: vi.fn(), onRemove }),
+    );
+    const remove = tree.root.find(
+      (node) => isType(node, 'TouchableOpacity') && node.props.accessibilityLabel === 'Remove this planting',
+    );
+    await act(async () => {
+      remove.props.onPress();
+    });
+
+    expect(onRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it('BR-55d: confirming removal of a tree calls onConfirmRemove instead of a "not available" alert', async () => {
+    const onConfirmRemove = vi.fn(async () => undefined);
+    const tree = await mount(
+      React.createElement(RemoveItemScreen, {
+        item: { id, name: 'Jackfruit (3 trees)', category: 'Trees', dateInfo: 'Trees · Planted 5 Mar 2022' },
+        onNavigateBack: vi.fn(),
+        onConfirmRemove,
+      }),
+    );
+    const confirm = tree.root.find(
+      (node) => isType(node, 'TouchableOpacity') && node.props.accessibilityLabel === 'Yes, Remove Permanently',
+    );
+    await act(async () => {
+      confirm.props.onPress();
+    });
+    await settle();
+
+    expect(onConfirmRemove).toHaveBeenCalledTimes(1);
+    expect(renderedText(tree.toJSON())).not.toContain('Not available yet');
   });
 
   it('BR-55: without a planting id there is no record to update, so nothing is sent', async () => {

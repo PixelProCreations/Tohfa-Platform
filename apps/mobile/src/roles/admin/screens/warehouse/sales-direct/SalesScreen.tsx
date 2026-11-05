@@ -16,10 +16,11 @@
  * presentation only (root CLAUDE.md 2.1).
  */
 import React, { useMemo, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import type { SalePaymentStatus } from '../../../api/sales';
+import { OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
@@ -98,31 +99,6 @@ function MoneyCardIcon({ color = adminColors.warning.text }: { color?: string })
       <Rect x="2" y="6" width="20" height="12" rx="2" stroke={color} strokeWidth="2" />
       <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" />
       <Path d="M6 12h.01M18 12h.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function StorefrontCardIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 8a2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0 2.2 2.2 0 0 0 4.4 0V4H3v4z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M4 10.2V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9.8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M9 21v-6h6v6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function CalendarActionIcon({ color = adminColors.brand }: { color?: string }) {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="2" />
-      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -482,31 +458,27 @@ export function SalesScreen({
         ) : (
           <>
             <Text style={styles.noteText}>{t('sales.hub.todayNote')}</Text>
+            {/* Design (mod1213farmadmin M6-01): the shared card in a 2-column grid with
+                the design's icons; Dev's figures and sub-lines. */}
             <View style={styles.kpiGrid}>
-              <View style={[styles.kpiCard, styles.kpiCardWide]}>
-                <View style={styles.cardIconWrap}>
-                  <MoneyCardIcon />
-                </View>
-                <Text style={styles.kpiLabel}>{t('sales.hub.kpi.total')}</Text>
-                <Text style={styles.kpiValue}>{formatPaise(summary.revenuePaise)}</Text>
-                <Text style={styles.kpiSub}>{t('sales.hub.kpi.txnCount', { count: summary.count })}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <View style={styles.cardIconWrap}>
-                  <StorefrontCardIcon />
-                </View>
-                <Text style={styles.kpiLabel}>{t(SALE_CHANNEL_KEY.DIRECT)}</Text>
-                <Text style={styles.kpiValue}>{formatPaise(summary.byChannel.DIRECT.revenuePaise)}</Text>
-                <Text style={styles.kpiSub}>{t('sales.hub.kpi.saleCount', { count: summary.byChannel.DIRECT.count })}</Text>
-              </View>
-              <View style={styles.kpiCard}>
-                <View style={styles.cardIconWrap}>
-                  <CalendarActionIcon />
-                </View>
-                <Text style={styles.kpiLabel}>{t(SALE_CHANNEL_KEY.MARKET)}</Text>
-                <Text style={styles.kpiValue}>{formatPaise(summary.byChannel.MARKET.revenuePaise)}</Text>
-                <Text style={styles.kpiSub}>{t('sales.hub.kpi.saleCount', { count: summary.byChannel.MARKET.count })}</Text>
-              </View>
+              <OverviewDashboardCard
+                value={formatPaise(summary.revenuePaise)}
+                title={t('sales.hub.kpi.total')}
+                subtitle={t('sales.hub.kpi.txnCount', { count: summary.count })}
+                icon="sales"
+              />
+              <OverviewDashboardCard
+                value={formatPaise(summary.byChannel.DIRECT.revenuePaise)}
+                title={t(SALE_CHANNEL_KEY.DIRECT)}
+                subtitle={t('sales.hub.kpi.saleCount', { count: summary.byChannel.DIRECT.count })}
+                icon="cash"
+              />
+              <OverviewDashboardCard
+                value={formatPaise(summary.byChannel.MARKET.revenuePaise)}
+                title={t(SALE_CHANNEL_KEY.MARKET)}
+                subtitle={t('sales.hub.kpi.saleCount', { count: summary.byChannel.MARKET.count })}
+                icon="receiving"
+              />
             </View>
 
             <Text style={styles.sectionTitle}>{t('sales.hub.byMethodHeading')}</Text>
@@ -767,12 +739,13 @@ const styles = StyleSheet.create({
     color: adminColors.muted,
     marginBottom: 10,
   },
+  // Design grid (mod1213farmadmin `mainKpiGrid`): the card sets its own 48.5% width.
   kpiGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 8,
+    rowGap: 10,
+    marginBottom: 20,
   },
   kpiCard: {
     width: '48.5%',

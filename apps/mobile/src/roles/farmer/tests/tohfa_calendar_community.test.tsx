@@ -9,8 +9,9 @@
  * released — `other` as an unnamed row, an empty slice as an honest empty
  * state that names the server's minGroupSize — and to send the filters.
  *
- * The customer wishlist section has no backend (rules.md BR-136 "Not built")
- * and stays static; one test pins that it is still there.
+ * The customer wishlist section has no backend (rules.md BR-136 "Not built");
+ * its static rows were invented placeholder figures, so it is hidden and one
+ * test pins that none of it renders.
  *
  * Until the owner decides (rules.md open contradiction 34) the server answers
  * 403 to every role, or 503 COMMUNITY_PLANTING_NOT_CONFIGURED without k: the
@@ -280,6 +281,50 @@ describe('TohfaCalendarScreen — community planting summary (BR-136)', () => {
     expect(tree.root.findAllByProps({ testID: 'tohfaCalendar.retry' }).length).toBe(0);
   });
 
+  it('BR-136: a 403 on both endpoints hides the filter chips, so no sheet can say the options failed to load', async () => {
+    const forbidden = (): Promise<unknown> =>
+      Promise.reject(new ApiError({ type: 'about:blank', title: 'Not permitted', status: 403, code: 'FORBIDDEN' }));
+    routeApi(forbidden, forbidden);
+    const tree = await mount();
+
+    for (const id of ['tohfaCalendar.filter.crop', 'tohfaCalendar.filter.month', 'tohfaCalendar.filter.region']) {
+      expect(tree.root.findAllByProps({ testID: id }).length, id).toBe(0);
+    }
+    expect(tree.root.findAllByType('Modal' as unknown as React.ElementType).length).toBe(0);
+    expect(textOf(tree)).not.toContain(t('farmer.tohfaCalendar.filter.loadError'));
+    expect(textOf(tree)).toContain(t('farmer.tohfaCalendar.unavailable'));
+  });
+
+  it('BR-136: a 503 COMMUNITY_PLANTING_NOT_CONFIGURED from the filters endpoint alone also hides the filter chips', async () => {
+    routeApi(
+      () => Promise.resolve(summary()),
+      () =>
+        Promise.reject(
+          new ApiError({
+            type: 'about:blank',
+            title: 'Community planting summary is not configured',
+            status: 503,
+            code: 'COMMUNITY_PLANTING_NOT_CONFIGURED',
+          }),
+        ),
+    );
+    const tree = await mount();
+
+    expect(tree.root.findAllByProps({ testID: 'tohfaCalendar.filter.crop' }).length).toBe(0);
+    expect(textOf(tree)).not.toContain(t('farmer.tohfaCalendar.filter.loadError'));
+  });
+
+  it('a non-permission failure of the filters endpoint still keeps the chips and shows the load error in the sheet', async () => {
+    routeApi(
+      () => Promise.resolve(summary()),
+      () => Promise.reject(new Error('network down')),
+    );
+    const tree = await mount();
+
+    await press(tree, 'tohfaCalendar.filter.crop');
+    expect(textOf(tree)).toContain(t('farmer.tohfaCalendar.filter.loadError'));
+  });
+
   it('unset filter chips keep the design labels (All crops / Month / Region)', async () => {
     routeApi(() => Promise.resolve(summary()));
     const tree = await mount();
@@ -342,13 +387,17 @@ describe('TohfaCalendarScreen — community planting summary (BR-136)', () => {
     expect(textOf(tree)).toContain('Highland Potato');
   });
 
-  it('keeps the static customer wishlist section and its footnote (no backend exists for it)', async () => {
+  it('BR-136: hides the customer wishlist section, which has no backend, so no invented demand figures reach farmers', async () => {
     routeApi(() => Promise.resolve(summary()));
     const tree = await mount();
     const text = textOf(tree);
 
-    expect(text).toContain(t('farmer.tohfaCalendar.wishlist.title'));
-    expect(text).toContain(t('farmer.tohfaCalendar.wishlist.footnote'));
+    expect(text).not.toContain(t('farmer.tohfaCalendar.wishlist.title'));
+    expect(text).not.toContain(t('farmer.tohfaCalendar.wishlist.footnote'));
+    // The former static placeholder rows (e.g. "62 customers" / "8,400 kg").
+    expect(text).not.toContain(t('farmer.tohfaCalendar.wishlist.customers', { count: 62 }));
+    expect(text).not.toContain('8,400 kg');
+    expect(tree.root.findAllByType('Image' as unknown as React.ElementType).length).toBe(0);
     // No request is made for wishlist data.
     expect(apiGet.mock.calls.every((c) => [SUMMARY_PATH, FILTERS_PATH].includes(c[0] as string))).toBe(true);
   });

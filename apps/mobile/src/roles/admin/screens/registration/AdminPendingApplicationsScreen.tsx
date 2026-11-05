@@ -1,7 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import type { ScrollViewInstance } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';

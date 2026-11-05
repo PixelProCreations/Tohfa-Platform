@@ -20,8 +20,9 @@
  * applies; the server re-checks every code (CLAUDE.md 2.1).
  */
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
+import { OverviewDashboardCard } from '../../../components';
 import { t } from '../../../i18n';
 import { formatPaise } from '../../../money/paise';
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
@@ -216,26 +217,17 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
   const onPress = failed ? kpi.state.refresh : kpi.onPress;
   const value =
     kpi.value ?? (kpi.state.isLoading ? t('finance.hub.kpi.loading') : failed ? t('finance.hub.kpi.retry') : '');
+  // Design (mod1213farmadmin M11-S01): the shared card; revenue gets the sales
+  // icon, every other figure the cash icon.
   return (
-    <TouchableOpacity
-      style={styles.kpiCard}
+    <OverviewDashboardCard
+      value={value}
+      title={kpi.label}
+      subtitle={kpi.hint}
+      icon={kpi.key === 'revenue' ? 'sales' : 'cash'}
+      tone={kpi.tone ?? 'default'}
       onPress={onPress}
-      disabled={onPress === undefined}
-      activeOpacity={0.75}
-      accessibilityRole={onPress ? 'button' : undefined}
-    >
-      <Text style={styles.kpiLabel}>{kpi.label}</Text>
-      <Text
-        style={[
-          kpi.value === undefined ? styles.kpiPending : styles.kpiValue,
-          kpi.tone === 'success' && styles.kpiSuccess,
-          kpi.tone === 'danger' && styles.kpiDanger,
-        ]}
-      >
-        {value}
-      </Text>
-      {kpi.hint ? <Text style={styles.kpiHint}>{kpi.hint}</Text> : null}
-    </TouchableOpacity>
+    />
   );
 }
 
@@ -255,7 +247,8 @@ function Breakdown({ title, report, onPress }: { title: string; report: FinanceR
 }
 
 const styles = StyleSheet.create({
-  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: adminSpacing.sm, marginBottom: adminSpacing.xs },
+  // Design grid (mod1213farmadmin `kpiGrid`): the card sets its own 48.5% width.
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.md },
   kpiCard: {
     width: '48.5%',
     backgroundColor: adminColors.card,

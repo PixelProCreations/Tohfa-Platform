@@ -1,9 +1,11 @@
 // Design id: M3S01
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Platform, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, RefreshControl } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';
-import { adminColors, adminSpacing, adminType } from '../../../theme';
+import { OverviewDashboardCard } from '../../../components';
+import { adminColors, adminOverlay, adminSpacing, adminType } from '../../../theme';
 import Svg, { Path } from 'react-native-svg';
 import { SWABottomNav } from '../../swa/components';
 import { isAreaAvailable } from '../availability';
@@ -261,76 +263,60 @@ export function InventoryDashboardScreen({
             <Text style={styles.totalStockLabel}>TOTAL AVAILABLE STOCK</Text>
             {complete ? null : <Text style={styles.incompleteNote}>{t('inventory.totals.incomplete')}</Text>}
           </View>
-          {/* 6 Stats Grid - 2 columns x 3 rows (matching reference mockup exactly) */}
+          {/* 6 Stats Grid - 2 columns x 3 rows. Design (mod1213farmadmin M3S01 Sub): the
+              shared card with the design's own icons; Low Stock in the danger tone. */}
           <View style={styles.statsGrid}>
             {/* Row 1 Left: Available */}
-            <TouchableOpacity 
-              style={styles.statCard}
+            <OverviewDashboardCard
+              value={kg(summary?.totalAvailableGrams ?? null)}
+              title="Available"
+              icon={<StatAvailableIcon size={22} color={adminColors.brandDeep} />}
               onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
-              <StatAvailableIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{kg(summary?.totalAvailableGrams ?? null)}</Text>
-              <Text style={styles.statLabel}>Available</Text>
-            </TouchableOpacity>
+            />
 
             {/* Row 1 Right: Reserved */}
-            <TouchableOpacity 
-              style={styles.statCard}
+            <OverviewDashboardCard
+              value={kg(summary?.totalReservedGrams ?? null)}
+              title="Reserved"
+              icon={<StatReservedIcon size={22} color={adminColors.brandDeep} />}
               onPress={() => onNavigate?.('M3S02')}
-              activeOpacity={0.7}
-            >
-              <StatReservedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{kg(summary?.totalReservedGrams ?? null)}</Text>
-              <Text style={styles.statLabel}>Reserved</Text>
-            </TouchableOpacity>
+            />
 
             {/* Row 2 Left: Allocated */}
-            <TouchableOpacity 
-              style={styles.statCard}
+            <OverviewDashboardCard
+              value={kg(allocatedGrams)}
+              title="Allocated"
+              icon={<StatAllocatedIcon size={22} color={adminColors.brandDeep} />}
               onPress={() => onNavigate?.('M3S07')}
-              activeOpacity={0.7}
-            >
-              <StatAllocatedIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{kg(allocatedGrams)}</Text>
-              <Text style={styles.statLabel}>Allocated</Text>
-            </TouchableOpacity>
+            />
 
             {/* Row 2 Right: Low Stock */}
-            <TouchableOpacity 
-              style={styles.statCard}
+            <OverviewDashboardCard
+              value={lowStockCount === null ? t('inventory.noValue') : String(lowStockCount).padStart(2, '0')}
+              title="Low Stock"
+              icon={<StatLowStockIcon size={22} color={adminColors.brandDeep} />}
+              tone="danger"
               onPress={() => onNavigate?.('M3S09')}
-              activeOpacity={0.7}
-            >
-              <StatLowStockIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.lowStockValue}>{lowStockCount === null ? t('inventory.noValue') : String(lowStockCount).padStart(2, '0')}</Text>
-              <Text style={styles.statLabel}>Low Stock</Text>
-            </TouchableOpacity>
+            />
 
             {/* Row 3 Left: Verification (gated on stock counts, availability.ts) */}
             {canVerify ? (
-            <TouchableOpacity 
-              style={styles.statCard}
-              onPress={() => onNavigate?.('M3S10')}
-              activeOpacity={0.7}
-            >
-              <StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />
-              <Text style={styles.statValue}>{t('inventory.noValue')}</Text>
-              <Text style={styles.statLabel}>Verification Pending</Text>
-            </TouchableOpacity>
+              <OverviewDashboardCard
+                value={t('inventory.noValue')}
+                title="Verification Pending"
+                icon={<StatVerificationPendingIcon size={22} color={adminColors.brandDeep} />}
+                onPress={() => onNavigate?.('M3S10')}
+              />
             ) : null}
 
             {/* Row 3 Right: View Stock Ledger (only with a ledger grant) */}
             {canViewLedger ? (
-              <TouchableOpacity
-                style={styles.statCard}
+              <OverviewDashboardCard
+                value="View"
+                title="Stock Ledger"
+                icon={<StatStockLedgerIcon size={22} color={adminColors.brandDeep} />}
                 onPress={() => onNavigate?.('M3S06')}
-                activeOpacity={0.7}
-              >
-                <StatStockLedgerIcon size={22} color={adminColors.brandDeep} />
-                <Text style={styles.statValue}>View</Text>
-                <Text style={styles.statLabel}>Stock Ledger</Text>
-              </TouchableOpacity>
+              />
             ) : null}
           </View>
 
@@ -432,7 +418,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: adminOverlay.whitePill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -440,9 +426,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    backgroundColor: adminOverlay.headerPill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
+    borderColor: adminOverlay.headerPillBorder,
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 20,
@@ -486,12 +472,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Stats Grid - 2 columns x 3 rows - WHITE background with subtle borders, LEFT-ALIGNED
+  // Design grid (mod1213farmadmin `statsGrid`): rowGap 12, marginBottom 16; the
+  // card sets its own 48.5% width.
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
     justifyContent: 'space-between',
-    marginBottom: 8,
+    rowGap: 12,
+    marginBottom: 16,
   },
   statCard: {
     width: '48%',

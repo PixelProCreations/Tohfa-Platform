@@ -23,11 +23,11 @@
  */
 // Design id: M5S04 (M5S04_OrderDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, RefreshControl } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, RefreshControl } from 'react-native';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { adminColors, adminOverlay, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
 import { t, type TranslationKey } from '../../../i18n';
 import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../shared/AsyncStates';
 import { queryViewState } from '../shared/queryViewState';
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     width: MORE_BUTTON,
     height: MORE_BUTTON,
     borderRadius: adminRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: adminOverlay.headerMoreButton,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -483,11 +483,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 20,
     paddingTop: 10,
-    backgroundColor: '#FBF8F2',
+    backgroundColor: adminColors.warehouse.warmCanvas,
     gap: 10,
   },
   primaryCheckBtn: {
-    backgroundColor: '#F0562A',
+    backgroundColor: adminColors.brand,
     borderRadius: 14,
     height: 52,
     flexDirection: 'row',
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
   primaryCheckBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: adminColors.onBrand,
   },
   menuOverlay: { flex: 1, justifyContent: 'flex-end' },
   menuSheet: {

@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
   Alert,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';

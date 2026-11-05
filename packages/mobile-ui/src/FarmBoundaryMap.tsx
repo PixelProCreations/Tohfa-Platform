@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import type { Feature, Point } from 'geojson';
 import { MAPBOX_ACCESS_TOKEN } from '@env';
+import { hex, neutral } from '@tohfa/design-tokens';
 import { useTheme } from './theme';
 import { Icon } from './Icon';
 import { ringLabelPosition } from './overlayLabel';
@@ -829,7 +830,7 @@ export const FarmBoundaryMap = forwardRef<FarmBoundaryMapHandle, FarmBoundaryMap
             ]}
           >
             <View style={styles.searchIconBox}>
-              <Icon name="search" size={18} color={theme.colors.onSurfaceVariant ?? '#64748B'} />
+              <Icon name="search" size={18} color={theme.colors.onSurfaceVariant ?? neutral('slate500')} />
             </View>
             <TextInput
               style={[
@@ -894,7 +895,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     height: 44,
-    shadowColor: '#000000',
+    shadowColor: neutral('black'),
     shadowOpacity: 0.12,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
@@ -912,25 +913,25 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
   fallbackContainer: {
-    backgroundColor: '#0f172a',
+    backgroundColor: neutral('boundaryMapFallbackBg'),
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   fallbackBox: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: hex('boundaryMapFallbackBox'),
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
   fallbackTitle: {
-    color: '#ffffff',
+    color: neutral('white'),
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 6,
   },
   fallbackText: {
-    color: '#94a3b8',
+    color: neutral('boundaryMapFallbackText'),
     fontSize: 12,
     textAlign: 'center',
     lineHeight: 18,

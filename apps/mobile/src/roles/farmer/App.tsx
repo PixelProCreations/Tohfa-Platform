@@ -2515,7 +2515,8 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'AddInputApplied' ? (
           <AddInputAppliedScreen
-            // Opened from the farm-wide history there is no single crop to log against: never reuse a stale one.
+            // Opened from the farm-wide history there is no single crop to log against: never reuse a stale
+            // one. With crop=null the screen shows a crop picker and the farmer chooses the crop.
             crop={params['scope'] === 'all' ? null : selectedCrop}
             initialInputType={params['initialInputType'] as 'Fertigation' | 'Pest Treatment' | undefined}
             onBack={goBack}
@@ -2990,7 +2991,7 @@ export default function App(): React.JSX.Element {
                   treeCount: selectedTreeForEdit.treeCount ?? 12,
                   plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
                   locationZone: selectedTreeForEdit.zoneInfo,
-                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                  purpose: selectedTreeForEdit.purposeText ?? t('farmer.trees.fallback.purpose'),
                 }
                 : undefined
             }
@@ -2999,9 +3000,11 @@ export default function App(): React.JSX.Element {
             onRemove={() => {
               setSelectedItemForRemove({
                 id: selectedTreeForEdit?.id,
-                name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
+                name: selectedTreeForEdit?.name || t('farmer.trees.fallback.name'),
                 category: 'Trees',
-                dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
+                dateInfo: t('farmer.trees.removeDateInfo', {
+                  date: selectedTreeForEdit?.plantedDate || t('farmer.trees.fallback.planted'),
+                }),
               });
               navigate('RemoveItem');
             }}
@@ -3049,9 +3052,9 @@ export default function App(): React.JSX.Element {
             onNavigateBack={goBack}
             onConfirmRemove={async () => {
               // canDeleteAsset is the single source of truth for which categories have no
-              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
-              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
-              // not the gate itself.
+              // backend delete endpoint (see RemoveItemScreen.tsx; currently none) --
+              // RemoveItemScreen already refuses to call onConfirmRemove for those, so this
+              // is belt-and-braces, not the gate itself. Trees delete via BR-55d.
               if (
                 selectedItemForRemove?.id &&
                 canDeleteAsset(selectedItemForRemove.category)

@@ -44,6 +44,7 @@ vi.mock('react-native-svg', () => ({
 vi.mock('@tohfa/mobile-ui', () => ({
   EmptyState: 'EmptyState',
   ErrorState: 'ErrorState',
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
   Skeleton: 'Skeleton',
 }));
@@ -180,6 +181,8 @@ interface Fixture {
   plot2Reminders: unknown[];
   fail: boolean;
   pending: boolean;
+  /** A plot whose pest-treatment logs and reminders requests fail (one zone down). */
+  failPestPlot: string | null;
 }
 
 let fx: Fixture;
@@ -198,6 +201,7 @@ function defaultFixture(): Fixture {
     plot2Reminders: [],
     fail: false,
     pending: false,
+    failPestPlot: null,
   };
 }
 
@@ -230,6 +234,9 @@ function farmWideInputs(p: string): Promise<unknown> {
 function route(p: string): Promise<unknown> {
   if (fx.pending) return new Promise(() => undefined);
   if (fx.fail) return Promise.reject(new Error('boom'));
+  if (fx.failPestPlot !== null && p.includes(`/plots/${fx.failPestPlot}/pest-treatment-`)) {
+    return Promise.reject(new Error('zone down'));
+  }
   const items = (list: unknown[]) => Promise.resolve({ items: list, page: { nextCursor: null, hasMore: false } });
   if (p === '/farmers/me/diary/plots') {
     return Promise.resolve({
@@ -493,6 +500,36 @@ describe('InputManagementScreen — recent applications (BR-56)', () => {
     expect(inputCalls().length).toBeGreaterThan(before);
     expect(tree.root.findAllByType('ErrorState' as unknown as React.ElementType).length).toBe(0);
     expect(textOf(tree)).toContain('Vermicompost');
+  });
+
+  it("one zone's pest data failing does not fail the screen: the rest shows, with a partial-data note", async () => {
+    fx.failPestPlot = PLOT1;
+    fx.plot2Reminders = [reminder('r-p2', PLOT2, 'Spray neem', addDaysIso(todayInKolkata(), 2))];
+    const tree = await mount();
+
+    expect(tree.root.findAllByType('ErrorState' as unknown as React.ElementType).length).toBe(0);
+    // Crop inputs and the healthy zone's pest log and reminder are all still shown.
+    expect(appRowIds(tree)).toEqual([
+      'inputMgmt.app.cropInput:i-verm',
+      'inputMgmt.app.pestLog:l-sulphur',
+      'inputMgmt.app.cropInput:i-neem',
+      'inputMgmt.app.cropInput:i-panch',
+    ]);
+    expect(tree.root.findAllByProps({ testID: 'inputMgmt.reminder.r-p2' }).length).toBe(1);
+    // ...and the farmer is told some of it is missing.
+    expect(textById(tree, 'inputMgmt.partial')).toBe(t('farmer.inputManagement.partial'));
+  });
+
+  it('shows no partial-data note when every zone loaded', async () => {
+    const tree = await mount();
+    expect(tree.root.findAllByProps({ testID: 'inputMgmt.partial' }).length).toBe(0);
+  });
+
+  it('passes the abort signal to GET /farms and GET /farms/:farmId/plots', async () => {
+    await mount();
+    const signalFor = (p: string) => apiGet.mock.calls.find((c) => c[0] === p)?.[1];
+    expect(signalFor('/farms')).toBeInstanceOf(AbortSignal);
+    expect(signalFor(`/farms/${FARM}/plots`)).toBeInstanceOf(AbortSignal);
   });
 
   it('pull-to-refresh refetches and keeps the list on screen', async () => {

@@ -24,7 +24,8 @@
  * WarehouseTabBar, shown when the host passes onTabChange.
  */
 import React, { useState } from 'react';
-import { Alert, Linking, Modal, RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Modal, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 
 import { t } from '../../../i18n';
 import { formatKg } from '../../../money/quantity';

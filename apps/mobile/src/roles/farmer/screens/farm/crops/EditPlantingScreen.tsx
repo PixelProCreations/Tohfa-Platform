@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
@@ -221,10 +221,10 @@ export function EditPlantingScreen({
   }
 
   // This screen only ever edits a Trees/planting record (see the locked
-  // category banner below), and farm-assets has no backend entity for one
-  // (api/farmAssets.ts only models TOOL/EQUIPMENT/MACHINERY) -- canDeleteAsset
-  // is the single source of truth for that gap (RemoveItemScreen.tsx), so the
-  // button says so honestly instead of handing off to a screen that would.
+  // category banner below). Plantings are deleted through
+  // DELETE /farmers/me/tree-plantings/:id (BR-55d); canDeleteAsset
+  // (RemoveItemScreen.tsx) stays the single source of truth for whether a
+  // category can be removed, so the button is gated in one place.
   const canRemove = canDeleteAsset('Trees');
 
   function handleRemove(): void {

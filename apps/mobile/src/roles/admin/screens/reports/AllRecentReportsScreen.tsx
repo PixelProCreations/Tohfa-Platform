@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -8,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 const P = {

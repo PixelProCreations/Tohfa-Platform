@@ -42,6 +42,7 @@ vi.mock('@tohfa/mobile-ui', () => ({
   Button: 'Button',
   EmptyState: 'EmptyState',
   ErrorState: 'ErrorState',
+  SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
   Skeleton: 'Skeleton',
 }));
@@ -125,6 +126,8 @@ let carrotInputs: unknown[];
 let beetrootInputs: unknown[];
 let fail: boolean;
 let pending: boolean;
+/** Only the zone's pest-treatment-logs request fails (one zone down). */
+let failPestLogs: boolean;
 
 const CROP_PLOT: Record<string, { cropName: string; plotName: string }> = {
   [CARROT]: { cropName: 'Carrot', plotName: 'Zone 1 — Upper Field' },
@@ -176,6 +179,7 @@ function route(p: string): Promise<unknown> {
     return Promise.resolve({ items: [{ id: PLOT1, farmId: FARM, name: 'Zone 1 — Upper Field' }] });
   }
   if (p === `/farms/${FARM}/plots/${PLOT1}/pest-treatment-logs`) {
+    if (failPestLogs) return Promise.reject(new Error('zone down'));
     return Promise.resolve({
       items: [
         {
@@ -257,6 +261,7 @@ beforeEach(() => {
   beetrootInputs = [];
   fail = false;
   pending = false;
+  failPestLogs = false;
   apiGet.mockImplementation((p: string) => route(p));
 });
 
@@ -376,6 +381,15 @@ describe('CropInputsAppliedScreen — per-crop history (BR-56)', () => {
     });
     await settle();
     expect(rowIds(tree).length).toBe(20);
+  });
+
+  it("a zone's pest logs failing does not fail the history: crop inputs still show, with a partial-data note", async () => {
+    failPestLogs = true;
+    const tree = await mount(null);
+    expect(tree.root.findAllByType('ErrorState' as unknown as React.ElementType).length).toBe(0);
+    expect(rowIds(tree).length).toBe(20);
+    expect(rowIds(tree)).not.toContain('inputHistory.row.pestLog:l-1');
+    expect(textById(tree, 'inputHistory.partial')).toBe(t('farmer.inputHistory.partial'));
   });
 
   it('pull-to-refresh refetches', async () => {

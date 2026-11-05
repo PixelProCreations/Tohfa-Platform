@@ -1,10 +1,10 @@
 // Design id: M3S16
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { adminColors, adminType } from '../../../theme';
 import type { InventoryScreenBaseProps } from './types';
 import Svg, { Path } from 'react-native-svg';
-import { Icon } from '@tohfa/mobile-ui';
+import { Icon, SafeAreaView } from '@tohfa/mobile-ui';
 import { SWAHeader } from '../../swa/components';
 
 export type InventoryFiltersScreenProps = InventoryScreenBaseProps;

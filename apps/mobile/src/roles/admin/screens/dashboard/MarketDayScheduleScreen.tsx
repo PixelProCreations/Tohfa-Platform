@@ -5,7 +5,6 @@
  */
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -13,7 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, ScreenStatusBar } from '@tohfa/mobile-ui';
+import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 
 const P = {
   pageBg: '#FAF8F5',

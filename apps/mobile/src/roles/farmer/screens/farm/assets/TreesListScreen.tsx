@@ -1,17 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { EmptyState, ErrorState, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, radius, spacing, typography } from '../../../theme';
-import { t } from '../../../../../i18n/farmer';
+import { t, type TranslationKey } from '../../../../../i18n/farmer';
 import {
   listAllTreePlantings,
   toTreePlantingItem,
@@ -155,6 +154,18 @@ export type { TreePlantingItem, TreeStatus };
 /** Filter choices, in display order; only statuses present in the data are offered. */
 const FILTER_ORDER: ('All plantings' | TreeStatus)[] = ['All plantings', 'Mature', 'Young', 'Fruit-bearing'];
 
+/** Display label for a filter choice / status badge, from the i18n catalogue. */
+const FILTER_LABEL_KEY: Record<'All plantings' | TreeStatus, TranslationKey> = {
+  'All plantings': 'farmer.trees.filter.all',
+  Mature: 'farmer.trees.status.mature',
+  Young: 'farmer.trees.status.young',
+  'Fruit-bearing': 'farmer.trees.status.fruitBearing',
+};
+
+function filterLabel(option: 'All plantings' | TreeStatus): string {
+  return t(FILTER_LABEL_KEY[option]);
+}
+
 /** Placeholder card height while the list loads. */
 const SKELETON_CARD_HEIGHT = spacing.xxxl * 2;
 
@@ -216,7 +227,7 @@ export function TreesListScreen({
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Back"
+            accessibilityLabel={t('farmer.trees.backA11y')}
           >
             <ArrowBackIcon size={20} color={P.deepGreen} />
           </TouchableOpacity>
@@ -226,7 +237,7 @@ export function TreesListScreen({
           </View>
 
           <View style={styles.headerTitles}>
-            <Text style={styles.headerTitle}>Trees</Text>
+            <Text style={styles.headerTitle}>{t('farmer.trees.title')}</Text>
             <Text style={styles.headerSubtitle}>
               {loading || error ? '' : t('farmer.trees.plantingsCount', { count: plantings.length })}
             </Text>
@@ -244,11 +255,11 @@ export function TreesListScreen({
             onPress={() => setFilterModalOpen(true)}
             activeOpacity={0.8}
             accessibilityRole="button"
-            accessibilityLabel="Filter plantings"
+            accessibilityLabel={t('farmer.trees.filterA11y')}
           >
             <View style={styles.filterLeftRow}>
               <FilterLinesIcon size={16} color={P.twGray600} />
-              <Text style={styles.filterText}>{selectedFilter}</Text>
+              <Text style={styles.filterText}>{filterLabel(selectedFilter)}</Text>
             </View>
             <ChevronDownIcon size={16} color={P.twGray500} />
           </TouchableOpacity>
@@ -301,19 +312,19 @@ export function TreesListScreen({
                       <View style={styles.cardTopRowRight}>
                         {isMature && (
                           <View style={styles.badgeMature}>
-                            <Text style={styles.badgeTextMature}>Mature</Text>
+                            <Text style={styles.badgeTextMature}>{filterLabel('Mature')}</Text>
                           </View>
                         )}
 
                         {isYoung && (
                           <View style={styles.badgeYoung}>
-                            <Text style={styles.badgeTextYoung}>Young</Text>
+                            <Text style={styles.badgeTextYoung}>{filterLabel('Young')}</Text>
                           </View>
                         )}
 
                         {isFruit && (
                           <View style={styles.badgeFruit}>
-                            <Text style={styles.badgeTextFruit}>Fruit-bearing</Text>
+                            <Text style={styles.badgeTextFruit}>{filterLabel('Fruit-bearing')}</Text>
                           </View>
                         )}
 
@@ -322,7 +333,7 @@ export function TreesListScreen({
                           onPress={() => onNavigateToEditPlanting?.(item)}
                           activeOpacity={0.7}
                           accessibilityRole="button"
-                          accessibilityLabel={`Edit ${item.name}`}
+                          accessibilityLabel={t('farmer.trees.editA11y', { name: item.name })}
                         >
                           <EditPencilIcon size={14} color={P.twGray600} />
                         </TouchableOpacity>
@@ -377,10 +388,10 @@ export function TreesListScreen({
           onPress={onNavigateToAddPlanting}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel="Add planting"
+          accessibilityLabel={t('farmer.trees.add')}
         >
           <PlusIcon size={18} color={P.white} />
-          <Text style={styles.fabText}>Add planting</Text>
+          <Text style={styles.fabText}>{t('farmer.trees.add')}</Text>
         </TouchableOpacity>
 
         {/* ── Filter Modal ── */}
@@ -396,7 +407,7 @@ export function TreesListScreen({
             onPress={() => setFilterModalOpen(false)}
           >
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Filter Plantings</Text>
+              <Text style={styles.modalTitle}>{t('farmer.trees.filterTitle')}</Text>
               {filterOptions.map((opt) => (
                 <TouchableOpacity
                   key={opt}
@@ -415,7 +426,7 @@ export function TreesListScreen({
                       selectedFilter === opt && styles.modalOptionTextSelected,
                     ]}
                   >
-                    {opt}
+                    {filterLabel(opt)}
                   </Text>
                 </TouchableOpacity>
               ))}

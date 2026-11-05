@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
-import { ErrorState, Icon, Skeleton } from '@tohfa/mobile-ui';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import { formatMoneyAmount } from '../../api/wallet';
