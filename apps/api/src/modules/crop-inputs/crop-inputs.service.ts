@@ -1,6 +1,12 @@
 import { fromPaise, toPaise } from '@tohfa/shared-types';
 import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  optionalIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { isCalendarDate } from '../certifications/certifications.schema.js';
@@ -28,6 +34,8 @@ export interface CropInputsServiceDeps {
   repo: CropInputsRepo;
   db: Executor;
   runTx: TransactionRunner;
+  /** BR-56i. Defaults to the PostgreSQL store; tests inject an in-memory one. */
+  idempotency?: IdempotencyStore;
 }
 
 function ownFarmerId(scope: ResolvedScope): string {
@@ -135,10 +143,15 @@ export interface CropInputsService {
     farmCropId: string,
     id: string,
   ): Promise<CropInputResponse>;
+  /**
+   * BR-56i: with an `idempotencyKey`, a replay of the same request returns the original row and writes
+   * nothing; without one, every call creates a row (the behaviour before the key was honoured).
+   */
   createCropInput(
     scope: ResolvedScope,
     farmCropId: string,
     body: CreateCropInputBody,
+    idempotencyKey?: string,
   ): Promise<CropInputResponse>;
   updateCropInput(
     scope: ResolvedScope,
@@ -163,6 +176,7 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
   runTx: withTransaction,
 }): CropInputsService {
   const { repo, db, runTx } = deps;
+  const idempotency = deps.idempotency ?? idempotencyStore;
 
   async function assertCropOwnership(executor: Executor, farmerId: string, farmCropId: string): Promise<void> {
     const belongs = await repo.checkFarmCropBelongsToFarmer(executor, farmerId, farmCropId);
@@ -248,11 +262,24 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
       return record;
     },
 
-    async createCropInput(scope, farmCropId, body) {
+    async createCropInput(scope, farmCropId, body, idempotencyKey) {
       const farmerId = ownFarmerId(scope);
+      const key = optionalIdempotencyKey(idempotencyKey);
       validateInputValues(body);
 
       return runTx(async (tx) => {
+        // BR-56i: claim the key in this transaction before the write, so a replay returns the
+        // stored row without a second insert or audit entry, and a failed create frees the key.
+        const idem = key === undefined
+          ? undefined
+          : await beginIdempotent<CropInputResponse>(idempotency, tx, {
+              actorUserId: scope.userId,
+              key,
+              operation: 'crop_input.create',
+              request: { farmCropId, body },
+            });
+        if (idem?.replay === true) return idem.response;
+
         await repo.lockFarmer(tx, farmerId);
         await assertCropOwnership(tx, farmerId, farmCropId);
 
@@ -267,6 +294,7 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
           after: created,
         });
 
+        if (idem !== undefined && idem.replay === false) await idem.complete(created);
         return created;
       });
     },

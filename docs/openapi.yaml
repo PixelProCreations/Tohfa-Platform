@@ -6977,7 +6977,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+            enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         - name: from
           in: query
           required: false
@@ -7032,7 +7032,10 @@ paths:
       operationId: createMyCropInput
       summary: Record an input application
       description: |
-        Logs a fertilizer, manure, pesticide or bio-input application for an own crop (BR-56).
+        Logs a fertilizer, manure, pesticide, bio-input or fertigation application for an own crop
+        (BR-56), with optional purpose / target pest / applied-by (BR-56k). An optional
+        `Idempotency-Key` makes a retry safe: a replay returns the original 201 body and creates no
+        second row; the same key with a different body or crop is 409 `IDEMPOTENCY_KEY_REUSED` (BR-56i).
       x-permission: farmer.crop_input.manage_own
       x-business-rules: [BR-56, BR-36, BR-35]
       parameters:
@@ -7040,6 +7043,7 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/OptionalIdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -7048,7 +7052,7 @@ paths:
               $ref: '#/components/schemas/CreateCropInputRequest'
       responses:
         '201':
-          description: Created crop input record.
+          description: Created crop input record (or, on an Idempotency-Key replay, the original one).
           content:
             application/json:
               schema:
@@ -7056,6 +7060,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -8444,8 +8449,13 @@ paths:
         Creates a new tree planting record. Validates that treeCount > 0 and that plantedOn is a real
         calendar date no later than today in Asia/Kolkata (BR-55). `farmId` must be one of the caller's
         farms and `plotId` a plot of the caller's, on `farmId` when both are sent; otherwise 404.
+        An optional `Idempotency-Key` makes a retry safe: a replay returns the original 201 body and
+        creates no second planting; the same key with a different body is 409
+        `IDEMPOTENCY_KEY_REUSED` (BR-55h).
       x-permission: farmer.tree_planting.manage_own
       x-business-rules: [BR-55, BR-36, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/OptionalIdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -8454,7 +8464,7 @@ paths:
               $ref: '#/components/schemas/CreateTreePlantingRequest'
       responses:
         '201':
-          description: Created tree planting.
+          description: Created tree planting (or, on an Idempotency-Key replay, the original one).
           content:
             application/json:
               schema:
@@ -8462,6 +8472,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -15950,6 +15961,19 @@ components:
         with an identical body returns the original response; replaying it with a
         different body returns 409 `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours.
       schema: { type: string, format: uuid }
+    OptionalIdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Optional, for non-money farmer record writes (BR-55h, BR-56i). Absent, empty or
+        whitespace-only: the request runs as a plain create (each call creates a row). Present:
+        same contract as `IdempotencyKeyHeader` - replaying the key with an identical request
+        returns the original 201 body and writes no second row or audit entry; replaying it with a
+        different request is 409 `IDEMPOTENCY_KEY_REUSED`; a key over 255 characters is 422
+        `VALIDATION_FAILED`. A refused attempt (any 4xx/5xx) is not remembered. Keys are scoped to
+        the acting user and retained for `idempotency.retention_hours` (default 24).
+      schema: { type: string, maxLength: 255 }
 
     CustomerIdPathParam:
       name: customerId
@@ -17600,7 +17624,7 @@ components:
         farmCropId: { type: string, format: uuid }
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, maxLength: 200 }
         appliedOn:
           type: string
@@ -17619,6 +17643,18 @@ components:
             - $ref: '#/components/schemas/Money'
             - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
+        purpose:
+          type: [string, 'null']
+          maxLength: 100
+          description: Why the input was applied (BR-56k). Free text; the farmer app sends a stable option code (e.g. `PEST_CONTROL`) or the farmer's own words.
+        targetPest:
+          type: [string, 'null']
+          maxLength: 200
+          description: Pest or disease targeted (BR-56k). Free text; the app sends a stable option code or the farmer's own words.
+        appliedBy:
+          type: [string, 'null']
+          maxLength: 200
+          description: Who applied it (BR-56k). Free text by owner default; not a worker reference.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
 
@@ -17641,7 +17677,7 @@ components:
       properties:
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
         appliedOn:
           type: string
@@ -17661,13 +17697,16 @@ components:
         applicationMethod: { type: string, maxLength: 100 }
         costInr: { $ref: '#/components/schemas/CropInputCost' }
         notes: { type: string, maxLength: 2000 }
+        purpose: { type: string, minLength: 1, maxLength: 100, description: 'BR-56k. Trimmed; free text or a stable option code.' }
+        targetPest: { type: string, minLength: 1, maxLength: 200, description: 'BR-56k. Trimmed; free text or a stable option code.' }
+        appliedBy: { type: string, minLength: 1, maxLength: 200, description: 'BR-56k. Trimmed free text (who applied it).' }
 
     UpdateCropInputRequest:
       type: object
       properties:
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
         appliedOn:
           type: string
@@ -17686,6 +17725,9 @@ components:
             - $ref: '#/components/schemas/CropInputCost'
             - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
+        purpose: { type: [string, 'null'], minLength: 1, maxLength: 100, description: 'BR-56k. null clears it.' }
+        targetPest: { type: [string, 'null'], minLength: 1, maxLength: 200, description: 'BR-56k. null clears it.' }
+        appliedBy: { type: [string, 'null'], minLength: 1, maxLength: 200, description: 'BR-56k. null clears it.' }
 
     CropInputsListResponse:
       type: object

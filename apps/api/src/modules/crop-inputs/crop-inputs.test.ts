@@ -6,7 +6,9 @@ import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
 import { errorHandler, notFoundHandler } from '../../http/errorHandler.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import type { IdempotencyStore } from '../../http/idempotency.js';
 import { aScope, databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import type {
   CropInputCursor,
   CropInputRecord,
@@ -171,6 +173,9 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
         applicationMethod: data.applicationMethod ?? null,
         costInr: data.costInr === undefined ? null : parseMoney(data.costInr),
         notes: data.notes ?? null,
+        purpose: data.purpose ?? null,
+        targetPest: data.targetPest ?? null,
+        appliedBy: data.appliedBy ?? null,
         createdAt: new Date().toISOString(),
         updatedAt: null,
         deletedAt: null,
@@ -195,6 +200,9 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
       if ('applicationMethod' in patch) rec.applicationMethod = patch.applicationMethod ?? null;
       if ('costInr' in patch) rec.costInr = patch.costInr === null || patch.costInr === undefined ? null : parseMoney(patch.costInr);
       if ('notes' in patch) rec.notes = patch.notes ?? null;
+      if ('purpose' in patch) rec.purpose = patch.purpose ?? null;
+      if ('targetPest' in patch) rec.targetPest = patch.targetPest ?? null;
+      if ('appliedBy' in patch) rec.appliedBy = patch.appliedBy ?? null;
       rec.updatedAt = new Date().toISOString();
       return { ...rec };
     },
@@ -216,7 +224,7 @@ function createFakeRepo(state: FakeDbState): CropInputsRepo {
   };
 }
 
-function createTestContext() {
+function createTestContext(idempotency: IdempotencyStore = createInMemoryIdempotencyStore()) {
   const state: FakeDbState = {
     inputs: new Map(),
     audits: [],
@@ -234,9 +242,10 @@ function createTestContext() {
     repo,
     db: fakeTx,
     runTx: async (fn) => fn(fakeTx),
+    idempotency,
   });
 
-  return { state, repo, service, audits: state.audits };
+  return { state, repo, service, audits: state.audits, idempotency };
 }
 
 const VALID_BODY = {
@@ -505,6 +514,154 @@ describe('Crop Inputs (BR-56)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// BR-56i..k: idempotent create, the FERTIGATION type, purpose / target pest / applied-by
+// ---------------------------------------------------------------------------
+
+describe('Crop input create is idempotent when an Idempotency-Key is sent (BR-56i)', () => {
+  it('BR-56i: replaying a key with the same body creates one row and one audit entry, and returns the original', async () => {
+    const { service, state, audits } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+    const first = await service.createCropInput(scope, CROP_A, body, 'key-1');
+    const replay = await service.createCropInput(scope, CROP_A, { ...body }, 'key-1');
+
+    expect(replay).toEqual(first);
+    expect(state.inputs.size).toBe(1);
+    expect(audits.filter((a) => a[3] === 'crop_input.create')).toHaveLength(1);
+  });
+
+  it('BR-56i: the same key with a different body or a different crop is 409 IDEMPOTENCY_KEY_REUSED and writes nothing', async () => {
+    const { service, state } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+    await service.createCropInput(scope, CROP_A, body, 'key-1');
+
+    await expectAppError(service.createCropInput(scope, CROP_A, { ...body, quantity: 11 }, 'key-1'), 'IDEMPOTENCY_KEY_REUSED', 409);
+    await expectAppError(service.createCropInput(scope, CROP_A_HARVESTED, body, 'key-1'), 'IDEMPOTENCY_KEY_REUSED', 409);
+    expect(state.inputs.size).toBe(1);
+  });
+
+  it('BR-56i: without a key (or with a blank one) every call creates a row, as before, and no key is claimed', async () => {
+    const { service, state, idempotency } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+    await service.createCropInput(scope, CROP_A, body);
+    await service.createCropInput(scope, CROP_A, body, undefined);
+    await service.createCropInput(scope, CROP_A, body, '   ');
+
+    expect(state.inputs.size).toBe(3);
+    expect((idempotency as ReturnType<typeof createInMemoryIdempotencyStore>).size()).toBe(0);
+  });
+
+  it('BR-56i: keys are scoped to the acting user, so another farmer reusing the string creates their own row', async () => {
+    const { service, state } = createTestContext();
+    const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+    await service.createCropInput(farmerScope(FARMER_A), CROP_A, body, 'shared-key');
+    await service.createCropInput(farmerScope(FARMER_B), CROP_B, body, 'shared-key');
+
+    expect(state.inputs.size).toBe(2);
+  });
+
+  it('BR-56i: a key over 255 characters is 422 VALIDATION_FAILED before anything is written', async () => {
+    const { service, state } = createTestContext();
+    await expectAppError(
+      service.createCropInput(farmerScope(FARMER_A), CROP_A, { ...VALID_BODY, appliedOn: todayIst() }, 'k'.repeat(256)),
+      'VALIDATION_FAILED',
+      422,
+    );
+    expect(state.inputs.size).toBe(0);
+  });
+
+  describe('route', () => {
+    const app = express();
+    app.use(express.json());
+    app.use('/v1/farmers/me', cropInputsRouter);
+    app.use(notFoundHandler);
+    app.use(errorHandler);
+    const auth = `Bearer ${signAccessToken({ sub: newId(), roles: [{ code: RoleCode.FARMER }], farmerId: FARMER_A, customerId: null })}`;
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('BR-56i: POST passes the Idempotency-Key header to the service, and omits it when absent', async () => {
+      const spy = vi.spyOn(cropInputsService, 'createCropInput').mockResolvedValue({} as never);
+      const body = { ...VALID_BODY, appliedOn: todayIst() };
+
+      const withKey = await request(app)
+        .post(`/v1/farmers/me/crops/${CROP_A}/inputs`)
+        .set('Authorization', auth)
+        .set('Idempotency-Key', 'abc-123')
+        .send(body);
+      expect(withKey.status).toBe(201);
+      expect(spy.mock.calls[0]?.[3]).toBe('abc-123');
+
+      const withoutKey = await request(app)
+        .post(`/v1/farmers/me/crops/${CROP_A}/inputs`)
+        .set('Authorization', auth)
+        .send(body);
+      expect(withoutKey.status).toBe(201);
+      expect(spy.mock.calls[1]?.[3]).toBeUndefined();
+    });
+  });
+});
+
+describe('FERTIGATION input type (BR-56j)', () => {
+  it('BR-56j: FERTIGATION is accepted on create, update and the farm-wide list filter; legacy OTHER still is', async () => {
+    expect(createCropInputBody.safeParse({ ...VALID_BODY, inputType: 'FERTIGATION', appliedOn: '2026-01-01' }).success).toBe(true);
+    expect(createCropInputBody.safeParse({ ...VALID_BODY, inputType: 'OTHER', appliedOn: '2026-01-01' }).success).toBe(true);
+    expect(updateCropInputBody.safeParse({ inputType: 'FERTIGATION' }).success).toBe(true);
+    expect(listFarmCropInputsQuery.safeParse({ inputType: 'FERTIGATION' }).success).toBe(true);
+
+    const { service } = createTestContext();
+    const created = await service.createCropInput(farmerScope(FARMER_A), CROP_A, {
+      ...VALID_BODY,
+      inputType: 'FERTIGATION',
+      inputName: '19:19:19 via drip',
+      appliedOn: todayIst(),
+    });
+    expect(created.inputType).toBe('FERTIGATION');
+  });
+});
+
+describe('Purpose, target pest and applied-by are persisted (BR-56k)', () => {
+  it('BR-56k: create stores purpose, targetPest and appliedBy; absent ones read back as null', async () => {
+    const { service } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+
+    const full = await service.createCropInput(scope, CROP_A, {
+      ...VALID_BODY,
+      inputType: 'PESTICIDE',
+      appliedOn: todayIst(),
+      purpose: 'PEST_CONTROL',
+      targetPest: 'APHIDS',
+      appliedBy: 'Self',
+    });
+    expect(full).toMatchObject({ purpose: 'PEST_CONTROL', targetPest: 'APHIDS', appliedBy: 'Self' });
+
+    const bare = await service.createCropInput(scope, CROP_A, { ...VALID_BODY, appliedOn: todayIst() });
+    expect(bare).toMatchObject({ purpose: null, targetPest: null, appliedBy: null });
+
+    const cleared = await service.updateCropInput(scope, CROP_A, full.id, { targetPest: null, appliedBy: 'Muthu' });
+    expect(cleared).toMatchObject({ purpose: 'PEST_CONTROL', targetPest: null, appliedBy: 'Muthu' });
+  });
+
+  it('BR-56k: the schema trims, caps purpose at 100 and targetPest/appliedBy at 200, and allows null only on PATCH', () => {
+    const base = { ...VALID_BODY, appliedOn: '2026-01-01' };
+    expect(createCropInputBody.parse({ ...base, appliedBy: '  Self  ' }).appliedBy).toBe('Self');
+    expect(createCropInputBody.safeParse({ ...base, purpose: 'p'.repeat(100) }).success).toBe(true);
+    expect(createCropInputBody.safeParse({ ...base, purpose: 'p'.repeat(101) }).success).toBe(false);
+    expect(createCropInputBody.safeParse({ ...base, targetPest: 't'.repeat(201) }).success).toBe(false);
+    expect(createCropInputBody.safeParse({ ...base, appliedBy: 'a'.repeat(201) }).success).toBe(false);
+    expect(createCropInputBody.safeParse({ ...base, appliedBy: null }).success).toBe(false);
+    expect(updateCropInputBody.safeParse({ purpose: null, targetPest: null, appliedBy: null }).success).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // BR-56h: GET /farmers/me/crop-inputs — the farm-wide list across all own crops
 // ---------------------------------------------------------------------------
 
@@ -524,6 +681,9 @@ function seedInput(
     applicationMethod: null,
     costInr: null,
     notes: null,
+    purpose: null,
+    targetPest: null,
+    appliedBy: null,
     createdAt: '2026-01-01T00:00:00.000000Z',
     updatedAt: null,
     ...fields,
@@ -814,6 +974,62 @@ describeIfDatabase('Crop Inputs (PostgreSQL)', () => {
 
       const cleared = await service.updateCropInput(scope, a.farmCropId, first.id, { costInr: null });
       expect(cleared.costInr).toBeNull();
+    });
+  });
+
+  it('BR-56j/BR-56k (PostgreSQL): FERTIGATION and purpose/targetPest/appliedBy round-trip through the real columns', async () => {
+    if (!ready) return;
+    const { cropInputsRepo } = await import('./crop-inputs.repo.js');
+    await inRolledBackTx(async (tx) => {
+      const a = await seedFarmCrop(tx, 'K');
+      const service = createCropInputsService({ repo: cropInputsRepo, db: tx, runTx: async (fn) => fn(tx) });
+      const scope = farmerScope(a.farmerId);
+      scope.userId = a.userId;
+
+      const created = await service.createCropInput(scope, a.farmCropId, {
+        ...VALID_BODY,
+        inputType: 'FERTIGATION',
+        appliedOn: '2026-01-02',
+        purpose: 'GROWTH',
+        targetPest: 'APHIDS',
+        appliedBy: 'Self',
+      });
+      expect(created).toMatchObject({ inputType: 'FERTIGATION', purpose: 'GROWTH', targetPest: 'APHIDS', appliedBy: 'Self' });
+
+      const read = await service.getCropInput(scope, a.farmCropId, created.id);
+      expect(read).toMatchObject({ purpose: 'GROWTH', targetPest: 'APHIDS', appliedBy: 'Self' });
+
+      const patched = await service.updateCropInput(scope, a.farmCropId, created.id, { targetPest: null });
+      expect(patched.targetPest).toBeNull();
+
+      const farmWide = await service.listFarmCropInputs(scope, { limit: 20, inputType: 'FERTIGATION' });
+      expect(farmWide.items.map((i) => i.id)).toEqual([created.id]);
+      expect(farmWide.items[0]).toMatchObject({ purpose: 'GROWTH', appliedBy: 'Self' });
+    });
+  });
+
+  it('BR-56i (PostgreSQL): a replayed Idempotency-Key against the real idempotency_keys table creates one row', async () => {
+    if (!ready) return;
+    const { cropInputsRepo } = await import('./crop-inputs.repo.js');
+    const { idempotencyStore } = await import('../../http/idempotency.js');
+    await inRolledBackTx(async (tx) => {
+      const a = await seedFarmCrop(tx, 'I');
+      const service = createCropInputsService({
+        repo: cropInputsRepo,
+        db: tx,
+        runTx: async (fn) => fn(tx),
+        idempotency: idempotencyStore,
+      });
+      const scope = farmerScope(a.farmerId);
+      scope.userId = a.userId;
+      const key = newId();
+
+      const first = await service.createCropInput(scope, a.farmCropId, { ...VALID_BODY, appliedOn: '2026-01-02' }, key);
+      const again = await service.createCropInput(scope, a.farmCropId, { ...VALID_BODY, appliedOn: '2026-01-02' }, key);
+      expect(again.id).toBe(first.id);
+
+      const page = await service.listCropInputs(scope, a.farmCropId, { limit: 20 });
+      expect(page.items).toHaveLength(1);
     });
   });
 
