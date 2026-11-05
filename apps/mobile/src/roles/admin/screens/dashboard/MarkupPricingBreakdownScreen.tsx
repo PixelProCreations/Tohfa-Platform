@@ -42,7 +42,6 @@ export interface MarkupPricingBreakdownScreenProps {
   finalCustomerPrice?: string | undefined;
   expenseList?: Array<{ name: string; amount: string }> | undefined;
   ceilingPrice?: string | undefined;
-  record?: any;
   role?: string | undefined;
 }
 

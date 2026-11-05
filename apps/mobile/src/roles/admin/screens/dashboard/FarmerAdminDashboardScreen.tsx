@@ -2665,16 +2665,12 @@ export function FarmerAdminDashboardScreen({
         farmer={{
           id: 'FR-00241',
           code: 'FR-00241',
-          id: 'FR-00241',
-          initials: 'RK',
-          location: 'Coonoor',
-          status: 'ACTIVE',
-          code: 'FR-00241',
           initials: 'RK',
           location: 'Coonoor',
           name: 'Ramesh Kumar',
           zone: 'Coonoor',
           farmingMethod: 'Organic',
+          status: 'ACTIVE',
           accountStatus: 'Active',
           certification: 'Certified',
           farmCount: 1,
@@ -3879,12 +3875,6 @@ export function FarmerAdminDashboardScreen({
               setActiveTab('Farmers');
             }}
             onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
-            onOpenHistory={() => {
-              pushNavigation({
-                subView: 'audit_schedule',
-                auditInitialFilter: 'history',
-              });
-            }}
           />
         )}
 

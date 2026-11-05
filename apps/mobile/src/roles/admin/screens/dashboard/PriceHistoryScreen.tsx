@@ -324,7 +324,6 @@ export const COUNTER_OFFER_FIXTURES: CounterOfferItem[] = [
 
 export interface PriceHistoryScreenProps {
   onBack: () => void;
-  role?: string | undefined;
   role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
 }
 
