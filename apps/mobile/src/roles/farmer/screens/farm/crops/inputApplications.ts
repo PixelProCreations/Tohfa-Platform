@@ -308,6 +308,8 @@ export interface InputApplicationsData {
   reminders: DueReminder[];
   /** False when the inputs cursor had to be abandoned at MAX_INPUT_PAGES. */
   complete: boolean;
+  /** True when some zone's pest treatment logs or reminders (or a farm's zone list) could not be loaded. */
+  partial: boolean;
 }
 
 interface CursorPage<T> {
@@ -374,9 +376,21 @@ export async function loadInputApplications(
       : listAllActiveFarmCrops(signal).then((r) => r.items.map(({ crop }) => [crop.id, crop.cropName]));
 
   // Zones across every farm: pest treatment logs and reminders are zone-scoped.
-  const plotsPromise = getFarms().then(async (farms) =>
-    (await Promise.all(farms.map((farm) => getPlots(farm.id)))).flat(),
-  );
+  // Pest data is read per farm and per zone, so one zone (or one farm's zone
+  // list) failing must not blank the whole screen: those requests are settled
+  // individually, what loaded is shown, and `partial` tells the screen to say
+  // that some of it is missing. The crop inputs themselves (one endpoint) and
+  // the farm list still fail the load, since without them there is nothing
+  // meaningful to show.
+  let partial = false;
+  const plotsPromise = getFarms(signal).then(async (farms) => {
+    const settled = await Promise.allSettled(farms.map((farm) => getPlots(farm.id, signal)));
+    return settled.flatMap((r) => {
+      if (r.status === 'fulfilled') return r.value;
+      partial = true;
+      return [];
+    });
+  });
 
   const wantReminders = options.mode === 'recent';
 
@@ -385,11 +399,16 @@ export async function loadInputApplications(
     activeCropNamesPromise,
     plotsPromise.then((plots) => Promise.all(
       plots.map(async (plot) => {
-        const [logs, reminders] = await Promise.all([
+        const [logs, reminders] = await Promise.allSettled([
           listPestTreatmentLogs(plot.farmId, plot.id),
           wantReminders ? listPestTreatmentReminders(plot.farmId, plot.id) : Promise.resolve([]),
         ]);
-        return { plot, logs, reminders };
+        if (logs.status === 'rejected' || reminders.status === 'rejected') partial = true;
+        return {
+          plot,
+          logs: logs.status === 'fulfilled' ? logs.value : [],
+          reminders: reminders.status === 'fulfilled' ? reminders.value : [],
+        };
       }),
     )),
   ]);
@@ -413,7 +432,7 @@ export async function loadInputApplications(
       )
     : [];
 
-  return { applications, reminders, complete: inputs.complete };
+  return { applications, reminders, complete: inputs.complete, partial };
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────

@@ -314,6 +314,12 @@ export function InputManagementScreen({
         <Text testID="inputMgmt.reminders.fertigationUnavailable" style={styles.reminderSubtitleGray}>
           {t('farmer.inputManagement.reminders.fertigationUnavailable')}
         </Text>
+        {/* Some zone's pest data failed to load: what did load is shown, and this says so. */}
+        {data.partial ? (
+          <Text testID="inputMgmt.partial" style={styles.reminderSubtitleGray}>
+            {t('farmer.inputManagement.partial')}
+          </Text>
+        ) : null}
       </View>
     );
   };

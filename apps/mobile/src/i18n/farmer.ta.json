@@ -1883,6 +1883,8 @@
   "farmer.inputHistory.loadError": "உள்ளீட்டு வரலாற்றை ஏற்ற முடியவில்லை.",
   "farmer.inputHistory.showMore": "மேலும் காட்டு",
   "farmer.inputHistory.incomplete": "சில பழைய பதிவுகளை ஏற்ற முடியவில்லை.",
+  "farmer.inputHistory.partial": "சில மண்டலங்களின் பூச்சி சிகிச்சைகளை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கக் கீழே இழுக்கவும்.",
+  "farmer.inputManagement.partial": "சில மண்டலங்களின் பூச்சி சிகிச்சைகள் அல்லது நினைவூட்டல்களை ஏற்ற முடியவில்லை. மீண்டும் முயற்சிக்கக் கீழே இழுக்கவும்.",
   "farmer.inputHistory.add": "இடப்பட்ட உள்ளீட்டைச் சேர்",
   "farmer.inputHistory.addHint": "இந்தப் பயிருக்கு இடப்பட்ட உள்ளீட்டைப் பதிவு செய்யவும்.",
   "farmer.logFertigation.field.loading": "உங்கள் பயிர்கள் ஏற்றப்படுகின்றன…",

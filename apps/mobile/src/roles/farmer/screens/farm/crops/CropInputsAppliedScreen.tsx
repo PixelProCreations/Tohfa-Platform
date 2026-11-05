@@ -282,6 +282,12 @@ export function CropInputsAppliedScreen({
             {t('farmer.inputHistory.incomplete')}
           </Text>
         )}
+        {/* Some zone's pest treatment logs failed to load: the rest is shown, and this says so. */}
+        {data.partial ? (
+          <Text testID="inputHistory.partial" style={styles.inputSubtitle}>
+            {t('farmer.inputHistory.partial')}
+          </Text>
+        ) : null}
       </View>
     );
   };

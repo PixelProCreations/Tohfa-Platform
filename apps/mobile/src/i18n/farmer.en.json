@@ -1894,6 +1894,8 @@
   "farmer.inputHistory.loadError": "Could not load the input history.",
   "farmer.inputHistory.showMore": "Show more",
   "farmer.inputHistory.incomplete": "Some older entries could not be loaded.",
+  "farmer.inputHistory.partial": "Pest treatments for some zones could not be loaded. Pull down to try again.",
+  "farmer.inputManagement.partial": "Pest treatments or reminders for some zones could not be loaded. Pull down to try again.",
   "farmer.inputHistory.add": "Add input applied",
   "farmer.inputHistory.addHint": "Record an input applied to this crop.",
   "farmer.logFertigation.field.loading": "Loading your crops…",
