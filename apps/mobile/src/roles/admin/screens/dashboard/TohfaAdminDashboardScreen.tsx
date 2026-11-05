@@ -7241,6 +7241,55 @@ export function TohfaAdminDashboardScreen({
   const [workforceFilterStatus, setWorkforceFilterStatus] = useState<'All' | 'Active' | 'Pending activation'>('All');
   const [workforceFilterAttendance, setWorkforceFilterAttendance] = useState<'All' | 'Present' | 'Absent'>('All');
   const [openDropdownField, setOpenDropdownField] = useState<string | null>(null);
+  const renderWorkforceInlineDropdown = (
+    fieldKey: string,
+    options: readonly string[],
+    currentVal: string,
+    onSelect: (val: string) => void
+  ) => {
+    if (openDropdownField !== fieldKey) return null;
+    return (
+      <View style={styles.workforceInlineDropdownMenu}>
+        {options.map((opt, idx) => {
+          const isSelectHeader = opt === 'Select' || opt === 'Select...';
+          const isSelected = currentVal === opt && !isSelectHeader;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[
+                styles.workforceInlineDropdownItem,
+                isSelectHeader && styles.workforceInlineDropdownItemGrey,
+                isSelected && styles.workforceInlineDropdownItemActive,
+                idx === options.length - 1 && { borderBottomWidth: 0 },
+              ]}
+              onPress={() => {
+                onSelect(opt);
+                setOpenDropdownField(null);
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text
+                  style={[
+                    styles.workforceInlineDropdownItemText,
+                    isSelectHeader && styles.workforceInlineDropdownItemTextWhite,
+                    isSelected && styles.workforceInlineDropdownItemTextActive,
+                  ]}
+                >
+                  {opt}
+                </Text>
+                {isSelected && (
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M20 6L9 17l-5-5" stroke={adminColors.brand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
 
   const [selectedStaffDetails, setSelectedStaffDetails] = useState<WorkforceStaffItem | null>(null);
   const [workforceStaffList, setWorkforceStaffList] = useState<WorkforceStaffItem[]>([
@@ -7547,6 +7596,11 @@ export function TohfaAdminDashboardScreen({
   const [createStaffDocExperience, setCreateStaffDocExperience] = useState<string | null>(null);
   const [createStaffDocOther, setCreateStaffDocOther] = useState<string | null>(null);
   const [editingStaff, setEditingStaff] = useState<any | null>(null);
+  // Staff Date of Birth Calendar Modal State
+  const [showStaffDobCalendar, setShowStaffDobCalendar] = useState(false);
+  const [staffDobYear, setStaffDobYear] = useState(1992);
+  const [staffDobMonth, setStaffDobMonth] = useState(3); // April (0-indexed)
+  const [staffDobDay, setStaffDobDay] = useState(12);
 
   // Form Picker Modal State
   const [activeFormPicker, setActiveFormPicker] = useState<{
@@ -8995,13 +9049,19 @@ export function TohfaAdminDashboardScreen({
                 />
                 <TouchableOpacity
                   onPress={() => {
-                    if (!createStaffDob) {
-                      setCreateStaffDob('12-04-1992');
+                    if (createStaffDob) {
+                      const parts = createStaffDob.split('-');
+                      if (parts.length === 3) {
+                        setStaffDobDay(parseInt(parts[0] ?? '12', 10) || 12);
+                        setStaffDobMonth(Math.max(0, (parseInt(parts[1] ?? '4', 10) || 4) - 1));
+                        setStaffDobYear(parseInt(parts[2] ?? '1992', 10) || 1992);
+                      }
                     }
+                    setShowStaffDobCalendar(true);
                   }}
                   activeOpacity={0.7}
                 >
-                  <CalendarOutlineIcon size={20} color={adminColors.muted} />
+                  <CalendarOutlineIcon size={20} color={adminColors.brand} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -9019,37 +9079,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'gender' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'Male', 'Female', 'Other'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffGender(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('gender', ['Select', 'Male', 'Female', 'Other'], createStaffGender, (val) => setCreateStaffGender(val as any))}
             </View>
 
             {/* Marital Status (Screenshots 3 UI matching exact grey select) */}
@@ -9065,37 +9095,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'marital' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'Married', 'Unmarried'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffMarital(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('marital', ['Select', 'Married', 'Unmarried'], createStaffMarital, (val) => setCreateStaffMarital(val as any))}
             </View>
 
             {/* Father's / Guardian's Name optional */}
@@ -9144,37 +9144,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'language' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'Tamil', 'English', 'Hindi', 'Malayalam', 'Kannada', 'Telugu'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffLanguage(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('language', ['Select', 'Tamil', 'English', 'Hindi', 'Malayalam', 'Kannada', 'Telugu'], createStaffLanguage, (val) => setCreateStaffLanguage(val as any))}
             </View>
 
             {/* Blood Group */}
@@ -9190,37 +9160,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'bloodGroup' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffBloodGroup(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('bloodGroup', ['Select', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'], createStaffBloodGroup, (val) => setCreateStaffBloodGroup(val as any))}
             </View>
           </View>
 
@@ -9408,14 +9348,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>ID Proof Type</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select ID Proof Type',
-                    options: ['Select...', 'Aadhaar', 'PAN Card', 'Voter ID', 'Driving License'],
-                    selected: createStaffIdType,
-                    onSelect: (val) => setCreateStaffIdType(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'idType' ? null : 'idType'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffIdType !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9423,6 +9356,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('idType', ['Select...', 'Aadhaar', 'PAN Card', 'Voter ID', 'Driving License'], createStaffIdType, (val) => setCreateStaffIdType(val))}
               <Text style={styles.workforceFormHelperText}>The accepted types are subject to TOHFA policy.</Text>
             </View>
 
@@ -9557,14 +9491,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Account Type</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Account Type',
-                    options: ['Select...', 'Savings', 'Current', 'Salary'],
-                    selected: createStaffAccountType,
-                    onSelect: (val) => setCreateStaffAccountType(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'accountType' ? null : 'accountType'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffAccountType !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9572,6 +9499,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('accountType', ['Select...', 'Savings', 'Current', 'Salary'], createStaffAccountType, (val) => setCreateStaffAccountType(val))}
             </View>
 
             {/* Cancelled Cheque / Bank Proof optional */}
@@ -9624,14 +9552,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Employment Type</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Employment Type',
-                    options: ['Select...', 'Full-time', 'Contract', 'Part-time', 'Probation', 'Temporary'],
-                    selected: createStaffEmploymentType,
-                    onSelect: (val) => setCreateStaffEmploymentType(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'employmentType' ? null : 'employmentType'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffEmploymentType !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9639,6 +9560,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('employmentType', ['Select...', 'Full-time', 'Contract', 'Part-time', 'Probation', 'Temporary'], createStaffEmploymentType, (val) => setCreateStaffEmploymentType(val))}
               <Text style={styles.workforceFormHelperText}>Example list: configurable.</Text>
             </View>
 
@@ -9647,14 +9569,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Department</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Department',
-                    options: ['Select...', 'Warehouse Operations', 'Warehouse Administration', 'Logistics & Transport', 'Quality & Sorting', 'Security & Facilities'],
-                    selected: createStaffDepartment,
-                    onSelect: (val) => setCreateStaffDepartment(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'department' ? null : 'department'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffDepartment !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9662,6 +9577,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('department', ['Select...', 'Warehouse Operations', 'Warehouse Administration', 'Logistics & Transport', 'Quality & Sorting', 'Security & Facilities'], createStaffDepartment, (val) => setCreateStaffDepartment(val))}
               <Text style={styles.workforceFormHelperText}>Example list: configurable, not official.</Text>
             </View>
 
@@ -9670,14 +9586,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Designation</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Designation',
-                    options: ['Select...', 'Warehouse Staff', 'Loadman', 'Driver', 'Sorter & Grader', 'Sub Warehouse Admin', 'Inventory Supervisor'],
-                    selected: createStaffDesignation,
-                    onSelect: (val) => setCreateStaffDesignation(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'designation' ? null : 'designation'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffDesignation !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9685,6 +9594,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('designation', ['Select...', 'Warehouse Staff', 'Loadman', 'Driver', 'Sorter & Grader', 'Sub Warehouse Admin', 'Inventory Supervisor'], createStaffDesignation, (val) => setCreateStaffDesignation(val))}
               <Text style={styles.workforceFormHelperText}>Example list: configurable.</Text>
             </View>
 
@@ -9696,14 +9606,7 @@ export function TohfaAdminDashboardScreen({
               </View>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Employment Status',
-                    options: ['Select...', 'Active', 'On Probation', 'Notice Period', 'Inactive'],
-                    selected: createStaffEmploymentStatus,
-                    onSelect: (val) => setCreateStaffEmploymentStatus(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'employmentStatus' ? null : 'employmentStatus'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffEmploymentStatus !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9711,6 +9614,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('employmentStatus', ['Select...', 'Active', 'On Probation', 'Notice Period', 'Inactive'], createStaffEmploymentStatus, (val) => setCreateStaffEmploymentStatus(val))}
             </View>
 
             {/* Salary details */}
@@ -9731,20 +9635,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Work Location</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Work Location',
-                    options: [
-                      'Select...',
-                      'Main Warehouse, Ooty (WH-MAIN)',
-                      'Coonoor Warehouse (WH-CNR)',
-                      'Kotagiri Warehouse (WH-KTG)',
-                      'Gudalur Warehouse (WH-GDL)',
-                    ],
-                    selected: createStaffWorkLocation,
-                    onSelect: (val) => setCreateStaffWorkLocation(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'workLocation' ? null : 'workLocation'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffWorkLocation !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9752,8 +9643,14 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-            </View>
-          </View>
+              {renderWorkforceInlineDropdown('workLocation', [
+                'Select...',
+                'Main Warehouse, Ooty (WH-MAIN)',
+                'Coonoor Warehouse (WH-CNR)',
+                'Kotagiri Warehouse (WH-KTG)',
+                'Gudalur Warehouse (WH-GDL)',
+              ], createStaffWorkLocation, (val) => setCreateStaffWorkLocation(val))}
+            </View></View>
 
           {/* ══════════════════════════════════════════════════════════════════════
               CARD 6: 6  Role & Access Management (Screenshots 1 & 2)
@@ -9830,37 +9727,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'applicationRole' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select...', 'Warehouse Staff', 'Sub Warehouse Admin', 'Logistics Coordinator', 'Inventory Manager', 'TOHFA Admin'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select...';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffApplicationRole(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('applicationRole', ['Select...', 'Warehouse Staff', 'Sub Warehouse Admin', 'Logistics Coordinator', 'Inventory Manager', 'TOHFA Admin'], createStaffApplicationRole, (val) => setCreateStaffApplicationRole(val as any))}
               <Text style={styles.workforceFormHelperText}>Only roles you may create are listed. The server checks this again.</Text>
             </View>
 
@@ -9927,37 +9794,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'relationship' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select...', 'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Other'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select...';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffEmergencyRel(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('relationship', ['Select...', 'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Other'], createStaffEmergencyRel, (val) => setCreateStaffEmergencyRel(val))}
             </View>
 
             {/* Primary Contact Number */}
@@ -10920,7 +10757,81 @@ export function TohfaAdminDashboardScreen({
   };
 
 
-  const renderGenericFormPickerModal = () => {
+    const renderStaffDobCalendarModal = () => {
+    if (!showStaffDobCalendar) return null;
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const daysInMonth = new Date(staffDobYear, staffDobMonth + 1, 0).getDate();
+    const firstWeekday = new Date(staffDobYear, staffDobMonth, 1).getDay();
+    return (
+      <Modal visible={showStaffDobCalendar} transparent animationType="fade" onRequestClose={() => setShowStaffDobCalendar(false)}>
+        <View style={styles.staffCalOverlay}>
+          <View style={styles.staffCalCard}>
+            <View style={styles.staffCalHeader}>
+              <Text style={styles.staffCalTitle}>Select Date of Birth</Text>
+              <TouchableOpacity onPress={() => setShowStaffDobCalendar(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <ModalCloseIcon size={18} color={adminColors.ink} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.staffCalNavRow}>
+              <TouchableOpacity onPress={() => { if (staffDobMonth === 0) { setStaffDobMonth(11); setStaffDobYear((y) => y - 1); } else { setStaffDobMonth((m) => m - 1); } }} style={styles.staffCalNavBtn}>
+                <ProduceNavChevronLeft size={18} color={adminColors.brandDeep} />
+              </TouchableOpacity>
+              <Text style={styles.staffCalMonthText}>{`${monthNames[staffDobMonth]} ${staffDobYear}`}</Text>
+              <TouchableOpacity onPress={() => { if (staffDobMonth === 11) { setStaffDobMonth(0); setStaffDobYear((y) => y + 1); } else { setStaffDobMonth((m) => m + 1); } }} style={styles.staffCalNavBtn}>
+                <ProduceNavChevronRight size={18} color={adminColors.brandDeep} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.staffCalWeekdaysRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, idx) => (
+                <View key={`wd-${idx}`} style={styles.staffCalWeekdayCell}>
+                  <Text style={styles.staffCalWeekdayLabel}>{w}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.staffCalDaysGrid}>
+              {Array.from({ length: firstWeekday }).map((_, idx) => (
+                <View key={`pad-${idx}`} style={styles.staffCalDayCell} />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, idx) => {
+                const dayNum = idx + 1;
+                const isSelected = dayNum === staffDobDay;
+                return (
+                  <TouchableOpacity
+                    key={dayNum}
+                    style={[styles.staffCalDayCell, isSelected && styles.staffCalDayCellSelected]}
+                    onPress={() => setStaffDobDay(dayNum)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.staffCalDayText, isSelected && styles.staffCalDayTextSelected]}>
+                      {dayNum}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.staffCalButtons}>
+              <TouchableOpacity style={styles.staffCalCancelBtn} onPress={() => setShowStaffDobCalendar(false)} activeOpacity={0.7}>
+                <Text style={styles.staffCalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.staffCalApplyBtn}
+                onPress={() => {
+                  const dayStr = String(staffDobDay).padStart(2, '0');
+                  const monthStr = String(staffDobMonth + 1).padStart(2, '0');
+                  setCreateStaffDob(`${dayStr}-${monthStr}-${staffDobYear}`);
+                  setShowStaffDobCalendar(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.staffCalApplyText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+const renderGenericFormPickerModal = () => {
     if (!activeFormPicker) return null;
     return (
       <Modal
@@ -13558,6 +13469,7 @@ export function TohfaAdminDashboardScreen({
       />
 
       {renderStaffProfileModal()}
+      {renderStaffDobCalendarModal()}
       {renderGenericFormPickerModal()}
     </SafeAreaView>
   );
@@ -14984,7 +14896,14 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
   },
   workforceInlineDropdownItemGrey: {
-    backgroundColor: adminColors.muted,
+    backgroundColor: adminColors.brand,
+  },
+  workforceInlineDropdownItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  workforceInlineDropdownItemTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
   },
   workforceInlineDropdownItemText: {
     ...adminType.body,
@@ -15017,6 +14936,116 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
     backgroundColor: adminColors.card,
+  },
+  staffCalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  staffCalCard: {
+    width: '100%',
+    maxWidth: 350,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    ...adminShadow.lg,
+  },
+  staffCalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+  },
+  staffCalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontSize: 16,
+  },
+  staffCalNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginVertical: adminSpacing.sm,
+  },
+  staffCalNavBtn: {
+    padding: adminSpacing.xs,
+  },
+  staffCalMonthText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    fontSize: 15,
+  },
+  staffCalWeekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
+  },
+  staffCalWeekdayCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  staffCalWeekdayLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  staffCalDaysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  staffCalDayCell: {
+    width: `${100 / 7}%`,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffCalDayCellSelected: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.full,
+  },
+  staffCalDayText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+  staffCalDayTextSelected: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  staffCalButtons: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+  },
+  staffCalCancelBtn: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffCalCancelText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  staffCalApplyBtn: {
+    flex: 1,
+    height: 42,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffCalApplyText: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontWeight: '600',
   },
   workforceCheckboxSquareChecked: {
     backgroundColor: adminColors.canvas,
