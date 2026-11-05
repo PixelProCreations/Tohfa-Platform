@@ -75,6 +75,14 @@ export function StaffListScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [staffList, setStaffList] = useState<StaffMember[]>(() => [...members]);
   const isTohfa = isTohfaAdminUser(can, role);
+  const isSubWarehouse =
+    role === 'SUB_WH_ADMIN' ||
+    Boolean(
+      scope?.warehouseId &&
+        scope.warehouseId !== 'WH-OOTY' &&
+        !scope.warehouseId.toLowerCase().includes('main') &&
+        scope.warehouseId !== 'ALL'
+    );
 
   // ─── Filter Modal State (Image 5) ─────────────────────────────────────────
   const [showFilterModal, setShowFilterModal] = useState(false);
@@ -85,7 +93,7 @@ export function StaffListScreen({
   const hasActiveFilters =
     selectedRoleFilter !== 'All' ||
     selectedStatusFilter !== 'All' ||
-    selectedWarehouseFilter !== 'ALL';
+    (!isSubWarehouse && selectedWarehouseFilter !== 'ALL');
 
   const handleClearFilters = () => {
     setSelectedRoleFilter('All');
@@ -125,8 +133,8 @@ export function StaffListScreen({
         if (s.status !== selectedStatusFilter) return false;
       }
 
-      // 4. Warehouse Filter
-      if (selectedWarehouseFilter !== 'ALL') {
+      // 4. Warehouse Filter (only applicable for TOHFA Admin and Main Warehouse)
+      if (!isSubWarehouse && selectedWarehouseFilter !== 'ALL') {
         if (s.warehouseId && s.warehouseId !== selectedWarehouseFilter) return false;
       }
 
@@ -387,27 +395,31 @@ export function StaffListScreen({
                 })}
               </View>
 
-              {/* Warehouse Location Options */}
-              <Text style={styles.filterGroupTitle}>Warehouse Location</Text>
-              <View style={styles.filterChipsRow}>
-                {WAREHOUSE_FILTER_OPTIONS.map((item) => {
-                  const active = selectedWarehouseFilter === item.id;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                      onPress={() => setSelectedWarehouseFilter(item.id)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[styles.filterChipText, active && styles.filterChipTextActive]}
-                      >
-                        {item.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+              {/* Warehouse Location Options: only for TOHFA Admin and Main Warehouse; hidden for Sub Warehouse */}
+              {!isSubWarehouse && (
+                <>
+                  <Text style={styles.filterGroupTitle}>Warehouse Location</Text>
+                  <View style={styles.filterChipsRow}>
+                    {WAREHOUSE_FILTER_OPTIONS.map((item) => {
+                      const active = selectedWarehouseFilter === item.id;
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={[styles.filterChip, active && styles.filterChipActive]}
+                          onPress={() => setSelectedWarehouseFilter(item.id)}
+                          activeOpacity={0.8}
+                        >
+                          <Text
+                            style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                          >
+                            {item.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
             </ScrollView>
 
             {/* Apply Button */}
