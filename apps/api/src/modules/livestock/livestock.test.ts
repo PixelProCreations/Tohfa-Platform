@@ -2406,7 +2406,7 @@ describeIfDatabase('livestockRepo (integration)', () => {
     }
   });
 
-  it('BR-137: the database rejects an animal-record row whose farm_id is not the animal farm (composite foreign key)', async () => {
+  it('BR-137h: the database rejects an animal-record row whose farm_id is not the animal farm (composite foreign key)', async () => {
     if (!recordsReady) return;
     const { pool, withTransaction } = await import('../../db/pool.js');
     const { insertFarmerWithPlot } = await import('../../test/dbFixtures.js');
