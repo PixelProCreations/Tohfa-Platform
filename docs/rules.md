@@ -3424,7 +3424,7 @@ Every other place that adds a role creates a brand-new account in the same trans
 | | |
 |---|---|
 | **Source** | `apps/mobile/src/roles/farmer/screens/farm/livestock/AnimalDetailScreen.tsx` (farmer app housing tab, static "≥ 11 sq.ft NPOP minimum" box); `db/migrations/0084_livestock_animal_records.sql`; extends BR-137 |
-| **Status** | DERIVED (product decision pending): the 11 sq.ft figure read off the mobile UI text is not from an NPOP document and is UNCONFIRMED, so NO value is seeded: the list fails closed until the owner confirms one; whether it should differ by species is also open |
+| **Status** | DERIVED (product decision pending): the 11 sq.ft figure read off the mobile UI text is not from an NPOP document and is UNCONFIRMED, so NO value is seeded: until the owner confirms one the list still returns 200 with the records but gives no verdict (`spaceStandard: null`, every `meetsIndoorSpaceStandard: null`, BR-141c), never an invented number; whether it should differ by species is also open |
 | **Layer** | Server-side: `livestock.service.ts` `listHousingRecords` (validation and comparison); `livestock.repo.ts` `getMinIndoorSpaceSqFtPerAnimal` (SQL read); `system_config.livestock_min_indoor_space_sqft_per_animal` |
 | **Scope** | Track 1 |
 
