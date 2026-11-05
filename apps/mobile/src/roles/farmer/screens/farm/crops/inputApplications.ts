@@ -56,6 +56,15 @@ export interface InputApplication {
   cost: Money | null;
   /** Quantity as the API stores it; null for a pest treatment log (that table has no quantity). */
   quantity: { value: number; unit: CropInputUnit } | null;
+  /**
+   * The crop_inputs row this application is, for Edit / Delete (BR-56l); null for a pest
+   * treatment log, which is another table edited from another screen.
+   */
+  cropInput: { farmCropId: string; id: string } | null;
+  /** What the farmer recorded (BR-56k); null when not recorded, and always null for a pest log. */
+  purpose: string | null;
+  targetPest: string | null;
+  appliedBy: string | null;
 }
 
 export interface DueReminder {
@@ -71,7 +80,11 @@ export interface DueReminder {
 
 // ── Mapping (pure) ───────────────────────────────────────────────────────────
 
-/** Only a pesticide is a pest treatment; manure, fertilizer and bio-inputs are nutrient applications. */
+/**
+ * Only a pesticide is a pest treatment; manure, fertilizer, bio-inputs and
+ * fertigation are nutrient applications. OTHER stays a nutrient application too:
+ * fertigation was stored as OTHER before FERTIGATION existed (BR-56j).
+ */
 export function kindForInputType(type: CropInputType): ApplicationKind {
   return type === 'PESTICIDE' ? 'pest' : 'fertigation';
 }
@@ -81,6 +94,8 @@ const ICON_FOR_INPUT_TYPE: Record<CropInputType, ApplicationIcon> = {
   FERTILIZER: 'flask',
   BIO_INPUT: 'leaf',
   PESTICIDE: 'pest',
+  // Same icon as the legacy OTHER rows that carried fertigation before BR-56j.
+  FERTIGATION: 'seedling',
   OTHER: 'seedling',
 };
 
@@ -115,6 +130,10 @@ export function fromCropInput(input: CropInputResponse, cropName: string | null,
     createdAt: input.createdAt,
     cost: costFromApi(input.costInr),
     quantity: { value: input.quantity, unit: input.unit },
+    cropInput: { farmCropId: input.farmCropId, id: input.id },
+    purpose: input.purpose ?? null,
+    targetPest: input.targetPest ?? null,
+    appliedBy: input.appliedBy ?? null,
   };
 }
 
@@ -135,6 +154,10 @@ export function fromPestLog(
     createdAt: log.createdAt,
     cost: null,
     quantity: null,
+    cropInput: null,
+    purpose: null,
+    targetPest: null,
+    appliedBy: null,
   };
 }
 

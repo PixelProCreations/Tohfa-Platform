@@ -52,7 +52,10 @@ cropInputsRouter.post(
     const scope = requireScope(req.scope);
     const { farmCropId } = getValidated(req, 'params', farmCropIdParams);
     const body = getValidated(req, 'body', createCropInputBody);
-    res.status(201).json(await cropInputsService.createCropInput(scope, farmCropId, body));
+    // BR-56i: the optional Idempotency-Key is passed through; the service decides what absent means.
+    res
+      .status(201)
+      .json(await cropInputsService.createCropInput(scope, farmCropId, body, req.header('idempotency-key')));
   }),
 );
 

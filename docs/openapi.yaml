@@ -6724,19 +6724,29 @@ paths:
         counts as a farmer but adds 0 kg), summed in integer grams.
 
         Filters (all optional, combined with AND): `crop` (a `crop_master` id), `month` (1-12:
-        the calendar month of `planted_on`, any year; a planting with no `planted_on` never
-        matches a month), `region` (the farm's taluk, compared trimmed and case-insensitively;
-        take values from `GET /farmers/community/planting-filters`).
+        the calendar month of `planted_on`, any year; a planting with no `planted_on`, such as
+        a PLANNED one, never matches a month, because no planned-sowing date exists),
+        `region` (the farm's taluk, or the farmer's profile taluk when the farm has none,
+        compared trimmed and case-insensitively; take values from
+        `GET /farmers/community/planting-filters`).
+
+        Region gate (BR-136h): a `region` that does not itself reach `minGroupSize` distinct
+        farmers (counted as the filters endpoint counts them) returns the same empty summary as
+        a region that does not exist; no planting is read for it.
 
         k-anonymity: `minGroupSize` is `system_config.community_planting_min_farmers`. A crop
         with fewer distinct farmers than that is not listed in `byCrop`; such crops are folded
         into `other`, which is returned only when the folded crops together reach
-        `minGroupSize` distinct farmers (otherwise `other` is null), and names no crop.
+        `minGroupSize` distinct farmers (otherwise `other` is null), and names no crop nor how
+        many crops it folds. Differencing (BR-136i): in a month- and/or region-filtered slice,
+        a group is withheld entirely (not listed, not folded, not in the totals) when the same
+        crops in a coarser slice (that filter dropped) add 1 to `minGroupSize`-1 farmers.
         `totals` cover the released groups only (`byCrop` plus `other` when present), so a
         suppressed crop cannot be recovered by subtraction; a farmer is counted once however
-        many crops they grow. No farmer, farm, plot, village or coordinate field is ever
-        returned. A slice with no data, and a slice whose every group is below the threshold,
-        both read as an empty summary.
+        many crops they grow, and `totals.farmers` is null when subtracting one released group
+        from it would isolate fewer than `minGroupSize` farmers. No farmer, farm, plot, village
+        or coordinate field is ever returned. A slice with no data, and a slice whose every
+        group is below the threshold, both read as an empty summary.
 
         A missing or unusable threshold (not a JSON integer >= 2) is 503
         `COMMUNITY_PLANTING_NOT_CONFIGURED`: there is no hard-coded fallback, and no value is
@@ -6784,8 +6794,8 @@ paths:
       description: |
         Options for the TOHFA Calendar community filters (BR-136): every active, undeleted crop
         in `crop_master`; the twelve calendar months as integers 1-12 (the client labels them
-        from its i18n catalogue; no English is sent); and the regions (normalised farm taluks)
-        that on their own have at least `minGroupSize` distinct farmers with an active planting.
+        from its i18n catalogue; no English is sent); and the regions (normalised farm taluks,
+        falling back to the farmer's profile taluk when the farm has none) that on their own have at least `minGroupSize` distinct farmers with an active planting.
         A region below the threshold is not listed and no region carries a count. Takes no
         parameters (an unknown one is 422). A missing or unusable threshold is 503 `COMMUNITY_PLANTING_NOT_CONFIGURED`.
       x-permission: farmer.community.view_planting_summary
@@ -6983,7 +6993,7 @@ paths:
           required: false
           schema:
             type: string
-            enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+            enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         - name: from
           in: query
           required: false
@@ -7038,7 +7048,10 @@ paths:
       operationId: createMyCropInput
       summary: Record an input application
       description: |
-        Logs a fertilizer, manure, pesticide or bio-input application for an own crop (BR-56).
+        Logs a fertilizer, manure, pesticide, bio-input or fertigation application for an own crop
+        (BR-56), with optional purpose / target pest / applied-by (BR-56k). An optional
+        `Idempotency-Key` makes a retry safe: a replay returns the original 201 body and creates no
+        second row; the same key with a different body or crop is 409 `IDEMPOTENCY_KEY_REUSED` (BR-56i).
       x-permission: farmer.crop_input.manage_own
       x-business-rules: [BR-56, BR-36, BR-35]
       parameters:
@@ -7046,6 +7059,7 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/OptionalIdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -7054,7 +7068,7 @@ paths:
               $ref: '#/components/schemas/CreateCropInputRequest'
       responses:
         '201':
-          description: Created crop input record.
+          description: Created crop input record (or, on an Idempotency-Key replay, the original one).
           content:
             application/json:
               schema:
@@ -7062,6 +7076,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -8450,8 +8465,13 @@ paths:
         Creates a new tree planting record. Validates that treeCount > 0 and that plantedOn is a real
         calendar date no later than today in Asia/Kolkata (BR-55). `farmId` must be one of the caller's
         farms and `plotId` a plot of the caller's, on `farmId` when both are sent; otherwise 404.
+        An optional `Idempotency-Key` makes a retry safe: a replay returns the original 201 body and
+        creates no second planting; the same key with a different body is 409
+        `IDEMPOTENCY_KEY_REUSED` (BR-55h).
       x-permission: farmer.tree_planting.manage_own
       x-business-rules: [BR-55, BR-36, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/OptionalIdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -8460,7 +8480,7 @@ paths:
               $ref: '#/components/schemas/CreateTreePlantingRequest'
       responses:
         '201':
-          description: Created tree planting.
+          description: Created tree planting (or, on an Idempotency-Key replay, the original one).
           content:
             application/json:
               schema:
@@ -8468,6 +8488,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -16376,6 +16397,19 @@ components:
         with an identical body returns the original response; replaying it with a
         different body returns 409 `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours.
       schema: { type: string, format: uuid }
+    OptionalIdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Optional, for non-money farmer record writes (BR-55h, BR-56i). Absent, empty or
+        whitespace-only: the request runs as a plain create (each call creates a row). Present:
+        same contract as `IdempotencyKeyHeader` - replaying the key with an identical request
+        returns the original 201 body and writes no second row or audit entry; replaying it with a
+        different request is 409 `IDEMPOTENCY_KEY_REUSED`; a key over 255 characters is 422
+        `VALIDATION_FAILED`. A refused attempt (any 4xx/5xx) is not remembered. Keys are scoped to
+        the acting user and retained for `idempotency.retention_hours` (default 24).
+      schema: { type: string, maxLength: 255 }
 
     CustomerIdPathParam:
       name: customerId
@@ -18026,7 +18060,7 @@ components:
         farmCropId: { type: string, format: uuid }
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, maxLength: 200 }
         appliedOn:
           type: string
@@ -18045,6 +18079,18 @@ components:
             - $ref: '#/components/schemas/Money'
             - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
+        purpose:
+          type: [string, 'null']
+          maxLength: 100
+          description: Why the input was applied (BR-56k). Free text; the farmer app sends a stable option code (e.g. `PEST_CONTROL`) or the farmer's own words.
+        targetPest:
+          type: [string, 'null']
+          maxLength: 200
+          description: Pest or disease targeted (BR-56k). Free text; the app sends a stable option code or the farmer's own words.
+        appliedBy:
+          type: [string, 'null']
+          maxLength: 200
+          description: Who applied it (BR-56k). Free text by owner default; not a worker reference.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
 
@@ -18067,7 +18113,7 @@ components:
       properties:
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
         appliedOn:
           type: string
@@ -18087,13 +18133,16 @@ components:
         applicationMethod: { type: string, maxLength: 100 }
         costInr: { $ref: '#/components/schemas/CropInputCost' }
         notes: { type: string, maxLength: 2000 }
+        purpose: { type: string, minLength: 1, maxLength: 100, description: 'BR-56k. Trimmed; free text or a stable option code.' }
+        targetPest: { type: string, minLength: 1, maxLength: 200, description: 'BR-56k. Trimmed; free text or a stable option code.' }
+        appliedBy: { type: string, minLength: 1, maxLength: 200, description: 'BR-56k. Trimmed free text (who applied it).' }
 
     UpdateCropInputRequest:
       type: object
       properties:
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
         appliedOn:
           type: string
@@ -18112,6 +18161,9 @@ components:
             - $ref: '#/components/schemas/CropInputCost'
             - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
+        purpose: { type: [string, 'null'], minLength: 1, maxLength: 100, description: 'BR-56k. null clears it.' }
+        targetPest: { type: [string, 'null'], minLength: 1, maxLength: 200, description: 'BR-56k. null clears it.' }
+        appliedBy: { type: [string, 'null'], minLength: 1, maxLength: 200, description: 'BR-56k. null clears it.' }
 
     CropInputsListResponse:
       type: object
@@ -23576,19 +23628,32 @@ components:
           description: Over released groups only (`byCrop` plus `other` when present).
           required: [farmers, totalPlantedKg, crops]
           properties:
-            farmers: { type: integer, minimum: 0, description: Distinct farmers across released groups. }
+            farmers:
+              type: [integer, 'null']
+              minimum: 0
+              description: |
+                Distinct farmers across released groups; null (withheld) when this total minus
+                any one released group (`byCrop` row or `other`) would be 1 to `minGroupSize`-1
+                farmers (BR-136i).
             totalPlantedKg: { type: number, minimum: 0, description: Summed expected yield, kg. }
-            crops: { type: integer, minimum: 0, description: Released crops, including those folded into `other`. }
+            crops:
+              type: integer
+              minimum: 0
+              description: Named `byCrop` rows only; how many crops are folded into `other` is not released (BR-136i).
         byCrop:
           type: array
-          description: Crops with at least `minGroupSize` farmers; farmers desc, then quantity desc, then name.
+          description: |
+            Crops with at least `minGroupSize` farmers that also pass the slice-differencing
+            check (BR-136i); farmers desc, then quantity desc, then name.
           items: { $ref: '#/components/schemas/CommunityPlantingCrop' }
         other:
           type: [object, 'null']
-          description: Crops below the threshold, folded; null unless together they reach `minGroupSize` farmers.
-          required: [crops, farmers, quantityKg]
+          description: |
+            Crops below the threshold, folded; null unless together they reach `minGroupSize`
+            farmers and pass the slice-differencing check. Names no crop and does not say how
+            many crops it folds.
+          required: [farmers, quantityKg]
           properties:
-            crops: { type: integer, minimum: 1 }
             farmers: { type: integer, minimum: 1 }
             quantityKg: { type: number, minimum: 0 }
 

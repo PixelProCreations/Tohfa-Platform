@@ -107,6 +107,9 @@ describe('Farmer Crop Inputs API Client (BR-56)', () => {
     potassiumPct: null,
     applicationMethod: 'Drench',
     notes: null,
+    purpose: null,
+    targetPest: null,
+    appliedBy: null,
     createdAt: '2026-07-31T05:30:00.000Z',
     updatedAt: null,
   };

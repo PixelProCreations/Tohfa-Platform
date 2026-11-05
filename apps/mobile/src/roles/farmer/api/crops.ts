@@ -286,7 +286,12 @@ export async function listAllActiveFarmCrops(signal?: AbortSignal): Promise<Acti
 // Crop Inputs & NPK Contribution (BR-56)
 // ---------------------------------------------------------------------------
 
-export type CropInputType = 'FERTILIZER' | 'MANURE' | 'BIO_INPUT' | 'PESTICIDE' | 'OTHER';
+/**
+ * FERTIGATION is its own type (BR-56j). Rows written before it existed carry a
+ * fertigation as OTHER; readers treat OTHER as a nutrient application, so those
+ * legacy rows still display as fertigation.
+ */
+export type CropInputType = 'FERTILIZER' | 'MANURE' | 'BIO_INPUT' | 'PESTICIDE' | 'FERTIGATION' | 'OTHER';
 export type CropInputUnit = 'KG' | 'LITRE' | 'GRAM' | 'ML' | 'BAG' | 'TONNE' | 'OTHER';
 
 export interface CropInputResponse {
@@ -304,6 +309,14 @@ export interface CropInputResponse {
   applicationMethod: string | null;
   costInr: string | null;
   notes: string | null;
+  /**
+   * BR-56k. Purpose and target pest are what the client sent: the Add Input form
+   * sends a stable code (see screens/farm/crops/inputDetails.ts), but any string
+   * may be stored, so display falls back to the raw value. `appliedBy` is free text.
+   */
+  purpose: string | null;
+  targetPest: string | null;
+  appliedBy: string | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -413,6 +426,12 @@ export interface CreateCropInputRequest {
   applicationMethod?: string | undefined;
   costInr?: string | undefined;
   notes?: string | undefined;
+  /** Max 100 chars (BR-56k). */
+  purpose?: string | undefined;
+  /** Max 200 chars (BR-56k). */
+  targetPest?: string | undefined;
+  /** Free text, max 200 chars (BR-56k). */
+  appliedBy?: string | undefined;
 }
 
 export interface UpdateCropInputRequest {
@@ -427,11 +446,15 @@ export interface UpdateCropInputRequest {
   applicationMethod?: string | null | undefined;
   costInr?: string | null | undefined;
   notes?: string | null | undefined;
+  purpose?: string | null | undefined;
+  targetPest?: string | null | undefined;
+  appliedBy?: string | null | undefined;
 }
 
 /**
- * POST /farmers/me/crops/:farmCropId/inputs (BR-56)
- * Logs a fertilizer, manure, pesticide or bio-input application for an own crop.
+ * POST /farmers/me/crops/:farmCropId/inputs (BR-56, BR-56i)
+ * Logs a fertilizer, manure, pesticide, bio-input or fertigation application for
+ * an own crop. The optional Idempotency-Key makes a retried POST create one row.
  */
 export async function createCropInput(
   farmCropId: string,

@@ -23,6 +23,10 @@ export interface CropInputRecord {
   /** 2dp decimal string from `cost_inr::text`, never a float (CLAUDE.md 2.2). */
   costInr: Money | null;
   notes: string | null;
+  /** BR-56k (0085): why it was applied, the pest it targets, and who applied it. Free text, nullable. */
+  purpose: string | null;
+  targetPest: string | null;
+  appliedBy: string | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -70,6 +74,9 @@ interface CropInputRow {
   application_method: string | null;
   cost_inr: string | null;
   notes: string | null;
+  purpose: string | null;
+  target_pest: string | null;
+  applied_by: string | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -90,6 +97,9 @@ function mapRow(row: CropInputRow): CropInputRecord {
     applicationMethod: row.application_method,
     costInr: row.cost_inr !== null ? parseMoney(row.cost_inr) : null,
     notes: row.notes,
+    purpose: row.purpose,
+    targetPest: row.target_pest,
+    appliedBy: row.applied_by,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at ? row.updated_at.toISOString() : null,
   };
@@ -176,7 +186,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow>(
       `SELECT id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr::text, notes,
+              potassium_pct, application_method, cost_inr::text, notes, purpose, target_pest, applied_by,
               created_at, updated_at
          FROM crop_inputs
         WHERE id = $1 AND farmer_id = $2 AND farm_crop_id = $3 AND deleted_at IS NULL`,
@@ -198,7 +208,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow>(
       `SELECT id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr::text, notes,
+              potassium_pct, application_method, cost_inr::text, notes, purpose, target_pest, applied_by,
               created_at, updated_at
          FROM crop_inputs
         WHERE farmer_id = $1 AND farm_crop_id = $2 AND deleted_at IS NULL
@@ -228,11 +238,11 @@ export const cropInputsRepo: CropInputsRepo = {
       `INSERT INTO crop_inputs (
          farmer_id, farm_crop_id, input_type, input_name, applied_on,
          quantity, unit, nitrogen_pct, phosphorus_pct, potassium_pct,
-         application_method, cost_inr, notes
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         application_method, cost_inr, notes, purpose, target_pest, applied_by
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING id, farmer_id, farm_crop_id, input_type, input_name,
                  applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-                 potassium_pct, application_method, cost_inr::text, notes,
+                 potassium_pct, application_method, cost_inr::text, notes, purpose, target_pest, applied_by,
                  created_at, updated_at`,
       [
         farmerId,
@@ -248,6 +258,9 @@ export const cropInputsRepo: CropInputsRepo = {
         data.applicationMethod ?? null,
         costParam(data.costInr),
         data.notes ?? null,
+        data.purpose ?? null,
+        data.targetPest ?? null,
+        data.appliedBy ?? null,
       ],
     );
     const row = result.rows[0];
@@ -275,6 +288,9 @@ export const cropInputsRepo: CropInputsRepo = {
     if ('applicationMethod' in patch) addSet('application_method', patch.applicationMethod ?? null);
     if ('costInr' in patch) addSet('cost_inr', costParam(patch.costInr));
     if ('notes' in patch) addSet('notes', patch.notes ?? null);
+    if ('purpose' in patch) addSet('purpose', patch.purpose ?? null);
+    if ('targetPest' in patch) addSet('target_pest', patch.targetPest ?? null);
+    if ('appliedBy' in patch) addSet('applied_by', patch.appliedBy ?? null);
 
     const result = await db.query<CropInputRow>(
       `UPDATE crop_inputs
@@ -282,7 +298,7 @@ export const cropInputsRepo: CropInputsRepo = {
         WHERE id = $1 AND farmer_id = $2 AND farm_crop_id = $3 AND deleted_at IS NULL
     RETURNING id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr::text, notes,
+              potassium_pct, application_method, cost_inr::text, notes, purpose, target_pest, applied_by,
               created_at, updated_at`,
       params,
     );
@@ -304,7 +320,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow>(
       `SELECT id, farmer_id, farm_crop_id, input_type, input_name,
               applied_on::text, quantity, unit, nitrogen_pct, phosphorus_pct,
-              potassium_pct, application_method, cost_inr::text, notes,
+              potassium_pct, application_method, cost_inr::text, notes, purpose, target_pest, applied_by,
               created_at, updated_at
          FROM crop_inputs
         WHERE farmer_id = $1 AND farm_crop_id = $2 AND deleted_at IS NULL
@@ -343,7 +359,7 @@ export const cropInputsRepo: CropInputsRepo = {
     const result = await db.query<CropInputRow & { created_at_cursor: string; crop_name: string; plot_name: string }>(
       `SELECT ci.id, ci.farmer_id, ci.farm_crop_id, ci.input_type, ci.input_name,
               ci.applied_on::text AS applied_on, ci.quantity, ci.unit, ci.nitrogen_pct, ci.phosphorus_pct,
-              ci.potassium_pct, ci.application_method, ci.cost_inr::text AS cost_inr, ci.notes,
+              ci.potassium_pct, ci.application_method, ci.cost_inr::text AS cost_inr, ci.notes, ci.purpose, ci.target_pest, ci.applied_by,
               ci.created_at, ci.updated_at,
               to_char(ci.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at_cursor,
               cm.name AS crop_name, p.name AS plot_name

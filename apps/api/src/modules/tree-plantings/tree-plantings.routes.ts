@@ -35,7 +35,8 @@ treePlantingsRouter.post(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     const body = getValidated(req, 'body', createTreePlantingBody);
-    res.status(201).json(await treePlantingsService.createTreePlanting(scope, body));
+    // BR-55h: the optional Idempotency-Key is passed through; the service decides what absent means.
+    res.status(201).json(await treePlantingsService.createTreePlanting(scope, body, req.header('idempotency-key')));
   }),
 );
 

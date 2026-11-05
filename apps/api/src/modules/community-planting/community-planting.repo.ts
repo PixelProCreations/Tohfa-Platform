@@ -10,18 +10,29 @@ export interface CommunityPlantingFilters {
 }
 
 /**
- * One row per (crop, farmer) over the active plantings that match the filters.
+ * One row per (crop, farmer) over the active plantings of the crop filter (if any), whether or
+ * not they fall inside the month/region slice.
  *
  * `farmerKey` is NOT a farmer id: it is a DENSE_RANK computed inside the query, meaningful only
  * within one result set, so the service can count distinct farmers without ever holding a real
- * farmer identifier. `quantityGrams` is the summed expected yield in integer grams, so the
- * service adds integers, never floats.
+ * farmer identifier. `quantityGrams` is the summed expected yield, in integer grams, of the
+ * plantings INSIDE the slice, so the service adds integers, never floats.
+ *
+ * The outside flags exist only for the differencing check (BR-136i): each says whether this
+ * farmer has a planting of this crop in a coarser slice the caller could also ask for, but not in
+ * the requested one. "Coarser" means the same request with the month filter dropped
+ * (`outsideMonth`), the region filter dropped (`outsideRegion`), or both dropped
+ * (`outsideSlice`). A filter that is not set never makes a planting "outside".
  */
 export interface CropFarmerPlantingRow {
   cropMasterId: string;
   cropName: string;
   farmerKey: number;
   quantityGrams: number;
+  inSlice: boolean;
+  outsideMonth: boolean;
+  outsideRegion: boolean;
+  outsideSlice: boolean;
 }
 
 export interface RegionFarmerCountRow {
@@ -39,14 +50,28 @@ export interface CommunityPlantingRepo {
   getMinGroupSize(db: Executor): Promise<unknown>;
   listCropFarmerPlantings(db: Executor, filters: CommunityPlantingFilters): Promise<CropFarmerPlantingRow[]>;
   listRegionFarmerCounts(db: Executor): Promise<RegionFarmerCountRow[]>;
+  /**
+   * Distinct farmers with an active planting in `region` (normalised like REGION_EXPR), counted
+   * exactly as `listRegionFarmerCounts` counts them; 0 for a region that does not exist.
+   */
+  countRegionFarmers(db: Executor, region: string): Promise<number>;
   listActiveCrops(db: Executor): Promise<FilterCropRow[]>;
 }
 
 /**
- * Taluk is free text on `farms`. Grouping and filtering both use this one normalisation
- * (trimmed, case-folded, initcapped) so "kotagiri " and "Kotagiri" are one region.
+ * The region of a planting (BR-136 decision 1, default chosen, owner may revise): the farm's
+ * taluk, falling back to the farmer's profile taluk when the farm has none. Farms created by the
+ * application-approval path (farmer-applications.service.ts) carry only village/district, while
+ * the same approval fills `farmers.taluk`; without the fallback those farmers would be in no
+ * region at all. A blank farm taluk counts as none. Taluk is free text, so grouping and
+ * filtering both use this one normalisation (trimmed, case-folded, initcapped) and
+ * "kotagiri " and "Kotagiri" are one region. Every query here uses this same expression, so the
+ * summary, the region gate and the filter options always agree.
  */
-const REGION_EXPR = `initcap(lower(btrim(fa.taluk)))`;
+const REGION_EXPR = `initcap(lower(btrim(COALESCE(NULLIF(btrim(fa.taluk), ''), fr.taluk))))`;
+
+/** The normalised form of a caller-supplied region, the same normalisation as REGION_EXPR. */
+const REGION_PARAM = (placeholder: string) => `initcap(lower(btrim(${placeholder}::text)))`;
 
 /**
  * The rows that count as "the community is growing" (BR-136):
@@ -79,20 +104,39 @@ export const communityPlantingRepo: CommunityPlantingRepo = {
       crop_name: string;
       farmer_key: string | number;
       quantity_grams: string | number;
+      in_slice: boolean;
+      outside_month: boolean;
+      outside_region: boolean;
+      outside_slice: boolean;
     }
-    // `month` is the calendar month of planted_on (any year); a planting with no planted_on
-    // cannot match a month filter. The window function runs after GROUP BY, so the rank is over
-    // the grouped farmer ids and the real id never leaves the database.
+    // `m` / `r`: does the planting match the month / region filter (true when that filter is not
+    // set). `month` is the calendar month of planted_on (any year); a planting with no planted_on
+    // cannot match a month filter, because farm_crops has no planned-sowing date to fall back
+    // on (BR-136 decision 2). Only the crop filter narrows the rows: plantings outside the
+    // month/region slice are kept so the service can see who a coarser slice would add
+    // (BR-136i), and they contribute no grams. The window function runs after GROUP BY, so the
+    // rank is over the grouped farmer ids and the real id never leaves the database.
     const result = await db.query<DbRow>(
-      `SELECT fc.crop_id AS crop_master_id,
-              cm.name    AS crop_name,
-              DENSE_RANK() OVER (ORDER BY fa.farmer_id) AS farmer_key,
-              ROUND(COALESCE(SUM(fc.expected_yield_kg), 0) * 1000)::bigint AS quantity_grams
-       ${ACTIVE_PLANTINGS_FROM}
-          AND ($1::uuid IS NULL OR fc.crop_id = $1::uuid)
-          AND ($2::int  IS NULL OR EXTRACT(MONTH FROM fc.planted_on) = $2::int)
-          AND ($3::text IS NULL OR ${REGION_EXPR} = initcap(lower(btrim($3::text))))
-        GROUP BY fc.crop_id, cm.name, fa.farmer_id`,
+      `WITH p AS (
+         SELECT fc.crop_id AS crop_id,
+                cm.name    AS crop_name,
+                fa.farmer_id AS farmer_id,
+                fc.expected_yield_kg AS expected_yield_kg,
+                ($2::int IS NULL OR COALESCE(EXTRACT(MONTH FROM fc.planted_on) = $2::int, false)) AS m,
+                ($3::text IS NULL OR COALESCE(${REGION_EXPR} = ${REGION_PARAM('$3')}, false)) AS r
+         ${ACTIVE_PLANTINGS_FROM}
+            AND ($1::uuid IS NULL OR fc.crop_id = $1::uuid)
+       )
+       SELECT crop_id AS crop_master_id,
+              crop_name,
+              DENSE_RANK() OVER (ORDER BY farmer_id) AS farmer_key,
+              ROUND(COALESCE(SUM(expected_yield_kg) FILTER (WHERE m AND r), 0) * 1000)::bigint AS quantity_grams,
+              bool_or(m AND r)       AS in_slice,
+              bool_or(r AND NOT m)   AS outside_month,
+              bool_or(m AND NOT r)   AS outside_region,
+              bool_or(NOT (m AND r)) AS outside_slice
+         FROM p
+        GROUP BY crop_id, crop_name, farmer_id`,
       [filters.cropId ?? null, filters.month ?? null, filters.region ?? null],
     );
     return result.rows.map((r) => ({
@@ -100,6 +144,10 @@ export const communityPlantingRepo: CommunityPlantingRepo = {
       cropName: r.crop_name,
       farmerKey: Number(r.farmer_key),
       quantityGrams: Number(r.quantity_grams),
+      inSlice: r.in_slice === true,
+      outsideMonth: r.outside_month === true,
+      outsideRegion: r.outside_region === true,
+      outsideSlice: r.outside_slice === true,
     }));
   },
 
@@ -112,12 +160,22 @@ export const communityPlantingRepo: CommunityPlantingRepo = {
       `SELECT ${REGION_EXPR} AS region,
               COUNT(DISTINCT fa.farmer_id)::int AS farmers
        ${ACTIVE_PLANTINGS_FROM}
-          AND fa.taluk IS NOT NULL
-          AND btrim(fa.taluk) <> ''
+          AND ${REGION_EXPR} IS NOT NULL
+          AND ${REGION_EXPR} <> ''
         GROUP BY 1
         ORDER BY 1`,
     );
     return result.rows.map((r) => ({ region: r.region, farmers: Number(r.farmers) }));
+  },
+
+  async countRegionFarmers(db, region) {
+    const result = await db.query<{ farmers: number }>(
+      `SELECT COUNT(DISTINCT fa.farmer_id)::int AS farmers
+       ${ACTIVE_PLANTINGS_FROM}
+          AND ${REGION_EXPR} = ${REGION_PARAM('$1')}`,
+      [region],
+    );
+    return Number(result.rows[0]?.farmers ?? 0);
   },
 
   async listActiveCrops(db) {

@@ -70,6 +70,9 @@ describe('Farmer NPK contribution & crop inputs API client (BR-56)', () => {
       applicationMethod: 'Drench',
       costInr: '450.00',
       notes: 'Applied around root zone',
+      purpose: null,
+      targetPest: null,
+      appliedBy: null,
       createdAt: '2026-07-12T05:30:00.000Z',
       updatedAt: null,
     };

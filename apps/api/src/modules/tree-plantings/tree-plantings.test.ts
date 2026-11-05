@@ -1,11 +1,12 @@
 import request from 'supertest';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { pool, type Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { aScope, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { getTodayKolkata } from '../certifications/certifications.service.js';
 import { treePlantingsRepo } from './tree-plantings.repo.js';
 import type { TreePlantingCursor, TreePlantingRecord, TreePlantingsRepo } from './tree-plantings.repo.js';
@@ -158,7 +159,7 @@ function createFakeRepo(state: FakeDbState): TreePlantingsRepo {
   };
 }
 
-function createTestContext() {
+function createTestContext(idempotency = createInMemoryIdempotencyStore()) {
   const state: FakeDbState = {
     plantings: new Map(),
     audits: [],
@@ -175,9 +176,10 @@ function createTestContext() {
     repo,
     db: fakeTx,
     runTx: async (fn) => fn(fakeTx),
+    idempotency,
   });
 
-  return { state, repo, service, audits: state.audits };
+  return { state, repo, service, audits: state.audits, idempotency };
 }
 
 const NOT_FOUND = { code: 'NOT_FOUND', status: 404 };
@@ -313,6 +315,70 @@ describe('Tree Plantings (BR-55)', () => {
     expect(audits.length).toBe(3);
     expect(audits[2]?.[3]).toBe('tree_planting.delete');
     expect(audits[2]?.[5]).toBe(created.id);
+  });
+
+  it('BR-55h: replaying an Idempotency-Key with the same body creates one planting and one audit entry', async () => {
+    const { service, state, audits } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { speciesName: 'Silver Oak', treeCount: 12 };
+
+    const first = await service.createTreePlanting(scope, body, 'plant-key');
+    const replay = await service.createTreePlanting(scope, { ...body }, 'plant-key');
+
+    expect(replay).toEqual(first);
+    expect(state.plantings.size).toBe(1);
+    expect(audits.filter((a) => a[3] === 'tree_planting.create')).toHaveLength(1);
+  });
+
+  it('BR-55h: the same key with a different body is 409 IDEMPOTENCY_KEY_REUSED and writes nothing', async () => {
+    const { service, state } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    await service.createTreePlanting(scope, { speciesName: 'Teak', treeCount: 3 }, 'plant-key');
+
+    await expect(
+      service.createTreePlanting(scope, { speciesName: 'Teak', treeCount: 4 }, 'plant-key'),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', status: 409 });
+    expect(state.plantings.size).toBe(1);
+  });
+
+  it('BR-55h: without a key (or with a blank one) every call creates a planting, as before', async () => {
+    const { service, state, idempotency } = createTestContext();
+    const scope = farmerScope(FARMER_A);
+    const body = { speciesName: 'Teak', treeCount: 3 };
+
+    await service.createTreePlanting(scope, body);
+    await service.createTreePlanting(scope, body, '');
+    await service.createTreePlanting(scope, body, '  ');
+
+    expect(state.plantings.size).toBe(3);
+    expect(idempotency.size()).toBe(0);
+  });
+
+  it('BR-55h: POST /v1/farmers/me/tree-plantings honours the header: a replay returns 201 with the same id', async () => {
+    const { treePlantingsService } = await import('./tree-plantings.service.js');
+    const { service } = createTestContext();
+    const spy = vi
+      .spyOn(treePlantingsService, 'createTreePlanting')
+      .mockImplementation((scope, body, key) => service.createTreePlanting(scope, body, key));
+    const token = signAccessToken({ sub: IDS.userFarmer, roles: [{ code: 'FARMER' }], farmerId: FARMER_A, customerId: null });
+    const send = (key?: string) => {
+      const req = request(createApp()).post('/v1/farmers/me/tree-plantings').set('Authorization', `Bearer ${token}`);
+      return (key === undefined ? req : req.set('Idempotency-Key', key)).send({ speciesName: 'Teak', treeCount: 2 });
+    };
+
+    try {
+      const a = await send('route-key');
+      const b = await send('route-key');
+      expect(a.status).toBe(201);
+      expect(b.status).toBe(201);
+      expect(b.body.id).toBe(a.body.id);
+      expect(spy.mock.calls[0]?.[2]).toBe('route-key');
+
+      await send();
+      expect(spy.mock.calls[2]?.[2]).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("BR-55f: create is 404 NOT_FOUND for another farmer's farm, another farmer's plot, or a plot on a different farm", async () => {

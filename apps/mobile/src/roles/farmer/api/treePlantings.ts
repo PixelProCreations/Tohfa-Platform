@@ -105,8 +105,10 @@ export async function getTreePlanting(
 }
 
 /**
- * POST /farmers/me/tree-plantings (BR-55)
+ * POST /farmers/me/tree-plantings (BR-55, BR-55h)
  * Creates a new tree planting record. Validates treeCount > 0 and plantedOn <= today.
+ * The optional Idempotency-Key makes a retried POST create one planting; the same
+ * key with a different body is 409 IDEMPOTENCY_KEY_REUSED.
  */
 export async function createTreePlanting(
   body: CreateTreePlantingRequest,

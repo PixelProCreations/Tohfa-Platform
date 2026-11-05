@@ -12,8 +12,10 @@ import {
 import { Button, EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
+import { deleteCropInput } from '../../../api/crops';
 import { authPalette as P, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import { confirmDeleteCropInput, purposeLabel, targetPestLabel } from './inputDetails';
 import {
   formatApplicationQuantity,
   formatAppliedDate,
@@ -110,19 +112,31 @@ function filterLabel(filter: Filter): string {
   return filter === 'all' ? t('farmer.inputHistory.filter.all') : historyTypeLabel(filter);
 }
 
+/** What Edit hands to the navigator (BR-56l): the ids to load, plus display names. */
+export interface EditInputTarget {
+  farmCropId: string;
+  inputId: string;
+  cropName: string | null;
+  zoneName: string | null;
+}
+
 export interface CropInputsAppliedScreenProps {
   /** Set for one crop's history; null/undefined for the farm-wide history. */
   crop?: CropItem | null;
   onBack?: () => void;
   onNewInput?: () => void;
+  /** Opens the edit screen for a crop-input row. Without it, rows offer no Edit. */
+  onEditInput?: (target: EditInputTarget) => void;
 }
 
 export function CropInputsAppliedScreen({
   crop,
   onBack,
   onNewInput,
+  onEditInput,
 }: CropInputsAppliedScreenProps): React.JSX.Element {
   const [activeFilter, setActiveFilter] = useState<Filter>('all');
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(ROWS_PER_PAGE);
 
   // Android hardware back
@@ -169,6 +183,24 @@ export function CropInputsAppliedScreen({
     const date = formatAppliedDate(item.appliedOn);
     const where = isFarmWide ? (item.cropName ?? item.zoneName) : null;
     return where === null ? date : `${date} · ${where}`;
+  };
+
+  /**
+   * DELETE /farmers/me/crops/:farmCropId/inputs/:id after a confirmation (BR-56l),
+   * then the list is fetched again so counts and rows match the server.
+   */
+  const handleDelete = (item: InputApplication) => {
+    const target = item.cropInput;
+    if (target === null || deletingKey !== null) return;
+    confirmDeleteCropInput(item.name, () => {
+      setDeletingKey(item.key);
+      deleteCropInput(target.farmCropId, target.id)
+        .then(() => refresh())
+        .catch(() => {
+          Alert.alert(t('farmer.inputHistory.deleteFailed.title'), t('farmer.inputHistory.deleteFailed.body'));
+        })
+        .finally(() => setDeletingKey(null));
+    });
   };
 
   const handleFabPress = () => {
@@ -257,6 +289,61 @@ export function CropInputsAppliedScreen({
                     {historyTypeLabel(item.kind)}
                   </Text>
                 </View>
+
+                {/* What the farmer recorded (BR-56k): only lines that have a value. */}
+                {item.purpose !== null ? (
+                  <Text testID={`inputHistory.row.${item.key}.purpose`} style={styles.inputDetailText}>
+                    {t('farmer.inputHistory.detail.purpose', { value: purposeLabel(item.purpose) })}
+                  </Text>
+                ) : null}
+                {item.targetPest !== null ? (
+                  <Text testID={`inputHistory.row.${item.key}.targetPest`} style={styles.inputDetailText}>
+                    {t('farmer.inputHistory.detail.targetPest', { value: targetPestLabel(item.targetPest) })}
+                  </Text>
+                ) : null}
+                {item.appliedBy !== null ? (
+                  <Text testID={`inputHistory.row.${item.key}.appliedBy`} style={styles.inputDetailText}>
+                    {t('farmer.inputHistory.detail.appliedBy', { value: item.appliedBy })}
+                  </Text>
+                ) : null}
+
+                {/* Edit / Delete (BR-56l): crop inputs only; a pest treatment log lives in another table. */}
+                {item.cropInput !== null ? (
+                  <View style={styles.rowActions}>
+                    {onEditInput ? (
+                      <TouchableOpacity
+                        testID={`inputHistory.row.${item.key}.edit`}
+                        style={styles.rowActionButton}
+                        onPress={() => {
+                          const target = item.cropInput;
+                          if (target === null) return;
+                          onEditInput({
+                            farmCropId: target.farmCropId,
+                            inputId: target.id,
+                            cropName: item.cropName,
+                            zoneName: item.zoneName,
+                          });
+                        }}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('farmer.inputHistory.editA11y', { name: item.name })}
+                      >
+                        <Text style={styles.rowActionText}>{t('farmer.inputHistory.edit')}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity
+                      testID={`inputHistory.row.${item.key}.delete`}
+                      style={styles.rowActionButton}
+                      onPress={() => handleDelete(item)}
+                      disabled={deletingKey !== null}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('farmer.inputHistory.deleteA11y', { name: item.name })}
+                    >
+                      <Text style={styles.rowActionDeleteText}>{t('farmer.inputHistory.delete')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
 
               {/* Quantity */}
@@ -603,6 +690,30 @@ const styles = StyleSheet.create({
   // New (not on Dev): wrapper for the loading / error / empty states of the list.
   stateBox: {
     gap: spacing.sm,
+  },
+  inputDetailText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '500',
+    color: P.twGray500,
+    marginTop: spacing.xs,
+  },
+  rowActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  rowActionButton: {
+    paddingVertical: spacing.xs,
+  },
+  rowActionText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.forestGreen,
+  },
+  rowActionDeleteText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.red700,
   },
   fabButton: {
     position: 'absolute',
