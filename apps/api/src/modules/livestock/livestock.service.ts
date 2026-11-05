@@ -62,6 +62,7 @@ import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { farmsService, type FarmsService } from '../farms/farms.service.js';
+import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
 import {
   livestockRepo,
   type AnimalRecordsPage,
@@ -297,6 +298,39 @@ function breedingRequiresFemale(animalId: string): AppError {
   });
 }
 
+/**
+ * BR-137i. The upload purposes a livestock record attachment may carry. There
+ * is no livestock-specific UploadPurpose, so the farmer app signs its vet
+ * receipts, AI certificates and housing documents as FARMER_DOCUMENT (a
+ * non-public purpose). Default chosen, owner may revise (docs/rules.md BR-137).
+ */
+export const LIVESTOCK_ATTACHMENT_PURPOSES: readonly UploadPurpose[] = [UploadPurpose.FARMER_DOCUMENT];
+
+/**
+ * BR-139f. The guard any path that turns livestock produce into something
+ * sellable (a listing, an inventory intake, a goods receipt) MUST apply to the
+ * production logs it draws from. No such path exists yet: listings are keyed
+ * to crop_master and nothing reads livestock_production_logs outside this
+ * module, so today these helpers have no production caller. They exist so the
+ * first sale path cannot be written without a tested way to honour
+ * restricted_from_sale. 409 CONFLICT: the request is well-formed, the produce
+ * is in a state that forbids the action.
+ */
+export function assertProductionLogsSellable(logs: readonly Pick<ProductionLogResponse, 'id' | 'restrictedFromSale'>[]): void {
+  const restricted = logs.filter((log) => log.restrictedFromSale);
+  if (restricted.length > 0) {
+    throw new AppError('CONFLICT', {
+      status: 409,
+      detail: `Production log(s) ${restricted.map((log) => log.id).join(', ')} are restricted from sale: logged from an animal under medication withdrawal (BR-139).`,
+    });
+  }
+}
+
+/** BR-139f, the exclude form: only the logs that may be offered for sale, order kept. */
+export function excludeRestrictedFromSale<T extends Pick<ProductionLogResponse, 'restrictedFromSale'>>(logs: readonly T[]): T[] {
+  return logs.filter((log) => !log.restrictedFromSale);
+}
+
 // ---------------------------------------------------------------------------
 // Farmer-facing service
 // ---------------------------------------------------------------------------
@@ -347,12 +381,21 @@ export function createLivestockService(deps: Partial<LivestockServiceDeps> = {})
    * it is a body field that is invalid (BR-137c).
    */
   async function requireOwnUpload(tx: Executor, scope: ResolvedScope, uploadId: string): Promise<void> {
-    const ownerId = await repo.findUploadOwner(tx, uploadId);
-    if (ownerId === undefined) {
+    const upload = await repo.findAttachmentUpload(tx, uploadId);
+    if (upload === undefined) {
       throw new AppError('VALIDATION_FAILED', { status: 422, detail: 'attachmentUploadId does not reference an existing upload.' });
     }
-    if (ownerId !== scope.userId) {
+    if (upload.uploadedBy !== scope.userId) {
       throw new AppError('VALIDATION_FAILED', { status: 422, detail: 'attachmentUploadId does not reference an upload you own.' });
+    }
+    // BR-137i: an own upload signed for another feature (a public listing or
+    // profile photo, a worker's ID proof ...) is not a livestock document.
+    const purpose = uploadPurposeOfStorageKey(upload.storageKey);
+    if (purpose === null || !LIVESTOCK_ATTACHMENT_PURPOSES.includes(purpose)) {
+      throw new AppError('VALIDATION_FAILED', {
+        status: 422,
+        detail: `attachmentUploadId must be an upload signed with purpose ${LIVESTOCK_ATTACHMENT_PURPOSES.join(' or ')} (BR-137i).`,
+      });
     }
   }
 

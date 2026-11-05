@@ -256,8 +256,12 @@ export interface LivestockRepo {
 
   // --- animal records (0084) -------------------------------------------------
 
-  /** `undefined` = no such live upload; `null`/a userId = its (possibly-null) owner. Same contract as pest.repo.ts. */
-  findUploadOwner(db: Executor, uploadId: string): Promise<string | null | undefined>;
+  /**
+   * `undefined` = no such live (not soft-deleted) upload; otherwise its
+   * (possibly-null) owner and its storage key, whose first segment is the
+   * purpose it was signed for (BR-137c, BR-137i).
+   */
+  findAttachmentUpload(db: Executor, uploadId: string): Promise<{ uploadedBy: string | null; storageKey: string } | undefined>;
 
   /**
    * BR-138: raise livestock_animals.withdrawal_until to `until` unless it is
@@ -1200,13 +1204,14 @@ export const livestockRepo: LivestockRepo = {
 
   // --- animal records (0084) -------------------------------------------------
 
-  async findUploadOwner(db, uploadId) {
-    const result = await db.query<{ uploaded_by: string | null }>(
-      `SELECT uploaded_by FROM uploads WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
+  async findAttachmentUpload(db, uploadId) {
+    const result = await db.query<{ uploaded_by: string | null; storage_key: string }>(
+      `SELECT uploaded_by, storage_key FROM uploads WHERE id = $1 AND deleted_at IS NULL LIMIT 1`,
       [uploadId],
     );
-    if (result.rows.length === 0) return undefined;
-    return result.rows[0]?.uploaded_by ?? null;
+    const row = result.rows[0];
+    if (row === undefined) return undefined;
+    return { uploadedBy: row.uploaded_by, storageKey: row.storage_key };
   },
 
   async extendAnimalWithdrawal(db, animalId, until) {

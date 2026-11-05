@@ -8944,7 +8944,11 @@ paths:
         farmer returns 404. When `animalId` names an animal whose
         `withdrawalUntil` is on or after `loggedOn` (default today), the row is
         stored with `restrictedFromSale: true` regardless of the request value
-        (BR-139). `fatPercent` is only accepted for `MILK` (422 otherwise).
+        (BR-139). The comparison uses the one animal-level `withdrawalUntil`
+        for every `productType`, so a meat-only withdrawal also restricts
+        milk (BR-139e). The request is never rejected for being under
+        withdrawal; the 201 response's `restrictedFromSale` says so.
+        `fatPercent` is only accepted for `MILK` (422 otherwise).
       x-permission: farmer.livestock.create_own
       x-business-rules: [BR-139]
       requestBody:
@@ -9006,7 +9010,7 @@ paths:
       summary: Record a vaccination, deworming, checkup or treatment
       description: |
         Creates a `livestock_health_records` row. The body is a discriminated union on `recordType` (`VACCINATION`, `DEWORMING`, `CHECKUP`, `TREATMENT`); each variant is strict, so fields of another variant (for example withdrawal fields on a vaccination) are rejected with 422. A `TREATMENT` with `milkWithdrawal` and/or `meatWithdrawal` also raises the animal's `withdrawalUntil` to the latest supplied `endDate`, in the same transaction; it never shortens an existing later date (BR-138). `nextDueDate` and `followUpDate` are stored values only; nothing is scheduled or notified (BR-38).
-        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference an upload owned by the caller, else 422.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
       x-permission: farmer.livestock.create_own
       x-business-rules: [BR-137, BR-138]
       parameters:
@@ -9073,7 +9077,7 @@ paths:
       summary: Record a heat, insemination, pregnancy check or calving
       description: |
         Creates a `livestock_breeding_records` row. The body is a discriminated union on `recordType` (`HEAT`, `INSEMINATION`, `PREGNANCY_CHECK`, `CALVING`). Breeding records exist only for `FEMALE` animals: a `MALE` animal is 422 `VALIDATION_FAILED` (BR-140); ownership is checked first, so a foreign animal is 404. `expectedDeliveryDate` and `nextCheckDate` are stored values only; nothing is scheduled or notified (BR-38).
-        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference an upload owned by the caller, else 422.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
       x-permission: farmer.livestock.create_own
       x-business-rules: [BR-137, BR-140]
       parameters:
@@ -9137,7 +9141,7 @@ paths:
       summary: Record a feed plan
       description: |
         Creates a `livestock_feed_plans` row; it is the animal's current plan while its `effectiveFrom` is the newest. Earlier plans are kept as history.
-        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference an upload owned by the caller, else 422.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
       x-permission: farmer.livestock.create_own
       x-business-rules: [BR-137]
       parameters:
@@ -9279,7 +9283,7 @@ paths:
       summary: Record a housing assignment
       description: |
         Creates a `livestock_housing_records` row. Space values are stored as entered and never rejected for being below the indoor space standard; the comparison (BR-141) is made on the GET list only, so this response carries no `meetsIndoorSpaceStandard`.
-        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference an upload owned by the caller, else 422.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
       x-permission: farmer.livestock.create_own
       x-business-rules: [BR-137]
       parameters:

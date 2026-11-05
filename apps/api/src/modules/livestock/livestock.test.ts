@@ -71,7 +71,13 @@ import {
   type LivestockHygieneLog,
   type ProductionLogResponse,
 } from './livestock.schema.js';
-import { createLivestockAdminService, createLivestockService, type TransactionRunner } from './livestock.service.js';
+import {
+  assertProductionLogsSellable,
+  createLivestockAdminService,
+  createLivestockService,
+  excludeRestrictedFromSale,
+  type TransactionRunner,
+} from './livestock.service.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -226,6 +232,16 @@ function compareKeyDesc(a: { sortDate: string; createdAt: string; id: string }, 
   return 0;
 }
 
+interface FakeUpload {
+  uploadedBy: string | null;
+  storageKey: string;
+}
+
+/** An uploads row signed for `purpose` (the key prefix uploads.service.ts writes). */
+function fakeUpload(uploadedBy: string | null, purpose = 'FARMER_DOCUMENT'): FakeUpload {
+  return { uploadedBy, storageKey: `${purpose.toLowerCase()}/${newId()}.pdf` };
+}
+
 /**
  * Stateful fake. Mirrors the real repo's ownership derivation (farm_id ->
  * farms.farmer_id) and BR-47's unique index (one lifecycle event per animal),
@@ -236,8 +252,12 @@ function createFakeRepo() {
   const animals = new Map<string, StoredAnimal>();
   const productionLogs = new Map<string, StoredProductionLog>();
   const lifecycleEvents = new Set<string>(); // animal ids that already have one
-  /** uploadId -> uploaded_by (null = an upload with no recorded owner). */
-  const uploads = new Map<string, string | null>();
+  /**
+   * uploadId -> the uploads row fields an attachment check reads: uploaded_by
+   * (null = an upload with no recorded owner) and storage_key, whose first path
+   * segment is the lower-cased UploadPurpose it was signed for (BR-137i).
+   */
+  const uploads = new Map<string, FakeUpload>();
   const records = {
     health: [] as FakeAnimalRecord<LivestockHealthRecord>[],
     breeding: [] as FakeAnimalRecord<LivestockBreedingRecord>[],
@@ -496,8 +516,9 @@ function createFakeRepo() {
 
     // --- animal records (BR-137..BR-141) -----------------------------------
 
-    async findUploadOwner(_db, uploadId) {
-      return uploads.has(uploadId) ? (uploads.get(uploadId) ?? null) : undefined;
+    async findAttachmentUpload(_db, uploadId) {
+      const u = uploads.get(uploadId);
+      return u === undefined ? undefined : { uploadedBy: u.uploadedBy, storageKey: u.storageKey };
     },
 
     async extendAnimalWithdrawal(db, animalId, until) {
@@ -1211,9 +1232,9 @@ describe('livestock animal records — BR-137 owner-scoped, farm-side only', () 
         const scope = createScopeA();
 
         const foreign = newId();
-        uploads.set(foreign, newId());
+        uploads.set(foreign, fakeUpload(newId()));
         const ownerless = newId();
-        uploads.set(ownerless, null);
+        uploads.set(ownerless, fakeUpload(null));
         for (const bad of [foreign, ownerless, newId() /* no such upload */]) {
           const error = await errorOf(r.create(service, scope, animal.id, bad));
           expect(error.code).toBe('VALIDATION_FAILED');
@@ -1222,9 +1243,36 @@ describe('livestock animal records — BR-137 owner-scoped, farm-side only', () 
         expect(records[r.bucket]).toHaveLength(0);
 
         const own = newId();
-        uploads.set(own, scope.userId);
+        uploads.set(own, fakeUpload(scope.userId));
         const created = (await r.create(service, scope, animal.id, own)) as { attachmentUploadId?: string | null };
         expect(created.attachmentUploadId).toBe(own);
+      });
+
+      it(`BR-137i: POST ${r.name} rejects the caller's own upload signed for another purpose (422) and writes nothing`, async () => {
+        const { service, uploads, records } = setup();
+        const animal = await ownAnimal(service, FARMER_A);
+        const scope = createScopeA();
+
+        // Public purposes (a livestock record must never point at a public file,
+        // BR-16), purposes owned by other features, and an unrecognised key.
+        const wrong: FakeUpload[] = [
+          fakeUpload(scope.userId, 'LISTING_PHOTO'),
+          fakeUpload(scope.userId, 'PROFILE_PHOTO'),
+          fakeUpload(scope.userId, 'PEST_PHOTO'),
+          fakeUpload(scope.userId, 'SOIL_TEST_REPORT'),
+          fakeUpload(scope.userId, 'WORKER_ID_PROOF'),
+          { uploadedBy: scope.userId, storageKey: `test/livestock/${newId()}.jpg` },
+          { uploadedBy: scope.userId, storageKey: `${newId()}.jpg` },
+        ];
+        for (const upload of wrong) {
+          const id = newId();
+          uploads.set(id, upload);
+          const error = await errorOf(r.create(service, scope, animal.id, id));
+          expect(error.code, upload.storageKey).toBe('VALIDATION_FAILED');
+          expect(error.status, upload.storageKey).toBe(422);
+          expect(error.detail ?? '', upload.storageKey).toMatch(/purpose/i);
+        }
+        expect(records[r.bucket]).toHaveLength(0);
       });
     }
   }
@@ -1761,6 +1809,51 @@ describe('livestock production logs — BR-139 produce from an animal under with
     ).toBe(true);
   });
 
+  it('BR-139e: a MEAT-only withdrawal still restricts MILK (and every other product) — one animal-level date, the stricter default', async () => {
+    const { service } = setup();
+    const cow = await ownAnimal(service, FARMER_A);
+    await service.createHealthRecord(createScopeA(), cow.id, bodies.treatment({ meatWithdrawal: { endDate: '2026-10-30' } }));
+    expect((await service.getAnimal(farmerScope(FARMER_A), cow.id)).withdrawalUntil).toBe('2026-10-30');
+
+    const milk = await service.createProductionLog(createScopeA(), {
+      animalId: cow.id,
+      productType: 'MILK',
+      quantity: 6,
+      unit: 'LITERS',
+      loggedOn: '2026-10-20',
+      restrictedFromSale: false,
+    });
+    expect(milk.restrictedFromSale).toBe(true);
+    const wool = await service.createProductionLog(createScopeA(), { animalId: cow.id, productType: 'WOOL', quantity: 2, unit: 'KG', loggedOn: '2026-10-20' });
+    expect(wool.restrictedFromSale).toBe(true);
+  });
+
+  it('BR-139f: assertProductionLogsSellable rejects (409) any restricted log and passes only unrestricted ones', () => {
+    const base = { restrictedFromSale: false } as ProductionLogResponse;
+    expect(() => assertProductionLogsSellable([base, { ...base }])).not.toThrow();
+    expect(() => assertProductionLogsSellable([])).not.toThrow();
+
+    let thrown: unknown;
+    try {
+      assertProductionLogsSellable([base, { ...base, id: 'restricted-log', restrictedFromSale: true }]);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(AppError);
+    expect((thrown as AppError).code).toBe('CONFLICT');
+    expect((thrown as AppError).status).toBe(409);
+    expect((thrown as AppError).detail).toContain('BR-139');
+  });
+
+  it('BR-139f: excludeRestrictedFromSale drops every restricted log and keeps the rest in order', () => {
+    const logs = [
+      { id: 'a', restrictedFromSale: false },
+      { id: 'b', restrictedFromSale: true },
+      { id: 'c', restrictedFromSale: false },
+    ] as ProductionLogResponse[];
+    expect(excludeRestrictedFromSale(logs).map((l) => l.id)).toEqual(['a', 'c']);
+  });
+
   it('production logs: session, qualityGrade and fatPercent round-trip; absent ones are null', async () => {
     const { service } = setup();
     const cow = await ownAnimal(service, FARMER_A);
@@ -2033,11 +2126,13 @@ describeIfDatabase('livestockRepo (integration)', () => {
     });
   }
 
-  async function insertUpload(tx: Executor, uploadedBy: string | null): Promise<string> {
+  // The key prefix is the purpose the upload was signed for (uploads.service.ts);
+  // livestock attachments accept FARMER_DOCUMENT only (BR-137i).
+  async function insertUpload(tx: Executor, uploadedBy: string | null, purpose = 'FARMER_DOCUMENT'): Promise<string> {
     const result = await tx.query<{ id: string }>(
       `INSERT INTO uploads (storage_key, bucket, mime_type, size_bytes, uploaded_by)
        VALUES ($1, 'test', 'image/jpeg', 1, $2) RETURNING id`,
-      [`test/livestock/${newId()}.jpg`, uploadedBy],
+      [`${purpose.toLowerCase()}/${newId()}.jpg`, uploadedBy],
     );
     return result.rows[0]!.id;
   }
@@ -2162,6 +2257,28 @@ describeIfDatabase('livestockRepo (integration)', () => {
       expect(error.code).toBe('VALIDATION_FAILED');
       const count = await tx.query<{ n: string }>('SELECT count(*) AS n FROM livestock_housing_records WHERE animal_id = $1', [cow.id]);
       expect(count.rows[0]!.n).toBe('0');
+    });
+  });
+
+  it('BR-137i: against Postgres the caller\'s own upload signed for another purpose, or soft-deleted, is 422 and nothing is written', async () => {
+    if (!recordsReady) return;
+    await withRecordsFixture(async ({ tx, service, scope }) => {
+      const cow = await service.createAnimal(scope(), validCreateBody({ tag: `TEST-${newId().slice(0, 8)}` }));
+      const listingPhoto = await insertUpload(tx, scope().userId, 'LISTING_PHOTO');
+      const deleted = await insertUpload(tx, scope().userId);
+      await tx.query('UPDATE uploads SET deleted_at = now() WHERE id = $1', [deleted]);
+
+      for (const attachmentUploadId of [listingPhoto, deleted]) {
+        const error = await errorOf(service.createHousingRecord(scope(), cow.id, bodies.housing({ attachmentUploadId })));
+        expect(error.code).toBe('VALIDATION_FAILED');
+        expect(error.status).toBe(422);
+      }
+      const count = await tx.query<{ n: string }>('SELECT count(*) AS n FROM livestock_housing_records WHERE animal_id = $1', [cow.id]);
+      expect(count.rows[0]!.n).toBe('0');
+
+      const ok = await insertUpload(tx, scope().userId);
+      const created = await service.createHousingRecord(scope(), cow.id, bodies.housing({ attachmentUploadId: ok }));
+      expect(created.attachmentUploadId).toBe(ok);
     });
   });
 
