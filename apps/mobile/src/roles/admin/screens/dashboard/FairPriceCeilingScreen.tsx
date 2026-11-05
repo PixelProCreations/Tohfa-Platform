@@ -400,6 +400,7 @@ export interface FairPriceCeilingScreenProps {
   onUpdatePrice?: ((item?: any) => void) | undefined;
   onBulkUpdate?: (() => void) | undefined;
   onViewHistory?: ((item?: any) => void) | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
 }
 
 export function FairPriceCeilingScreen({
@@ -407,7 +408,9 @@ export function FairPriceCeilingScreen({
   onNavigateToRetailPricing = () => {},
   onNavigateToBreakdown: _onNavigateToBreakdown,
   onNavigateToHistory,
+  role = 'TOHFA_ADMIN',
 }: FairPriceCeilingScreenProps) {
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
   // ── States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCeiling, setSelectedCeiling] = useState<FairPriceCeilingRecord | null>(null);
@@ -529,9 +532,24 @@ export function FairPriceCeilingScreen({
           </TouchableOpacity>
           <View style={styles.headerTitleWrap}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              Fair Price Management
+              {isFarmerAdmin ? 'Fair Price' : 'Fair Price Management'}
             </Text>
+            {isFarmerAdmin && (
+              <Text style={styles.headerSubtitle}>
+                View current TOHFA fair-price ceilings used for produce listing and purchase decisions
+              </Text>
+            )}
           </View>
+          {isFarmerAdmin && (
+            <TouchableOpacity
+              style={styles.headerFilterBtn}
+              onPress={openFiltersModal}
+              activeOpacity={0.7}
+              accessibilityLabel="Open filters"
+            >
+              <HorizontalSlidersIcon size={18} color={adminColors.onBrand} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -545,7 +563,7 @@ export function FairPriceCeilingScreen({
           <SearchIcon size={18} color={adminColors.muted} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search common or scientific name"
+            placeholder={isFarmerAdmin ? "Crop, product, crop code, category" : "Search common or scientific name"}
             placeholderTextColor={adminColors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -564,7 +582,42 @@ export function FairPriceCeilingScreen({
         <Text style={styles.recordCountText}>{countLabel}</Text>
 
         {/* ── List of Ceiling Cards ── */}
-        {filteredRecords.map((item) => {
+        {isFarmerAdmin ? (
+          filteredRecords.map((item) => (
+            <View key={item.id} style={styles.faCeilingCard}>
+              <View style={styles.faCardHeader}>
+                <Text style={styles.faCardTitle}>{item.product}</Text>
+                <View style={styles.faActivePill}>
+                  <Text style={styles.faActivePillText}>Active</Text>
+                </View>
+              </View>
+              <Text style={styles.faCardSubtitle}>
+                {item.category} · {item.grade}
+              </Text>
+              <View style={styles.faPriceColsRow}>
+                <View style={styles.faPriceCol}>
+                  <Text style={styles.faPriceColLabel}>Fair Price Ceiling</Text>
+                  <Text style={styles.faPriceColValue}>
+                    {item.priceVal && item.priceVal > 0
+                      ? `₹${item.priceVal.toFixed(2)}/kg`
+                      : '₹100.00/kg'}
+                  </Text>
+                </View>
+                <View style={styles.faPriceCol}>
+                  <Text style={styles.faPriceColLabel}>Frequency</Text>
+                  <Text style={styles.faPriceColValue}>Weekly</Text>
+                </View>
+                <View style={styles.faPriceCol}>
+                  <Text style={styles.faPriceColLabel}>Effective From</Text>
+                  <Text style={styles.faPriceColValue}>
+                    {item.effectiveFrom || '30 Sep 2026'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))
+        ) : (
+          filteredRecords.map((item) => {
           const isCurrent = item.status === 'Current';
           const isScheduled = item.status === 'Scheduled';
           const isNoCeiling = item.status === 'No ceiling';
@@ -648,7 +701,7 @@ export function FairPriceCeilingScreen({
               </View>
             </View>
           );
-        })}
+        }))}
 
         <View style={{ height: 48 }} />
       </ScrollView>
@@ -968,6 +1021,73 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flex: 1,
   },
+  headerSubtitle: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: 2,
+  },
+  headerFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminOverlay.whitePill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faCeilingCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.card,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  faCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  faCardTitle: {
+    ...adminType.rowTitle,
+    fontSize: 15,
+    color: adminColors.ink,
+  },
+  faActivePill: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.xs,
+  },
+  faActivePillText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.success.text,
+  },
+  faCardSubtitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 2,
+    marginBottom: adminSpacing.md,
+  },
+  faPriceColsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  faPriceCol: {
+    flex: 1,
+  },
+  faPriceColLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  faPriceColValue: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
@@ -983,13 +1103,6 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerSubtitle: {
-    ...adminType.caption,
-    color: adminColors.onBrand,
-    opacity: 0.9,
-    fontSize: 12,
-    marginTop: 2,
   },
 
   scroll: {

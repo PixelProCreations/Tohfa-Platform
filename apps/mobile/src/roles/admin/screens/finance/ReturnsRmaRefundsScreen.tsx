@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing } from '../../theme';
 import { ReturnsRmaDetailScreen, type ReturnsRmaDetailData } from './ReturnsRmaDetailScreen';
 
@@ -32,7 +32,7 @@ function SearchIcon({ size = 18, color = '#786F68' }: { size?: number; color?: s
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth="2" />
-      <Line x1="16.5" y1="16.5" x2="21" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M16.5 16.5L21 21" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -40,15 +40,12 @@ function SearchIcon({ size = 18, color = '#786F68' }: { size?: number; color?: s
 function FilterSlidersIcon({ size = 18, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Line x1="4" y1="21" x2="4" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="10" x2="4" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="12" y1="21" x2="12" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="12" y1="8" x2="12" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="20" y1="21" x2="20" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="20" y1="12" x2="20" y2="3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="1" y1="14" x2="7" y2="14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="9" y1="8" x2="15" y2="8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="17" y1="16" x2="23" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path
+        d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     </Svg>
   );
 }
@@ -215,10 +212,11 @@ const RETURNS_LIST_DATA: ReturnListItem[] = [
 ];
 
 export interface ReturnsRmaRefundsScreenProps {
+  can?: ((permission: string) => boolean) | undefined;
   onBack: () => void;
 }
 
-export function ReturnsRmaRefundsScreen({ onBack }: ReturnsRmaRefundsScreenProps) {
+export function ReturnsRmaRefundsScreen({ can, onBack }: ReturnsRmaRefundsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRma, setSelectedRma] = useState<ReturnsRmaDetailData | null>(null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -240,6 +238,7 @@ export function ReturnsRmaRefundsScreen({ onBack }: ReturnsRmaRefundsScreenProps
     return (
       <ReturnsRmaDetailScreen
         rma={selectedRma}
+        can={can}
         onBack={() => setSelectedRma(null)}
       />
     );

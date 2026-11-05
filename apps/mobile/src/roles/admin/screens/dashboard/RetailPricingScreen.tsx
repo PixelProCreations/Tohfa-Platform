@@ -201,13 +201,17 @@ export const SAMPLE_RETAIL_PRICES = INITIAL_RETAIL_MANAGEMENT_ITEMS;
 export interface RetailPricingScreenProps {
   onBack: () => void;
   onEditRetailPrice?: (record: PricingRecordItem) => void;
-  onSelectBreakdown?: (item?: RetailPriceManagementItem) => void;
+  onSelectBreakdown?: (item?: any) => void;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
 }
 
 export function RetailPricingScreen({
   onBack,
   onEditRetailPrice,
+  onSelectBreakdown,
+  role = 'TOHFA_ADMIN',
 }: RetailPricingScreenProps) {
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
   const [searchQuery, setSearchQuery] = useState('');
   const [items] = useState<RetailPriceManagementItem[]>(INITIAL_RETAIL_MANAGEMENT_ITEMS);
 
@@ -328,6 +332,162 @@ export function RetailPricingScreen({
       onEditRetailPrice(pricingRecord);
     }
   };
+
+  if (isFarmerAdmin) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Orange Header Banner matching Image 2 Right Phone ── */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                Retail Pricing
+              </Text>
+              <Text style={styles.headerSubtitle}>
+                View current retail prices by crop and grade
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.headerFilterBtn}
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              accessibilityLabel="Open filters"
+            >
+              <HorizontalSlidersIcon size={18} color={adminColors.onBrand} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Search Bar matching Image 2 */}
+          <View style={styles.searchBarContainer}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Crop, product, category"
+              placeholderTextColor={adminColors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
+          {/* Card 1: Carrot · G1 */}
+          <TouchableOpacity
+            style={styles.faRetailCard}
+            onPress={() => {
+              if (onSelectBreakdown) {
+                onSelectBreakdown({
+                  id: 'rpm-carrot-g1',
+                  cropGrade: 'Carrot · Grade 1',
+                  product: 'Carrot',
+                  grade: 'Grade 1',
+                  purchasePrice: '₹80.00/kg',
+                  markup: '10%',
+                  expenses: '₹10.00',
+                  expensesDetail: 'Freight ₹5 · Loading ₹2 · Unloading ₹3',
+                  retailPrice: '₹98.00/kg',
+                  customerDiscount: '₹5.00/kg',
+                  finalCustomerPrice: '₹93.00/kg',
+                  status: 'Active',
+                });
+              }
+            }}
+            activeOpacity={0.75}
+          >
+            <View style={styles.faRetailCardTop}>
+              <Text style={styles.faRetailCardTitle}>Carrot · G1</Text>
+              <View style={styles.faActivePill}>
+                <Text style={styles.faActivePillText}>Active</Text>
+              </View>
+            </View>
+            <View style={styles.faRetailColsRow}>
+              <View style={styles.faRetailCol}>
+                <Text style={styles.faRetailLabel}>Purchase Price</Text>
+                <Text style={styles.faRetailValue}>₹80.00</Text>
+              </View>
+              <View style={styles.faRetailCol}>
+                <Text style={styles.faRetailLabel}>Markup</Text>
+                <Text style={styles.faRetailValue}>10%</Text>
+              </View>
+              <View style={styles.faRetailCol}>
+                <Text style={styles.faRetailLabel}>Expenses</Text>
+                <Text style={styles.faRetailValue}>₹10.00</Text>
+              </View>
+            </View>
+            <View style={styles.faRetailBottomRow}>
+              <Text style={styles.faRetailBottomLabel}>Retail Price</Text>
+              <Text style={styles.faRetailBottomValue}>₹98.00</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Card 2: Cabbage · G2 */}
+          <TouchableOpacity
+            style={styles.faRetailCard}
+            onPress={() => {
+              if (onSelectBreakdown) {
+                onSelectBreakdown({
+                  id: 'rpm-cabbage-g2',
+                  cropGrade: 'Cabbage · Grade 2',
+                  product: 'Cabbage',
+                  grade: 'Grade 2',
+                  purchasePrice: '₹80.00/kg',
+                  markup: '10%',
+                  expenses: '₹10.00',
+                  expensesDetail: 'Freight ₹5 · Loading ₹2 · Unloading ₹3',
+                  retailPrice: '₹98.00/kg',
+                  customerDiscount: '₹5.00/kg',
+                  finalCustomerPrice: '₹93.00/kg',
+                  status: 'Active',
+                });
+              }
+            }}
+            activeOpacity={0.75}
+          >
+            <View style={styles.faRetailCardTop}>
+              <Text style={styles.faRetailCardTitle}>Cabbage · G2</Text>
+              <View style={styles.faActivePill}>
+                <Text style={styles.faActivePillText}>Active</Text>
+              </View>
+            </View>
+            <View style={styles.faRetailColsRow}>
+              <View style={styles.faRetailCol}>
+                <Text style={styles.faRetailLabel}>Purchase Price</Text>
+                <Text style={styles.faRetailValue}>₹80.00</Text>
+              </View>
+              <View style={styles.faRetailCol}>
+                <Text style={styles.faRetailLabel}>Markup</Text>
+                <Text style={styles.faRetailValue}>10%</Text>
+              </View>
+              <View style={styles.faRetailCol}>
+                <Text style={styles.faRetailLabel}>Expenses</Text>
+                <Text style={styles.faRetailValue}>₹10.00</Text>
+              </View>
+            </View>
+            <View style={styles.faRetailBottomRow}>
+              <Text style={styles.faRetailBottomLabel}>Retail Price</Text>
+              <Text style={styles.faRetailBottomValue}>₹98.00</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -734,6 +894,86 @@ export function RetailPricingScreen({
 // ─── Styles strictly conforming to adminTheme ────────────────────────────────
 
 const styles = StyleSheet.create({
+  headerSubtitle: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: 2,
+  },
+  headerFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminOverlay.whitePill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faRetailCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.card,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  faRetailCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.sm,
+  },
+  faRetailCardTitle: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    color: adminColors.ink,
+  },
+  faActivePill: {
+    backgroundColor: adminColors.success.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.xs,
+  },
+  faActivePillText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.success.text,
+  },
+  faRetailColsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  faRetailCol: {
+    flex: 1,
+  },
+  faRetailLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  faRetailValue: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  faRetailBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingTop: 8,
+  },
+  faRetailBottomLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  faRetailBottomValue: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,
@@ -755,10 +995,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     ...adminType.title,
     color: adminColors.onBrand,
-    fontSize: 21,
-    lineHeight: 27,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: '800',
-    flex: 1,
+    includeFontPadding: false,
+    paddingBottom: 2,
   },
 
   scroll: {

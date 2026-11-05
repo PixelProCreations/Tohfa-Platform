@@ -129,9 +129,10 @@ const INITIAL_DEMO_FARMERS: DemoFarmerItem[] = [
 export interface CreateGroupScreenProps {
   onBack: () => void;
   onSubmitSuccess?: () => void;
+  isEditing?: boolean;
 }
 
-export function CreateGroupScreen({ onBack, onSubmitSuccess }: CreateGroupScreenProps) {
+export function CreateGroupScreen({ onBack, onSubmitSuccess, isEditing = false }: CreateGroupScreenProps) {
   // 1 · Group Information State
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
@@ -199,8 +200,8 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess }: CreateGroupScreen
     }
 
     Alert.alert(
-      'Group Created',
-      `Group "${groupName}" created successfully with ${selectedFarmerIds.length} farmers added.`,
+      isEditing ? 'Group Updated' : 'Group Created',
+      isEditing ? `Group "${groupName}" updated successfully.` : `Group "${groupName}" created successfully with ${selectedFarmerIds.length} farmers added.`,
       [
         {
           text: 'OK',
@@ -241,7 +242,7 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess }: CreateGroupScreen
           >
             <BackArrowWhiteIcon size={20} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create Group</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Group' : 'Create Group'}</Text>
         </View>
       </View>
 
@@ -600,7 +601,7 @@ export function CreateGroupScreen({ onBack, onSubmitSuccess }: CreateGroupScreen
           onPress={handleCreateGroup}
           activeOpacity={0.8}
         >
-          <Text style={styles.footerBtnText}>Create Group</Text>
+          <Text style={styles.footerBtnText}>{isEditing ? 'Save Changes' : 'Create Group'}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

@@ -324,9 +324,11 @@ export const COUNTER_OFFER_FIXTURES: CounterOfferItem[] = [
 
 export interface PriceHistoryScreenProps {
   onBack: () => void;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
 }
 
-export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
+export function PriceHistoryScreen({ onBack, role = 'TOHFA_ADMIN' }: PriceHistoryScreenProps) {
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
   // Search filter query
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -401,6 +403,116 @@ export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
       return true;
     });
   }, [searchQuery, appliedStatusFilter]);
+
+  if (isFarmerAdmin) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* ── Orange Header Banner strictly conforming to adminTheme ── */}
+        <View style={styles.headerBanner}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                Price History
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.headerFilterBtn}
+              onPress={openFilterModal}
+              activeOpacity={0.7}
+              accessibilityLabel="Open filters"
+            >
+              <HorizontalSlidersIcon size={18} color={adminColors.onBrand} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Search Bar matching Image 2 Middle Phone */}
+          <View style={styles.searchBarContainer}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Crop, product, category"
+              placeholderTextColor={adminColors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+
+          {/* Price Change Cards matching Image 2 */}
+          <View style={styles.faHistoryCard}>
+            <View style={styles.faHistoryCardTop}>
+              <Text style={styles.faHistoryTitle}>Carrot · G1</Text>
+              <Text style={styles.faHistoryDate}>30 Sep</Text>
+            </View>
+            <View style={styles.faHistoryColsRow}>
+              <View style={styles.faHistoryCol}>
+                <Text style={styles.faHistoryLabel}>Previous</Text>
+                <Text style={styles.faHistoryValue}>₹95.00</Text>
+              </View>
+              <View style={styles.faHistoryCol}>
+                <Text style={styles.faHistoryLabel}>New</Text>
+                <Text style={styles.faHistoryValue}>₹100.00</Text>
+              </View>
+              <View style={styles.faHistoryCol}>
+                <Text style={styles.faHistoryLabel}>Frequency</Text>
+                <Text style={styles.faHistoryValue}>Weekly</Text>
+              </View>
+            </View>
+            <Text style={styles.faHistoryEffective}>Effective 30 Sep</Text>
+          </View>
+
+          <View style={styles.faHistoryCard}>
+            <View style={styles.faHistoryCardTop}>
+              <Text style={styles.faHistoryTitle}>Carrot · G1</Text>
+              <Text style={styles.faHistoryDate}>23 Sep</Text>
+            </View>
+            <View style={styles.faHistoryColsRow}>
+              <View style={styles.faHistoryCol}>
+                <Text style={styles.faHistoryLabel}>Previous</Text>
+                <Text style={styles.faHistoryValue}>₹90.00</Text>
+              </View>
+              <View style={styles.faHistoryCol}>
+                <Text style={styles.faHistoryLabel}>New</Text>
+                <Text style={styles.faHistoryValue}>₹95.00</Text>
+              </View>
+              <View style={styles.faHistoryCol}>
+                <Text style={styles.faHistoryLabel}>Frequency</Text>
+                <Text style={styles.faHistoryValue}>Weekly</Text>
+              </View>
+            </View>
+            <Text style={styles.faHistoryEffective}>Effective 29 Sep</Text>
+          </View>
+
+          {/* Footnote card at bottom */}
+          <View style={styles.faNoteCard}>
+            <View style={styles.faNoteIconWrap}>
+              <Text style={styles.faNoteIconText}>ⓘ</Text>
+            </View>
+            <Text style={styles.faNoteText}>
+              Money values are displayed exactly as returned by the API - never recalculated with frontend floating-point arithmetic. Newest changes shown first.
+            </Text>
+          </View>
+
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.root}>
@@ -886,6 +998,85 @@ export function PriceHistoryScreen({ onBack }: PriceHistoryScreenProps) {
 // ─── Styles strictly conforming to adminColors theme ─────────────────────────
 
 const styles = StyleSheet.create({
+  headerFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminOverlay.whitePill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faHistoryCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.card,
+    marginBottom: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  faHistoryCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.sm,
+  },
+  faHistoryTitle: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    color: adminColors.ink,
+  },
+  faHistoryDate: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  faHistoryColsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  faHistoryCol: {
+    flex: 1,
+  },
+  faHistoryLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginBottom: 2,
+  },
+  faHistoryValue: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    color: adminColors.ink,
+  },
+  faHistoryEffective: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 8,
+  },
+  faNoteCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.sm,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: adminSpacing.sm,
+    gap: 8,
+  },
+  faNoteIconWrap: {
+    width: 18,
+    alignItems: 'center',
+  },
+  faNoteIconText: {
+    fontSize: 14,
+    color: adminColors.muted,
+  },
+  faNoteText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    flex: 1,
+    lineHeight: 15,
+  },
   root: {
     flex: 1,
     backgroundColor: adminColors.canvas,

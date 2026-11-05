@@ -93,6 +93,8 @@ export interface CustomersFlowProps {
   inlineExternalRoutes?: readonly CustomersExternalRoute[] | undefined;
   /** Navigate the host to an external screen that is not drawn inline. */
   onOpenExternal?: ((screen: CustomersExternalRoute, params: CustomersRouteParams) => void) | undefined;
+  /** Hide the quick actions section on customer details. */
+  hideQuickActions?: boolean;
 }
 
 export function CustomersFlow({
@@ -107,6 +109,7 @@ export function CustomersFlow({
   renderExternalScreen,
   inlineExternalRoutes = EXTERNAL_ROUTES,
   onOpenExternal,
+  hideQuickActions = false,
 }: CustomersFlowProps) {
   const [stack, setStack] = useState<CustomersStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
   // Filters survive the trip to the filter screen and back (one set per list).
@@ -194,6 +197,7 @@ export function CustomersFlow({
         <CustomerDetailsScreen
           {...common}
           customer={customer}
+          hideQuickActions={hideQuickActions}
           onNavigateToOrders={() => navigate('CustomerOrders')}
           onNavigateToPurchases={() => navigate('PurchaseHistory')}
           onNavigateToWallet={() => navigate('CustomerWallet')}

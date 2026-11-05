@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import Svg, {
+  Circle,
   ClipPath,
   Defs,
   G,
@@ -80,6 +81,43 @@ function MountainLandscapeThumbnail({ size = 56 }: { size?: number }) {
   );
 }
 
+
+function ThreeDotsVerticalIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="5" r="2" fill={color} />
+      <Circle cx="12" cy="12" r="2" fill={color} />
+      <Circle cx="12" cy="19" r="2" fill={color} />
+    </Svg>
+  );
+}
+
+function EyeIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="12" r="3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PencilEditIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PlusMiniIcon({ size = 16, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 // ─── Tabs List ───────────────────────────────────────────────────────────────
 
 type CommunityTabType =
@@ -111,6 +149,8 @@ export interface CommunityDetailsScreenProps {
   onNavigateKnowledgeDetail?: (knowledgeId: string) => void;
   onNavigateDiscussionDetail?: (discussionId: string) => void;
   onNavigateAnnouncementDetail?: (announcementId: string) => void;
+  onNavigateEditCommunity?: (communityId?: string) => void;
+  onNavigateCreatePost?: (communityId?: string) => void;
 }
 
 export function CommunityDetailsScreen({
@@ -121,8 +161,11 @@ export function CommunityDetailsScreen({
   onNavigateKnowledgeDetail,
   onNavigateDiscussionDetail,
   onNavigateAnnouncementDetail,
+  onNavigateEditCommunity,
+  onNavigateCreatePost,
 }: CommunityDetailsScreenProps) {
   const [activeTab, setActiveTab] = useState<CommunityTabType>('Overview');
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
   const [isArchived, setIsArchived] = useState(false);
@@ -174,17 +217,29 @@ export function CommunityDetailsScreen({
       {/* ─── Top Terracotta Header (Screenshots 1-4) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
+          <View style={styles.headerLeftRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackArrowWhiteIcon size={20} />
+            </TouchableOpacity>
+            {/* Exact screen title matching screenshots */}
+            <Text style={styles.headerTitle}>Communitie details</Text>
+          </View>
+
           <TouchableOpacity
-            style={styles.backBtn}
-            onPress={onBack}
-            activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            style={styles.headerMenuBtn}
+            onPress={() => setShowHeaderMenu(true)}
+            activeOpacity={0.8}
+            accessibilityLabel="Community actions"
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <BackArrowWhiteIcon size={20} />
+            <ThreeDotsVerticalIcon size={18} color={adminColors.onBrand} />
           </TouchableOpacity>
-          {/* Exact screen title matching screenshots */}
-          <Text style={styles.headerTitle}>Communitie details</Text>
         </View>
       </View>
 
@@ -619,6 +674,61 @@ export function CommunityDetailsScreen({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      {/* ─── Header Dropdown Popup Menu ─── */}
+      <Modal
+        visible={showHeaderMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowHeaderMenu(false)}
+      >
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setShowHeaderMenu(false)}
+        >
+          <View style={styles.menuPopupCard}>
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                setShowHeaderMenu(false);
+                handleSelectTab('Overview');
+              }}
+              activeOpacity={0.7}
+            >
+              <EyeIcon size={16} color={adminColors.ink} />
+              <Text style={styles.menuItemText}>View Details</Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                setShowHeaderMenu(false);
+                if (onNavigateEditCommunity) onNavigateEditCommunity(_communityId);
+              }}
+              activeOpacity={0.7}
+            >
+              <PencilEditIcon size={16} color={adminColors.ink} />
+              <Text style={styles.menuItemText}>Edit Community</Text>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItemRow}
+              onPress={() => {
+                setShowHeaderMenu(false);
+                if (onNavigateCreatePost) onNavigateCreatePost(_communityId);
+              }}
+              activeOpacity={0.7}
+            >
+              <PlusMiniIcon size={16} color={adminColors.ink} />
+              <Text style={styles.menuItemText}>Create post</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -641,7 +751,7 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'space-between',
   },
   backBtn: {
     width: 32,
@@ -1001,5 +1111,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: adminColors.onBrand,
+  },
+  headerLeftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerMenuBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: adminColors.headerIcon.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  menuPopupCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    width: 220,
+    ...adminShadow.md,
+    overflow: 'hidden',
+    paddingVertical: 4,
+  },
+  menuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  menuItemText: {
+    ...adminType.body,
+    fontSize: 14,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: adminColors.border,
+    marginHorizontal: 12,
   },
 });
