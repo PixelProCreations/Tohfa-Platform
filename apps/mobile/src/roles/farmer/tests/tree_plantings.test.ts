@@ -17,6 +17,8 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import React from 'react';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import renderer, { act, type ReactTestInstance, type ReactTestRendererJSON } from 'react-test-renderer';
 
 // Only what the code under test imports from react-native (the screens, plus
@@ -423,6 +425,27 @@ describe('TreesListScreen wired to GET /farmers/me/tree-plantings (BR-55)', () =
     expect(empty).toHaveLength(1);
     expect(empty[0]?.props.title).toBe(t('farmer.trees.emptyTitle'));
     for (const fake of FAKE_SAMPLE_STRINGS) expect(text).not.toContain(fake);
+  });
+
+  it('renders its labels from the i18n catalogue (Tamil)', async () => {
+    stubFetch(() => jsonResponse({ items: [makePlanting()], page: { nextCursor: null, hasMore: false } }));
+    setLocale('ta');
+    const tree = await mount(React.createElement(TreesListScreen, {}));
+    const text = renderedText(tree.toJSON()).join('\n');
+
+    for (const key of ['farmer.trees.title', 'farmer.trees.add', 'farmer.trees.filter.all', 'farmer.trees.filterTitle'] as const) {
+      expect(text, key).toContain(t(key));
+    }
+    for (const english of ['Add planting', 'All plantings', 'Filter Plantings']) {
+      expect(text, english).not.toContain(english);
+    }
+  });
+
+  it("App.tsx's Trees fallbacks come from the i18n catalogue, not inline English", () => {
+    const source = fs.readFileSync(path.resolve(__dirname, '../App.tsx'), 'utf8');
+    for (const literal of ["'Silver Oak (12 trees)'", "'Planted 14 Jun 2019'", "'Shade & windbreak'", '`Trees · ${']) {
+      expect(source, literal).not.toContain(literal);
+    }
   });
 
   it('BR-55: shows ErrorState with retry when the list request fails', async () => {

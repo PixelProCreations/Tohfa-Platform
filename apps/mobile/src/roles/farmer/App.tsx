@@ -2991,7 +2991,7 @@ export default function App(): React.JSX.Element {
                   treeCount: selectedTreeForEdit.treeCount ?? 12,
                   plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
                   locationZone: selectedTreeForEdit.zoneInfo,
-                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                  purpose: selectedTreeForEdit.purposeText ?? t('farmer.trees.fallback.purpose'),
                 }
                 : undefined
             }
@@ -3000,9 +3000,11 @@ export default function App(): React.JSX.Element {
             onRemove={() => {
               setSelectedItemForRemove({
                 id: selectedTreeForEdit?.id,
-                name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
+                name: selectedTreeForEdit?.name || t('farmer.trees.fallback.name'),
                 category: 'Trees',
-                dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
+                dateInfo: t('farmer.trees.removeDateInfo', {
+                  date: selectedTreeForEdit?.plantedDate || t('farmer.trees.fallback.planted'),
+                }),
               });
               navigate('RemoveItem');
             }}
