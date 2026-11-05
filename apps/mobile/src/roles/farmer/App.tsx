@@ -1260,6 +1260,7 @@ export default function App(): React.JSX.Element {
               (params['purpose'] as 'LOGIN' | 'PASSWORD_RESET') ?? 'LOGIN'
             }
             linkToken={typeof params['linkToken'] === 'string' ? params['linkToken'] : undefined}
+            mockCode={typeof params['mockCode'] === 'string' ? params['mockCode'] : undefined}
             onNavigate={(s, p) => navigate(s, p)}
           />
         ) : screen === 'ForgotPassword' ? (
