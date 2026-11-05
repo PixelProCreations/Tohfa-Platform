@@ -160,7 +160,13 @@ export function usePagedRecords<T, R extends RecordsPage<T> = RecordsPage<T>>(
   useEffect(() => {
     if (!active || !animalId) return undefined;
     const controller = new AbortController();
-    moreControllerRef.current?.abort();
+    // An aborted load-more skips its own `finally`, so clear its spinner here
+    // or `loadingMore` stays true and blocks every later loadMore().
+    if (moreControllerRef.current) {
+      moreControllerRef.current.abort();
+      moreControllerRef.current = null;
+      setLoadingMore(false);
+    }
     if (!refreshingRef.current) setState('loading');
     fetchPage(animalId, undefined, controller.signal)
       .then((page) => {
