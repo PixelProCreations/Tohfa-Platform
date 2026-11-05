@@ -100,9 +100,9 @@ function TraceabilityIdCardIcon({ size = 18, color = P.twBlue700 }: { size?: num
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface SaleTransferCullScreenProps {
-  animalId?: string;
-  animalName?: string;
-  animalCode?: string;
+  animalId?: string | undefined;
+  animalName?: string | undefined;
+  animalCode?: string | undefined;
   onBack?: () => void;
   onSuccess?: () => void;
 }

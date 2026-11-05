@@ -1989,6 +1989,7 @@
   "farmer.addInput.error.date": "சரியான தேதியை உள்ளிடவும், எ.கா. 17 Sep 2026 அல்லது 2026-09-17.",
   "farmer.addInput.error.futureDate": "தேதி எதிர்காலத்தில் இருக்கக்கூடாது.",
   "farmer.addInput.error.noCrop": "ஒரு பயிருக்கு உள்ளீட்டைப் பதிவு செய்ய, அந்தப் பயிரிலிருந்து இந்தத் திரையைத் திறக்கவும்.",
+  "farmer.livestock.detail.missingAnimal": "எந்த விலங்கும் தேர்ந்தெடுக்கப்படவில்லை. திரும்பிச் சென்று விலங்கை மீண்டும் திறக்கவும்.",
   "farmer.livestock.detail.health.organicNotice": "இயற்கை தரநிலை — மூலிகை மற்றும் ஹோமியோபதி சிகிச்சைகள் மட்டுமே அனுமதிக்கப்படும். ஆன்டிபயாடிக்குகள் கட்டுப்படுத்தப்பட்டுள்ளன.",
   "farmer.livestock.detail.health.withdrawalTitle": "பால் விற்பனைக்கு இல்லை — தடைக்காலம் நடப்பில் உள்ளது",
   "farmer.livestock.detail.health.withdrawalBody": "{{date}} அன்று முடிவடையும் · {{count}} நாட்கள் உள்ளன.",

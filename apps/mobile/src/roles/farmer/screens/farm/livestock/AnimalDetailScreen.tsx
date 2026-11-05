@@ -244,9 +244,9 @@ function formatShortDate(iso: string): string {
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface AnimalDetailProps {
-  animalId?: string;
-  animalName?: string;
-  animalCode?: string;
+  animalId?: string | undefined;
+  animalName?: string | undefined;
+  animalCode?: string | undefined;
   species?: string;
   breed?: string;
   gender?: string;
@@ -261,9 +261,9 @@ export interface AnimalDetailProps {
 type TabKey = 'Health' | 'Feed' | 'Breeding' | 'Production' | 'Housing';
 
 export function AnimalDetailScreen({
-  animalId = 'a1',
-  animalName = 'Lakshmi',
-  animalCode = 'C-014',
+  animalId,
+  animalName = '',
+  animalCode = '',
   species = 'Cattle',
   breed = 'Jersey cross',
   gender = 'Female',
@@ -280,14 +280,22 @@ export function AnimalDetailScreen({
   const [productionLogs, setProductionLogs] = useState<ProductionLogResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown | null>(null);
+  // No route param means no animal: render the missing-animal state rather
+  // than fetching (or showing) a stand-in animal.
+  const realAnimalId = animalId?.trim() ?? '';
+  const hasAnimal = realAnimalId.length > 0;
 
   const load = useCallback(async () => {
+    if (!hasAnimal) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError(null);
     try {
       const [fetchedAnimal, logsResult] = await Promise.all([
-        getAnimal(animalId),
-        listProductionLogs({ animalId, productType: 'MILK' }),
+        getAnimal(realAnimalId),
+        listProductionLogs({ animalId: realAnimalId, productType: 'MILK' }),
       ]);
       setAnimal(fetchedAnimal);
       setProductionLogs(logsResult.items);
@@ -296,7 +304,7 @@ export function AnimalDetailScreen({
     } finally {
       setLoading(false);
     }
-  }, [animalId]);
+  }, [hasAnimal, realAnimalId]);
 
   useEffect(() => {
     void load();
@@ -382,6 +390,31 @@ export function AnimalDetailScreen({
         return { alignSelf: 'flex-end' as const };
     }
   };
+
+  if (!hasAnimal) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <View style={styles.container} testID="animalDetail.missingAnimal">
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.circleHeaderBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              testID="animalDetail.missingAnimalBack"
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.livestock.saleTransferCull.back')}
+            >
+              <ArrowBackIcon size={20} color={P.deepGreen} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.missingAnimalBody} accessibilityLiveRegion="polite">
+            <Text style={styles.missingAnimalText}>{t('farmer.livestock.detail.missingAnimal')}</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (
@@ -571,12 +604,12 @@ export function AnimalDetailScreen({
           )}
 
           {/* TAB 2: FEED — Dev's design, filled from feed-plans / feed-logs (AnimalFeedSection). */}
-          {activeTab === 'Feed' && <AnimalFeedSection animalId={animalId} styles={styles} />}
+          {activeTab === 'Feed' && <AnimalFeedSection animalId={realAnimalId} styles={styles} />}
 
           {/* TAB 3: BREEDING — Dev's design, filled from breeding-records (AnimalBreedingSection). */}
           {activeTab === 'Breeding' && (
             <AnimalBreedingSection
-              animalId={animalId}
+              animalId={realAnimalId}
               styles={styles}
               onRegisterOffspring={animal ? handleRegisterOffspring : undefined}
             />
@@ -662,7 +695,7 @@ export function AnimalDetailScreen({
 
           {/* TAB 5: HOUSING — Dev's design, filled from housing-records / hygiene-logs (AnimalHousingSection). */}
           {activeTab === 'Housing' && (
-            <AnimalHousingSection animalId={animalId} speciesName={displaySpecies.toLowerCase()} styles={styles} />
+            <AnimalHousingSection animalId={realAnimalId} speciesName={displaySpecies.toLowerCase()} styles={styles} />
           )}
         </ScrollView>
       </View>
@@ -712,6 +745,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
+  },
+  missingAnimalBody: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  missingAnimalText: {
+    fontSize: typography.body,
+    color: P.nearBlack,
+    textAlign: 'center',
   },
   headerActions: {
     flexDirection: 'row',

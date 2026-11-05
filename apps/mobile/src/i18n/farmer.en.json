@@ -2000,6 +2000,7 @@
   "farmer.addInput.error.date": "Enter a valid date, e.g. 17 Sep 2026 or 2026-09-17.",
   "farmer.addInput.error.futureDate": "The date cannot be in the future.",
   "farmer.addInput.error.noCrop": "Open this screen from a crop to record an input against it.",
+  "farmer.livestock.detail.missingAnimal": "No animal was selected. Go back and open the animal again.",
   "farmer.livestock.detail.health.organicNotice": "Organic standard — only herbal & homeopathic treatments permitted. Antibiotics are restricted.",
   "farmer.livestock.detail.health.withdrawalTitle": "Milk not sellable — withdrawal active",
   "farmer.livestock.detail.health.withdrawalBody": "Clears {{date}} · {{count}} days left.",

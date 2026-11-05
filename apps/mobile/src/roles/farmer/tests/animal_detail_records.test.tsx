@@ -312,6 +312,24 @@ describe('animal + loading / error states', () => {
     expect(textOf(tree)).not.toContain('Lakshmi');
     expect(getPaths().filter((p) => p.includes('/health-records'))).toEqual([]);
   });
+
+  it('a missing animalId renders the missing-animal error state and makes no request', async () => {
+    const onBack = vi.fn();
+    const tree = await mount({ onBack });
+    expect(has(tree, 'animalDetail.missingAnimal')).toBe(true);
+    expect(textOf(tree)).toContain(t('farmer.livestock.detail.missingAnimal'));
+    expect(textOf(tree)).not.toContain('Lakshmi');
+    expect(textOf(tree)).not.toContain('C-014');
+    expect(getPaths()).toEqual([]);
+    await press(tree, 'animalDetail.missingAnimalBack');
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  it('a blank animalId is treated as missing', async () => {
+    const tree = await mount({ animalId: '   ' });
+    expect(has(tree, 'animalDetail.missingAnimal')).toBe(true);
+    expect(getPaths()).toEqual([]);
+  });
 });
 
 describe('Health tab', () => {
@@ -579,6 +597,15 @@ describe('source hygiene', () => {
     'useAnimalRecords.ts',
   ];
   const read = (f: string): string => fs.readFileSync(path.join(dir, f), 'utf8');
+
+  it('no fake animal stand-in (a1 / Lakshmi / C-014) in the detail screen or the farmer navigator wiring', () => {
+    const appSrc = fs.readFileSync(path.resolve(__dirname, '../App.tsx'), 'utf8');
+    for (const src of [read('AnimalDetailScreen.tsx'), appSrc]) {
+      expect(src).not.toContain("'Lakshmi'");
+      expect(src).not.toContain("'C-014'");
+      expect(src).not.toContain("'a1'");
+    }
+  });
 
   it('no mock seed data remains in the sections', () => {
     for (const mock of ["'Dr. Anand'", 'Upper paddock', 'Bedding replaced', 'Barn washed', 'Organic fodder + concentrate', '20 Nov 2026']) {
