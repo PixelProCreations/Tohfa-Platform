@@ -136,10 +136,10 @@ export function WarehouseOperationsScreen({
   ];
 
   const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials },
-    { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
-    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
+    { label: 'Material Handling', icon: <ClipboardIcon size={28} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'View Capacity', icon: <DonutIcon size={28} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: 'Operational Issues', icon: <ReportIssueIcon size={28} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={28} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
     ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
   ];
 
@@ -406,8 +406,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: adminSpacing.sm,
+    rowGap: 12,
+    marginBottom: adminSpacing.md,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -516,17 +516,26 @@ const styles = StyleSheet.create({
   actionTile: {
     flexBasis: '47%',
     flexGrow: 1,
+    minHeight: 96,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.xs,
+    paddingVertical: 18,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
-    gap: adminSpacing.xs,
+    justifyContent: 'center',
+    gap: adminSpacing.sm,
     ...adminShadow.sm,
   },
-  actionLabel: { ...adminType.caption, color: adminColors.ink, textAlign: 'center' },
+  actionLabel: {
+    ...adminType.caption,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginTop: 2,
+  },
   wideAction: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -631,11 +640,12 @@ const styles = StyleSheet.create({
   mainActionTile: {
     flexBasis: '47%',
     flexGrow: 1,
+    minHeight: 96,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.lg,
+    paddingVertical: 18,
     paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
