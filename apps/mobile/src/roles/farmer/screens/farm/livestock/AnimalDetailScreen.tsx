@@ -27,7 +27,10 @@ import { AnimalBreedingSection } from './AnimalBreedingSection';
 import { AnimalFeedSection } from './AnimalFeedSection';
 import { AnimalHealthSection } from './AnimalHealthSection';
 import { AnimalHousingSection } from './AnimalHousingSection';
-import { formatRegisterFormDate } from './animalRecordView';
+import { formatDayMonth, formatQuantity, formatRegisterFormDate } from './animalRecordView';
+import { AnimalRecordFormModal } from './AnimalRecordFormModal';
+import { AddRecordButton } from './animalDetailSectionParts';
+import { PRODUCTION_FORM_TYPES, productTypeLabel, type ProductionFormType } from './animalRecordForms';
 import { todayInKolkata } from '../../certifications/certificationForm';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
@@ -243,6 +246,29 @@ function formatShortDate(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
+/**
+ * The animal's MEAT / WOOL / MANURE logs, newest first. The list endpoint
+ * filters on one productType, so it is one request per type (merged here)
+ * rather than an unfiltered page the daily milk logs would crowd out.
+ */
+async function loadOtherProduce(animalId: string): Promise<ProductionLogResponse[]> {
+  const pages = await Promise.all(
+    PRODUCTION_FORM_TYPES.map((productType) => listProductionLogs({ animalId, productType })),
+  );
+  return pages
+    .flatMap((p) => p.items)
+    .sort((a, b) =>
+      a.loggedOn === b.loggedOn ? b.createdAt.localeCompare(a.createdAt) : b.loggedOn.localeCompare(a.loggedOn),
+    );
+}
+
+function isProductionFormType(v: string): v is ProductionFormType {
+  return (PRODUCTION_FORM_TYPES as readonly string[]).includes(v);
+}
+
+/** What the Production tab says after a MEAT / WOOL / MANURE log is saved (BR-139). */
+type ProduceNotice = { restricted: false } | { restricted: true; until: string | null };
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface AnimalDetailProps {
@@ -282,6 +308,10 @@ export function AnimalDetailScreen({
   const [productionLogs, setProductionLogs] = useState<ProductionLogResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown | null>(null);
+  const [otherProduce, setOtherProduce] = useState<ProductionLogResponse[]>([]);
+  const [otherProduceFailed, setOtherProduceFailed] = useState(false);
+  const [addingProduce, setAddingProduce] = useState(false);
+  const [produceNotice, setProduceNotice] = useState<ProduceNotice | null>(null);
   // No route param means no animal: render the missing-animal state rather
   // than fetching (or showing) a stand-in animal.
   const realAnimalId = animalId?.trim() ?? '';
@@ -311,6 +341,35 @@ export function AnimalDetailScreen({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Separate from load(): a failure here must not take the whole screen down.
+  const refreshOtherProduce = useCallback(async () => {
+    if (!hasAnimal) return;
+    try {
+      setOtherProduce(await loadOtherProduce(realAnimalId));
+      setOtherProduceFailed(false);
+    } catch {
+      setOtherProduceFailed(true);
+    }
+  }, [hasAnimal, realAnimalId]);
+
+  useEffect(() => {
+    void refreshOtherProduce();
+  }, [refreshOtherProduce]);
+
+  /**
+   * Re-reads the animal without the full-screen skeleton (load() would unmount
+   * the open tab). Used after a treatment moved `withdrawalUntil` (BR-138), so
+   * the withdrawal banner follows the server. A failure keeps the shown animal.
+   */
+  const refreshAnimal = useCallback(async () => {
+    if (!hasAnimal) return;
+    try {
+      setAnimal(await getAnimal(realAnimalId));
+    } catch {
+      // The next full load shows the new date.
+    }
+  }, [hasAnimal, realAnimalId]);
 
   // Real, authoritative values once loaded; the route-param props above only
   // cover the brief window before the GET resolves.
@@ -602,7 +661,12 @@ export function AnimalDetailScreen({
 
           {/* TAB 1: HEALTH — Dev's design, filled from the health-records API (AnimalHealthSection). */}
           {activeTab === 'Health' && animal && (
-            <AnimalHealthSection animal={animal} withdrawalActive={withdrawalActive} styles={styles} />
+            <AnimalHealthSection
+              animal={animal}
+              withdrawalActive={withdrawalActive}
+              onAnimalChanged={() => void refreshAnimal()}
+              styles={styles}
+            />
           )}
 
           {/* TAB 2: FEED — Dev's design, filled from feed-plans / feed-logs (AnimalFeedSection). */}
@@ -612,6 +676,7 @@ export function AnimalDetailScreen({
           {activeTab === 'Breeding' && (
             <AnimalBreedingSection
               animalId={realAnimalId}
+              gender={animal?.gender ?? null}
               styles={styles}
               onRegisterOffspring={animal ? handleRegisterOffspring : undefined}
             />
@@ -692,6 +757,99 @@ export function AnimalDetailScreen({
                   ))}
                 </View>
               )}
+
+              {/* MEAT / WOOL / MANURE: logged per animal; BR-139 decides on the server whether each is sellable. */}
+              <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.form.production.otherTitle')}</Text>
+              <AddRecordButton
+                label={t('farmer.livestock.detail.form.addProduction')}
+                onPress={() => {
+                  setProduceNotice(null);
+                  setAddingProduce(true);
+                }}
+                testID="animalDetail.production.add"
+                styles={styles}
+              />
+              {addingProduce ? (
+                <AnimalRecordFormModal
+                  kind="production"
+                  animalId={realAnimalId}
+                  withdrawalUntil={animal?.withdrawalUntil ?? null}
+                  onClose={() => setAddingProduce(false)}
+                  onSaved={(saved) => {
+                    setAddingProduce(false);
+                    // The server's flag, not the client's guess: BR-139 restricts whatever was sent.
+                    setProduceNotice(
+                      saved.production?.restrictedFromSale
+                        ? { restricted: true, until: animal?.withdrawalUntil ?? null }
+                        : { restricted: false },
+                    );
+                    void refreshOtherProduce();
+                  }}
+                />
+              ) : null}
+              {produceNotice?.restricted ? (
+                <View style={styles.productionAlertCard} accessibilityLiveRegion="polite">
+                  <ProhibitedCircleIcon size={17} color={P.twOrange700} />
+                  <Text
+                    style={[styles.productionAlertText, styles.itemMainCol]}
+                    testID="animalDetail.production.restrictedNotice"
+                  >
+                    {produceNotice.until
+                      ? t('farmer.livestock.detail.form.production.restrictedNotice', {
+                          date: formatDayMonth(produceNotice.until),
+                        })
+                      : t('farmer.livestock.detail.form.production.restrictedNoticeNoDate')}
+                  </Text>
+                </View>
+              ) : produceNotice ? (
+                <Text
+                  style={styles.itemSubtitle}
+                  accessibilityLiveRegion="polite"
+                  testID="animalDetail.production.savedNotice"
+                >
+                  {t('farmer.livestock.detail.form.production.savedNotice')}
+                </Text>
+              ) : null}
+              <View style={styles.whiteCardContainer}>
+                {otherProduceFailed ? (
+                  <Text style={styles.itemSubtitle} testID="animalDetail.production.otherFailed">
+                    {t('farmer.livestock.detail.form.production.otherLoadFailed')}
+                  </Text>
+                ) : otherProduce.length === 0 ? (
+                  <Text style={styles.itemSubtitle} testID="animalDetail.production.otherEmpty">
+                    {t('farmer.livestock.detail.form.production.otherEmpty')}
+                  </Text>
+                ) : (
+                  otherProduce.map((log, idx) => (
+                    <React.Fragment key={log.id}>
+                      {idx > 0 && <View style={styles.dividerLine} />}
+                      <View style={styles.itemRow} testID={`animalDetail.production.log:${log.id}`}>
+                        <View style={styles.itemMainCol}>
+                          <Text style={styles.itemTitle}>
+                            {t('farmer.livestock.detail.form.production.rowTitle', {
+                              product: isProductionFormType(log.productType)
+                                ? productTypeLabel(log.productType)
+                                : log.productType,
+                              date: formatDayMonth(log.loggedOn),
+                            })}
+                          </Text>
+                          {log.restrictedFromSale ? (
+                            <Text
+                              style={styles.productionAlertText}
+                              testID={`animalDetail.production.restricted:${log.id}`}
+                            >
+                              {t('farmer.livestock.detail.form.production.restrictedBadge')}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={styles.itemAmountBold}>
+                          {formatQuantity(log.quantity)} {t('farmer.livestock.detail.unit.KG')}
+                        </Text>
+                      </View>
+                    </React.Fragment>
+                  ))
+                )}
+              </View>
             </View>
           )}
 

@@ -9,12 +9,13 @@
  * While no standard is configured the server sends null: the records still
  * show, with no standard box value and no banner (never a guessed number).
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { authPalette as P, colors } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { BarnOutlineIcon, BroomCleaningIcon, ShieldCheckBadgeIcon } from './animalDetailIcons';
-import { SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AddRecordButton, SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AnimalRecordFormModal } from './AnimalRecordFormModal';
 import {
   formatDayMonth,
   formatQuantity,
@@ -39,6 +40,7 @@ export function AnimalHousingSection({
   const housingList = useAnimalHousing(animalId, true);
   const hygieneList = useAnimalHygieneLogs(animalId, true);
   const current = housingList.items[0];
+  const [adding, setAdding] = useState<'housing' | 'hygiene' | null>(null);
   const standard =
     housingList.firstPage !== null
       ? housingStandardView(current, housingList.firstPage.spaceStandard)
@@ -46,8 +48,27 @@ export function AnimalHousingSection({
 
   return (
     <View style={styles.tabContentContainer}>
+      {adding !== null ? (
+        <AnimalRecordFormModal
+          kind={adding}
+          animalId={animalId}
+          onClose={() => setAdding(null)}
+          onSaved={() => {
+            // A new housing record becomes the current one; the server re-judges it against BR-141.
+            (adding === 'housing' ? housingList : hygieneList).refresh();
+            setAdding(null);
+          }}
+        />
+      ) : null}
+
       {/* Section: HOUSING */}
       <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.housing.title')}</Text>
+      <AddRecordButton
+        label={t('farmer.livestock.detail.form.addHousing')}
+        onPress={() => setAdding('housing')}
+        testID="animalDetail.housing.add"
+        styles={styles}
+      />
       {housingList.state !== 'ready' || standard === null ? (
         <SectionState list={housingList} testID="animalDetail.housing" styles={styles} />
       ) : current === undefined ? (
@@ -117,6 +138,12 @@ export function AnimalHousingSection({
 
       {/* Section: HYGIENE LOG */}
       <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.housing.hygiene')}</Text>
+      <AddRecordButton
+        label={t('farmer.livestock.detail.form.addHygiene')}
+        onPress={() => setAdding('hygiene')}
+        testID="animalDetail.housing.addHygiene"
+        styles={styles}
+      />
       {hygieneList.state !== 'ready' ? (
         <SectionState
           list={hygieneList}

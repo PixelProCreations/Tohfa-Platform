@@ -3,11 +3,13 @@
  * banner, VACCINATIONS / DEWORMING / CHECKUP & TREATMENT cards) filled from
  * GET /farmers/me/livestock/animals/{id}/health-records instead of sample rows.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { authPalette as P, colors } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import type { AnimalResponse } from '../../../api/livestock';
+import { AnimalRecordFormModal } from './AnimalRecordFormModal';
+import { changesWithdrawal } from './animalRecordForms';
 import {
   DewormingBottleIcon,
   LeafIcon,
@@ -15,7 +17,7 @@ import {
   StethoscopeIcon,
   VaccineVialsIcon,
 } from './animalDetailIcons';
-import { SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AddRecordButton, SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
 import { daysBetween, formatDayMonth, splitHealthRecords, type HealthRow } from './animalRecordView';
 import { todayInKolkata } from '../../certifications/certificationForm';
 import { useAnimalHealthRecords } from './useAnimalRecords';
@@ -23,6 +25,11 @@ import { useAnimalHealthRecords } from './useAnimalRecords';
 export interface AnimalHealthSectionProps extends SectionProps {
   animal: AnimalResponse;
   withdrawalActive: boolean;
+  /**
+   * Re-reads the animal after a treatment that carried a withdrawal window:
+   * the server moved `withdrawalUntil` (BR-138), and the banner is driven by it.
+   */
+  onAnimalChanged?: (() => void) | undefined;
 }
 
 /** Stands in for the date while translating, so the date can be bolded wherever the language puts it. */
@@ -76,9 +83,15 @@ function DueRows({
   );
 }
 
-export function AnimalHealthSection({ animal, withdrawalActive, styles }: AnimalHealthSectionProps): React.JSX.Element {
+export function AnimalHealthSection({
+  animal,
+  withdrawalActive,
+  onAnimalChanged,
+  styles,
+}: AnimalHealthSectionProps): React.JSX.Element {
   const healthList = useAnimalHealthRecords(animal.id, true);
   const sections = splitHealthRecords(healthList.items);
+  const [adding, setAdding] = useState(false);
 
   return (
     <View style={styles.tabContentContainer}>
@@ -113,6 +126,25 @@ export function AnimalHealthSection({ animal, withdrawalActive, styles }: Animal
           </View>
         </View>
       )}
+
+      <AddRecordButton
+        label={t('farmer.livestock.detail.form.addHealth')}
+        onPress={() => setAdding(true)}
+        testID="animalDetail.health.add"
+        styles={styles}
+      />
+      {adding ? (
+        <AnimalRecordFormModal
+          kind="health"
+          animalId={animal.id}
+          onClose={() => setAdding(false)}
+          onSaved={(saved) => {
+            setAdding(false);
+            healthList.refresh();
+            if (changesWithdrawal(saved.record)) onAnimalChanged?.();
+          }}
+        />
+      ) : null}
 
       {healthList.state !== 'ready' ? (
         <SectionState list={healthList} testID="animalDetail.health" styles={styles} />

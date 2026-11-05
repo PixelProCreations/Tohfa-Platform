@@ -4,24 +4,32 @@
  * instead of sample rows. The cycle number is derived (1 + CALVING records,
  * see breedingCycleNumber) and hidden while older pages are unloaded.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { authPalette as P, colors } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import type { AnimalGender } from '../../../api/livestock';
 import { CalfCowIcon, PlusCircleGreenIcon } from './animalDetailIcons';
-import { SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AddRecordButton, SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AnimalRecordFormModal } from './AnimalRecordFormModal';
 import { breedingCycleNumber, calvingRows, deriveCurrentCycle, localTodayIso } from './animalRecordView';
 import { useAnimalBreedingRecords } from './useAnimalRecords';
 
 export interface AnimalBreedingSectionProps extends SectionProps {
   animalId: string;
+  /**
+   * The animal's sex, once loaded. BR-140: breeding records exist only for
+   * FEMALE animals (the server answers 422 for a MALE one), so "Add" is
+   * offered only for a known FEMALE.
+   */
+  gender: AnimalGender | null;
   /** Opens Register Animal pre-filled for this calving's newborn; the button is hidden without it. */
   onRegisterOffspring?: ((calvingIso: string, gender: AnimalGender | null) => void) | undefined;
 }
 
 export function AnimalBreedingSection({
   animalId,
+  gender,
   onRegisterOffspring,
   styles,
 }: AnimalBreedingSectionProps): React.JSX.Element {
@@ -29,11 +37,31 @@ export function AnimalBreedingSection({
   const currentCycle = deriveCurrentCycle(breedingList.items, localTodayIso());
   const cycleNumber = breedingCycleNumber(breedingList.items, breedingList.hasMore);
   const calvings = calvingRows(breedingList.items);
+  const [adding, setAdding] = useState(false);
 
   return (
     <View style={styles.tabContentContainer}>
       {/* Section: CURRENT CYCLE */}
       <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.breeding.currentCycle')}</Text>
+      {gender === 'FEMALE' ? (
+        <AddRecordButton
+          label={t('farmer.livestock.detail.form.addBreeding')}
+          onPress={() => setAdding(true)}
+          testID="animalDetail.breeding.add"
+          styles={styles}
+        />
+      ) : null}
+      {adding ? (
+        <AnimalRecordFormModal
+          kind="breeding"
+          animalId={animalId}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            breedingList.refresh();
+          }}
+        />
+      ) : null}
       {breedingList.state !== 'ready' ? (
         <SectionState list={breedingList} testID="animalDetail.breeding" styles={styles} />
       ) : (

@@ -4,12 +4,13 @@
  * newest feed plan (GET .../feed-plans?limit=1, "the newest is current") and
  * GET .../feed-logs instead of sample rows.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, View } from 'react-native';
 import { authPalette as P } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { ConcentrateMeshIcon, LinkChainIcon, SproutFodderIcon } from './animalDetailIcons';
-import { SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AddRecordButton, SectionState, ShowMoreRow, type SectionProps } from './animalDetailSectionParts';
+import { AnimalRecordFormModal } from './AnimalRecordFormModal';
 import { feedLogAmount, feedReferenceView, feedTypeLabel, formatDayMonth } from './animalRecordView';
 import { useAnimalFeedLogs, useAnimalFeedPlan } from './useAnimalRecords';
 
@@ -22,11 +23,31 @@ export function AnimalFeedSection({ animalId, styles }: AnimalFeedSectionProps):
   const feedLogList = useAnimalFeedLogs(animalId, true);
   const currentPlan = feedPlanList.items[0];
   const reference = currentPlan ? feedReferenceView(currentPlan) : null;
+  const [adding, setAdding] = useState<'feedPlan' | 'feedLog' | null>(null);
 
   return (
     <View style={styles.tabContentContainer}>
+      {adding !== null ? (
+        <AnimalRecordFormModal
+          kind={adding}
+          animalId={animalId}
+          onClose={() => setAdding(null)}
+          onSaved={() => {
+            // The newest plan is the current one, so a new plan replaces the reference card.
+            (adding === 'feedPlan' ? feedPlanList : feedLogList).refresh();
+            setAdding(null);
+          }}
+        />
+      ) : null}
+
       {/* Section: FEED REFERENCE */}
       <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.feed.reference')}</Text>
+      <AddRecordButton
+        label={t('farmer.livestock.detail.form.addFeedPlan')}
+        onPress={() => setAdding('feedPlan')}
+        testID="animalDetail.feed.addPlan"
+        styles={styles}
+      />
       {feedPlanList.state !== 'ready' ? (
         <SectionState list={feedPlanList} testID="animalDetail.feed.plan" styles={styles} />
       ) : reference === null ? (
@@ -76,6 +97,12 @@ export function AnimalFeedSection({ animalId, styles }: AnimalFeedSectionProps):
 
       {/* Section: DAILY FEED LOG */}
       <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.feed.dailyLog')}</Text>
+      <AddRecordButton
+        label={t('farmer.livestock.detail.form.addFeedLog')}
+        onPress={() => setAdding('feedLog')}
+        testID="animalDetail.feed.addLog"
+        styles={styles}
+      />
       {feedLogList.state !== 'ready' ? (
         <SectionState list={feedLogList} testID="animalDetail.feed.logs" styles={styles} />
       ) : (

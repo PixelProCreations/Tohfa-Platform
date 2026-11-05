@@ -38,11 +38,19 @@ vi.mock('react-native-svg', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  Button: 'Button',
   ErrorState: 'ErrorState',
+  Input: 'Input',
   Skeleton: 'Skeleton',
   SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
 }));
+
+// The tabs' add-record modal imports the attachment flow; its native picker
+// and upload modules cannot load in Node (animal_detail_add_records covers them).
+vi.mock('../native/documentPicker', () => ({ default: { pickSingle: vi.fn(), isCancel: vi.fn(), types: {} } }));
+vi.mock('../api/registration', () => ({ signUpload: vi.fn() }));
+vi.mock('../api/uploader', () => ({ uploadWithResume: vi.fn() }));
 
 const apiGet = vi.hoisted(() => vi.fn());
 vi.mock('../../../shell/api/client', async (importOriginal) => {
