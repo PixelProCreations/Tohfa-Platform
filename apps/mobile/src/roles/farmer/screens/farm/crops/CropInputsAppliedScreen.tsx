@@ -1,17 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   BackHandler,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { Button, EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import { deleteCropInput } from '../../../api/crops';
+import { authPalette as P, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import { confirmDeleteCropInput, purposeLabel, targetPestLabel } from './inputDetails';
+import {
+  formatApplicationQuantity,
+  formatAppliedDate,
+  historyTypeLabel,
+  useInputApplications,
+  type ApplicationKind,
+  type InputApplication,
+} from './inputApplications';
+
+/**
+ * "Inputs Applied" — the input-application history. Two entry points:
+ *  - Crop Detail → Inputs: `crop` is set, so only that crop's BR-56 inputs
+ *    (and any pest treatment log recorded against that crop) are shown.
+ *  - Input Management → Full history: `crop` is null, so every own crop's
+ *    inputs (harvested ones included, GET /farmers/me/crop-inputs, BR-56h)
+ *    plus every zone's pest treatment logs are merged; each row then names
+ *    its crop (or zone) after the date.
+ * The loader walks the cursor to the end so the stat counts are exact; the
+ * list is revealed ROWS_PER_PAGE rows at a time.
+ */
+
+// Rows revealed per "Show more" tap (a layout choice, not a business threshold).
+const ROWS_PER_PAGE = 20;
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -74,73 +101,43 @@ function PlusIcon({ size = 22, color = P.white }: { size?: number; color?: strin
 }
 
 // ─────────────────────────────────────────────
-// Types & Sample Data
+// Types
 // ─────────────────────────────────────────────
 
-export interface CropInputItem {
-  id: string;
-  category: 'Fertigation' | 'Pest Treatment';
-  name: string;
-  timestamp: string;
-  quantity: string;
-  tag: string;
+type Filter = 'all' | ApplicationKind;
+
+const FILTERS: readonly Filter[] = ['all', 'fertigation', 'pest'];
+
+function filterLabel(filter: Filter): string {
+  return filter === 'all' ? t('farmer.inputHistory.filter.all') : historyTypeLabel(filter);
 }
 
-const INITIAL_INPUTS: CropInputItem[] = [
-  {
-    id: 'in1',
-    category: 'Fertigation',
-    name: 'Vermicompost Tea',
-    timestamp: '14 Jul · 07:00 AM',
-    quantity: '4 L',
-    tag: 'Fertigation',
-  },
-  {
-    id: 'in2',
-    category: 'Pest Treatment',
-    name: 'Neem Oil Concentrate',
-    timestamp: '11 Jul · 08:45 AM · Aphids',
-    quantity: '200 ml',
-    tag: 'Pest Treatment',
-  },
-  {
-    id: 'in3',
-    category: 'Fertigation',
-    name: 'Panchagavya',
-    timestamp: '9 Jul · 06:30 AM',
-    quantity: '3 L',
-    tag: 'Fertigation',
-  },
-  {
-    id: 'in4',
-    category: 'Fertigation',
-    name: 'Jeevamrutha',
-    timestamp: '2 Jul · 07:30 AM · Root Zone',
-    quantity: '8 L',
-    tag: 'Fertigation',
-  },
-  {
-    id: 'in5',
-    category: 'Pest Treatment',
-    name: 'Agniastra Decoction',
-    timestamp: '26 Jun · 06:15 AM · Preventive',
-    quantity: '150 ml',
-    tag: 'Pest Treatment',
-  },
-];
+/** What Edit hands to the navigator (BR-56l): the ids to load, plus display names. */
+export interface EditInputTarget {
+  farmCropId: string;
+  inputId: string;
+  cropName: string | null;
+  zoneName: string | null;
+}
 
 export interface CropInputsAppliedScreenProps {
+  /** Set for one crop's history; null/undefined for the farm-wide history. */
   crop?: CropItem | null;
   onBack?: () => void;
   onNewInput?: () => void;
+  /** Opens the edit screen for a crop-input row. Without it, rows offer no Edit. */
+  onEditInput?: (target: EditInputTarget) => void;
 }
 
 export function CropInputsAppliedScreen({
   crop,
   onBack,
   onNewInput,
+  onEditInput,
 }: CropInputsAppliedScreenProps): React.JSX.Element {
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Fertigation' | 'Pest Treatment'>('All');
+  const [activeFilter, setActiveFilter] = useState<Filter>('all');
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(ROWS_PER_PAGE);
 
   // Android hardware back
   useEffect(() => {
@@ -154,25 +151,231 @@ export function CropInputsAppliedScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const cropName = crop?.name ?? 'Carrot';
-  const variety = crop?.variety ?? 'Nantes';
-  const zone = crop?.zoneShort || crop?.zone || 'Zone 1';
-  const subtitle = `${cropName} — ${variety} · ${zone}`;
+  const scopedCrop = useMemo(
+    () => (crop?.id ? { id: crop.id, name: crop.name, zone: crop.zone || null } : null),
+    [crop?.id, crop?.name, crop?.zone],
+  );
+  const { state, data, retry, refreshing, refresh } = useInputApplications('history', scopedCrop);
 
-  const fertigationCount = INITIAL_INPUTS.filter((i) => i.category === 'Fertigation').length + 2; // 6
-  const pestCount = INITIAL_INPUTS.filter((i) => i.category === 'Pest Treatment').length; // 2
+  const isFarmWide = scopedCrop === null;
+  const zone = crop?.zoneShort || crop?.zone || '';
+  const subtitle = isFarmWide
+    ? t('farmer.inputHistory.allCrops')
+    : crop?.variety
+      ? t('farmer.inputHistory.cropSubtitle', { crop: crop.name, variety: crop.variety, zone })
+      : t('farmer.inputHistory.cropSubtitleNoVariety', { crop: crop?.name ?? '', zone });
 
-  const filteredInputs = INITIAL_INPUTS.filter((item) => {
-    if (activeFilter === 'All') return true;
-    return item.category === activeFilter;
-  });
+  const applications = data?.applications ?? [];
+  const fertigationCount = applications.filter((a) => a.kind === 'fertigation').length;
+  const pestCount = applications.filter((a) => a.kind === 'pest').length;
+  const countText = (n: number) => (state === 'ready' ? String(n) : t('farmer.inputHistory.placeholder'));
+
+  const filteredInputs = activeFilter === 'all' ? applications : applications.filter((a) => a.kind === activeFilter);
+  const visibleInputs = filteredInputs.slice(0, visibleCount);
+
+  const selectFilter = (filter: Filter) => {
+    setActiveFilter(filter);
+    setVisibleCount(ROWS_PER_PAGE);
+  };
+
+  // Dev showed extra context after the date ("· Aphids"); the farm-wide list names the crop, or the zone.
+  const rowSubtitle = (item: InputApplication): string => {
+    const date = formatAppliedDate(item.appliedOn);
+    const where = isFarmWide ? (item.cropName ?? item.zoneName) : null;
+    return where === null ? date : `${date} · ${where}`;
+  };
+
+  /**
+   * DELETE /farmers/me/crops/:farmCropId/inputs/:id after a confirmation (BR-56l),
+   * then the list is fetched again so counts and rows match the server.
+   */
+  const handleDelete = (item: InputApplication) => {
+    const target = item.cropInput;
+    if (target === null || deletingKey !== null) return;
+    confirmDeleteCropInput(item.name, () => {
+      setDeletingKey(item.key);
+      deleteCropInput(target.farmCropId, target.id)
+        .then(() => refresh())
+        .catch(() => {
+          Alert.alert(t('farmer.inputHistory.deleteFailed.title'), t('farmer.inputHistory.deleteFailed.body'));
+        })
+        .finally(() => setDeletingKey(null));
+    });
+  };
 
   const handleFabPress = () => {
     if (onNewInput) {
       onNewInput();
+    } else if (crop) {
+      Alert.alert(
+        t('farmer.inputHistory.applyInput.title'),
+        t('farmer.inputHistory.applyInput.body', { crop: crop.name, zone }),
+      );
     } else {
-      Alert.alert('Apply Input', `Record chemical or organic input applied for ${cropName} (${zone})`);
+      Alert.alert(t('farmer.inputHistory.applyInput.title'), t('farmer.inputHistory.addHint'));
     }
+  };
+
+  const renderList = () => {
+    if (state === 'loading') {
+      return (
+        <View testID="inputHistory.loading" style={styles.stateBox}>
+          <Skeleton />
+          <Skeleton />
+          <Skeleton />
+        </View>
+      );
+    }
+    if (state === 'error' || data === null) {
+      return (
+        <View testID="inputHistory.error" style={styles.stateBox}>
+          <ErrorState
+            message={t('farmer.inputHistory.loadError')}
+            onRetry={retry}
+            retryTitle={t('farmer.common.retry')}
+          />
+        </View>
+      );
+    }
+    if (filteredInputs.length === 0) {
+      return (
+        <View testID="inputHistory.empty" style={styles.stateBox}>
+          <EmptyState title={t('farmer.inputHistory.empty')} />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.inputsList}>
+        {visibleInputs.map((item) => {
+          const isFertigation = item.kind === 'fertigation';
+          return (
+            <View key={item.key} testID={`inputHistory.row.${item.key}`} style={styles.inputCard}>
+              {/* Category-specific Icon Badge */}
+              <View
+                style={[
+                  styles.inputIconBadge,
+                  isFertigation
+                    ? { backgroundColor: P.twBlue50 }
+                    : { backgroundColor: P.twRed50 },
+                ]}
+              >
+                {isFertigation ? (
+                  <DropletIcon size={18} color={P.twBlue600} />
+                ) : (
+                  <PestIcon size={18} color={P.twRed600} />
+                )}
+              </View>
+
+              <View style={styles.inputTextCol}>
+                <Text testID={`inputHistory.row.${item.key}.title`} style={styles.inputName}>{item.name}</Text>
+                <Text testID={`inputHistory.row.${item.key}.subtitle`} style={styles.inputSubtitle}>
+                  {rowSubtitle(item)}
+                </Text>
+
+                {/* Tag badge */}
+                <View
+                  style={[
+                    styles.tagBadge,
+                    isFertigation ? styles.tagBadgeBlue : styles.tagBadgeRed,
+                  ]}
+                >
+                  <Text
+                    testID={`inputHistory.row.${item.key}.tag`}
+                    style={[
+                      styles.tagBadgeText,
+                      isFertigation ? styles.tagBadgeTextBlue : styles.tagBadgeTextRed,
+                    ]}
+                  >
+                    {historyTypeLabel(item.kind)}
+                  </Text>
+                </View>
+
+                {/* What the farmer recorded (BR-56k): only lines that have a value. */}
+                {item.purpose !== null ? (
+                  <Text testID={`inputHistory.row.${item.key}.purpose`} style={styles.inputDetailText}>
+                    {t('farmer.inputHistory.detail.purpose', { value: purposeLabel(item.purpose) })}
+                  </Text>
+                ) : null}
+                {item.targetPest !== null ? (
+                  <Text testID={`inputHistory.row.${item.key}.targetPest`} style={styles.inputDetailText}>
+                    {t('farmer.inputHistory.detail.targetPest', { value: targetPestLabel(item.targetPest) })}
+                  </Text>
+                ) : null}
+                {item.appliedBy !== null ? (
+                  <Text testID={`inputHistory.row.${item.key}.appliedBy`} style={styles.inputDetailText}>
+                    {t('farmer.inputHistory.detail.appliedBy', { value: item.appliedBy })}
+                  </Text>
+                ) : null}
+
+                {/* Edit / Delete (BR-56l): crop inputs only; a pest treatment log lives in another table. */}
+                {item.cropInput !== null ? (
+                  <View style={styles.rowActions}>
+                    {onEditInput ? (
+                      <TouchableOpacity
+                        testID={`inputHistory.row.${item.key}.edit`}
+                        style={styles.rowActionButton}
+                        onPress={() => {
+                          const target = item.cropInput;
+                          if (target === null) return;
+                          onEditInput({
+                            farmCropId: target.farmCropId,
+                            inputId: target.id,
+                            cropName: item.cropName,
+                            zoneName: item.zoneName,
+                          });
+                        }}
+                        activeOpacity={0.75}
+                        accessibilityRole="button"
+                        accessibilityLabel={t('farmer.inputHistory.editA11y', { name: item.name })}
+                      >
+                        <Text style={styles.rowActionText}>{t('farmer.inputHistory.edit')}</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                    <TouchableOpacity
+                      testID={`inputHistory.row.${item.key}.delete`}
+                      style={styles.rowActionButton}
+                      onPress={() => handleDelete(item)}
+                      disabled={deletingKey !== null}
+                      activeOpacity={0.75}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('farmer.inputHistory.deleteA11y', { name: item.name })}
+                    >
+                      <Text style={styles.rowActionDeleteText}>{t('farmer.inputHistory.delete')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Quantity */}
+              <Text testID={`inputHistory.row.${item.key}.quantity`} style={styles.inputQuantityText}>
+                {formatApplicationQuantity(item.quantity)}
+              </Text>
+            </View>
+          );
+        })}
+
+        {filteredInputs.length > visibleInputs.length ? (
+          <Button
+            testID="inputHistory.showMore"
+            title={t('farmer.inputHistory.showMore')}
+            variant="outline"
+            onPress={() => setVisibleCount((n) => n + ROWS_PER_PAGE)}
+          />
+        ) : null}
+
+        {data.complete ? null : (
+          <Text testID="inputHistory.incomplete" style={styles.inputSubtitle}>
+            {t('farmer.inputHistory.incomplete')}
+          </Text>
+        )}
+        {/* Some zone's pest treatment logs failed to load: the rest is shown, and this says so. */}
+        {data.partial ? (
+          <Text testID="inputHistory.partial" style={styles.inputSubtitle}>
+            {t('farmer.inputHistory.partial')}
+          </Text>
+        ) : null}
+      </View>
+    );
   };
 
   return (
@@ -183,18 +386,19 @@ export function CropInputsAppliedScreen({
         {/* ── Header ── */}
         <View style={styles.header}>
           <TouchableOpacity
+            testID="inputHistory.back"
             style={styles.backButton}
             onPress={onBack}
             activeOpacity={0.7}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.inputHistory.back')}
           >
             <ArrowBackIcon size={20} color={P.twGray800} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>Inputs Applied</Text>
+            <Text style={styles.headerTitle}>{t('farmer.inputHistory.title')}</Text>
             <Text style={styles.headerSubtitle}>{subtitle}</Text>
           </View>
         </View>
@@ -203,6 +407,7 @@ export function CropInputsAppliedScreen({
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={P.deepGreen} />}
         >
           {/* ── Top Stat Cards ── */}
           <View style={styles.statsRow}>
@@ -211,8 +416,8 @@ export function CropInputsAppliedScreen({
               <View style={[styles.statIconBadge, { backgroundColor: P.twBlue50 }]}>
                 <DropletIcon size={18} color={P.twBlue600} />
               </View>
-              <Text style={styles.statValue}>{fertigationCount}</Text>
-              <Text style={styles.statLabel}>Fertigation Events</Text>
+              <Text testID="inputHistory.count.fertigation" style={styles.statValue}>{countText(fertigationCount)}</Text>
+              <Text style={styles.statLabel}>{t('farmer.inputHistory.stat.fertigation')}</Text>
             </View>
 
             {/* Card 2: Pest Treatments */}
@@ -220,8 +425,8 @@ export function CropInputsAppliedScreen({
               <View style={[styles.statIconBadge, { backgroundColor: P.twRed50 }]}>
                 <PestIcon size={18} color={P.twRed600} />
               </View>
-              <Text style={styles.statValue}>{pestCount}</Text>
-              <Text style={styles.statLabel}>Pest Treatments</Text>
+              <Text testID="inputHistory.count.pest" style={styles.statValue}>{countText(pestCount)}</Text>
+              <Text style={styles.statLabel}>{t('farmer.inputHistory.stat.pest')}</Text>
             </View>
           </View>
 
@@ -232,25 +437,27 @@ export function CropInputsAppliedScreen({
             contentContainerStyle={styles.filterRow}
             style={styles.filterScrollView}
           >
-            {(['All', 'Fertigation', 'Pest Treatment'] as const).map((filter) => {
+            {FILTERS.map((filter) => {
               const isSelected = activeFilter === filter;
               return (
                 <TouchableOpacity
                   key={filter}
+                  testID={`inputHistory.filter.${filter}`}
                   style={[
                     styles.filterChip,
                     isSelected ? styles.filterChipActive : styles.filterChipInactive,
                   ]}
-                  onPress={() => setActiveFilter(filter)}
+                  onPress={() => selectFilter(filter)}
                   activeOpacity={0.75}
                 >
                   <Text
+                    testID={`inputHistory.filter.${filter}.label`}
                     style={[
                       styles.filterChipText,
                       isSelected ? styles.filterChipTextActive : styles.filterChipTextInactive,
                     ]}
                   >
-                    {filter}
+                    {filterLabel(filter)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -258,66 +465,19 @@ export function CropInputsAppliedScreen({
           </ScrollView>
 
           {/* ── Inputs Activity Cards List ── */}
-          <View style={styles.inputsList}>
-            {filteredInputs.map((item) => {
-              const isFertigation = item.category === 'Fertigation';
-              return (
-                <View key={item.id} style={styles.inputCard}>
-                  {/* Category-specific Icon Badge */}
-                  <View
-                    style={[
-                      styles.inputIconBadge,
-                      isFertigation
-                        ? { backgroundColor: P.twBlue50 }
-                        : { backgroundColor: P.twRed50 },
-                    ]}
-                  >
-                    {isFertigation ? (
-                      <DropletIcon size={18} color={P.twBlue600} />
-                    ) : (
-                      <PestIcon size={18} color={P.twRed600} />
-                    )}
-                  </View>
-
-                  <View style={styles.inputTextCol}>
-                    <Text style={styles.inputName}>{item.name}</Text>
-                    <Text style={styles.inputSubtitle}>{item.timestamp}</Text>
-
-                    {/* Tag badge */}
-                    <View
-                      style={[
-                        styles.tagBadge,
-                        isFertigation ? styles.tagBadgeBlue : styles.tagBadgeRed,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.tagBadgeText,
-                          isFertigation ? styles.tagBadgeTextBlue : styles.tagBadgeTextRed,
-                        ]}
-                      >
-                        {item.tag}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Quantity */}
-                  <Text style={styles.inputQuantityText}>{item.quantity}</Text>
-                </View>
-              );
-            })}
-          </View>
+          {renderList()}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
 
         {/* ── Floating Action Button (FAB) ── */}
         <TouchableOpacity
+          testID="inputHistory.fab"
           style={styles.fabButton}
           onPress={handleFabPress}
           activeOpacity={0.85}
           accessibilityRole="button"
-          accessibilityLabel="Add input applied"
+          accessibilityLabel={t('farmer.inputHistory.add')}
         >
           <PlusIcon size={24} color={P.white} />
         </TouchableOpacity>
@@ -526,6 +686,34 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  // New (not on Dev): wrapper for the loading / error / empty states of the list.
+  stateBox: {
+    gap: spacing.sm,
+  },
+  inputDetailText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '500',
+    color: P.twGray500,
+    marginTop: spacing.xs,
+  },
+  rowActions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+  },
+  rowActionButton: {
+    paddingVertical: spacing.xs,
+  },
+  rowActionText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.forestGreen,
+  },
+  rowActionDeleteText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '700',
+    color: P.red700,
   },
   fabButton: {
     position: 'absolute',

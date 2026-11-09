@@ -72,6 +72,16 @@ export function requireIdempotencyKey(raw: string | undefined): string {
   return key;
 }
 
+/**
+ * For endpoints where the key is OPTIONAL (non-money farmer record writes, e.g. BR-56i / BR-55h): a
+ * missing, empty or whitespace-only header is `undefined` (the write runs as it always did); a present
+ * one is held to the same rules as a required key, so an over-long key is still a 422.
+ */
+export function optionalIdempotencyKey(raw: string | undefined): string | undefined {
+  if (raw === undefined || raw.trim().length === 0) return undefined;
+  return requireIdempotencyKey(raw);
+}
+
 /** JSON with object keys sorted, so equal requests hash equal whatever the key order. */
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;

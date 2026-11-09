@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
 import { deleteFarmAsset } from './api/farmAssets';
+import { deleteTreePlanting } from './api/treePlantings';
 import { tokenStorage } from './storage/tokenStorage';
 import { fetchMe, hasSessionCredentials, logout } from './api/auth';
 import { useWarehousePermissions } from '../admin/permissions/useWarehousePermissions';
@@ -58,6 +59,7 @@ import { InputManagementScreen } from './screens/farm/crops/InputManagementScree
 import { LogFertigationScreen } from './screens/farm/crops/LogFertigationScreen';
 import { LogPestTreatmentScreen } from './screens/farm/pest/LogPestTreatmentScreen';
 import { AddInputAppliedScreen } from './screens/farm/crops/AddInputAppliedScreen';
+import { EditInputAppliedScreen } from './screens/farm/crops/EditInputAppliedScreen';
 import { SoilManagementScreen } from './screens/farm/soil/SoilManagementScreen';
 import { SoilTestRecordsScreen } from './screens/farm/soil/SoilTestRecordsScreen';
 import { SoilHealthTrackerScreen } from './screens/farm/soil/SoilHealthTrackerScreen';
@@ -515,6 +517,7 @@ export type ScreenName =
   | 'CropDiaryEntries'
   | 'CropInputsApplied'
   | 'AddInputApplied'
+  | 'EditInputApplied'
   | 'CropWorkforceHours'
   | 'CropNPKContribution'
   | 'SoilManagement'
@@ -2397,9 +2400,10 @@ export default function App(): React.JSX.Element {
               if (crop) setSelectedCrop(crop);
               navigate('LogFertigation');
             }}
-            onNavigateToLogPestTreatment={(crop) => {
+            onNavigateToLogPestTreatment={(crop, context) => {
               if (crop) setSelectedCrop(crop);
-              navigate('LogPestTreatment');
+              // A pest reminder's "Log now" carries the reminder's zone.
+              navigate('LogPestTreatment', context ? { farmId: context.farmId, plotId: context.plotId } : {});
             }}
             onNavigateToLogInput={(crop, inputType) => {
               if (crop) setSelectedCrop(crop);
@@ -2411,7 +2415,7 @@ export default function App(): React.JSX.Element {
                 navigate('AddInputApplied', { initialInputType: inputType });
               }
             }}
-            onNavigateToFullHistory={() => navigate('CropInputsApplied')}
+            onNavigateToFullHistory={() => navigate('CropInputsApplied', { scope: 'all' })}
           />
         ) : screen === 'LogFertigation' ? (
           <LogFertigationScreen
@@ -2422,6 +2426,8 @@ export default function App(): React.JSX.Element {
         ) : screen === 'LogPestTreatment' ? (
           <LogPestTreatmentScreen
             crop={selectedCrop}
+            farmId={typeof params['farmId'] === 'string' ? params['farmId'] : undefined}
+            plotId={typeof params['plotId'] === 'string' ? params['plotId'] : undefined}
             onBack={goBack}
             onSave={() => goBack('InputManagement')}
           />
@@ -2504,16 +2510,31 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'CropInputsApplied' ? (
           <CropInputsAppliedScreen
-            crop={selectedCrop}
+            // Input Management's "Full history" is farm-wide; Crop Detail's is that crop's.
+            crop={params['scope'] === 'all' ? null : selectedCrop}
             onBack={goBack}
-            onNewInput={() => navigate('AddInputApplied')}
+            onNewInput={() => navigate('AddInputApplied', params['scope'] === 'all' ? { scope: 'all' } : {})}
+            // BR-56l: back from the edit screen remounts this list, which refetches.
+            onEditInput={(target) => navigate('EditInputApplied', { ...target })}
           />
         ) : screen === 'AddInputApplied' ? (
           <AddInputAppliedScreen
-            crop={selectedCrop}
+            // Opened from the farm-wide history there is no single crop to log against: never reuse a stale
+            // one. With crop=null the screen shows a crop picker and the farmer chooses the crop.
+            crop={params['scope'] === 'all' ? null : selectedCrop}
             initialInputType={params['initialInputType'] as 'Fertigation' | 'Pest Treatment' | undefined}
             onBack={goBack}
             onSave={goBack}
+          />
+        ) : screen === 'EditInputApplied' && typeof params['farmCropId'] === 'string' && typeof params['inputId'] === 'string' ? (
+          <EditInputAppliedScreen
+            farmCropId={params['farmCropId']}
+            inputId={params['inputId']}
+            cropName={typeof params['cropName'] === 'string' ? params['cropName'] : null}
+            zoneName={typeof params['zoneName'] === 'string' ? params['zoneName'] : null}
+            onBack={goBack}
+            onSaved={() => goBack()}
+            onDeleted={() => goBack()}
           />
         ) : screen === 'CropWorkforceHours' ? (
           <CropWorkforceHoursScreen
@@ -2981,10 +3002,11 @@ export default function App(): React.JSX.Element {
                 ? {
                   id: selectedTreeForEdit.id,
                   species: selectedTreeForEdit.species ?? selectedTreeForEdit.name.split(' (')[0],
-                  treeCount: selectedTreeForEdit.treeCount ?? 12,
+                  treeCount: selectedTreeForEdit.treeCount,
                   plantedDate: selectedTreeForEdit.plantedDate?.replace('Planted ', ''),
                   locationZone: selectedTreeForEdit.zoneInfo,
-                  purpose: selectedTreeForEdit.purposeText ?? 'Shade & windbreak',
+                  // A form prefill: no recorded purpose stays empty rather than becoming sample text.
+                  purpose: selectedTreeForEdit.purposeText,
                 }
                 : undefined
             }
@@ -2993,9 +3015,11 @@ export default function App(): React.JSX.Element {
             onRemove={() => {
               setSelectedItemForRemove({
                 id: selectedTreeForEdit?.id,
-                name: selectedTreeForEdit?.name || 'Silver Oak (12 trees)',
+                name: selectedTreeForEdit?.name || t('farmer.trees.notRecorded'),
                 category: 'Trees',
-                dateInfo: `Trees · ${selectedTreeForEdit?.plantedDate || 'Planted 14 Jun 2019'}`,
+                dateInfo: t('farmer.trees.removeDateInfo', {
+                  date: selectedTreeForEdit?.plantedDate || t('farmer.trees.notRecorded'),
+                }),
               });
               navigate('RemoveItem');
             }}
@@ -3043,15 +3067,19 @@ export default function App(): React.JSX.Element {
             onNavigateBack={goBack}
             onConfirmRemove={async () => {
               // canDeleteAsset is the single source of truth for which categories have no
-              // backend delete endpoint yet (see RemoveItemScreen.tsx) -- RemoveItemScreen
-              // already refuses to call onConfirmRemove for those, so this is belt-and-braces,
-              // not the gate itself.
+              // backend delete endpoint (see RemoveItemScreen.tsx; currently none) --
+              // RemoveItemScreen already refuses to call onConfirmRemove for those, so this
+              // is belt-and-braces, not the gate itself. Trees delete via BR-55d.
               if (
                 selectedItemForRemove?.id &&
                 canDeleteAsset(selectedItemForRemove.category)
               ) {
                 try {
-                  await deleteFarmAsset(selectedItemForRemove.id);
+                  if (selectedItemForRemove.category === 'Trees') {
+                    await deleteTreePlanting(selectedItemForRemove.id);
+                  } else {
+                    await deleteFarmAsset(selectedItemForRemove.id);
+                  }
                 } catch {
                   // Ignore error and navigate back to list which refreshes
                 }
@@ -3060,6 +3088,8 @@ export default function App(): React.JSX.Element {
                 navigate('ToolsList');
               } else if (selectedItemForRemove?.category === 'Equipment') {
                 navigate('EquipmentList');
+              } else if (selectedItemForRemove?.category === 'Trees') {
+                navigate('TreesList');
               } else {
                 navigate('MachineryList');
               }

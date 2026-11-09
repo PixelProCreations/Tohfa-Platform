@@ -8,11 +8,25 @@ import {
   cropInputIdParams,
   farmCropIdParams,
   listCropInputsQuery,
+  listFarmCropInputsQuery,
   updateCropInputBody,
 } from './crop-inputs.schema.js';
 import { cropInputsService } from './crop-inputs.service.js';
 
 export const cropInputsRouter: Router = Router();
+
+// GET /v1/farmers/me/crop-inputs — farm-wide, across every own crop (BR-56h)
+cropInputsRouter.get(
+  '/crop-inputs',
+  requireAuth,
+  requirePermission('farmer.crop_input.manage_own'),
+  validate({ query: listFarmCropInputsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', listFarmCropInputsQuery);
+    res.json(await cropInputsService.listFarmCropInputs(scope, query));
+  }),
+);
 
 // GET /v1/farmers/me/crops/:farmCropId/inputs
 cropInputsRouter.get(
@@ -38,7 +52,10 @@ cropInputsRouter.post(
     const scope = requireScope(req.scope);
     const { farmCropId } = getValidated(req, 'params', farmCropIdParams);
     const body = getValidated(req, 'body', createCropInputBody);
-    res.status(201).json(await cropInputsService.createCropInput(scope, farmCropId, body));
+    // BR-56i: the optional Idempotency-Key is passed through; the service decides what absent means.
+    res
+      .status(201)
+      .json(await cropInputsService.createCropInput(scope, farmCropId, body, req.header('idempotency-key')));
   }),
 );
 

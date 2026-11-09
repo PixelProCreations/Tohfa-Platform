@@ -1,12 +1,20 @@
 import { fromPaise, toPaise } from '@tohfa/shared-types';
 import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  optionalIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { isCalendarDate } from '../certifications/certifications.schema.js';
 import {
   cropInputsRepo,
   type CropInputCursor,
   type CropInputsRepo,
+  type FarmCropInputCursor,
 } from './crop-inputs.repo.js';
 import type {
   CreateCropInputBody,
@@ -14,6 +22,8 @@ import type {
   CropNpkContributionResponse,
   ListCropInputsQuery,
   ListCropInputsResponse,
+  ListFarmCropInputsQuery,
+  ListFarmCropInputsResponse,
   InputUnit,
   UpdateCropInputBody,
 } from './crop-inputs.schema.js';
@@ -24,6 +34,8 @@ export interface CropInputsServiceDeps {
   repo: CropInputsRepo;
   db: Executor;
   runTx: TransactionRunner;
+  /** BR-56i. Defaults to the PostgreSQL store; tests inject an in-memory one. */
+  idempotency?: IdempotencyStore;
 }
 
 function ownFarmerId(scope: ResolvedScope): string {
@@ -65,6 +77,32 @@ function decodeCursor(raw: string): CropInputCursor {
   throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
 }
 
+function encodeFarmCursor(cursor: FarmCropInputCursor): string {
+  return Buffer.from(JSON.stringify([cursor.appliedOn, cursor.createdAt, cursor.id]), 'utf8').toString('base64url');
+}
+
+/** Every component is checked here so a hand-edited cursor is a 422, never a Postgres cast error (a 500). */
+function decodeFarmCursor(raw: string): FarmCropInputCursor {
+  try {
+    const parsed: unknown = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+    if (
+      Array.isArray(parsed) &&
+      parsed.length === 3 &&
+      typeof parsed[0] === 'string' &&
+      isCalendarDate(parsed[0]) &&
+      typeof parsed[1] === 'string' &&
+      !Number.isNaN(Date.parse(parsed[1])) &&
+      typeof parsed[2] === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed[2])
+    ) {
+      return { appliedOn: parsed[0], createdAt: parsed[1], id: parsed[2] };
+    }
+  } catch {
+    // fall through
+  }
+  throw new AppError('VALIDATION_FAILED', { detail: 'cursor is not a value returned by this endpoint.' });
+}
+
 /** UNAPPROVED DEFAULTS pending owner decision (not in docs/rules.md): BAG = 50 kg, ML and GRAM = 0.001 kg, LITRE and OTHER = 1 kg. */
 const UNAPPROVED_UNIT_TO_KG_DEFAULTS: Record<InputUnit, number> = {
   TONNE: 1000,
@@ -92,15 +130,28 @@ export interface CropInputsService {
     farmCropId: string,
     query: ListCropInputsQuery,
   ): Promise<ListCropInputsResponse>;
+  /**
+   * BR-56h: the caller's own inputs across every own crop (live, HARVESTED or FAILED), newest appliedOn
+   * first. There is no farmCropId to own-check, so a farmer with nothing to show gets an empty page.
+   */
+  listFarmCropInputs(
+    scope: ResolvedScope,
+    query: ListFarmCropInputsQuery,
+  ): Promise<ListFarmCropInputsResponse>;
   getCropInput(
     scope: ResolvedScope,
     farmCropId: string,
     id: string,
   ): Promise<CropInputResponse>;
+  /**
+   * BR-56i: with an `idempotencyKey`, a replay of the same request returns the original row and writes
+   * nothing; without one, every call creates a row (the behaviour before the key was honoured).
+   */
   createCropInput(
     scope: ResolvedScope,
     farmCropId: string,
     body: CreateCropInputBody,
+    idempotencyKey?: string,
   ): Promise<CropInputResponse>;
   updateCropInput(
     scope: ResolvedScope,
@@ -125,6 +176,7 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
   runTx: withTransaction,
 }): CropInputsService {
   const { repo, db, runTx } = deps;
+  const idempotency = deps.idempotency ?? idempotencyStore;
 
   async function assertCropOwnership(executor: Executor, farmerId: string, farmCropId: string): Promise<void> {
     const belongs = await repo.checkFarmCropBelongsToFarmer(executor, farmerId, farmCropId);
@@ -180,6 +232,25 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
       };
     },
 
+    async listFarmCropInputs(scope, query) {
+      const farmerId = ownFarmerId(scope);
+      const cursor = query.cursor ? decodeFarmCursor(query.cursor) : undefined;
+      const filters = {
+        ...(query.inputType !== undefined ? { inputType: query.inputType } : {}),
+        ...(query.from !== undefined ? { from: query.from } : {}),
+        ...(query.to !== undefined ? { to: query.to } : {}),
+      };
+      const { items, next } = await repo.listFarmerCropInputs(db, farmerId, filters, query.limit, cursor);
+
+      return {
+        items,
+        page: {
+          nextCursor: next === null ? null : encodeFarmCursor(next),
+          hasMore: next !== null,
+        },
+      };
+    },
+
     async getCropInput(scope, farmCropId, id) {
       const farmerId = ownFarmerId(scope);
       await assertCropOwnership(db, farmerId, farmCropId);
@@ -191,11 +262,24 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
       return record;
     },
 
-    async createCropInput(scope, farmCropId, body) {
+    async createCropInput(scope, farmCropId, body, idempotencyKey) {
       const farmerId = ownFarmerId(scope);
+      const key = optionalIdempotencyKey(idempotencyKey);
       validateInputValues(body);
 
       return runTx(async (tx) => {
+        // BR-56i: claim the key in this transaction before the write, so a replay returns the
+        // stored row without a second insert or audit entry, and a failed create frees the key.
+        const idem = key === undefined
+          ? undefined
+          : await beginIdempotent<CropInputResponse>(idempotency, tx, {
+              actorUserId: scope.userId,
+              key,
+              operation: 'crop_input.create',
+              request: { farmCropId, body },
+            });
+        if (idem?.replay === true) return idem.response;
+
         await repo.lockFarmer(tx, farmerId);
         await assertCropOwnership(tx, farmerId, farmCropId);
 
@@ -210,6 +294,7 @@ export function createCropInputsService(deps: CropInputsServiceDeps = {
           after: created,
         });
 
+        if (idem !== undefined && idem.replay === false) await idem.complete(created);
         return created;
       });
     },
