@@ -14,6 +14,10 @@ import {
 import Svg, { Path } from 'react-native-svg';
 
 import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
+import {
+  type ApplicationTreatmentGuideItem,
+  INITIAL_TREATMENT_GUIDES,
+} from './ApplicationTreatmentGuidesScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -61,29 +65,38 @@ export interface ApplicationGuideDraft {
 export interface AddNewGuideScreenProps {
   onBack: () => void;
   onSave?: (draft: ApplicationGuideDraft) => void;
+  initialGuide?: ApplicationTreatmentGuideItem | ApplicationGuideDraft | null | undefined;
+  isEditing?: boolean;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function AddNewGuideScreen({ onBack, onSave }: AddNewGuideScreenProps) {
+export function AddNewGuideScreen({
+  onBack,
+  onSave,
+  initialGuide,
+  isEditing = false,
+}: AddNewGuideScreenProps) {
+  const guideItem = initialGuide as (ApplicationTreatmentGuideItem & Partial<ApplicationGuideDraft>) | undefined;
+
   // Section 1: Overview
-  const [guideTitle, setGuideTitle] = useState('');
-  const [guideType, setGuideType] = useState('');
-  const [linkedInput, setLinkedInput] = useState('');
-  const [linkedPestDisease, setLinkedPestDisease] = useState('');
-  const [applicableCrops, setApplicableCrops] = useState('');
-  const [growingStage, setGrowingStage] = useState('');
+  const [guideTitle, setGuideTitle] = useState(guideItem?.guideTitle || guideItem?.title || '');
+  const [guideType, setGuideType] = useState(guideItem?.guideType || '');
+  const [linkedInput, setLinkedInput] = useState(guideItem?.linkedInput || guideItem?.linkedItem || '');
+  const [linkedPestDisease, setLinkedPestDisease] = useState(guideItem?.linkedPestDisease || guideItem?.linkedItem || '');
+  const [applicableCrops, setApplicableCrops] = useState(guideItem?.applicableCrops || guideItem?.crops || '');
+  const [growingStage, setGrowingStage] = useState(guideItem?.growingStage || 'Vegetative stage');
 
   // Section 2: Instructions
-  const [applicationMethod, setApplicationMethod] = useState('');
-  const [instructions, setInstructions] = useState('');
-  const [dosage, setDosage] = useState('');
-  const [unit, setUnit] = useState('');
-  const [timingFrequency, setTimingFrequency] = useState('');
+  const [applicationMethod, setApplicationMethod] = useState(guideItem?.applicationMethod || 'Foliar spray');
+  const [instructions, setInstructions] = useState(guideItem?.instructions || 'Apply thoroughly on upper and lower leaf surfaces.');
+  const [dosage, setDosage] = useState(guideItem?.dosage || '5');
+  const [unit, setUnit] = useState(guideItem?.unit || 'mL/L');
+  const [timingFrequency, setTimingFrequency] = useState(guideItem?.timingFrequency || 'Every 7-10 days, early morning');
 
   // Section 3: Safety & restrictions
-  const [precautions, setPrecautions] = useState('');
-  const [restrictions, setRestrictions] = useState('');
+  const [precautions, setPrecautions] = useState(guideItem?.precautions || 'Wear protective mask and gloves.');
+  const [restrictions, setRestrictions] = useState(guideItem?.restrictions || 'Do not spray during peak noon heat.');
 
   // Dropdown Picker Modal
   const [pickerTitle, setPickerTitle] = useState('');
@@ -99,6 +112,43 @@ export function AddNewGuideScreen({ onBack, onSave }: AddNewGuideScreenProps) {
   };
 
   const handleSave = () => {
+    if (isEditing && initialGuide) {
+      if ('title' in initialGuide) {
+        initialGuide.title = guideTitle.trim() || initialGuide.title;
+        initialGuide.guideType = (guideType as any) || initialGuide.guideType;
+        initialGuide.linkedItem = linkedInput || linkedPestDisease || initialGuide.linkedItem;
+        initialGuide.crops = applicableCrops || initialGuide.crops;
+
+        const idx = INITIAL_TREATMENT_GUIDES.findIndex((g) => g.id === initialGuide.id);
+        if (idx !== -1) {
+          INITIAL_TREATMENT_GUIDES[idx] = { ...initialGuide };
+        }
+      }
+      const draft: ApplicationGuideDraft = {
+        id: (initialGuide && 'id' in initialGuide && initialGuide.id) ? initialGuide.id : ('GUIDE-' + Date.now()),
+        guideTitle: guideTitle.trim() || 'Application Guide',
+        guideType: guideType || 'Input Application',
+        linkedInput: linkedInput || '',
+        linkedPestDisease: linkedPestDisease || '',
+        applicableCrops: applicableCrops || '',
+        growingStage: growingStage || '',
+        applicationMethod: applicationMethod || '',
+        instructions: instructions || '',
+        dosage: dosage || '',
+        unit: unit || '',
+        timingFrequency: timingFrequency || '',
+        precautions: precautions || '',
+        restrictions: restrictions || '',
+      };
+
+      if (onSave) {
+        onSave(draft);
+      } else {
+        onBack();
+      }
+      return;
+    }
+
     const draft: ApplicationGuideDraft = {
       id: `GD-${Math.floor(1000 + Math.random() * 9000)}`,
       guideTitle: guideTitle.trim() || 'New Application Guide',
@@ -139,7 +189,7 @@ export function AddNewGuideScreen({ onBack, onSave }: AddNewGuideScreenProps) {
           >
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Add New Guide</Text>
+          <Text style={styles.headerTitle}>{isEditing ? 'Edit Guide' : 'Add New Guide'}</Text>
         </View>
       </View>
 
@@ -412,7 +462,7 @@ export function AddNewGuideScreen({ onBack, onSave }: AddNewGuideScreenProps) {
             accessibilityRole="button"
             accessibilityLabel="Save Guide"
           >
-            <Text style={styles.saveBtnText}>Save Guide</Text>
+            <Text style={styles.saveBtnText}>{isEditing ? 'Save Changes' : 'Save Guide'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -469,6 +519,10 @@ export function AddNewGuideScreen({ onBack, onSave }: AddNewGuideScreenProps) {
       </Modal>
     </SafeAreaView>
   );
+}
+
+export function EditGuideScreen(props: AddNewGuideScreenProps) {
+  return <AddNewGuideScreen {...props} isEditing={true} />;
 }
 
 // ─── Styles ──────────────────────────────────────────────────────────────────

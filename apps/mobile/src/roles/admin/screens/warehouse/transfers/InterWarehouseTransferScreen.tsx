@@ -146,7 +146,7 @@ export function InterWarehouseTransferScreen({
               activeOpacity={0.8}
               onPress={onNewTransfer}
             >
-              <Text style={mainStyles.createBtnText}>+ Create Transfer</Text>
+              <Text style={mainStyles.createBtnText}>+ Create inter-transfer warehouse</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -170,7 +170,7 @@ export function InterWarehouseTransferScreen({
       footer={
         newTransfer ? (
           <WalletFooter>
-            <WalletButton label="Initiate New Transfer" icon={<PlusIcon size={18} />} onPress={newTransfer} />
+            <WalletButton label="Create inter-transfer warehouse" icon={<PlusIcon size={18} />} onPress={newTransfer} />
           </WalletFooter>
         ) : undefined
       }

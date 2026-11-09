@@ -23,7 +23,6 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { OverviewDashboardCard } from '../../../components';
 import {
   CalendarIcon,
   EmptyState,
@@ -75,6 +74,7 @@ const FILTERS: readonly RosterFilter[] = ['All', 'Warehouse Staff', 'Drivers'];
 
 export interface StaffScreenProps extends WarehouseScreenBaseProps {
   onSelectStaff?: ((staff: StaffMember) => void) | undefined;
+  onNavigateToStaffList?: (() => void) | undefined;
   onNavigateToAttendance?: ((warehouseId?: string) => void) | undefined;
   onNavigateToHistory?: ((warehouseId?: string) => void) | undefined;
   /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
@@ -89,6 +89,7 @@ export function StaffScreen({
   onBack,
   onTabChange,
   onSelectStaff,
+  onNavigateToStaffList,
   onNavigateToAttendance,
   onNavigateToHistory,
   warehouseOptions = STAFF_WAREHOUSES,
@@ -171,6 +172,17 @@ export function StaffScreen({
         </View>
       }
       onBack={onBack}
+      headerRight={
+        <TouchableOpacity
+          style={styles.headerFilterBtn}
+          onPress={() => setShowFilterScreen(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Filter staff"
+        >
+          <FilterSlidersIcon size={18} color={adminColors.onBrand} />
+        </TouchableOpacity>
+      }
       headerExtra={
         <ScopeHeader
           scope={scope}
@@ -212,42 +224,28 @@ export function StaffScreen({
             {staff.staffId}
             {isMain && staff.warehouseId ? ` · ${staffWarehouseName(staff.warehouseId)}` : ''}
           </Text>
-          {isMain ? (
-            <View style={styles.badgeRow}>
-              <StatusBadge label={staff.status} tone={staff.status === 'Active' ? 'success' : 'danger'} />
-              <StatusBadge label={staff.attendance} tone={attendanceTone(staff.attendance)} />
-            </View>
-          ) : null}
         </View>
       </View>
-      {isMain ? (
-        staff.type === 'driver' ? (
-          <Text style={styles.footerText}>Deliveries Today: {staff.deliveriesToday ?? 0}</Text>
-        ) : null
-      ) : (
-        <>
-          <View style={styles.divider} />
-          <View style={styles.threeCol}>
-            {(staff.type === 'driver'
-              ? [
-                  ['Status', staff.status],
-                  ["Today's Attendance", staff.attendance],
-                  ['Deliveries Today', String(staff.deliveriesToday ?? 0)],
-                ]
-              : [
-                  ['Role', staff.role],
-                  ['Status', staff.status],
-                  ['Attendance', staff.attendance],
-                ]
-            ).map(([label, value]) => (
-              <View key={label} style={styles.col}>
-                <Text style={styles.colLabel}>{label}</Text>
-                <Text style={styles.colValue}>{value}</Text>
-              </View>
-            ))}
+      <View style={styles.divider} />
+      <View style={styles.threeCol}>
+        {(staff.type === 'driver'
+          ? [
+              ['Status', staff.status],
+              ["Today's Attendance", staff.attendance],
+              ['Deliveries Today', String(staff.deliveriesToday ?? 0)],
+            ]
+          : [
+              ['Role', staff.role],
+              ['Status', staff.status],
+              ['Attendance', staff.attendance],
+            ]
+        ).map(([label, value]) => (
+          <View key={label} style={styles.col}>
+            <Text style={styles.colLabel}>{label}</Text>
+            <Text style={styles.colValue}>{value}</Text>
           </View>
-        </>
-      )}
+        ))}
+      </View>
     </TouchableOpacity>
   );
 
@@ -256,61 +254,23 @@ export function StaffScreen({
 
 
       <View style={styles.kpiGrid}>
-        <OverviewDashboardCard
-          value="12"
-          title="Total Staff"
-          subtitle="All rostered"
-          icon="orders"
-        />
-        <OverviewDashboardCard
-          value="9"
-          title="Present Today"
-          subtitle="On duty"
-          icon="pickup"
-          tone="success"
-        />
-        <OverviewDashboardCard
-          value="2"
-          title="Absent"
-          subtitle="Needs attention"
-          icon="alert"
-          tone="danger"
-        />
-        <OverviewDashboardCard
-          value="1"
-          title="On Leave"
-          subtitle="Approved leave"
-          icon="receiving"
-          tone="warning"
-        />
-      </View>
-
-      {isMain ? (
-        <View style={styles.actionRow}>
-          {onNavigateToAttendance ? (
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => onNavigateToAttendance(selectedWarehouseId)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-            >
-              <CalendarIcon size={22} color={adminColors.brand} />
-              <Text style={styles.actionText}>Attendance</Text>
-            </TouchableOpacity>
-          ) : null}
-          {onNavigateToHistory ? (
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => onNavigateToHistory(selectedWarehouseId)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-            >
-              <HistoryIcon size={22} color={adminColors.brand} />
-              <Text style={styles.actionText}>Attendance History</Text>
-            </TouchableOpacity>
-          ) : null}
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
+          <Text style={styles.kpiValue}>{count(() => true)}</Text>
         </View>
-      ) : null}
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
+          <Text style={[styles.kpiValue, { color: '#10B981' }]}>{count((m) => m.attendance === 'Present')}</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>ABSENT</Text>
+          <Text style={[styles.kpiValue, { color: '#EF4444' }]}>{count((m) => m.attendance === 'Absent')}</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>ON LEAVE</Text>
+          <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{count((m) => m.attendance === 'On Leave')}</Text>
+        </View>
+      </View>
 
       {(attendanceFilter !== 'All' || statusFilter !== 'All') && (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, marginBottom: 4 }}>
@@ -355,30 +315,28 @@ export function StaffScreen({
         </View>
       )}
 
-      {!isMain ? (
-        <View style={styles.chipRow}>
-          {FILTERS.map((item) => {
-            const active = item === filter;
-            return (
-              <TouchableOpacity
-                key={item}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => {
-                  setFilter(item);
-                  if (item === 'Warehouse Staff') setRoleFilter('Warehouse Staff');
-                  else if (item === 'Drivers') setRoleFilter('Driver');
-                  else setRoleFilter('All');
-                }}
-                activeOpacity={0.75}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      ) : null}
+      <View style={styles.chipRow}>
+        {FILTERS.map((item) => {
+          const active = item === filter;
+          return (
+            <TouchableOpacity
+              key={item}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => {
+                setFilter(item);
+                if (item === 'Warehouse Staff') setRoleFilter('Warehouse Staff');
+                else if (item === 'Drivers') setRoleFilter('Driver');
+                else setRoleFilter('All');
+              }}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
 
       <SearchBar
         value={searchQuery}
@@ -389,18 +347,21 @@ export function StaffScreen({
 
       {visible.length === 0 ? <EmptyState title="No staff found" subtitle="Try another name, ID or filter." /> : null}
 
-      {isMain ? (
-        <>
-          {drivers.length > 0 ? <SectionTitle>DRIVERS</SectionTitle> : null}
-          {drivers.map(renderCard)}
-          {warehouseStaff.length > 0 ? <SectionTitle>WAREHOUSE STAFF</SectionTitle> : null}
-          {warehouseStaff.map(renderCard)}
-        </>
-      ) : (
-        visible.map(renderCard)
-      )}
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionTitleText}>STAFF LIST</Text>
+        <TouchableOpacity
+          onPress={onNavigateToStaffList}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="View All Staff"
+        >
+          <Text style={styles.viewAllText}>View All</Text>
+        </TouchableOpacity>
+      </View>
 
-      {!isMain ? (
+      {visible.map(renderCard)}
+
+      {(onNavigateToAttendance || onNavigateToHistory) && (
         <View style={styles.actionRow}>
           {onNavigateToAttendance ? (
             <TouchableOpacity
@@ -425,7 +386,7 @@ export function StaffScreen({
             </TouchableOpacity>
           ) : null}
         </View>
-      ) : null}
+      )}
     </ScrollView>,
   );
 }
@@ -433,6 +394,14 @@ export function StaffScreen({
 const BANNER_ICON = 40;
 
 const styles = StyleSheet.create({
+  headerFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -486,6 +455,28 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '500',
     color: adminColors.info.text,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 18,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  sectionTitleText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#7C4A27',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  viewAllText: {
+    ...adminType.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.brand,
   },
   chipRow: {
     flexDirection: 'row',

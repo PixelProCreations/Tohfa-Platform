@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Alert,
   Modal,
@@ -121,6 +121,41 @@ function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: { size?: 
       <Line x1="4" y1="17.5" x2="8" y2="17.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       <Line x1="12" y1="17.5" x2="20" y2="17.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
       <Line x1="10" y1="15" x2="10" y2="20" stroke={color} strokeWidth="2.4" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function HeaderCalendarIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="2.2" />
+      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="2" />
+    </Svg>
+  );
+}
+
+function ClockHistoryIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function ReportDocIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -839,6 +874,10 @@ function getCalendarMatrix(year: number, month: number) {
 
 export interface AuditScheduleScreenProps {
   onBack: () => void;
+  role?: string;
+  isTabRoot?: boolean;
+  onViewModeChange?: (isRoot: boolean) => void;
+  onNavigateTab?: (tab: string) => void;
   initialTypeFilter?: 'all' | 'field_visit' | 'history' | 'calendar' | 'report' | 'calendar_view' | undefined;
   initialAuditId?: string | undefined;
   initialView?:
@@ -860,6 +899,10 @@ export interface AuditScheduleScreenProps {
 
 export function AuditScheduleScreen({
   onBack,
+  role = 'TOHFA_ADMIN',
+  isTabRoot = false,
+  onViewModeChange,
+  onNavigateTab,
   initialTypeFilter = 'calendar',
   initialAuditId,
   initialView,
@@ -902,11 +945,20 @@ export function AuditScheduleScreen({
 
   // Calendar State (Image 1)
   const [calendarViewMode, setCalendarViewMode] = useState<'Month' | 'Week' | 'List'>(() => {
-    if (initialView === 'calendar_view' || initialTypeFilter === 'calendar_view') {
+    if (
+      initialView === 'calendar_view' ||
+      initialTypeFilter === 'calendar_view' ||
+      (role === 'FARMER_ADMIN' && initialView !== 'list')
+    ) {
       return 'Month';
     }
     return 'List';
   });
+
+  useEffect(() => {
+    const isRoot = currentView === 'calendar' && calendarViewMode === 'Month';
+    onViewModeChange?.(isRoot);
+  }, [currentView, calendarViewMode, onViewModeChange]);
   const [calAuditType, setCalAuditType] = useState<'All Types' | 'Internal' | 'External' | 'Field Visit'>('All Types');
   const [calStatus, setCalStatus] = useState<'All Status' | 'Upcoming' | 'Scheduled' | 'In Progress'>('All Status');
   const [calZone, setCalZone] = useState<'All Zones' | 'Ooty' | 'Kotagiri' | 'Coonoor'>('All Zones');
@@ -1397,13 +1449,21 @@ export function AuditScheduleScreen({
               <View style={styles.headerTitleWrap}>
                 <TouchableOpacity
                   style={styles.headerBackBtn}
-                  onPress={onBack}
+                  onPress={() => {
+                    if (role === 'FARMER_ADMIN') {
+                      setCalendarViewMode('Month');
+                    } else {
+                      onBack();
+                    }
+                  }}
                   activeOpacity={0.7}
                   accessibilityLabel="Back"
                 >
                   <BackArrowIcon size={22} color={adminColors.onBrand} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Audit Schedule</Text>
+                <Text style={styles.headerTitle}>
+                  {role === 'FARMER_ADMIN' ? 'Field Visit Schedule' : 'Audit Schedule'}
+                </Text>
               </View>
 
               <TouchableOpacity
@@ -1451,8 +1511,16 @@ export function AuditScheduleScreen({
                   style={styles.scheduleRecordCard}
                   onPress={() => {
                     setSelectedRecord(rec);
-                    setPreviousView('calendar');
-                    setCurrentView('detail');
+                    setPreviousView('calendar_list');
+                    if (role === 'FARMER_ADMIN') {
+                      if (rec.badge === 'In Progress' || rec.badge === 'Scheduled') {
+                        setCurrentView('audit_details_m5');
+                      } else {
+                        setCurrentView('detail');
+                      }
+                    } else {
+                      setCurrentView('detail');
+                    }
                   }}
                   activeOpacity={0.85}
                 >
@@ -1670,17 +1738,26 @@ export function AuditScheduleScreen({
         {/* ── Terracotta Header (Image 1) ── */}
         <View style={styles.calHeader}>
           <View style={styles.calHeaderTopRow}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity
-                onPress={onBack}
-                style={styles.headerBackBtn}
-                activeOpacity={0.7}
-                accessibilityLabel="Back"
-              >
-                <BackArrowIcon size={22} color={adminColors.onBrand} />
-              </TouchableOpacity>
-              <Text style={styles.calHeaderTitle}>Audit Calendar</Text>
-            </View>
+            {role === 'FARMER_ADMIN' && isTabRoot ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <HeaderCalendarIcon size={22} color={adminColors.onBrand} />
+                <Text style={styles.calHeaderTitle}>Audits</Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <TouchableOpacity
+                  onPress={onBack}
+                  style={styles.headerBackBtn}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Back"
+                >
+                  <BackArrowIcon size={22} color={adminColors.onBrand} />
+                </TouchableOpacity>
+                <Text style={styles.calHeaderTitle}>
+                  {role === 'FARMER_ADMIN' ? 'Audits' : 'Audit Calendar'}
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.calBellBtn}
@@ -1693,30 +1770,67 @@ export function AuditScheduleScreen({
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* ── Filter Cards: Audit Type | Status | Zone ── */}
-          <View style={styles.calFiltersRow}>
-            <TouchableOpacity style={styles.calFilterCard} onPress={cycleAuditType} activeOpacity={0.8}>
-              <Text style={styles.calFilterLabel}>AUDIT TYPE</Text>
-              <Text style={styles.calFilterValue} numberOfLines={1}>
-                {calAuditType}
-              </Text>
-            </TouchableOpacity>
+        <ScrollView style={styles.scroll} contentContainerStyle={{ paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+          {/* ── Metric Cards or Filter Cards ── */}
+          {role === 'FARMER_ADMIN' ? (
+            <View style={styles.kpiGrid}>
+              <TouchableOpacity
+                style={styles.kpiCard}
+                onPress={() => setCalendarViewMode('List')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.kpiLabel}>UPCOMING AUDITS</Text>
+                <Text style={styles.kpiValue}>8</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.kpiCard}
+                onPress={() => setCalendarViewMode('List')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.kpiLabel}>TODAY AUDIT</Text>
+                <Text style={styles.kpiValue}>3</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.kpiCard}
+                onPress={() => setCalendarViewMode('List')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.kpiLabel}>PENDING AUDIT</Text>
+                <Text style={styles.kpiValue}>2</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.kpiCard}
+                onPress={() => setCalendarViewMode('List')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.kpiLabel}>COMPLETED AUDITS</Text>
+                <Text style={styles.kpiValue}>24</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.calFiltersRow}>
+              <TouchableOpacity style={styles.calFilterCard} onPress={cycleAuditType} activeOpacity={0.8}>
+                <Text style={styles.calFilterLabel}>AUDIT TYPE</Text>
+                <Text style={styles.calFilterValue} numberOfLines={1}>
+                  {calAuditType}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.calFilterCard} onPress={cycleStatus} activeOpacity={0.8}>
-              <Text style={styles.calFilterLabel}>STATUS</Text>
-              <Text style={styles.calFilterValue} numberOfLines={1}>
-                {calStatus}
-              </Text>
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.calFilterCard} onPress={cycleStatus} activeOpacity={0.8}>
+                <Text style={styles.calFilterLabel}>STATUS</Text>
+                <Text style={styles.calFilterValue} numberOfLines={1}>
+                  {calStatus}
+                </Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity style={styles.calFilterCard} onPress={cycleZone} activeOpacity={0.8}>
-              <Text style={styles.calFilterLabel}>ZONE</Text>
-              <Text style={styles.calFilterValue} numberOfLines={1}>
-                {calZone}
-              </Text>
-            </TouchableOpacity>
-          </View>
+              <TouchableOpacity style={styles.calFilterCard} onPress={cycleZone} activeOpacity={0.8}>
+                <Text style={styles.calFilterLabel}>ZONE</Text>
+                <Text style={styles.calFilterValue} numberOfLines={1}>
+                  {calZone}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
           {/* ── Month Navigation: < October 2026 > ── */}
           <View style={styles.calMonthNav}>
@@ -1803,15 +1917,121 @@ export function AuditScheduleScreen({
 
           {/* ── Selected Date Section (Image 1) ── */}
           <View style={styles.calSelectedDateSection}>
+            {role === 'FARMER_ADMIN' && (
+              <View style={styles.fieldVisitHeaderRow}>
+                <Text style={styles.fieldVisitHeaderTitle}>Field visit</Text>
+                <TouchableOpacity
+                  onPress={() => setCalendarViewMode('List')}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={styles.fieldVisitViewAllText}>View all</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <Text style={styles.calSelectedDateTitle}>{selectedCalDay} October 2026</Text>
             <Text style={styles.calSelectedDateCount}>
-              {selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20
+              {role === 'FARMER_ADMIN'
+                ? '1 Audit on this date'
+                : selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20
                 ? '1 Audit on this date'
                 : 'No scheduled audits on this date'}
             </Text>
 
-            {/* Audit Card matching Image 1 */}
-            {(selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20) && (
+            {role === 'FARMER_ADMIN' ? (
+              <>
+                {/* Card 1: Quarterly Farm Audit (Image 1) */}
+                <TouchableOpacity
+                  style={styles.calAuditCard}
+                  onPress={() => {
+                    const rec = INITIAL_SCHEDULE_RECORDS.find((r) => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!;
+                    setSelectedRecord({
+                      ...rec,
+                      id: 'AUD-2026-0042',
+                      type: 'Internal',
+                      badge: 'Scheduled',
+                      farmerName: 'Ramesh Kumar',
+                      farm: 'Ooty Farm 01',
+                      date: '15 Oct 2026',
+                    });
+                    setPreviousView('calendar_view');
+                    setCurrentView('audit_details_m5');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.calAuditCardTopRow}>
+                    <Text style={styles.calAuditCardTitle}>Quarterly Farm Audit</Text>
+                    <View style={styles.calAuditBadgeScheduled}>
+                      <Text style={styles.calAuditBadgeScheduledText}>Scheduled</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.calAuditCardSubtitle}>Ramesh Kumar · Internal</Text>
+                  <Text style={styles.calAuditCardDate}>15 Oct 2026</Text>
+                </TouchableOpacity>
+
+                {/* Card 2: External Compliance Audit (Image 1) */}
+                <TouchableOpacity
+                  style={styles.calAuditCard}
+                  onPress={() => {
+                    const rec = INITIAL_SCHEDULE_RECORDS.find((r) => r.id === 'AUD-2026-0039') ?? INITIAL_SCHEDULE_RECORDS[1]!;
+                    setSelectedRecord({
+                      ...rec,
+                      id: 'AUD-2026-0039',
+                      type: 'External',
+                      badge: 'Scheduled',
+                      farmerName: 'Kumar',
+                      farm: 'Ooty Farm 03',
+                      date: '20 Oct 2026',
+                    });
+                    setPreviousView('calendar_view');
+                    setCurrentView('audit_details_m5');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.calAuditCardTopRow}>
+                    <Text style={styles.calAuditCardTitle}>External Compliance Audit</Text>
+                    <View style={styles.calAuditBadgeScheduled}>
+                      <Text style={styles.calAuditBadgeScheduledText}>Scheduled</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.calAuditCardSubtitle}>Kumar · Ooty</Text>
+                  <Text style={styles.calAuditCardDate}>20 Oct 2026</Text>
+                </TouchableOpacity>
+
+                {/* Quick Actions (Image 1) */}
+                <View style={styles.quickActionsSection}>
+                  <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+                  <View style={styles.quickActionsRow}>
+                    <TouchableOpacity
+                      style={styles.quickActionBtn}
+                      onPress={() => {
+                        setPreviousView('calendar_view');
+                        setCurrentView('history');
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <ClockHistoryIcon size={24} color={adminColors.brand} />
+                      <Text style={styles.quickActionBtnText}>Audit History</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.quickActionBtn}
+                      onPress={() => {
+                        const rec = INITIAL_SCHEDULE_RECORDS.find((r) => r.id === 'AUD-2026-0042') ?? INITIAL_SCHEDULE_RECORDS[0]!;
+                        setSelectedRecord(rec);
+                        setPreviousView('calendar_view');
+                        setCurrentView('audit_report');
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <ReportDocIcon size={24} color={adminColors.brand} />
+                      <Text style={styles.quickActionBtnText}>Reports</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            ) : (
+              (selectedCalDay === 8 || selectedCalDay === 15 || selectedCalDay === 3 || selectedCalDay === 20) && (
               <TouchableOpacity
                 style={styles.calAuditCard}
                 onPress={() => {
@@ -1920,7 +2140,7 @@ export function AuditScheduleScreen({
                   <Text style={styles.calViewDetailsText}>View Audit Details →</Text>
                 </TouchableOpacity>
               </TouchableOpacity>
-            )}
+            ))}
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -1942,11 +2162,12 @@ export function AuditScheduleScreen({
           <TouchableOpacity
             style={styles.headerBackBtn}
             onPress={() => {
-              if (previousView === 'calendar_view' || previousView === 'calendar') {
+              if (previousView === 'calendar_view') {
                 setCalendarViewMode('Month');
                 setCurrentView('calendar');
               } else {
-                setCurrentView((previousView as any) || 'calendar');
+                setCalendarViewMode('List');
+                setCurrentView('calendar');
               }
             }}
             activeOpacity={0.7}
@@ -1955,8 +2176,10 @@ export function AuditScheduleScreen({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.screenHeaderTitle}>Audit AUD-2026-0042</Text>
-            <Text style={styles.screenHeaderSub}>Status: Inprogress</Text>
+            <Text style={styles.screenHeaderTitle}>Audit {record.id || 'AUD-2026-0042'}</Text>
+            <Text style={styles.screenHeaderSub}>
+              Status: {record.badge === 'In Progress' ? 'Inprogress' : record.badge || 'Upcoming'}
+            </Text>
           </View>
         </View>
 
@@ -2097,6 +2320,13 @@ export function AuditScheduleScreen({
             </View>
           </View>
 
+          {/* Section 6: Permissions Notice (Image 2 Left) */}
+          <View style={styles.permissionNoticeCard}>
+            <Text style={styles.permissionNoticeText}>
+              Schedule, Reschedule and Cancel Audit are not Farmer Admin permissions and are not available here.
+            </Text>
+          </View>
+
           <View style={{ height: 40 }} />
         </ScrollView>
 
@@ -2208,7 +2438,9 @@ export function AuditScheduleScreen({
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.screenHeaderTitle}>Audit {record.id || 'AUD-2026-0042'}</Text>
-            <Text style={styles.screenHeaderSub}>Status: {record.badge || 'Upcoming'}</Text>
+            <Text style={styles.screenHeaderSub}>
+              Status: {role === 'FARMER_ADMIN' && (record.badge === 'Completed' || record.id === 'AUD-2026-0042' || record.id === 'AUD-2026-0049') ? 'completed' : record.badge?.toLowerCase() || 'completed'}
+            </Text>
           </View>
         </View>
 
@@ -2347,14 +2579,14 @@ export function AuditScheduleScreen({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.primaryOrangeBtn, { marginTop: 12 }]}
+            style={[styles.outlineOrangeBtn, { marginTop: 12 }]}
             onPress={() => {
               setPreviousView('detail');
               setCurrentView('inspection_findings');
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryOrangeBtnText}>Start audit</Text>
+            <Text style={styles.outlineOrangeBtnText}>Inspection / Findings</Text>
           </TouchableOpacity>
 
           <View style={{ height: 24 }} />
@@ -2377,11 +2609,15 @@ export function AuditScheduleScreen({
         }}
         onStartResume={() => {
           setPreviousView('inspection_findings');
-          setCurrentView('audit_inspection');
+          setCurrentView('documents_findings');
         }}
         onNavigateSupportAudit={() => {
           setPreviousView('inspection_findings');
-          setCurrentView('audit_inspection');
+          setCurrentView('documents_findings');
+        }}
+        onNavigateDocuments={() => {
+          setPreviousView('inspection_findings');
+          setCurrentView('documents_findings');
         }}
       />
     );
@@ -2592,8 +2828,11 @@ export function AuditScheduleScreen({
                 onBack();
               } else if (previousView === 'history') {
                 setCurrentView('history');
+              } else if (previousView === 'calendar_view') {
+                setCalendarViewMode('Month');
+                setCurrentView('calendar');
               } else {
-                setCurrentView('audit_detail');
+                setCurrentView('history');
               }
             }}
             activeOpacity={0.7}
@@ -2705,40 +2944,44 @@ export function AuditScheduleScreen({
             </Text>
           </View>
 
-          {/* Card 6: Inference */}
-          <Text style={styles.reportSectionTitle}>Inference</Text>
-          <View style={styles.reportCard}>
-            <Text style={styles.reportTextContent}>
-              {selectedRecord.inference ||
-                'Farm continues to meet organic certification standards. Recommended for continued certification with routine follow-up at next quarterly audit.'}
-            </Text>
-          </View>
+          {role !== 'FARMER_ADMIN' && (
+            <>
+              {/* Card 6: Inference */}
+              <Text style={styles.reportSectionTitle}>Inference</Text>
+              <View style={styles.reportCard}>
+                <Text style={styles.reportTextContent}>
+                  {selectedRecord.inference ||
+                    'Farm continues to meet organic certification standards. Recommended for continued certification with routine follow-up at next quarterly audit.'}
+                </Text>
+              </View>
 
-          {/* Actions: View Farmer & View Audit History (Image 2) */}
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
-            <TouchableOpacity
-              style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
-              onPress={() => {
-                if (onNavigateFarmerProfile) {
-                  onNavigateFarmerProfile(selectedRecord.farmerId || 'FR-00241');
-                }
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.viewAuditHistoryOutlineBtnText}>View Farmer</Text>
-            </TouchableOpacity>
+              {/* Actions: View Farmer & View Audit History (Image 2) */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
+                <TouchableOpacity
+                  style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
+                  onPress={() => {
+                    if (onNavigateFarmerProfile) {
+                      onNavigateFarmerProfile(selectedRecord.farmerId || 'FR-00241');
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.viewAuditHistoryOutlineBtnText}>View Farmer</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
-              onPress={() => {
-                setPreviousView('audit_report');
-                setCurrentView('history');
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.viewAuditHistoryOutlineBtnText}>View Audit History</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
+                  onPress={() => {
+                    setPreviousView('audit_report');
+                    setCurrentView('history');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.viewAuditHistoryOutlineBtnText}>View Audit History</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           <View style={{ height: 90 }} />
         </ScrollView>
@@ -2951,12 +3194,17 @@ export function AuditScheduleScreen({
               onPress={() => {
                 if (initialTypeFilter === 'history' || initialView === 'history') {
                   onBack();
-                } else if (previousView === 'audit_report') {
-                  setCurrentView('audit_report');
-                } else if (previousView === 'calendar') {
+                } else if (previousView === 'calendar_view') {
+                  setCalendarViewMode('Month');
+                  setCurrentView('calendar');
+                } else if (previousView === 'detail') {
+                  setCurrentView('detail');
+                } else if (previousView === 'calendar' || previousView === 'calendar_list') {
+                  setCalendarViewMode('List');
                   setCurrentView('calendar');
                 } else {
-                  onBack();
+                  setCalendarViewMode('Month');
+                  setCurrentView('calendar');
                 }
               }}
               activeOpacity={0.7}
@@ -3120,7 +3368,12 @@ export function AuditScheduleScreen({
               style={styles.historyCard}
               onPress={() => {
                 setSelectedRecord(item);
-                setCurrentView('audit_detail');
+                setPreviousView('history');
+                if (role === 'FARMER_ADMIN') {
+                  setCurrentView('audit_report');
+                } else {
+                  setCurrentView('audit_detail');
+                }
               }}
               activeOpacity={0.85}
             >
@@ -6233,11 +6486,14 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   calSelectedDateTitle: {
-    ...adminType.title,
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: '700',
     color: adminColors.ink,
   },
   calSelectedDateCount: {
-    ...adminType.body,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '500',
     color: adminColors.muted,
     marginTop: 2,
@@ -6581,6 +6837,118 @@ const styles = StyleSheet.create({
   docModalCloseBtnText: {
     ...adminType.rowTitle,
     color: adminColors.ink,
+    fontWeight: '700',
+  },
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  kpiCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  kpiLabel: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.muted,
+    letterSpacing: 0.5,
+  },
+  kpiValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginTop: 4,
+  },
+  quickActionsSection: {
+    marginTop: 20,
+  },
+  quickActionsTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  quickActionBtn: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    minHeight: 88,
+  },
+  quickActionBtnText: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  permissionNoticeCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 16,
+    marginTop: 16,
+  },
+  permissionNoticeText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  calAuditCardDate: {
+    ...adminType.caption,
+    fontWeight: '600',
+    color: adminColors.muted,
+    marginTop: 4,
+  },
+  calAuditBadgeScheduled: {
+    backgroundColor: adminColors.info.bg,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  calAuditBadgeScheduledText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.info.text,
+  },
+  fieldVisitHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  fieldVisitHeaderTitle: {
+    fontSize: 22,
+    lineHeight: 28,
+    color: adminColors.ink,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  fieldVisitViewAllText: {
+    ...adminType.body,
+    fontSize: 15,
+    color: adminColors.brand,
     fontWeight: '700',
   },
 });

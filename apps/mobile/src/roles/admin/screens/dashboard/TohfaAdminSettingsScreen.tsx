@@ -191,6 +191,7 @@ export interface TohfaAdminSettingsScreenProps {
   onNavigateFinance?: () => void;
   onNavigateMore?: () => void;
   onLogout?: () => void;
+  role?: string | undefined;
 }
 
 type InnerSettingsView =

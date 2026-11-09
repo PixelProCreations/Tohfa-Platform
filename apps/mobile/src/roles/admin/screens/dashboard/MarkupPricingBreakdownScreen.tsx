@@ -41,9 +41,17 @@ export interface MarkupPricingBreakdownScreenProps {
   customerDiscount?: string | undefined;
   finalCustomerPrice?: string | undefined;
   expenseList?: Array<{ name: string; amount: string }> | undefined;
-  role?: string | undefined;
   ceilingPrice?: string | undefined;
+  role?: string | undefined;
 }
+
+// ─── Default Data Matching Target Design ──────────────────────────────────────
+
+const DEFAULT_EXPENSES = [
+  { name: 'Freight', amount: '₹5.00' },
+  { name: 'Loading', amount: '₹2.00' },
+  { name: 'Unloading', amount: '₹3.00' },
+];
 
 export function MarkupPricingBreakdownScreen({
   onBack,

@@ -401,18 +401,18 @@ export function OrdersDashboardScreen({
             />
           </View>
         ) : (
-          // Sub Warehouse Header (unchanged)
+          // Sub Warehouse Header (Matches M5-S01 Orders Dashboard design)
           <View style={styles.header}>
             <View style={styles.headerTopRow}>
               <View style={styles.titleWrap}>
-                <TouchableOpacity style={styles.backButton} activeOpacity={0.7} onPress={onBack} hitSlop={HIT_SLOP}>
-                  <BackArrowIcon />
-                </TouchableOpacity>
                 <ReceiptHeaderIcon />
                 <Text style={styles.headerTitle}>Orders</Text>
               </View>
               <TouchableOpacity style={styles.bellBtn} activeOpacity={0.75}>
                 <BellIcon />
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>6</Text>
+                </View>
               </TouchableOpacity>
             </View>
 
@@ -558,7 +558,7 @@ export function OrdersDashboardScreen({
             <View style={styles.bottomSpacer} />
           </ScrollView>
         ) : (
-          // Sub Warehouse Content (existing, untouched)
+          // Sub Warehouse Content (Matches M5-S01 Orders Dashboard design)
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionHeaderInline}>Order Status</Text>
@@ -567,41 +567,95 @@ export function OrdersDashboardScreen({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.mainKpiGrid}>
-              <OverviewDashboardCard
-                value="48"
-                title="Total Orders"
-                subtitle="All active orders"
-                icon="orders"
-              />
-              <OverviewDashboardCard
-                value="8"
-                title="New Orders"
-                subtitle="Awaiting processing"
-                icon="receiving"
-              />
-              <OverviewDashboardCard
-                value="9"
-                title="Ready Pickup"
-                subtitle="Ready for handover"
-                icon="pickup"
-              />
-              <OverviewDashboardCard
-                value="2"
-                title="Issues"
-                subtitle="Needs attention"
-                icon="alert"
-                tone="danger"
-              />
+            {/* 6 Status Cards (2 columns x 3 rows) */}
+            <View style={styles.statusGrid}>
+              {/* 1. New Orders: 12 */}
+              <TouchableOpacity
+                style={styles.statusCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'New' }))}
+              >
+                <View style={styles.statusCardTop}>
+                  <NewBadgeIcon />
+                </View>
+                <Text style={styles.statusNumber}>12</Text>
+                <Text style={styles.statusLabel}>New Orders</Text>
+              </TouchableOpacity>
+
+              {/* 2. Confirmed: 8 */}
+              <TouchableOpacity
+                style={styles.statusCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Confirmed' }))}
+              >
+                <View style={styles.statusCardTop}>
+                  <CheckCircleTickIcon />
+                </View>
+                <Text style={styles.statusNumber}>8</Text>
+                <Text style={styles.statusLabel}>Confirmed</Text>
+              </TouchableOpacity>
+
+              {/* 3. Packing: 5 */}
+              <TouchableOpacity
+                style={styles.statusCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Packing' }))}
+              >
+                <View style={styles.statusCardTop}>
+                  <PackageBoxIcon />
+                </View>
+                <Text style={styles.statusNumber}>5</Text>
+                <Text style={styles.statusLabel}>Packing</Text>
+              </TouchableOpacity>
+
+              {/* 4. Ready for Pickup: 7 */}
+              <TouchableOpacity
+                style={styles.statusCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Ready' }))}
+              >
+                <View style={styles.statusCardTop}>
+                  <ReadyPickupIcon />
+                </View>
+                <Text style={styles.statusNumber}>7</Text>
+                <Text style={styles.statusLabel}>Ready for Pickup</Text>
+              </TouchableOpacity>
+
+              {/* 5. Delivery: 3 */}
+              <TouchableOpacity
+                style={styles.statusCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S02', listParams({ defaultFilter: 'Delivery' }))}
+              >
+                <View style={styles.statusCardTop}>
+                  <DeliveryTruckIcon />
+                </View>
+                <Text style={styles.statusNumber}>3</Text>
+                <Text style={styles.statusLabel}>Delivery</Text>
+              </TouchableOpacity>
+
+              {/* 6. Order Issues: 2 */}
+              <TouchableOpacity
+                style={styles.statusCard}
+                activeOpacity={0.75}
+                onPress={() => onNavigate?.('M5S16')}
+              >
+                <View style={styles.statusCardTop}>
+                  <ErrorExclamationIcon />
+                </View>
+                <Text style={[styles.statusNumber, styles.statusNumberDanger]}>2</Text>
+                <Text style={styles.statusLabel}>Order Issues</Text>
+              </TouchableOpacity>
             </View>
 
+            {/* Filter Pills */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.pillsScrollContent}
               style={styles.pillsScrollView}
             >
-              {FILTER_PILLS.map((pill) => {
+              {['All', 'New', 'Confirmed', 'Packing', 'Ready'].map((pill) => {
                 const isActive = activeFilterPill === pill;
                 return (
                   <TouchableOpacity
@@ -616,6 +670,7 @@ export function OrdersDashboardScreen({
               })}
             </ScrollView>
 
+            {/* Needs Attention: Exactly the 3 cards matching design */}
             <View style={styles.attentionHeaderRow}>
               <WarningTriangleIcon />
               <Text style={styles.attentionSectionTitle}>Needs Attention</Text>
@@ -624,7 +679,7 @@ export function OrdersDashboardScreen({
             <TouchableOpacity
               style={[styles.attentionCard, styles.brandLeftBorder]}
               activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S05')}
+              onPress={() => onNavigate?.('M5S05', { orderId: 'ORD-1024' })}
             >
               <AttentionChecklistIcon />
               <View style={styles.attentionContent}>
@@ -637,7 +692,7 @@ export function OrdersDashboardScreen({
             <TouchableOpacity
               style={[styles.attentionCard, styles.brandLeftBorder]}
               activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S09')}
+              onPress={() => onNavigate?.('M5S09', { orderId: 'ORD-1020' })}
             >
               <AttentionPersonIcon />
               <View style={styles.attentionContent}>
@@ -648,22 +703,9 @@ export function OrdersDashboardScreen({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.attentionCard, styles.brandLeftBorder]}
-              activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S13', { orderId: 'ORD-1021' })}
-            >
-              <DeliveryTruckIcon />
-              <View style={styles.attentionContent}>
-                <Text style={styles.attentionTitle}>Order #ORD-1021</Text>
-                <Text style={styles.attentionDesc}>Prepare for delivery</Text>
-              </View>
-              <ChevronRightIcon />
-            </TouchableOpacity>
-
-            <TouchableOpacity
               style={[styles.attentionCard, styles.dangerLeftBorder]}
               activeOpacity={0.75}
-              onPress={() => onNavigate?.('M5S16')}
+              onPress={() => onNavigate?.('M5S16', { orderId: 'ORD-1018' })}
             >
               <ErrorExclamationIcon />
               <View style={styles.attentionContent}>
@@ -672,46 +714,6 @@ export function OrdersDashboardScreen({
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
-
-            <Text style={styles.sectionHeader}>Today's Summary</Text>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>24</Text>
-                <Text style={styles.summaryLabel}>TODAY'S ORDERS</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>16</Text>
-                <Text style={styles.summaryLabel}>COMPLETED</Text>
-              </View>
-              <View style={styles.summaryCard}>
-                <Text style={styles.summaryValue}>8</Text>
-                <Text style={styles.summaryLabel}>PENDING</Text>
-              </View>
-            </View>
-
-            <Text style={styles.sectionHeader}>Quick Actions</Text>
-            <View style={styles.quickActionsRow}>
-              <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S02', listParams())}>
-                <View style={styles.quickActionIconWrap}>
-                  <ViewOrdersReceiptIcon />
-                </View>
-                <Text style={styles.quickActionText}>View Orders</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S09')}>
-                <View style={styles.quickActionIconWrap}>
-                  <AttentionPersonIcon />
-                </View>
-                <Text style={styles.quickActionText}>Ready for Pickup</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.quickActionCard} activeOpacity={0.75} onPress={() => onNavigate?.('M5S16')}>
-                <View style={styles.quickActionIconWrap}>
-                  <ErrorExclamationIcon />
-                </View>
-                <Text style={styles.quickActionText}>Order Issues</Text>
-              </TouchableOpacity>
-            </View>
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
@@ -765,6 +767,28 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.headerIcon.bg,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#DC2626',
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#C25E00',
+  },
+  bellBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
 
   warehousePill: {

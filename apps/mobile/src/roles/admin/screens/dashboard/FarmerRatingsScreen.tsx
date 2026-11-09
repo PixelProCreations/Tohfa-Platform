@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminSpacing, adminRadius, adminType, adminShadow, adminOverlay, ADMIN_BUTTON_HEIGHT } from '../../theme';
+import { type Can } from '../../permissions/can';
 import { t } from '../../i18n';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -448,6 +449,8 @@ export interface FarmerRatingsScreenProps {
   farmerName?: string;
   farmerId?: string;
   initialView?: 'overview' | 'farmer_rating' | 'list' | 'detail';
+  role?: string;
+  can?: Can;
 }
 
 export function FarmerRatingsScreen({
@@ -456,7 +459,15 @@ export function FarmerRatingsScreen({
   farmerName,
   farmerId,
   initialView,
+  role,
+  can,
 }: FarmerRatingsScreenProps) {
+  // RBAC: Edit rating access is strictly for Farmer Admin and Tohfa Admin (plus Super Admin)
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
+  const canEditRating = Boolean(
+    can ? can('farmer.rating.edit') || (isFarmerAdmin || isTohfaAdmin) : (isFarmerAdmin || isTohfaAdmin)
+  );
   // Navigation view modes:
   // 'overview' | 'list' | 'filter' | 'detail' | 'history' | 'rating_record' | 'edit_rating' | 'review_rating' | 'permission'
   const [currentView, setCurrentView] = useState<
@@ -719,6 +730,19 @@ export function FarmerRatingsScreen({
             <Text style={styles.historyScoreText}>Rating: 4.4 · Zone: Coonoor</Text>
           </View>
         </ScrollView>
+
+        {canEditRating && (
+          <View style={styles.detailStickyBottomBar}>
+            <TouchableOpacity
+              style={styles.reviewRatingBtn}
+              onPress={() => setCurrentView('edit_rating')}
+              activeOpacity={0.85}
+              accessibilityLabel="Edit Rating"
+            >
+              <Text style={styles.reviewRatingBtnText}>Edit Rating</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     );
   }
@@ -1388,14 +1412,22 @@ export function FarmerRatingsScreen({
           })}
         </ScrollView>
 
-        {/* ── Sticky Bottom Button: Review Rating (Image 1 & 2) ── */}
+        {/* ── Sticky Bottom Button: Save Rating (Screen 2) ── */}
         <View style={styles.detailStickyBottomBar}>
           <TouchableOpacity
             style={styles.reviewRatingBtn}
-            onPress={() => setCurrentView('review_rating')}
+            onPress={() => {
+              Alert.alert('Rating Saved', 'Farm rating updated successfully.');
+              if (farmerName || farmerId || initialView === 'farmer_rating') {
+                setCurrentView('overview');
+              } else {
+                setCurrentView('detail');
+              }
+            }}
             activeOpacity={0.85}
+            accessibilityLabel="Save Rating"
           >
-            <Text style={styles.reviewRatingBtnText}>Review Rating</Text>
+            <Text style={styles.reviewRatingBtnText}>Save Rating</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -1580,6 +1612,19 @@ export function FarmerRatingsScreen({
             <Text style={styles.historyScoreText}>Rating: 4.4 · Zone: Coonoor</Text>
           </View>
         </ScrollView>
+
+        {canEditRating && (
+          <View style={styles.detailStickyBottomBar}>
+            <TouchableOpacity
+              style={styles.reviewRatingBtn}
+              onPress={() => setCurrentView('edit_rating')}
+              activeOpacity={0.85}
+              accessibilityLabel="Edit Rating"
+            >
+              <Text style={styles.reviewRatingBtnText}>Edit Rating</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
     );
   }

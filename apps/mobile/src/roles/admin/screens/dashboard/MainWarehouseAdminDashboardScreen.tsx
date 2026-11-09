@@ -28,6 +28,13 @@ import { EmptyState } from '../warehouse/wallet-cashtopup/WalletParts';
 import { PROFILE_WAREHOUSES, ProfileFlow } from '../warehouse/profile-settings';
 import { CustomersFlow, type CustomersRouteParams } from '../warehouse/customers';
 import { BillingFlow } from '../warehouse/billing-invoices';
+import {
+  AdminAllFarmersScreen,
+  type FarmerListItem,
+} from '../farmers/AdminAllFarmersScreen';
+import { AdminFarmerDetailScreen } from '../farmers/AdminFarmerDetailScreen';
+import { AdminFarmMapScreen } from '../farmers/AdminFarmMapScreen';
+import { AdminRatingScorecardScreen } from '../farmers/AdminRatingScorecardScreen';
 import { WalletFlow, walletParamsForCustomer } from '../warehouse/wallet-cashtopup';
 import { FinanceFlow } from '../warehouse/finance-expenses';
 import { ReportsScreen } from '../warehouse/reports';
@@ -176,9 +183,21 @@ type WarehouseSubView =
   // Module 7: Customers (the shared CustomersFlow owns its own sub-screens, W4)
   | 'customers_list'
   // Module 9: Billing & Invoices (the shared BillingFlow owns its own sub-screens, W4)
-  | 'billing_invoices';
+  | 'billing_invoices'
+  | 'farm_management';
 
 // ─── SVG Icons (Matching D01 Screenshots) ───────────────────────────────────
+
+function Users4Icon({ size = 26, color = PALETTE.primary }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M23 21v-2a4 4 0 00-3-3.87" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 3.13a4 4 0 010 7.75" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
 
 function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   // Lucide LayoutDashboard (exact match to design top-left greeting icon)
@@ -188,6 +207,16 @@ function Grid4SquaresIcon({ size = 20, color = adminColors.onBrand }: { size?: n
       <Rect x="14" y="3" width="7" height="5" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Rect x="14" y="12" width="7" height="9" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Rect x="3" y="16" width="7" height="5" rx="1.5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function InfoCircleOutlineIcon({ size = 16, color = '#854D0E' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="1.8" />
+      <Line x1="12" y1="16" x2="12" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="12" y1="8" x2="12.01" y2="8" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -744,7 +773,7 @@ const INVENTORY_ENTRY = {
  * MainWarehouseMoreScreen rendered these itself as local fallbacks; the shared
  * MoreScreen is role-neutral, so this shell supplies them via onNavigateTo*.
  */
-type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings';
+type MainMoreSubScreen = 'wallet' | 'returns' | 'finance' | 'reports' | 'staff' | 'admin' | 'settings' | 'farm_management';
 
 const MAIN_HOME_KPIS: Record<string, {
   totalStock: string;
@@ -821,6 +850,8 @@ export function MainWarehouseAdminDashboardScreen({
   const [ordersInitialParams, setOrdersInitialParams] = useState<Record<string, unknown> | null>(null);
   const [returnToMoreSubScreen, setReturnToMoreSubScreen] = useState<MainMoreSubScreen | null>(null);
   const [moreSubScreen, setMoreSubScreen] = useState<MainMoreSubScreen | null>(initialMoreSubScreen || null);
+  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
+  const [farmerSubScreen, setFarmerSubScreen] = useState<'map' | 'scorecard' | null>(null);
   const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string | undefined>(
     initialInventoryScreen || 'M3S01'
   );
@@ -2051,31 +2082,19 @@ export function MainWarehouseAdminDashboardScreen({
                   <Text style={styles.headerGreetingText}>Good morning, {displayName}</Text>
                 </View>
 
-                {/* Header Actions: Notification Bell + Profile Button */}
+                {/* Header Actions: Notification Bell matching Image */}
                 <View style={styles.headerActions}>
                   <TouchableOpacity
-                    style={styles.headerIconBtn}
+                    style={styles.notificationBellBtnWhite}
                     onPress={() => {
                       navigateWh('warehouse_notifications');
                     }}
                     activeOpacity={0.8}
                   >
-                    <BellOutlineIcon size={20} color={adminColors.onBrand} />
-                    {unreadNotifCount > 0 && (
-                      <View style={styles.notificationBadge}>
-                        <Text style={styles.notificationBadgeText}>{unreadNotifCount > 9 ? '9+' : unreadNotifCount}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.headerIconBtn}
-                    onPress={() => {
-                      navigateWh('profile');
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <ProfileHeaderIcon size={19} color={adminColors.onBrand} />
+                    <BellOutlineIcon size={20} color={adminColors.brand} />
+                    <View style={styles.notificationBadgeRed}>
+                      <Text style={styles.notificationBadgeRedText}>1</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -2094,15 +2113,17 @@ export function MainWarehouseAdminDashboardScreen({
 
             {/* Content Container */}
             <View style={styles.contentBody}>
-              {/* ─── 1. Today's Overview (KPI Grid) ─── */}
+              {/* ─── 1. Today's Overview (KPI Grid matching Image) ─── */}
               <Text style={styles.sectionHeading}>Today's Overview</Text>
               <View style={styles.kpiGrid}>
                 {/* Total Stock */}
                 <OverviewDashboardCard
                   value={homeKpi.totalStock}
-                  title="Total Stock"
-                  subtitle="KG in warehouse"
-                  icon="inventory"
+                  title="TOTAL STOCK"
+                  subtitle="KG"
+                  preserveCase
+                  titlePosition="top"
+                  titleStyle={styles.kpiCardTitleTop}
                   onPress={() => {
                     setActiveTab('Inventory');
                     setWhSubView('overview');
@@ -2113,9 +2134,11 @@ export function MainWarehouseAdminDashboardScreen({
                 {/* Incoming Goods */}
                 <OverviewDashboardCard
                   value={homeKpi.incomingGoods}
-                  title="Incoming Goods"
-                  subtitle="KG expected today"
-                  icon="receiving"
+                  title="INCOMING GOODS"
+                  subtitle="KG today"
+                  preserveCase
+                  titlePosition="top"
+                  titleStyle={styles.kpiCardTitleTop}
                   onPress={() => {
                     setActiveTab('Receiving');
                     setReceivingSubView('incoming_shipments');
@@ -2127,18 +2150,22 @@ export function MainWarehouseAdminDashboardScreen({
                 {/* Pending Transfers */}
                 <OverviewDashboardCard
                   value={homeKpi.pendingTransfers}
-                  title="Pending Transfers"
-                  subtitle="Transfers active"
-                  icon="truck"
+                  title="PENDING TRANSFERS"
+                  subtitle="transfers"
+                  preserveCase
+                  titlePosition="top"
+                  titleStyle={styles.kpiCardTitleTop}
                   onPress={() => navigateWh('inter_warehouse_transfer')}
                 />
 
                 {/* Today's Orders */}
                 <OverviewDashboardCard
                   value={homeKpi.todayOrders}
-                  title="Today's Orders"
-                  subtitle="Customer orders"
-                  icon="orders"
+                  title="TODAY'S ORDERS"
+                  subtitle="orders"
+                  preserveCase
+                  titlePosition="top"
+                  titleStyle={styles.kpiCardTitleTop}
                   onPress={() => {
                     setOrdersInitialScreen('M5S02');
                     navigateWh('customer_orders');
@@ -2148,21 +2175,33 @@ export function MainWarehouseAdminDashboardScreen({
                 {/* Sales */}
                 <OverviewDashboardCard
                   value={homeKpi.sales}
-                  title="Today's Sales"
-                  subtitle="Direct sales"
-                  icon="sales"
+                  title="SALES"
+                  subtitle="today"
+                  preserveCase
+                  titlePosition="top"
+                  titleStyle={styles.kpiCardTitleTop}
                   onPress={() => navigateWh('sales')}
                 />
 
                 {/* Open Issues */}
                 <OverviewDashboardCard
                   value={homeKpi.openIssues}
-                  title="Open Issues"
-                  subtitle="Needs attention"
-                  icon="alert"
+                  title="OPEN ISSUES"
+                  subtitle="issues"
+                  preserveCase
+                  titlePosition="top"
+                  titleStyle={styles.kpiCardTitleTop}
                   tone={Number(homeKpi.openIssues) > 0 ? 'danger' : 'default'}
                   onPress={() => navigateWh('operational_issues')}
                 />
+              </View>
+
+              {/* Info Callout Banner underneath KPI cards matching Image */}
+              <View style={styles.kpiCalloutBanner}>
+                <InfoCircleOutlineIcon size={16} color="#854D0E" />
+                <Text style={styles.kpiCalloutText}>
+                  Every KPI shows its own unit — KG, order counts, and currency are never added together into one blended figure.
+                </Text>
               </View>
 
               {/* ─── 2. Warehouse Overview ─── */}
@@ -2412,7 +2451,19 @@ export function MainWarehouseAdminDashboardScreen({
               {/* ─── 6. Quick Actions ─── */}
               <Text style={styles.sectionHeading}>Quick Actions</Text>
               <View style={styles.quickActionsGrid}>
-                {/* 1. Stock Overview */}
+                {/* 1. Transfer Stock */}
+                <TouchableOpacity
+                  style={styles.quickActionCard}
+                  onPress={() => {
+                    navigateWh('inter_warehouse_transfer');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <HorizontalTransferIcon size={26} color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>Transfer Stock</Text>
+                </TouchableOpacity>
+
+                {/* 2. Stock Overview */}
                 <TouchableOpacity
                   style={styles.quickActionCard}
                   onPress={() => {
@@ -2422,18 +2473,6 @@ export function MainWarehouseAdminDashboardScreen({
                 >
                   <StockBoxIcon size={26} color={PALETTE.primary} />
                   <Text style={styles.quickActionLabel}>Stock Overview</Text>
-                </TouchableOpacity>
-
-                {/* 2. Manage Warehouses */}
-                <TouchableOpacity
-                  style={styles.quickActionCard}
-                  onPress={() => {
-                    navigateWh('manage_warehouses');
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <BuildingWarehouseIcon size={26} color={PALETTE.primary} />
-                  <Text style={styles.quickActionLabel}>Manage Warehouses</Text>
                 </TouchableOpacity>
               </View>
 
@@ -2508,7 +2547,7 @@ export function MainWarehouseAdminDashboardScreen({
               setActiveTab('Home');
               setWhSubView('overview');
             }}
-            onInitiateTransfer={() => navigateWh('initiate_new_transfer')}
+            onInitiateTransfer={() => navigateWh('inter_warehouse_transfer')}
             warehouseOptions={HOME_WAREHOUSE_OPTIONS}
             onTabChange={(tab) => {
               setInventoryInitialScreen(undefined);
@@ -2520,7 +2559,37 @@ export function MainWarehouseAdminDashboardScreen({
 
         {/* ─── More Tab ─── */}
         {activeTab === 'More' && whSubView === 'overview' && moreSubScreen !== null && (
-          moreSubScreen === 'wallet' ? (
+          moreSubScreen === 'farm_management' ? (
+            farmerSubScreen === 'map' && selectedFarmer ? (
+              <AdminFarmMapScreen
+                farmer={selectedFarmer}
+                onBack={() => setFarmerSubScreen(null)}
+              />
+            ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
+              <AdminRatingScorecardScreen
+                farmer={selectedFarmer}
+                onBack={() => setFarmerSubScreen(null)}
+                onOpenComplianceTiers={() => {}}
+              />
+            ) : selectedFarmer ? (
+              <AdminFarmerDetailScreen
+                farmer={selectedFarmer}
+                can={can}
+                role="MAIN_WH_ADMIN"
+                onBack={() => setSelectedFarmer(null)}
+                onOpenFarmMap={() => setFarmerSubScreen('map')}
+                onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
+              />
+            ) : (
+              <AdminAllFarmersScreen
+                showBottomNav={false}
+                can={can}
+                role="MAIN_WH_ADMIN"
+                onBack={() => setMoreSubScreen(null)}
+                onSelectFarmer={(f) => setSelectedFarmer(f)}
+              />
+            )
+          ) : moreSubScreen === 'wallet' ? (
             <WalletFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
@@ -2582,6 +2651,7 @@ export function MainWarehouseAdminDashboardScreen({
             <StaffFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="Staff"
               onBack={() => setMoreSubScreen(null)}
               onTabChange={handleMoreTabChange}
@@ -2638,6 +2708,11 @@ export function MainWarehouseAdminDashboardScreen({
             onNavigateToSales={() => navigateWh('sales')}
             onNavigateToCustomers={() => navigateWh('customers_list')}
             onNavigateToBilling={() => navigateWh('billing_invoices')}
+            onNavigateToFarmManagement={() => {
+              setSelectedFarmer(null);
+              setFarmerSubScreen(null);
+              setMoreSubScreen('farm_management');
+            }}
             onNavigateToWarehouseOperations={() => navigateWh('warehouse_operations')}
             onNavigateToProfile={() => navigateWh('warehouse_profile')}
             onNavigateToWarehouseProfile={() => navigateWh('warehouse_profile')}
@@ -2787,6 +2862,7 @@ export function MainWarehouseAdminDashboardScreen({
             <StaffFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="Staff"
               onBack={goBackWh}
               onTabChange={handleMoreTabChange}
@@ -2805,6 +2881,7 @@ export function MainWarehouseAdminDashboardScreen({
             <StaffFlow
               scope={MAIN_WAREHOUSE_SCOPE}
               can={can}
+              role="MAIN_WH_ADMIN"
               initialScreen="Attendance"
               initialParams={ATTENDANCE_ALL_PARAMS}
               onBack={goBackWh}
@@ -3113,7 +3190,7 @@ export function MainWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
             >
               <MoreTabNavIcon active={(activeTab as string) === 'More'} />
-              <Text style={[styles.tabLabel, (activeTab as string) === 'More' && styles.tabLabelActive]}>More</Text>
+              <Text style={[styles.tabLabel, (activeTab as string) === 'More' && styles.tabLabelActive]}>Menu</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -3123,6 +3200,61 @@ export function MainWarehouseAdminDashboardScreen({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  notificationBellBtnWhite: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    ...adminShadow.sm,
+  },
+  notificationBadgeRed: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  notificationBadgeRedText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  kpiCardTitleTop: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.3,
+    marginBottom: 4,
+  },
+  kpiCalloutBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 12,
+    marginBottom: 16,
+    gap: 10,
+  },
+  kpiCalloutText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#854D0E',
+    fontWeight: '500',
+  },
   root: {
     flex: 1,
     backgroundColor: PALETTE.headerBg,

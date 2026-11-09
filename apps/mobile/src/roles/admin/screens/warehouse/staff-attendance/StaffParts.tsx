@@ -51,6 +51,15 @@ export function TruckIcon({ size = 20, color = adminColors.brand }: IconProps) {
   );
 }
 
+export function SearchIcon({ size = 18, color = adminColors.muted }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="8" stroke={color} strokeWidth="2" />
+      <Path d="m21 21-4.35-4.35" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function FilterSlidersIcon({ size = 20, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -143,6 +152,31 @@ export function ChevronDownIcon({ size = 18, color = adminColors.muted }: IconPr
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function CalendarIcon({ size = 18, color = adminColors.muted }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function CheckmarkIcon({ size = 16, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function UploadPhotoIcon({ size = 18, color = adminColors.ink }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -445,4 +479,346 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.lg,
   },
   applyButtonText: { ...adminType.sectionHead, color: adminColors.onBrand },
+});
+
+export function ClockOutlineIcon({ size = 16, color = adminColors.muted }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Path d="M12 7v5l3 2" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export interface UpdateAttendanceModalProps {
+  visible: boolean;
+  name: string;
+  initialStatus?: AttendanceStatus | string;
+  initialCheckIn?: string;
+  initialCheckOut?: string;
+  initialReason?: string;
+  onClose: () => void;
+  onUpdate: (data: { status: AttendanceStatus; checkIn: string; checkOut: string; reason: string }) => void;
+}
+
+export function UpdateAttendanceModal({
+  visible,
+  name,
+  initialStatus = 'Present',
+  initialCheckIn = '09:02 AM',
+  initialCheckOut = '05:05 PM',
+  initialReason = '',
+  onClose,
+  onUpdate,
+}: UpdateAttendanceModalProps) {
+  const [status, setStatus] = React.useState<AttendanceStatus>(initialStatus as AttendanceStatus);
+  const [checkIn, setCheckIn] = React.useState(initialCheckIn);
+  const [checkOut, setCheckOut] = React.useState(initialCheckOut);
+  const [reason, setReason] = React.useState(initialReason);
+  const [showStatusDropdown, setShowStatusDropdown] = React.useState(false);
+  const [showReasonDropdown, setShowReasonDropdown] = React.useState(false);
+
+  React.useEffect(() => {
+    setStatus(initialStatus as AttendanceStatus);
+    setCheckIn(initialCheckIn);
+    setCheckOut(initialCheckOut);
+    setReason(initialReason);
+  }, [initialStatus, initialCheckIn, initialCheckOut, initialReason, visible]);
+
+  if (!visible) return null;
+
+  const statusOptions: AttendanceStatus[] = ['Present', 'Absent', 'On Leave'];
+  const reasonOptions = [
+    'Select reason',
+    'Medical Emergency',
+    'Sick Leave',
+    'Vehicle Maintenance',
+    'Personal Work',
+    'Duty Off / Other',
+  ];
+
+  const getToneColor = (st: AttendanceStatus) => {
+    switch (st) {
+      case 'Present': return '#16A34A';
+      case 'Absent': return '#DC2626';
+      case 'On Leave': return '#D97706';
+      default: return adminColors.ink;
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={modalStyles.backdrop}>
+        <View style={modalStyles.sheet}>
+          <Text style={modalStyles.title}>{name} - Update Attendance</Text>
+
+          {/* Top 3-Column Row: Status, Check-in Time, Check-out Time */}
+          <View style={modalStyles.topThreeColRow}>
+            {/* Status Dropdown */}
+            <View style={modalStyles.colFlex}>
+              <Text style={modalStyles.label}>
+                Status <Text style={{ color: '#EF4444' }}>*</Text>
+              </Text>
+              <TouchableOpacity
+                style={modalStyles.dropdownCompact}
+                onPress={() => {
+                  setShowStatusDropdown(!showStatusDropdown);
+                  setShowReasonDropdown(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={modalStyles.dropdownLeft}>
+                  <View style={[modalStyles.dot, { backgroundColor: getToneColor(status) }]} />
+                  <Text style={[modalStyles.dropdownText, { color: getToneColor(status), fontSize: 13 }]}>{status}</Text>
+                </View>
+                <ChevronDownIcon size={14} color={adminColors.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Check-in Time */}
+            <View style={modalStyles.colFlex}>
+              <Text style={modalStyles.label}>Check-in Time</Text>
+              <View style={modalStyles.timeBox}>
+                <ClockOutlineIcon size={14} color={adminColors.muted} />
+                <Text style={modalStyles.timeText}>{status === 'Absent' ? '--:--' : checkIn}</Text>
+              </View>
+            </View>
+
+            {/* Check-out Time */}
+            <View style={modalStyles.colFlex}>
+              <Text style={modalStyles.label}>Check-out Time</Text>
+              <View style={modalStyles.timeBox}>
+                <ClockOutlineIcon size={14} color={adminColors.muted} />
+                <Text style={modalStyles.timeText}>{status === 'Absent' ? '--:--' : checkOut}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Dropdown Menu for Status */}
+          {showStatusDropdown && (
+            <View style={modalStyles.dropdownList}>
+              {statusOptions.map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={modalStyles.dropdownItem}
+                  onPress={() => {
+                    setStatus(opt);
+                    setShowStatusDropdown(false);
+                  }}
+                >
+                  <View style={[modalStyles.dot, { backgroundColor: getToneColor(opt) }]} />
+                  <Text style={[modalStyles.dropdownItemText, status === opt && modalStyles.dropdownItemActive]}>
+                    {opt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Reason (Optional) */}
+          <Text style={modalStyles.label}>Reason (Optional)</Text>
+          <TouchableOpacity
+            style={modalStyles.dropdown}
+            onPress={() => {
+              setShowReasonDropdown(!showReasonDropdown);
+              setShowStatusDropdown(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={[modalStyles.dropdownText, !reason && { color: adminColors.muted }]}>
+              {reason || 'Select reason'}
+            </Text>
+            <ChevronDownIcon size={16} color={adminColors.muted} />
+          </TouchableOpacity>
+
+          {showReasonDropdown && (
+            <View style={modalStyles.dropdownList}>
+              {reasonOptions.map((opt) => (
+                <TouchableOpacity
+                  key={opt}
+                  style={modalStyles.dropdownItem}
+                  onPress={() => {
+                    setReason(opt === 'Select reason' ? '' : opt);
+                    setShowReasonDropdown(false);
+                  }}
+                >
+                  <Text style={[modalStyles.dropdownItemText, (reason === opt || (!reason && opt === 'Select reason')) && modalStyles.dropdownItemActive]}>
+                    {opt}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Action Buttons */}
+          <View style={modalStyles.btnRow}>
+            <TouchableOpacity style={modalStyles.cancelBtn} onPress={onClose} activeOpacity={0.8}>
+              <Text style={modalStyles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={modalStyles.updateBtn}
+              onPress={() => onUpdate({ status, checkIn, checkOut, reason })}
+              activeOpacity={0.8}
+            >
+              <Text style={modalStyles.updateBtnText}>Update Attendance</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 34,
+  },
+  title: {
+    ...adminType.sectionHead,
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  topThreeColRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+  },
+  colFlex: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+    marginBottom: 6,
+    marginTop: 6,
+  },
+  dropdownCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    minHeight: 42,
+  },
+  dropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    minHeight: 44,
+  },
+  dropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dropdownText: {
+    fontSize: 13,
+    color: '#111827',
+  },
+  timeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    minHeight: 42,
+  },
+  timeText: {
+    fontSize: 13,
+    color: '#4B5563',
+  },
+  dropdownList: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    marginTop: 4,
+    marginBottom: 8,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  dropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  dropdownItemText: {
+    fontSize: 13,
+    color: '#111827',
+  },
+  dropdownItemActive: {
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  updateBtn: {
+    flex: 1.5,
+    backgroundColor: adminColors.brand,
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
 });

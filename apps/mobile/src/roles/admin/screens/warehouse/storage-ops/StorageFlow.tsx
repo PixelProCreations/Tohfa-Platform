@@ -267,8 +267,10 @@ export function StorageFlow({
         <WarehouseOperationsScreen
           {...common}
           onOpenMaterials={() => navigate('MaterialHandling')}
+          onOpenStorageLocations={() => navigate('StorageLocations')}
           onOpenCapacity={() => navigate('Capacity')}
           onOpenIssues={() => navigate('OperationalIssues')}
+          onOpenReportIssue={() => navigate('ReportIssue', { reportMode: 'operational' })}
           onOpenActivity={(activityPreset) => navigate('Activity', { activityPreset })}
           onSelectActivity={(activityId) => navigate('ActivityDetail', { activityId })}
           onOpenModule={openModule}

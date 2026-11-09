@@ -94,8 +94,8 @@ function BuildingWarehouseIcon({ size = 18, color = adminColors.brand }: { size?
   );
 }
 
-export type HistoryDateRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
-export const DATE_RANGE_OPTIONS: readonly HistoryDateRange[] = ['Today', '7 Days', '30 Days', 'This Month'];
+export type HistoryDateRange = 'Today' | '7 Days' | '30 Days' | 'This Month' | 'Custom';
+export const DATE_RANGE_OPTIONS: readonly HistoryDateRange[] = ['Today', '7 Days', '30 Days', 'This Month', 'Custom'];
 
 export interface StaffFilterValues {
   searchQuery: string;

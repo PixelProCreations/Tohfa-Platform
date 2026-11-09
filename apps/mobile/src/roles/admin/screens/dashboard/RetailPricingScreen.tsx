@@ -200,6 +200,7 @@ export const SAMPLE_RETAIL_PRICES = INITIAL_RETAIL_MANAGEMENT_ITEMS;
 
 export interface RetailPricingScreenProps {
   onBack: () => void;
+  role?: string | undefined;
   onEditRetailPrice?: (record: PricingRecordItem) => void;
   onSelectBreakdown?: (item?: any) => void;
   role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;

@@ -54,6 +54,7 @@ type StatusFilter = 'All' | 'Active' | 'Inactive';
 const STATUS_FILTERS: readonly StatusFilter[] = ['All', 'Active', 'Inactive'];
 
 export interface StorageInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
+  onEdit?: (() => void) | undefined;
   /** Open a location's detail (host-owned). Without it the cards are not tappable. */
   onSelectLocation?: ((locationId: string) => void) | undefined;
   locations?: readonly StorageLocationItem[] | undefined;
@@ -197,7 +198,7 @@ export function StorageInfoScreen({
         ) : null}
 
         <SectionTitle>Storage Locations</SectionTitle>
-        <ChipGroup options={STATUS_FILTERS} value={filter} onChange={setFilter} />
+        <ChipGroup options={STATUS_FILTERS} value={filter} onChange={(next) => setFilter(next as StatusFilter)} />
         <View style={warehouseProfileLayout.gap} />
         <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Location name, code, storage type" />
         <View style={warehouseProfileLayout.gap} />

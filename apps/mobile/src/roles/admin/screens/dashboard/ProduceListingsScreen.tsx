@@ -200,12 +200,130 @@ export interface ProduceListingsScreenProps {
   onBack: () => void;
   initialFilter?: 'all' | 'pending' | 'counter';
   onSelectListing?: (item: ListingCardItem) => void;
+  role?: string;
+  completedProduceNames?: string[];
+  onSelectFarmerDetails?: (group: any, item: any) => void;
+  onSelectFarmerProduce?: (group: any, item: any) => void;
 }
+
+export interface FarmerListingGroup {
+  farmerName: string;
+  farmerId: string;
+  zone: string;
+  avatarChar: string;
+  pendingCountText: string;
+  products: {
+    id: string;
+    crop: string;
+    grade: string;
+    quantityKg: number;
+    pricePerKg: number;
+    submittedTime: string;
+    status: 'Pending View' | 'Pending Review' | 'Approved' | 'Rejected';
+  }[];
+}
+
+const MOCK_FARMER_GROUPS: FarmerListingGroup[] = [
+  {
+    farmerName: 'Ramesh',
+    farmerId: 'FR-00241',
+    zone: 'Coonoor',
+    avatarChar: 'R',
+    pendingCountText: '3 pending listings',
+    products: [
+      {
+        id: 'PL-001241',
+        crop: 'Tomato',
+        grade: 'Grade 1',
+        quantityKg: 50,
+        pricePerKg: 100,
+        submittedTime: '08:15 AM',
+        status: 'Pending View',
+      },
+      {
+        id: 'PL-001242',
+        crop: 'Carrot',
+        grade: 'Grade 1',
+        quantityKg: 30,
+        pricePerKg: 80,
+        submittedTime: '08:40 AM',
+        status: 'Pending View',
+      },
+      {
+        id: 'PL-001243',
+        crop: 'Beans',
+        grade: 'Grade 2',
+        quantityKg: 20,
+        pricePerKg: 60,
+        submittedTime: '09:05 AM',
+        status: 'Pending View',
+      },
+    ],
+  },
+  {
+    farmerName: 'Kumar',
+    farmerId: 'FR-00388',
+    zone: 'Ooty',
+    avatarChar: 'K',
+    pendingCountText: '2 pending listings',
+    products: [
+      {
+        id: 'PL-001244',
+        crop: 'Carrot',
+        grade: 'Grade 2',
+        quantityKg: 80,
+        pricePerKg: 70,
+        submittedTime: '08:20 AM',
+        status: 'Pending View',
+      },
+      {
+        id: 'PL-001245',
+        crop: 'Onion',
+        grade: 'Grade 1',
+        quantityKg: 60,
+        pricePerKg: 50,
+        submittedTime: '09:35 AM',
+        status: 'Pending View',
+      },
+    ],
+  },
+  {
+    farmerName: 'Suresh Chakravarthi',
+    farmerId: 'FR-00189',
+    zone: 'Coonoor',
+    avatarChar: 'S',
+    pendingCountText: '4 pending listings',
+    products: [
+      {
+        id: 'PL-001246',
+        crop: 'Tomato',
+        grade: 'Grade 1',
+        quantityKg: 40,
+        pricePerKg: 95,
+        submittedTime: '07:45 AM',
+        status: 'Pending View',
+      },
+      {
+        id: 'PL-001247',
+        crop: 'Carrot',
+        grade: 'Grade 1',
+        quantityKg: 50,
+        pricePerKg: 75,
+        submittedTime: '08:00 AM',
+        status: 'Pending View',
+      },
+    ],
+  },
+];
 
 export function ProduceListingsScreen({
   onBack,
   initialFilter = 'all',
   onSelectListing,
+  role,
+  completedProduceNames,
+  onSelectFarmerDetails,
+  onSelectFarmerProduce,
 }: ProduceListingsScreenProps) {
   // Search query
   const [searchQuery, setSearchQuery] = useState('');
@@ -271,6 +389,24 @@ export function ProduceListingsScreen({
       return true;
     });
   }, [searchQuery, statusFilter, cropFilter, gradeFilter, zoneFilter]);
+
+  // Grouped Farmer Calculation for S02 Product Listings
+  const filteredFarmerGroups = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return MOCK_FARMER_GROUPS;
+
+    return MOCK_FARMER_GROUPS.map((group) => {
+      const matchFarmer = group.farmerName.toLowerCase().includes(q) || group.farmerId.toLowerCase().includes(q);
+      if (matchFarmer) return group;
+      const matchedProducts = group.products.filter(
+        (p) => p.crop.toLowerCase().includes(q) || p.id.toLowerCase().includes(q)
+      );
+      if (matchedProducts.length > 0) {
+        return { ...group, products: matchedProducts };
+      }
+      return null;
+    }).filter(Boolean) as FarmerListingGroup[];
+  }, [searchQuery]);
 
   // If a listing is selected, handle sub-views
   if (detailsItem) {
@@ -552,85 +688,182 @@ export function ProduceListingsScreen({
 
         {/* ─── Listing Cards List ─── */}
         <View style={styles.cardsList}>
-          {filteredListings.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.card}
-              onPress={() => {
-                onSelectListing?.(item);
-                setDetailsItem(item);
-                setCurrentSubView('details');
-              }}
-              activeOpacity={0.75}
-            >
-              {/* Row 1: Crop / Title & Status Badge */}
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>{item.title}</Text>
+          {role === 'FARMER_ADMIN' ? (
+            filteredFarmerGroups.map((group) => (
+              <View key={group.farmerId} style={styles.groupCard}>
+                {/* Farmer Header Row */}
+                <TouchableOpacity
+                  style={styles.groupHeaderRow}
+                  onPress={() => {
+                    if (onSelectFarmerDetails) {
+                      onSelectFarmerDetails(group, group.products[0]);
+                    } else {
+                      setDetailsItem({
+                        id: group.products[0]?.id || 'PL-001241',
+                        title: group.products[0]?.crop || 'Produce',
+                        crop: (group.products[0]?.crop as any) || 'Tomato',
+                        grade: (group.products[0]?.grade as any) || 'Grade 1',
+                        quantityKg: group.products[0]?.quantityKg || 50,
+                        status: 'Pending Review',
+                        farmerName: group.farmerName,
+                        farmerId: group.farmerId,
+                        zone: group.zone as any,
+                      });
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.groupAvatarCircle}>
+                    <Text style={styles.groupAvatarText}>{group.avatarChar}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.groupFarmerName}>{group.farmerName}</Text>
+                    <Text style={styles.groupPendingText}>{group.pendingCountText}</Text>
+                  </View>
+                </TouchableOpacity>
 
-                {item.status === 'Pending Review' && (
-                  <View style={[styles.badge, styles.badgePending]}>
-                    <Text style={[styles.badgeText, styles.badgeTextPending]}>Pending Review</Text>
-                  </View>
-                )}
-                {item.status === 'Counter Offer Sent' && (
-                  <View style={[styles.badge, styles.badgeCounter]}>
-                    <Text style={[styles.badgeText, styles.badgeTextCounter]}>Counter Offer Sent</Text>
-                  </View>
-                )}
-                {item.status === 'Approved' && (
-                  <View style={[styles.badge, styles.badgeApproved]}>
-                    <Text style={[styles.badgeText, styles.badgeTextApproved]}>Approved</Text>
-                  </View>
-                )}
-                {item.status === 'Rejected' && (
-                  <View style={[styles.badge, styles.badgeRejected]}>
-                    <Text style={[styles.badgeText, styles.badgeTextRejected]}>Rejected</Text>
-                  </View>
-                )}
-                {item.status === 'Review Restricted' && (
-                  <View style={[styles.badge, styles.badgeRestricted]}>
-                    <Text style={[styles.badgeText, styles.badgeTextRestricted]}>Review Restricted</Text>
-                  </View>
-                )}
+                {/* Listed Products Label */}
+                <Text style={styles.listedProductsLabel}>LISTED PRODUCTS</Text>
+
+                {/* Products list inside farmer card */}
+                <View style={styles.groupProductsList}>
+                  {group.products.map((prod) => (
+                    <TouchableOpacity
+                      key={prod.id}
+                      style={styles.groupProductItem}
+                      onPress={() => {
+                        if (onSelectFarmerDetails) {
+                          onSelectFarmerDetails(group, prod);
+                        } else if (onSelectListing) {
+                          onSelectListing({
+                            id: prod.id,
+                            title: prod.crop,
+                            crop: prod.crop as any,
+                            grade: prod.grade as any,
+                            quantityKg: prod.quantityKg,
+                            pricePerKg: prod.pricePerKg,
+                            status: 'Pending Review',
+                            farmerName: group.farmerName,
+                            farmerId: group.farmerId,
+                            zone: group.zone as any,
+                          });
+                        } else {
+                          setDetailsItem({
+                            id: prod.id,
+                            title: prod.crop,
+                            crop: prod.crop as any,
+                            grade: prod.grade as any,
+                            quantityKg: prod.quantityKg,
+                            pricePerKg: prod.pricePerKg,
+                            status: 'Pending Review',
+                            farmerName: group.farmerName,
+                            farmerId: group.farmerId,
+                            zone: group.zone as any,
+                          });
+                        }
+                      }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={styles.groupProductHeader}>
+                        <Text style={styles.groupProductTitle}>{prod.crop}</Text>
+                        <View style={styles.groupPendingBadge}>
+                          <Text style={styles.groupPendingBadgeText}>Pending View</Text>
+                        </View>
+                      </View>
+
+                      <Text style={styles.groupProductSpecs}>
+                        {prod.grade} · {prod.quantityKg} KG · ₹{prod.pricePerKg}/KG
+                      </Text>
+
+                      <Text style={styles.groupProductSubmitted}>
+                        Submitted: {prod.submittedTime}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
+            ))
+          ) : (
+            filteredListings.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.card}
+                onPress={() => {
+                  onSelectListing?.(item);
+                  setDetailsItem(item);
+                  setCurrentSubView('details');
+                }}
+                activeOpacity={0.75}
+              >
+                {/* Row 1: Crop / Title & Status Badge */}
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
 
-              {/* Row 2: Specs */}
-              <Text style={styles.cardSpecText}>
-                {item.grade} · {item.quantityKg} KG
-                {item.pricePerKg ? ` · ₹${item.pricePerKg}/KG` : ''}
-              </Text>
-
-              {/* Thin Divider Line */}
-              {(item.farmerName || item.reason) && <View style={styles.cardDivider} />}
-
-              {/* Metadata: Farmer */}
-              {item.farmerName && (
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Farmer:</Text>
-                  <Text style={styles.metaValue}>
-                    {item.farmerName}
-                    {item.farmerId ? ` · ${item.farmerId}` : ''}
-                  </Text>
+                  {item.status === 'Pending Review' && (
+                    <View style={[styles.badge, styles.badgePending]}>
+                      <Text style={[styles.badgeText, styles.badgeTextPending]}>Pending Review</Text>
+                    </View>
+                  )}
+                  {item.status === 'Counter Offer Sent' && (
+                    <View style={[styles.badge, styles.badgeCounter]}>
+                      <Text style={[styles.badgeText, styles.badgeTextCounter]}>Counter Offer Sent</Text>
+                    </View>
+                  )}
+                  {item.status === 'Approved' && (
+                    <View style={[styles.badge, styles.badgeApproved]}>
+                      <Text style={[styles.badgeText, styles.badgeTextApproved]}>Approved</Text>
+                    </View>
+                  )}
+                  {item.status === 'Rejected' && (
+                    <View style={[styles.badge, styles.badgeRejected]}>
+                      <Text style={[styles.badgeText, styles.badgeTextRejected]}>Rejected</Text>
+                    </View>
+                  )}
+                  {item.status === 'Review Restricted' && (
+                    <View style={[styles.badge, styles.badgeRestricted]}>
+                      <Text style={[styles.badgeText, styles.badgeTextRestricted]}>Review Restricted</Text>
+                    </View>
+                  )}
                 </View>
-              )}
 
-              {/* Metadata: Submitted Time */}
-              {item.submittedTime && (
-                <View style={[styles.metaRow, { marginTop: 4 }]}>
-                  <Text style={styles.metaLabel}>Submitted:</Text>
-                  <Text style={styles.metaValue}>{item.submittedTime}</Text>
-                </View>
-              )}
+                {/* Row 2: Specs */}
+                <Text style={styles.cardSpecText}>
+                  {item.grade} · {item.quantityKg} KG
+                  {item.pricePerKg ? ` · ₹${item.pricePerKg}/KG` : ''}
+                </Text>
 
-              {/* Metadata: Reason */}
-              {item.reason && (
-                <View style={styles.metaRow}>
-                  <Text style={styles.metaLabel}>Reason:</Text>
-                  <Text style={styles.metaValue}>{item.reason}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
+                {/* Thin Divider Line */}
+                {(item.farmerName || item.reason) && <View style={styles.cardDivider} />}
+
+                {/* Metadata: Farmer */}
+                {item.farmerName && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Farmer:</Text>
+                    <Text style={styles.metaValue}>
+                      {item.farmerName}
+                      {item.farmerId ? ` · ${item.farmerId}` : ''}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Metadata: Submitted Time */}
+                {item.submittedTime && (
+                  <View style={[styles.metaRow, { marginTop: 4 }]}>
+                    <Text style={styles.metaLabel}>Submitted:</Text>
+                    <Text style={styles.metaValue}>{item.submittedTime}</Text>
+                  </View>
+                )}
+
+                {/* Metadata: Reason */}
+                {item.reason && (
+                  <View style={styles.metaRow}>
+                    <Text style={styles.metaLabel}>Reason:</Text>
+                    <Text style={styles.metaValue}>{item.reason}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            ))
+          )}
         </View>
 
         <View style={{ height: 36 }} />
@@ -883,6 +1116,99 @@ const styles = StyleSheet.create({
   },
   clearOutlineBtnText: {
     ...adminType.rowTitle,
+    color: adminColors.muted,
+  },
+
+  // ─── Farmer Grouped Styles (Image 2 Screen 1) ───
+  groupCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  groupHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: adminSpacing.md,
+  },
+  groupAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  groupAvatarText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+  },
+  groupFarmerName: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    letterSpacing: -0.2,
+  },
+  groupPendingText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 1,
+  },
+  listedProductsLabel: {
+    ...adminType.caption,
+    fontWeight: '800',
+    color: adminColors.muted,
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  groupProductsList: {
+    gap: 10,
+  },
+  groupProductItem: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.lg,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  groupProductHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  groupProductTitle: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  groupPendingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  groupPendingBadgeText: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  groupProductSpecs: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  groupProductSubmitted: {
+    ...adminType.caption,
+    fontSize: 11,
     color: adminColors.muted,
   },
 });

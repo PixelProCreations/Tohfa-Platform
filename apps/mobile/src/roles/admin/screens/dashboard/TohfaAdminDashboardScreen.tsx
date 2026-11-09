@@ -51,7 +51,7 @@ import {
   type OnlineOrderItem,
   type B2BAccount,
 } from '../sales';
-import { SalesFlow } from '../warehouse/sales-direct';
+import { SalesFlow, ChannelSalesScreen } from '../warehouse/sales-direct';
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { TohfaAdminSettingsScreen } from './TohfaAdminSettingsScreen';
 import { ProfileFlow } from '../warehouse/profile-settings';
@@ -88,7 +88,8 @@ import { InvoicesGstBillingScreen } from '../finance/InvoicesGstBillingScreen';
 import { ReturnsRmaRefundsScreen } from '../finance/ReturnsRmaRefundsScreen';
 import { TransactionHistoryScreen } from '../finance/TransactionHistoryScreen';
 
-import { CustomerWalletScreen } from '../warehouse/wallet-cashtopup';
+import { CustomerWalletScreen, WalletFlow } from '../warehouse/wallet-cashtopup';
+import { ReceivingFlow } from '../warehouse/receiving-qc';
 import { ReportsExportScreen } from '../finance/ReportsExportScreen';
 import { AdminOperationsOverviewScreen } from './AdminOperationsOverviewScreen';
 import { AdminSalesFinanceOverviewScreen } from './AdminSalesFinanceOverviewScreen';
@@ -98,16 +99,19 @@ import { CustomersFlow, CUSTOMER_WAREHOUSES } from '../warehouse/customers';
 
 
 import { InterWarehouseTransfersScreen } from './InterWarehouseTransfersScreen';
+import { TransfersFlow } from '../warehouse/transfers';
 import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
+import { StaffFlow, StaffDetailScreen, StaffListScreen, STAFF_MEMBERS, DEFAULT_STAFF_MEMBER, type StaffMember, type AttendanceStatus } from '../warehouse/staff-attendance';
+import { HistoryIcon } from '../warehouse/staff-attendance/StaffParts';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
-import { ApprovedInputsScreen, AddNewInputScreen, type CatalogInputItem } from './ApprovedInputsScreen';
+import { ApprovedInputsScreen, AddNewInputScreen, EditInputScreen, type CatalogInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
-import { PestLibraryScreen, AddNewPestScreen } from './PestLibraryScreen';
+import { PestLibraryScreen, AddNewPestScreen, EditPestScreen, type PestItem } from './PestLibraryScreen';
 import { FarmerPestIncidentsScreen, type IncidentItem } from './FarmerPestIncidentsScreen';
 import { PestIncidentDetailScreen } from './PestIncidentDetailScreen';
-import { AddNewGuideScreen } from './AddNewGuideScreen';
-import { ApplicationTreatmentGuidesScreen } from './ApplicationTreatmentGuidesScreen';
+import { AddNewGuideScreen, EditGuideScreen } from './AddNewGuideScreen';
+import { ApplicationTreatmentGuidesScreen, type ApplicationTreatmentGuideItem } from './ApplicationTreatmentGuidesScreen';
 import { CommunityKnowledgeHomeScreen } from './CommunityKnowledgeHomeScreen';
 import { CreateContentScreen, type ContentTypeOption, type CreateContentInitialData } from './CreateContentScreen';
 import { CreateGroupScreen } from './CreateGroupScreen';
@@ -726,6 +730,27 @@ function QuickCashTopUpIcon({ size = 26, color = adminColors.brand }: { size?: n
       <Circle cx="10.5" cy="12" r="2.5" stroke={color} strokeWidth="2" />
       <Path d="M19 10v6a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2z" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Path d="M6 6V4a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v8" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function QuickCutleryIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M5.5 4v6a2.8 2.8 0 0 0 2.8 2.8v7.2M8.3 4v6M11.1 4v6a2.8 2.8 0 0 1-2.8 2.8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M18.5 4v16M18.5 4c-3 0-5 2.5-5 6v4h5"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -4971,7 +4996,7 @@ function CustomerDirectoryScreen({
             <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <BackArrowWhiteIcon size={22} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={customerStyles.headerTitle}>Customer Directory</Text>
+            <Text style={customerStyles.headerTitle}>Customer list</Text>
           </View>
           <CircularPlusButton onPress={onAddNewCustomer} />
         </View>
@@ -7075,9 +7100,11 @@ export function TohfaAdminDashboardScreen({
 
   // Inputs & Pest Management Module State (Image 1/2: home, Image 3: catalog, Images 1-3: add_input, Image 5: input_detail, Image 1: pest_library, Images 2-5: add_pest, Image 1: pest_incidents, Image 2-4: incident_detail)
   const [inputsPestScreen, setInputsPestScreen] = useState<
-    'home' | 'catalog' | 'add_input' | 'input_detail' | 'pest_library' | 'add_pest' | 'pest_incidents' | 'incident_detail' | 'application_guides' | 'add_guide' | null
+    'home' | 'catalog' | 'add_input' | 'edit_input' | 'input_detail' | 'pest_library' | 'add_pest' | 'edit_pest' | 'pest_incidents' | 'incident_detail' | 'application_guides' | 'add_guide' | 'edit_guide' | null
   >(null);
   const [selectedCatalogInput, setSelectedCatalogInput] = useState<CatalogInputItem | undefined>(undefined);
+  const [selectedPest, setSelectedPest] = useState<PestItem | undefined>(undefined);
+  const [selectedGuide, setSelectedGuide] = useState<ApplicationTreatmentGuideItem | undefined>(undefined);
   const [selectedIncident, setSelectedIncident] = useState<IncidentItem | undefined>(undefined);
 
   // Customers Management Module State (M1-S07 to M1-S11)
@@ -7183,6 +7210,7 @@ export function TohfaAdminDashboardScreen({
     | 'operationsOverview'
     | 'salesFinanceOverview'
     | 'exportReport'
+    | 'createHorecaB2BOrder'
     | null
   >(null);
   const [exportReportReturnSubScreen, setExportReportReturnSubScreen] = useState<
@@ -7234,7 +7262,7 @@ export function TohfaAdminDashboardScreen({
   const [reportsSubScreen, setReportsSubScreen] = useState<
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
-  const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | null>(null);
+  const [operationsSubScreen, setOperationsSubScreen] = useState<'stockLedger' | 'stockVerification' | 'transfers' | 'addWarehouse' | 'receiving' | null>(null);
   const [selectedWarehouseScope, setSelectedWarehouseScope] = useState<{
     warehouseId: string;
     warehouseName: string;
@@ -7265,8 +7293,9 @@ export function TohfaAdminDashboardScreen({
 
   // Workforce & Staff State (Screenshots M14-S01, M14-S02, M14-S04, M14-S02b)
   const [workforceActive, setWorkforceActive] = useState(false);
+  const [showReportsScreen, setShowReportsScreen] = useState(false);
   const [workforceSubScreen, setWorkforceSubScreen] = useState<
-    'dashboard' | 'management' | 'create' | 'attendance' | 'details'
+    'dashboard' | 'management' | 'create' | 'attendance' | 'details' | 'history'
   >('dashboard');
   const [workforceSearch, setWorkforceSearch] = useState('');
   const [showWorkforceFilterModal, setShowWorkforceFilterModal] = useState(false);
@@ -7274,9 +7303,106 @@ export function TohfaAdminDashboardScreen({
   const [workforceFilterStatus, setWorkforceFilterStatus] = useState<'All' | 'Active' | 'Pending activation'>('All');
   const [workforceFilterAttendance, setWorkforceFilterAttendance] = useState<'All' | 'Present' | 'Absent'>('All');
   const [openDropdownField, setOpenDropdownField] = useState<string | null>(null);
+  const renderWorkforceInlineDropdown = (
+    fieldKey: string,
+    options: readonly string[],
+    currentVal: string,
+    onSelect: (val: string) => void
+  ) => {
+    if (openDropdownField !== fieldKey) return null;
+    return (
+      <View style={styles.workforceInlineDropdownMenu}>
+        {options.map((opt, idx) => {
+          const isSelectHeader = opt === 'Select' || opt === 'Select...';
+          const isSelected = currentVal === opt && !isSelectHeader;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[
+                styles.workforceInlineDropdownItem,
+                isSelectHeader && styles.workforceInlineDropdownItemGrey,
+                isSelected && styles.workforceInlineDropdownItemActive,
+                idx === options.length - 1 && { borderBottomWidth: 0 },
+              ]}
+              onPress={() => {
+                onSelect(opt);
+                setOpenDropdownField(null);
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text
+                  style={[
+                    styles.workforceInlineDropdownItemText,
+                    isSelectHeader && styles.workforceInlineDropdownItemTextWhite,
+                    isSelected && styles.workforceInlineDropdownItemTextActive,
+                  ]}
+                >
+                  {opt}
+                </Text>
+                {isSelected && (
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M20 6L9 17l-5-5" stroke={adminColors.brand} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                )}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  };
 
   const [selectedStaffDetails, setSelectedStaffDetails] = useState<WorkforceStaffItem | null>(null);
   const [workforceStaffList, setWorkforceStaffList] = useState<WorkforceStaffItem[]>([
+    {
+      id: 'DRV-0018',
+      employeeId: 'DRV-0018',
+      name: 'Arun Kumar',
+      avatarInitials: 'AK',
+      type: 'Driver',
+      role: 'Driver',
+      assignedRole: 'Driver',
+      warehouse: 'Coonoor Zone',
+      warehouseCode: 'WH-COON',
+      warehouseLocation: 'Coonoor',
+      mobile: '+91 98765 43210',
+      maskedMobile: '+91 98765 43210',
+      email: 'arunkumar@company.com',
+      joiningDate: '15 Mar 2026',
+      workSection: 'Logistics & Dispatch',
+      status: 'Active',
+      todayAttendance: 'Present',
+      attendanceNote: 'Check-in: 9:02 AM · Check-out: 06:05 PM',
+      createdText: '15 Mar 2026 by TOHFA Central Admin',
+      dateOfBirth: '18 Aug 1991',
+      gender: 'Male',
+      maritalStatus: 'Married',
+      alternateMobile: '+91 98765 00000',
+      currentAddress: 'Bedford Circle, Coonoor, Tamil Nadu',
+      idType: 'Driving License',
+      idNumber: 'TN-43-2015-008129',
+      verificationStatus: 'Verified',
+      verifiedByDate: 'Demo TOHFA Admin · 16 Mar 2026',
+      employmentType: 'Full-time',
+      department: 'Logistics',
+      designation: 'Driver',
+      reportingManager: 'Transport Manager',
+      applicationRole: 'Driver (App Access)',
+      accountStatusText: 'Active',
+      permissionsSummary: 'From RBAC: driver.deliveries, driver.attendance',
+      lastLogin: '02 Nov 2026, 09:24 AM',
+      emergencyContactName: 'Deepa (Spouse)',
+      emergencyContactPhone: '+91 98765 11111',
+      documents: [
+        { name: 'Driving License', filename: 'driving_license_valid.pdf · Uploaded 15 Mar 2026', status: 'Verified' },
+        { name: 'Aadhaar Card', filename: 'aadhaar_card.pdf · Uploaded 15 Mar 2026', status: 'Verified' },
+      ],
+      auditHistory: [
+        { date: '15 Mar 2026, 10:00', actor: 'TOHFA Central Admin', action: 'Account created: Driver' },
+        { date: '16 Mar 2026, 11:30', actor: 'Demo TOHFA Admin', action: 'Documents verified' },
+      ],
+    },
     {
       id: 'STF-0004',
       employeeId: 'STF-0004',
@@ -7549,7 +7675,9 @@ export function TohfaAdminDashboardScreen({
 
   // Section 5: Employment Details (Screenshots 5 & M14-S02a continuation)
   const [createStaffId, setCreateStaffId] = useState('');
-  const [createStaffRole, _setCreateStaffRole] = useState('Warehouse Staff');
+  const [createStaffEmployeeId, setCreateStaffEmployeeId] = useState('');
+  const [createStaffJoiningDate, setCreateStaffJoiningDate] = useState('');
+  const [createStaffRole, setCreateStaffRole] = useState('Warehouse Staff');
   const [createStaffEmploymentType, setCreateStaffEmploymentType] = useState('Select...');
   const [createStaffDepartment, setCreateStaffDepartment] = useState('Select...');
   const [createStaffDesignation, setCreateStaffDesignation] = useState('Select...');
@@ -7559,7 +7687,6 @@ export function TohfaAdminDashboardScreen({
   const [createStaffWarehouse, _setCreateStaffWarehouse] = useState('Main Warehouse, Ooty (WH-MAIN)');
   const [createStaffWorkSection, _setCreateStaffWorkSection] = useState('Loading & Sorting');
   const [createStaffManager, _setCreateStaffManager] = useState('Demo Sub Warehouse Admin');
-  const [createStaffJoiningDate, _setCreateStaffJoiningDate] = useState('Today');
 
   // Section 6: Role & Access Management (Screenshots M14-S02a)
   const [createStaffAccountAccess, setCreateStaffAccountAccess] = useState<'login' | 'no_login'>('login');
@@ -7579,6 +7706,12 @@ export function TohfaAdminDashboardScreen({
   const [createStaffDocEducation, setCreateStaffDocEducation] = useState<string | null>(null);
   const [createStaffDocExperience, setCreateStaffDocExperience] = useState<string | null>(null);
   const [createStaffDocOther, setCreateStaffDocOther] = useState<string | null>(null);
+  const [editingStaff, setEditingStaff] = useState<any | null>(null);
+  // Staff Date of Birth Calendar Modal State
+  const [showStaffDobCalendar, setShowStaffDobCalendar] = useState(false);
+  const [staffDobYear, setStaffDobYear] = useState(1992);
+  const [staffDobMonth, setStaffDobMonth] = useState(3); // April (0-indexed)
+  const [staffDobDay, setStaffDobDay] = useState(12);
 
   // Form Picker Modal State
   const [activeFormPicker, setActiveFormPicker] = useState<{
@@ -7997,7 +8130,7 @@ export function TohfaAdminDashboardScreen({
       icon: <QuickReceiveGoodsIcon size={26} />,
       action: () => {
         setOperationsReturnTab('Home');
-        setOperationsSubScreen('stockVerification');
+        setOperationsSubScreen('receiving');
         setActiveTab('Inventory');
       },
     },
@@ -8060,33 +8193,12 @@ export function TohfaAdminDashboardScreen({
       },
     },
     {
-      id: 'qa_finance',
-      label: 'Review finance and payouts',
-      icon: <QuickWalletIcon size={26} />,
+      id: 'qa_horeca_b2b',
+      label: 'Create HORECA & B2B Order',
+      icon: <QuickCutleryIcon size={26} />,
       action: () => {
-        setFinanceReturnTab('Home');
-        setFinanceSubScreen(null);
-        setActiveTab('Finance');
-      },
-    },
-    {
-      id: 'qa_inputs',
-      label: 'Manage inputs and pest',
-      icon: <QuickLeafIcon size={26} />,
-      action: () => {
-        setInputsPestReturnTab('Home');
-        setInputsPestScreen('home');
-        setActiveTab('More');
-      },
-    },
-    {
-      id: 'qa_staff',
-      label: 'Manage staff and salary',
-      icon: <QuickBadgeStaffIcon size={26} />,
-      action: () => {
-        setWorkforceReturnTab('Home');
-        setWorkforceSubScreen('dashboard');
-        setActiveTab('Workforce');
+        setActiveTab('Home');
+        setDashboardSubScreen('createHorecaB2BOrder');
       },
     },
   ];
@@ -8098,6 +8210,103 @@ export function TohfaAdminDashboardScreen({
   const isBrandHeaderActive = isProduceScreen || isInputsScreen || isCustomerScreenActive;
 
   // ─── Workforce & Staff Handlers & Renderers ─────────────────────────────────
+
+  const resetCreateStaffForm = () => {
+    setCreateStaffPhoto(null);
+    setCreateStaffFirstName('');
+    setCreateStaffMiddleName('');
+    setCreateStaffLastName('');
+    setCreateStaffDob('');
+    setCreateStaffGender('Select');
+    setCreateStaffMarital('Select');
+    setCreateStaffGuardian('');
+    setCreateStaffNationality('Indian');
+    setCreateStaffLanguage('Select');
+    setCreateStaffBloodGroup('Select');
+    setCreateStaffMobile('');
+    setCreateStaffAltMobile('');
+    setCreateStaffEmail('');
+    setCreateStaffAddress('');
+    setCreateStaffState('');
+    setCreateStaffDistrict('');
+    setCreateStaffCity('');
+    setCreateStaffPin('');
+    setIsSamePermanentAddress(true);
+    setCreateStaffIdType('Select...');
+    setCreateStaffIdNumber('');
+    setCreateStaffIdName('');
+    setCreateStaffAccountHolder('');
+    setCreateStaffBankName('');
+    setCreateStaffAccountNumber('');
+    setCreateStaffConfirmAccount('');
+    setCreateStaffIfsc('');
+    setCreateStaffBranch('');
+    setCreateStaffAccountType('Select...');
+    setShowAccountNumber(false);
+    setCreateStaffBankProof(null);
+    setCreateStaffId('');
+    setCreateStaffEmployeeId('');
+    setCreateStaffJoiningDate('');
+    setCreateStaffEmploymentType('Select...');
+    setCreateStaffDepartment('Select...');
+    setCreateStaffDesignation('Select...');
+    setCreateStaffEmploymentStatus('Select...');
+    setCreateStaffSalaryDetails('');
+    setCreateStaffWorkLocation('Select...');
+    setCreateStaffAccountAccess('login');
+    setCreateStaffApplicationRole('Select...');
+    setCreateStaffEmergencyName('');
+    setCreateStaffEmergencyRel('Select...');
+    setCreateStaffEmergencyPhone('');
+    setCreateStaffEmergencyAltPhone('');
+    setCreateStaffEmergencyAddress('');
+    setCreateStaffDocAddressProof(null);
+    setCreateStaffDocAppointmentLetter(null);
+    setCreateStaffDocAgreement(null);
+    setCreateStaffDocEducation(null);
+    setCreateStaffDocExperience(null);
+    setCreateStaffDocOther(null);
+  };
+
+  const loadStaffIntoCreateForm = (staff: any) => {
+    if (!staff) return;
+    setEditingStaff(staff);
+    const fullName = (staff.name || '').trim();
+    const nameParts = fullName.split(/\s+/);
+    if (nameParts.length > 2) {
+      setCreateStaffFirstName(nameParts[0] || '');
+      setCreateStaffMiddleName(nameParts.slice(1, -1).join(' '));
+      setCreateStaffLastName(nameParts[nameParts.length - 1] || '');
+    } else if (nameParts.length === 2) {
+      setCreateStaffFirstName(nameParts[0] || '');
+      setCreateStaffMiddleName('');
+      setCreateStaffLastName(nameParts[1] || '');
+    } else {
+      setCreateStaffFirstName(fullName);
+      setCreateStaffMiddleName('');
+      setCreateStaffLastName('');
+    }
+    const cleanPhone = (staff.phone || staff.mobile || '').replace('+91', '').trim();
+    setCreateStaffMobile(cleanPhone);
+    setCreateStaffEmail(staff.email || '');
+    setCreateStaffId(staff.staffId || staff.employeeId || staff.id || '');
+    if (staff.department) setCreateStaffDepartment(staff.department);
+    if (staff.role || staff.assignedRole) setCreateStaffRole(staff.role || staff.assignedRole);
+    if (staff.designation || staff.role) {
+      setCreateStaffDesignation(staff.designation || staff.role);
+    }
+    if (staff.warehouse || staff.warehouseName || staff.assignedWarehouse) {
+      setCreateStaffWorkLocation(staff.warehouse || staff.warehouseName || staff.assignedWarehouse);
+    }
+    if (staff.gender) setCreateStaffGender(staff.gender);
+    if (staff.dateOfBirth) setCreateStaffDob(staff.dateOfBirth);
+    if (staff.emergencyContactName) setCreateStaffEmergencyName(staff.emergencyContactName);
+    if (staff.emergencyContactPhone) setCreateStaffEmergencyPhone(staff.emergencyContactPhone);
+    if (staff.currentAddress || staff.address) setCreateStaffAddress(staff.currentAddress || staff.address);
+    if (staff.city || staff.warehouseLocation) setCreateStaffCity(staff.city || staff.warehouseLocation);
+    if (staff.employeeId) setCreateStaffEmployeeId(staff.employeeId);
+    if (staff.joiningDate) setCreateStaffJoiningDate(staff.joiningDate);
+  };
 
   const handleCreateStaffAccount = () => {
     if (!createStaffFirstName.trim()) {
@@ -8135,6 +8344,44 @@ export function TohfaAdminDashboardScreen({
           : 'Warehouse Staff (Pending activation)'
         : 'Warehouse Staff (no login)';
     const finalAccountStatus = createStaffAccountAccess === 'login' ? 'Pending activation' : 'No application access';
+
+    if (editingStaff) {
+      const updatedId = editingStaff.id || newId;
+      setWorkforceStaffList((prev) =>
+        prev.map((item) => {
+          if (item.id === editingStaff.id) {
+            return {
+              ...item,
+              name: fullName,
+              avatarInitials: initials || item.avatarInitials || '',
+              role: createStaffRole,
+              assignedRole: createStaffRole,
+              warehouse: finalWarehouse,
+              mobile: createStaffMobile.trim().startsWith('+91') ? createStaffMobile.trim() : `+91 ${createStaffMobile.trim()}`,
+              email: createStaffEmail.trim(),
+              department: finalDepartment,
+              designation: finalDesignation,
+            };
+          }
+          return item;
+        })
+      );
+      if (selectedStaffDetails && selectedStaffDetails.id === editingStaff.id) {
+        setSelectedStaffDetails({
+          ...selectedStaffDetails,
+          name: fullName,
+          role: createStaffRole,
+          mobile: createStaffMobile.trim().startsWith('+91') ? createStaffMobile.trim() : `+91 ${createStaffMobile.trim()}`,
+          email: createStaffEmail.trim(),
+          warehouse: finalWarehouse,
+        });
+      }
+      Alert.alert('Account Updated', `Staff account for ${fullName} (${updatedId}) has been updated successfully.`);
+      setEditingStaff(null);
+      resetCreateStaffForm();
+      setWorkforceSubScreen(selectedStaffDetails ? 'details' : 'management');
+      return;
+    }
 
     const docsList: Array<{
       name: string;
@@ -8220,59 +8467,7 @@ export function TohfaAdminDashboardScreen({
     setWorkforceStaffList((prev) => [newStaffItem, ...prev]);
     Alert.alert('Account Created', `Staff account for ${fullName} (${newId}) has been created successfully.`);
 
-    // Reset fields
-    setCreateStaffPhoto(null);
-    setCreateStaffFirstName('');
-    setCreateStaffMiddleName('');
-    setCreateStaffLastName('');
-    setCreateStaffDob('');
-    setCreateStaffGender('Select');
-    setCreateStaffMarital('Select');
-    setCreateStaffGuardian('');
-    setCreateStaffNationality('Indian');
-    setCreateStaffLanguage('Select');
-    setCreateStaffBloodGroup('Select');
-    setCreateStaffMobile('');
-    setCreateStaffAltMobile('');
-    setCreateStaffEmail('');
-    setCreateStaffAddress('');
-    setCreateStaffState('');
-    setCreateStaffDistrict('');
-    setCreateStaffCity('');
-    setCreateStaffPin('');
-    setIsSamePermanentAddress(true);
-    setCreateStaffIdType('Select...');
-    setCreateStaffIdNumber('');
-    setCreateStaffIdName('');
-    setCreateStaffAccountHolder('');
-    setCreateStaffBankName('');
-    setCreateStaffAccountNumber('');
-    setCreateStaffConfirmAccount('');
-    setCreateStaffIfsc('');
-    setCreateStaffBranch('');
-    setCreateStaffAccountType('Select...');
-    setShowAccountNumber(false);
-    setCreateStaffBankProof(null);
-    setCreateStaffId('');
-    setCreateStaffEmploymentType('Select...');
-    setCreateStaffDepartment('Select...');
-    setCreateStaffDesignation('Select...');
-    setCreateStaffEmploymentStatus('Select...');
-    setCreateStaffSalaryDetails('');
-    setCreateStaffWorkLocation('Select...');
-    setCreateStaffAccountAccess('login');
-    setCreateStaffApplicationRole('Select...');
-    setCreateStaffEmergencyName('');
-    setCreateStaffEmergencyRel('Select...');
-    setCreateStaffEmergencyPhone('');
-    setCreateStaffEmergencyAltPhone('');
-    setCreateStaffEmergencyAddress('');
-    setCreateStaffDocAddressProof(null);
-    setCreateStaffDocAppointmentLetter(null);
-    setCreateStaffDocAgreement(null);
-    setCreateStaffDocEducation(null);
-    setCreateStaffDocExperience(null);
-    setCreateStaffDocOther(null);
+    resetCreateStaffForm();
     setWorkforceSubScreen('management');
   };
 
@@ -8514,26 +8709,35 @@ export function TohfaAdminDashboardScreen({
             ))}
           </View>
 
-          {/* Quick Actions Section */}
+          {/* Quick Actions Section (Image 5) */}
           <View style={styles.workforceSection}>
             <Text style={styles.workforceSectionTitle}>Quick actions</Text>
-            <View style={styles.workforceQuickActionsRow}>
+            <View style={styles.workforceQuickActionsGrid}>
               <TouchableOpacity
-                style={styles.workforceQuickActionCard}
-                onPress={() => setWorkforceSubScreen('create')}
+                style={styles.workforceQuickActionTile}
+                onPress={() => setWorkforceSubScreen('management')}
                 activeOpacity={0.8}
               >
-                <QuickCreateStaffIcon size={24} color={adminColors.brand} />
-                <Text style={styles.workforceQuickActionLabel}>Create Staff Account</Text>
+                <QuickCreateStaffIcon size={26} color={adminColors.brand} />
+                <Text style={styles.workforceQuickActionLabel}>Staff Account</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.workforceQuickActionCard}
+                style={styles.workforceQuickActionTile}
                 onPress={() => setWorkforceSubScreen('attendance')}
                 activeOpacity={0.8}
               >
-                <QuickStaffAttendanceIcon size={24} color={adminColors.brand} />
-                <Text style={styles.workforceQuickActionLabel}>Staff Attendance</Text>
+                <QuickStaffAttendanceIcon size={26} color={adminColors.brand} />
+                <Text style={styles.workforceQuickActionLabel}>Today Attendance</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.workforceQuickActionTile}
+                onPress={() => setWorkforceSubScreen('history')}
+                activeOpacity={0.8}
+              >
+                <HistoryIcon size={26} color={adminColors.brand} />
+                <Text style={styles.workforceQuickActionLabel}>Attendance History</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -8636,150 +8840,63 @@ export function TohfaAdminDashboardScreen({
   };
 
   const renderWorkforceManagementScreen = () => {
-    const filteredStaff = workforceStaffList.filter((s) =>
-      s.name.toLowerCase().includes(workforceSearch.toLowerCase()) ||
-      s.id.toLowerCase().includes(workforceSearch.toLowerCase()) ||
-      s.role.toLowerCase().includes(workforceSearch.toLowerCase())
-    );
+    const members: StaffMember[] = workforceStaffList.map((s) => ({
+      id: s.id,
+      staffId: s.employeeId || s.id,
+      name: s.name,
+      role: s.role,
+      type: (s.role?.toLowerCase().includes('driver') || s.type?.toLowerCase().includes('driver')) ? 'driver' : 'warehouse',
+      phone: s.mobile || s.maskedMobile,
+      email: s.email,
+      warehouseId: s.warehouseCode || 'WH-COON',
+      warehouseName: s.warehouse,
+      status: (s.status === 'Active' ? 'Active' : s.status === 'Pending activation' ? 'Pending activation' : 'Inactive') as any,
+      attendance: (s.todayAttendance as AttendanceStatus) || 'Present',
+      joiningDate: s.joiningDate,
+      activationNote: s.activationNote,
+      workSection: s.workSection,
+    }));
 
     return (
-      <View style={styles.container}>
-        {/* Header matching Screenshot 3 Left */}
-        <View style={styles.workforceHeaderBanner}>
-          <View style={styles.workforceHeaderTitleRow}>
-            <TouchableOpacity
-              style={styles.workforceBackBtn}
-              onPress={() => setWorkforceSubScreen('dashboard')}
-              activeOpacity={0.7}
-            >
-              <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
-            </TouchableOpacity>
-            <Text style={styles.workforceHeaderTitle}>Staff Profile & Role Management</Text>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Search Bar */}
-          <View style={styles.workforceSearchWrapper}>
-            <View style={styles.workforceSearchBox}>
-              <SearchIcon size={18} color={adminColors.muted} />
-              <TextInput
-                style={styles.workforceSearchInput}
-                placeholder="Search..."
-                placeholderTextColor={adminColors.placeholder}
-                value={workforceSearch}
-                onChangeText={setWorkforceSearch}
-              />
-              <TouchableOpacity activeOpacity={0.7}>
-                <FilterSlidersIcon size={18} color={adminColors.brand} />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.workforceSubCountText}>11 admin · 14 warehouse staff · 7 drivers</Text>
-          </View>
-
-          {/* Staff Cards List */}
-          <View style={styles.workforceSection}>
-            {filteredStaff.map((staff) => (
-              <TouchableOpacity
-                key={staff.id}
-                style={styles.workforceCard}
-                onPress={() => {
-                  setSelectedStaffDetails(staff);
-                  setWorkforceSubScreen('details');
-                }}
-                activeOpacity={0.8}
-              >
-                <View style={styles.workforceCardRowBetween}>
-                  <Text style={styles.workforceCardTitle}>{`${staff.id} · ${staff.name}`}</Text>
-                  <View
-                    style={
-                      staff.status === 'Active'
-                        ? styles.workforceActiveBadge
-                        : styles.workforcePendingBadge
-                    }
-                  >
-                    <Text
-                      style={
-                        staff.status === 'Active'
-                          ? styles.workforceActiveBadgeText
-                          : styles.workforcePendingBadgeText
-                      }
-                    >
-                      {staff.status}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.workforceCardSubtitle}>
-                  {staff.status === 'Pending activation'
-                    ? `${staff.role} · ${staff.warehouse} · ${staff.createdText}`
-                    : `${staff.role} · ${staff.workSection} · ${staff.warehouse} · Joined ${staff.joiningDate}`}
-                </Text>
-                {staff.activationNote && (
-                  <Text style={styles.workforceCardSubtitleMuted}>
-                    {staff.activationNote}
-                  </Text>
-                )}
-
-                {/* Actions row: Edit | Deactivate */}
-                <View style={styles.workforceCardActionsRow}>
-                  <TouchableOpacity
-                    onPress={() => setSelectedStaffProfileModal(staff)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.workforceActionEdit}>Edit</Text>
-                  </TouchableOpacity>
-                  {staff.status === 'Active' ? (
-                    <TouchableOpacity
-                      onPress={() => {
-                        Alert.alert('Deactivate Staff', `Are you sure you want to deactivate ${staff.name}?`, [
-                          { text: 'Cancel', style: 'cancel' },
-                          {
-                            text: 'Deactivate',
-                            style: 'destructive',
-                            onPress: () => {
-                              setWorkforceStaffList((prev) =>
-                                prev.map((item) =>
-                                  item.id === staff.id ? { ...item, status: 'Inactive' } : item
-                                )
-                              );
-                            },
-                          },
-                        ]);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.workforceActionDeactivate}>Deactivate</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setWorkforceStaffList((prev) =>
-                          prev.map((item) =>
-                            item.id === staff.id ? { ...item, status: 'Active' } : item
-                          )
-                        );
-                        Alert.alert('Activated', `${staff.name} is now active.`);
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.workforceActionActivate}>Activate</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Docked Create Account Button */}
-        <TouchableOpacity
-          style={styles.workforceDockedPrimaryBtn}
-          onPress={() => setWorkforceSubScreen('create')}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.workforceDockedPrimaryBtnText}>Create Account</Text>
-        </TouchableOpacity>
-      </View>
+      <StaffListScreen
+        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+        can={() => true}
+        role="TOHFA_ADMIN"
+        members={members}
+        onBack={() => setWorkforceSubScreen('dashboard')}
+        onSelectStaff={(staff) => {
+          const found = workforceStaffList.find((s) => s.id === staff.id || s.employeeId === staff.staffId) || {
+            id: staff.id,
+            name: staff.name,
+            employeeId: staff.staffId,
+            role: staff.role,
+            assignedRole: staff.role,
+            type: staff.type === 'driver' ? 'Driver' : 'Staff',
+            warehouse: staff.warehouseName || 'Coonoor Zone',
+            warehouseCode: staff.warehouseId || 'WH-COON',
+            mobile: staff.phone || '+91 98765 43210',
+            maskedMobile: staff.phone || '+91 98765 43210',
+            email: staff.email || '',
+            joiningDate: staff.joiningDate || '15 Mar 2026',
+            workSection: staff.workSection || 'Warehouse Operations',
+            status: (staff.status as any) || 'Active',
+            todayAttendance: (staff.attendance as any) || 'Present',
+            createdText: 'System',
+          };
+          setSelectedStaffDetails(found as any);
+          setWorkforceSubScreen('details');
+        }}
+        onEditStaff={(staff) => {
+          const found = workforceStaffList.find((s) => s.id === staff.id || s.employeeId === staff.staffId) || staff;
+          loadStaffIntoCreateForm(found);
+          setWorkforceSubScreen('create');
+        }}
+        onCreateAccount={() => {
+          setEditingStaff(null);
+          resetCreateStaffForm();
+          setWorkforceSubScreen('create');
+        }}
+      />
     );
   };
 
@@ -8792,10 +8909,14 @@ export function TohfaAdminDashboardScreen({
             <TouchableOpacity
               style={styles.workforceBackBtn}
               onPress={() => {
-                if (workforceReturnTab) {
-                  setActiveTab(workforceReturnTab);
-                  setWorkforceReturnTab(null);
+                if (editingStaff) {
+                  setEditingStaff(null);
+                  resetCreateStaffForm();
+                  setWorkforceSubScreen(selectedStaffDetails ? 'details' : 'management');
+                } else if (workforceReturnTab === 'Home') {
+                  setActiveTab('Home');
                   setWorkforceSubScreen('dashboard');
+                  setWorkforceReturnTab(null);
                 } else {
                   setWorkforceSubScreen('management');
                 }
@@ -8804,7 +8925,9 @@ export function TohfaAdminDashboardScreen({
             >
               <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
             </TouchableOpacity>
-            <Text style={styles.workforceHeaderTitle}>Create account</Text>
+            <Text style={styles.workforceHeaderTitle}>
+              {editingStaff ? 'Edit account' : 'Create account'}
+            </Text>
           </View>
         </View>
 
@@ -8920,13 +9043,19 @@ export function TohfaAdminDashboardScreen({
                 />
                 <TouchableOpacity
                   onPress={() => {
-                    if (!createStaffDob) {
-                      setCreateStaffDob('12-04-1992');
+                    if (createStaffDob) {
+                      const parts = createStaffDob.split('-');
+                      if (parts.length === 3) {
+                        setStaffDobDay(parseInt(parts[0] ?? '12', 10) || 12);
+                        setStaffDobMonth(Math.max(0, (parseInt(parts[1] ?? '4', 10) || 4) - 1));
+                        setStaffDobYear(parseInt(parts[2] ?? '1992', 10) || 1992);
+                      }
                     }
+                    setShowStaffDobCalendar(true);
                   }}
                   activeOpacity={0.7}
                 >
-                  <CalendarOutlineIcon size={20} color={adminColors.muted} />
+                  <CalendarOutlineIcon size={20} color={adminColors.brand} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -8944,37 +9073,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'gender' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'Male', 'Female', 'Other'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffGender(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('gender', ['Select', 'Male', 'Female', 'Other'], createStaffGender, (val) => setCreateStaffGender(val as any))}
             </View>
 
             {/* Marital Status (Screenshots 3 UI matching exact grey select) */}
@@ -8990,37 +9089,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'marital' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'Married', 'Unmarried'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffMarital(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('marital', ['Select', 'Married', 'Unmarried'], createStaffMarital, (val) => setCreateStaffMarital(val as any))}
             </View>
 
             {/* Father's / Guardian's Name optional */}
@@ -9069,37 +9138,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'language' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'Tamil', 'English', 'Hindi', 'Malayalam', 'Kannada', 'Telugu'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffLanguage(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('language', ['Select', 'Tamil', 'English', 'Hindi', 'Malayalam', 'Kannada', 'Telugu'], createStaffLanguage, (val) => setCreateStaffLanguage(val as any))}
             </View>
 
             {/* Blood Group */}
@@ -9115,37 +9154,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'bloodGroup' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffBloodGroup(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('bloodGroup', ['Select', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'], createStaffBloodGroup, (val) => setCreateStaffBloodGroup(val as any))}
             </View>
           </View>
 
@@ -9333,14 +9342,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>ID Proof Type</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select ID Proof Type',
-                    options: ['Select...', 'Aadhaar', 'PAN Card', 'Voter ID', 'Driving License'],
-                    selected: createStaffIdType,
-                    onSelect: (val) => setCreateStaffIdType(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'idType' ? null : 'idType'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffIdType !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9348,6 +9350,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('idType', ['Select...', 'Aadhaar', 'PAN Card', 'Voter ID', 'Driving License'], createStaffIdType, (val) => setCreateStaffIdType(val))}
               <Text style={styles.workforceFormHelperText}>The accepted types are subject to TOHFA policy.</Text>
             </View>
 
@@ -9482,14 +9485,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Account Type</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Account Type',
-                    options: ['Select...', 'Savings', 'Current', 'Salary'],
-                    selected: createStaffAccountType,
-                    onSelect: (val) => setCreateStaffAccountType(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'accountType' ? null : 'accountType'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffAccountType !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9497,6 +9493,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('accountType', ['Select...', 'Savings', 'Current', 'Salary'], createStaffAccountType, (val) => setCreateStaffAccountType(val))}
             </View>
 
             {/* Cancelled Cheque / Bank Proof optional */}
@@ -9528,7 +9525,7 @@ export function TohfaAdminDashboardScreen({
           </View>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              CARD 5: 5  Employment Details (Screenshot 1 & 2)
+              CARD 5: 5  Employment Details (M14-S02a · Screenshots 1 & 2)
              ══════════════════════════════════════════════════════════════════════ */}
           <View style={styles.workforceCreateCard}>
             <View style={styles.workforceCardHeader}>
@@ -9538,25 +9535,72 @@ export function TohfaAdminDashboardScreen({
                 </View>
                 <View style={styles.workforceCardHeaderTextCol}>
                   <Text style={styles.workforceCreateCardTitle}>Employment Details</Text>
-                  <Text style={styles.workforceCreateCardSubtitle}>Choices come from configured TOHFA records. No salary or payroll is set here.</Text>
+                  <Text style={styles.workforceCreateCardSubtitle}>Choices come from configured TOHFA records. payroll is set here.</Text>
                 </View>
               </View>
             </View>
             <View style={styles.workforceCardDivider} />
+
+            {/* Staff ID (disabled / generated on save) */}
+            <View style={styles.workforceFormField}>
+              <Text style={styles.workforceFormLabel}>Staff ID</Text>
+              <View style={[styles.workforceFormInput, { backgroundColor: '#F3EFEA', justifyContent: 'center' }]}>
+                <Text style={{ fontSize: 13, color: '#9CA3AF' }}>
+                  {editingStaff?.id || createStaffId || 'Generated on save'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Employee ID optional */}
+            <View style={styles.workforceFormField}>
+              <View style={styles.workforceFormLabelRow}>
+                <Text style={styles.workforceFormLabel}>Employee ID</Text>
+                <Text style={styles.workforceOptionalText}>optional</Text>
+              </View>
+              <TextInput
+                style={styles.workforceFormInput}
+                placeholder=""
+                placeholderTextColor={adminColors.placeholder}
+                value={createStaffEmployeeId}
+                onChangeText={setCreateStaffEmployeeId}
+              />
+              <Text style={styles.workforceFormHelperText}>Must be unique. Separate from the generated Staff ID.</Text>
+            </View>
+
+            {/* Date of Joining optional with Calendar icon */}
+            <View style={styles.workforceFormField}>
+              <View style={styles.workforceFormLabelRow}>
+                <Text style={styles.workforceFormLabel}>Date of Joining</Text>
+                <Text style={styles.workforceOptionalText}>optional</Text>
+              </View>
+              <View style={styles.workforceInputWithIconRow}>
+                <TextInput
+                  style={styles.workforceInputEmbedded}
+                  placeholder="dd-mm-yyyy"
+                  placeholderTextColor={adminColors.placeholder}
+                  value={createStaffJoiningDate}
+                  onChangeText={setCreateStaffJoiningDate}
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    const today = new Date();
+                    const formatted = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+                    setCreateStaffJoiningDate(formatted);
+                  }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <CalendarIcon size={18} color="#6B7280" />
+                </TouchableOpacity>
+              </View>
+            </View>
 
             {/* Employment Type */}
             <View style={styles.workforceFormField}>
               <Text style={styles.workforceFormLabel}>Employment Type</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Employment Type',
-                    options: ['Select...', 'Full-time', 'Contract', 'Part-time', 'Probation', 'Temporary'],
-                    selected: createStaffEmploymentType,
-                    onSelect: (val) => setCreateStaffEmploymentType(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'employmentType' ? null : 'employmentType'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffEmploymentType !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9564,6 +9608,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('employmentType', ['Select...', 'Full-time', 'Contract', 'Part-time', 'Probation', 'Temporary'], createStaffEmploymentType, (val) => setCreateStaffEmploymentType(val))}
               <Text style={styles.workforceFormHelperText}>Example list: configurable.</Text>
             </View>
 
@@ -9572,14 +9617,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Department</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Department',
-                    options: ['Select...', 'Warehouse Operations', 'Warehouse Administration', 'Logistics & Transport', 'Quality & Sorting', 'Security & Facilities'],
-                    selected: createStaffDepartment,
-                    onSelect: (val) => setCreateStaffDepartment(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'department' ? null : 'department'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffDepartment !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9587,6 +9625,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('department', ['Select...', 'Warehouse Operations', 'Warehouse Administration', 'Logistics & Transport', 'Quality & Sorting', 'Security & Facilities'], createStaffDepartment, (val) => setCreateStaffDepartment(val))}
               <Text style={styles.workforceFormHelperText}>Example list: configurable, not official.</Text>
             </View>
 
@@ -9595,14 +9634,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Designation</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Designation',
-                    options: ['Select...', 'Warehouse Staff', 'Loadman', 'Driver', 'Sorter & Grader', 'Sub Warehouse Admin', 'Inventory Supervisor'],
-                    selected: createStaffDesignation,
-                    onSelect: (val) => setCreateStaffDesignation(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'designation' ? null : 'designation'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffDesignation !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9610,6 +9642,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('designation', ['Select...', 'Warehouse Staff', 'Loadman', 'Driver', 'Sorter & Grader', 'Sub Warehouse Admin', 'Inventory Supervisor'], createStaffDesignation, (val) => setCreateStaffDesignation(val))}
               <Text style={styles.workforceFormHelperText}>Example list: configurable.</Text>
             </View>
 
@@ -9621,14 +9654,7 @@ export function TohfaAdminDashboardScreen({
               </View>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Employment Status',
-                    options: ['Select...', 'Active', 'On Probation', 'Notice Period', 'Inactive'],
-                    selected: createStaffEmploymentStatus,
-                    onSelect: (val) => setCreateStaffEmploymentStatus(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'employmentStatus' ? null : 'employmentStatus'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffEmploymentStatus !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9636,19 +9662,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-            </View>
-
-            {/* Salary details */}
-            <View style={styles.workforceFormField}>
-              <Text style={styles.workforceFormLabel}>Salary details</Text>
-              <TextInput
-                style={styles.workforceFormInput}
-                placeholder=""
-                placeholderTextColor={adminColors.placeholder}
-                value={createStaffSalaryDetails}
-                onChangeText={setCreateStaffSalaryDetails}
-              />
-              <Text style={styles.workforceFormHelperText}>A new staff member starts as Active.</Text>
+              {renderWorkforceInlineDropdown('employmentStatus', ['Select...', 'Active', 'On Probation', 'Notice Period', 'Inactive'], createStaffEmploymentStatus, (val) => setCreateStaffEmploymentStatus(val))}
             </View>
 
             {/* Work Location */}
@@ -9656,20 +9670,7 @@ export function TohfaAdminDashboardScreen({
               <Text style={styles.workforceFormLabel}>Work Location</Text>
               <TouchableOpacity
                 style={styles.workforceFormSelect}
-                onPress={() =>
-                  setActiveFormPicker({
-                    title: 'Select Work Location',
-                    options: [
-                      'Select...',
-                      'Main Warehouse, Ooty (WH-MAIN)',
-                      'Coonoor Warehouse (WH-CNR)',
-                      'Kotagiri Warehouse (WH-KTG)',
-                      'Gudalur Warehouse (WH-GDL)',
-                    ],
-                    selected: createStaffWorkLocation,
-                    onSelect: (val) => setCreateStaffWorkLocation(val),
-                  })
-                }
+                onPress={() => setOpenDropdownField((prev) => (prev === 'workLocation' ? null : 'workLocation'))}
                 activeOpacity={0.75}
               >
                 <Text style={createStaffWorkLocation !== 'Select...' ? styles.workforceFormSelectText : styles.workforceFormSelectPlaceholder}>
@@ -9677,11 +9678,18 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
+              {renderWorkforceInlineDropdown('workLocation', [
+                'Select...',
+                'Main Warehouse, Ooty (WH-MAIN)',
+                'Coonoor Warehouse (WH-CNR)',
+                'Kotagiri Warehouse (WH-KTG)',
+                'Gudalur Warehouse (WH-GDL)',
+              ], createStaffWorkLocation, (val) => setCreateStaffWorkLocation(val))}
             </View>
           </View>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              CARD 6: 6  Role & Access Management (Screenshots 1 & 2)
+              CARD 6: 6  Role & Access Management (M14-S02a · Screenshots 1 & 2)
              ══════════════════════════════════════════════════════════════════════ */}
           <View style={styles.workforceCreateCard}>
             <View style={styles.workforceCardHeader}>
@@ -9755,69 +9763,47 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'applicationRole' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select...', 'Warehouse Staff', 'Sub Warehouse Admin', 'Logistics Coordinator', 'Inventory Manager', 'TOHFA Admin'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select...';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffApplicationRole(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('applicationRole', ['Select...', 'Warehouse Staff', 'Sub Warehouse Admin', 'Logistics Coordinator', 'Inventory Manager', 'TOHFA Admin'], createStaffApplicationRole, (val) => setCreateStaffApplicationRole(val as any))}
               <Text style={styles.workforceFormHelperText}>Only roles you may create are listed. The server checks this again.</Text>
             </View>
 
             {/* Login Email / Username */}
             <View style={styles.workforceFormField}>
               <Text style={styles.workforceFormLabel}>Login Email / Username</Text>
-              <View style={styles.workforceStaticInputBox}>
-                <Text style={styles.workforceStaticInputText}>
-                  {createStaffEmail.trim() || 'Taken from the email address.'}
-                </Text>
-              </View>
-              <Text style={[styles.workforceFormHelperText, { color: adminColors.brand }]}>Choose a role to see what it can do.</Text>
+              <TextInput
+                style={[styles.workforceFormInput, { borderStyle: 'dashed' }]}
+                placeholder="email address"
+                placeholderTextColor={adminColors.placeholder}
+                value={createStaffEmail}
+                onChangeText={setCreateStaffEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              <Text style={[styles.workforceFormHelperText, { color: '#2563EB' }]}>Choose a role to see what it can do.</Text>
             </View>
 
             {/* Account Status */}
             <View style={styles.workforceFormField}>
               <Text style={styles.workforceFormLabel}>Account Status</Text>
-              <View style={styles.workforceAccountStatusBox}>
-                <Text style={styles.workforceAccountStatusTitle}>Pending activation </Text>
-                <Text style={styles.workforceAccountStatusSub}>Never Active at creation.</Text>
+              <View style={[styles.workforceAccountStatusBox, { backgroundColor: '#F5EFE8', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#E8DED3' }]}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#D97706' }}>
+                  Pending activation{' '}
+                  <Text style={{ fontSize: 12, fontWeight: '400', color: '#6B7280' }}>
+                    Never Active at creation.
+                  </Text>
+                </Text>
               </View>
             </View>
           </View>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              CARD 7: 7  Emergency Contact (Screenshots 3 & User prompt: role 6 then 7 emergency)
+              CARD 8: 8  Emergency Contact (M14-S02a · Screenshot 2)
              ══════════════════════════════════════════════════════════════════════ */}
           <View style={styles.workforceCreateCard}>
             <View style={styles.workforceCardHeader}>
               <View style={styles.workforceCardHeaderLeft}>
                 <View style={styles.workforceStepBadge}>
-                  <Text style={styles.workforceStepBadgeText}>7</Text>
+                  <Text style={styles.workforceStepBadgeText}>8</Text>
                 </View>
                 <View style={styles.workforceCardHeaderTextCol}>
                   <Text style={styles.workforceCreateCardTitle}>Emergency Contact</Text>
@@ -9852,37 +9838,7 @@ export function TohfaAdminDashboardScreen({
                 </Text>
                 <ChevronDownIcon size={16} color={adminColors.ink} />
               </TouchableOpacity>
-              {openDropdownField === 'relationship' && (
-                <View style={styles.workforceInlineDropdownMenu}>
-                  {(['Select...', 'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Other'] as const).map((opt, idx, arr) => {
-                    const isSelect = opt === 'Select...';
-                    return (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[
-                          styles.workforceInlineDropdownItem,
-                          isSelect && styles.workforceInlineDropdownItemGrey,
-                          idx === arr.length - 1 && { borderBottomWidth: 0 },
-                        ]}
-                        onPress={() => {
-                          setCreateStaffEmergencyRel(opt);
-                          setOpenDropdownField(null);
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[
-                            styles.workforceInlineDropdownItemText,
-                            isSelect && styles.workforceInlineDropdownItemTextWhite,
-                          ]}
-                        >
-                          {opt}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
+              {renderWorkforceInlineDropdown('relationship', ['Select...', 'Spouse', 'Parent', 'Sibling', 'Child', 'Relative', 'Friend', 'Other'], createStaffEmergencyRel, (val) => setCreateStaffEmergencyRel(val))}
             </View>
 
             {/* Primary Contact Number */}
@@ -9932,13 +9888,13 @@ export function TohfaAdminDashboardScreen({
           </View>
 
           {/* ══════════════════════════════════════════════════════════════════════
-              CARD 8: 8  Document Uploads (Screenshots 3, 4 & 5)
+              CARD 9: 9  Document Uploads (M14-S02a · Screenshots 3 & 4)
              ══════════════════════════════════════════════════════════════════════ */}
           <View style={styles.workforceCreateCard}>
             <View style={styles.workforceCardHeader}>
               <View style={styles.workforceCardHeaderLeft}>
                 <View style={styles.workforceStepBadge}>
-                  <Text style={styles.workforceStepBadgeText}>8</Text>
+                  <Text style={styles.workforceStepBadgeText}>9</Text>
                 </View>
                 <View style={styles.workforceCardHeaderTextCol}>
                   <Text style={styles.workforceCreateCardTitle}>Document Uploads</Text>
@@ -9974,10 +9930,13 @@ export function TohfaAdminDashboardScreen({
               </View>
               <TouchableOpacity
                 style={styles.workforceDocActionBtn}
-                onPress={() => Alert.alert('ID Proof', 'Managed in Section 3: ID Proof & Verification')}
+                onPress={() => {
+                  setCreateStaffIdNumber(createStaffIdNumber || 'XXXX XXXX 4190');
+                  Alert.alert('File Attached', 'Attached sample file: id_document_scan.pdf');
+                }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>Open section</Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
@@ -10005,16 +9964,14 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffDocAddressProof ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
             {/* Document 3: Bank Proof */}
             <View style={styles.workforceDocItem}>
               <Text style={styles.workforceDocItemTitle}>Bank Proof</Text>
-              <Text style={styles.workforceDocItemSub}>Policy: optional</Text>
+              <Text style={styles.workforceDocItemSub}>Managed in Bank Account Details</Text>
               <View style={styles.workforceDocPill}>
                 <Text style={styles.workforceDocPillText}>Optional</Text>
               </View>
@@ -10035,9 +9992,7 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffBankProof ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
@@ -10065,9 +10020,7 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffDocAppointmentLetter ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
@@ -10095,9 +10048,7 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffDocAgreement ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
@@ -10125,9 +10076,7 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffDocEducation ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
@@ -10155,9 +10104,7 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffDocExperience ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
 
@@ -10185,9 +10132,7 @@ export function TohfaAdminDashboardScreen({
                 }}
                 activeOpacity={0.75}
               >
-                <Text style={styles.workforceDocActionBtnText}>
-                  {createStaffDocOther ? 'Replace File' : 'Browse Files'}
-                </Text>
+                <Text style={styles.workforceDocActionBtnText}>Browse Files</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -10204,15 +10149,21 @@ export function TohfaAdminDashboardScreen({
               onPress={handleCreateStaffAccount}
               activeOpacity={0.85}
             >
-              <Text style={styles.workforceCreatePrimaryBtnText}>Create Account</Text>
+              <Text style={styles.workforceCreatePrimaryBtnText}>
+                {editingStaff ? 'Save Changes' : 'Create Account'}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.workforceCreateCancelBtn}
               onPress={() => {
-                if (workforceReturnTab) {
-                  setActiveTab(workforceReturnTab);
-                  setWorkforceReturnTab(null);
+                if (editingStaff) {
+                  setEditingStaff(null);
+                  resetCreateStaffForm();
+                  setWorkforceSubScreen(selectedStaffDetails ? 'details' : 'management');
+                } else if (workforceReturnTab === 'Home') {
+                  setActiveTab('Home');
                   setWorkforceSubScreen('dashboard');
+                  setWorkforceReturnTab(null);
                 } else {
                   setWorkforceSubScreen('management');
                 }
@@ -10340,310 +10291,46 @@ export function TohfaAdminDashboardScreen({
   };
 
   const renderWorkforceDetailsScreen = () => {
-    const staff = selectedStaffDetails || workforceStaffList[0];
-    if (!staff) return null;
+    const staff = selectedStaffDetails || workforceStaffList.find((s) => s.id === 'DRV-0018') || workforceStaffList[0];
+    const member: StaffMember = staff
+      ? {
+          id: staff.id || 'DRV-0018',
+          staffId: staff.employeeId || staff.id || 'DRV-0018',
+          name: staff.name || 'Arun Kumar',
+          role: staff.role || 'Driver',
+          type: (staff.role?.toLowerCase().includes('driver') || staff.type?.toLowerCase().includes('driver')) ? 'driver' : 'warehouse',
+          phone: staff.mobile || staff.maskedMobile || '+91 98765 43210',
+          email: staff.email || 'arunkumar@company.com',
+          warehouseId: staff.warehouseCode || 'WH-COON',
+          warehouseName: staff.warehouse || 'Coonoor Zone',
+          status: (staff.status === 'Active' ? 'Active' : staff.status === 'Inactive' ? 'Inactive' : 'Active') as any,
+          attendance: (staff.todayAttendance as AttendanceStatus) || 'Present',
+          joiningDate: staff.joiningDate || '15 Mar 2026',
+        }
+      : STAFF_MEMBERS.find((s) => s.id === 'staff-1') || DEFAULT_STAFF_MEMBER;
 
     return (
-      <View style={styles.container}>
-        {/* Header matching M14-S02b View Staff Details */}
-        <View style={styles.workforceHeaderBanner}>
-          <View style={styles.workforceDetailsHeaderRow}>
-            <View style={styles.workforceDetailsHeaderLeft}>
-              <TouchableOpacity
-                style={styles.workforceBackBtn}
-                onPress={() => setWorkforceSubScreen('dashboard')}
-                activeOpacity={0.7}
-              >
-                <BackArrowWhiteIcon size={20} color={adminColors.onBrand} />
-              </TouchableOpacity>
-              <Text style={styles.workforceHeaderTitle}>View Staff Details</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.workforceEditCircleBtn}
-              onPress={() => setSelectedStaffProfileModal(staff)}
-              activeOpacity={0.8}
-            >
-              <PencilWhiteIcon size={16} color={adminColors.onBrand} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Profile Card */}
-          <View style={styles.workforceProfileCard}>
-            <View style={styles.workforceProfileTopRow}>
-              <View style={styles.workforceAvatarCircle}>
-                <Text style={styles.workforceAvatarText}>
-                  {staff.avatarInitials || staff.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
-                </Text>
-              </View>
-              <View style={styles.workforceProfileMeta}>
-                <View style={styles.workforceProfileNameRow}>
-                  <Text style={styles.workforceProfileName}>{staff.name}</Text>
-                  <View style={staff.status === 'Active' ? styles.workforceActiveBadge : styles.workforcePendingBadge}>
-                    <Text style={staff.status === 'Active' ? styles.workforceActiveBadgeText : styles.workforcePendingBadgeText}>
-                      {staff.status}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.workforceProfileSub}>
-                  {`${staff.employeeId || staff.id} · ${staff.role} · ${staff.workSection}`}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.workforceProfileGrid}>
-              <View style={styles.workforceProfileGridCol}>
-                <Text style={styles.workforceGridLabel}>Role</Text>
-                <Text style={styles.workforceGridValue}>{staff.role}</Text>
-
-                <View style={{ height: 10 }} />
-
-                <Text style={styles.workforceGridLabel}>Mobile</Text>
-                <Text style={styles.workforceGridValue}>{staff.maskedMobile}</Text>
-              </View>
-
-              <View style={styles.workforceProfileGridCol}>
-                <Text style={styles.workforceGridLabel}>Warehouse</Text>
-                <Text style={styles.workforceGridValue}>{staff.warehouse}</Text>
-
-                <View style={{ height: 10 }} />
-
-                <Text style={styles.workforceGridLabel}>Email</Text>
-                <Text style={styles.workforceGridValue}>{staff.email}</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* 1. Personal & Contact Details */}
-          <Text style={styles.workforceDetailsSectionHead}>Personal & Contact Details</Text>
-          <View style={styles.workforceDetailsCard}>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Date of birth</Text>
-              <Text style={styles.workforceDetailValue}>{staff.dateOfBirth || '12 Apr 1992'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Gender</Text>
-              <Text style={styles.workforceDetailValue}>{staff.gender || 'Male'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Marital status</Text>
-              <Text style={styles.workforceDetailValue}>{staff.maritalStatus || 'Not provided'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Alternate mobile</Text>
-              <Text style={styles.workforceDetailValue}>{staff.alternateMobile || 'Not provided'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Current address</Text>
-              <Text style={styles.workforceDetailValue}>{staff.currentAddress || 'Coonoor Road, Ooty, Tamil Nadu'}</Text>
-            </View>
-            <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.workforceDetailLabel}>Mobile / email verified</Text>
-              <Text style={styles.workforceDetailValue}>Not supported in this prototype</Text>
-            </View>
-          </View>
-
-          {/* 2. ID Proof & Verification */}
-          <Text style={styles.workforceDetailsSectionHead}>ID Proof & Verification</Text>
-          <View style={styles.workforceDetailsCard}>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>ID type</Text>
-              <Text style={styles.workforceDetailValue}>{staff.idType || 'Aadhaar'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>ID number</Text>
-              <Text style={styles.workforceDetailValue}>{staff.idNumber || 'XXXX XXXX 8842'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Verification status</Text>
-              <Text style={[styles.workforceDetailValue, { color: adminColors.success.text }]}>{staff.verificationStatus || 'Verified'}</Text>
-            </View>
-            <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.workforceDetailLabel}>Verified by / date</Text>
-              <Text style={styles.workforceDetailValue}>{staff.verifiedByDate || 'Demo TOHFA Admin · 2 Mar 2026'}</Text>
-            </View>
-          </View>
-          <View style={styles.workforceDocActionsRow}>
-            <TouchableOpacity
-              style={styles.workforceDocBtnOutline}
-              onPress={() => Alert.alert('Preview Document', `Displaying preview for ${staff.idType || 'Aadhaar'} verification document.`)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.workforceDocBtnOutlineText}>Preview Document</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.workforceDocBtnDisabled}
-              onPress={() => Alert.alert('Unauthorized', 'Your role does not have authorization to download documents.')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.workforceDocBtnDisabledText}>Download (not authorized)</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* 3. Bank Account Details */}
-          <Text style={styles.workforceDetailsSectionHead}>Bank Account Details</Text>
-          <View style={styles.workforceRestrictedBox}>
-            <LockOutlineIcon size={24} color={adminColors.muted} />
-            <Text style={styles.workforceRestrictedTitle}>Restricted</Text>
-            <Text style={styles.workforceRestrictedDesc}>
-              Your role does not have permission to view bank details.
-            </Text>
-          </View>
-
-          {/* 4. Employment Details */}
-          <Text style={styles.workforceDetailsSectionHead}>Employment Details</Text>
-          <View style={styles.workforceDetailsCard}>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Employee ID</Text>
-              <Text style={styles.workforceDetailValue}>{staff.employeeId || staff.id}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Date of joining</Text>
-              <Text style={styles.workforceDetailValue}>{staff.joiningDate}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Employment type</Text>
-              <Text style={styles.workforceDetailValue}>{staff.employmentType || 'Full-time'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Department</Text>
-              <Text style={styles.workforceDetailValue}>{staff.department || 'Warehouse Operations'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Designation</Text>
-              <Text style={styles.workforceDetailValue}>{staff.designation || 'Loading & Sorting Staff'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Reporting manager</Text>
-              <Text style={styles.workforceDetailValue}>{staff.reportingManager || 'Demo Sub Warehouse Admin'}</Text>
-            </View>
-            <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.workforceDetailLabel}>Employment status</Text>
-              <Text style={[styles.workforceDetailValue, { color: adminColors.success.text }]}>{staff.status}</Text>
-            </View>
-          </View>
-
-          {/* 5. Role & Access */}
-          <Text style={styles.workforceDetailsSectionHead}>Role & Access</Text>
-          <View style={styles.workforceDetailsCard}>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Application role</Text>
-              <Text style={styles.workforceDetailValue}>{staff.applicationRole || 'Warehouse Staff (no login)'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Account status</Text>
-              <Text style={styles.workforceDetailValue}>{staff.accountStatusText || 'No application access'}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Permissions summary</Text>
-              <Text style={styles.workforceDetailValue}>{staff.permissionsSummary || 'From RBAC: none (no login)'}</Text>
-            </View>
-            <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.workforceDetailLabel}>Last login</Text>
-              <Text style={styles.workforceDetailValue}>{staff.lastLogin || 'Not applicable'}</Text>
-            </View>
-          </View>
-
-          {/* 6. Warehouse Assignment */}
-          <Text style={styles.workforceDetailsSectionHead}>Warehouse Assignment</Text>
-          <View style={styles.workforceDetailsCard}>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Warehouse</Text>
-              <Text style={styles.workforceDetailValue}>{staff.warehouseCode || `${staff.warehouse} (WH-MAIN)`}</Text>
-            </View>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Location</Text>
-              <Text style={styles.workforceDetailValue}>{staff.warehouseLocation || 'Ooty'}</Text>
-            </View>
-            <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.workforceDetailLabel}>Work section</Text>
-              <Text style={styles.workforceDetailValue}>{staff.workSection || 'Loading & Sorting'}</Text>
-            </View>
-          </View>
-
-          {/* 7. Emergency Contact */}
-          <Text style={styles.workforceDetailsSectionHead}>Emergency Contact</Text>
-          <View style={styles.workforceDetailsCard}>
-            <View style={styles.workforceDetailRow}>
-              <Text style={styles.workforceDetailLabel}>Contact person</Text>
-              <Text style={styles.workforceDetailValue}>{staff.emergencyContactName || 'Lakshmi (spouse)'}</Text>
-            </View>
-            <View style={[styles.workforceDetailRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.workforceDetailLabel}>Primary number</Text>
-              <Text style={styles.workforceDetailValue}>{staff.emergencyContactPhone || '••••• •1190'}</Text>
-            </View>
-          </View>
-
-          {/* 8. Uploaded Documents */}
-          <Text style={styles.workforceDetailsSectionHead}>Uploaded Documents</Text>
-          {(staff.documents || [
-            { name: 'Aadhaar Card', filename: 'aadhaar_scan.pdf · Uploaded 1 Mar 2026', status: 'Verified' as const },
-            { name: 'Address Proof', filename: 'Illegible scan (demo reason) · Re-upload required', status: 'Rejected' as const },
-            { name: 'Employment Agreement', filename: '', status: 'Not uploaded' as const },
-          ]).map((doc, idx) => (
-            <View
-              key={idx}
-              style={[
-                styles.workforceDocCard,
-                doc.status === 'Rejected' && styles.workforceDocCardRejected,
-              ]}
-            >
-              <View style={styles.workforceDocCardHeader}>
-                <Text style={styles.workforceDocCardTitle}>{doc.name}</Text>
-                <View
-                  style={
-                    doc.status === 'Verified'
-                      ? styles.workforceDocBadgeVerified
-                      : doc.status === 'Rejected'
-                        ? styles.workforceDocBadgeRejected
-                        : styles.workforceDocBadgeNotUploaded
-                  }
-                >
-                  <Text
-                    style={
-                      doc.status === 'Verified'
-                        ? styles.workforceDocBadgeTextVerified
-                        : doc.status === 'Rejected'
-                          ? styles.workforceDocBadgeTextRejected
-                          : styles.workforceDocBadgeTextNotUploaded
-                    }
-                  >
-                    {doc.status}
-                  </Text>
-                </View>
-              </View>
-              {doc.filename ? (
-                <Text style={styles.workforceDocCardSub}>{doc.filename}</Text>
-              ) : null}
-            </View>
-          ))}
-
-          {/* 9. Staff Activity & Audit History */}
-          <Text style={styles.workforceDetailsSectionHead}>Staff Activity & Audit History</Text>
-          <View style={styles.workforceTimelineCard}>
-            {(staff.auditHistory || [
-              { date: '1 Mar 2026, 09:00', actor: 'Demo Sub Warehouse Admin', action: 'Staff record created' },
-              { date: '2 Mar 2026, 10:30', actor: 'Demo TOHFA Admin', action: 'ID proof verified' },
-              { date: '10 Oct 2026, 11:00', actor: 'Demo Sub Warehouse Admin', action: 'Address proof rejected: illegible scan (demo)' },
-            ]).map((item, idx, arr) => (
-              <View key={idx}>
-                <View style={styles.workforceTimelineItem}>
-                  <Text style={styles.workforceTimelineMeta}>{`${item.date} · ${item.actor}`}</Text>
-                  <Text style={styles.workforceTimelineAction}>{item.action}</Text>
-                </View>
-                {idx < arr.length - 1 && <View style={styles.workforceTimelineDivider} />}
-              </View>
-            ))}
-          </View>
-
-          {/* RBAC disclaimer */}
-          <Text style={styles.workforceDisclaimerText}>
-            All records shown are sample data for demonstration only. Sensitive fields stay masked and visibility follows the existing RBAC configuration.
-          </Text>
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      </View>
+      <StaffDetailScreen
+        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+        can={() => true}
+        role="TOHFA_ADMIN"
+        staff={member}
+        onBack={() => {
+          if (workforceReturnTab === 'Home') {
+            setActiveTab('Home');
+            setWorkforceSubScreen('dashboard');
+            setWorkforceReturnTab(null);
+          } else {
+            setWorkforceSubScreen('dashboard');
+          }
+        }}
+        onEditProfile={(m) => {
+          loadStaffIntoCreateForm(staff ?? m);
+          setWorkforceSubScreen('create');
+        }}
+        onViewAttendance={() => setWorkforceSubScreen('attendance')}
+        onViewAttendanceHistory={() => setWorkforceSubScreen('attendance')}
+      />
     );
   };
 
@@ -10843,6 +10530,80 @@ export function TohfaAdminDashboardScreen({
   };
 
 
+  const renderStaffDobCalendarModal = () => {
+    if (!showStaffDobCalendar) return null;
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const daysInMonth = new Date(staffDobYear, staffDobMonth + 1, 0).getDate();
+    const firstWeekday = new Date(staffDobYear, staffDobMonth, 1).getDay();
+    return (
+      <Modal visible={showStaffDobCalendar} transparent animationType="fade" onRequestClose={() => setShowStaffDobCalendar(false)}>
+        <View style={styles.staffCalOverlay}>
+          <View style={styles.staffCalCard}>
+            <View style={styles.staffCalHeader}>
+              <Text style={styles.staffCalTitle}>Select Date of Birth</Text>
+              <TouchableOpacity onPress={() => setShowStaffDobCalendar(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <ModalCloseIcon size={18} color={adminColors.ink} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.staffCalNavRow}>
+              <TouchableOpacity onPress={() => { if (staffDobMonth === 0) { setStaffDobMonth(11); setStaffDobYear((y) => y - 1); } else { setStaffDobMonth((m) => m - 1); } }} style={styles.staffCalNavBtn}>
+                <ProduceNavChevronLeft size={18} color={adminColors.brandDeep} />
+              </TouchableOpacity>
+              <Text style={styles.staffCalMonthText}>{`${monthNames[staffDobMonth]} ${staffDobYear}`}</Text>
+              <TouchableOpacity onPress={() => { if (staffDobMonth === 11) { setStaffDobMonth(0); setStaffDobYear((y) => y + 1); } else { setStaffDobMonth((m) => m + 1); } }} style={styles.staffCalNavBtn}>
+                <ProduceNavChevronRight size={18} color={adminColors.brandDeep} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.staffCalWeekdaysRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((w, idx) => (
+                <View key={`wd-${idx}`} style={styles.staffCalWeekdayCell}>
+                  <Text style={styles.staffCalWeekdayLabel}>{w}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={styles.staffCalDaysGrid}>
+              {Array.from({ length: firstWeekday }).map((_, idx) => (
+                <View key={`pad-${idx}`} style={styles.staffCalDayCell} />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, idx) => {
+                const dayNum = idx + 1;
+                const isSelected = dayNum === staffDobDay;
+                return (
+                  <TouchableOpacity
+                    key={dayNum}
+                    style={[styles.staffCalDayCell, isSelected && styles.staffCalDayCellSelected]}
+                    onPress={() => setStaffDobDay(dayNum)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.staffCalDayText, isSelected && styles.staffCalDayTextSelected]}>
+                      {dayNum}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <View style={styles.staffCalButtons}>
+              <TouchableOpacity style={styles.staffCalCancelBtn} onPress={() => setShowStaffDobCalendar(false)} activeOpacity={0.7}>
+                <Text style={styles.staffCalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.staffCalApplyBtn}
+                onPress={() => {
+                  const dayStr = String(staffDobDay).padStart(2, '0');
+                  const monthStr = String(staffDobMonth + 1).padStart(2, '0');
+                  setCreateStaffDob(`${dayStr}-${monthStr}-${staffDobYear}`);
+                  setShowStaffDobCalendar(false);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.staffCalApplyText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
   const renderGenericFormPickerModal = () => {
     if (!activeFormPicker) return null;
     return (
@@ -10888,6 +10649,20 @@ export function TohfaAdminDashboardScreen({
       </Modal>
     );
   };
+
+  if (showReportsScreen) {
+    return (
+      <ReportsScreen
+        scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+        can={() => true}
+        onBack={() => setShowReportsScreen(false)}
+        onTabChange={(tab: any) => {
+          setShowReportsScreen(false);
+          setActiveTab(tab);
+        }}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.root, isBrandHeaderActive && { backgroundColor: adminColors.brand }]}>
@@ -11110,10 +10885,13 @@ export function TohfaAdminDashboardScreen({
                 selectedAdminApplication ? (
                   <AdminApplicationDetailScreen
                     application={selectedAdminApplication}
+                    can={can}
+                    role="TOHFA_ADMIN"
                     onBack={() => setSelectedAdminApplication(null)}
-                    onApprove={() => {
-                      setSelectedAdminApplication(null);
-                      Alert.alert('Approved', 'Application has been approved successfully.');
+                    onApprove={(updatedApp) => {
+                      if (updatedApp) {
+                        setSelectedAdminApplication(updatedApp);
+                      }
                     }}
                     onReject={() => {
                       setSelectedAdminApplication(null);
@@ -11226,6 +11004,14 @@ export function TohfaAdminDashboardScreen({
                     setDashboardSubScreen(ret);
                   }}
                   initialScreen="export_report"
+                />
+              ) : dashboardSubScreen === 'createHorecaB2BOrder' ? (
+                <ChannelSalesScreen
+                  scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                  can={can}
+                  role="TOHFA_ADMIN"
+                  channel="HORECA"
+                  onBack={() => setDashboardSubScreen(null)}
                 />
               ) : (
                 <ScrollView
@@ -11843,6 +11629,18 @@ export function TohfaAdminDashboardScreen({
                     { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
                   ]}
                 />
+              ) : operationsSubScreen === 'receiving' ? (
+                <ReceivingFlow
+                  scope={{
+                    warehouseId: selectedWarehouseScope?.warehouseId || 'WH-MAIN',
+                    warehouseName: selectedWarehouseScope?.warehouseName || 'All Warehouses',
+                  }}
+                  can={can}
+                  initialScreen="Dashboard"
+                  receiverName={user?.fullName || 'Admin'}
+                  finishTo="History"
+                  onBack={handleOperationsBack}
+                />
               ) : operationsSubScreen === 'stockVerification' ? (
                 <InventoryFlow
                   scope={{
@@ -11861,7 +11659,10 @@ export function TohfaAdminDashboardScreen({
                   ]}
                 />
               ) : operationsSubScreen === 'transfers' ? (
-                <InterWarehouseTransfersScreen
+                <TransfersFlow
+                  scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+                  can={(code) => (!user || user?.roles?.includes('TOHFA_ADMIN' as any) || can(code) || code === 'transfer.inter_warehouse.initiate')}
+                  initialScreen="Transfers"
                   onBack={handleOperationsBack}
                 />
               ) : operationsSubScreen === 'addWarehouse' ? (
@@ -11939,10 +11740,13 @@ export function TohfaAdminDashboardScreen({
               selectedAdminApplication ? (
                 <AdminApplicationDetailScreen
                   application={selectedAdminApplication}
+                  can={can}
+                  role="TOHFA_ADMIN"
                   onBack={() => setSelectedAdminApplication(null)}
-                  onApprove={() => {
-                    setSelectedAdminApplication(null);
-                    Alert.alert('Approved', 'Application has been approved successfully.');
+                  onApprove={(updatedApp) => {
+                    if (updatedApp) {
+                      setSelectedAdminApplication(updatedApp);
+                    }
                   }}
                   onReject={() => {
                     setSelectedAdminApplication(null);
@@ -11951,18 +11755,20 @@ export function TohfaAdminDashboardScreen({
                 />
               ) : farmerSubScreen === 'map' && selectedAdminFarmer ? (
                 <AdminFarmMapScreen
-                  farmer={selectedAdminFarmer}
+                  farmer={selectedAdminFarmer!}
                   onBack={() => setFarmerSubScreen(null)}
                 />
               ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
                 <AdminRatingScorecardScreen
-                  farmer={selectedAdminFarmer}
+                  farmer={selectedAdminFarmer!}
                   onBack={() => setFarmerSubScreen(null)}
                   onOpenComplianceTiers={() => { }}
                 />
               ) : selectedAdminFarmer ? (
                 <AdminFarmerDetailScreen
-                  farmer={selectedAdminFarmer}
+                  farmer={selectedAdminFarmer!}
+                  role="TOHFA_ADMIN"
+                  can={can}
                   onBack={() => setSelectedAdminFarmer(null)}
                   onOpenFarmMap={() => setFarmerSubScreen('map')}
                   onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
@@ -11970,6 +11776,8 @@ export function TohfaAdminDashboardScreen({
               ) : (
                 <AdminAllFarmersScreen
                   showBottomNav={false}
+                  role="TOHFA_ADMIN"
+                  can={can}
                   initialTab={farmersMainTab}
                   onBack={() => setActiveTab(farmersReturnTab)}
                   onSelectFarmer={(f) => {
@@ -12027,10 +11835,10 @@ export function TohfaAdminDashboardScreen({
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'customerWallet' ? (
-                <CustomerWalletScreen
-                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                <WalletFlow
+                  scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
                   can={can}
-                  hideCashTopUp={true}
+                  initialScreen="CashTopUp"
                   onBack={handleFinanceBack}
                 />
               ) : financeSubScreen === 'reportExport' ? (
@@ -12457,14 +12265,13 @@ export function TohfaAdminDashboardScreen({
                   onOpenGstBusiness={() => setCustomerScreen('gst_business')}
                 />
               ) : customerScreen === 'directory' ? (
-                <CustomersFlow
-                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
-                  warehouseOptions={CUSTOMER_WAREHOUSES}
-                  can={can}
-                  initialScreen="CustomerDetails"
-                  initialParams={{ customer: undefined }}
-                  hideQuickActions={true}
+                <CustomerDirectoryScreen
                   onBack={() => setCustomerScreen('management')}
+                  onAddNewCustomer={() => setCustomerScreen('add_customer')}
+                  onSelectCustomer={(cust) => {
+                    setSelectedCustomer(cust);
+                    setCustomerScreen('customer_detail');
+                  }}
                 />
               ) : customerScreen === 'add_customer' ? (
                 <AddCustomerScreen
@@ -12476,13 +12283,13 @@ export function TohfaAdminDashboardScreen({
                 />
               ) : customerScreen === 'customer_detail' ? (
                 <CustomersFlow
-                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                  scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
                   warehouseOptions={CUSTOMER_WAREHOUSES}
                   can={can}
                   initialScreen="CustomerDetails"
                   initialParams={{ customer: selectedCustomer ? { name: selectedCustomer.name, id: selectedCustomer.id, code: selectedCustomer.id } : undefined }}
-                  hideQuickActions={true}
-                  onBack={() => setCustomerScreen('management')}
+                  hideQuickActions={false}
+                  onBack={() => setCustomerScreen('directory')}
                 />
               ) : customerScreen === 'gst_business' ? (
                 <GstBusinessScreen
@@ -12557,18 +12364,37 @@ export function TohfaAdminDashboardScreen({
               ) : inputsPestScreen === 'application_guides' ? (
                 <ApplicationTreatmentGuidesScreen
                   onBack={() => setInputsPestScreen('home')}
-                  onAddNewGuide={() => setInputsPestScreen('add_guide')}
-                  onEditGuide={() => setInputsPestScreen('add_guide')}
+                  onAddNewGuide={() => {
+                    setSelectedGuide(undefined);
+                    setInputsPestScreen('add_guide');
+                  }}
+                  onEditGuide={(guide) => {
+                    setSelectedGuide(guide);
+                    setInputsPestScreen('edit_guide');
+                  }}
                 />
               ) : inputsPestScreen === 'add_guide' ? (
                 <AddNewGuideScreen
                   onBack={() => setInputsPestScreen('application_guides')}
                   onSave={() => setInputsPestScreen('application_guides')}
                 />
+              ) : inputsPestScreen === 'edit_guide' ? (
+                <EditGuideScreen
+                  initialGuide={selectedGuide ?? null}
+                  onBack={() => setInputsPestScreen('application_guides')}
+                  onSave={() => setInputsPestScreen('application_guides')}
+                />
               ) : inputsPestScreen === 'catalog' ? (
                 <ApprovedInputsScreen
                   onBack={() => setInputsPestScreen('home')}
-                  onAddNewInput={() => setInputsPestScreen('add_input')}
+                  onAddNewInput={() => {
+                    setSelectedCatalogInput(undefined);
+                    setInputsPestScreen('add_input');
+                  }}
+                  onEditInput={(item) => {
+                    setSelectedCatalogInput(item);
+                    setInputsPestScreen('edit_input');
+                  }}
                   onSelectInput={(item) => {
                     setSelectedCatalogInput(item);
                     setInputsPestScreen('input_detail');
@@ -12579,17 +12405,34 @@ export function TohfaAdminDashboardScreen({
                   onBack={() => setInputsPestScreen('catalog')}
                   onSave={() => setInputsPestScreen('catalog')}
                 />
+              ) : inputsPestScreen === 'edit_input' ? (
+                <EditInputScreen
+                  initialItem={selectedCatalogInput ?? null}
+                  onBack={() => setInputsPestScreen('catalog')}
+                  onSave={(updated) => {
+                    if (updated) setSelectedCatalogInput(updated as CatalogInputItem);
+                    setInputsPestScreen('catalog');
+                  }}
+                />
               ) : inputsPestScreen === 'input_detail' ? (
                 <InputDetailScreen
                   inputItem={selectedCatalogInput}
                   onBack={() => setInputsPestScreen('catalog')}
-                  onEdit={() => setInputsPestScreen('add_input')}
+                  onEdit={() => setInputsPestScreen('edit_input')}
                 />
               ) : inputsPestScreen === 'pest_library' ? (
                 <PestLibraryScreen
                   onBack={() => setInputsPestScreen('home')}
-                  onAddNewPest={() => setInputsPestScreen('add_pest')}
+                  onAddNewPest={() => {
+                    setSelectedPest(undefined);
+                    setInputsPestScreen('add_pest');
+                  }}
+                  onEditPest={(pest) => {
+                    setSelectedPest(pest);
+                    setInputsPestScreen('edit_pest');
+                  }}
                   onSelectPest={(pest) => {
+                    setSelectedPest(pest);
                     Alert.alert(pest.name, `${pest.scientificName || ''}\n${pest.metaLine || ''}`);
                   }}
                 />
@@ -12597,6 +12440,15 @@ export function TohfaAdminDashboardScreen({
                 <AddNewPestScreen
                   onBack={() => setInputsPestScreen('pest_library')}
                   onSave={() => setInputsPestScreen('pest_library')}
+                />
+              ) : inputsPestScreen === 'edit_pest' ? (
+                <EditPestScreen
+                  initialPest={selectedPest ?? null}
+                  onBack={() => setInputsPestScreen('pest_library')}
+                  onSave={(updated) => {
+                    if (updated) setSelectedPest(updated as PestItem);
+                    setInputsPestScreen('pest_library');
+                  }}
                 />
               ) : inputsPestScreen === 'pest_incidents' ? (
                 <FarmerPestIncidentsScreen
@@ -12794,8 +12646,7 @@ export function TohfaAdminDashboardScreen({
                       setFarmersMainTab('farmers');
                       setSelectedAdminFarmer(null);
                       setSelectedAdminApplication(null);
-                      if (onNavigate) onNavigate('AdminAllFarmers');
-                      else setActiveTab('Farmers');
+                      setActiveTab('Farmers');
                     } else if (optionId === 'produce') {
                       setProduceControlScreen('calendar');
                     } else if (optionId === 'audit') {
@@ -12818,6 +12669,8 @@ export function TohfaAdminDashboardScreen({
                       }
                     } else if (optionId === 'customers') {
                       setCustomerScreen('management');
+                    } else if (optionId === 'reports') {
+                      setShowReportsScreen(true);
                     } else if (optionId === 'finance') {
                       setActiveTab('Finance');
                     } else if (optionId === 'workforce') {
@@ -12843,47 +12696,12 @@ export function TohfaAdminDashboardScreen({
             REPORTS TAB
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Reports' && (
-              reportsSubScreen === 'analytics' ? (
-                <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'pl' ? (
-                <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'farmerPerformance' ? (
-                <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'warehouseOps' ? (
-                <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'allRecent' ? (
-                <AllRecentReportsScreen
-                  onBack={() => setReportsSubScreen(null)}
-                  onOpenPLReport={() => setReportsSubScreen('pl')}
-                  onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-                  onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-                />
-              ) : reportsSubScreen === 'builder' ? (
-                <ReportBuilderScreen
-                  onBack={() => setReportsSubScreen(null)}
-                  onGenerate={(type) => {
-                    if (type === 'pl') setReportsSubScreen('pl');
-                    else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
-                    else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
-                  }}
-                />
-              ) : reportsSubScreen === 'alerts' ? (
-                <SystemAlertsScreen onBack={() => setReportsSubScreen(null)} />
-              ) : reportsSubScreen === 'announcements' ? (
-                <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
-              ) : (
-                <AdminReportsMainScreen
-                  onBack={() => setActiveTab('Home')}
-                  onOpenPLReport={() => setReportsSubScreen('pl')}
-                  onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-                  onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-                  onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
-                  onOpenReportBuilder={() => setReportsSubScreen('builder')}
-                  onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
-                  onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
-                  onOpenAnnouncements={() => setReportsSubScreen('announcements')}
-                />
-              )
+              <ReportsScreen
+                scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
+                can={() => true}
+                onBack={() => setActiveTab('Home')}
+                onTabChange={(tab: any) => setActiveTab(tab)}
+              />
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
@@ -12972,12 +12790,50 @@ export function TohfaAdminDashboardScreen({
             WORKFORCE & STAFF TAB (Screenshots M14-S01, M14-S02, M14-S04)
            ══════════════════════════════════════════════════════════════════════ */}
         {activeTab === 'Workforce' && (
-          workforceSubScreen === 'management' ? (
-            renderWorkforceManagementScreen()
+          workforceSubScreen === 'attendance' ? (
+            <StaffFlow
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              initialScreen="Attendance"
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onTabChange={(tab: any) => {
+                setActiveTab(tab);
+              }}
+            />
+          ) : workforceSubScreen === 'history' ? (
+            <StaffFlow
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              initialScreen="AttendanceHistory"
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onTabChange={(tab: any) => {
+                setActiveTab(tab);
+              }}
+            />
           ) : workforceSubScreen === 'create' ? (
             renderWorkforceCreateScreen()
-          ) : workforceSubScreen === 'attendance' ? (
-            renderWorkforceAttendanceScreen()
+          ) : workforceSubScreen === 'management' ? (
+            <StaffFlow
+              scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+              can={() => true}
+              role="TOHFA_ADMIN"
+              initialScreen="StaffList"
+              onBack={() => setWorkforceSubScreen('dashboard')}
+              onCreateAccount={() => {
+                setEditingStaff(null);
+                resetCreateStaffForm();
+                setWorkforceSubScreen('create');
+              }}
+              onEditStaff={(staff) => {
+                loadStaffIntoCreateForm(staff);
+                setWorkforceSubScreen('create');
+              }}
+              onTabChange={(tab: any) => {
+                setActiveTab(tab);
+              }}
+            />
           ) : workforceSubScreen === 'details' ? (
             renderWorkforceDetailsScreen()
           ) : (
@@ -12996,13 +12852,16 @@ export function TohfaAdminDashboardScreen({
         produceControlScreen !== 'cropHistory' &&
         inputsPestScreen !== 'catalog' &&
         inputsPestScreen !== 'add_input' &&
+        inputsPestScreen !== 'edit_input' &&
         inputsPestScreen !== 'input_detail' &&
         inputsPestScreen !== 'pest_library' &&
         inputsPestScreen !== 'add_pest' &&
+        inputsPestScreen !== 'edit_pest' &&
         inputsPestScreen !== 'pest_incidents' &&
         inputsPestScreen !== 'incident_detail' &&
         inputsPestScreen !== 'application_guides' &&
         inputsPestScreen !== 'add_guide' &&
+        inputsPestScreen !== 'edit_guide' &&
         customerScreen !== 'directory' &&
         customerScreen !== 'customer_detail' &&
         customerScreen !== 'add_customer' &&
@@ -13622,6 +13481,7 @@ export function TohfaAdminDashboardScreen({
       />
 
       {renderStaffProfileModal()}
+      {renderStaffDobCalendarModal()}
       {renderGenericFormPickerModal()}
     </SafeAreaView>
   );
@@ -13650,7 +13510,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: 6,
-    paddingBottom: 56,
+    paddingBottom: adminSpacing.lg,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -13711,7 +13571,7 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     marginHorizontal: adminSpacing.lg,
-    marginTop: -48,
+    marginTop: adminSpacing.md,
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.lg,
     paddingBottom: adminSpacing.md,
@@ -14799,6 +14659,24 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 10,
   },
+  workforceQuickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 10,
+  },
+  workforceQuickActionTile: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    ...adminShadow.sm,
+  },
   workforceQuickActionCard: {
     flex: 1,
     backgroundColor: adminColors.card,
@@ -15030,7 +14908,14 @@ const styles = StyleSheet.create({
     backgroundColor: adminColors.card,
   },
   workforceInlineDropdownItemGrey: {
-    backgroundColor: adminColors.muted,
+    backgroundColor: adminColors.brand,
+  },
+  workforceInlineDropdownItemActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  workforceInlineDropdownItemTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
   },
   workforceInlineDropdownItemText: {
     ...adminType.body,
@@ -15063,6 +14948,116 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
     backgroundColor: adminColors.card,
+  },
+  staffCalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  staffCalCard: {
+    width: '100%',
+    maxWidth: 350,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    ...adminShadow.lg,
+  },
+  staffCalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.md,
+  },
+  staffCalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontSize: 16,
+  },
+  staffCalNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginVertical: adminSpacing.sm,
+  },
+  staffCalNavBtn: {
+    padding: adminSpacing.xs,
+  },
+  staffCalMonthText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    fontSize: 15,
+  },
+  staffCalWeekdaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
+  },
+  staffCalWeekdayCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  staffCalWeekdayLabel: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  staffCalDaysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  staffCalDayCell: {
+    width: `${100 / 7}%`,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffCalDayCellSelected: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.full,
+  },
+  staffCalDayText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontSize: 14,
+  },
+  staffCalDayTextSelected: {
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  staffCalButtons: {
+    flexDirection: 'row',
+    gap: adminSpacing.md,
+    marginTop: adminSpacing.lg,
+  },
+  staffCalCancelBtn: {
+    flex: 1,
+    height: 42,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffCalCancelText: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  staffCalApplyBtn: {
+    flex: 1,
+    height: 42,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  staffCalApplyText: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontWeight: '600',
   },
   workforceCheckboxSquareChecked: {
     backgroundColor: adminColors.canvas,

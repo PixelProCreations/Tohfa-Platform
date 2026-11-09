@@ -28,6 +28,7 @@ import { AttendanceHistoryScreen } from './AttendanceHistoryScreen';
 import { AttendanceScreen } from './AttendanceScreen';
 import { EditStaffProfileScreen } from './EditStaffProfileScreen';
 import { StaffDetailScreen } from './StaffDetailScreen';
+import { StaffListScreen } from './StaffListScreen';
 import { hasStaffRosterAccess, STAFF_ROSTER_CODE, StaffScreen } from './StaffScreen';
 import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
@@ -37,32 +38,43 @@ interface StaffStackEntry {
 }
 
 /** Routes that show the warehouse roster and need staff roster access. */
-const ROSTER_ROUTES: readonly StaffRoute[] = ['Staff', 'StaffDetail', 'EditStaffProfile'];
+const ROSTER_ROUTES: readonly StaffRoute[] = ['Staff', 'StaffList', 'StaffDetail', 'EditStaffProfile'];
 
 /** True when `can` / `scope` allows opening `route` (roster routes need staff roster access). */
 export function canOpenStaffRoute(route: StaffRoute, can: PermissionCheck, scope?: WarehouseScope): boolean {
+  if (route === 'EditStaffProfile') {
+    const isSub = scope?.warehouseId !== undefined;
+    const hasEdit = can('admin.staff.manage') || can('warehouse.staff.edit') || can('admin.staff.edit');
+    return !isSub && hasEdit && hasStaffRosterAccess(can, scope);
+  }
   return !ROSTER_ROUTES.includes(route) || hasStaffRosterAccess(can, scope);
 }
 
 export interface StaffFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: string | undefined;
   initialScreen?: StaffRoute | undefined;
   initialParams?: StaffRouteParams | undefined;
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
   onTabChange?: ((tab: WarehouseTab) => void) | undefined;
   onAssignDelivery?: ((driver?: StaffMember) => void) | undefined;
+  onCreateAccount?: (() => void) | undefined;
+  onEditStaff?: ((staff: StaffMember) => void) | undefined;
 }
 
 export function StaffFlow({
   scope,
   can,
+  role,
   initialScreen = 'Staff',
   initialParams,
   onBack,
   onTabChange,
   onAssignDelivery,
+  onCreateAccount,
+  onEditStaff,
 }: StaffFlowProps) {
   const [stack, setStack] = useState<StaffStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -100,7 +112,7 @@ export function StaffFlow({
     else onBack();
   };
 
-  const common = { scope, can, onBack: back, onTabChange };
+  const common = { scope, can, role, onBack: back, onTabChange };
 
   switch (current.screen) {
     case 'Staff':
@@ -108,16 +120,28 @@ export function StaffFlow({
         <StaffScreen
           {...common}
           onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
+          onNavigateToStaffList={() => navigate('StaffList')}
           onNavigateToAttendance={(warehouseId) => navigate('Attendance', { attendanceFilter: 'All', warehouseId })}
           onNavigateToHistory={(warehouseId) => navigate('AttendanceHistory', { warehouseId })}
+        />
+      );
+    case 'StaffList':
+      return (
+        <StaffListScreen
+          {...common}
+          role={role}
+          onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
+          onEditStaff={onEditStaff ?? ((staff) => navigate('EditStaffProfile', { staff }))}
+          onCreateAccount={onCreateAccount ?? (() => navigate('EditStaffProfile'))}
         />
       );
     case 'StaffDetail':
       return (
         <StaffDetailScreen
           {...common}
+          role={role}
           staff={params.staff}
-          onEditProfile={(staff) => navigate('EditStaffProfile', { staff })}
+          onEditProfile={onEditStaff ? (staff) => onEditStaff(staff ?? params.staff!) : (staff) => navigate('EditStaffProfile', { staff })}
           onViewAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
           onViewAttendanceHistory={() => navigate('AttendanceHistory')}
           onAssignDelivery={onAssignDelivery ? () => onAssignDelivery(params.staff) : undefined}

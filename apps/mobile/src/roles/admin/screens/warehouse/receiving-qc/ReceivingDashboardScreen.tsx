@@ -436,18 +436,6 @@ export function ReceivingDashboardScreen({
               ))}
             </View>
 
-            {/* Shipment Arrived Button (Center) */}
-            <View style={styles.shipmentArrivedContainer}>
-              <TouchableOpacity
-                style={styles.shipmentArrivedBtn}
-                onPress={onShipmentArrived ?? (() => (onSelectShipment ? onSelectShipment('SHP-000124') : onStartReceiving()))}
-                activeOpacity={0.85}
-              >
-                <ShipmentBoxIcon size={22} color={adminColors.onBrand} />
-                <Text style={styles.shipmentArrivedBtnText}>Shipment Arrived</Text>
-              </TouchableOpacity>
-            </View>
-
             {/* Receiving Activity */}
             <View style={styles.mainSectionHeaderRow}>
               <Text style={styles.mainSectionHeaderTitle}>Receiving Activity</Text>

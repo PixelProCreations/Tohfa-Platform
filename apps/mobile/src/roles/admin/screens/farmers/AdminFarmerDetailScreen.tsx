@@ -25,6 +25,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { type Can } from '../../permissions/can';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
 
@@ -112,6 +113,12 @@ export const DEFAULT_CATEGORY_RATINGS: CategoryRating[] = [
 export interface AdminFarmerDetailScreenProps {
   farmer: FarmerListItem;
   onBack: () => void;
+  can?: Can;
+  role?: string;
+  userScope?: {
+    zoneId?: string | undefined;
+    warehouseId?: string | undefined;
+  } | undefined;
   onEdit?: (currentTab: FarmerDetailTabType) => void;
   onDisable?: () => void;
   onOpenFarmMap?: () => void;
@@ -119,6 +126,7 @@ export interface AdminFarmerDetailScreenProps {
   onOpenRatingScorecard?: () => void;
   initialTab?: FarmerDetailTabType;
   onTabChange?: (tab: FarmerDetailTabType) => void;
+  onNavigateAuditHistory?: () => void;
 }
 
 type Props = AdminFarmerDetailScreenProps;
@@ -126,6 +134,9 @@ type Props = AdminFarmerDetailScreenProps;
 export const AdminFarmerDetailScreen: React.FC<Props> = ({
   farmer,
   onBack,
+  can,
+  role,
+  userScope,
   onEdit,
   onDisable,
   onOpenFarmMap,
@@ -140,10 +151,15 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     return tab;
   };
 
+  const [currentFarmer, setCurrentFarmer] = useState<FarmerListItem>(farmer);
   const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(normalizeTab(initialTab));
   const [accountStatus, setAccountStatus] = useState<'Active' | 'Inactive' | 'Disabled' | 'Terminated'>(
     farmer.status === 'DISABLED' ? 'Disabled' : 'Active'
   );
+
+  useEffect(() => {
+    setCurrentFarmer(farmer);
+  }, [farmer]);
 
   // Edit Farm Rating & Profile states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -152,6 +168,16 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   const [expandedCategory, setExpandedCategory] = useState<string | null>('cert');
 
   const totalRatingScore = categoryRatings.reduce((sum, item) => sum + item.score, 0);
+
+  // RBAC: Edit Farm Rating access is granted strictly to Farmer Admin and Tohfa Admin (plus Super Admin).
+  // Warehouse Admins (Main Warehouse Admin, Sub Warehouse Admin) have read-only view.
+  const isFarmerAdmin = role === 'FARMER_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
+  const canEditProfile = isTohfaAdmin;
+  const canDisableAccount = isTohfaAdmin;
+  const canEditRating = Boolean(
+    can ? can('farmer.rating.edit') || (isFarmerAdmin || isTohfaAdmin) : (isFarmerAdmin || isTohfaAdmin)
+  );
 
   useEffect(() => {
     setActiveTab(normalizeTab(initialTab));
@@ -259,6 +285,10 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   const handleSaveRatings = () => {
     setIsEditingRating(false);
+    setCurrentFarmer((prev) => ({
+      ...prev,
+      rating: (totalRatingScore / 10).toFixed(1),
+    }));
     Alert.alert('Rating Saved', 'Farm rating updated successfully.');
   };
 
@@ -306,9 +336,12 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   if (isEditingProfile) {
     return (
       <AdminEditFarmerScreen
-        farmer={farmer}
+        farmer={currentFarmer}
         onBack={() => setIsEditingProfile(false)}
-        onSave={() => {
+        onSave={(updatedFarmer) => {
+          if (updatedFarmer) {
+            setCurrentFarmer(updatedFarmer);
+          }
           setIsEditingProfile(false);
         }}
       />
@@ -351,7 +384,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
               <View style={styles.profileDetailsCol}>
                 <View style={styles.nameBadgeRow}>
-                  <Text style={styles.farmerName}>{farmer.name || 'Ramesh Kumar'}</Text>
+                  <Text style={styles.farmerName}>{currentFarmer.name || 'Ramesh Kumar'}</Text>
                   <View
                     style={[
                       styles.activePill,
@@ -372,7 +405,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 </View>
 
                 <Text style={styles.farmerIdPhone}>
-                  {farmer.code || 'FMR-00124'} · {farmer.mobile || '+91 90000 20000'}
+                  {farmer.code || 'FMR-00124'} · {currentFarmer.mobile || '+91 90000 20000'}
                 </Text>
               </View>
             </View>
@@ -525,31 +558,41 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           >
             <BackArrowWhiteIcon />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Farmer Profile</Text>
-          <TouchableOpacity
-            style={[styles.backButton, { marginLeft: 'auto' }]}
-            onPress={() => setIsEditingProfile(true)}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel="Edit Farmer Profile"
-          >
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <Path
-                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
-                stroke={adminColors.onBrand}
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>
+              {activeTab === 'Ratings' ? 'Farm Rating' : 'Farmer Profile'}
+            </Text>
+            {activeTab === 'Ratings' && (
+              <Text style={styles.headerSubtitleText}>
+                {farmer.name || 'Ramesh Kumar'} Farming · {farmer.code || 'FR-00124'}
+              </Text>
+            )}
+          </View>
+          {canEditProfile && activeTab !== 'Ratings' && (
+            <TouchableOpacity
+              style={styles.headerEditCircleButton}
+              onPress={() => {
+                if (onEdit) {
+                  onEdit(activeTab);
+                } else {
+                  setIsEditingProfile(true);
+                }
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Edit Farmer Profile"
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
+                  stroke={adminColors.onBrand}
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -567,7 +610,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
             <View style={styles.profileDetailsCol}>
               <View style={styles.nameBadgeRow}>
-                <Text style={styles.farmerName}>{farmer.name || 'Ramesh Kumar'}</Text>
+                <Text style={styles.farmerName}>{currentFarmer.name || 'Ramesh Kumar'}</Text>
                 <View
                   style={[
                     styles.activePill,
@@ -588,7 +631,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               </View>
 
               <Text style={styles.farmerIdPhone}>
-                {farmer.code || 'FMR-00124'} · {farmer.mobile || '+91 90000 20000'}
+                {farmer.code || 'FMR-00124'} · {currentFarmer.mobile || '+91 90000 20000'}
               </Text>
             </View>
           </View>
@@ -699,7 +742,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.detailsCard}>
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Name</Text>
-                <Text style={styles.tableValue}>{farmer.name || 'Ramesh Kumar'}</Text>
+                <Text style={styles.tableValue}>{currentFarmer.name || 'Ramesh Kumar'}</Text>
               </View>
 
               <View style={styles.tableRow}>
@@ -709,7 +752,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Phone</Text>
-                <Text style={styles.tableValue}>{farmer.mobile || '+91 90000 20000'}</Text>
+                <Text style={styles.tableValue}>{currentFarmer.mobile || '+91 90000 20000'}</Text>
               </View>
 
               <View style={styles.tableRow}>
@@ -719,7 +762,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
               <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Zone</Text>
-                <Text style={styles.tableValue}>{farmer.location || 'Coonoor'}</Text>
+                <Text style={styles.tableValue}>{currentFarmer.location || 'Coonoor'}</Text>
               </View>
 
               <View style={styles.tableRow}>
@@ -746,7 +789,8 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             </View>
 
             {/* Action Buttons Row */}
-            <View style={styles.actionButtonsRow}>
+            {canDisableAccount && (
+              <View style={styles.actionButtonsRow}>
               <TouchableOpacity
                 style={styles.deactivateBtn}
                 onPress={handleOpenDeactivateModal}
@@ -763,6 +807,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 <Text style={styles.terminateBtnText}>Disable Account</Text>
               </TouchableOpacity>
             </View>
+            )}
           </>
         )}
 
@@ -970,23 +1015,18 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           </View>
         )}
 
-        {/* ─── TAB 6: RATINGS (Image 2) ─── */}
+        {/* ─── TAB 6: RATINGS (Image 1 - M2-S06 · Farmer Ratings) ─── */}
         {activeTab === 'Ratings' && (
           <>
-            {/* Rating Categories Section */}
-            <Text style={styles.sectionHeaderTitle}>Rating categories</Text>
-
-            {/* New Overall Rating Card */}
-            <View style={styles.categoryOverallCard}>
-              <Text style={styles.categoryOverallLabel}>NEW OVERALL RATING</Text>
-              <View style={styles.categoryOverallRow}>
-                <Text style={styles.categoryBigNumber}>{totalRatingScore}</Text>
-                <Text style={styles.categoryDenominator}> / 100</Text>
-              </View>
-              <Text style={styles.categoryPreviousText}>Previous: 68 / 100</Text>
+            {/* Big Rating Hero Card (Screen 1) */}
+            <View style={styles.heroRatingCard}>
+              <Text style={styles.heroScoreNum}>{totalRatingScore} / 100</Text>
+              <Text style={styles.heroRatingLabel}>OVERALL RATING</Text>
+              <Text style={styles.heroRatingDate}>Last rated 15 Oct 2026</Text>
             </View>
 
-            {/* Categories Breakdown Table */}
+            {/* Category Scores Section */}
+            <Text style={styles.sectionHeaderTitle}>Category Scores</Text>
             <View style={styles.detailsCard}>
               {categoryRatings.map((cat, idx) => (
                 <View
@@ -1000,6 +1040,49 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                   <Text style={styles.categoryScore}>{cat.score}/{cat.max}</Text>
                 </View>
               ))}
+            </View>
+
+            {/* Farm Information Section */}
+            <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.lg }]}>Farm Information</Text>
+            <View style={styles.detailsCard}>
+              <View style={styles.twoColumnGrid}>
+                {/* Left Column */}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.metaLabelText}>Farm</Text>
+                  <Text style={styles.metaValueText}>
+                    {farmer.farmName || (farmer.name ? `${farmer.name.split(' ')[0]} Farm 01` : 'Ooty Farm 01')}
+                  </Text>
+
+                  <View style={{ height: 14 }} />
+
+                  <Text style={styles.metaLabelText}>Farmer Since</Text>
+                  <Text style={styles.metaValueText}>
+                    {farmer.memberSince ? farmer.memberSince.split(' ').pop() || '2023' : '2023'}
+                  </Text>
+                </View>
+
+                {/* Right Column */}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.metaLabelText}>Zone</Text>
+                  <Text style={styles.metaValueText}>{farmer.zone || farmer.location || 'Ooty'}</Text>
+
+                  <View style={{ height: 14 }} />
+
+                  <Text style={styles.metaLabelText}>Last Audit</Text>
+                  <Text style={styles.metaValueText}>15 Oct 2026</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Rating History Section */}
+            <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.lg }]}>Rating History</Text>
+            <View style={styles.historyRatingCard}>
+              <Text style={styles.historyDateMuted}>12 Sep 2026</Text>
+              <Text style={styles.historyScoreText}>Rating: 4.6 · Zone: Coonoor</Text>
+            </View>
+            <View style={[styles.historyRatingCard, { marginTop: 10 }]}>
+              <Text style={styles.historyDateMuted}>01 Aug 2026</Text>
+              <Text style={styles.historyScoreText}>Rating: 4.4 · Zone: Coonoor</Text>
             </View>
           </>
         )}
@@ -1081,7 +1164,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
       </ScrollView>
 
       {/* ─── Sticky Bottom Action Bar: Edit Rating (Only in Ratings tab - Image 2) ─── */}
-      {activeTab === 'Ratings' && (
+      {activeTab === 'Ratings' && canEditRating && (
         <View style={styles.ratingsBottomBar}>
           <TouchableOpacity
             style={styles.editRatingBottomBtn}
@@ -1134,7 +1217,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.summaryTableCard}>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Name</Text>
-                <Text style={styles.summaryTableValue}>{farmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
+                <Text style={styles.summaryTableValue}>{currentFarmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
               </View>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Action</Text>
@@ -1215,7 +1298,7 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <View style={styles.summaryTableCard}>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Name</Text>
-                <Text style={styles.summaryTableValue}>{farmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
+                <Text style={styles.summaryTableValue}>{currentFarmer.name || 'Ramesh Kumar'} · {farmer.code || 'FMR-00124'}</Text>
               </View>
               <View style={styles.summaryTableRow}>
                 <Text style={styles.summaryTableLabel}>Action</Text>
@@ -1489,6 +1572,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: adminSpacing.sm,
   },
+  headerEditCircleButton: {
+    marginLeft: 'auto',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   backButton: {
     padding: 4,
     marginRight: 4,
@@ -1498,6 +1590,12 @@ const styles = StyleSheet.create({
     color: adminColors.onBrand,
     fontSize: 19,
     fontWeight: '800',
+  },
+  headerSubtitleText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.92)',
+    marginTop: 2,
   },
   scroll: {
     flex: 1,
@@ -2159,6 +2257,75 @@ const styles = StyleSheet.create({
   },
 
   // ─── Ratings Tab Styles (Images 1 & 2) ───
+  heroRatingCard: {
+    backgroundColor: adminColors.brand,
+    borderRadius: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.md,
+    ...adminShadow.md,
+  },
+  heroScoreNum: {
+    ...adminType.kpiValue,
+    color: adminColors.onBrand,
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  heroRatingLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+    marginTop: 6,
+  },
+  heroRatingDate: {
+    ...adminType.caption,
+    fontWeight: '500',
+    color: adminColors.onBrand,
+    opacity: 0.95,
+    marginTop: 4,
+  },
+  twoColumnGrid: {
+    flexDirection: 'row',
+  },
+  metaLabelText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+    fontSize: 11.5,
+  },
+  metaValueText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  historyRatingCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    ...adminShadow.sm,
+  },
+  historyDateMuted: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '500',
+    fontSize: 11.5,
+  },
+  historyScoreText: {
+    ...adminType.body,
+    fontWeight: '800',
+    color: adminColors.ink,
+    fontSize: 13.5,
+    marginTop: 4,
+  },
   ratingScoreCard: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,

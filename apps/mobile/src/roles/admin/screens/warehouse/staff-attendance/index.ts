@@ -3,13 +3,14 @@
 // attendance (overview, detail, history; no code). Explicit exports only (no `export *`).
 export { StaffFlow, canOpenStaffRoute, type StaffFlowProps } from './StaffFlow';
 export { StaffScreen, STAFF_ROSTER_CODE, hasStaffRosterAccess, type StaffScreenProps } from './StaffScreen';
+export { StaffListScreen, type StaffListScreenProps } from './StaffListScreen';
 export { StaffFiltersScreen, type StaffFiltersScreenProps, type StaffFilterValues } from './StaffFiltersScreen';
 export { StaffDetailScreen, type StaffDetailScreenProps } from './StaffDetailScreen';
 export { EditStaffProfileScreen, type EditStaffProfileScreenProps } from './EditStaffProfileScreen';
 export { AttendanceScreen, type AttendanceScreenProps } from './AttendanceScreen';
 export { AttendanceDetailScreen, type AttendanceDetailScreenProps } from './AttendanceDetailScreen';
 export { AttendanceHistoryScreen, type AttendanceHistoryScreenProps } from './AttendanceHistoryScreen';
-export { STAFF_WAREHOUSES } from './fixtures';
+export { STAFF_WAREHOUSES, STAFF_MEMBERS, DEFAULT_STAFF_MEMBER } from './fixtures';
 export type {
   AttendanceFilter,
   AttendanceHistoryEntry,

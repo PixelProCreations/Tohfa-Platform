@@ -345,7 +345,7 @@ export function InventoryDashboardScreen({
     { key: 'verification', label: 'Stock Verification', icon: <StockVerificationQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S10' },
     { key: 'allocation', label: 'Allocation', icon: <AllocationQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S07' },
     { key: 'low_stock', label: 'Low Stock', icon: <LowStockQuickIcon size={24} color={adminColors.brand} />, screen: 'M3S09' },
-    { key: 'transfer', label: 'Create Transfer', icon: <CreateTransferQuickIcon size={24} color={adminColors.brand} />, isTransfer: true },
+    { key: 'transfer', label: 'Inter-Warehouse Transfers', icon: <CreateTransferQuickIcon size={24} color={adminColors.brand} />, isTransfer: true },
   ];
 
   if (isSub) {
@@ -412,7 +412,7 @@ export function InventoryDashboardScreen({
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Top Stock Products</Text>
-                <TouchableOpacity onPress={() => onNavigate?.('M3S07')} activeOpacity={0.7}>
+                <TouchableOpacity onPress={() => onNavigate?.('M3S02')} activeOpacity={0.7}>
                   <Text style={styles.viewAllLink}>View All Stock</Text>
                 </TouchableOpacity>
               </View>

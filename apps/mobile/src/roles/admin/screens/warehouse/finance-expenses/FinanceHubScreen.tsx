@@ -48,16 +48,22 @@ import {
 import {
   ActionGrid,
   BellIcon,
+  BuildingWarehouseIcon,
+  CreditCardPlusIcon,
   DailyCashIcon,
   FINANCE_CODES,
   FinanceNotAvailable,
   GridIcon,
+  HistoryClockIcon,
   LedgerIcon,
   ListDocIcon,
   PlusCircleIcon,
   ReportFileIcon,
+  ScaleIcon,
+  ShapesCategoryIcon,
   ShieldIcon,
   TableRow,
+  TrendDownIcon,
   TrendUpIcon,
   TruckIcon,
   VoucherIcon,
@@ -144,17 +150,17 @@ export function FinanceHubScreen({
 
   const iconColor = adminColors.brandDeep;
   const candidates: (FinanceAction & { route?: FinanceRoute })[] = [
-    { key: 'add', route: 'AddExpense', label: 'Add Expense', icon: <PlusCircleIcon color={iconColor} />, onPress: () => onOpen('AddExpense', selectedWarehouseId) },
+    { key: 'add', route: 'AddExpense', label: 'Add Expense', icon: isMain ? <CreditCardPlusIcon color={iconColor} /> : <PlusCircleIcon color={iconColor} />, onPress: () => onOpen('AddExpense', selectedWarehouseId) },
     { key: 'revenue', route: 'Revenue', label: isMain ? 'Revenue' : 'View Revenue', icon: <TrendUpIcon color={iconColor} />, onPress: () => onOpen('Revenue', selectedWarehouseId) },
-    { key: 'expenses', route: 'Expenses', label: isMain ? 'Expenses' : 'View Expenses', icon: <ListDocIcon color={iconColor} />, onPress: () => onOpen('Expenses', selectedWarehouseId) },
-    { key: 'categories', route: 'ExpenseCategories', label: 'Categories', icon: <GridIcon color={iconColor} />, onPress: () => onOpen('ExpenseCategories', selectedWarehouseId) },
+    { key: 'expenses', route: 'Expenses', label: isMain ? 'Expenses' : 'View Expenses', icon: isMain ? <TrendDownIcon color={iconColor} /> : <ListDocIcon color={iconColor} />, onPress: () => onOpen('Expenses', selectedWarehouseId) },
+    { key: 'categories', route: 'ExpenseCategories', label: 'Categories', icon: <ShapesCategoryIcon color={iconColor} />, onPress: () => onOpen('ExpenseCategories', selectedWarehouseId) },
     { key: 'vouchers', route: 'Vouchers', label: 'Vouchers', icon: <VoucherIcon color={iconColor} />, onPress: () => onOpen('Vouchers', selectedWarehouseId) },
-    { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: <DailyCashIcon color={iconColor} />, onPress: () => onOpen('DailyCash', selectedWarehouseId) },
-    { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: <LedgerIcon color={iconColor} />, onPress: () => onOpen('FinanceHistory', selectedWarehouseId) },
+    { key: 'daily', route: 'DailyCash', label: 'Daily Cash', icon: isMain ? <ScaleIcon color={iconColor} /> : <DailyCashIcon color={iconColor} />, onPress: () => onOpen('DailyCash', selectedWarehouseId) },
+    { key: 'history', route: 'FinanceHistory', label: isMain ? 'History' : 'Finance History', icon: isMain ? <HistoryClockIcon color={iconColor} /> : <LedgerIcon color={iconColor} />, onPress: () => onOpen('FinanceHistory', selectedWarehouseId) },
+    { key: 'reports', route: 'FinanceReports', label: isMain ? 'Reports' : 'Finance Reports', icon: <ReportFileIcon color={iconColor} />, onPress: () => onOpen('FinanceReports', selectedWarehouseId) },
   ];
-  // Reports removed completely from Quick Actions for both subwarehouse and mainwarehouse per user request.
-  const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'history'];
-  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history'];
+  const SUB_ORDER = ['add', 'revenue', 'expenses', 'daily', 'reports', 'history'];
+  const MAIN_ORDER = ['revenue', 'expenses', 'add', 'categories', 'vouchers', 'daily', 'history', 'reports'];
   const order = isMain ? MAIN_ORDER : SUB_ORDER;
   const actions = candidates
     .filter((a) => (isMain ? MAIN_ORDER.includes(a.key) : SUB_ORDER.includes(a.key)))
@@ -247,18 +253,20 @@ export function FinanceHubScreen({
     (selectedWarehouseId && WAREHOUSE_FINANCE_METRICS[selectedWarehouseId]) ||
     DEFAULT_METRICS;
 
-  const kpis: { label: string; value: string; tone?: 'success'; route?: FinanceRoute; subtitle: string }[] = isMain
+  const kpiItems: { label: string; value: string; tone?: 'success'; delta?: string }[] = isMain
     ? [
-        { label: 'Revenue', value: '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
-        { label: 'Expenses', value: '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
-        { label: 'Net Movement', value: '₹18,430', tone: 'success', subtitle: 'Net Movement' },
-        { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
+        { label: 'REVENUE', value: selectedMetrics.revenue },
+        { label: 'EXPENSES', value: selectedMetrics.expenses },
+        { label: 'NET MOVEMENT', value: selectedMetrics.net, tone: 'success' },
+        { label: 'CASH BALANCE', value: selectedMetrics.cashBalance },
       ]
     : [
-        { label: 'Revenue', value: '₹24,850', route: 'Revenue', subtitle: 'Tap To View' },
-        { label: 'Expenses', value: '₹6,420', route: 'Expenses', subtitle: 'Tap To View' },
-        { label: 'Net Movement', value: '₹18,430', tone: 'success', subtitle: 'Net Movement' },
-        { label: 'Cash Balance', value: '₹22,080', subtitle: 'Cash Balance' },
+        { label: "TODAY'S REVENUE", value: '₹24,850', delta: '↑ 8.4% vs yesterday' },
+        { label: "TODAY'S EXPENSES", value: '₹6,420' },
+        { label: 'NET MOVEMENT', value: '₹18,430', tone: 'success' },
+        { label: 'PENDING EXPENSES', value: '8' },
+        { label: 'CASH IN', value: '₹12,500' },
+        { label: 'CASH OUT', value: '₹6,420' },
       ];
 
   const expenseRows = isMain
@@ -282,20 +290,27 @@ export function FinanceHubScreen({
 
   return (
     <WalletScreen
-      title="Warehouse Finance"
+      title={
+        <View style={styles.headerTitleRow}>
+          {isMain ? (
+            <BuildingWarehouseIcon size={20} color={adminColors.onBrand} />
+          ) : (
+            <GridIcon size={20} color={adminColors.onBrand} />
+          )}
+          <Text style={styles.headerTitleText}>Warehouse Finance</Text>
+        </View>
+      }
       onBack={onBack}
       headerRight={
-        isMain ? (
-          <HeaderIconButton
-            accessibilityLabel="Notifications"
-            onPress={() => {
-              if (onNavigateToNotifications) onNavigateToNotifications();
-              else Alert.alert('Notifications', '3 unread finance notifications.');
-            }}
-          >
-            <BellRingIcon size={20} color={adminColors.onBrand} />
-          </HeaderIconButton>
-        ) : undefined
+        <HeaderIconButton
+          accessibilityLabel="Notifications"
+          onPress={() => {
+            if (onNavigateToNotifications) onNavigateToNotifications();
+            else Alert.alert('Notifications', '3 unread finance notifications.');
+          }}
+        >
+          <BellRingIcon size={20} color={adminColors.onBrand} />
+        </HeaderIconButton>
       }
       headerExtra={
         isMain ? (
@@ -312,128 +327,131 @@ export function FinanceHubScreen({
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.kpiGrid}>
-          {kpis.map((kpi) => {
-            const getIcon = (label: string): 'sales' | 'cash' | 'orders' | 'inventory' => {
-              const lower = label.toLowerCase();
-              if (lower.includes('revenue') || lower.includes('sales')) return 'sales';
-              if (lower.includes('expense')) return 'cash';
-              if (lower.includes('net') || lower.includes('balance') || lower.includes('cash')) return 'cash';
-              return 'orders';
-            };
-            return (
-              <OverviewDashboardCard
-                key={kpi.label}
-                value={kpi.value}
-                title={kpi.label}
-                subtitle={kpi.subtitle}
-                icon={getIcon(kpi.label)}
-                tone={kpi.tone === 'success' ? 'success' : 'default'}
-              />
-            );
-          })}
+          {kpiItems.map((item) => (
+            <View key={item.label} style={styles.kpiCard}>
+              <Text style={styles.kpiLabel}>{item.label}</Text>
+              <Text style={[styles.kpiValue, item.tone === 'success' && styles.kpiValueSuccess]}>
+                {item.value}
+              </Text>
+              {item.delta ? <Text style={styles.kpiDelta}>{item.delta}</Text> : null}
+            </View>
+          ))}
         </View>
 
-        {isMain && actions.length > 0 ? (
-          <>
-            <SectionTitle>Quick Actions</SectionTitle>
-            <ActionGrid actions={actions} columns={2} />
-          </>
+        {!isMain ? (
+          <View style={{ marginBottom: adminSpacing.md }}>
+            <InfoNote tone="info">
+              Net Movement is calculated from backend financial records — never manually entered.
+            </InfoNote>
+          </View>
         ) : null}
 
-        {can(FINANCE_CODES.salesIncome) ? (
+        {isMain ? (
           <>
-            <Text style={styles.sectionHeading}>Revenue Breakdown</Text>
-            <TouchableOpacity style={styles.card} onPress={revenuePress} disabled={revenuePress === undefined} activeOpacity={0.8}>
-              <TableRow label="Direct / Market Sales" value={revenueBreakdown.direct} />
-              <TableRow label="Customer Orders" value={revenueBreakdown.orders} divider />
-              <TableRow label="Other channels" value={revenueBreakdown.other} divider />
-              <TableRow label="Total Revenue" value={revenueBreakdown.total} total divider />
-            </TouchableOpacity>
-          </>
-        ) : null}
+            {actions.length > 0 ? (
+              <>
+                <SectionTitle>Quick Actions</SectionTitle>
+                <ActionGrid actions={actions} columns={2} />
+              </>
+            ) : null}
 
-        {can(FINANCE_CODES.expenseLog) ? (
-          <>
-            <Text style={styles.sectionHeading}>Expense Breakdown</Text>
-            <TouchableOpacity style={styles.card} onPress={expensesPress} disabled={expensesPress === undefined} activeOpacity={0.8}>
-              {expenseRows.map((row, index) => (
-                <TableRow key={row.label} label={row.label} value={row.value} divider={index > 0} />
-              ))}
-              <TableRow label="Total Expenses" value={isMain ? selectedMetrics.totalExpenses : '₹6,420'} total divider />
-            </TouchableOpacity>
-
-            {isMain ? (
-              <TouchableOpacity onPress={categoriesPress} disabled={categoriesPress === undefined} activeOpacity={0.8}>
-                <InfoNote tone="brandSoft">
-                  Categories mirror Expense Categories (S06) exactly; they are never invented independently on this dashboard.
-                </InfoNote>
-              </TouchableOpacity>
+            {can(FINANCE_CODES.expenseLog) ? (
+              <>
+                <Text style={styles.sectionHeading}>Expense Breakdown</Text>
+                <TouchableOpacity style={styles.card} onPress={expensesPress} disabled={expensesPress === undefined} activeOpacity={0.8}>
+                  <TableRow label="Transport" value={selectedMetrics.expenseBreakdown[0]?.value ?? '₹2,400'} />
+                  <TableRow label="Loading / Unloading" value={selectedMetrics.expenseBreakdown[1]?.value ?? '₹1,800'} divider />
+                  <TableRow label="Total Expenses" value={selectedMetrics.totalExpenses} total divider />
+                </TouchableOpacity>
+              </>
             ) : null}
           </>
-        ) : null}
-
-        <SectionTitle
-          right={
-            historyPress ? (
-              <TouchableOpacity onPress={historyPress} activeOpacity={0.7} hitSlop={HIT_SLOP}>
-                <Text style={styles.sectionAction}>History ›</Text>
-              </TouchableOpacity>
-            ) : undefined
-          }
-        >
-          Financial Trend
-        </SectionTitle>
-        <View style={styles.trendPills}>
-          {(Object.keys(TREND_BARS) as TrendTab[]).map((tab) => {
-            const active = tab === trendTab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.trendPill, active && styles.trendPillActive]}
-                onPress={() => setTrendTab(tab)}
-                activeOpacity={0.75}
-              >
-                <Text style={[styles.trendPillText, active && styles.trendPillTextActive]}>{tab}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.85}>
-          <View style={styles.chartRow}>
-            <View style={styles.chartAxis}>
-              {TREND_AXIS.map((label) => (
-                <Text key={label} style={styles.chartAxisText}>
-                  {label}
-                </Text>
-              ))}
-            </View>
-            <View style={styles.chartBody}>
-              <View style={styles.chartBars}>
-                {TREND_BARS[trendTab].map((height, index) => (
-                  <View
-                    key={TREND_DAYS[index]}
-                    style={[
-                      styles.bar,
-                      { height: `${height}%` },
-                      index === TREND_DAYS.length - 1 && styles.barToday,
-                    ]}
-                  />
-                ))}
-              </View>
-              <View style={styles.chartDays}>
-                {TREND_DAYS.map((day, index) => (
-                  <Text key={day} style={[styles.chartAxisText, index === TREND_DAYS.length - 1 && styles.chartDayToday]}>
-                    {day}
-                  </Text>
-                ))}
-              </View>
-            </View>
-          </View>
-          <Text style={styles.chartCaption}>{TREND_CAPTION[trendTab]}</Text>
-        </TouchableOpacity>
-
-        {isMain ? null : (
+        ) : (
           <>
+            {can(FINANCE_CODES.salesIncome) ? (
+              <>
+                <Text style={styles.sectionHeading}>Revenue Breakdown</Text>
+                <TouchableOpacity style={styles.card} onPress={revenuePress} disabled={revenuePress === undefined} activeOpacity={0.8}>
+                  <TableRow label="Direct / Market Sales" value={revenueBreakdown.direct} />
+                  <TableRow label="Customer Orders" value={revenueBreakdown.orders} divider />
+                  <TableRow label="Other channels" value={revenueBreakdown.other} divider />
+                  <TableRow label="Total Revenue" value={revenueBreakdown.total} total divider />
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            {can(FINANCE_CODES.expenseLog) ? (
+              <>
+                <Text style={styles.sectionHeading}>Expense Breakdown</Text>
+                <TouchableOpacity style={styles.card} onPress={expensesPress} disabled={expensesPress === undefined} activeOpacity={0.8}>
+                  {expenseRows.map((row, index) => (
+                    <TableRow key={row.label} label={row.label} value={row.value} divider={index > 0} />
+                  ))}
+                  <TableRow label="Total Expenses" value="₹6,420" total divider />
+                </TouchableOpacity>
+              </>
+            ) : null}
+
+            <SectionTitle
+              right={
+                historyPress ? (
+                  <TouchableOpacity onPress={historyPress} activeOpacity={0.7} hitSlop={HIT_SLOP}>
+                    <Text style={styles.sectionAction}>History ›</Text>
+                  </TouchableOpacity>
+                ) : undefined
+              }
+            >
+              Financial Trend
+            </SectionTitle>
+            <View style={styles.trendPills}>
+              {(Object.keys(TREND_BARS) as TrendTab[]).map((tab) => {
+                const active = tab === trendTab;
+                return (
+                  <TouchableOpacity
+                    key={tab}
+                    style={[styles.trendPill, active && styles.trendPillActive]}
+                    onPress={() => setTrendTab(tab)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.trendPillText, active && styles.trendPillTextActive]}>{tab}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <TouchableOpacity style={styles.card} onPress={historyPress} disabled={historyPress === undefined} activeOpacity={0.85}>
+              <View style={styles.chartRow}>
+                <View style={styles.chartAxis}>
+                  {TREND_AXIS.map((label) => (
+                    <Text key={label} style={styles.chartAxisText}>
+                      {label}
+                    </Text>
+                  ))}
+                </View>
+                <View style={styles.chartBody}>
+                  <View style={styles.chartBars}>
+                    {TREND_BARS[trendTab].map((height, index) => (
+                      <View
+                        key={TREND_DAYS[index]}
+                        style={[
+                          styles.bar,
+                          { height: `${height}%` },
+                          index === TREND_DAYS.length - 1 && styles.barToday,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                  <View style={styles.chartDays}>
+                    {TREND_DAYS.map((day, index) => (
+                      <Text key={day} style={[styles.chartAxisText, index === TREND_DAYS.length - 1 && styles.chartDayToday]}>
+                        {day}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.chartCaption}>{TREND_CAPTION[trendTab]}</Text>
+            </TouchableOpacity>
+
             <SectionTitle
               right={
                 historyPress ? (
@@ -503,6 +521,8 @@ const CHART_HEIGHT = 108;
 const CHART_AXIS_WIDTH = 36;
 
 const styles = StyleSheet.create({
+  headerTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerTitleText: { ...adminType.title, color: adminColors.onBrand, fontWeight: '700' },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginBottom: adminSpacing.md },
   kpiCard: {
     width: '48.5%',

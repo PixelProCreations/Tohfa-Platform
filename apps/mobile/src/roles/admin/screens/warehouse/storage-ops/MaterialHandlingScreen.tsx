@@ -154,7 +154,9 @@ export function MaterialHandlingScreen({
         ) : null}
 
         <SearchBar value={query} onChangeText={setQuery} placeholder="Search materials" />
-        <ChipGroup options={FILTERS} value={filter} onChange={setFilter} />
+        <View style={styles.filterWrap}>
+          <ChipGroup options={FILTERS} value={filter} onChange={(val) => setFilter(val as MaterialFilter)} />
+        </View>
 
         {visible.length === 0 ? (
           <EmptyState title="No materials found" subtitle="Try another filter or search." />
@@ -199,6 +201,9 @@ export function MaterialHandlingScreen({
 }
 
 const styles = StyleSheet.create({
+  filterWrap: {
+    marginBottom: 18,
+  },
   card: {
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,

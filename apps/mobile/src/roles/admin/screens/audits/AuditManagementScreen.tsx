@@ -158,6 +158,9 @@ export interface AuditManagementScreenProps {
   onOpenReportHistory?: () => void;
   onSelectAuditItem?: (audit: DayAuditItem) => void;
   onRefresh?: () => void;
+  role?: string | undefined;
+  onNavigateSchedule?: (preFilter: any, auditId: any) => void;
+  onOpenNotifications?: (() => void) | undefined;
 }
 
 export function AuditManagementScreen({

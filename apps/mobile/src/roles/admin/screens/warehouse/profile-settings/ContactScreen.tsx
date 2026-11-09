@@ -42,6 +42,7 @@ import {
 } from './WarehouseProfileParts';
 
 export interface ContactScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
+  onEdit?: (() => void) | undefined;
   contacts?: readonly WarehouseContactInfo[] | undefined;
 }
 

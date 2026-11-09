@@ -57,9 +57,11 @@ import type { ActivityModule, WarehouseScreenBaseProps } from './types';
 const RECENT_PREVIEW = 2;
 
 export interface WarehouseOperationsScreenProps extends WarehouseScreenBaseProps {
-  onOpenMaterials: () => void;
+  onOpenMaterials?: (() => void) | undefined;
+  onOpenStorageLocations?: (() => void) | undefined;
   onOpenCapacity: () => void;
   onOpenIssues: () => void;
+  onOpenReportIssue?: (() => void) | undefined;
   /** Warehouse Activity on a preset ('Today' = Today's Operational Status). */
   onOpenActivity: (preset: 'Today' | 'All') => void;
   onSelectActivity: (activityId: string) => void;
@@ -78,8 +80,10 @@ export function WarehouseOperationsScreen({
   onBack,
   onTabChange,
   onOpenMaterials,
+  onOpenStorageLocations,
   onOpenCapacity,
   onOpenIssues,
+  onOpenReportIssue,
   onOpenActivity,
   onSelectActivity,
   onOpenModule,
@@ -111,35 +115,45 @@ export function WarehouseOperationsScreen({
     [scope, selectedWarehouseId],
   );
 
+  const handleOpenStorageLocations = () => {
+    if (onOpenStorageLocations) onOpenStorageLocations();
+    else onOpenModule('storage');
+  };
+
+  const handleOpenMaterials = () => {
+    if (onOpenMaterials) onOpenMaterials();
+    else onOpenModule('material_handling');
+  };
+
   const mainKpiTiles = [
-    { label: 'Storage Locations', value: '4', sub: 'Warehouses', onPress: () => onOpenModule('storage') },
+    { label: 'Storage Locations', value: '4', sub: 'Warehouses', onPress: handleOpenStorageLocations },
     { label: 'Occupancy', value: '64%', sub: 'Avg', onPress: onOpenCapacity },
-    { label: 'Material Items', value: '42', sub: 'Tracked', onPress: onOpenMaterials },
+    { label: 'Material Items', value: '42', sub: 'Tracked', onPress: handleOpenMaterials },
     { label: 'Open Issues', value: '9', sub: 'Requires Attention', onPress: onOpenIssues },
     { label: 'Staff Present', value: '27/34', sub: 'Today', onPress: () => onOpenModule('staff') },
     { label: "Today's Activities", value: '84', sub: 'Total', onPress: () => onOpenActivity('Today') },
   ];
 
   const overviewTiles: { label: string; value: string; sub: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Storage Locations', value: '4', sub: 'Warehouses', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('storage') },
+    { label: 'Storage Locations', value: '4', sub: 'Warehouses', icon: <ShelfIcon size={22} color={adminColors.brand} />, onPress: handleOpenStorageLocations },
     { label: 'Occupancy', value: '64%', sub: 'Avg', icon: <DonutIcon size={22} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Material Items', value: '42', sub: 'Tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Material Items', value: '42', sub: 'Tracked', icon: <ClipboardIcon size={22} color={adminColors.brand} />, onPress: handleOpenMaterials },
     { label: 'Open Issues', value: '9', sub: 'Requires Attention', icon: <AlertCircleIcon />, onPress: onOpenIssues },
     { label: 'Staff Present', value: '27/34', sub: 'Today', icon: <StaffBadgeIcon size={22} color={adminColors.brand} />, onPress: () => onOpenModule('staff') },
     { label: "Today's Activities", value: '84', sub: 'Total', icon: <HistoryIcon color={adminColors.warning.text} />, onPress: () => onOpenActivity('Today') },
   ];
 
   const mainQuickActions = [
-    { label: 'Material Handling', icon: <ClipboardIcon size={26} color={adminColors.brand} />, onPress: onOpenMaterials },
+    { label: 'Storage Locations', icon: <ShelfIcon size={26} color={adminColors.brand} />, onPress: handleOpenStorageLocations },
     { label: 'Warehouse Capacity', icon: <DonutIcon size={26} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <AlertCircleIcon size={26} color={adminColors.brand} />, onPress: onOpenIssues },
+    { label: 'Report Issue', icon: <ReportIssueIcon size={26} color={adminColors.brand} />, onPress: onOpenReportIssue ?? onOpenIssues },
   ];
 
   const quickActions: { label: string; icon: React.ReactNode; onPress: () => void }[] = [
-    { label: 'Material Handling', icon: <ClipboardIcon size={24} color={adminColors.brand} />, onPress: onOpenMaterials },
-    { label: 'View Capacity', icon: <DonutIcon size={24} color={adminColors.brand} />, onPress: onOpenCapacity },
-    { label: 'Operational Issues', icon: <ReportIssueIcon size={24} color={adminColors.brand} />, onPress: onOpenIssues },
-    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={24} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
+    { label: 'Storage Locations', icon: <ShelfIcon size={28} color={adminColors.brand} />, onPress: handleOpenStorageLocations },
+    { label: 'View Capacity', icon: <DonutIcon size={28} color={adminColors.brand} />, onPress: onOpenCapacity },
+    { label: 'Report Issue', icon: <ReportIssueIcon size={28} color={adminColors.brand} />, onPress: onOpenReportIssue ?? onOpenIssues },
+    { label: 'Receive Goods', icon: <ReceiveGoodsIcon size={28} color={adminColors.success.text} />, onPress: () => onOpenModule('receiving') },
     ...(mainView ? [{ label: 'Operations History', icon: <HistoryIcon />, onPress: () => onOpenActivity('All') }] : []),
   ];
 
@@ -293,8 +307,8 @@ export function WarehouseOperationsScreen({
               </TouchableOpacity>
               <View style={styles.rowDivider} />
               <TouchableOpacity style={styles.statusRowItem} onPress={() => onOpenActivity('Today')} activeOpacity={0.75} accessibilityRole="button">
-                <Text style={styles.statusRowItemLabel}>Material Handling</Text>
-                <Text style={styles.statusRowItemValue}>6 activities</Text>
+                <Text style={styles.statusRowItemLabel}>Storage Locations</Text>
+                <Text style={styles.statusRowItemValue}>{total('storageLocations')} locations</Text>
               </TouchableOpacity>
             </View>
 
@@ -336,7 +350,7 @@ export function WarehouseOperationsScreen({
         ) : (
           <>
             <SectionTitle>Quick Actions</SectionTitle>
-            <View style={styles.grid}>
+            <View style={styles.quickActionsGrid}>
               {quickActions.map((qa) => (
                 <TouchableOpacity key={qa.label} style={styles.actionTile} onPress={qa.onPress} activeOpacity={0.75} accessibilityRole="button">
                   {qa.icon}
@@ -346,7 +360,7 @@ export function WarehouseOperationsScreen({
             </View>
 
             <SectionTitle>{"Today's Operational Status"}</SectionTitle>
-            <View style={styles.grid}>
+            <View style={styles.operationalStatusGrid}>
               {(
                 [
                   ['RECEIVING · SHIPMENTS', total('receivingShipments')],
@@ -370,9 +384,14 @@ export function WarehouseOperationsScreen({
                     key={item.id}
                     style={styles.attentionCard}
                     onPress={() => {
-                      if (item.module === 'material_handling') onOpenMaterials();
-                      else if (item.module === 'operational_issue') onOpenIssues();
-                      else onOpenModule(item.module);
+                      if (item.module === 'material_handling') {
+                        if (onOpenMaterials) onOpenMaterials();
+                        else onOpenModule('material_handling');
+                      } else if (item.module === 'operational_issue') {
+                        onOpenIssues();
+                      } else {
+                        onOpenModule(item.module);
+                      }
                     }}
                     activeOpacity={0.75}
                     accessibilityRole="button"
@@ -406,8 +425,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: 10,
-    marginBottom: adminSpacing.sm,
+    rowGap: 16,
+    marginBottom: adminSpacing.lg,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+    marginBottom: 26,
+  },
+  operationalStatusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 16,
+    marginBottom: adminSpacing.lg,
   },
   dropdownButton: {
     flexDirection: 'row',
@@ -516,17 +549,26 @@ const styles = StyleSheet.create({
   actionTile: {
     flexBasis: '47%',
     flexGrow: 1,
+    minHeight: 96,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: adminSpacing.xs,
+    paddingVertical: 18,
+    paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
-    gap: adminSpacing.xs,
+    justifyContent: 'center',
+    gap: adminSpacing.sm,
     ...adminShadow.sm,
   },
-  actionLabel: { ...adminType.caption, color: adminColors.ink, textAlign: 'center' },
+  actionLabel: {
+    ...adminType.caption,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+    textAlign: 'center',
+    marginTop: 2,
+  },
   wideAction: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -631,11 +673,12 @@ const styles = StyleSheet.create({
   mainActionTile: {
     flexBasis: '47%',
     flexGrow: 1,
+    minHeight: 96,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.lg,
     borderWidth: 1,
     borderColor: adminColors.border,
-    paddingVertical: adminSpacing.lg,
+    paddingVertical: 18,
     paddingHorizontal: adminSpacing.sm,
     alignItems: 'center',
     justifyContent: 'center',

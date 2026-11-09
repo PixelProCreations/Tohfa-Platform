@@ -28,14 +28,44 @@ export const ATTENDANCE_MONTH_DAYS = 30;
 export const ATTENDANCE_MONTH_FIRST_WEEKDAY = 2;
 
 /** History range shown by the From / To header, per range chip (demo dates). */
-export const HISTORY_RANGE_DATES: Readonly<Record<'Today' | '7 Days' | '30 Days' | 'This Month', { from: string; to: string }>> = {
+export const HISTORY_RANGE_DATES: Readonly<Record<'Today' | '7 Days' | '30 Days' | 'This Month' | 'Custom', { from: string; to: string }>> = {
   Today: { from: '25 Sep 2026', to: '25 Sep 2026' },
   '7 Days': { from: '19 Sep 2026', to: '25 Sep 2026' },
   '30 Days': { from: '26 Aug 2026', to: '25 Sep 2026' },
   'This Month': { from: '01 Sep 2026', to: '25 Sep 2026' },
+  Custom: { from: '01 Sep 2026', to: '25 Sep 2026' },
 };
 
 export const STAFF_MEMBERS: readonly StaffMember[] = [
+  {
+    id: 'staff-mahesh',
+    name: 'Mahesh T',
+    staffId: 'STF-0004',
+    type: 'warehouse',
+    role: 'Warehouse staff',
+    workSection: 'Loading & sorting',
+    status: 'Active',
+    attendance: 'Present',
+    phone: '+91 98451 00231',
+    email: 'mahesh.t@tohfa.com',
+    warehouseId: 'WH-OOTY',
+    warehouseName: 'Main Warehouse, Ooty',
+    joiningDate: '1 Mar 2026',
+  },
+  {
+    id: 'staff-priya',
+    name: 'Priya Nair',
+    staffId: 'ADM-0009',
+    type: 'warehouse',
+    role: 'Sub Warehouse Admin',
+    status: 'Pending activation',
+    attendance: 'Present',
+    phone: '+91 98765 00149',
+    email: 'priya.nair@tohfa.com',
+    warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor',
+    activationNote: 'Created 12 Oct 2026 by TOHFA Admin\nActivation flow proposed, not yet confirmed',
+  },
   {
     id: 'staff-1',
     name: 'Arun Kumar',
@@ -45,10 +75,11 @@ export const STAFF_MEMBERS: readonly StaffMember[] = [
     status: 'Active',
     attendance: 'Present',
     deliveriesToday: 6,
-    phone: 'XXXXXXXXXX',
-    email: 'arun.k@email.com',
+    phone: '+91 98765 43210',
+    email: 'arunkumar@company.com',
     vehicleDetails: 'TN 43 AB 1234',
     warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'staff-2',
@@ -58,9 +89,10 @@ export const STAFF_MEMBERS: readonly StaffMember[] = [
     role: 'Warehouse Staff',
     status: 'Active',
     attendance: 'Present',
-    phone: 'XXXXXXXXXX',
-    email: 'example@email.com',
+    phone: '+91 98765 43210',
+    email: 'karthik@company.com',
     warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'staff-3',
@@ -71,9 +103,10 @@ export const STAFF_MEMBERS: readonly StaffMember[] = [
     status: 'Active',
     attendance: 'Absent',
     deliveriesToday: 0,
-    phone: 'XXXXXXXXXX',
+    phone: '+91 98765 43210',
     email: 'manoj.d@email.com',
     warehouseId: 'WH-COON',
+    warehouseName: 'Coonoor Warehouse',
   },
   {
     id: 'staff-4',

@@ -41,12 +41,12 @@ import {
   STAFF_WAREHOUSES,
 } from './fixtures';
 import { AttendanceStatusText, ChevronRightIcon, ListCard, ListRow } from './StaffParts';
-import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
+import { StaffFiltersScreen, StaffFilterValues, type HistoryDateRange } from './StaffFiltersScreen';
 import type { AttendanceHistoryEntry, StaffMonthSummary, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
-type HistoryRange = 'Today' | '7 Days' | '30 Days' | 'This Month';
+type HistoryRange = HistoryDateRange;
 type GroupBy = 'Date' | 'Staff';
-const RANGES: readonly HistoryRange[] = ['Today', '7 Days', '30 Days', 'This Month'];
+const RANGES: readonly HistoryRange[] = ['Today', '7 Days', 'This Month', 'Custom'];
 const GROUPS: readonly GroupBy[] = ['Date', 'Staff'];
 
 export interface AttendanceHistoryScreenProps extends WarehouseScreenBaseProps {
@@ -162,6 +162,15 @@ export function AttendanceHistoryScreen({
     <WalletScreen
       title="Attendance History"
       onBack={onBack}
+      headerExtra={
+        <View style={{ alignItems: 'flex-start', marginTop: 4, marginBottom: 4 }}>
+          <View style={{ backgroundColor: 'rgba(255, 255, 255, 0.22)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
+              🏬 {(scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse').replace(/Warehouse/i, '').trim()} Warehouse
+            </Text>
+          </View>
+        </View>
+      }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <InfoCard
@@ -172,6 +181,25 @@ export function AttendanceHistoryScreen({
             ],
           ]}
         />
+        
+        <View style={attHistoryStyles.rangeRow}>
+          {RANGES.map((r) => {
+            const active = r === range;
+            return (
+              <TouchableOpacity
+                key={r}
+                style={[attHistoryStyles.rangePill, active && attHistoryStyles.rangePillActive]}
+                onPress={() => {
+                  setRange(r);
+                  if (r === 'Today' && onNavigateToToday) onNavigateToToday();
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={[attHistoryStyles.rangePillText, active && attHistoryStyles.rangePillTextActive]}>{r}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
         <View style={styles.gap} />
         <KpiRow
           items={[
@@ -274,4 +302,36 @@ const styles = StyleSheet.create({
   segmentActive: { backgroundColor: adminColors.brand },
   segmentText: { ...adminType.rowMeta, color: adminColors.muted },
   segmentTextActive: { ...adminType.caption, color: adminColors.onBrand },
+});
+
+const attHistoryStyles = StyleSheet.create({
+  rangeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  rangePill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.xl,
+    paddingVertical: 8,
+  },
+  rangePillActive: {
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
+  },
+  rangePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  rangePillTextActive: {
+    fontWeight: '700',
+    color: adminColors.brand,
+  },
 });
