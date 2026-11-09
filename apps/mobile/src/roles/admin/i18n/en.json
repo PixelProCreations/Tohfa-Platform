@@ -334,6 +334,7 @@
   "admin.error.PAYMENT_PENDING": "The UPI payment is not confirmed yet.",
   "admin.error.PAYMENT_AMOUNT_INSUFFICIENT": "The cash received is less than the total.",
   "admin.error.SALE_CHANNEL_NOT_SUPPORTED": "Sales on this channel are not available yet.",
+  "admin.error.COMMUNITY_PLANTING_NOT_CONFIGURED": "The community planting view is not set up yet.",
   "admin.error.BAD_REQUEST": "Something in this request is not right. Check it and try again.",
   "admin.error.VALIDATION_FAILED": "Some details are missing or not valid. Check them and try again.",
   "admin.error.UNAUTHENTICATED": "Your session has ended. Please sign in again.",
