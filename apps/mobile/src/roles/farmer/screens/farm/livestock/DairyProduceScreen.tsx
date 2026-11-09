@@ -20,6 +20,7 @@ import {
   listAnimals,
   listProductionLogs,
   DAIRY_PRODUCT_UNITS,
+  isDairyProductType,
   type AnimalResponse,
   type DairyProductType as ApiDairyProductType,
   type ProductionLogResponse,
@@ -404,7 +405,8 @@ function formatLogTime(createdAt: string): string {
  *  logs carry no `animalId`) against whichever animal list the caller has
  *  in hand at that moment. */
 function toHistoryLog(log: ProductionLogResponse, animalsList: AnimalResponse[]): ProduceHistoryLog {
-  const localType = API_PRODUCT_TYPE_TO_LOCAL[log.productType];
+  // Only dairy logs reach here (non-dairy MEAT/WOOL/MANURE logs are filtered out on load).
+  const localType = API_PRODUCT_TYPE_TO_LOCAL[log.productType as ApiDairyProductType];
   const meta = DAIRY_PRODUCTS.find((p) => p.id === localType);
   const animal = log.animalId ? animalsList.find((a) => a.id === log.animalId) : undefined;
   return {
@@ -518,7 +520,10 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
     setLoading(true);
     setLoadError(null);
     try {
-      const [animalsResult, logsResult] = await Promise.all([listAnimals(), listProductionLogs()]);
+      const [animalsResult, allLogsResult] = await Promise.all([listAnimals(), listProductionLogs()]);
+      // Production logs now also carry per-animal MEAT / WOOL / MANURE (AnimalDetailScreen);
+      // this screen is dairy-only, so those never reach its rows.
+      const logsResult = { ...allLogsResult, items: allLogsResult.items.filter((log) => isDairyProductType(log.productType)) };
       const dairy = animalsResult.items.filter(
         (a) => a.species === 'CATTLE' || a.species === 'BUFFALO' || a.species === 'GOAT',
       );
@@ -567,7 +572,7 @@ export function DairyProduceScreen({ onBack }: DairyProduceScreenProps): React.J
         todaysLogs
           .filter((log) => log.productType !== 'MILK')
           .map((log) => {
-            const localType = API_PRODUCT_TYPE_TO_LOCAL[log.productType];
+            const localType = API_PRODUCT_TYPE_TO_LOCAL[log.productType as ApiDairyProductType];
             const meta = DAIRY_PRODUCTS.find((p) => p.id === localType);
             return {
               id: log.id,
