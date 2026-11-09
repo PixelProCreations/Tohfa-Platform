@@ -16,6 +16,7 @@ import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
+import { t } from '../../../../i18n/farmer';
 
 // This screen's mockup uses a distinct cream/dark-green scheme from the rest
 // of the auth flow (which uses `authPalette` from the theme directly) — map
@@ -45,10 +46,21 @@ interface OtpScreenProps {
    * NOT_LINKED branch). Passed through unchanged to `verifyOtp()`.
    */
   linkToken?: string | undefined;
+  /**
+   * The API's `_mockCode`, which exists only when its SMS_PROVIDER is `mock`
+   * (auth.service.ts sendOtp). Shown as a dev hint, gated again on `__DEV__`.
+   */
+  mockCode?: string | undefined;
   onNavigate: (
     screen: 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
     params?: Record<string, string | number | undefined>
   ) => void;
+}
+
+// Dev-only pre-fill: a full-length numeric mock code, and only under __DEV__.
+// Uses the same 6-digit length the screen already validates against.
+function devPrefill(mock: string | undefined): string {
+  return __DEV__ && mock !== undefined && /^\d{6}$/.test(mock) ? mock : '';
 }
 
 export const OtpScreen: React.FC<OtpScreenProps> = ({
@@ -58,10 +70,12 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
   attemptsRemaining: initialAttemptsRemaining = 3,
   purpose = 'LOGIN',
   linkToken,
+  mockCode: initialMockCode,
   onNavigate,
 }) => {
+  const [mockCode, setMockCode] = useState<string | undefined>(initialMockCode);
   const [activeChallengeId, setActiveChallengeId] = useState(initialChallengeId || '');
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(() => devPrefill(initialMockCode));
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -143,12 +157,10 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
       if (res.challengeId) {
         setActiveChallengeId(res.challengeId);
       }
-      if (res._mockCode) {
-        console.warn(`[Dev] Mock OTP for ${mobile}: ${res._mockCode}`);
-      }
+      setMockCode(res._mockCode || undefined);
       setResendAvailableAt(res.resendAvailableAt);
       setAttemptsRemaining(res.attemptsRemaining);
-      setCode('');
+      setCode(devPrefill(res._mockCode));
     } catch (err: unknown) {
       setErrorMsg(formatErrorMessage(err, 'Could not resend OTP. Please try again.'));
     } finally {
@@ -218,6 +230,10 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
           <TouchableOpacity onPress={() => onNavigate('Login')}>
             <Text style={styles.changeMobile}>Change mobile number</Text>
           </TouchableOpacity>
+
+          {__DEV__ && mockCode ? (
+            <Text style={styles.devHint}>{t('farmer.auth.otp.devMockCode', { code: mockCode })}</Text>
+          ) : null}
 
           {errorMsg && (
             <Text style={styles.errorText}>{errorMsg}</Text>
@@ -360,6 +376,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: authPalette.focusBorder,
     marginBottom: 32,
+  },
+  devHint: {
+    fontSize: typography.body,
+    color: authPalette.textLight,
+    marginBottom: 16,
+    textAlign: 'center',
   },
   errorText: {
     color: themeAuthPalette.red700,

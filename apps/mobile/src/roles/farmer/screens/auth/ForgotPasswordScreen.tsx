@@ -39,14 +39,12 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
     try {
       const cleanMobile = mobile.startsWith('+') ? mobile.trim() : `+91${mobile.trim()}`;
       const res = await requestOtp({ mobile: cleanMobile, purpose: 'PASSWORD_RESET' });
-      if (res._mockCode) {
-        console.warn(`[Dev] Mock OTP for ${cleanMobile}: ${res._mockCode}`);
-      }
       onNavigate('Otp', {
         mobile: cleanMobile,
         challengeId: res.challengeId,
         resendAvailableAt: res.resendAvailableAt,
         attemptsRemaining: res.attemptsRemaining,
+        mockCode: res._mockCode,
         purpose: 'PASSWORD_RESET'
       });
     } catch (err: unknown) {

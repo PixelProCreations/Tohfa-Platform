@@ -27,6 +27,7 @@
   "farmer.auth.login.title": "உள்நுழைவு",
   "farmer.auth.otp.attemptsRemaining": "{{count}} முயற்சிகள் மீதமுள்ளன",
   "farmer.auth.otp.changeMobile": "மொபைல் எண்ணை மாற்றவும்",
+  "farmer.auth.otp.devMockCode": "டெவ் OTP: {{code}}",
   "farmer.auth.otp.lockedSubtitle": "பல தவறான முயற்சிகள். புதிய குறியீட்டைக் கேட்கவும்.",
   "farmer.auth.otp.lockedTitle": "OTP சவால் பூட்டப்பட்டது",
   "farmer.auth.otp.resendIn": "{{seconds}} வினாடிகளில் மீண்டும் அனுப்பப்படும்",
