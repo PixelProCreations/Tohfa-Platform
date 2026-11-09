@@ -432,6 +432,7 @@ export const DEMO_APPLICATIONS: ApplicationListItem[] = [
 ];
 
 export interface AdminAllFarmersScreenProps {
+  title?: string;
   onBack?: () => void;
   onSelectFarmer?: (farmer: FarmerListItem) => void;
   onReviewApplication?: (application: ApplicationListItem) => void;
@@ -451,6 +452,7 @@ export interface AdminAllFarmersScreenProps {
 type Props = AdminAllFarmersScreenProps;
 
 export const AdminAllFarmersScreen: React.FC<Props> = ({
+  title = 'Farmer Management',
   onBack,
   onSelectFarmer,
   onReviewApplication,
@@ -553,7 +555,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
           <View style={styles.headerTitleBox}>
             <FarmersManagementHeaderIcon size={24} color={adminColors.onBrand} />
             <View style={styles.headerTitleTextCol}>
-              <Text style={styles.headerTitle}>Farmers</Text>
+              <Text style={styles.headerTitle}>{title}</Text>
               <Text style={styles.headerSubtitle}>Farmer Community</Text>
             </View>
           </View>

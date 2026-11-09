@@ -1460,6 +1460,8 @@ export function SubWarehouseAdminDashboardScreen({
 
   /** Switch tab; the Receiving tab opens on its dashboard. */
   const navigateTo = (tab: SubWHTab) => {
+    setShowOrdersModule(false);
+    setShowFarmManagement(false);
     setReturnToTabOnBack(null);
     onTabChange?.(tab);
     if (tab === 'Receiving') openReceiving();
@@ -3583,18 +3585,12 @@ export function SubWarehouseAdminDashboardScreen({
               }
             }}
             onNavigateToStaff={() => {
-              if (onNavigate) onNavigate('SubWarehouseStaff');
-              else {
-                setReturnToTabOnBack('More');
-                setStaffEntry({ screen: 'Staff' });
-              }
+              setReturnToTabOnBack('More');
+              setStaffEntry({ screen: 'Staff' });
             }}
             onNavigateToAttendance={() => {
-              if (onNavigate) onNavigate('SubWarehouseTodayAttendance');
-              else {
-                setReturnToTabOnBack('More');
-                setStaffEntry({ screen: 'Attendance', filter: 'All' });
-              }
+              setReturnToTabOnBack('More');
+              setStaffEntry({ screen: 'Attendance', filter: 'All' });
             }}
             onNavigateToFinance={() => {
               if (onNavigate) onNavigate('SubWarehouseFinance');
@@ -3632,9 +3628,10 @@ export function SubWarehouseAdminDashboardScreen({
         )}
       </View>
 
-      {/* ─── Bottom Navigation Bar (Home, More ONLY — Receiving and Inventory render their own) ─── */}
-      {((activeTab === 'Home' && !showOrdersModule && !showFarmManagement) ||
-        (activeTab === 'More' && !showOrdersModule && !showFarmManagement)) && (
+      {/* ─── Bottom Navigation Bar (Home, More, Orders ONLY — Receiving and Inventory render their own) ─── */}
+      {((activeTab === 'Home' && !showFarmManagement) ||
+        (activeTab === 'More' && !showFarmManagement) ||
+        (showOrdersModule && !showFarmManagement)) && (
           <View style={styles.bottomTabBar}>
             <TouchableOpacity
               style={styles.tabItem}
@@ -3643,8 +3640,8 @@ export function SubWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <HomeTabIcon active={activeTab === 'Home'} />
-              <Text style={[styles.tabLabel, activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
+              <HomeTabIcon active={!showOrdersModule && activeTab === 'Home'} />
+              <Text style={[styles.tabLabel, !showOrdersModule && activeTab === 'Home' && styles.tabLabelActive]}>Home</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -3654,8 +3651,8 @@ export function SubWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <ReceivingTabIcon active={(activeTab as string) === 'Receiving'} />
-              <Text style={[styles.tabLabel, (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
+              <ReceivingTabIcon active={!showOrdersModule && (activeTab as string) === 'Receiving'} />
+              <Text style={[styles.tabLabel, !showOrdersModule && (activeTab as string) === 'Receiving' && styles.tabLabelActive]}>Receiving</Text>
             </TouchableOpacity>
 
             <Pressable
@@ -3663,8 +3660,8 @@ export function SubWarehouseAdminDashboardScreen({
               onPress={() => navigateTo('Inventory')}
               accessibilityRole="tab"
             >
-              <InventoryTabIcon active={(activeTab as string) === 'Inventory'} />
-              <Text style={[styles.tabLabel, (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
+              <InventoryTabIcon active={!showOrdersModule && (activeTab as string) === 'Inventory'} />
+              <Text style={[styles.tabLabel, !showOrdersModule && (activeTab as string) === 'Inventory' && styles.tabLabelActive]}>Inventory</Text>
             </Pressable>
 
             <TouchableOpacity
@@ -3674,8 +3671,8 @@ export function SubWarehouseAdminDashboardScreen({
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <MoreTabIcon active={activeTab === 'More'} />
-              <Text style={[styles.tabLabel, activeTab === 'More' && styles.tabLabelActive]}>More</Text>
+              <MoreTabIcon active={!showOrdersModule && activeTab === 'More'} />
+              <Text style={[styles.tabLabel, !showOrdersModule && activeTab === 'More' && styles.tabLabelActive]}>More</Text>
             </TouchableOpacity>
           </View>
         )}

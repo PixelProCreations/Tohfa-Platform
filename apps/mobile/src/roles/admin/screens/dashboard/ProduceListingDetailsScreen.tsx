@@ -115,6 +115,8 @@ export interface ProduceListingDetailsScreenProps {
   completedProduceNames?: string[] | undefined;
   onApproveAll?: (() => void) | undefined;
   onNavigateToCounterOffer?: ((item: any, isApproved: any) => void) | undefined;
+  isFarmerProduceView?: boolean | undefined;
+  onSelectListing?: ((item: any) => void) | undefined;
 }
 
 export function ProduceListingDetailsScreen({
@@ -127,7 +129,7 @@ export function ProduceListingDetailsScreen({
   farmingMethod = 'Organic',
   quantityKg = 50,
   harvestDate = '28 Sep 2026',
-  qualityInfo = 'Grade 1, no visible defects',
+  qualityInfo = 'Fresh harvest, firm texture, no pest damage',
   pricePerKg = 100,
   fairPriceCeiling = 105,
   effectiveFrom = '1 Sep 2026',
@@ -140,9 +142,184 @@ export function ProduceListingDetailsScreen({
   onViewFullHistory,
   onReviewListing,
   onNavigateToVerification,
+  completedProduceNames,
+  onApproveAll,
+  onNavigateToCounterOffer,
+  isFarmerProduceView,
+  onSelectListing,
 }: ProduceListingDetailsScreenProps) {
   const [selectedFarmerType, setSelectedFarmerType] = useState<'Other Farmer' | 'Own Listing'>('Other Farmer');
   const [modalMessage, setModalMessage] = useState<string | null>(null);
+  const [internalApproved, setInternalApproved] = useState(false);
+
+  const isMultiProduceMode = isFarmerProduceView || (completedProduceNames && completedProduceNames.length > 0);
+  const isAllApproved = internalApproved || (completedProduceNames && completedProduceNames.includes('Tomato') && completedProduceNames.includes('Beans'));
+
+  // Multi-Produce Mode (Image 2 Screens 2 & 3: Ramesh Kumar Farm)
+  if (isMultiProduceMode) {
+    const headerTitle = farmerName?.toLowerCase().includes('farm') ? farmerName : `${farmerName || 'Ramesh Kumar'} Farm`;
+    const produceItems = [
+      {
+        id: 'PR-1',
+        name: 'Beans',
+        crop: 'Beans',
+        grade: 'Grade 1',
+        quantityKg: 75,
+        pricePerKg: 100,
+        status: isAllApproved ? 'Approved' : 'Pending Review',
+      },
+      {
+        id: 'PR-2',
+        name: 'Tomato',
+        crop: 'Tomato',
+        grade: 'Grade 1',
+        quantityKg: 50,
+        pricePerKg: 100,
+        status: 'Approved',
+      },
+      {
+        id: 'PR-3',
+        name: 'Carrot',
+        crop: 'Carrot',
+        grade: 'Grade 2',
+        quantityKg: 80,
+        pricePerKg: 70,
+        status: isAllApproved ? 'Rejected' : 'Pending View',
+      },
+      {
+        id: 'PR-4',
+        name: 'Beans',
+        crop: 'Beans',
+        grade: 'Grade 2',
+        quantityKg: 40,
+        pricePerKg: 85,
+        status: isAllApproved ? 'Rejected' : 'Pending View',
+      },
+    ];
+
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* Orange Brand Header */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.backBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              accessibilityLabel={t('produceListingDetails.backLabel')}
+            >
+              <BackArrowIcon size={22} color={adminColors.onBrand} />
+            </TouchableOpacity>
+
+            <Text style={styles.headerTitle}>{headerTitle}</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Farmer Information Card */}
+          <Text style={styles.sectionTitle}>Farmer Information</Text>
+          <View style={styles.card}>
+            <View style={styles.gridRow}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Farmer</Text>
+                <Text style={styles.fieldValue}>{farmerName || 'Ramesh Kumar'}</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Farmer ID</Text>
+                <Text style={styles.fieldValue}>{farmerId || 'FR-00241'}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.gridRow, { marginTop: adminSpacing.md }]}>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Zone</Text>
+                <Text style={styles.fieldValue}>{zone || 'Coonoor'}</Text>
+              </View>
+              <View style={styles.gridCol}>
+                <Text style={styles.fieldLabel}>Farming Method</Text>
+                <Text style={styles.fieldValue}>{farmingMethod || 'Organic'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Produce List Section */}
+          <Text style={[styles.sectionTitle, { marginTop: adminSpacing.lg }]}>Produce list</Text>
+          <View style={{ gap: adminSpacing.md }}>
+            {produceItems.map((item) => {
+              return (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.farmerProduceCard}
+                  onPress={() => {
+                    if (onSelectListing) {
+                      onSelectListing(item);
+                    } else if (onNavigateToCounterOffer) {
+                      onNavigateToCounterOffer(item, item.status === 'Approved');
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.farmerProduceName}>{item.name}</Text>
+                    <Text style={styles.farmerProduceSpecs}>
+                      {item.grade} · {item.quantityKg} KG · ₹{item.pricePerKg}/KG
+                    </Text>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.farmerBadge,
+                      item.status === 'Approved' && styles.farmerBadgeApproved,
+                      item.status === 'Pending Review' && styles.farmerBadgePending,
+                      item.status === 'Pending View' && styles.farmerBadgeView,
+                      item.status === 'Rejected' && styles.farmerBadgeRejected,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.farmerBadgeText,
+                        item.status === 'Approved' && styles.farmerBadgeTextApproved,
+                        item.status === 'Pending Review' && styles.farmerBadgeTextPending,
+                        item.status === 'Pending View' && styles.farmerBadgeTextView,
+                        item.status === 'Rejected' && styles.farmerBadgeTextRejected,
+                      ]}
+                    >
+                      {item.status}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <View style={{ height: 110 }} />
+        </ScrollView>
+
+        {/* Sticky Bottom Action Bar: Approve! */}
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={[
+              styles.reviewListingBtn,
+              { backgroundColor: adminColors.brand },
+            ]}
+            onPress={() => {
+              setInternalApproved(true);
+              onApproveAll?.();
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.reviewListingBtnText}>Approve!</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const displayFarmer = selectedFarmerType === 'Own Listing' ? 'Suresh Chakravarthi (You)' : farmerName;
   const displayFarmerId = selectedFarmerType === 'Own Listing' ? 'FR-00241' : farmerId;
@@ -774,5 +951,63 @@ const styles = StyleSheet.create({
   modalCloseText: {
     ...adminType.rowTitle,
     color: adminColors.onBrand,
+  },
+
+  // ─── Multi-Produce Farmer View Styles (Image 2 Screens 2 & 3) ───
+  farmerProduceCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...adminShadow.sm,
+  },
+  farmerProduceName: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    letterSpacing: -0.2,
+  },
+  farmerProduceSpecs: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 4,
+  },
+  farmerBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: adminRadius.full,
+  },
+  farmerBadgeApproved: {
+    backgroundColor: adminColors.success.bg,
+  },
+  farmerBadgePending: {
+    backgroundColor: adminColors.warning.bg,
+  },
+  farmerBadgeView: {
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  farmerBadgeRejected: {
+    backgroundColor: adminColors.danger.bg,
+  },
+  farmerBadgeText: {
+    ...adminType.caption,
+    fontWeight: '700',
+  },
+  farmerBadgeTextApproved: {
+    color: adminColors.success.text,
+  },
+  farmerBadgeTextPending: {
+    color: adminColors.warning.text,
+  },
+  farmerBadgeTextView: {
+    color: adminColors.muted,
+  },
+  farmerBadgeTextRejected: {
+    color: adminColors.danger.text,
   },
 });

@@ -178,16 +178,15 @@ export function WarehouseEditProfileScreen({
 
   // Dynamic Screen Heading based on Active Tab & Mode
   const getHeaderTitle = () => {
-    const prefix = isAdd ? 'Add' : 'Edit';
     switch (activeTab) {
       case 'Details':
-        return `${prefix} Warehouse Profile`;
+        return isAdd ? 'Add Warehouse Profile' : 'Warehouse Profile';
       case 'Contact':
-        return `${prefix} Warehouse Contact`;
+        return isAdd ? 'Add Warehouse Contact' : 'Warehouse Contact';
       case 'Storage':
-        return `${prefix} Warehouse Storage`;
+        return isAdd ? 'Add Warehouse Storage' : 'Warehouse Storage';
       case 'Operations':
-        return `${prefix} Warehouse Operations`;
+        return isAdd ? 'Add Warehouse Operations' : 'Warehouse Operations';
     }
   };
 
@@ -346,7 +345,7 @@ export function WarehouseEditProfileScreen({
 
   return (
     <WalletScreen
-      title={isAdd ? getHeaderTitle() : 'Warehouse Profile'}
+      title={getHeaderTitle()}
       subtitle={isAdd ? subHeaderLabel : undefined}
       onBack={onBack}
     >

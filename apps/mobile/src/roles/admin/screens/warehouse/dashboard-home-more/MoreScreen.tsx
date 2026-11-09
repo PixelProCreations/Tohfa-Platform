@@ -45,7 +45,6 @@ import {
 // listed here are shown to every warehouse admin. The server re-checks each of
 // these when the destination screen loads its data.
 const ITEM_PERMISSION: Readonly<Record<string, string>> = {
-  finance: 'finance.dashboard.view',
   reports: 'report.export.file',
   warehouse_management: 'warehouse.all.view',
 };
@@ -59,7 +58,7 @@ export const MORE_ITEMS: MoreOptionItem[] = [
   },
   {
     id: 'warehouse_operations',
-    title: 'Operations',
+    title: 'Warehouse Operations',
     subtitle: 'Manage storage, crates, zones and operations',
     iconType: 'warehouse_operations',
   },
@@ -119,7 +118,7 @@ export const MORE_ITEMS: MoreOptionItem[] = [
   },
   {
     id: 'warehouse_profile',
-    title: 'Warehouses profile',
+    title: 'Warehouse Profile',
     subtitle: 'View warehouse details, storage capacity and operating info',
     iconType: 'profile',
   },
@@ -604,9 +603,6 @@ export function MoreScreen({
   // Warehouse Management is only for main warehouse (warehouse.all.view).
   const visibleItems = MORE_ITEMS.filter((item) => {
     if (item.id === 'warehouse_management' && !isMain) {
-      return false;
-    }
-    if (item.id === 'warehouse_profile' && isMain) {
       return false;
     }
     const code = ITEM_PERMISSION[item.id];

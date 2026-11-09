@@ -47,7 +47,7 @@ export interface StaffMember {
   type: StaffType;
   role: string;
   status: 'Active' | 'Inactive' | 'Pending activation';
-  attendance: 'Present' | 'Absent' | 'On Leave';
+  attendance: AttendanceStatus;
   deliveriesToday?: number | undefined;
   phone?: string | undefined;
   email?: string | undefined;

@@ -1,43 +1,19 @@
 /**
  * Attendance overview: one day's attendance for the warehouse(s) in scope.
- *
- * Gate (FINAL_LIST 122): no rbac code exists for attendance, so the screen is
- * ungated and scope-locked only (SPEC_GAPS W4t-3). A Sub scope sees its own
- * warehouse (scope.warehouseName in the date row); the Main scope (warehouseId
- * undefined) gets the All-warehouses selector.
- *
- * Folds two screens (owner decision 2026-10-09):
- *   - SubWarehouseTodayAttendanceScreen (dropped as a separate screen; it was
- *     the more complete file): the Present / Absent / On Leave filter chips
- *     (its filter state existed but no chips were drawn), the check-in time and
- *     date on each row, the history shortcut in the header, and the record
- *     detail, which now opens AttendanceDetailScreen.
- *   - Main MainWarehouseAttendanceScreen (pair M14-S03, one 852-line screen
- *     with Today / History / Detail views): the "All Warehouses · date" row
- *     with the month date picker and, for the Main view, rows grouped into
- *     PRESENT / ABSENT / ON LEAVE sections. Its History view is
- *     AttendanceHistoryScreen and its Detail view AttendanceDetailScreen.
- * KPI tiles are counted from the visible rows instead of fixed numbers.
+ * Matching M14-S03 Today's Attendance exact mockup.
  */
 // Design id: M14-S03
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
-  ChipGroup,
   EmptyState,
-  HeaderIconButton,
   inScope,
   isAllWarehouses,
-  KpiRow,
   ScopeHeader,
   SearchBar,
-  SearchIcon,
-  SectionTitle,
-  SlidersIcon,
   WalletScreen,
-  WarehouseTabBar,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import {
@@ -50,30 +26,24 @@ import {
   STAFF_WAREHOUSES,
 } from './fixtures';
 import {
-  AttendanceStatusText,
-  DateNavigator,
+  CalendarIcon,
+  ChevronDownIcon,
+  ClockOutlineIcon,
   DatePickerModal,
-  HistoryIcon,
-  ListCard,
-  ListRow,
-  StaffAvatar,
-  attendanceTone,
+  FilterSlidersIcon,
+  PersonIcon,
+  RefreshIcon,
+  UpdateAttendanceModal,
 } from './StaffParts';
-import { StaffFiltersScreen, StaffFilterValues } from './StaffFiltersScreen';
+import { StaffFiltersScreen } from './StaffFiltersScreen';
 import type { AttendanceFilter, AttendanceRecord, AttendanceStatus, WarehouseScope, WarehouseScreenBaseProps } from './types';
 
-const FILTERS: readonly AttendanceFilter[] = ['All', 'Present', 'Absent', 'On Leave'];
-const SECTIONS: readonly AttendanceStatus[] = ['Present', 'Absent', 'On Leave', 'Not Checked In'];
-
 export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
-  /** Chip selected on entry (the old Today's Attendance key opens 'All'). */
   initialFilter?: AttendanceFilter | undefined;
   initialWarehouseId?: string | undefined;
   onSelectRecord?: ((record: AttendanceRecord) => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
-  /** Warehouses for the Main all-warehouses selector (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
-  /** Rows of the mock day; defaults to the fixture set until an attendance API exists. */
   records?: readonly AttendanceRecord[] | undefined;
 }
 
@@ -95,49 +65,34 @@ export function AttendanceScreen({
   const [roleFilter, setRoleFilter] = useState<'All' | 'Warehouse Staff' | 'Driver'>('All');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Inactive'>('All');
   const [showFilterScreen, setShowFilterScreen] = useState(false);
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [pickerDay, setPickerDay] = useState(ATTENDANCE_DAY);
-  const [day, setDay] = useState(ATTENDANCE_DAY);
+  const [dayRecords, setDayRecords] = useState<AttendanceRecord[]>(() => [...records]);
+  const [selectedRecordForModal, setSelectedRecordForModal] = useState<AttendanceRecord | null>(null);
 
-  const dateText = `${day} ${ATTENDANCE_MONTH_SHORT}`;
-  // The mock rows describe one day only; any other day shows the empty state.
-  const dayRecords = useMemo(
-    () => (day === ATTENDANCE_DAY ? records.filter((r) => inScope(scope, r.warehouseId, selectedWarehouseId)) : []),
-    [day, records, scope, selectedWarehouseId],
+  const warehouseName = isMain
+    ? 'All Warehouses'
+    : (scope.warehouseName ?? scope.warehouseId ?? 'Coonoor Warehouse');
+
+  const visible = useMemo(() => {
+    return dayRecords.filter((r) => {
+      if (!inScope(scope, r.warehouseId, selectedWarehouseId)) return false;
+      const q = searchQuery.toLowerCase().trim();
+      const matchesQuery = !q || r.name.toLowerCase().includes(q) || r.role.toLowerCase().includes(q);
+      const matchesRole =
+        roleFilter === 'All'
+          ? true
+          : roleFilter === 'Driver'
+          ? r.type === 'driver' || r.role.toLowerCase().includes('driver')
+          : r.type === 'warehouse' || !r.role.toLowerCase().includes('driver');
+      const matchesFilter = filter === 'All' || r.status === filter;
+      return matchesQuery && matchesRole && matchesFilter;
+    });
+  }, [dayRecords, scope, selectedWarehouseId, searchQuery, roleFilter, filter]);
+
+  const count = (status: AttendanceStatus) =>
+    String(dayRecords.filter((r) => inScope(scope, r.warehouseId, selectedWarehouseId) && r.status === status).length);
+  const totalCount = String(
+    dayRecords.filter((r) => inScope(scope, r.warehouseId, selectedWarehouseId)).length
   );
-  const visible = dayRecords.filter((r) => {
-    const q = searchQuery.toLowerCase().trim();
-    const matchesQuery = !q || r.name.toLowerCase().includes(q) || r.role.toLowerCase().includes(q);
-    const matchesRole =
-      roleFilter === 'All'
-        ? true
-        : roleFilter === 'Driver'
-        ? r.type === 'driver' || r.role.toLowerCase().includes('driver')
-        : r.type === 'warehouse' || !r.role.toLowerCase().includes('driver');
-    return matchesQuery && matchesRole && (filter === 'All' || r.status === filter);
-  });
-  const count = (status: AttendanceStatus) => String(dayRecords.filter((r) => r.status === status).length);
-  const shiftDay = (delta: number) => setDay((d) => Math.min(ATTENDANCE_MONTH_DAYS, Math.max(1, d + delta)));
-  const scopeLabel = isMain ? 'All Warehouses' : scope.warehouseName ?? scope.warehouseId ?? '';
-
-  const renderRow = (record: AttendanceRecord, index: number, list: readonly AttendanceRecord[]) => (
-    <ListRow
-      key={record.id}
-      title={record.name}
-      subtitle={record.role}
-      leading={isMain ? <StaffAvatar type={record.type} tone={record.status === 'Present' ? undefined : attendanceTone(record.status)} /> : undefined}
-      trailing={
-        <AttendanceStatusText
-          status={record.status}
-          lines={!isMain ? [record.status === 'Present' ? record.checkInTime : undefined] : [record.status === 'Present' ? record.checkInTime : undefined, dateText]}
-        />
-      }
-      divider={index < list.length - 1}
-      onPress={onSelectRecord ? () => onSelectRecord({ ...record, dateText }) : undefined}
-    />
-  );
-
-  const grouped = isMain && filter === 'All';
 
   if (showFilterScreen) {
     const isSpecificScope = !isMain || !!initialWarehouseId;
@@ -178,45 +133,50 @@ export function AttendanceScreen({
 
   return (
     <WalletScreen
-      title="Today's attendance"
-      subtitle={dateText}
+      title="Today's Attendance"
       onBack={onBack}
       headerRight={
-        onNavigateToHistory ? (
-          <HeaderIconButton onPress={onNavigateToHistory} accessibilityLabel="Attendance history">
-            <HistoryIcon />
-          </HeaderIconButton>
-        ) : undefined
+        <TouchableOpacity
+          style={styles.refreshBtn}
+          onPress={() => setDayRecords([...records])}
+          activeOpacity={0.8}
+          accessibilityLabel="Refresh attendance"
+        >
+          <RefreshIcon size={20} color="#FFFFFF" />
+        </TouchableOpacity>
       }
       headerExtra={
-        <>
-          <DateNavigator
-            label={`${scopeLabel} · ${dateText}`}
-            onPrev={() => shiftDay(-1)}
-            onNext={() => shiftDay(1)}
-            onPressLabel={() => {
-              setPickerDay(day);
-              setPickerOpen(true);
-            }}
-          />
-          <ScopeHeader
-            scope={scope}
-            warehouseOptions={isMain ? warehouseOptions : undefined}
-            selectedWarehouseId={isMain ? selectedWarehouseId : undefined}
-            onSelectWarehouse={isMain ? setSelectedWarehouseId : undefined}
-          />
-        </>
+        <View style={styles.pillContainer}>
+          <View style={styles.warehouseDatePill}>
+            <Text style={styles.warehouseDatePillText}>
+              🏬 {warehouseName.replace(/Warehouse/i, '').trim()} Warehouse · 25 Sep 2026
+            </Text>
+          </View>
+        </View>
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        <KpiRow
-          items={[
-            { value: count('Present'), label: 'PRESENT', tone: 'success' },
-            { value: count('Absent'), label: 'ABSENT', tone: 'danger' },
-            { value: count('On Leave'), label: 'ON LEAVE', tone: 'warning' },
-            { value: String(dayRecords.length), label: 'TOTAL' },
-          ]}
-        />
+        {/* 4 Stats Cards in Row (Image 3 Left) */}
+        <View style={styles.statsRow}>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>PRESENT</Text>
+            <Text style={[styles.statValue, { color: '#10B981' }]}>{count('Present')}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>ABSENT</Text>
+            <Text style={[styles.statValue, { color: '#EF4444' }]}>{count('Absent')}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>ON LEAVE</Text>
+            <Text style={[styles.statValue, { color: '#F59E0B' }]}>{count('On Leave')}</Text>
+          </View>
+          <View style={styles.statBox}>
+            <Text style={styles.statLabel}>TOTAL</Text>
+            <Text style={[styles.statValue, { color: '#111827' }]}>{totalCount}</Text>
+          </View>
+        </View>
+
+        {/* Search Bar with Filter Icon */}
         <SearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -225,81 +185,242 @@ export function AttendanceScreen({
         />
 
         {visible.length === 0 ? (
-          <EmptyState title="No attendance records" subtitle={`Nothing recorded for ${dateText} with this filter.`} />
-        ) : grouped ? (
-          SECTIONS.map((status) => {
-            const rows = visible.filter((r) => r.status === status);
-            if (rows.length === 0) return null;
-            return (
-              <View key={status}>
-                <SectionTitle>{status.toUpperCase()}</SectionTitle>
-                <ListCard>{rows.map(renderRow)}</ListCard>
-              </View>
-            );
-          })
+          <EmptyState title="No attendance records" subtitle="No employee records match the current filter." />
         ) : (
-          <ListCard>{visible.map(renderRow)}</ListCard>
+          <View style={styles.listContainer}>
+            {visible.map((item) => {
+              const toneColor =
+                item.status === 'Present'
+                  ? '#16A34A'
+                  : item.status === 'Absent'
+                  ? '#DC2626'
+                  : '#D97706';
+
+              return (
+                <View key={item.id} style={styles.employeeCard}>
+                  {/* Top Row: Avatar, Name/Role, Status Pill, Update Button */}
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.avatarCircle}>
+                      <PersonIcon size={22} color="#8B5E3C" />
+                    </View>
+
+                    <View style={styles.employeeInfo}>
+                      <Text style={styles.employeeName}>{item.name}</Text>
+                      <Text style={styles.employeeRole}>{item.role}</Text>
+                    </View>
+
+                    {/* Attendance Dropdown Pill */}
+                    <TouchableOpacity
+                      style={styles.statusPill}
+                      onPress={() => setSelectedRecordForModal(item)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.statusDot, { backgroundColor: toneColor }]} />
+                      <Text style={[styles.statusPillText, { color: toneColor }]}>{item.status}</Text>
+                      <ChevronDownIcon size={12} color="#6B7280" />
+                    </TouchableOpacity>
+
+                    {/* Update Button */}
+                    <TouchableOpacity
+                      style={styles.updateBtn}
+                      onPress={() => setSelectedRecordForModal(item)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.updateBtnText}>Update</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Divider */}
+                  <View style={styles.cardDivider} />
+
+                  {/* Bottom Row: Date, Check-in, Check-out */}
+                  <View style={styles.cardBottomRow}>
+                    <View style={styles.metaItem}>
+                      <CalendarIcon size={14} color="#6B7280" />
+                      <Text style={styles.metaText}>25 Sep 2026</Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <ClockOutlineIcon size={14} color="#6B7280" />
+                      <Text style={styles.metaText}>
+                        Check-in {item.status === 'Absent' ? '--:--' : (item.checkInTime || '9:02 AM')}
+                      </Text>
+                    </View>
+                    <View style={styles.metaItem}>
+                      <Text style={styles.metaText}>
+                        Check-out {item.status === 'Absent' ? '--:--' : '06:05 PM'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         )}
       </ScrollView>
 
-      <DatePickerModal
-        visible={pickerOpen}
-        monthLabel={ATTENDANCE_MONTH_LABEL}
-        daysInMonth={ATTENDANCE_MONTH_DAYS}
-        firstWeekday={ATTENDANCE_MONTH_FIRST_WEEKDAY}
-        selectedDay={pickerDay}
-        onSelectDay={setPickerDay}
-        onApply={() => {
-          setDay(pickerDay);
-          setPickerOpen(false);
-        }}
-        onClose={() => setPickerOpen(false)}
-      />
+      {/* Update Attendance Bottom Modal Sheet (Image 3 Right) */}
+      {selectedRecordForModal && (
+        <UpdateAttendanceModal
+          visible={!!selectedRecordForModal}
+          name={selectedRecordForModal.name}
+          initialStatus={selectedRecordForModal.status}
+          initialCheckIn={selectedRecordForModal.checkInTime || '09:02 AM'}
+          initialCheckOut="06:05 PM"
+          onClose={() => setSelectedRecordForModal(null)}
+          onUpdate={({ status, checkIn }) => {
+            setDayRecords((prev) =>
+              prev.map((r) =>
+                r.id === selectedRecordForModal.id
+                  ? { ...r, status, checkInTime: status === 'Absent' ? undefined : checkIn }
+                  : r
+              )
+            );
+            setSelectedRecordForModal(null);
+          }}
+        />
+      )}
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  gap: { height: adminSpacing.md },
-  kpiRow: {
+  refreshBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pillContainer: {
+    alignItems: 'flex-start',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  warehouseDatePill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 16,
+  },
+  warehouseDatePillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: adminSpacing.lg,
+    marginBottom: adminSpacing.md,
   },
-  kpiCard: {
+  statBox: {
     flex: 1,
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    paddingVertical: adminSpacing.md,
-    paddingHorizontal: 6,
+    borderColor: '#EFEBE6',
+    paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  kpiLabel: {
-    ...adminType.caption,
-    color: adminColors.muted,
-    letterSpacing: 0.3,
-    marginBottom: 6,
+  statLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  kpiValue: {
-    ...adminType.kpiValue,
+  statValue: {
+    fontSize: 18,
+    fontWeight: '800',
   },
-  searchBar: {
-    backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
+  listContainer: {
+    gap: 12,
+    marginTop: 8,
+  },
+  employeeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    height: 48,
+    borderColor: '#EFEBE6',
+    padding: 14,
+  },
+  cardTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: adminSpacing.md,
-    marginBottom: adminSpacing.lg,
+    gap: 10,
   },
-  searchInput: {
+  avatarCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F5EBE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  employeeInfo: {
     flex: 1,
-    marginLeft: 8,
-    ...adminType.body,
-    color: adminColors.ink,
+  },
+  employeeName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  employeeRole: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  statusPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  updateBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 10,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaText: {
+    fontSize: 11,
+    color: '#6B7280',
   },
 });

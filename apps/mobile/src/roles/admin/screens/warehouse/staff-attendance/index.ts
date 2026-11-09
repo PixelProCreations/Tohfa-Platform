@@ -10,7 +10,7 @@ export { EditStaffProfileScreen, type EditStaffProfileScreenProps } from './Edit
 export { AttendanceScreen, type AttendanceScreenProps } from './AttendanceScreen';
 export { AttendanceDetailScreen, type AttendanceDetailScreenProps } from './AttendanceDetailScreen';
 export { AttendanceHistoryScreen, type AttendanceHistoryScreenProps } from './AttendanceHistoryScreen';
-export { STAFF_WAREHOUSES } from './fixtures';
+export { STAFF_WAREHOUSES, STAFF_MEMBERS, DEFAULT_STAFF_MEMBER } from './fixtures';
 export type {
   AttendanceFilter,
   AttendanceHistoryEntry,

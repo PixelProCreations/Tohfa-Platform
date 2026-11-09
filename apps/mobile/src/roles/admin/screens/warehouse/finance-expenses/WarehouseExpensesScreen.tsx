@@ -26,6 +26,7 @@ import {
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
+import { InfoNote } from '../wallet-cashtopup/WalletParts';
 import { ExpenseCategoriesScreen } from './ExpenseCategoriesScreen';
 import { ExpenseDetailScreen } from './ExpenseDetailScreen';
 import { WarehouseAddExpenseScreen } from './WarehouseAddExpenseScreen';
@@ -647,6 +648,14 @@ export function WarehouseExpensesScreen({
             </View>
           ))}
         </View>
+
+        {!isAllWarehouses ? (
+          <View style={{ marginBottom: adminSpacing.md }}>
+            <InfoNote tone="info">
+              The approval workflow status shown here (Pending/Approved) stays configurable — SWA's own financial approval authority is not fully defined by the source.
+            </InfoNote>
+          </View>
+        ) : null}
 
         {/* ─── Expense Categories Summary ─── */}
         <View style={styles.sectionWrap}>

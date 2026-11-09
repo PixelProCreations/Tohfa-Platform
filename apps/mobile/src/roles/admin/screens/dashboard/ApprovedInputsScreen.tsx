@@ -291,12 +291,14 @@ export interface ApprovedInputsScreenProps {
   onBack: () => void;
   onSelectInput?: (inputItem: CatalogInputItem) => void;
   onAddNewInput?: () => void;
+  onEditInput?: (inputItem: CatalogInputItem) => void;
 }
 
 export function ApprovedInputsScreen({
   onBack,
   onSelectInput,
   onAddNewInput,
+  onEditInput,
 }: ApprovedInputsScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Approved' | 'Pending' | 'Inactive'>('All');
@@ -438,7 +440,13 @@ export function ApprovedInputsScreen({
 
                 {item.hasEdit ? (
                   <TouchableOpacity
-                    onPress={() => onSelectInput && onSelectInput(item)}
+                    onPress={() => {
+                      if (onEditInput) {
+                        onEditInput(item);
+                      } else if (onSelectInput) {
+                        onSelectInput(item);
+                      }
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.actionLink}>Edit</Text>
@@ -801,26 +809,35 @@ function UploadTrayIcon({ size = 28, color = '#4B5563' }: { size?: number; color
 export interface AddNewInputScreenProps {
   onBack: () => void;
   onSave?: (newItem: Partial<CatalogInputItem>) => void;
+  initialItem?: CatalogInputItem | null | undefined;
+  isEditing?: boolean;
 }
 
-export function AddNewInputScreen({ onBack, onSave }: AddNewInputScreenProps) {
+export function AddNewInputScreen({
+  onBack,
+  onSave,
+  initialItem,
+  isEditing = false,
+}: AddNewInputScreenProps) {
   // Basic Info Form State (Image 1)
-  const [inputName, setInputName] = useState('');
-  const [pestDisease, setPestDisease] = useState('');
-  const [inputCategory, setInputCategory] = useState('');
-  const [manufacturer, setManufacturer] = useState('');
-  const [registrationId, setRegistrationId] = useState('');
-  const [description, setDescription] = useState('');
-  const [validityDate, setValidityDate] = useState('');
+  const [inputName, setInputName] = useState(initialItem?.name || '');
+  const [pestDisease, setPestDisease] = useState(initialItem?.referenceNote || '');
+  const [inputCategory, setInputCategory] = useState(initialItem?.category || '');
+  const [manufacturer, setManufacturer] = useState(initialItem?.manufacturer || '');
+  const [registrationId, setRegistrationId] = useState(initialItem?.code || initialItem?.id || '');
+  const [description, setDescription] = useState(initialItem?.referenceNote || '');
+  const [validityDate, setValidityDate] = useState(initialItem?.approvedDate || '');
 
   // Composition & Usage Form State (Image 2 & 3)
-  const [composition, setComposition] = useState('');
-  const [usagePurpose, setUsagePurpose] = useState('');
-  const [applicableCrops, setApplicableCrops] = useState('');
-  const [dosage, setDosage] = useState('');
-  const [unit, setUnit] = useState('');
-  const [applicationMethod, setApplicationMethod] = useState('');
-  const [frequency, setFrequency] = useState('');
+  const [composition, setComposition] = useState(initialItem?.method || '');
+  const [usagePurpose, setUsagePurpose] = useState(initialItem?.category || '');
+  const [applicableCrops, setApplicableCrops] = useState(
+    initialItem?.crops ? initialItem.crops.join(', ') : (initialItem?.applicableCrops ? initialItem.applicableCrops.replace(/^Applicable:\s*/, '') : '')
+  );
+  const [dosage, setDosage] = useState(initialItem?.usage ? initialItem.usage.split(' ')[0] : '');
+  const [unit, setUnit] = useState(initialItem?.usage && initialItem.usage.split(' ')[1] ? initialItem.usage.split(' ')[1] : 'mL/L');
+  const [applicationMethod, setApplicationMethod] = useState(initialItem?.frequency || '');
+  const [frequency, setFrequency] = useState(initialItem?.frequency || '');
   const [safetyInstructions, setSafetyInstructions] = useState('');
 
   // Dropdown Picker Modal
@@ -841,6 +858,31 @@ export function AddNewInputScreen({ onBack, onSave }: AddNewInputScreenProps) {
     const trimmedCategory = inputCategory.trim() || 'Pest control';
     const trimmedManufacturer = manufacturer.trim() || 'Farmer-prepared';
     const trimmedCode = registrationId.trim() || `IN-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    if (isEditing && initialItem) {
+      initialItem.name = trimmedName;
+      initialItem.category = trimmedCategory;
+      initialItem.manufacturer = trimmedManufacturer;
+      initialItem.code = trimmedCode;
+      initialItem.applicableCrops = applicableCrops ? `Applicable: ${applicableCrops}` : initialItem.applicableCrops;
+      initialItem.updatedDate = 'Just now';
+      initialItem.updatedBy = 'Admin';
+      initialItem.method = composition || initialItem.method;
+      initialItem.usage = dosage ? `${dosage} ${unit || 'mL/L'}` : initialItem.usage;
+      initialItem.frequency = applicationMethod || frequency || initialItem.frequency;
+      initialItem.referenceNote = description || initialItem.referenceNote;
+
+      const idx = CATALOG_INPUTS.findIndex((i) => i.id === initialItem.id);
+      if (idx !== -1) {
+        CATALOG_INPUTS[idx] = { ...initialItem };
+      }
+      if (onSave) {
+        onSave(initialItem);
+      } else {
+        onBack();
+      }
+      return;
+    }
 
     const newItem: CatalogInputItem = {
       id: trimmedCode,
@@ -882,7 +924,7 @@ export function AddNewInputScreen({ onBack, onSave }: AddNewInputScreenProps) {
           >
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={addStyles.headerTitle}>Add New Input</Text>
+          <Text style={addStyles.headerTitle}>{isEditing ? 'Edit Input' : 'Add New Input'}</Text>
         </View>
       </View>
 
@@ -1177,7 +1219,7 @@ export function AddNewInputScreen({ onBack, onSave }: AddNewInputScreenProps) {
           onPress={handleSave}
           activeOpacity={0.85}
         >
-          <Text style={addStyles.saveBtnText}>Save</Text>
+          <Text style={addStyles.saveBtnText}>{isEditing ? 'Save Changes' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -1213,6 +1255,10 @@ export function AddNewInputScreen({ onBack, onSave }: AddNewInputScreenProps) {
       </Modal>
     </View>
   );
+}
+
+export function EditInputScreen(props: AddNewInputScreenProps) {
+  return <AddNewInputScreen {...props} isEditing={true} />;
 }
 
 // ─── Styles for Add New Input ────────────────────────────────────────────────

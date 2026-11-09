@@ -40,7 +40,7 @@ import { SessionSecurityScreen } from './SessionSecurityScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { StorageInfoScreen } from './StorageInfoScreen';
 import { UserProfileScreen } from './UserProfileScreen';
-import { WarehouseEditProfileScreen } from './WarehouseEditProfileScreen';
+import { WarehouseEditProfileScreen, type EditWarehouseTab } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
@@ -50,6 +50,7 @@ import type { FaqCategory, PermissionCheck, ProfileRoute, WarehouseScope, Wareho
 export interface ProfileFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: string | undefined;
   initialScreen?: ProfileRoute | undefined;
   /** Leave the module (pressed back on its first screen). */
   onBack: () => void;
@@ -72,6 +73,7 @@ export interface ProfileFlowProps {
 export function ProfileFlow({
   scope,
   can,
+  role,
   initialScreen = 'Settings',
   onBack,
   onLogout,
@@ -85,10 +87,18 @@ export function ProfileFlow({
   onSwitchRole,
 }: ProfileFlowProps) {
   const effectiveRole: AdminRoleCode =
-    adminRole ?? (scope.warehouseId === undefined ? 'MAIN_WH_ADMIN' : 'SUB_WH_ADMIN');
+    adminRole ??
+    (role === 'MAIN_WH_ADMIN'
+      ? 'MAIN_WH_ADMIN'
+      : role === 'SUB_WH_ADMIN'
+      ? 'SUB_WH_ADMIN'
+      : scope.warehouseId === undefined
+      ? 'MAIN_WH_ADMIN'
+      : 'SUB_WH_ADMIN');
   const [stack, setStack] = useState<ProfileRoute[]>(() => [initialScreen]);
   // Main's selector pick, shared by the warehouse-facing screens of the flow.
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(initialWarehouseId);
+  const [editWarehouseTab, setEditWarehouseTab] = useState<EditWarehouseTab>('Details');
   const [reportCategory, setReportCategory] = useState<FaqCategory>('Warehouse Operations');
   const [submittedTicketId, setSubmittedTicketId] = useState<string>('SUP-00246');
 
@@ -111,7 +121,7 @@ export function ProfileFlow({
     return true;
   });
 
-  const common = { scope, can, onBack: back, onTabChange };
+  const common = { scope, can, role: effectiveRole, onBack: back, onTabChange };
   const selection = { warehouseOptions, selectedWarehouseId, onSelectWarehouse: setSelectedWarehouseId };
 
   switch (current) {
@@ -193,17 +203,48 @@ export function ProfileFlow({
           {...common}
           {...selection}
           onOpen={navigate}
-          onEdit={() => navigate('WarehouseEditProfile')}
+          onEdit={() => {
+            setEditWarehouseTab('Details');
+            navigate('WarehouseEditProfile');
+          }}
         />
       );
     case 'WarehouseEditProfile':
-      return <WarehouseEditProfileScreen {...common} {...selection} />;
+      return <WarehouseEditProfileScreen {...common} {...selection} initialTab={editWarehouseTab} />;
     case 'StorageInfo':
-      return <StorageInfoScreen {...common} {...selection} onSelectLocation={onSelectStorageLocation} />;
+      return (
+        <StorageInfoScreen
+          {...common}
+          {...selection}
+          onSelectLocation={onSelectStorageLocation}
+          onEdit={() => {
+            setEditWarehouseTab('Storage');
+            navigate('WarehouseEditProfile');
+          }}
+        />
+      );
     case 'OperatingInfo':
-      return <OperatingInfoScreen {...common} {...selection} />;
+      return (
+        <OperatingInfoScreen
+          {...common}
+          {...selection}
+          onEdit={() => {
+            setEditWarehouseTab('Operations');
+            navigate('WarehouseEditProfile');
+          }}
+        />
+      );
     case 'Contact':
-      return <ContactScreen {...common} {...selection} />;
+      return (
+        <ContactScreen
+          {...common}
+          {...selection}
+          onEdit={() => {
+            setEditWarehouseTab('Contact');
+            navigate('WarehouseEditProfile');
+          }}
+        />
+      );
     case 'Documents':
       return <DocumentsScreen {...common} {...selection} />;
     case 'WarehouseSettings':

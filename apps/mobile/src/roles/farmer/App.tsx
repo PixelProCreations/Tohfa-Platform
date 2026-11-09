@@ -2221,24 +2221,28 @@ export default function App(): React.JSX.Element {
         ) : screen === 'AdminApplicationDetail' ? (
           <AdminApplicationDetailScreen
             application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
+            can={() => true}
+            role="TOHFA_ADMIN"
             onBack={goBack}
-            onApprove={() => navigate('AdminApplicationApprove')}
+            onApprove={(updatedApp) => {
+              if (updatedApp) {
+                setSelectedPendingApp(updatedApp as any);
+              }
+            }}
             onReject={() => navigate('AdminApplicationReject')}
             onRequestMoreInfo={() => navigate('AdminApplicationRequestInfo')}
           />
         ) : screen === 'AdminApplicationApprove' ? (
-          <AdminApplicationApproveScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onConfirmApprove={() => {
-              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
-              setToast({
-                type: 'approve',
-                title: 'Application Approved',
-                message: `${app.name} onboarded to Tohfa Platform successfully.`,
-              });
-              goBack();
+          <AdminApplicationDetailScreen
+            application={{
+              ...(selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!),
+              status: 'Approved',
+              approvedDate: '10 Oct 2026',
+              reviewNotes: 'All requirements met. Ready for approval.',
             }}
+            can={() => true}
+            role="TOHFA_ADMIN"
+            onBack={goBack}
           />
         ) : screen === 'AdminApplicationReject' ? (
           <AdminApplicationRejectScreen

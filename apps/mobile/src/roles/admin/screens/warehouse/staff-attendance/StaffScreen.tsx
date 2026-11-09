@@ -23,7 +23,6 @@ import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
-import { OverviewDashboardCard } from '../../../components';
 import {
   CalendarIcon,
   EmptyState,
@@ -173,6 +172,17 @@ export function StaffScreen({
         </View>
       }
       onBack={onBack}
+      headerRight={
+        <TouchableOpacity
+          style={styles.headerFilterBtn}
+          onPress={() => setShowFilterScreen(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Filter staff"
+        >
+          <FilterSlidersIcon size={18} color={adminColors.onBrand} />
+        </TouchableOpacity>
+      }
       headerExtra={
         <ScopeHeader
           scope={scope}
@@ -244,33 +254,22 @@ export function StaffScreen({
 
 
       <View style={styles.kpiGrid}>
-        <OverviewDashboardCard
-          value="12"
-          title="Total Staff"
-          subtitle="All rostered"
-          icon="orders"
-        />
-        <OverviewDashboardCard
-          value="9"
-          title="Present Today"
-          subtitle="On duty"
-          icon="pickup"
-          tone="success"
-        />
-        <OverviewDashboardCard
-          value="2"
-          title="Absent"
-          subtitle="Needs attention"
-          icon="alert"
-          tone="danger"
-        />
-        <OverviewDashboardCard
-          value="1"
-          title="On Leave"
-          subtitle="Approved leave"
-          icon="receiving"
-          tone="warning"
-        />
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>TOTAL VISIBLE</Text>
+          <Text style={styles.kpiValue}>{count(() => true)}</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>PRESENT TODAY</Text>
+          <Text style={[styles.kpiValue, { color: '#10B981' }]}>{count((m) => m.attendance === 'Present')}</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>ABSENT</Text>
+          <Text style={[styles.kpiValue, { color: '#EF4444' }]}>{count((m) => m.attendance === 'Absent')}</Text>
+        </View>
+        <View style={styles.kpiCard}>
+          <Text style={styles.kpiLabel}>ON LEAVE</Text>
+          <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>{count((m) => m.attendance === 'On Leave')}</Text>
+        </View>
       </View>
 
       {(attendanceFilter !== 'All' || statusFilter !== 'All') && (
@@ -395,6 +394,14 @@ export function StaffScreen({
 const BANNER_ICON = 40;
 
 const styles = StyleSheet.create({
+  headerFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -2579,14 +2579,14 @@ export function AuditScheduleScreen({
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.primaryOrangeBtn, { marginTop: 12 }]}
+            style={[styles.outlineOrangeBtn, { marginTop: 12 }]}
             onPress={() => {
               setPreviousView('detail');
               setCurrentView('inspection_findings');
             }}
             activeOpacity={0.8}
           >
-            <Text style={styles.primaryOrangeBtnText}>Start audit</Text>
+            <Text style={styles.outlineOrangeBtnText}>Inspection / Findings</Text>
           </TouchableOpacity>
 
           <View style={{ height: 24 }} />
@@ -2609,11 +2609,15 @@ export function AuditScheduleScreen({
         }}
         onStartResume={() => {
           setPreviousView('inspection_findings');
-          setCurrentView('audit_inspection');
+          setCurrentView('documents_findings');
         }}
         onNavigateSupportAudit={() => {
           setPreviousView('inspection_findings');
-          setCurrentView('audit_inspection');
+          setCurrentView('documents_findings');
+        }}
+        onNavigateDocuments={() => {
+          setPreviousView('inspection_findings');
+          setCurrentView('documents_findings');
         }}
       />
     );
@@ -2940,40 +2944,44 @@ export function AuditScheduleScreen({
             </Text>
           </View>
 
-          {/* Card 6: Inference */}
-          <Text style={styles.reportSectionTitle}>Inference</Text>
-          <View style={styles.reportCard}>
-            <Text style={styles.reportTextContent}>
-              {selectedRecord.inference ||
-                'Farm continues to meet organic certification standards. Recommended for continued certification with routine follow-up at next quarterly audit.'}
-            </Text>
-          </View>
+          {role !== 'FARMER_ADMIN' && (
+            <>
+              {/* Card 6: Inference */}
+              <Text style={styles.reportSectionTitle}>Inference</Text>
+              <View style={styles.reportCard}>
+                <Text style={styles.reportTextContent}>
+                  {selectedRecord.inference ||
+                    'Farm continues to meet organic certification standards. Recommended for continued certification with routine follow-up at next quarterly audit.'}
+                </Text>
+              </View>
 
-          {/* Actions: View Farmer & View Audit History (Image 2) */}
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
-            <TouchableOpacity
-              style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
-              onPress={() => {
-                if (onNavigateFarmerProfile) {
-                  onNavigateFarmerProfile(selectedRecord.farmerId || 'FR-00241');
-                }
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.viewAuditHistoryOutlineBtnText}>View Farmer</Text>
-            </TouchableOpacity>
+              {/* Actions: View Farmer & View Audit History (Image 2) */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
+                <TouchableOpacity
+                  style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
+                  onPress={() => {
+                    if (onNavigateFarmerProfile) {
+                      onNavigateFarmerProfile(selectedRecord.farmerId || 'FR-00241');
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.viewAuditHistoryOutlineBtnText}>View Farmer</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
-              onPress={() => {
-                setPreviousView('audit_report');
-                setCurrentView('history');
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.viewAuditHistoryOutlineBtnText}>View Audit History</Text>
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={[styles.viewAuditHistoryOutlineBtn, { flex: 1 }]}
+                  onPress={() => {
+                    setPreviousView('audit_report');
+                    setCurrentView('history');
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.viewAuditHistoryOutlineBtnText}>View Audit History</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           <View style={{ height: 90 }} />
         </ScrollView>

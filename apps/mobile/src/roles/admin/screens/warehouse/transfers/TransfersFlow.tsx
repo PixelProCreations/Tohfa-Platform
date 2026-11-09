@@ -110,7 +110,7 @@ export function TransfersFlow({ scope, can, initialScreen = 'Transfers', initial
           {...common}
           onSubmitTransfer={(t) => {
             setTransfers((prev) => [t, ...prev]);
-            back();
+            setStack([{ screen: 'Transfers' }]);
           }}
         />
       );

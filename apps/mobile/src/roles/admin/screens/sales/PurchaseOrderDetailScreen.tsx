@@ -79,14 +79,14 @@ export function PurchaseOrderDetailScreen({
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Farmer</Text>
             <Text style={styles.detailValueBold}>
-              {order.farmerName} (FMR-00093)
+              {order.farmerName} (FMR-00098)
             </Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Product, grade</Text>
             <Text style={styles.detailValueBold}>
-              {order.produceName} - {order.grade}
+              {order.produceName} · {order.grade}
             </Text>
           </View>
 
@@ -140,7 +140,7 @@ export function PurchaseOrderDetailScreen({
         {/* ── Activity Section ── */}
         <Text style={[styles.sectionHeading, { marginTop: 22 }]}>Activity</Text>
         <View style={styles.activityBlock}>
-          <Text style={styles.activityMeta}>{order.dateStr}, 09:00 · System</Text>
+          <Text style={styles.activityMeta}>{order.dateStr}, 09:00 - System</Text>
           <Text style={styles.activityTitle}>
             Purchase order generated: From listing {order.listingCode}
           </Text>

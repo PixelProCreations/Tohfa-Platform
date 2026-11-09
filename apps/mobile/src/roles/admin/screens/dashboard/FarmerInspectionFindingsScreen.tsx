@@ -85,6 +85,7 @@ export interface FarmerInspectionFindingsScreenProps {
   onBack: () => void;
   onNavigateSupportAudit: () => void;
   onStartResume?: () => void;
+  onNavigateDocuments?: () => void;
 }
 
 export function FarmerInspectionFindingsScreen({
@@ -92,6 +93,7 @@ export function FarmerInspectionFindingsScreen({
   onBack,
   onNavigateSupportAudit,
   onStartResume,
+  onNavigateDocuments,
 }: FarmerInspectionFindingsScreenProps) {
   const record = propRecord ?? INITIAL_SCHEDULE_RECORDS[0]!;
 
@@ -256,7 +258,11 @@ export function FarmerInspectionFindingsScreen({
 
         {/* Section 7: Supporting Evidence */}
         <Text style={styles.sectionHeader}>Supporting Evidence</Text>
-        <View style={styles.card}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={onNavigateDocuments || onNavigateSupportAudit}
+          activeOpacity={0.8}
+        >
           <View style={styles.twoColRow}>
             <View style={styles.col}>
               <Text style={styles.metaLabel}>Photos</Text>
@@ -274,7 +280,7 @@ export function FarmerInspectionFindingsScreen({
               Minor pest sighting noted on plot 2, farmer advised on organic treatment.
             </Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.noticeCard}>
           <Text style={styles.noticeText}>
@@ -287,10 +293,17 @@ export function FarmerInspectionFindingsScreen({
         <Text style={styles.sectionHeader}>Audit Rating</Text>
         <View style={styles.ratingCard}>
           <View style={styles.scoreRow}>
-            <Text style={styles.scoreNumber}>0</Text>
-            <Text style={styles.scoreTotal}> / 100</Text>
+            <Text style={styles.scoreNumber}>82</Text>
+            <Text style={styles.scoreTotal}>/100</Text>
           </View>
           <Text style={styles.scoreCaption}>AUDIT SCORE — VIEW ONLY</Text>
+        </View>
+
+        <View style={styles.noticeCard}>
+          <Text style={styles.noticeText}>
+            No Edit Score, Configure Score Categories, or Configure Rating Tiers — none are Farmer
+            Admin permissions. Audit Score is a different metric from Farm Rating.
+          </Text>
         </View>
 
         <View style={{ height: 90 }} />
@@ -300,11 +313,11 @@ export function FarmerInspectionFindingsScreen({
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.supportAuditBtn}
-          onPress={onStartResume || onNavigateSupportAudit}
+          onPress={onNavigateSupportAudit}
           activeOpacity={0.85}
+          accessibilityLabel="Support Audit"
         >
-          <SpeedometerIcon size={18} color={adminColors.onBrand} />
-          <Text style={styles.supportAuditBtnText}>Start / Resume</Text>
+          <Text style={styles.supportAuditBtnText}>Support Audit</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

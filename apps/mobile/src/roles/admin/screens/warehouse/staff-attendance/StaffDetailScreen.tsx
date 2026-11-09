@@ -25,9 +25,9 @@ import {
   STAFF_ATTENDANCE_SUMMARY,
   staffWarehouseName,
 } from './fixtures';
-import { ChevronDownIcon, PersonIcon } from './StaffParts';
+import { CalendarIcon, ChevronDownIcon, ClockOutlineIcon, PersonIcon, UpdateAttendanceModal } from './StaffParts';
 import { hasStaffRosterAccess } from './StaffScreen';
-import type { PermissionCheck, StaffMember, WarehouseScreenBaseProps } from './types';
+import type { AttendanceStatus, PermissionCheck, StaffMember, WarehouseScreenBaseProps } from './types';
 
 function CheckmarkIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -105,18 +105,21 @@ export function StaffDetailScreen({
   staff,
   onEditProfile,
 }: StaffDetailScreenProps) {
+  const member = staff ?? DEFAULT_STAFF_MEMBER;
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [currentAttendance, setCurrentAttendance] = useState<AttendanceStatus>((staff?.attendance as AttendanceStatus) || 'Present');
 
   if (!hasStaffRosterAccess(can, scope)) {
     return (
       <WalletScreen title="Staff Detail" onBack={onBack}>
         <EmptyState title="Staff roster not available" subtitle="Your role does not include the warehouse staff roster." />
-      </WalletScreen>
+
+    </WalletScreen>
     );
   }
 
-  const member = staff ?? DEFAULT_STAFF_MEMBER;
   const isDriver = member.type === 'driver' || member.role.toLowerCase().includes('driver');
   const isTohfa = isTohfaAdminUser(can, role);
   const isSubWH = role === 'SUB_WH_ADMIN';
@@ -125,6 +128,19 @@ export function StaffDetailScreen({
     (role === 'MAIN_WH_ADMIN' ||
       isAllWarehouses(scope) ||
       (can ? can('admin.staff.attendance.mark') || can('admin.staff.manage') : false));
+
+  // Role & subtitle displays matching Screenshot 2 (Warehouse Staff) and Screenshot 3 (Driver)
+  const roleSubtitleDisplay = isDriver
+    ? 'Driver'
+    : member.role.toLowerCase().includes('admin')
+    ? member.role
+    : 'Warehouse Staff';
+
+  const roleValueDisplay = isDriver
+    ? 'Drive'
+    : member.role.toLowerCase().includes('admin')
+    ? member.role
+    : 'Ground Staff';
 
   // RBAC: "Update active status *" dropdown is enabled for TOHFA_ADMIN and MAIN_WH_ADMIN only,
   // strictly hidden for SUB_WH_ADMIN per RBAC shared-screen specifications.
@@ -177,16 +193,67 @@ export function StaffDetailScreen({
       footer={undefined}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Profile Card */}
+        {/* Top Profile Card Matching Image 2 */}
         <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <PersonIcon size={26} color="#8B5E3C" />
+          <View style={styles.profileTopRow}>
+            <View style={styles.avatarCircle}>
+              <PersonIcon size={26} color="#8B5E3C" />
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{member.name}</Text>
+              <Text style={styles.profileRoleSubtitle}>{roleSubtitleDisplay}</Text>
+            </View>
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>{currentStatusDisplay}</Text>
+            </View>
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{member.name}</Text>
-            <Text style={styles.profileMeta}>
-              {isDriver ? 'Driver ID' : 'Staff ID'}: {member.staffId} · {currentStatusDisplay}
-            </Text>
+
+          {/* Row 2: Attendance Pill + Orange Update Button */}
+          <View style={styles.attendanceActionRow}>
+            <TouchableOpacity
+              style={styles.attendancePill}
+              onPress={() => setShowAttendanceModal(true)}
+              activeOpacity={0.8}
+            >
+              <View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor:
+                      currentAttendance === 'Present'
+                        ? '#16A34A'
+                        : currentAttendance === 'Absent'
+                        ? '#DC2626'
+                        : '#D97706',
+                  },
+                ]}
+              />
+              <Text style={styles.attendancePillText}>{currentAttendance}</Text>
+              <ChevronDownIcon size={14} color="#6B7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.updateOrangeBtn}
+              onPress={() => setShowAttendanceModal(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.updateOrangeBtnText}>Update</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Row 3: Date, Check-in, Check-out */}
+          <View style={styles.clockRow}>
+            <View style={styles.clockItem}>
+              <CalendarIcon size={14} color="#6B7280" />
+              <Text style={styles.clockTimeText}>25 Sep 2026</Text>
+            </View>
+            <View style={styles.clockItem}>
+              <ClockOutlineIcon size={14} color="#6B7280" />
+              <Text style={styles.clockTimeText}>Check-in {currentAttendance === 'Absent' ? '--:--' : '9:02 AM'}</Text>
+            </View>
+            <View style={styles.clockItem}>
+              <Text style={styles.clockTimeText}>Check-out {currentAttendance === 'Absent' ? '--:--' : '06:05 PM'}</Text>
+            </View>
           </View>
         </View>
 
@@ -207,7 +274,7 @@ export function StaffDetailScreen({
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
               <Text style={styles.gridLabel}>Role</Text>
-              <Text style={styles.gridValue}>{isDriver ? 'Drive' : (member.role || 'Ground Staff')}</Text>
+              <Text style={styles.gridValue}>{roleValueDisplay}</Text>
             </View>
             <View style={styles.gridCol}>
               <Text style={styles.gridLabel}>Account Created</Text>
@@ -239,73 +306,6 @@ export function StaffDetailScreen({
             </View>
           </View>
         </View>
-
-        {/* Update Active Status Dropdown (Main Warehouse / Update Permission Only - Images 4 & 5) */}
-        {hasUpdateStatus && (
-          <View style={styles.updateStatusContainer}>
-            <Text style={styles.updateStatusLabel}>Update active status *</Text>
-            <TouchableOpacity
-              style={[
-                styles.dropdownButton,
-                showStatusDropdown && styles.dropdownButtonActive,
-              ]}
-              onPress={() => setShowStatusDropdown((prev) => !prev)}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-            >
-              <View style={styles.dropdownValueRow}>
-                <Text style={styles.dropdownSelectedText}>
-                  {currentStatusDisplay}
-                </Text>
-              </View>
-              <View style={{ transform: [{ rotate: showStatusDropdown ? '180deg' : '0deg' }] }}>
-                <ChevronDownIcon size={18} color={showStatusDropdown ? adminColors.brand : adminColors.muted} />
-              </View>
-            </TouchableOpacity>
-
-            {/* Dropdown Menu List with full width, status dots & checkmarks */}
-            {showStatusDropdown && (
-              <View style={styles.dropdownMenu}>
-                {STATUS_OPTIONS.map((statusOption, idx) => {
-                  const isSelected = currentStatusDisplay === statusOption;
-                  return (
-                    <TouchableOpacity
-                      key={statusOption}
-                      style={[
-                        styles.dropdownMenuItem,
-                        isSelected && styles.dropdownMenuItemSelected,
-                        idx === STATUS_OPTIONS.length - 1 && { borderBottomWidth: 0 },
-                      ]}
-                      onPress={() => {
-                        setSelectedStatus(statusOption);
-                        setShowStatusDropdown(false);
-                        Alert.alert(
-                          'Status Updated',
-                          `Active status for ${member.name} has been updated to "${statusOption}".`
-                        );
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.dropdownItemLeft}>
-                        <Text
-                          style={[
-                            styles.dropdownMenuItemText,
-                            isSelected && styles.dropdownMenuItemTextSelected,
-                          ]}
-                        >
-                          {statusOption}
-                        </Text>
-                      </View>
-                      {isSelected && (
-                        <CheckmarkIcon size={16} color={adminColors.brand} />
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        )}
 
         {/* Delivery Summary Section (Driver Only - Image 3) */}
         {isDriver && (
@@ -434,6 +434,94 @@ export function StaffDetailScreen({
 }
 
 const styles = StyleSheet.create({
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  profileRoleSubtitle: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  activeBadge: {
+    backgroundColor: '#E8F5E9',
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  activeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#16A34A',
+  },
+  attendanceActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    width: '100%',
+  },
+  attendancePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  attendancePillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  updateOrangeBtn: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 14,
+  },
+  updateOrangeBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  clockItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  clockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    width: '100%',
+  },
+  clockDateText: {
+    fontSize: 12,
+    color: adminColors.muted,
+    marginRight: 8,
+  },
+  clockTimeText: {
+    fontSize: 12,
+    color: adminColors.muted,
+  },
+
   headerEditBtn: {
     width: 36,
     height: 36,
@@ -443,9 +531,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: adminSpacing.md,
     backgroundColor: adminColors.card,
     borderRadius: adminRadius.xl,
     borderWidth: 1,
@@ -460,6 +545,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3E2',
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: adminSpacing.md,
   },
   profileInfo: { flex: 1 },
   profileName: {

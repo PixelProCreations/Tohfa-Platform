@@ -34,6 +34,7 @@ import { DetailRow, recordFor, singleWarehouseId, SingleWarehouseHeader, warehou
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] as const;
 
 export interface OperatingInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
+  onEdit?: (() => void) | undefined;
   operatingInfo?: readonly OperatingInfo[] | undefined;
   /** Injected for tests; defaults to the device clock. */
   today?: Date | undefined;

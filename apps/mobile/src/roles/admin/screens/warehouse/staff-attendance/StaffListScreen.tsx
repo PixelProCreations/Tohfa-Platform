@@ -10,7 +10,7 @@
  * - Interactive Filter Popup modal with Role, Status, and Warehouse filters (Image 5).
  * - Dynamic count indicator showing matching admins, warehouse staff, and drivers.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -32,7 +32,7 @@ import {
 } from '../../../theme';
 import { EmptyState, WalletScreen, walletLayout } from '../wallet-cashtopup/WalletParts';
 import { STAFF_MEMBERS, staffWarehouseName } from './fixtures';
-import { CloseIcon, FilterSlidersIcon, SearchIcon } from './StaffParts';
+import { CalendarIcon, ChevronDownIcon, CloseIcon, FilterSlidersIcon, PersonIcon, SearchIcon, UpdateAttendanceModal } from './StaffParts';
 import { isTohfaAdminUser } from './StaffDetailScreen';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 
@@ -74,6 +74,11 @@ export function StaffListScreen({
 }: StaffListScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [staffList, setStaffList] = useState<StaffMember[]>(() => [...members]);
+
+  useEffect(() => {
+    setStaffList([...members]);
+  }, [members]);
+  const [selectedStaffForModal, setSelectedStaffForModal] = useState<StaffMember | null>(null);
   const isTohfa = isTohfaAdminUser(can, role);
   const isSubWarehouse =
     role === 'SUB_WH_ADMIN' ||
@@ -159,29 +164,6 @@ export function StaffListScreen({
     [filteredStaff]
   );
 
-  const handleToggleDeactivate = (staff: StaffMember) => {
-    const isInactive = staff.status === 'Inactive';
-    const nextStatus = isInactive ? 'Active' : 'Inactive';
-    Alert.alert(
-      isInactive ? 'Activate Staff' : 'Deactivate Staff',
-      `Are you sure you want to ${isInactive ? 'activate' : 'deactivate'} ${staff.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: isInactive ? 'Activate' : 'Deactivate',
-          style: isInactive ? 'default' : 'destructive',
-          onPress: () => {
-            setStaffList((prev) =>
-              prev.map((item) =>
-                item.id === staff.id ? { ...item, status: nextStatus as any } : item
-              )
-            );
-          },
-        },
-      ]
-    );
-  };
-
   return (
     <WalletScreen
       title="Staff list"
@@ -258,8 +240,17 @@ export function StaffListScreen({
                   activeOpacity={0.85}
                   accessibilityRole="button"
                 >
-                  <View style={styles.cardHeaderRow}>
-                    <Text style={styles.cardTitle}>{`${staff.staffId} · ${staff.name}`}</Text>
+                  {/* Top Row: Avatar, Name & Subtitle, Status Badge with Chevron */}
+                  <View style={styles.cardTopRow}>
+                    <View style={styles.avatarCircle}>
+                      <PersonIcon size={24} color="#8B5E3C" />
+                    </View>
+                    <View style={styles.cardInfoCol}>
+                      <Text style={styles.cardStaffName}>{staff.name}</Text>
+                      <Text style={styles.cardStaffSubtitle}>
+                        {`${whName}, ${staff.type === 'driver' ? 'Driver' : (staff.role || 'Warehouse staff')}`}
+                      </Text>
+                    </View>
                     <View
                       style={[
                         styles.badge,
@@ -280,43 +271,43 @@ export function StaffListScreen({
                             : styles.badgeTextInactive,
                         ]}
                       >
-                        {staff.status}
+                        {staff.status || 'Active'} &gt;
                       </Text>
                     </View>
                   </View>
 
-                  <Text style={styles.cardSubtitle}>
-                    {isPending
-                      ? `${staff.role} · ${whName} · ${staff.activationNote ?? 'Created 12 Oct 2026 by TOHFA Admin\nActivation flow proposed, not yet confirmed'}`
-                      : `${staff.role} · ${staff.workSection ?? 'Loading & sorting'} · ${whName} · Joined ${staff.joiningDate ?? '1 Mar 2026'}`}
-                  </Text>
+                  {/* Divider */}
+                  <View style={styles.cardDivider} />
 
-                  {/* Inline Actions row for Tohfa Admin */}
-                  {isTohfa && (
-                    <View style={styles.actionsRow}>
-                      <TouchableOpacity
-                        onPress={() => onEditStaff?.(staff)}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Text style={styles.actionEdit}>Edit</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => handleToggleDeactivate(staff)}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Text
-                          style={[
-                            styles.actionDeactivate,
-                            staff.status === 'Inactive' && styles.actionActivate,
-                          ]}
-                        >
-                          {staff.status === 'Inactive' ? 'Activate' : 'Deactivate'}
-                        </Text>
-                      </TouchableOpacity>
+                  {/* Bottom Row: Today Attendance with Status Pill */}
+                  <View style={styles.cardBottomRow}>
+                    <View style={styles.todayAttendanceLabelRow}>
+                      <CalendarIcon size={16} color={adminColors.muted} />
+                      <Text style={styles.todayAttendanceLabel}>Today Attendance</Text>
                     </View>
-                  )}
+
+                    <TouchableOpacity
+                      style={styles.attendanceDropdownPill}
+                      onPress={() => setSelectedStaffForModal(staff)}
+                      activeOpacity={0.8}
+                    >
+                      <View
+                        style={[
+                          styles.statusDot,
+                          {
+                            backgroundColor:
+                              staff.attendance === 'Present'
+                                ? '#16A34A'
+                                : staff.attendance === 'Absent'
+                                ? '#DC2626'
+                                : '#D97706',
+                          },
+                        ]}
+                      />
+                      <Text style={styles.attendanceDropdownPillText}>{staff.attendance || 'Present'}</Text>
+                      <ChevronDownIcon size={14} color={adminColors.muted} />
+                    </TouchableOpacity>
+                  </View>
                 </TouchableOpacity>
               );
             })}
@@ -433,11 +424,96 @@ export function StaffListScreen({
           </View>
         </View>
       </Modal>
+
+      {/* ─── Update Attendance Modal (Screenshot 3 Right) ─── */}
+      {selectedStaffForModal && (
+        <UpdateAttendanceModal
+          visible={!!selectedStaffForModal}
+          name={selectedStaffForModal.name}
+          initialStatus={selectedStaffForModal.attendance || 'Present'}
+          onClose={() => setSelectedStaffForModal(null)}
+          onUpdate={({ status }) => {
+            setStaffList((prev) =>
+              prev.map((s) =>
+                s.id === selectedStaffForModal.id ? { ...s, attendance: status } : s
+              )
+            );
+            setSelectedStaffForModal(null);
+          }}
+        />
+      )}
     </WalletScreen>
   );
 }
 
 const styles = StyleSheet.create({
+  cardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FDF2E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardInfoCol: {
+    flex: 1,
+  },
+  cardStaffName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  cardStaffSubtitle: {
+    fontSize: 12,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+    marginVertical: 12,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  todayAttendanceLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  todayAttendanceLabel: {
+    fontSize: 13,
+    color: adminColors.muted,
+  },
+  attendanceDropdownPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+  },
+  attendanceDropdownPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
   searchWrapper: {
     marginBottom: adminSpacing.md,
   },

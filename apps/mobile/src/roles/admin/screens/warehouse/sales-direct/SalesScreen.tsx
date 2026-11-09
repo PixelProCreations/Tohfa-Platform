@@ -680,7 +680,13 @@ export function SalesScreen({
         </TouchableOpacity>
 
         {/* Card 2: PO-0009 */}
-        <View style={styles.recentSaleCard}>
+        <TouchableOpacity
+          style={styles.recentSaleCard}
+          onPress={() => onNavigateToPurchaseOrderDetail?.('PO-0009')}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel="Purchase order PO-0009"
+        >
           <View style={styles.recentSaleTopRow}>
             <Text style={styles.recentSaleId}>PO-0009</Text>
             <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -696,36 +702,7 @@ export function SalesScreen({
           <Text style={styles.poSubLine}>Beans · Grade 2 · 60 kg</Text>
           <Text style={styles.poSubLine}>Unit price ₹55.00/kg · Total ₹3,300.00</Text>
           <Text style={styles.poSubWarehouse}>Main Warehouse, Ooty · 30 Sep 2026</Text>
-
-          {/* Action Links Row (Tohfa Admin only) */}
-          {isTohfaAdmin ? (
-            <View style={styles.poLinksRow}>
-              <TouchableOpacity
-                onPress={() => onNavigateToPurchaseOrderDetail?.('PO-0009')}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              >
-                <Text style={styles.poLinkText}>View PO</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => onNavigateToPurchaseOrderReceipt?.('PO-0009')}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              >
-                <Text style={styles.poLinkText}>Open Receipt</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => onNavigateToPurchaseOrderPayout?.('PO-0009')}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-              >
-                <Text style={styles.poLinkText}>View Payout</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
+        </TouchableOpacity>
 
         {/* ─── Recent Invoices (Sub & Main Warehouse only - Image 1) ─── */}
         {!isTohfaAdmin ? (

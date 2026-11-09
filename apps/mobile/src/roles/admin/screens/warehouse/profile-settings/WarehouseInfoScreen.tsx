@@ -81,6 +81,7 @@ function PencilEditIcon({ size = 20, color = adminColors.onBrand }: { size?: num
 export type WarehouseProfileChildRoute = 'StorageInfo' | 'OperatingInfo' | 'Contact' | 'Documents';
 
 export interface WarehouseInfoScreenProps extends WarehouseScreenBaseProps, WarehouseSelectionProps {
+  role?: string | undefined;
   /** Optional callback when edit icon is pressed in Main Warehouse view */
   onEdit?: (() => void) | undefined;
   /** Open a sub-screen. Without it the section list is not shown. */
@@ -92,6 +93,8 @@ export interface WarehouseInfoScreenProps extends WarehouseScreenBaseProps, Ware
 
 export function WarehouseInfoScreen({
   scope,
+  can,
+  role,
   onBack,
   onTabChange,
   onOpen,
@@ -108,7 +111,10 @@ export function WarehouseInfoScreen({
   const profile = recordFor(profiles, warehouseId);
   const locationCount = storageLocations.filter((loc) => loc.warehouseId === warehouseId).length;
 
-  const isMainWarehouse = isAllWarehouses(scope);
+  const isMainWarehouse =
+    role === 'MAIN_WH_ADMIN' ||
+    role === 'TOHFA_ADMIN' ||
+    isAllWarehouses(scope);
 
   const openDirections = () => {
     if (!profile) return;
@@ -128,7 +134,12 @@ export function WarehouseInfoScreen({
 
   return (
     <WalletScreen
-      title="Warehouse Profile"
+      title={
+        <View style={styles.headerTitleWrap}>
+          <WarehouseBuildingIcon size={20} color={adminColors.onBrand} />
+          <Text style={styles.headerTitleText}>Warehouse Profile</Text>
+        </View>
+      }
       onBack={onBack}
       headerLeft={undefined}
       headerRight={
@@ -247,6 +258,17 @@ const HERO_ICON = 56;
 const MAP_ICON_CHIP = 40;
 
 const styles = StyleSheet.create({
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitleText: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+    fontSize: 20,
+    fontWeight: '700',
+  },
   hero: {
     alignItems: 'center',
     backgroundColor: adminColors.brand,

@@ -93,6 +93,94 @@ const MOCK_ACTIVITY: AdminActivityEntry[] = [
   },
 ];
 
+function CheckCircleSvg({ size = 22, color = adminColors.success.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M8 12.5l2.8 2.8L16 9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CrossCircleSvg({ size = 22, color = adminColors.danger.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="10" stroke={color} strokeWidth="2" />
+      <Path d="M15 9l-6 6M9 9l6 6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ExchangeSvg({ size = 22, color = adminColors.info.text }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+const FA_ACTIVITY_TODAY = [
+  {
+    id: 'fa-1',
+    type: 'APPROVED',
+    title: 'Listing approved',
+    detail: 'Tomato — Grade 1 · 10 min ago',
+    farmer: 'Farmer: Ramesh · FR-00241',
+    time: '10:24 AM',
+  },
+  {
+    id: 'fa-2',
+    type: 'REJECTED',
+    title: 'Listing rejected',
+    detail: 'Carrot — Grade 2 · 45 min ago',
+    farmer: 'Farmer: Kumar · FR-00388',
+    time: '09:50 AM',
+  },
+  {
+    id: 'fa-3',
+    type: 'COUNTER',
+    title: 'Counter-offer sent',
+    detail: 'Beans — 75 KG (Offered ₹45/KG)',
+    farmer: 'Farmer: Kumar · FR-00388',
+    time: '09:09 AM',
+  },
+  {
+    id: 'fa-4',
+    type: 'APPROVED',
+    title: 'Farm audit completed',
+    detail: 'Annual PGS scope audit verified',
+    farmer: 'Farmer: Selvi · Coonoor Zone',
+    time: '08:30 AM',
+  },
+];
+
+const FA_ACTIVITY_WEEK = [
+  {
+    id: 'fa-w1',
+    type: 'APPROVED',
+    title: 'Listing approved',
+    detail: 'Carrot — Grade 1 · 120 KG',
+    farmer: 'Farmer: Mani · FR-00305',
+    time: 'Yesterday, 04:15 PM',
+  },
+  {
+    id: 'fa-w2',
+    type: 'COUNTER',
+    title: 'Counter-offer accepted',
+    detail: 'Tomato — 65 KG (Settled ₹50/KG)',
+    farmer: 'Farmer: Suresh · FR-00189',
+    time: '28 Sep, 02:40 PM',
+  },
+  {
+    id: 'fa-w3',
+    type: 'REJECTED',
+    title: 'Listing rejected',
+    detail: 'Beans — Grade 2 · Quality incomplete',
+    farmer: 'Farmer: Ramesh · FR-00241',
+    time: '27 Sep, 11:20 AM',
+  },
+];
+
 export interface AdminActivityLogsScreenProps {
   adminId?: string | undefined;
   onBack?: (() => void) | undefined;
@@ -100,8 +188,97 @@ export interface AdminActivityLogsScreenProps {
   onNavigateToListings?: (() => void) | undefined;
 }
 
-export function AdminActivityLogsScreen({ adminId, onBack }: AdminActivityLogsScreenProps) {
+export function AdminActivityLogsScreen({ adminId, onBack, role, onNavigateToListings }: AdminActivityLogsScreenProps) {
   const [selectedCat, setSelectedCat] = useState<string>('ALL');
+  const [faPeriod, setFaPeriod] = useState<'today' | 'week'>('today');
+
+  // If role is FARMER_ADMIN, render S05 FA Activity matching Screenshot
+  if (role === 'FARMER_ADMIN') {
+    const activityItems = faPeriod === 'today' ? FA_ACTIVITY_TODAY : FA_ACTIVITY_WEEK;
+
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* Orange Brand Header */}
+        <View style={styles.faHeader}>
+          <TouchableOpacity
+            style={styles.faBackBtn}
+            onPress={onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M19 12H5M12 19l-7-7 7-7"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
+          <Text style={styles.faHeaderTitle}>Farmer Admin Activity</Text>
+        </View>
+
+        {/* Period Filter Pills: Today / This Week */}
+        <View style={styles.faPillRow}>
+          <TouchableOpacity
+            style={[styles.faPill, faPeriod === 'today' && styles.faPillActive]}
+            onPress={() => setFaPeriod('today')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.faPillText, faPeriod === 'today' && styles.faPillTextActive]}>
+              Today
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.faPill, faPeriod === 'week' && styles.faPillActive]}
+            onPress={() => setFaPeriod('week')}
+            activeOpacity={0.75}
+          >
+            <Text style={[styles.faPillText, faPeriod === 'week' && styles.faPillTextActive]}>
+              This Week
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Activity Items List */}
+        <FlatList
+          data={activityItems}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.faListContent}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => {
+            return (
+              <TouchableOpacity
+                style={styles.faCard}
+                onPress={() => onNavigateToListings?.()}
+                activeOpacity={0.8}
+              >
+                <View style={styles.faIconCircle}>
+                  {item.type === 'APPROVED' && <CheckCircleSvg size={24} color={adminColors.success.text} />}
+                  {item.type === 'REJECTED' && <CrossCircleSvg size={24} color={adminColors.danger.text} />}
+                  {item.type === 'COUNTER' && <ExchangeSvg size={24} color={adminColors.info.text} />}
+                </View>
+
+                <View style={{ flex: 1 }}>
+                  <View style={styles.faCardTitleRow}>
+                    <Text style={styles.faCardTitle}>{item.title}</Text>
+                    <Text style={styles.faCardTime}>{item.time}</Text>
+                  </View>
+                  <Text style={styles.faCardDetail}>{item.detail}</Text>
+                  <Text style={styles.faCardFarmer}>{item.farmer}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+          ListFooterComponent={<View style={{ height: 40 }} />}
+        />
+      </SafeAreaView>
+    );
+  }
 
   const categories = ['ALL', 'PAYOUT', 'KYC', 'CONFIG', 'WAREHOUSE', 'AUTH'];
 
@@ -339,5 +516,105 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: ADMIN_PALETTE.textMuted,
     fontFamily: 'monospace',
+  },
+
+  // ─── Farmer Admin Activity Styles (Image 3 Screen 2) ───
+  faHeader: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  faBackBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faHeaderTitle: {
+    flex: 1,
+    ...adminType.title,
+    color: adminColors.onBrand,
+    letterSpacing: -0.3,
+  },
+  faPillRow: {
+    flexDirection: 'row',
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.md,
+    gap: 10,
+  },
+  faPill: {
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  faPillActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  faPillText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  faPillTextActive: {
+    color: adminColors.onBrand,
+  },
+  faListContent: {
+    paddingHorizontal: adminSpacing.lg,
+    gap: 12,
+    paddingTop: 4,
+  },
+  faCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    ...adminShadow.sm,
+  },
+  faIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: adminRadius.full,
+    backgroundColor: adminColors.canvas,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  faCardTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  faCardTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    letterSpacing: -0.2,
+  },
+  faCardTime: {
+    ...adminType.caption,
+    color: adminColors.muted,
+  },
+  faCardDetail: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  faCardFarmer: {
+    ...adminType.caption,
+    color: adminColors.muted,
   },
 });

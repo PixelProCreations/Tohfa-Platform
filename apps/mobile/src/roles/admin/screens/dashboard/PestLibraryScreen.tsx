@@ -268,12 +268,14 @@ export interface PestLibraryScreenProps {
   onBack: () => void;
   onAddNewPest?: () => void;
   onSelectPest?: (pest: PestItem) => void;
+  onEditPest?: (pest: PestItem) => void;
 }
 
 export function PestLibraryScreen({
   onBack,
   onAddNewPest,
   onSelectPest,
+  onEditPest,
 }: PestLibraryScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Published' | 'Draft'>('All');
@@ -406,7 +408,13 @@ export function PestLibraryScreen({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() => onAddNewPest && onAddNewPest()}
+                  onPress={() => {
+                    if (onEditPest) {
+                      onEditPest(item);
+                    } else if (onAddNewPest) {
+                      onAddNewPest();
+                    }
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.actionLink}>Edit</Text>
@@ -494,34 +502,41 @@ export function PestLibraryScreen({
 export interface AddNewPestScreenProps {
   onBack: () => void;
   onSave?: (newPest: Partial<PestItem>) => void;
+  initialPest?: PestItem | null | undefined;
+  isEditing?: boolean;
 }
 
-export function AddNewPestScreen({ onBack, onSave }: AddNewPestScreenProps) {
+export function AddNewPestScreen({
+  onBack,
+  onSave,
+  initialPest,
+  isEditing = false,
+}: AddNewPestScreenProps) {
   // Section 1: Identification (Image 2)
-  const [commonName, setCommonName] = useState('');
-  const [scientificName, setScientificName] = useState('');
-  const [pestOrDisease, setPestOrDisease] = useState('');
-  const [descriptionNotes, setDescriptionNotes] = useState('');
-  const [verificationSource, setVerificationSource] = useState('');
+  const [commonName, setCommonName] = useState(initialPest?.name || '');
+  const [scientificName, setScientificName] = useState(initialPest?.scientificName || '');
+  const [pestOrDisease, setPestOrDisease] = useState(initialPest?.type || '');
+  const [descriptionNotes, setDescriptionNotes] = useState(initialPest?.symptoms || '');
+  const [verificationSource, setVerificationSource] = useState('Agronomy Field Survey');
 
   // Section 2: Crops & symptoms (Images 2 & 3)
-  const [applicableCrops, setApplicableCrops] = useState('');
-  const [affectedPlantParts, setAffectedPlantParts] = useState('');
-  const [visibleSymptoms, setVisibleSymptoms] = useState('');
+  const [applicableCrops, setApplicableCrops] = useState(initialPest?.crops || initialPest?.crop || '');
+  const [affectedPlantParts, setAffectedPlantParts] = useState('Leaves, Stems & Fruits');
+  const [visibleSymptoms, setVisibleSymptoms] = useState(initialPest?.symptoms || '');
   const [identificationIndicators, setIdentificationIndicators] = useState('');
   const [similarConditions, setSimilarConditions] = useState('');
 
   // Section 3: Seasonal risk (Images 3 & 4)
-  const [knownRiskPeriod, setKnownRiskPeriod] = useState('');
-  const [growingConditions, setGrowingConditions] = useState('');
+  const [knownRiskPeriod, setKnownRiskPeriod] = useState(initialPest?.riskPeriod || '');
+  const [growingConditions, setGrowingConditions] = useState('High humidity, cool nights');
   const [weatherRiskInfo, setWeatherRiskInfo] = useState('');
-  const [severityGuidance, setSeverityGuidance] = useState('');
+  const [severityGuidance, setSeverityGuidance] = useState(initialPest?.severity || 'Medium');
 
   // Section 4: Prevention & management (Images 4 & 5)
-  const [preventivePractices, setPreventivePractices] = useState('');
-  const [linkedOrganicTreatment, setLinkedOrganicTreatment] = useState('');
+  const [preventivePractices, setPreventivePractices] = useState('Crop rotation, balanced irrigation');
+  const [linkedOrganicTreatment, setLinkedOrganicTreatment] = useState(initialPest?.treatment || '');
   const [applicationGuide, setApplicationGuide] = useState('');
-  const [safetyPrecautions, setSafetyPrecautions] = useState('');
+  const [safetyPrecautions, setSafetyPrecautions] = useState('Wear protective gear during spray application');
 
   // Dropdown Picker Modal
   const [pickerTitle, setPickerTitle] = useState('');
@@ -542,6 +557,31 @@ export function AddNewPestScreen({ onBack, onSave }: AddNewPestScreenProps) {
     const trimmedType = pestOrDisease || 'Disease';
     const trimmedCrops = applicableCrops || 'Tomato, Potato';
     const trimmedRisk = knownRiskPeriod.trim() || 'Seasonal verification pending';
+
+    if (isEditing && initialPest) {
+      initialPest.name = trimmedName;
+      initialPest.scientificName = trimmedSci;
+      initialPest.type = trimmedType;
+      initialPest.crop = trimmedCrops.split(',')[0]?.trim() || initialPest.crop;
+      initialPest.crops = trimmedCrops;
+      initialPest.severity = (severityGuidance as any) || initialPest.severity;
+      initialPest.riskPeriod = trimmedRisk;
+      initialPest.updatedDate = 'Just now';
+      initialPest.metaLine = `${trimmedType} · ${trimmedCrops} · Risk: ${trimmedRisk} · Updated Just now`;
+      initialPest.symptoms = visibleSymptoms || descriptionNotes || initialPest.symptoms;
+      initialPest.treatment = linkedOrganicTreatment || initialPest.treatment;
+
+      const idx = SAMPLE_PESTS.findIndex((p) => p.id === initialPest.id);
+      if (idx !== -1) {
+        SAMPLE_PESTS[idx] = { ...initialPest };
+      }
+      if (onSave) {
+        onSave(initialPest);
+      } else {
+        onBack();
+      }
+      return;
+    }
 
     const newPest: PestItem = {
       id: `PEST-${Math.floor(100 + Math.random() * 900)}`,
@@ -583,7 +623,7 @@ export function AddNewPestScreen({ onBack, onSave }: AddNewPestScreenProps) {
           >
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
-          <Text style={addStyles.headerTitle}>Add New Pest/Disease</Text>
+          <Text style={addStyles.headerTitle}>{isEditing ? 'Edit Pest/Disease' : 'Add New Pest/Disease'}</Text>
         </View>
       </View>
 
@@ -882,7 +922,7 @@ export function AddNewPestScreen({ onBack, onSave }: AddNewPestScreenProps) {
           onPress={handleSave}
           activeOpacity={0.85}
         >
-          <Text style={addStyles.saveBtnText}>Save</Text>
+          <Text style={addStyles.saveBtnText}>{isEditing ? 'Save Changes' : 'Save'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -915,6 +955,10 @@ export function AddNewPestScreen({ onBack, onSave }: AddNewPestScreenProps) {
       </Modal>
     </View>
   );
+}
+
+export function EditPestScreen(props: AddNewPestScreenProps) {
+  return <AddNewPestScreen {...props} isEditing={true} />;
 }
 
 // ─── Styles Strictly Derived from Admin Theme ─────────────────────────────────

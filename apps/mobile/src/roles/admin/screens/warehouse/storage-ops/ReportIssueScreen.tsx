@@ -143,83 +143,87 @@ export function ReportIssueScreen({
       }
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* Topic / Category Selector */}
-        <Text style={styles.labelTitle}>
-          Topic / Category <Text style={styles.requiredText}>Required</Text>
-        </Text>
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => {
-            setCategoryPickerOpen((prev) => !prev);
-            setIssueTypePickerOpen(false);
-            setLocationPickerOpen(false);
-          }}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-        >
-          <Text style={styles.dropdownText}>{category}</Text>
-          <ChevronDownIcon />
-        </TouchableOpacity>
+        {isSupport ? (
+          <>
+            {/* Topic / Category Selector */}
+            <Text style={styles.labelTitle}>
+              Topic / Category <Text style={styles.requiredText}>Required</Text>
+            </Text>
+            <TouchableOpacity
+              style={styles.dropdown}
+              onPress={() => {
+                setCategoryPickerOpen((prev) => !prev);
+                setIssueTypePickerOpen(false);
+                setLocationPickerOpen(false);
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <Text style={styles.dropdownText}>{category}</Text>
+              <ChevronDownIcon />
+            </TouchableOpacity>
 
-        {categoryPickerOpen ? (
-          <View style={styles.dropdownList}>
-            {categoriesList.map((item) => (
-              <TouchableOpacity
-                key={item}
-                style={[styles.dropdownOption, item === category && styles.dropdownOptionActive]}
-                onPress={() => {
-                  setCategory(item);
-                  setIssueType(undefined);
-                  setCategoryPickerOpen(false);
-                  setExpandedFaqId(null);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.dropdownOptionText, item === category && styles.dropdownOptionTextActive]}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
-
-        {/* RELATED Q&A FOR THE CHOSEN TOPIC */}
-        {relatedFaqs.length > 0 ? (
-          <View style={styles.faqSection}>
-            <View style={styles.faqHeaderRow}>
-              <Text style={styles.faqHeaderTitle}>RELATED Q&A FOR {category.toUpperCase()}</Text>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{relatedFaqs.length} FAQs</Text>
+            {categoryPickerOpen ? (
+              <View style={styles.dropdownList}>
+                {categoriesList.map((item) => (
+                  <TouchableOpacity
+                    key={item}
+                    style={[styles.dropdownOption, item === category && styles.dropdownOptionActive]}
+                    onPress={() => {
+                      setCategory(item);
+                      setIssueType(undefined);
+                      setCategoryPickerOpen(false);
+                      setExpandedFaqId(null);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dropdownOptionText, item === category && styles.dropdownOptionTextActive]}>{item}</Text>
+                  </TouchableOpacity>
+                ))}
               </View>
-            </View>
-            <Text style={styles.faqHeaderSub}>Check if these frequent questions solve your issue:</Text>
+            ) : null}
 
-            <View style={styles.faqList}>
-              {relatedFaqs.map((faq) => {
-                const expanded = expandedFaqId === faq.id;
-                return (
-                  <View key={faq.id} style={[styles.faqCard, expanded && styles.faqCardExpanded]}>
-                    <TouchableOpacity
-                      style={styles.faqRow}
-                      onPress={() => setExpandedFaqId(expanded ? null : faq.id)}
-                      activeOpacity={0.75}
-                      accessibilityRole="button"
-                    >
-                      <Text style={[styles.faqQuestion, expanded && styles.faqQuestionActive]}>{faq.question}</Text>
-                      <ChevronDownIcon size={16} color={expanded ? adminColors.brand : adminColors.muted} />
-                    </TouchableOpacity>
-                    {expanded ? (
-                      <View style={styles.faqAnswerBox}>
-                        <Text style={styles.faqAnswer}>{faq.answer}</Text>
-                      </View>
-                    ) : null}
+            {/* RELATED Q&A FOR THE CHOSEN TOPIC */}
+            {relatedFaqs.length > 0 ? (
+              <View style={styles.faqSection}>
+                <View style={styles.faqHeaderRow}>
+                  <Text style={styles.faqHeaderTitle}>RELATED Q&A FOR {category.toUpperCase()}</Text>
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{relatedFaqs.length} FAQs</Text>
                   </View>
-                );
-              })}
-            </View>
-          </View>
+                </View>
+                <Text style={styles.faqHeaderSub}>Check if these frequent questions solve your issue:</Text>
+
+                <View style={styles.faqList}>
+                  {relatedFaqs.map((faq) => {
+                    const expanded = expandedFaqId === faq.id;
+                    return (
+                      <View key={faq.id} style={[styles.faqCard, expanded && styles.faqCardExpanded]}>
+                        <TouchableOpacity
+                          style={styles.faqRow}
+                          onPress={() => setExpandedFaqId(expanded ? null : faq.id)}
+                          activeOpacity={0.75}
+                          accessibilityRole="button"
+                        >
+                          <Text style={[styles.faqQuestion, expanded && styles.faqQuestionActive]}>{faq.question}</Text>
+                          <ChevronDownIcon size={16} color={expanded ? adminColors.brand : adminColors.muted} />
+                        </TouchableOpacity>
+                        {expanded ? (
+                          <View style={styles.faqAnswerBox}>
+                            <Text style={styles.faqAnswer}>{faq.answer}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
+          </>
         ) : null}
 
         {/* Specific Issue Type */}
-        <Text style={[styles.labelTitle, { marginTop: adminSpacing.md }]}>
+        <Text style={isSupport ? [styles.labelTitle, { marginTop: adminSpacing.md }] : styles.labelTitle}>
           {isSupport ? 'Specific Issue' : 'Issue Type'} <Text style={styles.requiredText}>Required</Text>
         </Text>
         <TouchableOpacity
@@ -233,7 +237,7 @@ export function ReportIssueScreen({
           accessibilityRole="button"
         >
           <Text style={[styles.dropdownText, !issueType && styles.placeholder]}>
-            {issueType ?? 'Select specific issue'}
+            {issueType ?? (isSupport ? 'Select specific issue' : 'Select')}
           </Text>
           <ChevronDownIcon />
         </TouchableOpacity>
@@ -259,7 +263,7 @@ export function ReportIssueScreen({
         {/* Reference / Location */}
         <Text style={styles.labelTitle}>
           {isSupport ? 'Reference ID / Tag' : 'Location'}{' '}
-          <Text style={styles.optionalText}>Optional</Text>
+          <Text style={isSupport ? styles.optionalText : styles.requiredText}>{isSupport ? 'Optional' : 'Required'}</Text>
         </Text>
         {isSupport ? (
           <View style={styles.inputBox}>
@@ -315,7 +319,7 @@ export function ReportIssueScreen({
         <View style={styles.textAreaBox}>
           <TextInput
             style={styles.textArea}
-            placeholder="Enter issue details..."
+            placeholder={isSupport ? 'Enter issue details...' : 'Enter description'}
             placeholderTextColor={adminColors.placeholder}
             multiline
             numberOfLines={4}

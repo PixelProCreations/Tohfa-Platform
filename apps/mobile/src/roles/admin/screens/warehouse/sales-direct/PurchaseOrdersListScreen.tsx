@@ -282,7 +282,7 @@ export function PurchaseOrdersListScreen({
           const isReceiptInProgress = po.purchaseStatus === 'Receipt in progress';
 
           return (
-            <View key={po.id} style={styles.poCard}>
+            <TouchableOpacity key={po.id} style={styles.poCard} onPress={() => onSelectPO?.(po)} activeOpacity={0.8}>
               <View style={styles.poCardHeaderRow}>
                 <Text style={styles.poNumber}>{po.poNumber}</Text>
                 <View style={styles.badgesRow}>
@@ -373,7 +373,7 @@ export function PurchaseOrdersListScreen({
                   </TouchableOpacity>
                 )}
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
 

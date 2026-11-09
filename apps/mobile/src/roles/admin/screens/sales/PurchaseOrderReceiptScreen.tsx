@@ -84,7 +84,7 @@ export function PurchaseOrderReceiptScreen({
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Farmer</Text>
             <Text style={styles.detailValueBold}>
-              {order.farmerName} (FMR-00093)
+              {order.farmerName} (FMR-00098)
             </Text>
           </View>
 

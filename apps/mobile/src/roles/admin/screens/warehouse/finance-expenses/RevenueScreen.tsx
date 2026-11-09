@@ -30,6 +30,7 @@ import {
   ChipGroup,
   EmptyState,
   inScope,
+  InfoNote,
   isAllWarehouses,
   KpiRow,
   ScopeHeader,
@@ -222,7 +223,11 @@ export function RevenueScreen({
           ]}
         />
 
-
+        <View style={{ marginBottom: adminSpacing.sm }}>
+          <InfoNote tone="info">
+            Only channel categories that actually exist in the backend are shown here.
+          </InfoNote>
+        </View>
 
         {/* Category Filter Pills (Subwarehouse only - Main uses the full screen filter) */}
         {!isMain && (

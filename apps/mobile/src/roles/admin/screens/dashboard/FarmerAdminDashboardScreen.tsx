@@ -338,6 +338,27 @@ function StarRatingsIcon({ size = 24, color = adminColors.brand }: { size?: numb
   );
 }
 
+function LeafOutlineIcon({ size = 24, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 3c5 0 11 4 11 11a7 7 0 0 1-7 7C5 21 3 17 3 13 3 8 4 3 6 3z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3 21c3-4 7-7 14-8"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // ─── Bottom Tab Icons ────────────────────────────────────────────────────────
 
 function TabHomeIcon({ active }: { active: boolean }) {
@@ -2472,25 +2493,40 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'product_listings') {
     return (
       <ProduceListingsScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
+        onSelectFarmerDetails={(group: any, item: any) => {
+          const fullName = group?.farmerName?.includes('Kumar')
+            ? group.farmerName
+            : `${group?.farmerName || 'Ramesh'} Kumar`;
+          setActiveProduceFarmerName(fullName);
+          setActiveProduceFarmerId(group?.farmerId || 'FR-00241');
+          setActiveProduceZone(group?.zone || 'Coonoor');
+          pushNavigation({
+            subView: 'farmer_produce_detail',
+            activeProduceFarmerName: fullName,
+            activeProduceFarmerId: group?.farmerId || 'FR-00241',
+            activeProduceZone: group?.zone || 'Coonoor',
+          });
+        }}
         onSelectListing={(item: any) => {
           const fullName = item?.farmerName?.includes('Kumar')
             ? item.farmerName
             : `${item?.farmerName || 'Ramesh'} Kumar`;
           setActiveProduceFarmerName(fullName);
-          setActiveProduceFarmerId(item?.farmerId || 'FR-00124');
+          setActiveProduceFarmerId(item?.farmerId || 'FR-00241');
           setActiveProduceZone(item?.zone || 'Coonoor');
           setActiveProduceCrop(item?.crop || item?.title || 'Tomato');
           setActiveProduceGrade(item?.grade || 'Grade 1');
-          setActiveProduceQuantity(item?.quantityKg || 100);
+          setActiveProduceQuantity(item?.quantityKg || 50);
           pushNavigation({
             subView: 'produce_listing_details',
             activeProduceFarmerName: fullName,
-            activeProduceFarmerId: item?.farmerId || 'FR-00124',
+            activeProduceFarmerId: item?.farmerId || 'FR-00241',
             activeProduceZone: item?.zone || 'Coonoor',
             activeProduceCrop: item?.crop || item?.title || 'Tomato',
             activeProduceGrade: item?.grade || 'Grade 1',
-            activeProduceQuantity: item?.quantityKg || 100,
+            activeProduceQuantity: item?.quantityKg || 50,
           });
         }}
       />
@@ -2510,12 +2546,13 @@ export function FarmerAdminDashboardScreen({
         farmingMethod="Organic"
         quantityKg={activeProduceQuantity || 50}
         harvestDate="28 Sep 2026"
-        qualityInfo={`${activeProduceGrade || 'Grade 1'}, no visible defects`}
+        qualityInfo="Fresh harvest, firm texture, no pest damage"
         pricePerKg={100}
         fairPriceCeiling={105}
-        effectiveFrom="1 Sep 2026"
+        effectiveFrom="Today"
         showChips={false}
         showQuantityRequirement={false}
+        showReviewListingBtn={true}
         onBack={() => goBack()}
         onReviewListing={() => {
           pushNavigation({
@@ -2535,9 +2572,10 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'farmer_produce_detail') {
     return (
       <ProduceListingDetailsScreenAny
-        farmerName={activeProduceFarmerName}
-        farmerId={activeProduceFarmerId}
-        zone={activeProduceZone}
+        isFarmerProduceView={true}
+        farmerName={activeProduceFarmerName || 'Ramesh Kumar'}
+        farmerId={activeProduceFarmerId || 'FR-00241'}
+        zone={activeProduceZone || 'Coonoor'}
         farmingMethod="Organic"
         completedProduceNames={completedProduceNames}
         onBack={() => goBack()}
@@ -2548,16 +2586,24 @@ export function FarmerAdminDashboardScreen({
           });
         }}
         onNavigateToCounterOffer={(item: any, isApproved: any) => {
-          setActiveProduceCrop(item.name);
+          setActiveProduceCrop(item.name || item.crop);
           setActiveProduceGrade(item.grade);
           setActiveProduceQuantity(item.quantityKg);
           setActiveProduceApproved(isApproved);
           pushNavigation({
             subView: 'counter_offer',
-            activeProduceCrop: item.name,
+            activeProduceCrop: item.name || item.crop,
             activeProduceGrade: item.grade,
             activeProduceQuantity: item.quantityKg,
             activeProduceApproved: isApproved,
+          });
+        }}
+        onSelectListing={(item: any) => {
+          pushNavigation({
+            subView: 'produce_listing_details',
+            activeProduceCrop: item.crop || item.name,
+            activeProduceGrade: item.grade,
+            activeProduceQuantity: item.quantityKg,
           });
         }}
       />
@@ -2761,7 +2807,7 @@ export function FarmerAdminDashboardScreen({
   // If currently in Farmer Admin Activity subview
   if (subView === 'admin_activity') {
     return (
-      <AdminActivityLogsScreen onBack={() => goBack()} />
+      <AdminActivityLogsScreen role="FARMER_ADMIN" onBack={() => goBack()} />
     );
   }
 
@@ -3314,6 +3360,7 @@ export function FarmerAdminDashboardScreen({
   if (subView === 'farmer_ratings') {
     return (
       <FarmerRatingsScreen
+        role="FARMER_ADMIN"
         onBack={() => goBack()}
         onOpenNotifications={() => pushNavigation({ subView: 'notifications' })}
       />
@@ -3548,6 +3595,7 @@ export function FarmerAdminDashboardScreen({
                   <Text style={styles.attentionCardMeta}>
                     Farmer: Ramesh · Quantity: 50 KG · Listed Price: ₹100/KG
                   </Text>
+                  <Text style={styles.attentionActionLink}>Review Listing →</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -3573,6 +3621,7 @@ export function FarmerAdminDashboardScreen({
                   <Text style={styles.attentionCardMeta}>
                     Farmer: Kumar · Crop: Beans · Quantity: 75 KG · Requires response
                   </Text>
+                  <Text style={styles.attentionActionLink}>View →</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -3599,6 +3648,7 @@ export function FarmerAdminDashboardScreen({
                   <Text style={styles.attentionCardMeta}>
                     Farmer: Selvi · Zone: Coonoor · Date: 04 Oct 2026
                   </Text>
+                  <Text style={styles.attentionActionLink}>View Audit →</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -3622,6 +3672,7 @@ export function FarmerAdminDashboardScreen({
                 <View style={{ flex: 1 }}>
                   <Text style={styles.attentionCardTitle}>Farmer Dispute — DSP-00128</Text>
                   <Text style={styles.attentionCardMeta}>Farmer vs Farmer · Status: Open</Text>
+                  <Text style={styles.attentionActionLink}>View Dispute →</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -3736,8 +3787,14 @@ export function FarmerAdminDashboardScreen({
             </TouchableOpacity>
 
             {/* 7. Recent Farmer Admin Activity */}
-            <View style={{ marginTop: 22 }}>
+            <View style={{ marginTop: 22, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
               <Text style={styles.sectionTitle}>Recent Farmer Admin Activity</Text>
+              <TouchableOpacity
+                onPress={() => pushNavigation({ subView: 'admin_activity' })}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewLinkText}>View →</Text>
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -3760,7 +3817,7 @@ export function FarmerAdminDashboardScreen({
               <Text style={styles.bigOutlineBtnText}>View Activity</Text>
             </TouchableOpacity>
 
-            {/* 8. Quick Actions (Exact 6-Tile Grid from Image 4 Request) */}
+            {/* 8. Quick Actions (Exact 6-Tile Grid from Screenshot) */}
             <View style={{ marginTop: 24 }}>
               <Text style={styles.sectionTitle}>Quick Actions</Text>
             </View>
@@ -3796,9 +3853,9 @@ export function FarmerAdminDashboardScreen({
                 <Text style={styles.quickCardLabel}>Audit Calendar</Text>
               </TouchableOpacity>
 
-              {/* Row 2: Review Disputes (Single Full Row Tab) */}
+              {/* Row 2, Col 1: Review Disputes */}
               <TouchableOpacity
-                style={styles.quickCardFull}
+                style={styles.quickCard}
                 onPress={() => {
                   pushNavigation({
                     subView: 'disputes',
@@ -3809,6 +3866,26 @@ export function FarmerAdminDashboardScreen({
               >
                 <ExactScalesIcon size={24} color={adminColors.brand} />
                 <Text style={styles.quickCardLabel}>Review Disputes</Text>
+              </TouchableOpacity>
+
+              {/* Row 2, Col 2: Crop Breakdown */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() => pushNavigation({ subView: 'fair_price' })}
+                activeOpacity={0.75}
+              >
+                <LeafOutlineIcon size={24} color={adminColors.brand} />
+                <Text style={styles.quickCardLabel}>Crop Breakdown</Text>
+              </TouchableOpacity>
+
+              {/* Row 2, Col 3: Ratings */}
+              <TouchableOpacity
+                style={styles.quickCard}
+                onPress={() => pushNavigation({ subView: 'farmer_ratings' })}
+                activeOpacity={0.75}
+              >
+                <StarRatingsIcon size={24} color={adminColors.brand} />
+                <Text style={styles.quickCardLabel}>Ratings</Text>
               </TouchableOpacity>
             </View>
 
@@ -4317,6 +4394,11 @@ const styles = StyleSheet.create({
     ...adminType.rowTitle,
     color: adminColors.brandDeep,
     letterSpacing: -0.2,
+  },
+  viewLinkText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.brandDeep,
   },
   sectionSubMuted: {
     ...adminType.rowMeta,
