@@ -66,6 +66,13 @@ export const learningIdParams = z.object({
 }).strict();
 export type LearningIdParams = z.infer<typeof learningIdParams>;
 
+export const queryBoolean = z
+  .union([
+    z.boolean(),
+    z.enum(['true', 'false']).transform((v) => v === 'true'),
+  ])
+  .optional();
+
 // ── Articles ─────────────────────────────────────────────────────────────────
 
 export const listArticlesQuery = z.object({
@@ -75,6 +82,16 @@ export const listArticlesQuery = z.object({
   tag: z.string().trim().max(L.tag).optional(),
 }).strict();
 export type ListArticlesQuery = z.infer<typeof listArticlesQuery>;
+
+export const listAdminArticlesQuery = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  language: languageEnum.optional(),
+  tag: z.string().trim().max(L.tag).optional(),
+  isPublished: queryBoolean,
+  q: z.string().trim().min(1).max(80).optional(),
+}).strict();
+export type ListAdminArticlesQuery = z.infer<typeof listAdminArticlesQuery>;
 
 export const createArticleBody = z.object({
   title: requiredText(L.title),
@@ -128,6 +145,15 @@ export const listVideosQuery = z.object({
 }).strict();
 export type ListVideosQuery = z.infer<typeof listVideosQuery>;
 
+export const listAdminVideosQuery = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  language: languageEnum.optional(),
+  isPublished: queryBoolean,
+  q: z.string().trim().min(1).max(80).optional(),
+}).strict();
+export type ListAdminVideosQuery = z.infer<typeof listAdminVideosQuery>;
+
 export const createVideoBody = z.object({
   title: requiredText(L.title),
   description: optionalText(L.description),
@@ -175,6 +201,15 @@ export const listTrainingsQuery = z.object({
   language: languageEnum.optional(),
 }).strict();
 export type ListTrainingsQuery = z.infer<typeof listTrainingsQuery>;
+
+export const listAdminTrainingsQuery = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  language: languageEnum.optional(),
+  isPublished: queryBoolean,
+  q: z.string().trim().min(1).max(80).optional(),
+}).strict();
+export type ListAdminTrainingsQuery = z.infer<typeof listAdminTrainingsQuery>;
 
 export const createTrainingBody = z.object({
   title: requiredText(L.title),
@@ -232,8 +267,21 @@ export const listGroupsQuery = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   category: z.string().trim().max(L.tag).optional(),
+  q: z.string().trim().min(1).max(80).optional(),
 }).strict();
 export type ListGroupsQuery = z.infer<typeof listGroupsQuery>;
+
+export const groupSortEnum = z.enum(['members', 'name']);
+export type GroupSort = z.infer<typeof groupSortEnum>;
+
+export const listAdminGroupsQuery = z.object({
+  page: z.coerce.number().int().min(1).max(10000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  category: z.string().trim().max(L.tag).optional(),
+  q: z.string().trim().min(1).max(80).optional(),
+  sort: groupSortEnum.optional(),
+}).strict();
+export type ListAdminGroupsQuery = z.infer<typeof listAdminGroupsQuery>;
 
 export const createGroupBody = z.object({
   name: requiredText(L.person),

@@ -7592,7 +7592,7 @@ paths:
       tags: [Learning Hub]
       operationId: listLearningGroups
       summary: List community groups
-      description: Returns community groups with member counts and caller membership status (BR-59a, BR-59c).
+      description: Returns community groups with member counts and caller membership status (BR-59a, BR-59c, BR-59p).
       x-permission: farmer.learning.view
       x-business-rules: [BR-59]
       parameters:
@@ -7605,6 +7605,9 @@ paths:
         - name: category
           in: query
           schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
       responses:
         '200':
           description: Paginated community groups.
@@ -7614,6 +7617,32 @@ paths:
                 $ref: '#/components/schemas/LearningGroupsListResponse'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /farmers/me/learning/groups/{id}:
+    get:
+      tags: [Learning Hub]
+      operationId: getFarmerLearningGroup
+      summary: Get community group details
+      description: Returns group details with caller membership status (BR-59o).
+      x-permission: farmer.learning.view
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Community group details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroup'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me/learning/groups/{id}/join:
@@ -7663,6 +7692,43 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/articles:
+    get:
+      tags: [Learning Hub]
+      operationId: listAdminLearningArticles
+      summary: List learning articles (admin)
+      description: Returns paginated learning articles for administrators, including unpublished articles, with optional language, publication, tag, and search filters (BR-59l, BR-59n).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: language
+          in: query
+          schema: { type: string, enum: [en, ta] }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: isPublished
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '200':
+          description: Paginated articles list for admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningArticlesListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Learning Hub]
       operationId: createLearningArticle
@@ -7689,6 +7755,29 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/articles/{id}:
+    get:
+      tags: [Learning Hub]
+      operationId: getAdminLearningArticle
+      summary: Get learning article details (admin)
+      description: Returns full content of a learning article, including unpublished articles (BR-59m).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Article details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningArticle'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Learning Hub]
       operationId: updateLearningArticle
@@ -7740,6 +7829,40 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/videos:
+    get:
+      tags: [Learning Hub]
+      operationId: listAdminLearningVideos
+      summary: List educational videos (admin)
+      description: Returns paginated educational videos for administrators, including unpublished videos, with optional language, publication, and search filters (BR-59l, BR-59n).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: language
+          in: query
+          schema: { type: string, enum: [en, ta] }
+        - name: isPublished
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '200':
+          description: Paginated videos list for admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningVideosListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Learning Hub]
       operationId: createLearningVideo
@@ -7766,6 +7889,29 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/videos/{id}:
+    get:
+      tags: [Learning Hub]
+      operationId: getAdminLearningVideo
+      summary: Get educational video details (admin)
+      description: Returns details of an educational video entry, including unpublished videos (BR-59m).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Video details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningVideo'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Learning Hub]
       operationId: updateLearningVideo
@@ -7817,6 +7963,40 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/trainings:
+    get:
+      tags: [Learning Hub]
+      operationId: listAdminLearningTrainings
+      summary: List training workshops (admin)
+      description: Returns paginated training workshops for administrators, including unpublished trainings, with optional language, publication, and search filters (BR-59l, BR-59n).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: language
+          in: query
+          schema: { type: string, enum: [en, ta] }
+        - name: isPublished
+          in: query
+          schema: { type: boolean }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '200':
+          description: Paginated training workshops list for admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTrainingsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Learning Hub]
       operationId: createLearningTraining
@@ -7843,6 +8023,29 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/trainings/{id}:
+    get:
+      tags: [Learning Hub]
+      operationId: getAdminLearningTraining
+      summary: Get training workshop details (admin)
+      description: Returns details of a training workshop, including unpublished trainings (BR-59m).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Training workshop details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningTraining'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Learning Hub]
       operationId: updateLearningTraining
@@ -7895,6 +8098,40 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/groups:
+    get:
+      tags: [Learning Hub]
+      operationId: listAdminLearningGroups
+      summary: List community groups (admin)
+      description: Returns paginated community groups for administrators with optional category, search, and sorting (BR-59l, BR-59n).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: category
+          in: query
+          schema: { type: string }
+        - name: q
+          in: query
+          schema: { type: string, minLength: 1, maxLength: 80 }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [members, name] }
+      responses:
+        '200':
+          description: Paginated community groups for admin.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroupsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
     post:
       tags: [Learning Hub]
       operationId: createLearningGroup
@@ -7921,6 +8158,29 @@ paths:
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/learning/groups/{id}:
+    get:
+      tags: [Learning Hub]
+      operationId: getAdminLearningGroup
+      summary: Get community group details (admin)
+      description: Returns details of a community group (BR-59m).
+      x-permission: learning.admin.manage
+      x-business-rules: [BR-59]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Community group details.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LearningGroup'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
     patch:
       tags: [Learning Hub]
       operationId: updateLearningGroup
