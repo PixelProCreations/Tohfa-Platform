@@ -1351,6 +1351,21 @@
       "source": "inferred \u2014 the customer catalog cannot render without it"
     },
     {
+      "code": "market.schedule.manage",
+      "module": "Market & Pricing",
+      "description": "Configure and manage scheduled automated market open and close windows (SA-M2-S02 / SA-M2-S03).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "SA-M2-S02 / SA-M2-S03 Market Control"
+    },
+    {
       "code": "listing.create_own",
       "module": "Market & Pricing",
       "description": "Create a produce listing (grade 1/2/3/reject) at or below the ceiling.",

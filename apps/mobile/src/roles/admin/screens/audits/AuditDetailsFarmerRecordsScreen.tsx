@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -18,6 +19,8 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { PencilEditIcon } from '../../components/AdminIcons';
+import type { Can } from '../../permissions/can';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -136,16 +139,20 @@ export interface CertDocInfo {
 }
 
 export interface AuditDetailsFarmerRecordsScreenProps {
-  auditId?: string;
+  auditId?: string | undefined;
+  can?: Can | undefined;
+  role?: string | undefined;
   onBack: () => void;
-  onEditSchedule?: () => void;
-  onReschedule?: () => void;
-  onCancelSchedule?: () => void;
-  onOpenFarmerProfile?: () => void;
+  onEditSchedule?: (() => void) | undefined;
+  onReschedule?: (() => void) | undefined;
+  onCancelSchedule?: (() => void) | undefined;
+  onOpenFarmerProfile?: ((farmerId?: string) => void) | undefined;
 }
 
 export function AuditDetailsFarmerRecordsScreen({
   auditId = 'AUD-2026-0034',
+  can,
+  role,
   onBack,
   onEditSchedule,
   onReschedule,
@@ -155,38 +162,13 @@ export function AuditDetailsFarmerRecordsScreen({
   // Top level segmented tabs
   const [topTab, setTopTab] = useState<'details' | 'inspection'>('details');
 
-  // Horizontal sub-navigation tabs matching all 7 sections
-  const [activeSubTab, setActiveSubTab] = useState<AuditDetailSubTab>('Overview');
-  const subPillsScrollRef = React.useRef<ScrollView>(null);
-
-  const activeTabIndex = SUB_TABS.indexOf(activeSubTab);
-
-  const selectSubTab = (index: number) => {
-    const nextTab = SUB_TABS[index];
-    if (nextTab) {
-      setActiveSubTab(nextTab);
-      subPillsScrollRef.current?.scrollTo({
-        x: Math.max(0, index * 105 - 30),
-        animated: true,
-      });
-    }
-  };
-
-  const handlePrevSubTab = () => {
-    if (activeTabIndex > 0) {
-      selectSubTab(activeTabIndex - 1);
-    }
-  };
-
-  const handleNextSubTab = () => {
-    if (activeTabIndex < SUB_TABS.length - 1) {
-      selectSubTab(activeTabIndex + 1);
-    }
-  };
-
-  const thumbWidthPercent = 38;
-  const maxOffsetPercent = 100 - thumbWidthPercent;
-  const thumbLeftPercent = (activeTabIndex / (SUB_TABS.length - 1)) * maxOffsetPercent;
+  // Red-flag state matching Image 3, 4, 5
+  const [showRedFlagModal, setShowRedFlagModal] = useState(false);
+  const [redFlagMinor, setRedFlagMinor] = useState(false);
+  const [redFlagMajor, setRedFlagMajor] = useState(false);
+  const [redFlagReason, setRedFlagReason] = useState('');
+  const [isFlagged, setIsFlagged] = useState(false);
+  const [flagReason, setFlagReason] = useState('Water ph not good');
 
   // Certification Document Popup State
   const [selectedDoc, setSelectedDoc] = useState<CertDocInfo | null>(null);
@@ -236,7 +218,7 @@ export function AuditDetailsFarmerRecordsScreen({
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ── Header Banner Matching Image 2 ── */}
+      {/* ── Header Banner Matching Image 1 ── */}
       <View style={styles.headerBanner}>
         <View style={styles.headerRow}>
           <TouchableOpacity style={styles.headerBackBtn} onPress={onBack} activeOpacity={0.7} accessibilityRole="button">
@@ -251,6 +233,18 @@ export function AuditDetailsFarmerRecordsScreen({
               {topTab === 'inspection' ? 'Meena · Scheduled' : 'Selvi · Coonoor, Zone A · Scheduled'}
             </Text>
           </View>
+
+          {onEditSchedule && (
+            <TouchableOpacity
+              style={styles.headerEditBtn}
+              onPress={onEditSchedule}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Edit schedule"
+            >
+              <PencilEditIcon size={20} color={adminColors.onBrand} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -341,409 +335,466 @@ export function AuditDetailsFarmerRecordsScreen({
 
         {topTab === 'details' ? (
           <>
-            {/* ── Horizontal Navigation Pills with Slider Indicator Matching Screenshot ── */}
-            <View style={styles.subPillsScrollContainer}>
-              <ScrollView
-                ref={subPillsScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.subPillsRow}
-              >
-                {SUB_TABS.map((tab, idx) => {
-                  const isActive = activeSubTab === tab;
-                  return (
-                    <TouchableOpacity
-                      key={tab}
-                      style={[styles.subPill, isActive && styles.subPillActive]}
-                      onPress={() => selectSubTab(idx)}
-                      activeOpacity={0.7}
-                      accessibilityRole="tab"
-                      accessibilityState={{ selected: isActive }}
-                    >
-                      <Text style={[styles.subPillText, isActive && styles.subPillTextActive]}>
-                        {tab}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+            {/* ── SECTION 1: Overview (Image 1) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Overview</Text>
 
-              {/* ── Slider Indicator with < and > Arrows ── */}
-              <View style={styles.sliderControlRow}>
-                <TouchableOpacity
-                  style={styles.sliderArrowBtn}
-                  onPress={handlePrevSubTab}
-                  disabled={activeTabIndex === 0}
-                  activeOpacity={0.6}
-                  accessibilityRole="button"
-                  accessibilityLabel="Previous tab"
-                >
-                  <ArrowLeftTriangleIcon color={activeTabIndex === 0 ? adminColors.border : adminColors.muted} />
-                </TouchableOpacity>
+              <View style={styles.cardContainer}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Schedule</Text>
+                  <Text style={styles.tableValue}>16 Oct 2026, 10:00 · 120 min</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                <View style={styles.sliderTrack}>
-                  <View
-                    style={[
-                      styles.sliderThumb,
-                      {
-                        width: `${thumbWidthPercent}%`,
-                        left: `${thumbLeftPercent}%`,
-                      },
-                    ]}
-                  />
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Audit type</Text>
+                  <Text style={styles.tableValue}>Internal</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Status</Text>
+                  <Text style={styles.tableValue}>Cancelled</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Purpose</Text>
+                  <Text style={styles.tableValue}>Quarterly audit</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Quarter</Text>
+                  <Text style={styles.tableValue}>Q4 2026</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Lead auditor</Text>
+                  <Text style={styles.tableValue}>Priya Nair</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>External organization</Text>
+                  <Text style={styles.tableValue}>—</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Notes</Text>
+                  <Text style={styles.tableValue}>—</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ── SECTION 2: Farmer (Image 1) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Farmer</Text>
+
+              <View style={styles.cardContainer}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Name</Text>
+                  <Text style={styles.tableValue}>Ramesh Kumar</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Farmer ID</Text>
+                  <Text style={styles.tableValue}>FMR-00124</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Farming type</Text>
+                  <Text style={styles.tableValue}>Natural</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Zone</Text>
+                  <Text style={styles.tableValue}>Coonoor</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Registered</Text>
+                  <Text style={styles.tableValue}>10 Jan 2026</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Contact</Text>
+                  <Text style={styles.tableValue}>+91 90000 20000</Text>
+                </View>
+
+                <View style={styles.linksRow}>
+                  <TouchableOpacity onPress={() => onOpenFarmerProfile?.('FMR-00124')} activeOpacity={0.7}>
+                    <Text style={styles.boldBrownLink}>Open farmer profile</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity onPress={() => openCertModal('External Audit')} activeOpacity={0.7}>
+                    <Text style={styles.boldBrownLink}>External audit records</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <Text style={styles.sectionCaption}>Read from Farmers Management; nothing is copied here.</Text>
+            </View>
+
+            {/* ── SECTION 3: Farm & Land (Image 2) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Farm & Land</Text>
+
+              <View style={styles.cardContainer}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Farm location</Text>
+                  <Text style={styles.tableValue}>Demo plot, Coonoor</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>FMB sketch</Text>
+                  <Text style={styles.tableValue}>fmb-sketch-1.pdf</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Plot PLT-00124-1</Text>
+                  <Text style={styles.tableValue}>1 acre</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Plot PLT-00124-2</Text>
+                  <Text style={styles.tableValue}>0.5 acre</Text>
+                </View>
+              </View>
+              <Text style={styles.sectionCaption}>Land information is shown as recorded in Farmers Management.</Text>
+            </View>
+
+            {/* ── SECTION 4: Certifications (Image 2) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Certifications</Text>
+
+              <View style={styles.cardContainer}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Certification type</Text>
+                  <Text style={styles.tableValue}>PGS Organic</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Status</Text>
+                  <Text style={styles.tableValue}>Expired</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Certified date</Text>
+                  <Text style={styles.tableValue}>24 Sep 2025</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Renewal / expiry date</Text>
+                  <Text style={styles.tableValue}>24 Sep 2026</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Document reference</Text>
+                  <Text style={styles.tableValue}>CERT-2026-300</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Verification status</Text>
+                  <Text style={styles.tableValue}>Verified</Text>
                 </View>
 
                 <TouchableOpacity
-                  style={styles.sliderArrowBtn}
-                  onPress={handleNextSubTab}
-                  disabled={activeTabIndex === SUB_TABS.length - 1}
-                  activeOpacity={0.6}
-                  accessibilityRole="button"
-                  accessibilityLabel="Next tab"
+                  style={styles.singleLinkContainer}
+                  onPress={() => openCertModal('PGS Organic Certificate')}
+                  activeOpacity={0.7}
                 >
-                  <ArrowRightTriangleIcon color={activeTabIndex === SUB_TABS.length - 1 ? adminColors.border : adminColors.muted} />
+                  <Text style={styles.boldBrownLink}>Open certification record</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.sectionCaption}>An external audit report is kept separately and does not change this certification.</Text>
+
+              {/* Document 1: FMB Sketch with View Button */}
+              <View style={styles.documentCard}>
+                <View style={styles.docLeftCol}>
+                  <DocumentFileIcon />
+                  <View style={styles.docTextGroup}>
+                    <Text style={styles.docTitle}>FMB Sketch</Text>
+                    <Text style={styles.docSub}>On file</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.viewDocBtn}
+                  onPress={() => openCertModal('FMB Sketch')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewDocBtnText}>View</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Document 2: PGS Organic Certificate with View Button */}
+              <View style={styles.documentCard}>
+                <View style={styles.docLeftCol}>
+                  <DocumentFileIcon />
+                  <View style={styles.docTextGroup}>
+                    <Text style={styles.docTitle}>PGS Organic Certificate</Text>
+                    <Text style={styles.docSub}>On file</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.viewDocBtn}
+                  onPress={() => openCertModal('PGS Organic Certificate')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewDocBtnText}>View</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* External Audit Document Section */}
+              <Text style={styles.subSectionHeading}>External Audit Document</Text>
+              <View style={styles.documentCard}>
+                <View style={styles.docLeftCol}>
+                  <DocumentFileIcon />
+                  <View style={styles.docTextGroup}>
+                    <Text style={styles.docTitle}>External Audit</Text>
+                    <Text style={styles.docSub}>On file</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.viewDocBtn}
+                  onPress={() => openCertModal('External Audit')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewDocBtnText}>View</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-            {/* ── SECTION 1: Overview ── */}
-            {activeSubTab === 'Overview' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Overview</Text>
+            {/* ── SECTION 5: Previous Audits (Image 2) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Previous Audits</Text>
+              <View style={styles.previousAuditsList}>
+                <View style={styles.prevAuditCard}>
+                  <Text style={styles.prevAuditTitle}>AUD-2026-0003 · External</Text>
+                  <Text style={styles.prevAuditMeta}>24 Jul 2026 · 1 major, 1 minor</Text>
+                  <Text style={styles.prevAuditStatus}>Audit completed as scheduled.</Text>
+                </View>
 
-                <View style={styles.cardContainer}>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Schedule</Text>
-                    <Text style={styles.tableValue}>16 Oct 2026, 10:00 · 120 min</Text>
+                <View style={styles.prevAuditCard}>
+                  <View style={styles.prevAuditTopRow}>
+                    <Text style={styles.prevAuditTitle}>AUD-2026-0002 · Internal</Text>
+                    <Text style={styles.prevAuditScore}>87/100</Text>
                   </View>
-                  <View style={styles.tableDivider} />
+                  <Text style={styles.prevAuditMeta}>21 Apr 2026 · 1 major, 1 minor</Text>
+                  <Text style={styles.prevAuditStatus}>Audit completed as scheduled.</Text>
+                </View>
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Audit type</Text>
-                    <Text style={styles.tableValue}>Internal</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Status</Text>
-                    <Text style={styles.tableValue}>Cancelled</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Purpose</Text>
-                    <Text style={styles.tableValue}>Quarterly audit</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Quarter</Text>
-                    <Text style={styles.tableValue}>Q4 2026</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Lead auditor</Text>
-                    <Text style={styles.tableValue}>Priya Nair</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>External organization</Text>
-                    <Text style={styles.tableValue}>—</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Notes</Text>
-                    <Text style={styles.tableValue}>—</Text>
-                  </View>
+                <View style={styles.prevAuditCard}>
+                  <Text style={styles.prevAuditTitle}>AUD-2026-0001 · External</Text>
+                  <Text style={styles.prevAuditMeta}>18 Jan 2026 · 1 major, 1 minor</Text>
+                  <Text style={styles.prevAuditStatus}>Audit completed as scheduled.</Text>
                 </View>
               </View>
-            )}
+            </View>
 
-            {/* ── SECTION 2: Farmer ── */}
-            {activeSubTab === 'Farmer' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Farmer</Text>
+            {/* ── SECTION 6: Documents (Image 3) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Documents</Text>
+              <View style={styles.cardContainer}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Farmer record</Text>
+                  <Text style={styles.tableValue}>Identity proof</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                <View style={styles.cardContainer}>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Name</Text>
-                    <Text style={styles.tableValue}>Ramesh Kumar</Text>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Farmer record</Text>
+                  <Text style={styles.tableValue}>Land ownership proof</Text>
+                </View>
+                <View style={styles.tableDivider} />
+
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Farmer record</Text>
+                  <Text style={styles.tableValue}>Soil report</Text>
+                </View>
+              </View>
+              <Text style={styles.sectionCaption}>Farmer records are read from Farmers Management. Audit evidence is attached during the inspection.</Text>
+            </View>
+
+            {/* ── SECTION 7: Category Scores (Image 3) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Category Scores</Text>
+              <View style={styles.cardContainer}>
+                {[
+                  { name: 'Certification & Compliance', score: '8/10' },
+                  { name: 'Soil & Land Management', score: '7/10' },
+                  { name: 'Farming Practices', score: '8/10' },
+                  { name: 'Environmental Sustainability', score: '7/10' },
+                  { name: 'Produce Quality & Yield', score: '8/10' },
+                  { name: 'Traceability & Transparency', score: '9/10' },
+                  { name: 'Social & Labor Practices', score: '7/10' },
+                  { name: 'Financial & Operational', score: '8/10' },
+                  { name: 'Market & Buyer Relations', score: '8/10' },
+                  { name: 'Innovation & Improvement', score: '8/10' },
+                ].map((item, idx, arr) => (
+                  <React.Fragment key={item.name}>
+                    <View style={styles.tableRow}>
+                      <Text style={styles.tableLabel}>{item.name}</Text>
+                      <Text style={styles.tableValue}>{item.score}</Text>
+                    </View>
+                    {idx < arr.length - 1 && <View style={styles.tableDivider} />}
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
+
+            {/* ── SECTION 8: Corrective actions (Image 3) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Corrective actions</Text>
+              <View style={styles.cardContainer}>
+                <View style={styles.correctiveActionTopRow}>
+                  <Text style={styles.correctiveActionCode}>CA-2026-0001</Text>
+                  <View style={styles.closedBadge}>
+                    <Text style={styles.closedBadgeText}>Closed</Text>
                   </View>
-                  <View style={styles.tableDivider} />
+                </View>
+                <Text style={styles.correctiveActionMeta}>
+                  Audit AUD-2026-0001 · Finding FND-2026-0002
+                </Text>
+                <Text style={styles.correctiveActionMeta}>
+                  Correct: produce quality
+                </Text>
+                <Text style={styles.correctiveActionMeta}>
+                  Responsible Ramesh Kumar · Due 17 Feb 2026
+                </Text>
+                <Text style={styles.correctiveActionMeta}>
+                  Completion evidence completion-1.jpg
+                </Text>
+                <Text style={styles.correctiveActionMeta}>
+                  Review outcome Accepted · Closed 14 Feb 2026
+                </Text>
+              </View>
+            </View>
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Farmer ID</Text>
-                    <Text style={styles.tableValue}>FMR-00124</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
+            {/* ── SECTION 9: Red flag (Image 3) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Red flag</Text>
+              <View style={styles.cardContainer}>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Status</Text>
+                  <Text style={styles.tableValue}>{isFlagged ? 'Red-flagged' : 'Not flagged'}</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Farming type</Text>
-                    <Text style={styles.tableValue}>Natural</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Reason</Text>
+                  <Text style={styles.tableValue}>{isFlagged ? flagReason : '—'}</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Zone</Text>
-                    <Text style={styles.tableValue}>Coonoor</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Action taken by</Text>
+                  <Text style={styles.tableValue}>TOHFA Admin</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Registered</Text>
-                    <Text style={styles.tableValue}>10 Jan 2026</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Timestamp</Text>
+                  <Text style={styles.tableValue}>14 Oct 2026, 10:00</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Contact</Text>
-                    <Text style={styles.tableValue}>+91 90000 20000</Text>
-                  </View>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Minor Findings</Text>
+                  <Text style={styles.tableValue}>1</Text>
+                </View>
+                <View style={styles.tableDivider} />
 
-                  <View style={styles.linksRow}>
-                    <TouchableOpacity onPress={onOpenFarmerProfile} activeOpacity={0.7}>
-                      <Text style={styles.boldBrownLink}>Open farmer profile</Text>
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableLabel}>Major findings</Text>
+                  <Text style={styles.tableValue}>0</Text>
+                </View>
+
+                {/* Log history cards */}
+                <View style={styles.redFlagHistoryCard}>
+                  <Text style={styles.redFlagHistoryMeta}>14 Oct 2026, 10:00 · TOHFA Admin</Text>
+                  <Text style={styles.redFlagHistoryTitle}>Red-flagged: Water ph not good</Text>
+                  <View style={styles.redFlagActionBtnRow}>
+                    <TouchableOpacity
+                      style={styles.flagEditBtn}
+                      onPress={() => setShowRedFlagModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.flagEditBtnText}>Edit</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => openCertModal('External Audit')} activeOpacity={0.7}>
-                      <Text style={styles.boldBrownLink}>External audit records</Text>
+                    <TouchableOpacity
+                      style={styles.flagClearBtn}
+                      onPress={() => setIsFlagged(false)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.flagClearBtnText}>Clear flag</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-                <Text style={styles.sectionCaption}>Read from Farmers Management; nothing is copied here.</Text>
-              </View>
-            )}
 
-            {/* ── SECTION 3: Farm & Land ── */}
-            {activeSubTab === 'Farm & Land' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Farm & Land</Text>
-
-                <View style={styles.cardContainer}>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Farm location</Text>
-                    <Text style={styles.tableValue}>Demo plot, Coonoor</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>FMB sketch</Text>
-                    <Text style={styles.tableValue}>fmb-sketch-1.pdf</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Plot PLT-00124-1</Text>
-                    <Text style={styles.tableValue}>1 acre</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Plot PLT-00124-2</Text>
-                    <Text style={styles.tableValue}>0.5 acre</Text>
-                  </View>
-                </View>
-                <Text style={styles.sectionCaption}>Land information is shown as recorded in Farmers Management.</Text>
-              </View>
-            )}
-
-            {/* ── SECTION 4: Certifications ── */}
-            {activeSubTab === 'Certifications' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Certifications</Text>
-
-                {/* Primary Certification Card */}
-                <View style={styles.cardContainer}>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Certification type</Text>
-                    <Text style={styles.tableValue}>PGS Organic</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Status</Text>
-                    <Text style={styles.tableValue}>Expired</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Certified date</Text>
-                    <Text style={styles.tableValue}>24 Sep 2025</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Renewal / expiry date</Text>
-                    <Text style={styles.tableValue}>24 Sep 2026</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Document reference</Text>
-                    <Text style={styles.tableValue}>CERT-2026-300</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Verification status</Text>
-                    <Text style={styles.tableValue}>Verified</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.singleLinkContainer}
-                    onPress={() => openCertModal('PGS Organic Certificate')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.boldBrownLink}>Open certification record</Text>
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.sectionCaption}>An external audit report is kept separately and does not change this certification.</Text>
-
-                {/* Document 1: FMB Sketch with View Button */}
-                <View style={styles.documentCard}>
-                  <View style={styles.docLeftCol}>
-                    <DocumentFileIcon />
-                    <View style={styles.docTextGroup}>
-                      <Text style={styles.docTitle}>FMB Sketch</Text>
-                      <Text style={styles.docSub}>On file</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.viewDocBtn}
-                    onPress={() => openCertModal('FMB Sketch')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.viewDocBtnText}>View</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Document 2: PGS Organic Certificate with View Button */}
-                <View style={styles.documentCard}>
-                  <View style={styles.docLeftCol}>
-                    <DocumentFileIcon />
-                    <View style={styles.docTextGroup}>
-                      <Text style={styles.docTitle}>PGS Organic Certificate</Text>
-                      <Text style={styles.docSub}>On file</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.viewDocBtn}
-                    onPress={() => openCertModal('PGS Organic Certificate')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.viewDocBtnText}>View</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* External Audit Document Section */}
-                <Text style={styles.subSectionHeading}>External Audit Document</Text>
-                <View style={styles.documentCard}>
-                  <View style={styles.docLeftCol}>
-                    <DocumentFileIcon />
-                    <View style={styles.docTextGroup}>
-                      <Text style={styles.docTitle}>External Audit</Text>
-                      <Text style={styles.docSub}>On file</Text>
-                    </View>
-                  </View>
-
-                  <TouchableOpacity
-                    style={styles.viewDocBtn}
-                    onPress={() => openCertModal('External Audit')}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.viewDocBtnText}>View</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-
-            {/* ── SECTION 5: Previous Audits ── */}
-            {activeSubTab === 'Previous Audits' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Previous Audits</Text>
-                <View style={styles.previousAuditsList}>
-                  {/* Prev 1 */}
-                  <View style={styles.prevAuditCard}>
-                    <Text style={styles.prevAuditTitle}>AUD-2026-0003 · External</Text>
-                    <Text style={styles.prevAuditMeta}>24 Jul 2026 · 1 major, 1 minor</Text>
-                    <Text style={styles.prevAuditStatus}>Audit completed as scheduled.</Text>
-                  </View>
-
-                  {/* Prev 2 with Score */}
-                  <View style={styles.prevAuditCard}>
-                    <View style={styles.prevAuditTopRow}>
-                      <Text style={styles.prevAuditTitle}>AUD-2026-0002 · Internal</Text>
-                      <Text style={styles.prevAuditScore}>87/100</Text>
-                    </View>
-                    <Text style={styles.prevAuditMeta}>21 Apr 2026 · 1 major, 1 minor</Text>
-                    <Text style={styles.prevAuditStatus}>Audit completed as scheduled.</Text>
-                  </View>
-
-                  {/* Prev 3 */}
-                  <View style={styles.prevAuditCard}>
-                    <Text style={styles.prevAuditTitle}>AUD-2026-0001 · External</Text>
-                    <Text style={styles.prevAuditMeta}>18 Jan 2026 · 1 major, 1 minor</Text>
-                    <Text style={styles.prevAuditStatus}>Audit completed as scheduled.</Text>
+                <View style={styles.redFlagHistoryCard}>
+                  <Text style={styles.redFlagHistoryMeta}>14 Oct 2026, 10:00 · TOHFA Admin</Text>
+                  <Text style={styles.redFlagHistoryTitle}>Red-flagged:</Text>
+                  <View style={styles.redFlagActionBtnRow}>
+                    <TouchableOpacity
+                      style={styles.flagEditBtn}
+                      onPress={() => setShowRedFlagModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.flagEditBtnText}>Edit</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
-            )}
 
-            {/* ── SECTION 6: Documents ── */}
-            {activeSubTab === 'Documents' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Documents</Text>
-                <View style={styles.cardContainer}>
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Farmer record</Text>
-                    <Text style={styles.tableValue}>Identity proof</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
+              <TouchableOpacity
+                style={styles.redFlagDashedBtn}
+                onPress={() => setShowRedFlagModal(true)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.redFlagDashedBtnText}>Red-flag Audit</Text>
+              </TouchableOpacity>
+            </View>
 
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Farmer record</Text>
-                    <Text style={styles.tableValue}>Land ownership proof</Text>
-                  </View>
-                  <View style={styles.tableDivider} />
-
-                  <View style={styles.tableRow}>
-                    <Text style={styles.tableLabel}>Farmer record</Text>
-                    <Text style={styles.tableValue}>Soil report</Text>
-                  </View>
+            {/* ── SECTION 10: Activity (Image 4) ── */}
+            <View style={styles.sectionBlock}>
+              <Text style={styles.sectionHeading}>Activity</Text>
+              <View style={styles.activityList}>
+                <View style={styles.activityCard}>
+                  <Text style={styles.activityMeta}>14 Oct 2026, 10:00 · Demo TOHFA Admin</Text>
+                  <Text style={styles.activityState}>Cancelled</Text>
+                  <Text style={styles.activityNote}>hihhvih</Text>
                 </View>
-                <Text style={styles.sectionCaption}>Farmer records are read from Farmers Management. Audit evidence is attached during the inspection.</Text>
-              </View>
-            )}
 
-            {/* ── SECTION 7: Activity ── */}
-            {activeSubTab === 'Activity' && (
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionHeading}>Activity</Text>
-                <View style={styles.activityList}>
-                  <View style={styles.activityCard}>
-                    <Text style={styles.activityMeta}>14 Oct 2026, 10:00 · Demo TOHFA Admin</Text>
-                    <Text style={styles.activityState}>Cancelled</Text>
-                    <Text style={styles.activityNote}>hihhvih</Text>
-                  </View>
+                <View style={styles.activityCard}>
+                  <Text style={styles.activityMeta}>26 Sep 2026, 09:00 · Demo TOHFA Admin</Text>
+                  <Text style={styles.activityState}>Scheduled</Text>
+                  <Text style={styles.activityNote}>Audit scheduled for 16 Oct 2026</Text>
+                </View>
 
-                  <View style={styles.activityCard}>
-                    <Text style={styles.activityMeta}>26 Sep 2026, 09:00 · Demo TOHFA Admin</Text>
-                    <Text style={styles.activityState}>Scheduled</Text>
-                    <Text style={styles.activityNote}>Audit scheduled for 16 Oct 2026</Text>
-                  </View>
-
-                  <View style={styles.historyNoticeCard}>
-                    <LockHistoryIcon />
-                    <Text style={styles.historyNoticeText}>The history is append-only.</Text>
-                  </View>
+                <View style={styles.historyNoticeCard}>
+                  <LockHistoryIcon />
+                  <Text style={styles.historyNoticeText}>The history is append-only.</Text>
                 </View>
               </View>
-            )}
+            </View>
           </>
         ) : (
           /* ── INSPECTION & FINDINGS TAB CONTENT (Images 1 - 4) ── */
@@ -1018,6 +1069,114 @@ export function AuditDetailsFarmerRecordsScreen({
             >
               <Text style={styles.modalBottomCloseBtnText}>Close</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          M3-S03a · RED-FLAG POPUP MODAL (Matching Image 5)
+         ════════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={showRedFlagModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRedFlagModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowRedFlagModal(false)}
+          />
+
+          <View style={styles.redFlagSheet}>
+            <Text style={styles.redFlagSheetTitle}>Red-flag this audit?</Text>
+
+            {/* Audit info box */}
+            <View style={styles.redFlagAuditBox}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Audit</Text>
+                <Text style={styles.redFlagBoldVal}>{auditId}</Text>
+              </View>
+              <View style={styles.tableDivider} />
+
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Farm</Text>
+                <Text style={styles.redFlagBoldVal}>Ramesh Kumar Farm</Text>
+              </View>
+              <View style={styles.tableDivider} />
+
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Minor Findings</Text>
+                <Text style={styles.redFlagBoldVal}>1</Text>
+              </View>
+              <View style={styles.tableDivider} />
+
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Major Findings</Text>
+                <Text style={styles.redFlagBoldVal}>0</Text>
+              </View>
+            </View>
+
+            {/* Checkboxes */}
+            <View style={styles.checkboxRow}>
+              <TouchableOpacity
+                style={styles.checkboxItem}
+                onPress={() => setRedFlagMinor(!redFlagMinor)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkboxBox, redFlagMinor && styles.checkboxBoxChecked]}>
+                  {redFlagMinor && <Text style={styles.checkboxCheckmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>Minor Findings</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.checkboxItem}
+                onPress={() => setRedFlagMajor(!redFlagMajor)}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkboxBox, redFlagMajor && styles.checkboxBoxChecked]}>
+                  {redFlagMajor && <Text style={styles.checkboxCheckmark}>✓</Text>}
+                </View>
+                <Text style={styles.checkboxLabel}>Major Findings</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Reason input */}
+            <Text style={styles.inputLabelRequired}>Reason *</Text>
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Enter reason for red-flagging this audit..."
+              placeholderTextColor={adminColors.muted}
+              multiline
+              numberOfLines={4}
+              value={redFlagReason}
+              onChangeText={setRedFlagReason}
+            />
+
+            {/* Action buttons */}
+            <View style={styles.redFlagModalBtnRow}>
+              <TouchableOpacity
+                style={styles.submitRedFlagBtn}
+                onPress={() => {
+                  setIsFlagged(true);
+                  if (redFlagReason.trim()) setFlagReason(redFlagReason.trim());
+                  setShowRedFlagModal(false);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.submitRedFlagBtnText}>Red-flag Audit</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cancelRedFlagBtn}
+                onPress={() => setShowRedFlagModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.cancelRedFlagBtnText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1689,5 +1848,230 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     color: adminColors.onBrand,
+  },
+  headerEditBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  correctiveActionTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  correctiveActionCode: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  closedBadge: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  closedBadgeText: {
+    ...adminType.caption,
+    fontSize: 11,
+    fontWeight: '700',
+    color: adminColors.success.text,
+  },
+  correctiveActionMeta: {
+    ...adminType.caption,
+    fontSize: 11.5,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  redFlagHistoryCard: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.sm,
+    marginTop: 8,
+  },
+  redFlagHistoryMeta: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.muted,
+  },
+  redFlagHistoryTitle: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginTop: 2,
+  },
+  redFlagActionBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 8,
+    marginTop: 6,
+  },
+  flagEditBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
+  },
+  flagEditBtnText: {
+    ...adminType.caption,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  flagClearBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    backgroundColor: adminColors.brandDeep,
+    borderRadius: adminRadius.sm,
+  },
+  flagClearBtnText: {
+    ...adminType.caption,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  redFlagDashedBtn: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: adminColors.danger.text,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.sm,
+  },
+  redFlagDashedBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: adminColors.danger.text,
+  },
+  redFlagSheet: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xl,
+  },
+  redFlagSheetTitle: {
+    ...adminType.sectionHead,
+    fontSize: 16.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
+  },
+  redFlagAuditBox: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+  },
+  redFlagBoldVal: {
+    ...adminType.body,
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: adminColors.ink,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 24,
+    marginBottom: adminSpacing.md,
+  },
+  checkboxItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 8,
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: adminColors.card,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  checkboxCheckmark: {
+    color: adminColors.onBrand,
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 14,
+  },
+  checkboxLabel: {
+    ...adminType.body,
+    fontSize: 12.5,
+    color: adminColors.ink,
+  },
+  inputLabelRequired: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.ink,
+    marginBottom: 6,
+  },
+  reasonInput: {
+    height: 80,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.canvas,
+    padding: adminSpacing.sm,
+    color: adminColors.ink,
+    textAlignVertical: 'top',
+    fontSize: 12.5,
+    marginBottom: adminSpacing.md,
+  },
+  redFlagModalBtnRow: {
+    flexDirection: 'row',
+    columnGap: 10,
+  },
+  submitRedFlagBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  submitRedFlagBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  cancelRedFlagBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelRedFlagBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.muted,
   },
 });

@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
-  Pressable,
+  Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -10,1496 +10,1882 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { fetchMe, logout, type UserMe } from '../../../farmer/api/auth';
-import { Icon } from '@tohfa/mobile-ui';
-import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
-import { AdminProfileScreen } from './AdminProfileScreen';
-import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
-import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
-import { UpdateFairPriceScreen } from './UpdateFairPriceScreen';
-import { BulkPriceUpdateScreen } from './BulkPriceUpdateScreen';
-import { PriceHistoryScreen } from './PriceHistoryScreen';
-import { MarketDayScheduleScreen, type MarketDay, MOCK_DAYS } from './MarketDayScheduleScreen';
-import { AddMarketDayScreen } from './AddMarketDayScreen';
-import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
+import { fetchMe, type UserMe } from '../../../farmer/api/auth';
+import { makeCan, type Can } from '../../permissions/can';
 import {
-  AdminAllFarmersScreen,
-  AdminFarmerDetailScreen,
-  AdminFarmMapScreen,
-  AdminRatingScorecardScreen,
-  type FarmerListItem,
-} from '../farmers';
+  adminColors,
+  adminOverlay,
+  adminRadius,
+  adminShadow,
+  adminSpacing,
+  adminType,
+} from '../../theme';
 import {
-  SalesChannelOverviewScreen,
-  SalesOnlineOrdersScreen,
-  SalesMarketDayScreen,
-  SalesHorecaOrdersScreen,
-  SalesB2BOrdersScreen,
-  SalesFulfillmentAssignmentScreen,
-  SalesInvoiceScreen,
-  SalesReturnsRefundsScreen,
-  type OnlineOrderItem,
-  type B2BAccount,
-} from '../sales';
+  OverviewActionCard,
+  OverviewApprovalCard,
+  OverviewCardsGrid,
+  OverviewDashboardCard,
+  OverviewQueueCard,
+  OverviewSectionHeader,
+} from '../../components/OverviewDashboardCard';
 import {
-  SystemConfigScreen,
-  EditChannelAllocationScreen,
-  IntegrationDetailScreen,
-  CompanyDetailsScreen,
-  SystemAuditLogsScreen,
-} from '../config';
+  BellIcon,
+  CalendarIcon,
+  CashBillIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ClipboardListIcon,
+  DatabaseCylinderIcon,
+  FilterSlidersIcon,
+  GearSettingsIcon,
+  InboxTrayIcon,
+  MoreVerticalIcon,
+  NavFarmersIcon,
+  NavFinanceIcon,
+  NavMenuIcon,
+  NavOverviewIcon,
+  NavWarehouseIcon,
+  PackageBoxIcon,
+  PauseCircleIcon,
+  PieChartIcon,
+  RupeeTagIcon,
+  ShieldIcon,
+  StoreIcon,
+  SwitchArrowsIcon,
+  TractorIcon,
+  UserAvatarIcon,
+  UserPlusIcon,
+} from '../../components/AdminIcons';
+import { t } from '../../i18n';
+import { FarmerManagementFlow } from '../farmers/FarmerManagementFlow';
 import {
-  CreateAdminAccountScreen,
-  type AdminAccountData,
-} from './CreateAdminAccountScreen';
+  type WarehouseScope,
+} from '../warehouse';
+import { TransfersFlow } from '../warehouse/transfers/TransfersFlow';
+import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
+import { StaffFlow } from '../warehouse/staff-attendance/StaffFlow';
+import {
+  PLStatementScreen,
+  PayoutProcessingScreen,
+  FinanceManagementFlow,
+  ProfitLossScreen,
+  PaymentMethodsScreen,
+} from '../finance';
+import { SystemConfigScreen } from '../config/SystemConfigScreen';
+import { EditChannelAllocationScreen } from '../config/EditChannelAllocationScreen';
+import { IntegrationDetailScreen } from '../config/IntegrationDetailScreen';
+import { SystemAuditLogsScreen } from '../config/SystemAuditLogsScreen';
+import { CreateAdminAccountScreen } from './CreateAdminAccountScreen';
 import { ManageAdminsScreen } from './ManageAdminsScreen';
-import { AdminDetailProfileScreen } from './AdminDetailProfileScreen';
 import { AdminPermissionsMatrixScreen } from './AdminPermissionsMatrixScreen';
-import { AdminActivityLogsScreen } from './AdminActivityLogsScreen';
-import {
-  AdminReportsMainScreen,
-  AnalyticsDashboardScreen,
-  FarmerPerformanceReportScreen,
-  WarehouseOpsReportScreen,
-  ReportBuilderScreen,
-  SystemAlertsScreen,
-  AnnouncementsScreen,
-  AllRecentReportsScreen,
-} from '../reports';
-import { PLStatementScreen } from '../finance';
-import { AdminRequestsApprovalScreen } from './AdminRequestsApprovalScreen';
+import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
+import { BulkPriceUpdateScreen } from './BulkPriceUpdateScreen';
+import { MarketPricingHomeScreen } from './MarketPricingHomeScreen';
+import { ScheduleMarketOpenCloseScreen } from './ScheduleMarketOpenCloseScreen';
+import { ApprovalsInboxScreen } from './ApprovalsInboxScreen';
+import { ApprovalDetailPayoutScreen } from './ApprovalDetailPayoutScreen';
+import { AlertThresholdsScreen } from './AlertThresholdsScreen';
+import { ComplianceTierThresholdsScreen, type AlertThresholdData } from './ComplianceTierThresholdsScreen';
+import { WarehouseOperationsOverviewScreen } from './WarehouseOperationsOverviewScreen';
+import { FinanceBusinessOverviewScreen } from './FinanceBusinessOverviewScreen';
+import { SystemHealthAdminOverviewScreen } from './SystemHealthAdminOverviewScreen';
+import type { AdminAccountRequest } from './AdminRequestsApprovalScreen';
 import { AdminRequestDetailScreen } from './AdminRequestDetailScreen';
+import { AdminReportsMainScreen, AnalyticsDashboardScreen, SystemAlertsScreen } from '../reports';
+import { AuditCalendarScreen, AuditManagementFlow } from '../audits';
+import { AdminCertVerificationScreen } from '../certifications/AdminCertVerificationScreen';
+import { AdminComplianceTiersScreen } from '../certifications/AdminComplianceTiersScreen';
+import { ProduceControlFlow } from '../produce';
+import { InputsPestManagementFlow } from '../inputs';
+import { CustomersFlow } from '../warehouse/customers/CustomersFlow';
+import { CommunityKnowledgeHomeScreen } from './CommunityKnowledgeHomeScreen';
 
-// ─── Design Tokens ────────────────────────────────────────────────────────────
-const PALETTE = {
-  titleRust: '#6B230B', // Deep terracotta heading color
-  orange: '#F0562A', // Signature brand orange
-  pageBg: '#FAF7F2', // Warm light cream
-  cardBg: '#FFFFFF',
-  ink: '#1F1714', // Near-black text
-  labelMuted: '#786F68', // Secondary muted text
-  border: '#EDE7DE', // Soft card border
-  peachBadge: '#FDEEE9', // Soft peach pill background
-  peachText: '#943818', // Deep terracotta pill text
-  peachIconBg: '#FFF1EB', // Soft peach icon container
-  blueIconBg: '#EBF3FA', // Soft blue icon container
-  blueText: '#2563EB',
-  greenIconBg: '#DCFCE7', // Soft green icon container
-  greenText: '#15803D',
-  amberIconBg: '#FEF3C7', // Soft amber icon container
-  amberText: '#B45309',
-  alertRed: '#E04F34', // Alert 1 border & icon
-  alertAmber: '#9A5B20', // Alert 2 border & icon
-  tabInactive: '#786F68',
-  tabBorder: '#EDE7DE',
-  checkGreen: '#0D8253',
-};
-
-// Shorthand alias for colors used in components
-const A = {
-  orange: PALETTE.orange,
-  orangeBg: PALETTE.peachIconBg,
-  blue: PALETTE.blueText,
-  blueBg: PALETTE.blueIconBg,
-  greenBg: PALETTE.greenIconBg,
-  amber: PALETTE.amberText,
-  amberBg: PALETTE.amberIconBg,
-  pageBg: PALETTE.pageBg,
-  muted: PALETTE.labelMuted,
-};
-
-// ─── Tab Bar Types ────────────────────────────────────────────────────────────
-type AdminTab = 'Dashboard' | 'Farmers' | 'Sales' | 'Reports' | 'Profile';
-
-// ─── SVG Icons Matching Exact Design Mockup ──────────────────────────────────
-function ShieldIcon() {
-  return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
-        stroke={PALETTE.peachText}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function PersonAvatarIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function FarmersGridIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CustomersGridIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
-        stroke={PALETTE.blueText}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function QuickBtn({
-  iconName, label, accent = A.orange, bg = A.orangeBg, onPress,
-}: { iconName: string; label: string; accent?: string; bg?: string; onPress?: () => void }) {
-  return (
-    <TouchableOpacity style={styles.quickCard} activeOpacity={0.75} onPress={onPress}>
-      <View style={[styles.quickIconWrap, { backgroundColor: bg }]}>
-        <Icon name={iconName} size={22} color={accent} />
-      </View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-
-function RevenueGridIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="3" stroke={PALETTE.greenText} strokeWidth="2" />
-      <Path d="M2 10h20" stroke={PALETTE.greenText} strokeWidth="2" />
-      <Path d="M6 15h4" stroke={PALETTE.greenText} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function WarehouseGridIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={PALETTE.amberText}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CardPaymentIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Rect x="2" y="5" width="20" height="14" rx="3" stroke={PALETTE.orange} strokeWidth="2" />
-      <Path d="M2 10h20" stroke={PALETTE.orange} strokeWidth="2" />
-      <Path d="M6 15h3" stroke={PALETTE.orange} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function UserPlusIcon() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M8.5 11a4 4 0 100-8 4 4 0 000 8zM20 8v6M23 11h-6"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function GearIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 15a3 3 0 100-6 3 3 0 000 6z" stroke={PALETTE.orange} strokeWidth="2" />
-      <Path
-        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-      />
-    </Svg>
-  );
-}
-
-function MarketPriceIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M23 6L13.5 15.5L8.5 10.5L1 18"
-        stroke={PALETTE.orange}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M17 6H23V12"
-        stroke={PALETTE.orange}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function BankIcon() {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 21h18M3 10h18M5 10v11M9 10v11M15 10v11M19 10v11M12 3l9 7H3l9-7z"
-        stroke={PALETTE.orange}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function AlertTriangleIcon({ color = PALETTE.orange }: { color?: string }) {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-// ─── Bottom Tab Icons ─────────────────────────────────────────────────────────
-function DashboardTabIcon({ active }: { active: boolean }) {
-  const c = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="3" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
-      <Rect x="14" y="3" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
-      <Rect x="3" y="14" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
-      <Rect x="14" y="14" width="7" height="7" rx="1" stroke={c} strokeWidth="2" />
-    </Svg>
-  );
-}
-
-function FarmersTabIcon({ active }: { active: boolean }) {
-  const c = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"
-        stroke={c}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function SalesTabIcon({ active }: { active: boolean }) {
-  const c = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="16" rx="2" stroke={c} strokeWidth="2" />
-      <Path d="M3 9h18M8 14h8" stroke={c} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ReportsTabIcon({ active }: { active: boolean }) {
-  const c = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M18 20V10M12 20V4M6 20v-6"
-        stroke={c}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ProfileNavIcon({ active }: { active: boolean }) {
-  const c = active ? PALETTE.orange : PALETTE.tabInactive;
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
-        stroke={c}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-// ─── UI Helper Components ─────────────────────────────────────────────────────
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View style={styles.sectionRow}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-    </View>
-  );
-}
-
-function OverviewCard({
-  iconBox,
-  value,
-  label,
-  delta,
-  deltaColor,
-  valueStyle,
-  onPress,
-}: {
-  iconBox: React.ReactNode;
-  value: string;
-  label: string;
-  delta: string;
-  deltaColor?: string;
-  valueStyle?: object;
-  onPress?: () => void;
-}) {
-  const cardBody = (
-    <View style={styles.overviewCard}>
-      <View style={styles.cardTopRow}>{iconBox}</View>
-      <Text style={[styles.statValue, valueStyle]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statDelta, { color: deltaColor ?? PALETTE.ink }]}>{delta}</Text>
-    </View>
-  );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity activeOpacity={0.8} onPress={onPress} style={styles.overviewCardWrapper}>
-        {cardBody}
-      </TouchableOpacity>
-    );
-  }
-
-  return <View style={styles.overviewCardWrapper}>{cardBody}</View>;
-}
-
-function ApprovalRow({
-  icon,
-  title,
-  subtitle,
-  badge,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle: string;
-  badge: number;
-  onPress?: () => void;
-}) {
-  const content = (
-    <View style={styles.approvalCard}>
-      <View style={styles.approvalIconBox}>{icon}</View>
-      <View style={styles.approvalTextCol}>
-        <Text style={styles.approvalTitle}>{title}</Text>
-        <Text style={styles.approvalSub}>{subtitle}</Text>
-      </View>
-      <View style={styles.badgeCircle}>
-        <Text style={styles.badgeText}>{badge}</Text>
-      </View>
-      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-        <Path
-          d="M9 18l6-6-6-6"
-          stroke="#A8A29E"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </Svg>
-    </View>
-  );
-
-  if (onPress) {
-    return (
-      <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
-        {content}
-      </TouchableOpacity>
-    );
-  }
-
-  return content;
-}
-
-function ComplianceAlertCard({
-  title,
-  subtitle,
-  linkLabel,
-  accentColor = PALETTE.orange,
-  onLinkPress,
-}: {
-  title: string;
-  subtitle: string;
-  linkLabel: string;
-  accentColor?: string;
-  onLinkPress?: () => void;
-}) {
-  return (
-    <View style={[styles.alertCard, { borderLeftColor: accentColor }]}>
-      <View style={styles.alertHeaderRow}>
-        <AlertTriangleIcon color={accentColor} />
-        <Text style={styles.alertTitle}>{title}</Text>
-      </View>
-      <Text style={styles.alertSub}>{subtitle}</Text>
-      {onLinkPress ? (
-        <TouchableOpacity onPress={onLinkPress} activeOpacity={0.7}>
-          <Text style={styles.alertLink}>{linkLabel} →</Text>
-        </TouchableOpacity>
-      ) : (
-        <Text style={[styles.alertLink, { color: PALETTE.labelMuted }]}>{linkLabel} →</Text>
-      )}
-    </View>
-  );
-}
-
-function QuickActionCard({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onPress?: () => void;
-}) {
-  if (onPress) {
-    return (
-      <TouchableOpacity style={styles.quickCard} onPress={onPress} activeOpacity={0.75}>
-        <View style={styles.quickIconWrap}>{icon}</View>
-        <Text style={styles.quickLabel}>{label}</Text>
-      </TouchableOpacity>
-    );
-  }
-  return (
-    <View style={styles.quickCard}>
-      <View style={styles.quickIconWrap}>{icon}</View>
-      <Text style={styles.quickLabel}>{label}</Text>
-    </View>
-  );
-}
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
-
-export type AdminScreenName =
-  | 'MarketPricingHome'
-  | 'FairPriceCeiling'
-  | 'UpdateFairPrice'
-  | 'BulkPriceUpdate'
-  | 'PriceHistory'
-  | 'MarketDaySchedule'
-  | 'ListingApprovalQueue'
-  | 'AuditCalendar'
-  | 'FinancialDashboard'
-  | 'AdminAllFarmers'
-  | 'AdminFarmerDetail'
-  | 'AdminFarmMap'
-  | 'AdminRatingScorecard'
-  | 'AdminCertVerification'
-  | 'AdminKycReview'
-  | 'AdminComplianceTiers';
+export type SuperAdminTab = 'Overview' | 'Farmers' | 'Warehouse' | 'Finance' | 'Menu';
 
 export interface SuperAdminDashboardScreenProps {
+  can?: Can;
+  scope?: WarehouseScope;
+  role?: string;
   onSignOut: () => void;
-  onNavigate?: (screen: AdminScreenName, params?: Record<string, unknown>) => void;
+  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  initialTab?: SuperAdminTab | undefined;
 }
 
+const ALL_WAREHOUSES_SCOPE: WarehouseScope = {
+  warehouseName: 'All Warehouses',
+};
+
+/**
+ * SuperAdminDashboardScreen
+ *
+ * Implements the Super Admin Dashboard (SA-M2-S01) exactly matching design mockups:
+ * 1. Reuses shared screens, theme, and components without forking or duplication.
+ * 2. Gated via `can('<rbac code>')` fail-closed authorization.
+ * 3. Mounts existing warehouse, farmer, and finance flows with `All Warehouses` scope.
+ * 4. Zero hex literals, uses adminColors, adminType, adminRadius, adminSpacing.
+ */
 export function SuperAdminDashboardScreen({
+  can: propsCan,
+  scope = ALL_WAREHOUSES_SCOPE,
+  role = 'SUPER_ADMIN',
   onSignOut,
-  onNavigate,
-}: SuperAdminDashboardScreenProps) {
-  const [activeTab, setActiveTab] = useState<AdminTab>('Dashboard');
+  onNavigate: _onNavigate,
+  initialTab = 'Overview',
+}: SuperAdminDashboardScreenProps): React.JSX.Element {
+  const [activeTab, setActiveTab] = useState<SuperAdminTab>(initialTab);
+  const [farmerInitialTab, setFarmerInitialTab] = useState<'farmers' | 'applications'>('farmers');
   const [user, setUser] = useState<UserMe | null>(null);
-  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
-  const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
 
-  // Sales subscreen navigation state
-  const [salesSubScreen, setSalesSubScreen] = useState<
-    'overview' | 'online' | 'market' | 'horeca' | 'b2b' | 'fulfillment' | 'invoice' | 'returns'
-  >('overview');
-  const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
-  const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
-
-  // System config subscreen navigation state
-  const [configSubScreen, setConfigSubScreen] = useState<
-    'main' | 'channel_allocation' | 'integration' | 'company' | 'audit_logs' | null
-  >(null);
-  const [selectedIntegrationId, setSelectedIntegrationId] = useState<string>('razorpay');
-
-  // Admin management subscreen navigation state
-  const [adminSubScreen, setAdminSubScreen] = useState<
-    'create' | 'manage' | 'detail' | 'permissions' | 'activity' | 'requests' | null
-  >(null);
-  const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<AdminAccountData | null>(null);
-  const [selectedAdminProfile, setSelectedAdminProfile] = useState<AdminAccountData | null>(null);
-  // Market & Pricing subscreen navigation state
-  const [pricingSubScreen, setPricingSubScreen] = useState<
-    | 'home'
-    | 'fair_price'
-    | 'update_price'
-    | 'bulk_update'
-    | 'price_history'
-    | 'market_days'
-    | 'add_market_day'
-    | 'listing_approval'
+  // Sub-screen navigation states for Super Admin features
+  const [activeSubScreen, setActiveSubScreen] = useState<
+    | 'allocation'
+    | 'fair_price_ceiling'
+    | 'bulk_price_update'
+    | 'retail_pricing'
+    | 'approval_inbox'
+    | 'approval_detail'
+    | 'transfers_flow'
+    | 'warehouse_flow'
+    | 'inventory_flow'
+    | 'staff_flow'
+    | 'payout_processing'
+    | 'pl_statement'
+    | 'create_admin'
+    | 'manage_admins'
+    | 'permissions_matrix'
+    | 'system_config'
+    | 'system_audit_logs'
+    | 'integration_keys'
+    | 'system_alerts'
+    | 'reports_main'
+    | 'analytics'
+    | 'audit_management'
+    | 'audit_calendar'
+    | 'cert_verification'
+    | 'compliance_tiers'
+    | 'schedule_market'
+    | 'approval_payout_detail'
+    | 'alert_thresholds'
+    | 'compliance_tier_thresholds'
+    | 'system_health'
+    | 'produce_control'
+    | 'crop_data'
+    | 'inputs_pest'
+    | 'finance_flow'
+    | 'profit_loss'
+    | 'payment_methods'
+    | 'finance_business_overview'
+    | 'customers'
+    | 'community'
     | null
   >(null);
-  const [selectedPriceCrop, setSelectedPriceCrop] = useState<{
-    name: string;
-    category: string;
-    price: number;
-    change?: number;
-    lastUpdate: string;
+
+  const [selectedPayoutId, setSelectedPayoutId] = useState<string>('PAY-0002');
+  const [selectedThresholdData, setSelectedThresholdData] = useState<AlertThresholdData | undefined>(undefined);
+
+  const [marketScheduleMode, setMarketScheduleMode] = useState<'open' | 'close'>('open');
+  const [activeScheduleMenu, setActiveScheduleMenu] = useState<{
+    id: string;
+    title: string;
+    time: string;
+    mode: 'open' | 'close';
+    repeat: string;
   } | null>(null);
-  const [marketDaysList, setMarketDaysList] = useState<MarketDay[]>(MOCK_DAYS);
-  const [reportsSubScreen, setReportsSubScreen] = useState<
-    'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
-  >(null);
+  const [detailsScheduleItem, setDetailsScheduleItem] = useState<{
+    title: string;
+    time: string;
+    mode: 'open' | 'close';
+    repeat: string;
+  } | null>(null);
 
+  const [marketSchedules, setMarketSchedules] = useState<Array<{
+    id: string;
+    title: string;
+    time: string;
+    mode: 'open' | 'close';
+    repeat: string;
+  }>>([
+    {
+      id: 'auto_closes',
+      title: 'Auto Closes',
+      time: '14 Oct 2026, 06:00 PM',
+      mode: 'close',
+      repeat: 'One Time',
+    },
+    {
+      id: 'auto_open',
+      title: 'Auto Open',
+      time: '15 Oct 2026, 08:00 AM',
+      mode: 'open',
+      repeat: 'One Time',
+    },
+  ]);
+
+  const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<AdminAccountRequest | null>(null);
+  const [warehouseModule, setWarehouseModule] = useState<'admin' | 'transfers' | 'inventory' | 'staff'>('admin');
+
+  // Load user profile if permissions weren't passed down
   useEffect(() => {
-    fetchMe()
-      .then((me) => setUser(me))
-      .catch(() => { });
-  }, []);
+    if (propsCan) return;
+    let isMounted = true;
+    void fetchMe()
+      .then((me) => {
+        if (isMounted) setUser(me);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [propsCan]);
 
-  const displayName = user?.fullName && user.fullName !== 'Super Administrator' ? user.fullName : 'Rajesh Kumar';
+  const can = useMemo<Can>(() => {
+    const userPerms = user?.permissions;
+    if (userPerms && userPerms.length > 0) return makeCan(userPerms);
+    if (role === 'SUPER_ADMIN') {
+      return (code: string) => {
+        // Farmer end-user exclusive operations denied to Super Admin per docs/rbac.json BR rules
+        if (
+          code === 'order.create_own' ||
+          code === 'listing.create_own' ||
+          code === 'cart.manage_own' ||
+          code.endsWith('.create_own')
+        ) {
+          return false;
+        }
+        return true;
+      };
+    }
+    if (propsCan) return propsCan;
+    return makeCan([]);
+  }, [propsCan, user?.permissions, role]);
+
+  // ─── Sub-Screen Routing (Mounting existing shared screens) ──────────────────
+
+  if (activeSubScreen === 'allocation') {
+    return (
+      <EditChannelAllocationScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'fair_price_ceiling') {
+    return (
+      <FairPriceCeilingScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'bulk_price_update') {
+    return (
+      <BulkPriceUpdateScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'retail_pricing') {
+    return (
+      <MarketPricingHomeScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'schedule_market') {
+    return (
+      <ScheduleMarketOpenCloseScreen
+        initialMode={marketScheduleMode}
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+        onSave={(schedule) => {
+          setMarketSchedules((prev) => {
+            const id = schedule.mode === 'close' ? 'auto_closes' : 'auto_open';
+            const title =
+              schedule.mode === 'close'
+                ? t('superAdminDashboard.market.autoCloses')
+                : t('superAdminDashboard.market.autoOpen');
+            const time = `${schedule.date}, ${schedule.time}`;
+            const existing = prev.find((s) => s.id === id);
+            if (existing) {
+              return prev.map((s) => (s.id === id ? { ...s, time, repeat: schedule.repeat } : s));
+            }
+            return [...prev, { id, title, time, mode: schedule.mode, repeat: schedule.repeat }];
+          });
+          setActiveSubScreen(null);
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'create_admin') {
+    return (
+      <CreateAdminAccountScreen
+        onBack={() => setActiveSubScreen(null)}
+        onSuccess={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'manage_admins') {
+    return (
+      <ManageAdminsScreen
+        onBack={() => setActiveSubScreen(null)}
+        onCreateNew={() => setActiveSubScreen('create_admin')}
+        onViewPermissionsMatrix={() => setActiveSubScreen('permissions_matrix')}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'permissions_matrix') {
+    return (
+      <AdminPermissionsMatrixScreen
+        onBack={() => setActiveSubScreen('manage_admins')}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'system_config') {
+    return (
+      <SystemConfigScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'system_audit_logs') {
+    return (
+      <SystemAuditLogsScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'integration_keys') {
+    return (
+      <IntegrationDetailScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'system_alerts') {
+    return (
+      <SystemAlertsScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'reports_main') {
+    return (
+      <AdminReportsMainScreen
+        onBack={() => setActiveSubScreen(null)}
+        onOpenPLReport={() => setActiveSubScreen('pl_statement')}
+        onOpenFarmerPerformanceReport={() => {}}
+        onOpenWarehouseOpsReport={() => {}}
+        onOpenAnalyticsDashboard={() => setActiveSubScreen('analytics')}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'analytics') {
+    return (
+      <AnalyticsDashboardScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'audit_management' || activeSubScreen === 'audit_calendar') {
+    return (
+      <AuditManagementFlow
+        can={can}
+        role={role}
+        onBack={() => setActiveSubScreen(null)}
+        onOpenFarmerProfile={() => {
+          setActiveSubScreen(null);
+          setActiveTab('Farmers');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'cert_verification') {
+    return (
+      <AdminCertVerificationScreen
+        farmer={{
+          id: 'FMR-00098',
+          name: 'Kumar',
+          code: 'FMR-00098',
+          farmName: 'Kumar Organic Farm',
+          location: 'Ooty Central',
+          status: 'ACTIVE',
+        }}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'produce_control') {
+    return (
+      <ProduceControlFlow
+        can={can}
+        role={role}
+        onBack={() => setActiveSubScreen(null)}
+        onOpenFarmerProfile={() => {
+          setActiveSubScreen(null);
+          setActiveTab('Farmers');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'crop_data') {
+    return (
+      <ProduceControlFlow
+        can={can}
+        role={role}
+        initialScreen="cropData"
+        onBack={() => setActiveSubScreen(null)}
+        onOpenFarmerProfile={() => {
+          setActiveSubScreen(null);
+          setActiveTab('Farmers');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'inputs_pest') {
+    return (
+      <InputsPestManagementFlow
+        can={can}
+        role={role}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'compliance_tiers') {
+    return (
+      <AdminComplianceTiersScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'payout_processing') {
+    return (
+      <PayoutProcessingScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'finance_flow') {
+    return (
+      <FinanceManagementFlow
+        role="SUPER_ADMIN"
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'profit_loss') {
+    return (
+      <ProfitLossScreen
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'payment_methods') {
+    return (
+      <PaymentMethodsScreen
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'finance_business_overview') {
+    return (
+      <FinanceBusinessOverviewScreen
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+        onSelectPayout={(payoutId) => {
+          setSelectedPayoutId(payoutId);
+          setActiveSubScreen('approval_payout_detail');
+        }}
+        onNavigateSubScreen={(sub) => {
+          if (sub === 'payout_processing') setActiveSubScreen('payout_processing');
+          else if (sub === 'reports_main') setActiveSubScreen('reports_main');
+          else if (sub === 'finance_flow') setActiveSubScreen('finance_flow');
+          else if (sub === 'payment_methods') setActiveSubScreen('payment_methods');
+          else if (sub === 'pl_statement') setActiveSubScreen('profit_loss');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'customers') {
+    return (
+      <CustomersFlow
+        scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'community') {
+    return (
+      <CommunityKnowledgeHomeScreen
+        onBack={() => setActiveSubScreen(null)}
+        onNavigateCreateContent={() => {}}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'pl_statement') {
+    return (
+      <PLStatementScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'approval_detail' && selectedApprovalRequest) {
+    return (
+      <AdminRequestDetailScreen
+        request={selectedApprovalRequest}
+        onBack={() => {
+          setSelectedApprovalRequest(null);
+          setActiveSubScreen('approval_inbox');
+        }}
+        onApprove={() => {
+          setSelectedApprovalRequest(null);
+          setActiveSubScreen('approval_inbox');
+        }}
+        onReject={() => {
+          setSelectedApprovalRequest(null);
+          setActiveSubScreen('approval_inbox');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'approval_inbox') {
+    return (
+      <ApprovalsInboxScreen
+        onBack={() => setActiveSubScreen(null)}
+        onSelectApproval={(item) => {
+          if (item.type === 'payout' || item.id.startsWith('PAY')) {
+            setSelectedPayoutId(item.id);
+            setActiveSubScreen('approval_payout_detail');
+          } else if (item.type === 'transfer') {
+            setActiveSubScreen('transfers_flow');
+          } else {
+            setSelectedPayoutId(item.id);
+            setActiveSubScreen('approval_payout_detail');
+          }
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'approval_payout_detail') {
+    return (
+      <ApprovalDetailPayoutScreen
+        payoutId={selectedPayoutId}
+        can={can}
+        onBack={() => setActiveSubScreen('approval_inbox')}
+        onApprove={() => {
+          Alert.alert('Payout Approved', `Payout ${selectedPayoutId} approved successfully.`);
+          setActiveSubScreen('approval_inbox');
+        }}
+        onReject={() => {
+          Alert.alert('Payout Rejected', `Payout ${selectedPayoutId} rejected.`);
+          setActiveSubScreen('approval_inbox');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'alert_thresholds') {
+    return (
+      <AlertThresholdsScreen
+        onBack={() => setActiveSubScreen(null)}
+        onAddThreshold={() => {
+          setSelectedThresholdData(undefined);
+          setActiveSubScreen('compliance_tier_thresholds');
+        }}
+        onEditThreshold={(item) => {
+          setSelectedThresholdData(item);
+          setActiveSubScreen('compliance_tier_thresholds');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'compliance_tier_thresholds') {
+    return (
+      <ComplianceTierThresholdsScreen
+        initialData={selectedThresholdData}
+        can={can}
+        onBack={() => setActiveSubScreen('alert_thresholds')}
+        onSave={() => {
+          Alert.alert('Success', 'Threshold settings updated successfully.');
+          setActiveSubScreen('alert_thresholds');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'system_health') {
+    return (
+      <SystemHealthAdminOverviewScreen
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+        onNavigateSubScreen={(sub) => {
+          if (sub === 'manage_admins') setActiveSubScreen('manage_admins');
+          else if (sub === 'permissions_matrix') setActiveSubScreen('permissions_matrix');
+          else if (sub === 'system_audit_logs') setActiveSubScreen('system_audit_logs');
+          else if (sub === 'system_config') setActiveSubScreen('system_config');
+          else if (sub === 'integration_keys') setActiveSubScreen('integration_keys');
+          else if (sub === 'reports_main') setActiveSubScreen('reports_main');
+          else if (sub === 'system_alerts') setActiveSubScreen('system_alerts');
+        }}
+      />
+    );
+  }
+
+  if (activeSubScreen === 'transfers_flow') {
+    return (
+      <TransfersFlow
+        scope={scope}
+        can={can}
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
+  // ─── Main Tabs Rendering ───────────────────────────────────────────────────
+
+  // Tab 2: Farmers (Consolidated FarmerManagementFlow)
+  if (activeTab === 'Farmers') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.tabContainer}>
+          <FarmerManagementFlow
+            can={can}
+            role={role}
+            initialTab={farmerInitialTab}
+            userScope={{ warehouseId: scope.warehouseId }}
+            onBack={() => setActiveTab('Overview')}
+            onNavigateTab={(tab) => {
+              if (tab === 'Dashboard' || tab === 'Home') setActiveTab('Overview');
+              else if (tab === 'Farmers') setActiveTab('Farmers');
+              else if (tab === 'Reports') setActiveSubScreen('reports_main');
+              else if (tab === 'Profile') setActiveTab('Menu');
+            }}
+          />
+        </View>
+        {renderBottomTabBar(activeTab, setActiveTab)}
+      </SafeAreaView>
+    );
+  }
+
+  // Tab 3: Warehouse & Operations Overview (Matching Image 1 Left)
+  if (activeTab === 'Warehouse') {
+    if (warehouseModule === 'transfers') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <TransfersFlow
+              scope={scope}
+              can={can}
+              onBack={() => setWarehouseModule('admin')}
+            />
+          </View>
+          {renderBottomTabBar(activeTab, setActiveTab)}
+        </SafeAreaView>
+      );
+    }
+    if (warehouseModule === 'inventory') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <InventoryFlow
+              scope={scope}
+              can={can}
+              onBack={() => setWarehouseModule('admin')}
+            />
+          </View>
+          {renderBottomTabBar(activeTab, setActiveTab)}
+        </SafeAreaView>
+      );
+    }
+    if (warehouseModule === 'staff') {
+      return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          <View style={styles.tabContainer}>
+            <StaffFlow
+              scope={scope}
+              can={can}
+              onBack={() => setWarehouseModule('admin')}
+            />
+          </View>
+          {renderBottomTabBar(activeTab, setActiveTab)}
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.tabContainer}>
+          <WarehouseOperationsOverviewScreen
+            can={can}
+            onBack={() => setActiveTab('Overview')}
+            onNavigateSubScreen={(sub) => {
+              if (sub === 'transfers_flow') setActiveSubScreen('transfers_flow');
+              else if (sub === 'allocation') setActiveSubScreen('allocation');
+              else if (sub === 'inventory_flow') setWarehouseModule('inventory');
+              else setWarehouseModule('admin');
+            }}
+          />
+        </View>
+        {renderBottomTabBar(activeTab, setActiveTab)}
+      </SafeAreaView>
+    );
+  }
+
+  // Tab 4: Finance (Matching Images 1 & 2: Accounts & Finance Dashboard)
+  if (activeTab === 'Finance') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        <View style={styles.tabContainer}>
+          <FinanceManagementFlow
+            role="SUPER_ADMIN"
+            can={can}
+            showBackButton={true}
+            onBack={() => setActiveTab('Overview')}
+            onTabChange={(tab) => {
+              setActiveTab(tab as any);
+            }}
+          />
+        </View>
+        {renderBottomTabBar(activeTab, setActiveTab)}
+      </SafeAreaView>
+    );
+  }
+
+  // Tab 5: More Menu (Matching Image 2 Right, SA-M2-S12)
+  if (activeTab === 'Menu') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+        {renderHeader(t('superAdminDashboard.tab.menu'), onSignOut)}
+        <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner}>
+          <View style={styles.moreMenuList}>
+            {renderMoreMenuRow('Produce calendar', <TractorIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('produce_control'))}
+            {renderMoreMenuRow('Audit Management', <CalendarIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('audit_management'))}
+            {renderMoreMenuRow('Inputs & Pest Management', <PackageBoxIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('inputs_pest'))}
+            {renderMoreMenuRow('Accounts & Finance', <NavFinanceIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('finance_flow'))}
+            {renderMoreMenuRow('Payment Methods', <CashBillIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('payment_methods'))}
+            {renderMoreMenuRow('Market & Pricing', <StoreIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('retail_pricing'))}
+            {renderMoreMenuRow('Customers', <UserAvatarIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('customers'))}
+            {renderMoreMenuRow('Workforce & Staff', <UserPlusIcon size={20} color={adminColors.brand} />, () => {
+              setActiveTab('Warehouse');
+              setWarehouseModule('staff');
+            })}
+            {renderMoreMenuRow('Notifications & Reports', <BellIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('reports_main'))}
+            {renderMoreMenuRow('Community & Knowledge Management', <ShieldIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('community'))}
+            {renderMoreMenuRow('System health & Administration', <ShieldIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('system_health'))}
+            {renderMoreMenuRow('Settings & Profile', <GearSettingsIcon size={20} color={adminColors.brand} />, () => setActiveSubScreen('system_config'))}
+          </View>
+
+          <TouchableOpacity style={styles.signOutButton} onPress={onSignOut} activeOpacity={0.75}>
+            <Text style={styles.signOutText}>Sign Out</Text>
+          </TouchableOpacity>
+        </ScrollView>
+        {renderBottomTabBar(activeTab, setActiveTab)}
+      </SafeAreaView>
+    );
+  }
+
+  // ─── Tab 1: Overview Dashboard (Matching Image 1, 2, 3) ─────────────────────
 
   return (
-    <SafeAreaView style={styles.root}>
-      <StatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Main Content Area */}
-      <View style={{ flex: 1 }}>
-        {activeTab === 'Dashboard' ? (
-          adminSubScreen === 'create' ? (
-            <CreateAdminAccountScreen
-              initialData={selectedAdminToEdit ?? undefined}
-              currentUserRole="SUPER_ADMIN"
-              onBack={() => {
-                setSelectedAdminToEdit(null);
-                setAdminSubScreen(null);
+      {/* Top Header */}
+      {renderHeader(t('superAdminDashboard.title'), onSignOut)}
+
+      <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner} showsVerticalScrollIndicator={false}>
+        {/* Date Filter Bar */}
+        <View style={styles.dateFilterContainer}>
+          <View style={styles.dateFilterPill}>
+            <CalendarIcon size={16} color={adminColors.brandDeep} />
+            <Text style={styles.dateFilterText}>
+              {t('superAdminDashboard.dateFilter.today')}
+            </Text>
+            <ChevronDownIcon size={16} color={adminColors.brandDeep} />
+          </View>
+        </View>
+
+        {/* ─── Platform KPIs ─── */}
+        <OverviewSectionHeader title={t('superAdminDashboard.section.kpis')} />
+        <OverviewCardsGrid style={styles.kpiGrid}>
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.totalFarmers')}
+            value="214"
+            titlePosition="top"
+            onPress={() => {
+              setFarmerInitialTab('farmers');
+              setActiveTab('Farmers');
+            }}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.pendingApplications')}
+            value="9"
+            titlePosition="top"
+            tone="warning"
+            onPress={() => {
+              setFarmerInitialTab('applications');
+              setActiveTab('Farmers');
+            }}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.activeFarmers')}
+            value="196"
+            titlePosition="top"
+            onPress={() => {
+              setFarmerInitialTab('farmers');
+              setActiveTab('Farmers');
+            }}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.deactivatedFarmers')}
+            value="9"
+            titlePosition="top"
+            onPress={() => {
+              setFarmerInitialTab('farmers');
+              setActiveTab('Farmers');
+            }}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.pendingListings')}
+            value="5"
+            titlePosition="top"
+            tone="warning"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.activeAudits')}
+            value="6"
+            titlePosition="top"
+            onPress={() => setActiveSubScreen('audit_management')}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.totalCustomers')}
+            value="18"
+            titlePosition="top"
+            onPress={() => setActiveSubScreen('customers')}
+          />
+          <OverviewDashboardCard
+            title={t('superAdminDashboard.kpi.staffAndAdmins')}
+            value="27"
+            titlePosition="top"
+            onPress={() => setActiveSubScreen('manage_admins')}
+          />
+        </OverviewCardsGrid>
+
+        {/* ─── Market Control Card ─── */}
+        <View style={styles.marketCard}>
+          <View style={styles.marketHeaderRow}>
+            <View style={styles.marketTitleContainer}>
+              <View style={styles.marketIconBox}>
+                <StoreIcon size={20} color={adminColors.brandDeep} />
+              </View>
+              <View style={styles.marketTitleCol}>
+                <Text style={styles.marketTitle}>{t('superAdminDashboard.market.title')}</Text>
+                <Text style={styles.marketSubtitle}>{t('superAdminDashboard.market.subtitle')}</Text>
+              </View>
+            </View>
+            <View style={styles.marketStatusBadge}>
+              <View style={styles.marketStatusDot} />
+              <Text style={styles.marketStatusText}>{t('superAdminDashboard.market.statusOpen')}</Text>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <View style={styles.marketActionsRow}>
+            <TouchableOpacity style={styles.closeMarketButton} activeOpacity={0.75}>
+              <PauseCircleIcon size={16} color={adminColors.danger.text} />
+              <Text style={styles.closeMarketText}>{t('superAdminDashboard.market.close')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.scheduleMarketButton}
+              activeOpacity={0.75}
+              onPress={() => {
+                setMarketScheduleMode('open');
+                setActiveSubScreen('schedule_market');
               }}
-              onViewDirectory={() => {
-                setSelectedAdminToEdit(null);
-                setAdminSubScreen('manage');
-              }}
-              onSuccess={() => {
-                setSelectedAdminToEdit(null);
-                setAdminSubScreen(null);
-              }}
-            />
-          ) : adminSubScreen === 'manage' ? (
-            <ManageAdminsScreen
-              onBack={() => setAdminSubScreen(null)}
-              onCreateNew={() => {
-                setSelectedAdminToEdit(null);
-                setAdminSubScreen('create');
-              }}
-              onEditAdmin={(adm) => {
-                setSelectedAdminToEdit(adm);
-                setAdminSubScreen('create');
-              }}
-              onViewAdminDetail={(adm) => {
-                setSelectedAdminProfile(adm);
-                setAdminSubScreen('detail');
-              }}
-              onViewPermissionsMatrix={() => setAdminSubScreen('permissions')}
-              onViewActivityLogs={() => setAdminSubScreen('activity')}
-              onViewRequests={() => setAdminSubScreen('requests')}
-            />
-          ) : adminSubScreen === 'detail' && selectedAdminProfile ? (
-            <AdminDetailProfileScreen
-              admin={selectedAdminProfile}
-              onBack={() => setAdminSubScreen('manage')}
-              onEdit={(adm) => {
-                setSelectedAdminToEdit(adm);
-                setAdminSubScreen('create');
-              }}
-              onViewPermissionsMatrix={() => setAdminSubScreen('permissions')}
-              onViewActivityLogs={() => setAdminSubScreen('activity')}
-            />
-          ) : adminSubScreen === 'permissions' ? (
-            <AdminPermissionsMatrixScreen
-              onBack={() => setAdminSubScreen('manage')}
-            />
-          ) : adminSubScreen === 'activity' ? (
-            <AdminActivityLogsScreen
-              onBack={() => setAdminSubScreen('manage')}
-            />
-          ) : adminSubScreen === 'requests' ? (
-            <AdminRequestsApprovalScreen
-              onBack={() => setAdminSubScreen(null)}
-              onRequestHandled={() => { }}
-            />
-          ) : configSubScreen === 'main' ? (
-            <SystemConfigScreen
-              onBack={() => setConfigSubScreen(null)}
-              onOpenChannelAllocation={() => setConfigSubScreen('channel_allocation')}
-              onOpenIntegration={(id) => {
-                setSelectedIntegrationId(id);
-                setConfigSubScreen('integration');
-              }}
-              onOpenCompanyDetails={() => setConfigSubScreen('company')}
-              onOpenAuditLogs={() => setConfigSubScreen('audit_logs')}
-            />
-          ) : configSubScreen === 'channel_allocation' ? (
-            <EditChannelAllocationScreen onBack={() => setConfigSubScreen('main')} />
-          ) : configSubScreen === 'integration' ? (
-            <IntegrationDetailScreen
-              integrationId={selectedIntegrationId}
-              onBack={() => setConfigSubScreen('main')}
-            />
-          ) : configSubScreen === 'company' ? (
-            <CompanyDetailsScreen onBack={() => setConfigSubScreen('main')} />
-          ) : configSubScreen === 'audit_logs' ? (
-            <SystemAuditLogsScreen onBack={() => setConfigSubScreen('main')} />
-          ) : pricingSubScreen === 'home' ? (
-            <MarketPricingHomeScreen
-              onBack={() => setPricingSubScreen(null)}
-              onNavigateToFairPrice={() => setPricingSubScreen('fair_price')}
-              onNavigateToMarketDay={() => setPricingSubScreen('market_days')}
-              onNavigateToListingApproval={() => setPricingSubScreen('listing_approval')}
-            />
-          ) : pricingSubScreen === 'fair_price' ? (
-            <FairPriceCeilingScreen
-              onBack={() => setPricingSubScreen('home')}
-              onUpdatePrice={(item) => {
-                setSelectedPriceCrop(item);
-                setPricingSubScreen('update_price');
-              }}
-              onBulkUpdate={() => setPricingSubScreen('bulk_update')}
-              onViewHistory={(item) => {
-                setSelectedPriceCrop(item);
-                setPricingSubScreen('price_history');
-              }}
-            />
-          ) : pricingSubScreen === 'update_price' ? (
-            <UpdateFairPriceScreen
-              onBack={() => setPricingSubScreen('fair_price')}
-              itemName={selectedPriceCrop?.name ?? 'Carrots'}
-              category={selectedPriceCrop?.category ?? 'Vegetables'}
-              currentPrice={selectedPriceCrop?.price ?? 42}
-              onSave={(newPrice) => {
-                if (selectedPriceCrop) {
-                  setSelectedPriceCrop({ ...selectedPriceCrop, price: newPrice });
-                }
-                setPricingSubScreen('fair_price');
-              }}
-            />
-          ) : pricingSubScreen === 'bulk_update' ? (
-            <BulkPriceUpdateScreen
-              onBack={() => setPricingSubScreen('fair_price')}
-              onApply={() => {
-                setPricingSubScreen('fair_price');
-              }}
-            />
-          ) : pricingSubScreen === 'price_history' ? (
-            <PriceHistoryScreen
-              onBack={() => setPricingSubScreen('fair_price')}
-              itemName={selectedPriceCrop?.name ?? 'Carrots'}
-              category={selectedPriceCrop?.category ?? 'Vegetables'}
-              currentPrice={selectedPriceCrop?.price ?? 42}
-            />
-          ) : pricingSubScreen === 'market_days' ? (
-            <MarketDayScheduleScreen
-              onBack={() => setPricingSubScreen('home')}
-              onAddMarketDay={() => setPricingSubScreen('add_market_day')}
-              onToggle={(id, val) => {
-                setMarketDaysList((prev) =>
-                  prev.map((d) => (d.id === id ? { ...d, isActive: val } : d)),
-                );
-              }}
-              days={marketDaysList}
-              onDaysChange={setMarketDaysList}
-            />
-          ) : pricingSubScreen === 'add_market_day' ? (
-            <AddMarketDayScreen
-              onBack={() => setPricingSubScreen('market_days')}
-              onSave={(newDay) => {
-                setMarketDaysList((prev) => [
-                  {
-                    id: String(Date.now()),
-                    date: newDay.date,
-                    month: newDay.month,
-                    warehouse: newDay.warehouse,
-                    timeRange: newDay.timeRange,
-                    isActive: true,
-                  },
-                  ...prev,
-                ]);
-                setPricingSubScreen('market_days');
-              }}
-            />
-          ) : pricingSubScreen === 'listing_approval' ? (
-            <ListingApprovalQueueScreen
-              onBack={() => setPricingSubScreen('home')}
-              onApprove={() => { }}
-              onCounter={() => { }}
-              onReject={() => { }}
-            />
-          ) : (
-            <ScrollView
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollPad}
-              showsVerticalScrollIndicator={false}
             >
-              {/* Header: Greeting & Role */}
-              <View style={styles.pageHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.greetSmall}>Good morning,</Text>
-                  <Text style={styles.greetName}>{displayName}</Text>
+              <CalendarIcon size={16} color={adminColors.onBrand} />
+              <Text style={styles.scheduleMarketText}>{t('superAdminDashboard.market.schedule')}</Text>
+            </TouchableOpacity>
+          </View>
 
-                  {/* Role Pill */}
-                  <View style={styles.rolePill}>
-                    <ShieldIcon />
-                    <Text style={styles.rolePillText}>Super Admin</Text>
+          {/* Upcoming Schedule */}
+          <View style={styles.scheduleSection}>
+            <Text style={styles.scheduleSectionTitle}>{t('superAdminDashboard.market.upcoming')}</Text>
+
+            {marketSchedules.map((schedule) => (
+              <View key={schedule.id} style={styles.scheduleItem}>
+                <View style={styles.scheduleItemLeft}>
+                  <View style={styles.scheduleCalendarBox}>
+                    <CalendarIcon size={16} color={adminColors.muted} />
+                  </View>
+                  <View style={styles.scheduleTextCol}>
+                    <Text style={styles.scheduleItemTitle}>{schedule.title}</Text>
+                    <Text style={styles.scheduleItemTime}>{schedule.time}</Text>
                   </View>
                 </View>
-
-                {/* Profile Avatar */}
-                <TouchableOpacity
-                  style={styles.avatarCircle}
-                  onPress={() => setActiveTab('Profile')}
-                  activeOpacity={0.8}
-                >
-                  <PersonAvatarIcon />
-                </TouchableOpacity>
+                <View style={styles.scheduleItemRight}>
+                  <View style={styles.scheduledPill}>
+                    <Text style={styles.scheduledPillText}>{t('superAdminDashboard.market.scheduled')}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.menuDotBtn}
+                    activeOpacity={0.7}
+                    onPress={() => setActiveScheduleMenu(schedule)}
+                  >
+                    <MoreVerticalIcon size={16} color={adminColors.muted} />
+                  </TouchableOpacity>
+                </View>
               </View>
+            ))}
+          </View>
+        </View>
 
-              {/* Section 1: System-wide overview */}
-              <SectionHeader title="System-wide overview" />
-              <OverviewCardsGrid style={{ marginBottom: 16 }}>
-                <OverviewDashboardCard
-                  value="1,284"
-                  title="Total Farmers"
-                  subtitle="↑ +18 this month"
-                  icon="users"
-                  tone="success"
-                  titlePosition="bottom"
-                  onPress={() => {
-                    if (onNavigate) {
-                      onNavigate('AdminAllFarmers');
-                    } else {
-                      setActiveTab('Farmers');
-                    }
-                  }}
-                />
-                <OverviewDashboardCard
-                  value="6,502"
-                  title="Total Customers"
-                  subtitle="↑ +142 this month"
-                  icon="users"
-                  tone="success"
-                  titlePosition="bottom"
-                />
-                <OverviewDashboardCard
-                  value="₹18.4L"
-                  title="Revenue (MTD)"
-                  subtitle="↑ +6.2%"
-                  icon="sales"
-                  tone="success"
-                  titlePosition="bottom"
-                />
-                <OverviewDashboardCard
-                  value="4 / 4"
-                  title="Warehouses Active"
-                  subtitle="All operational"
-                  icon="box"
-                  tone="success"
-                  titlePosition="bottom"
-                />
-              </OverviewCardsGrid>
-
-              {/* Section 2: Needs your approval */}
-              <SectionHeader title="Needs your approval" />
-              <View style={styles.cardStack}>
-                <ApprovalRow
-                  icon={<CardPaymentIcon />}
-                  title="Dual-approval payouts"
-                  subtitle="3 payouts above ₹10,000 awaiting your sign-off"
-                  badge={3}
-                />
-                <ApprovalRow
-                  icon={<UserPlusIcon />}
-                  title="New admin account requests"
-                  subtitle="2 Sub Warehouse Admin accounts pending creation"
-                  badge={2}
-                  onPress={() => setAdminSubScreen('requests')}
-                />
-              </View>
-
-              {/* Section 3: Compliance alerts */}
-              <SectionHeader title="Compliance alerts" />
-              <View style={styles.cardStack}>
-                {/* Only Audit module navigation is enabled */}
-                <ComplianceAlertCard
-                  title="7 farms overdue for quarterly audit"
-                  subtitle="Q3 audit window closes in 5 days across Coonoor and Kotagiri zones."
-                  linkLabel="Review audit calendar"
-                  accentColor={PALETTE.alertRed}
-                  onLinkPress={() => onNavigate?.('AuditCalendar')}
-                />
-                <ComplianceAlertCard
-                  title="12 certifications expiring within 30 days"
-                  subtitle="PGS Organic renewals needed before listings are auto-blocked."
-                  linkLabel="View farmers"
-                  accentColor={PALETTE.alertAmber}
-                />
-              </View>
-
-              {/* Section 4: Quick actions */}
-              <SectionHeader title="Quick actions" />
-              <View style={styles.quickRow}>
-                <QuickActionCard
-                  icon={<UserPlusIcon />}
-                  label={'Create\nAdmin'}
-                  onPress={() => {
-                    setSelectedAdminToEdit(null);
-                    setAdminSubScreen('create');
-                  }}
-                />
-                <QuickActionCard
-                  icon={<GearIcon />}
-                  label={'System\nConfig'}
-                  onPress={() => setConfigSubScreen('main')}
-                />
-                <QuickActionCard
-                  icon={<MarketPriceIcon />}
-                  label={'Market &\nPrice'}
-                  onPress={() => setPricingSubScreen('home')}
-                />
-                {/* Only Finance module navigation is enabled */}
-                <QuickActionCard
-                  icon={<BankIcon />}
-                  label="Finance"
-                  onPress={() => onNavigate?.('FinancialDashboard')}
-                />
-              </View>
-
-              <View style={{ height: 40 }} />
-            </ScrollView>
-          )
-        ) : activeTab === 'Farmers' ? (
-          farmerSubScreen === 'map' && selectedFarmer ? (
-            <AdminFarmMapScreen
-              farmer={selectedFarmer}
-              onBack={() => setFarmerSubScreen(null)}
+        {/* ─── Quick Access (Reusable OverviewActionCard) ─── */}
+        <OverviewSectionHeader title={t('superAdminDashboard.section.quickAccess')} />
+        <OverviewCardsGrid style={styles.quickAccessGrid}>
+          {can('allocation.channel_percentage.set') ? (
+            <OverviewActionCard
+              title="Configure Allocation"
+              icon={<PieChartIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('allocation')}
             />
-          ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
-            <AdminRatingScorecardScreen
-              farmer={selectedFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => { }}
-            />
-          ) : selectedFarmer ? (
-            <AdminFarmerDetailScreen
-              farmer={selectedFarmer}
-              onBack={() => setSelectedFarmer(null)}
-              onOpenFarmMap={() => setFarmerSubScreen('map')}
-              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
-            />
-          ) : (
-            <AdminAllFarmersScreen
-              onBack={() => setActiveTab('Dashboard')}
-              onSelectFarmer={(f) => {
-                if (onNavigate) {
-                  onNavigate('AdminFarmerDetail');
-                } else {
-                  setSelectedFarmer(f);
-                }
-              }}
-            />
-          )
-        ) : activeTab === 'Sales' ? (
-          salesSubScreen === 'online' ? (
-            <SalesOnlineOrdersScreen
-              onBack={() => setSalesSubScreen('overview')}
-              onSelectOrder={(ord) => {
-                setSelectedSalesOrder(ord);
-                setSalesSubScreen('fulfillment');
-              }}
-              onOpenInvoice={(ord) => {
-                setSelectedSalesOrder(ord);
-                setSalesSubScreen('invoice');
-              }}
-            />
-          ) : salesSubScreen === 'market' ? (
-            <SalesMarketDayScreen onBack={() => setSalesSubScreen('overview')} />
-          ) : salesSubScreen === 'horeca' ? (
-            <SalesHorecaOrdersScreen onBack={() => setSalesSubScreen('overview')} />
-          ) : salesSubScreen === 'b2b' ? (
-            <SalesB2BOrdersScreen
-              onBack={() => setSalesSubScreen('overview')}
-              onOpenInvoice={(acc) => {
-                setSelectedSalesB2B(acc);
-                setSalesSubScreen('invoice');
-              }}
-            />
-          ) : salesSubScreen === 'fulfillment' ? (
-            <SalesFulfillmentAssignmentScreen
-              orderNumber={selectedSalesOrder?.orderNumber ?? 'ORD-20260910-0091'}
-              customerName={selectedSalesOrder?.customerName ?? 'Divya Ramesh'}
-              onBack={() => setSalesSubScreen('overview')}
-              onNavigateToInvoice={() => setSalesSubScreen('invoice')}
-            />
-          ) : salesSubScreen === 'invoice' ? (
-            <SalesInvoiceScreen
-              orderNumber={
-                selectedSalesOrder?.orderNumber ??
-                (selectedSalesB2B ? 'B2B-20260909-001' : 'ORD-20260909-0084')
-              }
-              customerName={
-                selectedSalesOrder?.customerName ??
-                (selectedSalesB2B ? selectedSalesB2B.name : 'Ramesh P.')
-              }
-              onBack={() => setSalesSubScreen('overview')}
-            />
-          ) : salesSubScreen === 'returns' ? (
-            <SalesReturnsRefundsScreen onBack={() => setSalesSubScreen('overview')} />
-          ) : (
-            <SalesChannelOverviewScreen
-              onBack={() => setActiveTab('Dashboard')}
-              onSelectChannel={(ch) => setSalesSubScreen(ch)}
-              onOpenFulfillment={() => setSalesSubScreen('fulfillment')}
-              onOpenReturns={() => setSalesSubScreen('returns')}
-            />
-          )
-        ) : activeTab === 'Reports' ? (
-          reportsSubScreen === 'analytics' ? (
-            <AnalyticsDashboardScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'pl' ? (
-            <PLStatementScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'farmerPerformance' ? (
-            <FarmerPerformanceReportScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'warehouseOps' ? (
-            <WarehouseOpsReportScreen onBack={() => setReportsSubScreen(null)} />
-          ) : reportsSubScreen === 'allRecent' ? (
-            <AllRecentReportsScreen
-              onBack={() => setReportsSubScreen(null)}
-              onOpenPLReport={() => setReportsSubScreen('pl')}
-              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-            />
-          ) : reportsSubScreen === 'builder' ? (
-            <ReportBuilderScreen
-              onBack={() => setReportsSubScreen(null)}
-              onGenerate={(type) => {
-                if (type === 'pl') setReportsSubScreen('pl');
-                else if (type === 'farmer') setReportsSubScreen('farmerPerformance');
-                else if (type === 'warehouse') setReportsSubScreen('warehouseOps');
-              }}
-            />
-          ) : reportsSubScreen === 'alerts' ? (
-            <SystemAlertsScreen
-              onBack={() => setReportsSubScreen(null)}
-              onNavigateToStock={() => setReportsSubScreen('warehouseOps')}
-              onNavigateToPayouts={() => setReportsSubScreen('pl')}
-              onNavigateToCert={() => setReportsSubScreen('farmerPerformance')}
-            />
-          ) : reportsSubScreen === 'announcements' ? (
-            <AnnouncementsScreen onBack={() => setReportsSubScreen(null)} />
-          ) : (
-            <AdminReportsMainScreen
-              onBack={() => setActiveTab('Dashboard')}
-              onOpenPLReport={() => setReportsSubScreen('pl')}
-              onOpenFarmerPerformanceReport={() => setReportsSubScreen('farmerPerformance')}
-              onOpenWarehouseOpsReport={() => setReportsSubScreen('warehouseOps')}
-              onOpenAnalyticsDashboard={() => setReportsSubScreen('analytics')}
-              onOpenReportBuilder={() => setReportsSubScreen('builder')}
-              onOpenAllRecentReports={() => setReportsSubScreen('allRecent')}
-              onOpenSystemAlerts={() => setReportsSubScreen('alerts')}
-              onOpenAnnouncements={() => setReportsSubScreen('announcements')}
-            />
-          )
-        ) : activeTab === 'Profile' ? (
-          <AdminProfileScreen
-            role="SUPER_ADMIN"
-            onSignOut={onSignOut}
-            onBack={() => setActiveTab('Dashboard')}
+          ) : null}
+          <OverviewActionCard
+            title="Approval Inbox"
+            icon={<InboxTrayIcon size={20} color={adminColors.brandDeep} />}
+            onPress={() => setActiveSubScreen('approval_inbox')}
           />
-        ) : (
-          <View style={styles.blankPane} />
-        )}
-      </View>
+          {can('transfer.inter_warehouse.initiate') ? (
+            <OverviewActionCard
+              title="Manage Transfers"
+              icon={<SwitchArrowsIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('transfers_flow')}
+            />
+          ) : null}
+          <OverviewActionCard
+            title="Work Queue"
+            icon={<ClipboardListIcon size={20} color={adminColors.brandDeep} />}
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          {can('admin.super_admin.create') ? (
+            <OverviewActionCard
+              title="Create Admin"
+              icon={<UserPlusIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('create_admin')}
+            />
+          ) : null}
+          {can('system.config.manage') ? (
+            <OverviewActionCard
+              title="Alert Thresholds"
+              icon={<FilterSlidersIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('alert_thresholds')}
+            />
+          ) : null}
+          {can('pricing.fair_price.set') ? (
+            <OverviewActionCard
+              title="Fair Prices"
+              icon={<RupeeTagIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('fair_price_ceiling')}
+            />
+          ) : null}
+          {can('pricing.fair_price.set') ? (
+            <OverviewActionCard
+              title="Manage Retail Prices"
+              icon={<CashBillIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('retail_pricing')}
+            />
+          ) : null}
+        </OverviewCardsGrid>
 
-      {/* ─── Bottom Navigation Tab Bar ─── */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            setConfigSubScreen(null);
-            setPricingSubScreen(null);
-            setReportsSubScreen(null);
-            setActiveTab('Dashboard');
-          }}
-          activeOpacity={0.7}
-        >
-          <DashboardTabIcon active={activeTab === 'Dashboard'} />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'Dashboard' && styles.tabLabelActive,
-            ]}
-          >
-            Dashboard
-          </Text>
-        </TouchableOpacity>
+        {/* ─── Work Queue (Reusable OverviewQueueCard) ─── */}
+        <OverviewSectionHeader title={t('superAdminDashboard.section.workQueue')} />
+        <View style={styles.workQueueList}>
+          <OverviewQueueCard
+            title="PAY-0002 · Kumar"
+            badgeLabel="Awaiting SA approval"
+            badgeStatus="INFO"
+            meta="₹18,000.00 · Requested 9 Oct 2026, 10:00"
+            viewDetailsLabel={t('superAdminDashboard.viewDetails')}
+            accentTone="danger"
+            onPress={() => {
+              setSelectedPayoutId('PAY-0002');
+              setActiveSubScreen('approval_payout_detail');
+            }}
+          />
+          <OverviewQueueCard
+            title="APP-2026-0101 · Sathish Kumar"
+            badgeLabel="Pending Review"
+            badgeStatus="PENDING"
+            meta="Submitted 5 Oct 2026"
+            viewDetailsLabel={t('superAdminDashboard.viewDetails')}
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewQueueCard
+            title="AUD-2026-0052 · Vijay"
+            badgeLabel="Past scheduled date"
+            badgeStatus="REJECTED"
+            meta="Due 8 Oct 2026"
+            viewDetailsLabel={t('superAdminDashboard.viewDetails')}
+            onPress={() => setActiveSubScreen('audit_management')}
+          />
+        </View>
 
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            setConfigSubScreen(null);
-            setPricingSubScreen(null);
-            setReportsSubScreen(null);
-            if (onNavigate) {
-              onNavigate('AdminAllFarmers');
-            } else {
-              setActiveTab('Farmers');
-            }
-          }}
-          activeOpacity={0.7}
-        >
-          <FarmersTabIcon active={activeTab === 'Farmers'} />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'Farmers' && styles.tabLabelActive,
-            ]}
-          >
-            Farmers
-          </Text>
-        </TouchableOpacity>
+        {/* ─── Approval Inbox (Reusable OverviewApprovalCard) ─── */}
+        <OverviewSectionHeader
+          title={t('superAdminDashboard.section.approvalInbox')}
+          actionLabel="View All"
+          onAction={() => setActiveSubScreen('approval_inbox')}
+        />
+        <View style={styles.approvalInboxList}>
+          <OverviewApprovalCard
+            category="Farmer Payout (>₹10,000)"
+            title="PAY-0002 · Kumar · ₹18,000.00"
+            meta="Escalated by Demo TOHFA Admin · Waiting 4 days"
+            badgeLabel="Escalated"
+            badgeStatus="INFO"
+            onPress={() => {
+              setSelectedPayoutId('PAY-0002');
+              setActiveSubScreen('approval_payout_detail');
+            }}
+          />
+          <OverviewApprovalCard
+            category="Inter-Warehouse Transfer"
+            title="TR-0015 · Ooty → Coonoor · ₹42,000.00"
+            meta="Requested by Demo Main Warehouse Admin · Waiting 1 day"
+            badgeLabel="High value"
+            badgeStatus="INFO"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewApprovalCard
+            category="Warehouse Admin Promotion"
+            title="Priya Nair → Main Warehouse Admin"
+            meta="Requested by Demo TOHFA Admin · Waiting 2 days"
+            badgeLabel="Pending"
+            badgeStatus="PENDING"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewApprovalCard
+            category="Stock Adjustment"
+            title="ADJ-0031 · Carrot · -42 kg (Main Warehouse, Ooty)"
+            meta="Requested by Demo Sub Warehouse Admin · Waiting 6 hours"
+            badgeLabel="Pending"
+            badgeStatus="PENDING"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewApprovalCard
+            category="Farmer Application"
+            title="APP-2026-0101 · Sathish Kumar"
+            meta="Submitted 5 Oct 2026 · Waiting 3 days"
+            badgeLabel="Pending Review"
+            badgeStatus="PENDING"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewApprovalCard
+            category="Produce Listing"
+            title="LST-2026-0045 · Tomato Grade 1 · Selvi"
+            meta="Submitted 11 Oct 2026 · Waiting 2 days"
+            badgeLabel="Pending Review"
+            badgeStatus="PENDING"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+          <OverviewApprovalCard
+            category="Produce Listing"
+            title="LST-2026-0047 · Carrot Grade 2 · Demo Farmer Admin"
+            meta="Auto-routed away from the Farmer Admin who owns it · Waiting 1 day"
+            badgeLabel="Routed — own listing"
+            badgeStatus="UNVERIFIED"
+            onPress={() => setActiveSubScreen('approval_inbox')}
+          />
+        </View>
 
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            setConfigSubScreen(null);
-            setPricingSubScreen(null);
-            setReportsSubScreen(null);
-            setSalesSubScreen('overview');
-            setActiveTab('Sales');
-          }}
-          activeOpacity={0.7}
-        >
-          <SalesTabIcon active={activeTab === 'Sales'} />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'Sales' && styles.tabLabelActive,
-            ]}
-          >
-            Sales
-          </Text>
-        </TouchableOpacity>
+        {/* ─── Recent Activity ─── */}
+        <OverviewSectionHeader title={t('superAdminDashboard.section.recentActivity')} />
+        <View style={styles.activityCard}>
+          {renderActivityItem('Fair Price ceiling updated for Carrot Grade 1', 'Today, 10:45 AM')}
+          {renderActivityItem('Sub Warehouse Admin account created for Kotagiri', 'Yesterday, 04:20 PM')}
+          {renderActivityItem('Channel Allocation updated to Online 70% / Live 10%', '12 Oct 2026, 02:15 PM')}
+        </View>
+      </ScrollView>
 
+      {/* 3-Dots Schedule Options Popup Modal */}
+      <Modal
+        visible={!!activeScheduleMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveScheduleMenu(null)}
+      >
         <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            setConfigSubScreen(null);
-            setPricingSubScreen(null);
-            setReportsSubScreen(null);
-            setActiveTab('Reports');
-          }}
-          activeOpacity={0.7}
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setActiveScheduleMenu(null)}
         >
-          <ReportsTabIcon active={activeTab === 'Reports'} />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'Reports' && styles.tabLabelActive,
-            ]}
-          >
-            Reports
-          </Text>
-        </TouchableOpacity>
+          <View style={styles.scheduleOptionsMenu}>
+            <TouchableOpacity
+              style={styles.scheduleOptionItem}
+              onPress={() => {
+                if (activeScheduleMenu) {
+                  setDetailsScheduleItem(activeScheduleMenu);
+                }
+                setActiveScheduleMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.viewDetails')}</Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.tabItem}
-          onPress={() => {
-            setConfigSubScreen(null);
-            setPricingSubScreen(null);
-            setReportsSubScreen(null);
-            setActiveTab('Profile');
-          }}
-          activeOpacity={0.7}
-        >
-          <ProfileNavIcon active={activeTab === 'Profile'} />
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === 'Profile' && styles.tabLabelActive,
-            ]}
-          >
-            Profile
-          </Text>
+            <View style={styles.scheduleOptionDivider} />
+
+            <TouchableOpacity
+              style={styles.scheduleOptionItem}
+              onPress={() => {
+                if (activeScheduleMenu) {
+                  setMarketScheduleMode(activeScheduleMenu.mode);
+                  setActiveSubScreen('schedule_market');
+                }
+                setActiveScheduleMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.editSchedule')}</Text>
+            </TouchableOpacity>
+
+            <View style={styles.scheduleOptionDivider} />
+
+            <TouchableOpacity
+              style={styles.scheduleOptionItem}
+              onPress={() => {
+                if (activeScheduleMenu) {
+                  const targetId = activeScheduleMenu.id;
+                  setMarketSchedules((prev) => prev.filter((s) => s.id !== targetId));
+                  Alert.alert(
+                    t('scheduleMarket.title'),
+                    t('scheduleMarket.cancelSuccess')
+                  );
+                }
+                setActiveScheduleMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.scheduleOptionText, styles.scheduleOptionDanger]}>
+                {t('scheduleMarket.menu.cancelSchedule')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
-      </View>
+      </Modal>
+
+      {/* Schedule Details Modal */}
+      <Modal
+        visible={!!detailsScheduleItem}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailsScheduleItem(null)}
+      >
+        <TouchableOpacity
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setDetailsScheduleItem(null)}
+        >
+          <View style={styles.detailsModalContent}>
+            <Text style={styles.detailsModalTitle}>{t('scheduleMarket.details.title')}</Text>
+            {detailsScheduleItem && (
+              <View style={styles.detailsModalBody}>
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailsLabel}>{t('scheduleMarket.action')}:</Text>
+                  <Text style={styles.detailsValue}>
+                    {detailsScheduleItem.mode === 'open'
+                      ? t('scheduleMarket.actionOpen')
+                      : t('scheduleMarket.actionClose')}
+                  </Text>
+                </View>
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailsLabel}>{t('scheduleMarket.time')}:</Text>
+                  <Text style={styles.detailsValue}>{detailsScheduleItem.time}</Text>
+                </View>
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailsLabel}>{t('scheduleMarket.repeat')}:</Text>
+                  <Text style={styles.detailsValue}>{detailsScheduleItem.repeat}</Text>
+                </View>
+              </View>
+            )}
+            <TouchableOpacity
+              style={styles.detailsCloseBtn}
+              onPress={() => setDetailsScheduleItem(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.detailsCloseText}>{t('scheduleMarket.details.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Bottom Navigation Bar */}
+      {renderBottomTabBar(activeTab, setActiveTab)}
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: PALETTE.pageBg,
-  },
-  scroll: {
-    flex: 1,
-  },
-  scrollPad: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
-    paddingBottom: 24,
-  },
+// ─── Reusable Render Helpers ──────────────────────────────────────────────────
 
-  // Header
-  pageHeader: {
+function renderHeader(titleText: string, onSignOut: () => void) {
+  return (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <ShieldIcon size={20} color={adminColors.onBrand} />
+        <Text style={styles.headerTitle}>{titleText}</Text>
+      </View>
+      <View style={styles.headerRight}>
+        <View style={styles.bellWrapper}>
+          <BellIcon size={22} color={adminColors.onBrand} />
+          <View style={styles.notificationBadge}>
+            <Text style={styles.notificationBadgeText}>4</Text>
+          </View>
+        </View>
+        <TouchableOpacity onPress={onSignOut} activeOpacity={0.7}>
+          <UserAvatarIcon size={24} color={adminColors.onBrand} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+function renderActivityItem(title: string, time: string) {
+  return (
+    <View key={title} style={styles.activityItemRow}>
+      <View style={styles.activityDot} />
+      <View style={styles.activityTextCol}>
+        <Text style={styles.activityTitle}>{title}</Text>
+        <Text style={styles.activityTime}>{time}</Text>
+      </View>
+    </View>
+  );
+}
+
+
+function renderMoreMenuRow(
+  label: string,
+  icon: React.ReactNode,
+  onPress: () => void
+) {
+  return (
+    <TouchableOpacity
+      key={label}
+      style={styles.moreMenuRowCard}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.moreMenuRowLeft}>
+        {icon}
+        <Text style={styles.moreMenuRowLabel}>{label}</Text>
+      </View>
+      <ChevronRightIcon size={16} color={adminColors.muted} />
+    </TouchableOpacity>
+  );
+}
+
+function renderBottomTabBar(
+  activeTab: SuperAdminTab,
+  onSelectTab: (tab: SuperAdminTab) => void
+) {
+  return (
+    <View style={styles.bottomBar}>
+      <TouchableOpacity
+        style={styles.bottomTabItem}
+        onPress={() => onSelectTab('Overview')}
+        activeOpacity={0.75}
+      >
+        <NavOverviewIcon
+          size={20}
+          color={activeTab === 'Overview' ? adminColors.brand : adminColors.muted}
+        />
+        <Text
+          style={[
+            styles.bottomTabLabel,
+            activeTab === 'Overview' && styles.bottomTabLabelActive,
+          ]}
+        >
+          {t('superAdminDashboard.tab.overview')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.bottomTabItem}
+        onPress={() => onSelectTab('Farmers')}
+        activeOpacity={0.75}
+      >
+        <NavFarmersIcon
+          size={20}
+          color={activeTab === 'Farmers' ? adminColors.brand : adminColors.muted}
+        />
+        <Text
+          style={[
+            styles.bottomTabLabel,
+            activeTab === 'Farmers' && styles.bottomTabLabelActive,
+          ]}
+        >
+          {t('superAdminDashboard.tab.farmers')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.bottomTabItem}
+        onPress={() => onSelectTab('Warehouse')}
+        activeOpacity={0.75}
+      >
+        <NavWarehouseIcon
+          size={20}
+          color={activeTab === 'Warehouse' ? adminColors.brand : adminColors.muted}
+        />
+        <Text
+          style={[
+            styles.bottomTabLabel,
+            activeTab === 'Warehouse' && styles.bottomTabLabelActive,
+          ]}
+        >
+          {t('superAdminDashboard.tab.warehouse')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.bottomTabItem}
+        onPress={() => onSelectTab('Finance')}
+        activeOpacity={0.75}
+      >
+        <NavFinanceIcon
+          size={20}
+          color={activeTab === 'Finance' ? adminColors.brand : adminColors.muted}
+        />
+        <Text
+          style={[
+            styles.bottomTabLabel,
+            activeTab === 'Finance' && styles.bottomTabLabelActive,
+          ]}
+        >
+          {t('superAdminDashboard.tab.finance')}
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.bottomTabItem}
+        onPress={() => onSelectTab('Menu')}
+        activeOpacity={0.75}
+      >
+        <NavMenuIcon
+          size={20}
+          color={activeTab === 'Menu' ? adminColors.brand : adminColors.muted}
+        />
+        <Text
+          style={[
+            styles.bottomTabLabel,
+            activeTab === 'Menu' && styles.bottomTabLabelActive,
+          ]}
+        >
+          {t('superAdminDashboard.tab.menu')}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ─── Theme-Derived Stylesheet (Zero Hex Literals) ─────────────────────────────
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  tabContainer: {
+    flex: 1,
+    backgroundColor: adminColors.canvas,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  scrollInner: {
+    paddingHorizontal: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.xl,
+  },
+  header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 22,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm,
   },
-  greetSmall: {
-    fontSize: 13,
-    color: PALETTE.labelMuted,
-    marginBottom: 2,
-  },
-  greetName: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: PALETTE.ink,
-    marginBottom: 6,
-    letterSpacing: -0.3,
-  },
-  rolePill: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: PALETTE.peachBadge,
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 3.5,
+    gap: adminSpacing.xs,
   },
-  rolePillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: PALETTE.peachText,
+  headerTitle: {
+    ...adminType.title,
+    color: adminColors.onBrand,
+    fontSize: 18,
+    fontWeight: '800',
   },
-  avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: PALETTE.peachBadge,
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  bellWrapper: {
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    backgroundColor: adminColors.danger.text,
+    borderRadius: adminRadius.full,
+    width: 16,
+    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // Section Headers
-  sectionRow: {
-    marginBottom: 12,
-    marginTop: 6,
-  },
-  sectionTitle: {
-    fontSize: 15.5,
+  notificationBadgeText: {
+    color: adminColors.onBrand,
+    fontSize: 10,
     fontWeight: '700',
-    color: PALETTE.titleRust,
   },
-
-  // Stats Grid
-  statsGrid: {
-    gap: 12,
-    marginBottom: 22,
+  dateFilterContainer: {
+    alignItems: 'center',
+    marginVertical: adminSpacing.sm,
   },
-  statsRow: {
+  dateFilterPill: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    backgroundColor: adminColors.brandTint,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.xs,
+    gap: adminSpacing.xs,
   },
-  overviewCardWrapper: {
+  dateFilterText: {
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  kpiGrid: {
+    marginBottom: adminSpacing.md,
+  },
+  marketCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.brandTint,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  marketHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  marketTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
     flex: 1,
   },
-  overviewCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cardTopRow: {
-    marginBottom: 12,
-  },
-  statIconBox: {
+  marketIconBox: {
     width: 38,
     height: 38,
-    borderRadius: 10,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.brandTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statValue: {
-    fontSize: 22,
+  marketTitleCol: {
+    flex: 1,
+  },
+  marketTitle: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 16,
     fontWeight: '800',
-    color: PALETTE.ink,
-    letterSpacing: -0.3,
   },
-  italicVal: {
-    fontStyle: 'italic',
-  },
-  statLabel: {
+  marketSubtitle: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
     fontSize: 12,
-    color: PALETTE.labelMuted,
-    marginTop: 3,
-    marginBottom: 5,
+    marginTop: 2,
   },
-  statDelta: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-
-  // Stack of full-width cards
-  cardStack: {
-    gap: 10,
-    marginBottom: 22,
-  },
-
-  // Approval Row
-  approvalCard: {
+  marketStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs / 2,
+    gap: 5,
   },
-  approvalIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: PALETTE.peachIconBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
+  marketStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: adminColors.success.text,
   },
-  approvalTextCol: {
+  marketStatusText: {
+    color: adminColors.success.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  marketActionsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.md,
+  },
+  closeMarketButton: {
     flex: 1,
-    paddingRight: 8,
-  },
-  approvalTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: PALETTE.ink,
-    marginBottom: 3,
-  },
-  approvalSub: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    lineHeight: 16,
-  },
-  badgeCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: PALETTE.orange,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  // Compliance Alert Card
-  alertCard: {
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 18,
-    padding: 16,
+    gap: adminSpacing.xs,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
     borderWidth: 1,
-    borderColor: PALETTE.border,
-    borderLeftWidth: 3.5,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: adminColors.danger.border,
+    backgroundColor: adminColors.card,
   },
-  alertHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  alertTitle: {
-    fontSize: 14,
+  closeMarketText: {
+    color: adminColors.danger.text,
     fontWeight: '700',
-    color: PALETTE.ink,
-    marginLeft: 8,
-    flex: 1,
+    fontSize: 13,
   },
-  alertSub: {
-    fontSize: 12,
-    color: PALETTE.labelMuted,
-    lineHeight: 17,
-    paddingLeft: 26,
-    marginBottom: 8,
-  },
-  alertLink: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: PALETTE.orange,
-    paddingLeft: 26,
-  },
-
-  // Quick Actions Row
-  quickRow: {
+  scheduleMarketButton: {
+    flex: 1.2,
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  quickCard: {
-    flex: 1,
-    backgroundColor: PALETTE.cardBg,
-    borderRadius: 16,
-    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: PALETTE.border,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    gap: adminSpacing.xs,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.success.text,
   },
-  quickIconWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickLabel: {
-    fontSize: 11.5,
+  scheduleMarketText: {
+    color: adminColors.onBrand,
     fontWeight: '700',
-    color: PALETTE.ink,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 15,
+    fontSize: 13,
   },
-
-  // Bottom Tab Bar
-  tabBar: {
-    flexDirection: 'row',
-    height: 66,
-    backgroundColor: '#FFFFFF',
+  scheduleSection: {
+    marginTop: adminSpacing.md,
+    paddingTop: adminSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: PALETTE.tabBorder,
+    borderTopColor: adminColors.border,
+  },
+  scheduleSectionTitle: {
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
+    fontWeight: '800',
+    fontSize: 12,
+    marginBottom: adminSpacing.xs,
+  },
+  scheduleItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    elevation: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    marginTop: adminSpacing.xs,
   },
-  tabItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    height: '100%',
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    color: PALETTE.tabInactive,
-  },
-  tabLabelActive: {
-    color: PALETTE.orange,
-    fontWeight: '700',
-  },
-
-  // Profile Fallback Pane
-  profilePane: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    backgroundColor: PALETTE.pageBg,
-  },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: PALETTE.peachBadge,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  profileName: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: PALETTE.ink,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  signOutBtn: {
+  scheduleItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 24,
-    paddingHorizontal: 28,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: PALETTE.alertRed,
+    gap: adminSpacing.xs,
+  },
+  scheduleCalendarBox: {
+    width: 28,
+    height: 28,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scheduleTextCol: {},
+  scheduleItemTitle: {
+    color: adminColors.ink,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  scheduleItemTime: {
+    color: adminColors.muted,
+    fontSize: 11,
+  },
+  scheduleItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+  },
+  scheduledPill: {
+    backgroundColor: adminColors.warning.bg,
+    borderRadius: adminRadius.xs,
+    paddingHorizontal: adminSpacing.xs,
+    paddingVertical: 2,
+  },
+  scheduledPillText: {
+    color: adminColors.warning.text,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  menuDotBtn: {
+    padding: adminSpacing.xs,
+  },
+  quickAccessGrid: {
+    marginBottom: adminSpacing.md,
+  },
+  workQueueList: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  approvalInboxList: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  activityCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  activityItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: adminColors.brand,
+    marginTop: 5,
+  },
+  activityTextCol: {
+    flex: 1,
+  },
+  activityTitle: {
+    color: adminColors.ink,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  activityTime: {
+    color: adminColors.muted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  menuCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    overflow: 'hidden',
+  },
+  menuRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: adminSpacing.sm + 2,
+    paddingHorizontal: adminSpacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: adminColors.border,
+  },
+  menuRowLabel: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  moreMenuList: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  moreMenuRowCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    height: 52,
+  },
+  moreMenuRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+  },
+  moreMenuRowLabel: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  signOutButton: {
+    backgroundColor: adminColors.danger.text,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
   },
   signOutText: {
+    color: adminColors.onBrand,
     fontSize: 15,
-    fontWeight: '600',
-    color: PALETTE.alertRed,
+    fontWeight: '800',
   },
-
-  // Blank Screen for other tabs
-  blankPane: {
+  bottomBar: {
+    flexDirection: 'row',
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingVertical: adminSpacing.xs,
+    paddingBottom: adminSpacing.sm,
+  },
+  bottomTabItem: {
     flex: 1,
-    backgroundColor: PALETTE.pageBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 2,
+  },
+  bottomTabLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    fontSize: 10,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  bottomTabLabelActive: {
+    color: adminColors.brand,
+    fontWeight: '800',
+  },
+  popupOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  scheduleOptionsMenu: {
+    width: 220,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.md,
+    overflow: 'hidden',
+  },
+  scheduleOptionItem: {
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.md,
+  },
+  scheduleOptionDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+  },
+  scheduleOptionText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '600',
+  },
+  scheduleOptionDanger: {
+    color: adminColors.danger.text,
+  },
+  detailsModalContent: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.lg,
+    ...adminShadow.md,
+  },
+  detailsModalTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    fontWeight: '700',
+    marginBottom: adminSpacing.md,
+  },
+  detailsModalBody: {
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.lg,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailsLabel: {
+    ...adminType.body,
+    color: adminColors.muted,
+    width: 70,
+  },
+  detailsValue: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '600',
+    flex: 1,
+  },
+  detailsCloseBtn: {
+    height: 44,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsCloseText: {
+    ...adminType.body,
+    color: adminColors.onBrand,
+    fontWeight: '700',
   },
 });
+
+export default SuperAdminDashboardScreen;

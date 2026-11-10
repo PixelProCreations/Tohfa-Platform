@@ -15,10 +15,11 @@
  * customers/WalletSummaryScreen (same content, nothing role-specific). The
  * transaction detail it used to nest is the flow's TransactionDetail route.
  */
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Line } from 'react-native-svg';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminRadius, adminSpacing, adminType, adminShadow } from '../../../theme';
 import { CUSTOMER_WALLET_TRANSACTIONS, SAMPLE_WALLET_CUSTOMER } from './fixtures';
 import type {
   PermissionCheck,
@@ -41,6 +42,7 @@ import {
   inScope,
   walletLayout,
 } from './WalletParts';
+import { WalletDeductionFlow } from '../../finance/WalletDeductionFlow';
 
 export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps, 'scope'> {
   onBack: () => void;
@@ -50,26 +52,42 @@ export interface CustomerWalletScreenProps extends Omit<WarehouseScreenBaseProps
   transactions?: readonly WalletTransactionRecord[] | undefined;
   /** Start a cash top-up for this customer. */
   onCashTopUp?: ((customer: WalletCustomer) => void) | undefined;
+  /** Start a cash deduction flow for this customer. */
+  onDeductMoney?: ((customer: WalletCustomer) => void) | undefined;
   onOpenTransaction?: ((transaction: WalletTransactionRecord) => void) | undefined;
   /** Hide the bottom cash top-up button (e.g. for TOHFA Admin view-only mode). */
   hideCashTopUp?: boolean | undefined;
+  role?: string | undefined;
 }
 
 function isDebit(tx: WalletTransactionRecord): boolean {
   return (tx.amount ?? '').trim().startsWith('-');
 }
 
+function MinusCircleIcon({ size = 18, color = adminColors.ink }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
+      <Line x1="8" y1="12" x2="16" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function CustomerWalletScreen({
   scope = {},
   can = () => false,
+  role = 'SUPER_ADMIN',
   onBack,
   subtitle,
   customer,
   transactions = CUSTOMER_WALLET_TRANSACTIONS,
   onCashTopUp,
+  onDeductMoney,
   onOpenTransaction,
   hideCashTopUp = false,
 }: CustomerWalletScreenProps) {
+  const [internalDeduct, setInternalDeduct] = useState<boolean>(false);
+
   const active: ResolvedWalletCustomer = {
     name: customer?.name ?? SAMPLE_WALLET_CUSTOMER.name,
     id: customer?.id ?? SAMPLE_WALLET_CUSTOMER.id,
@@ -78,21 +96,72 @@ export function CustomerWalletScreen({
     totalCredited: customer?.totalCredited ?? SAMPLE_WALLET_CUSTOMER.totalCredited,
     totalUsed: customer?.totalUsed ?? SAMPLE_WALLET_CUSTOMER.totalUsed,
   };
+
+  if (internalDeduct) {
+    return (
+      <WalletDeductionFlow
+        customer={{
+          name: active.name,
+          id: active.id,
+          mobile: active.mobile,
+          balance: active.balance,
+        }}
+        role={role}
+        onBack={() => setInternalDeduct(false)}
+        onSuccess={() => setInternalDeduct(false)}
+      />
+    );
+  }
+
   const visible = transactions.filter((tx) => inScope(scope, tx.warehouseId));
-  const showTopUp = Boolean(!hideCashTopUp && can('wallet.cash_topup.process') && onCashTopUp !== undefined);
+  const canTopUp = !hideCashTopUp && (can ? (can('wallet.cash_topup.process') || role === 'SUPER_ADMIN' || role === 'TOHFA_ADMIN') : true);
+  const canDeduct = can ? (can('wallet.manual_credit_debit') || role === 'SUPER_ADMIN' || role === 'TOHFA_ADMIN') : true;
+
+  const showTopUp = Boolean(canTopUp);
+  const showDeduct = Boolean(canDeduct);
+
+  const footerElement =
+    showTopUp || showDeduct ? (
+      <View style={styles.bottomBarRow}>
+        {showTopUp && (
+          <TouchableOpacity
+            style={styles.topUpBtn}
+            onPress={() => onCashTopUp?.(active)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Cash Top-Up"
+          >
+            <CashIcon color={adminColors.onBrand} size={18} />
+            <Text style={styles.topUpBtnText}>Cash Top-Up</Text>
+          </TouchableOpacity>
+        )}
+        {showDeduct && (
+          <TouchableOpacity
+            style={styles.deductBtn}
+            onPress={() => {
+              if (onDeductMoney) {
+                onDeductMoney(active);
+              } else {
+                setInternalDeduct(true);
+              }
+            }}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Deduct Money"
+          >
+            <MinusCircleIcon color={adminColors.ink} size={18} />
+            <Text style={styles.deductBtnText}>Deduct Money</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    ) : undefined;
 
   return (
     <WalletScreen
       title="Customer Wallet"
       subtitle={subtitle}
       onBack={onBack}
-      footer={
-        showTopUp ? (
-          <WalletFooter>
-            <WalletButton label="Cash Top-Up" icon={<CashIcon />} onPress={() => onCashTopUp?.(active)} />
-          </WalletFooter>
-        ) : undefined
-      }
+      footer={footerElement}
     >
       <ScrollView contentContainerStyle={walletLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <Card>
@@ -190,4 +259,47 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.md,
   },
   noticeText: { ...adminType.rowMeta, flex: 1, color: adminColors.brandDeep },
+  bottomBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.md,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  topUpBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brand,
+    gap: adminSpacing.sm,
+  },
+  topUpBtnText: {
+    ...adminType.rowTitle,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  deductBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    gap: adminSpacing.sm,
+  },
+  deductBtnText: {
+    ...adminType.rowTitle,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
 });

@@ -46,12 +46,12 @@ function DocumentPdfIcon({ size = 38, color = '#6E6258' }: { size?: number; colo
 interface Props {
   application?: any;
   onBack: () => void;
-  onApprove?: (updatedApp?: any) => void;
-  onReject?: () => void;
-  onRequestMoreInfo?: () => void;
-  can?: (code: string) => boolean;
-  role?: string;
-  userRole?: string;
+  onApprove?: ((updatedApp?: any) => void) | undefined;
+  onReject?: (() => void) | undefined;
+  onRequestMoreInfo?: (() => void) | undefined;
+  can?: ((code: string) => boolean) | undefined;
+  role?: string | undefined;
+  userRole?: string | undefined;
 }
 
 export const AdminApplicationDetailScreen: React.FC<Props> = ({
@@ -68,12 +68,12 @@ export const AdminApplicationDetailScreen: React.FC<Props> = ({
   // RBAC checks based on docs/rbac.json:
   // farmer.application.approve: TOHFA_ADMIN: all, SUPER_ADMIN: all, FARMER_ADMIN: view, MAIN_WH_ADMIN: none, SUB_WH_ADMIN: none
   // farmer.application.reject: TOHFA_ADMIN: all, SUPER_ADMIN: all, FARMER_ADMIN: none, MAIN_WH_ADMIN: none, SUB_WH_ADMIN: none
-  const canApprove =
-    (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN') &&
-    (can ? can('farmer.application.approve') : true);
-  const canReject =
-    (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN') &&
-    (can ? can('farmer.application.reject') : true);
+  const canApprove = can
+    ? can('farmer.application.approve')
+    : (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN');
+  const canReject = can
+    ? can('farmer.application.reject')
+    : (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN');
 
   const initialStatus = application.status ?? 'Pending';
   const isInitiallyApproved = initialStatus === 'Approved';

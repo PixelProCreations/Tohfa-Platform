@@ -2508,6 +2508,50 @@ BR-73 — withdrawn 2026-10-11: expense approval, cancellation and category mana
 
 ---
 
+### BR-106 — Automated Market Open/Close Schedule Management
+| | |
+|---|---|
+| **Source** | Mobile UI spec: SA-M2-S02 (Schedule Open) & SA-M2-S03 (Schedule Close), October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Mobile client + Server-side market scheduling (`market.schedule.manage`) |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. Super Admin and TOHFA Admin may configure automated schedule windows to transition market availability between OPEN and CLOSED states (`market.schedule.manage`).
+2. Schedulers support mode toggling (`Schedule Open` vs `Schedule Close`), scheduling a target date and time, and specifying an optional recurrence frequency (`One Time`, `Daily`, `Weekly`, `Monthly`, `Custom`).
+3. Dashboard Market Control cards surface active scheduled triggers ("Auto Closes", "Auto Open") with inline status badges (`Scheduled`) and an action menu offering `View Details`, `Edit Schedule`, and `Cancel Schedule`.
+4. All client mutations must be gated by `can('market.schedule.manage')` and require confirmation before cancelling or overwriting active schedules.
+
+**Test contract.**
+- `BR-106a` `market.schedule.manage` is granted to `SUPER_ADMIN: all` and `TOHFA_ADMIN: all`, and `none` for Farmer Admin, Main WH Admin, Sub WH Admin, Farmer, and Customer.
+- `BR-106b` Market schedule screen toggles between Open and Close modes within a single shared screen, updating mode, info banner text, input labels, summary actions, and primary submit button label accordingly without screen duplication.
+- `BR-106c` Action options menu on scheduled market items exposes View Details, Edit Schedule, and Cancel Schedule options.
+
+---
+
+### BR-107 — Shared Produce Control & Crop Data Taxonomy Management
+| | |
+|---|---|
+| **Source** | Mobile UI spec: M4-S01 (Produce Calendar), M4-S01-1 (Filters), M4-S28a (Crop Types), M4-S28b (Activity Category), M4-S28c (Platform Events), M3-S28b (Add Activity), Create Event, October 2026 |
+| **Status** | DERIVED |
+| **Layer** | Mobile client + Server-side taxonomy & event management |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. Super Admin and TOHFA Admin share the unified `ProduceControlFlow` for viewing the consolidated produce calendar across all farmers (`produce.calendar.view_consolidated`).
+2. Crop Types taxonomy management (`admin.crop_taxonomy.manage`) allows viewing, creating (`+ Add Crop Type`), editing, and activating/deactivating reference crop records.
+3. Farm Diary activity categories and sub-activities (`admin.diary_taxonomy.manage`) allow viewing, creating (`+ Add Activity Category`), editing, and retiring activity taxonomies.
+4. Platform events and calendar notifications (`platform.event.manage`) allow viewing, creating (`+ Create Event`), editing, and removing platform-wide events and scheduled notices.
+5. All UI cards and KPI grids strictly reuse `OverviewDashboardCard` and `OverviewCardsGrid`, and statuses reuse `AdminStatusBadge`. Screens are never duplicated between admin roles.
+
+**Test references.**
+- `BR-107a` `produce.calendar.view_consolidated` granted to `SUPER_ADMIN: all`, `TOHFA_ADMIN: all`, and `MAIN_WH_ADMIN: all`.
+- `BR-107b` `admin.crop_taxonomy.manage` granted to Super Admin and TOHFA Admin only.
+- `BR-107c` `admin.diary_taxonomy.manage` granted to Super Admin and TOHFA Admin only.
+- `BR-107d` `platform.event.manage` granted to Super Admin and TOHFA Admin only.
+
+---
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
@@ -2563,7 +2607,7 @@ Chapter 2 contains roughly 33 discrete client-locked rules. Track 1 enforces 14 
 | 14 | Warehouse capacity limits and quotas/targets | §6.2, FR-A04 | — | Contested authority (contradiction 5); no capacity model until resolved |
 | 15 | Stock verification (physical count vs system) | §6.2 | — | Ledger supports it; the counting workflow and variance report are Phase 2 |
 | 16 | Quality counter-offer at goods receipt | matrix §7 | BR-10 | Repaired 2026-10-11 as an UNCONFIRMED default: it is a round of the listing negotiation (shares the 4-round limit and the one-PENDING-offer rule); what happens to the receipt, purchase order and payout after the farmer answers is not specified (see the BR-10 note) |
-| 17 | Market day scheduling per warehouse | matrix §5 | — | Belongs to the Market sales channel, which is Phase 3 |
+| 17 | Market day scheduling per warehouse | matrix §5 | — | Belongs to the Market sales channel. Governed by BR-101 (market.schedule.manage) for automated market open/close scheduling (SA-M2-S02 / SA-M2-S03). |
 | 18 | GDPR data export and account deletion requests | matrix §15 | — | Absent from the Requirements document entirely; needs a retention policy first, which no document states |
 | 19 | Advisory automation (reminders, treatments, weather risk) | FR-F06/F07 | BR-38 | Blocked on contradiction 2 — do not build either way until the client answers |
 

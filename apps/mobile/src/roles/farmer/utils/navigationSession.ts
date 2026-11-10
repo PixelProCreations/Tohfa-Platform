@@ -28,25 +28,19 @@ export function isWarehouseAdminScreen(screen: string): boolean {
 }
 
 /** Admin roles whose AdminMain shell takes its `can` from App.tsx's warehouse permissions. */
-const WAREHOUSE_SHELL_ROLES: readonly string[] = ['SUB_WH_ADMIN'];
+const WAREHOUSE_SHELL_ROLES: readonly string[] = ['SUB_WH_ADMIN', 'SUPER_ADMIN'];
 
 /**
  * True when App.tsx must GET /auth/me for the warehouse permissions
- * (`warehouseCan`). That is every warehouse route AND the Sub warehouse shell,
- * which is rendered under 'AdminMain' with params.adminRole 'SUB_WH_ADMIN' and
- * gets `can={warehouseCan}`. Without the shell case the permissions were never
- * fetched while the admin stayed inside it, so `can` denied everything (bell
- * -> Notifications showed "not available"). The Main shell builds its own
- * `can` from its own useWarehousePermissions, so it is not listed. While this
- * is true App.tsx keeps retrying a failed fetch (useWarehousePermissions); a
- * failed fetch leaves `can` denying everything (dev builds aside: see
- * roles/admin/permissions/warehousePermissions.ts).
+ * (`warehouseCan`). That is every warehouse route AND the Sub warehouse / Super Admin shell,
+ * which is rendered under 'AdminMain' with params.adminRole and
+ * gets `can={warehouseCan}`.
  */
 export function shouldLoadWarehousePermissions(
   screen: string,
   params?: Readonly<Record<string, unknown>> | null,
 ): boolean {
-  if (isWarehouseAdminScreen(screen)) return true;
+  if (isWarehouseAdminScreen(screen) || screen === 'SuperAdminDashboard') return true;
   const role = params?.['adminRole'];
   return screen === 'AdminMain' && typeof role === 'string' && WAREHOUSE_SHELL_ROLES.includes(role);
 }

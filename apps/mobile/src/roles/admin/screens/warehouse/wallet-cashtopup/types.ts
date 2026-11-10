@@ -158,7 +158,8 @@ export type WalletRoute =
   | 'TopUpHistory'
   | 'DailyCashSummary'
   | 'DailyCash'
-  | 'WalletAttention';
+  | 'WalletAttention'
+  | 'WalletDeduction';
 
 /** Params carried between wallet routes. */
 export interface WalletRouteParams {

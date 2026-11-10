@@ -79,6 +79,7 @@ import {
 } from '../reports';
 import {
   PLStatementScreen,
+  FinanceManagementFlow,
 } from '../finance';
 import { PurchaseDuesPayoutsScreen } from '../finance/PurchaseDuesPayoutsScreen';
 import { SalesIncomeRevenueScreen } from '../finance/SalesIncomeRevenueScreen';
@@ -104,6 +105,7 @@ import { AddWarehouseProfileScreen } from './AddWarehouseProfileScreen';
 import { AdminMoreMenuScreen } from './AdminMoreMenuScreen';
 import { StaffFlow, StaffDetailScreen, StaffListScreen, STAFF_MEMBERS, DEFAULT_STAFF_MEMBER, type StaffMember, type AttendanceStatus } from '../warehouse/staff-attendance';
 import { HistoryIcon } from '../warehouse/staff-attendance/StaffParts';
+import { InputsPestManagementFlow } from '../inputs';
 import { InputsPestHomeScreen } from './InputsPestHomeScreen';
 import { ApprovedInputsScreen, AddNewInputScreen, EditInputScreen, type CatalogInputItem } from './ApprovedInputsScreen';
 import { InputDetailScreen } from './InputDetailScreen';
@@ -135,6 +137,7 @@ import {
   GenerateAuditReportScreen,
   AuditReportsTierConfigScreen,
   AuditReportHistoryScreen,
+  AuditManagementFlow,
 } from '../audits';
 import {
   MarketPricingHomeScreen,
@@ -10754,63 +10757,39 @@ export function TohfaAdminDashboardScreen({
             ceilingPrice={selectedPricingRecord?.ceiling}
             purchasePrice={selectedPricingRecord?.farmerPurchasePrice}
           />
-        ) : dashboardSubScreen === 'scheduleAudit' ? (
-          <AuditManagementScreen
+        ) : dashboardSubScreen === 'scheduleAudit' ||
+          dashboardSubScreen === 'auditScheduleAssignment' ||
+          dashboardSubScreen === 'auditDetailsRecord' ||
+          dashboardSubScreen === 'scheduleAuditForm' ||
+          dashboardSubScreen === 'auditHistoryCompliance' ||
+          dashboardSubScreen === 'generateAuditReport' ||
+          dashboardSubScreen === 'auditReportsTierConfig' ||
+          dashboardSubScreen === 'auditReportHistory' ? (
+          <AuditManagementFlow
+            can={can}
+            role="TOHFA_ADMIN"
+            initialScreen={
+              dashboardSubScreen === 'auditScheduleAssignment'
+                ? 'scheduleAssignment'
+                : dashboardSubScreen === 'auditDetailsRecord'
+                  ? 'detailsRecord'
+                  : dashboardSubScreen === 'scheduleAuditForm'
+                    ? 'scheduleForm'
+                    : dashboardSubScreen === 'auditHistoryCompliance'
+                      ? 'historyCompliance'
+                      : dashboardSubScreen === 'generateAuditReport'
+                        ? 'generateReport'
+                        : dashboardSubScreen === 'auditReportsTierConfig'
+                          ? 'reportsTierConfig'
+                          : dashboardSubScreen === 'auditReportHistory'
+                            ? 'reportHistory'
+                            : 'management'
+            }
+            initialAuditId={selectedAuditId}
             onBack={() => {
               setDashboardSubScreen(null);
               setActiveTab(auditReturnTab);
             }}
-            onOpenSchedule={() => setDashboardSubScreen('auditScheduleAssignment')}
-            onOpenHistory={() => setDashboardSubScreen('auditHistoryCompliance')}
-            onOpenGenerateReport={() => setDashboardSubScreen('generateAuditReport')}
-            onOpenReportHistory={() => {
-              setReportHistoryReturnScreen('scheduleAudit');
-              setDashboardSubScreen('auditReportHistory');
-            }}
-            onSelectAuditItem={(audit) => {
-              setSelectedAuditId(audit.code);
-              setAuditDetailsReturnScreen('scheduleAudit');
-              setDashboardSubScreen('auditDetailsRecord');
-            }}
-          />
-        ) : dashboardSubScreen === 'auditScheduleAssignment' ? (
-          <AuditScheduleAssignmentScreen
-            onBack={() => setDashboardSubScreen('scheduleAudit')}
-            onViewSchedule={(schedule) => {
-              setSelectedAuditId(schedule.code);
-              setAuditDetailsReturnScreen('auditScheduleAssignment');
-              setDashboardSubScreen('auditDetailFieldVisit');
-            }}
-            onEditSchedule={(schedule) => {
-              setSelectedAuditId(schedule.code);
-              setScheduleAuditFormReturnScreen('auditScheduleAssignment');
-              setDashboardSubScreen('scheduleAuditForm');
-            }}
-            onReschedule={(schedule) => {
-              setSelectedAuditId(schedule.code);
-              setScheduleAuditFormReturnScreen('auditScheduleAssignment');
-              setDashboardSubScreen('scheduleAuditForm');
-            }}
-          />
-        ) : dashboardSubScreen === 'auditDetailFieldVisit' ? (
-          <AuditScheduleScreen
-            initialView="detail"
-            initialAuditId={selectedAuditId}
-            onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
-          />
-        ) : dashboardSubScreen === 'auditDetailsRecord' ? (
-          <AuditDetailsFarmerRecordsScreen
-            auditId={selectedAuditId}
-            onBack={() => setDashboardSubScreen(auditDetailsReturnScreen)}
-            onEditSchedule={() => {
-              setScheduleAuditFormReturnScreen('auditDetailsRecord');
-              setDashboardSubScreen('scheduleAuditForm');
-            }}
-            onReschedule={() => {
-              setScheduleAuditFormReturnScreen('auditDetailsRecord');
-              setDashboardSubScreen('scheduleAuditForm');
-            }}
-            onCancelSchedule={() => setDashboardSubScreen(auditDetailsReturnScreen)}
             onOpenFarmerProfile={() => {
               setFarmersReturnTab('Home');
               setFarmersMainTab('farmers');
@@ -10819,44 +10798,6 @@ export function TohfaAdminDashboardScreen({
               if (onNavigate) onNavigate('AdminAllFarmers');
               else setActiveTab('Farmers');
             }}
-          />
-        ) : dashboardSubScreen === 'scheduleAuditForm' ? (
-          <ScheduleAuditFormScreen
-            initialAuditId={selectedAuditId}
-            onBack={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-            onScheduleSuccess={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-            onSaveDraft={() => setDashboardSubScreen(scheduleAuditFormReturnScreen)}
-          />
-        ) : dashboardSubScreen === 'auditHistoryCompliance' ? (
-          <AuditHistoryComplianceScreen
-            onBack={() => setDashboardSubScreen('scheduleAudit')}
-            onSelectAudit={(audit) => {
-              setSelectedAuditId(audit.code);
-              setAuditDetailsReturnScreen('auditHistoryCompliance');
-              setDashboardSubScreen('auditDetailsRecord');
-            }}
-          />
-        ) : dashboardSubScreen === 'generateAuditReport' ? (
-          <GenerateAuditReportScreen
-            onBack={() => setDashboardSubScreen('scheduleAudit')}
-            onConfigureReport={() => {
-              setDashboardSubScreen('auditReportsTierConfig');
-            }}
-            onGenerateReport={() => {
-              setDashboardSubScreen('auditReportsTierConfig');
-            }}
-          />
-        ) : dashboardSubScreen === 'auditReportsTierConfig' ? (
-          <AuditReportsTierConfigScreen
-            onBack={() => setDashboardSubScreen('generateAuditReport')}
-            onGenerateReportSuccess={() => {
-              setReportHistoryReturnScreen('auditReportsTierConfig');
-              setDashboardSubScreen('auditReportHistory');
-            }}
-          />
-        ) : dashboardSubScreen === 'auditReportHistory' ? (
-          <AuditReportHistoryScreen
-            onBack={() => setDashboardSubScreen(reportHistoryReturnScreen)}
           />
         ) : (
           <>
@@ -11791,379 +11732,20 @@ export function TohfaAdminDashboardScreen({
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
-            FINANCE TAB (Accounts & Finance Dashboard)
+            FINANCE TAB (Accounts & Finance Dashboard - Shared Flow)
            ══════════════════════════════════════════════════════════════════════ */}
             {activeTab === 'Finance' && (
-              financeSubScreen === 'purchaseSales' ? (
-                <SalesFlow
-                  scope={{ warehouseId: undefined, warehouseName: undefined }}
-                  can={can}
-                  role="TOHFA_ADMIN"
-                  onBack={handleFinanceBack}
-                  onTabChange={(tab) => {
-                    setActiveTab(tab as any);
-                    setFinanceSubScreen(null);
-                  }}
-                />
-              ) : financeSubScreen === 'duesPayouts' ? (
-                <PurchaseDuesPayoutsScreen
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'salesIncome' ? (
-                <SalesIncomeRevenueScreen
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'expenses' ? (
-                <FinanceFlow
-                  scope={{ warehouseId: 'WH-COON', warehouseName: 'Coonoor Warehouse' }}
-                  can={can}
-                  initialScreen="Expenses"
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'invoicesGst' ? (
-                <InvoicesGstBillingScreen
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'reviewReturns' ? (
-                <ReturnsRmaRefundsScreen
-                  can={can}
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'transactionHistory' ? (
-                <TransactionHistoryScreen
-                  can={can}
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'customerWallet' ? (
-                <WalletFlow
-                  scope={{ warehouseId: undefined, warehouseName: 'All Warehouses' }}
-                  can={can}
-                  initialScreen="CashTopUp"
-                  onBack={handleFinanceBack}
-                />
-              ) : financeSubScreen === 'reportExport' ? (
-                <ReportsExportScreen
-                  can={can}
-                  onBack={handleFinanceBack}
-                />
-              ) : (
-                <ScrollView
-                  style={styles.scroll}
-                  contentContainerStyle={styles.accountsFinanceScrollContent}
-                  showsVerticalScrollIndicator={false}
-                >
-                  {/* 1. Header Banner */}
-                  <View style={styles.accountsFinanceHeaderBanner}>
-                    <View style={styles.accountsFinanceHeaderTopRow}>
-                      <View style={styles.accountsFinanceHeaderTitleGroup}>
-                        <TouchableOpacity
-                          style={styles.accountsFinanceBackBtn}
-                          onPress={() => {
-                            setActiveTab(financeReturnTab || 'Home');
-                            setFinanceReturnTab(null);
-                          }}
-                          activeOpacity={0.8}
-                          accessibilityRole="button"
-                          accessibilityLabel="Go back to Home"
-                        >
-                          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                            <Path
-                              d="M19 12H5M12 19l-7-7 7-7"
-                              stroke={adminColors.onBrand}
-                              strokeWidth="2.4"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </Svg>
-                        </TouchableOpacity>
-                        <BankBuildingWhiteIcon size={24} color={adminColors.onBrand} />
-                        <Text style={styles.accountsFinanceHeaderTitle}>Accounts & Finance</Text>
-                      </View>
-                      <View style={styles.accountsFinanceHeaderActionsRow}>
-                        <TouchableOpacity
-                          style={styles.accountsFinanceHeaderPillBtn}
-                          onPress={() => setShowFinanceFilterModal(true)}
-                          activeOpacity={0.8}
-                          accessibilityRole="button"
-                          accessibilityLabel="Filter accounts and finance"
-                        >
-                          <FilterSlidersIcon size={18} color={adminColors.onBrand} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.accountsFinanceHeaderPillBtn}
-                          onPress={handleExportFinanceReport}
-                          activeOpacity={0.8}
-                          accessibilityRole="button"
-                          accessibilityLabel="Download finance report"
-                        >
-                          <DownloadWhiteIcon size={18} color={adminColors.onBrand} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    <Text style={styles.accountsFinanceHeaderSubtitle}>Last 30 Days</Text>
-                  </View>
-
-                  {/* 2. Subheader */}
-                  <View style={styles.accountsFinanceSubheaderRow}>
-                    <Text style={styles.accountsFinanceLastUpdated}>Last updated 14 Oct 2026, 06:00</Text>
-                  </View>
-
-                  {/* 3. 8 KPI Cards (Reusing OverviewDashboardCard component strictly as requested) */}
-                  <OverviewCardsGrid style={{ paddingHorizontal: adminSpacing.md, rowGap: 10 }}>
-                    <OverviewDashboardCard
-                      title="Sales"
-                      value="₹2,14,600.00"
-                      icon="sales"
-                    />
-                    <OverviewDashboardCard
-                      title="Farmer Purchase Value"
-                      value="₹1,38,900.00"
-                      icon="truck"
-                    />
-                    <OverviewDashboardCard
-                      title="Outstanding Dues"
-                      value="₹32,450.00"
-                      icon="orders"
-                    />
-                    <OverviewDashboardCard
-                      title="Expenses"
-                      value="₹18,200.00"
-                      icon="cash"
-                    />
-                    <OverviewDashboardCard
-                      title="Wallet Liability"
-                      value="₹9,340.00"
-                      icon="wallet"
-                    />
-                    <OverviewDashboardCard
-                      title="Pending Payouts"
-                      value="6"
-                      icon="pickup"
-                    />
-                    <OverviewDashboardCard
-                      title="Refunds"
-                      value="₹1,840.00"
-                      icon="alert"
-                    />
-                    <OverviewDashboardCard
-                      title="Net Financial Summary"
-                      value="Not defined"
-                      icon="clipboard"
-                    />
-                  </OverviewCardsGrid>
-
-                  {/* 5. Revenue, expense & purchase (daily) */}
-                  <View style={styles.financeSectionBlock}>
-                    <Text style={styles.financeSectionHeading}>Revenue, expense & purchase (daily)</Text>
-
-                    <View style={styles.financeProgressRow}>
-                      <Text style={styles.financeProgressLabel}>Revenue</Text>
-                      <View style={styles.financeProgressBarTrack}>
-                        <View style={[styles.financeProgressBarFill, { width: '85%', backgroundColor: '#2E8B57' }]} />
-                      </View>
-                      <Text style={styles.financeProgressValue}>₹2,14,600</Text>
-                    </View>
-
-                    <View style={styles.financeProgressRow}>
-                      <Text style={styles.financeProgressLabel}>Purchase</Text>
-                      <View style={styles.financeProgressBarTrack}>
-                        <View style={[styles.financeProgressBarFill, { width: '55%', backgroundColor: adminColors.brand }]} />
-                      </View>
-                      <Text style={styles.financeProgressValue}>₹1,38,900</Text>
-                    </View>
-
-                    <View style={styles.financeProgressRow}>
-                      <Text style={styles.financeProgressLabel}>Expense</Text>
-                      <View style={styles.financeProgressBarTrack}>
-                        <View style={[styles.financeProgressBarFill, { width: '15%', backgroundColor: '#D97706' }]} />
-                      </View>
-                      <Text style={styles.financeProgressValue}>₹18,200</Text>
-                    </View>
-                  </View>
-
-                  {/* 6. Payment status (statuses the records carry) */}
-                  <View style={styles.financeSectionBlock}>
-                    <Text style={styles.financeSectionHeading}>Payment status (statuses the records carry)</Text>
-
-                    <View style={styles.financeProgressRow}>
-                      <Text style={styles.financeProgressLabel}>Collected</Text>
-                      <View style={styles.financeProgressBarTrack}>
-                        <View style={[styles.financeProgressBarFill, { width: '82%', backgroundColor: '#2E8B57' }]} />
-                      </View>
-                      <Text style={styles.financeProgressValue}>18</Text>
-                    </View>
-
-                    <View style={styles.financeProgressRow}>
-                      <Text style={styles.financeProgressLabel}>Pending</Text>
-                      <View style={styles.financeProgressBarTrack}>
-                        <View style={[styles.financeProgressBarFill, { width: '23%', backgroundColor: '#D97706' }]} />
-                      </View>
-                      <Text style={styles.financeProgressValue}>5</Text>
-                    </View>
-
-                    <View style={styles.financeProgressRow}>
-                      <Text style={styles.financeProgressLabel}>Failed</Text>
-                      <View style={styles.financeProgressBarTrack}>
-                        <View style={[styles.financeProgressBarFill, { width: '6%', backgroundColor: '#DC2626' }]} />
-                      </View>
-                      <Text style={styles.financeProgressValue}>1</Text>
-                    </View>
-                  </View>
-
-                  {/* 7. By warehouse */}
-                  <View style={styles.financeSectionBlock}>
-                    <Text style={styles.financeSectionHeading}>By warehouse</Text>
-                    <View style={styles.financeWarehouseCard}>
-                      <View style={styles.financeWarehouseRow}>
-                        <Text style={styles.financeWarehouseName}>Main Warehouse, Ooty</Text>
-                        <Text style={styles.financeWarehouseValue}>₹1,20,400.00</Text>
-                      </View>
-                      <View style={styles.financeCardDivider} />
-                      <View style={styles.financeWarehouseRow}>
-                        <Text style={styles.financeWarehouseName}>Coonoor</Text>
-                        <Text style={styles.financeWarehouseValue}>₹58,200.00</Text>
-                      </View>
-                      <View style={styles.financeCardDivider} />
-                      <View style={styles.financeWarehouseRow}>
-                        <Text style={styles.financeWarehouseName}>Kotagiri / Gudalur</Text>
-                        <Text style={styles.financeWarehouseValue}>₹36,000.00</Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  {/* 8. Recent transactions */}
-                  <View style={styles.financeSectionBlock}>
-                    <Text style={styles.financeSectionHeading}>Recent transactions</Text>
-
-                    <View style={styles.financeTxnCard}>
-                      <View style={styles.financeTxnHeaderRow}>
-                        <Text style={styles.financeTxnTitle}>SO-0013 · Sale</Text>
-                        <View style={[styles.financeStatusBadge, { backgroundColor: '#D1F2DE' }]}>
-                          <Text style={[styles.financeStatusBadgeText, { color: '#15803D' }]}>Collected</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.financeTxnSubtext}>₹12,560.00 · Nilgiri Fresh Traders · 1 Oct 2026</Text>
-                    </View>
-
-                    <View style={styles.financeTxnCard}>
-                      <View style={styles.financeTxnHeaderRow}>
-                        <Text style={styles.financeTxnTitle}>PY-0005 · Payout</Text>
-                        <View style={[styles.financeStatusBadge, { backgroundColor: '#FDE8E8' }]}>
-                          <Text style={[styles.financeStatusBadgeText, { color: '#DC2626' }]}>Failed</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.financeTxnSubtext}>₹3,300.00 · Kumar · 6 Oct 2026</Text>
-                    </View>
-                  </View>
-
-                  {/* 9. Go to Section (RBAC Action Cards Grid) */}
-                  <View style={styles.financeSectionBlock}>
-                    <Text style={styles.financeSectionHeading}>Go to</Text>
-                    <View style={styles.financeGoToGrid}>
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('purchase_sales')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Purchase & Sales"
-                      >
-                        <GoToPurchaseSalesIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Purchase & Sales</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('dues_payouts')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Dues & Payouts"
-                      >
-                        <GoToDuesPayoutsIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Dues & Payouts</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('sales_income')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Sales Income & Revenue"
-                      >
-                        <GoToSalesIncomeIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Sales Income & Revenue</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('expenses')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Expenses"
-                      >
-                        <GoToExpensesIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Expenses</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('customer_wallet')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Customer Wallet"
-                      >
-                        <GoToCustomerWalletIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Customer Wallet</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('create_view_invoice')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Create or View Invoice"
-                      >
-                        <GoToInvoiceIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Create or View Invoice</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('review_returns')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Review Returns"
-                      >
-                        <GoToReviewReturnsIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Review Returns</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('transaction_history')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="History"
-                      >
-                        <GoToTransactionHistoryIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>History</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.financeGoToCard}
-                        onPress={() => handleGoToItem('report_export')}
-                        activeOpacity={0.75}
-                        accessibilityRole="button"
-                        accessibilityLabel="Report & Export"
-                      >
-                        <GoToReportExportIcon size={24} color={adminColors.brand} />
-                        <Text style={styles.financeGoToCardTitle}>Report & Export</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-
-                  <View style={{ height: adminSpacing.xxl }} />
-                </ScrollView>
-              )
+              <FinanceManagementFlow
+                role="TOHFA_ADMIN"
+                can={can}
+                onBack={() => {
+                  setActiveTab(financeReturnTab || 'Home');
+                  setFinanceReturnTab(null);
+                }}
+                onTabChange={(tab) => {
+                  setActiveTab(tab as any);
+                }}
+              />
             )}
 
             {/* ══════════════════════════════════════════════════════════════════════
@@ -12346,8 +11928,11 @@ export function TohfaAdminDashboardScreen({
                     );
                   }}
                 />
-              ) : inputsPestScreen === 'home' ? (
-                <InputsPestHomeScreen
+              ) : inputsPestScreen !== null ? (
+                <InputsPestManagementFlow
+                  can={can}
+                  role="TOHFA_ADMIN"
+                  initialScreen={inputsPestScreen === 'home' ? 'home' : inputsPestScreen}
                   onBack={() => {
                     setInputsPestScreen(null);
                     if (inputsPestReturnTab) {
@@ -12355,113 +11940,6 @@ export function TohfaAdminDashboardScreen({
                       setInputsPestReturnTab(null);
                     }
                   }}
-                  onNavigateApprovedInputs={() => setInputsPestScreen('catalog')}
-                  onNavigatePestLibrary={() => setInputsPestScreen('pest_library')}
-                  onNavigateApplicationGuides={() => setInputsPestScreen('application_guides')}
-                  onNavigatePestIncidents={() => setInputsPestScreen('pest_incidents')}
-                  onAddInput={() => setInputsPestScreen('add_input')}
-                />
-              ) : inputsPestScreen === 'application_guides' ? (
-                <ApplicationTreatmentGuidesScreen
-                  onBack={() => setInputsPestScreen('home')}
-                  onAddNewGuide={() => {
-                    setSelectedGuide(undefined);
-                    setInputsPestScreen('add_guide');
-                  }}
-                  onEditGuide={(guide) => {
-                    setSelectedGuide(guide);
-                    setInputsPestScreen('edit_guide');
-                  }}
-                />
-              ) : inputsPestScreen === 'add_guide' ? (
-                <AddNewGuideScreen
-                  onBack={() => setInputsPestScreen('application_guides')}
-                  onSave={() => setInputsPestScreen('application_guides')}
-                />
-              ) : inputsPestScreen === 'edit_guide' ? (
-                <EditGuideScreen
-                  initialGuide={selectedGuide ?? null}
-                  onBack={() => setInputsPestScreen('application_guides')}
-                  onSave={() => setInputsPestScreen('application_guides')}
-                />
-              ) : inputsPestScreen === 'catalog' ? (
-                <ApprovedInputsScreen
-                  onBack={() => setInputsPestScreen('home')}
-                  onAddNewInput={() => {
-                    setSelectedCatalogInput(undefined);
-                    setInputsPestScreen('add_input');
-                  }}
-                  onEditInput={(item) => {
-                    setSelectedCatalogInput(item);
-                    setInputsPestScreen('edit_input');
-                  }}
-                  onSelectInput={(item) => {
-                    setSelectedCatalogInput(item);
-                    setInputsPestScreen('input_detail');
-                  }}
-                />
-              ) : inputsPestScreen === 'add_input' ? (
-                <AddNewInputScreen
-                  onBack={() => setInputsPestScreen('catalog')}
-                  onSave={() => setInputsPestScreen('catalog')}
-                />
-              ) : inputsPestScreen === 'edit_input' ? (
-                <EditInputScreen
-                  initialItem={selectedCatalogInput ?? null}
-                  onBack={() => setInputsPestScreen('catalog')}
-                  onSave={(updated) => {
-                    if (updated) setSelectedCatalogInput(updated as CatalogInputItem);
-                    setInputsPestScreen('catalog');
-                  }}
-                />
-              ) : inputsPestScreen === 'input_detail' ? (
-                <InputDetailScreen
-                  inputItem={selectedCatalogInput}
-                  onBack={() => setInputsPestScreen('catalog')}
-                  onEdit={() => setInputsPestScreen('edit_input')}
-                />
-              ) : inputsPestScreen === 'pest_library' ? (
-                <PestLibraryScreen
-                  onBack={() => setInputsPestScreen('home')}
-                  onAddNewPest={() => {
-                    setSelectedPest(undefined);
-                    setInputsPestScreen('add_pest');
-                  }}
-                  onEditPest={(pest) => {
-                    setSelectedPest(pest);
-                    setInputsPestScreen('edit_pest');
-                  }}
-                  onSelectPest={(pest) => {
-                    setSelectedPest(pest);
-                    Alert.alert(pest.name, `${pest.scientificName || ''}\n${pest.metaLine || ''}`);
-                  }}
-                />
-              ) : inputsPestScreen === 'add_pest' ? (
-                <AddNewPestScreen
-                  onBack={() => setInputsPestScreen('pest_library')}
-                  onSave={() => setInputsPestScreen('pest_library')}
-                />
-              ) : inputsPestScreen === 'edit_pest' ? (
-                <EditPestScreen
-                  initialPest={selectedPest ?? null}
-                  onBack={() => setInputsPestScreen('pest_library')}
-                  onSave={(updated) => {
-                    if (updated) setSelectedPest(updated as PestItem);
-                    setInputsPestScreen('pest_library');
-                  }}
-                />
-              ) : inputsPestScreen === 'pest_incidents' ? (
-                <FarmerPestIncidentsScreen
-                  onBack={() => setInputsPestScreen('home')}
-                  onSelectIncident={(incident) => {
-                    setSelectedIncident(incident);
-                    setInputsPestScreen('incident_detail');
-                  }}
-                />
-              ) : inputsPestScreen === 'incident_detail' ? (
-                <PestIncidentDetailScreen
-                  incident={selectedIncident}
-                  onBack={() => setInputsPestScreen('pest_incidents')}
                 />
               ) : communitySubScreen === 'create_content' ? (
                 <CreateContentScreen

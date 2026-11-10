@@ -11,7 +11,6 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   LogBox,
   SafeAreaView,
   StatusBar,
@@ -29,8 +28,9 @@ import { makeCan, type Can } from '../../permissions/can';
 import { adminColors } from '../../theme';
 import { TohfaAdminDashboardScreen, type TohfaAdminTab } from './TohfaAdminDashboardScreen';
 import { FarmerAdminDashboardScreen, type FarmerAdminTab } from './FarmerAdminDashboardScreen';
+import { SuperAdminDashboardScreen, type SuperAdminTab } from './SuperAdminDashboardScreen';
 
-export type UnifiedAdminTab = TohfaAdminTab | FarmerAdminTab;
+export type UnifiedAdminTab = TohfaAdminTab | FarmerAdminTab | SuperAdminTab;
 
 export interface UnifiedAdminDashboardScreenProps {
   onSignOut: () => void;
@@ -74,7 +74,7 @@ export function UnifiedAdminDashboardScreen({
         setUser(me);
         
         // Determine role from server response
-        const roles = me?.roles?.map((r: any) => r.code) || [];
+        const roles = me?.roles?.map((r: { code: string }) => r.code) || [];
         if (roles.includes('FARMER_ADMIN') && !roles.includes('TOHFA_ADMIN')) {
           setEffectiveRole('FARMER_ADMIN');
         } else if (roles.includes('TOHFA_ADMIN')) {
@@ -84,7 +84,7 @@ export function UnifiedAdminDashboardScreen({
         } else if (initialRole) {
           setEffectiveRole(initialRole);
         }
-      } catch (err) {
+      } catch {
         // Fallback safely to initialRole or default
         if (initialRole) {
           setEffectiveRole(initialRole);
@@ -100,7 +100,19 @@ export function UnifiedAdminDashboardScreen({
     };
   }, [initialRole]);
 
-  const can = useMemo<Can>(() => makeCan(user?.permissions ?? []), [user?.permissions]);
+  const can = useMemo<Can>(() => {
+    if (user?.permissions && user.permissions.length > 0) {
+      return makeCan(user.permissions);
+    }
+    if (effectiveRole === 'SUPER_ADMIN') {
+      return (code: string) =>
+        !code.endsWith('.create_own') &&
+        code !== 'order.create_own' &&
+        code !== 'listing.create_own' &&
+        code !== 'cart.manage_own';
+    }
+    return makeCan(user?.permissions ?? []);
+  }, [user?.permissions, effectiveRole]);
 
   // Determine if user has platform-level or zone-level admin capabilities
   const isFarmerAdmin = effectiveRole === 'FARMER_ADMIN';
@@ -113,6 +125,19 @@ export function UnifiedAdminDashboardScreen({
           <Text style={styles.loadingText}>Loading Admin Workspace...</Text>
         </View>
       </SafeAreaView>
+    );
+  }
+
+  if (effectiveRole === 'SUPER_ADMIN') {
+    return (
+      <SuperAdminDashboardScreen
+        can={can}
+        scope={{ warehouseName: 'All Warehouses' }}
+        role="SUPER_ADMIN"
+        onSignOut={onSignOut}
+        onNavigate={onNavigate}
+        initialTab={initialTab as SuperAdminTab | undefined}
+      />
     );
   }
 

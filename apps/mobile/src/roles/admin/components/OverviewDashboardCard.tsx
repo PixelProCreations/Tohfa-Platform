@@ -16,6 +16,7 @@ import {
   adminSpacing,
   adminType,
 } from '../theme';
+import { AdminStatusBadge } from './AdminStatusBadge';
 
 export interface OverviewDashboardCardProps {
   /** Main stat/number, e.g. "12", "08", "03", "05", "₹24,850" */
@@ -94,6 +95,8 @@ function renderBuiltinIcon(type: string, color: string) {
         </Svg>
       );
     case 'pickup':
+    case 'payout':
+    case 'pending_payout':
       return (
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
           <Path
@@ -355,8 +358,8 @@ export function OverviewDashboardCard({
   disabled = false,
 }: OverviewDashboardCardProps) {
   const isDanger = tone === 'danger';
-  const effectiveIconColor = iconColor ?? (isDanger ? adminColors.danger.text : adminColors.brandDeep);
-  const effectiveIconBg = iconBgColor ?? (isDanger ? adminColors.danger.bg : adminColors.brandTint);
+  const effectiveIconColor = iconColor ?? (isDanger && iconBgColor ? adminColors.danger.text : adminColors.brandDeep);
+  const effectiveIconBg = iconBgColor ?? adminColors.brandTint;
   const isWarning = tone === 'warning';
   const isSuccess = tone === 'success';
 
@@ -488,6 +491,159 @@ export function OverviewCardsGrid({
   return <View style={[styles.grid, style]}>{children}</View>;
 }
 
+export interface OverviewActionCardProps {
+  title: string;
+  icon: React.ReactNode;
+  onPress?: () => void;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  titleStyle?: StyleProp<TextStyle>;
+  accessibilityLabel?: string;
+}
+
+/**
+ * Reusable Action / Quick Access Card matching the reference mockups
+ */
+export function OverviewActionCard({
+  title,
+  icon,
+  onPress,
+  disabled = false,
+  style,
+  titleStyle,
+  accessibilityLabel,
+}: OverviewActionCardProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.actionCard, style]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.72 : 1}
+      disabled={disabled || !onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={accessibilityLabel || title}
+    >
+      <View style={styles.actionIconWrap}>{icon}</View>
+      <Text style={[styles.actionTitle, titleStyle]} numberOfLines={2}>
+        {title}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+export interface OverviewQueueCardProps {
+  title: string;
+  badgeLabel?: string | undefined;
+  statusText?: string | undefined;
+  badgeStatus?: string | undefined;
+  meta: string;
+  viewDetailsLabel?: string | undefined;
+  onPress?: (() => void) | undefined;
+  accentTone?: ('danger' | 'warning' | 'default') | undefined;
+  style?: StyleProp<ViewStyle> | undefined;
+}
+
+/**
+ * Reusable Work Queue Card matching the reference mockups
+ */
+export function OverviewQueueCard({
+  title,
+  badgeLabel,
+  statusText,
+  badgeStatus,
+  meta,
+  viewDetailsLabel = 'View Details',
+  onPress,
+  accentTone = 'default',
+  style,
+}: OverviewQueueCardProps) {
+  const isAlert = accentTone === 'danger';
+  const resolvedLabel = badgeLabel ?? statusText ?? 'Action Needed';
+  const resolvedStatus = badgeStatus ?? (isAlert ? 'FLAGGED' : 'PENDING');
+
+  return (
+    <TouchableOpacity
+      style={[styles.queueCard, isAlert && styles.queueCardAlert, style]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.72 : 1}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+    >
+      <View style={styles.queueTopRow}>
+        <Text style={styles.queueTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <AdminStatusBadge status={resolvedStatus} label={resolvedLabel} />
+      </View>
+      <Text style={styles.queueMeta} numberOfLines={1}>
+        {meta} · <Text style={styles.queueViewDetails}>{viewDetailsLabel}</Text>
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+export interface OverviewApprovalCardProps {
+  category: string;
+  title: string;
+  meta: string;
+  badgeLabel?: string | undefined;
+  statusText?: string | undefined;
+  badgeStatus?: string | undefined;
+  statusTone?: ('default' | 'success' | 'warning' | 'info' | 'danger') | undefined;
+  onPress?: (() => void) | undefined;
+  style?: StyleProp<ViewStyle> | undefined;
+}
+
+/**
+ * Reusable Approval Inbox Card matching the reference mockups
+ */
+export function OverviewApprovalCard({
+  category,
+  title,
+  meta,
+  badgeLabel,
+  statusText,
+  badgeStatus,
+  statusTone,
+  onPress,
+  style,
+}: OverviewApprovalCardProps) {
+  const resolvedLabel = badgeLabel ?? statusText ?? 'Pending';
+  const resolvedStatus =
+    badgeStatus ??
+    (statusTone
+      ? statusTone === 'danger'
+        ? 'FLAGGED'
+        : statusTone === 'success'
+          ? 'APPROVED'
+          : statusTone === 'info'
+            ? 'IN_TRANSIT'
+            : 'PENDING'
+      : resolvedLabel);
+
+  return (
+    <TouchableOpacity
+      style={[styles.approvalCard, style]}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.72 : 1}
+      disabled={!onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+    >
+      <View style={styles.approvalCategoryRow}>
+        <Text style={styles.approvalCategoryText} numberOfLines={1}>
+          {category}
+        </Text>
+        <AdminStatusBadge status={resolvedStatus} label={resolvedLabel} />
+      </View>
+      <Text style={styles.approvalItemTitle} numberOfLines={1}>
+        {title}
+      </Text>
+      <Text style={styles.approvalItemMeta} numberOfLines={1}>
+        {meta}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -545,12 +701,12 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   titleTop: {
-    fontSize: 10.5,
+    fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
     color: adminColors.muted,
-    letterSpacing: 0.2,
-    marginBottom: 4,
+    letterSpacing: 0.3,
+    marginBottom: 6,
   },
   value: {
     ...adminType.kpiValue,
@@ -563,8 +719,8 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   valueTop: {
-    fontSize: 18,
-    lineHeight: 23,
+    fontSize: 24,
+    lineHeight: 29,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
@@ -573,7 +729,7 @@ const styles = StyleSheet.create({
     lineHeight: 25,
   },
   longValue: {
-    fontSize: 16.5,
+    fontSize: 17,
     lineHeight: 22,
   },
   iconBadge: {
@@ -600,5 +756,104 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     color: adminColors.muted,
     marginTop: 2.5,
+  },
+  actionCard: {
+    width: '48.5%',
+    backgroundColor: adminColors.card,
+    borderRadius: 18,
+    paddingVertical: adminSpacing.md,
+    paddingHorizontal: adminSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    minHeight: 100,
+  },
+  actionIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: adminRadius.full,
+    backgroundColor: '#FFF2EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.xs + 2,
+  },
+  actionTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  queueCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 18,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  queueCardAlert: {
+    borderLeftWidth: 4,
+    borderLeftColor: adminColors.danger.text,
+  },
+  queueTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.xs,
+  },
+  queueTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '800',
+    flex: 1,
+    paddingRight: adminSpacing.xs,
+  },
+  queueMeta: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    fontSize: 12,
+  },
+  queueViewDetails: {
+    color: adminColors.brandDeep,
+    fontWeight: '700',
+  },
+  approvalCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: 18,
+    padding: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  approvalCategoryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: adminSpacing.xs / 2,
+  },
+  approvalCategoryText: {
+    ...adminType.rowMeta,
+    color: adminColors.brandDeep,
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+    paddingRight: adminSpacing.xs,
+  },
+  approvalItemTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  approvalItemMeta: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    fontSize: 12,
   },
 });

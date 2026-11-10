@@ -859,7 +859,7 @@ const SUB_WAREHOUSE_MORE_SCREENS: readonly string[] = [
 ];
 
 export default function App(): React.JSX.Element {
-  const [screen, setScreen] = useState<ScreenName>('Splash');
+  const [screen, setScreen] = useState<ScreenName>('SuperAdminDashboard');
   // Navigation history stack: keeps true chronological breadcrumbs so back buttons
   // always return to the actual prior screen without getting trapped in loops.
   const [history, setHistory] = useState<StackEntry[]>([]);
@@ -1403,12 +1403,18 @@ export default function App(): React.JSX.Element {
           ) : (
             // adminShell is 'SUPER_ADMIN' here: null never reaches this branch.
             <SuperAdminDashboardScreen
+              can={warehouseCan}
+              scope={{ warehouseName: 'All Warehouses' }}
+              role="SUPER_ADMIN"
               onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
             />
           )
         ) : screen === 'SuperAdminDashboard' ? (
           <SuperAdminDashboardScreen
+            can={warehouseCan}
+            scope={{ warehouseName: 'All Warehouses' }}
+            role="SUPER_ADMIN"
             onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
           />
