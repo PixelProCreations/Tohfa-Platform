@@ -57,6 +57,7 @@ import {
   cropInputResponse,
   cropNpkContributionResponse,
   listCropInputsResponse,
+  listFarmCropInputsResponse,
 } from './modules/crop-inputs/crop-inputs.schema.js';
 import { cropMilestonesRouter } from './modules/crop-milestones/crop-milestones.routes.js';
 import {
@@ -728,6 +729,12 @@ describeIfDatabase('Farmer backend M1-M10: real-database HTTP smoke', () => {
       const listed = await call('GET', base, { token: farmerA.token, params: { farmCropId }, query: { limit: 10 } });
       expectStatus(listed, 200, 'list crop inputs');
       expect(expectShape(listCropInputsResponse, listed.body, 'list crop inputs').items.map((i) => i.id)).toContain(cropInputId);
+
+      // BR-56h: the farm-wide list spans every own crop; the input just created must be in it.
+      const farmWide = await call('GET', '/v1/farmers/me/crop-inputs', { token: farmerA.token, query: { limit: 10 } });
+      expectStatus(farmWide, 200, 'list farm-wide crop inputs');
+      const farmWideItems = expectShape(listFarmCropInputsResponse, farmWide.body, 'list farm-wide crop inputs').items;
+      expect(farmWideItems.map((i) => i.id)).toContain(cropInputId);
 
       const got = await call('GET', `${base}/:id`, { token: farmerA.token, params: { farmCropId, id: cropInputId } });
       expectStatus(got, 200, 'get crop input');
@@ -1440,7 +1447,8 @@ describeIfDatabase('Farmer backend M1-M10: real-database HTTP smoke', () => {
 
     dbIt('the route table is what we think it is', async () => {
       // 13 routers; update this number (and add calls above) when a route is added.
-      expect(routes.length).toBe(63);
+      // 64 = 63 + GET /v1/farmers/me/crop-inputs (BR-56h).
+      expect(routes.length).toBe(64);
     });
 
     dbIt('no token -> 401 on every route', async () => {

@@ -1143,7 +1143,7 @@
     {
       "code": "farmer.livestock.view_own",
       "module": "Livestock",
-      "description": "View own livestock_animals records and production logs (milk/curd/paneer/... and egg collection).",
+      "description": "View own livestock_animals records, production logs (milk/curd/paneer/... and egg collection) and the per-animal health, breeding, feed plan, feed log, housing and hygiene records.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1153,12 +1153,12 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "BR-47, product decision 2026-09-29"
+      "source": "BR-47, BR-137..BR-141, product decision 2026-09-29"
     },
     {
       "code": "farmer.livestock.create_own",
       "module": "Livestock",
-      "description": "Register a new animal (livestock_animals row) or log a production entry, on the farmer's own operation.",
+      "description": "Register a new animal (livestock_animals row), log a production entry, or add a health, breeding, feed plan, feed log, housing or hygiene record to an own animal, on the farmer's own operation.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1168,7 +1168,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "BR-47, product decision 2026-09-29"
+      "source": "BR-47, BR-137..BR-141, product decision 2026-09-29"
     },
     {
       "code": "farmer.livestock.edit_own",

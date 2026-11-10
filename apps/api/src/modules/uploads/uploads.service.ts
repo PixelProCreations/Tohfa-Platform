@@ -7,7 +7,7 @@ import { AppError } from '../../http/problem.js';
 import { defaultBlobStorage, type BlobStorage } from '../../storage/blobStorage.js';
 import { isAllowedMimeType, sniffMimeType, stripExifAndGps } from '../../storage/imageProcessor.js';
 import { uploadsRepo, type UploadsRepo } from './uploads.repo.js';
-import type { SignUploadBody, SignUploadResponse } from './uploads.schema.js';
+import { storageKeyPrefixFor, type SignUploadBody, type SignUploadResponse } from './uploads.schema.js';
 
 function getExtension(mimeType: string, fileName?: string): string {
   if (fileName !== undefined && fileName.length > 0) {
@@ -77,7 +77,7 @@ export function createUploadsService(
     // Generate server-side UUID storage key to prevent path traversal
     const ext = getExtension(input.contentType, input.fileName);
     const uuid = crypto.randomUUID();
-    const storageKey = `${input.purpose.toLowerCase()}/${uuid}${ext}`;
+    const storageKey = `${storageKeyPrefixFor(input.purpose)}${uuid}${ext}`;
 
     const uploadTarget = await storage.generateUploadTarget({
       key: storageKey,
