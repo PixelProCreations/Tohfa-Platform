@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Pressable,
@@ -12,6 +12,11 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { AdminProfileScreen } from './AdminProfileScreen';
+import { t } from '../../i18n';
+import { makeCan } from '../../permissions/can';
+import { FarmersFlow } from '../farmers/FarmersFlow';
+import { FarmersPeopleGroupIcon } from '../farmers/flow/FarmersEntryIcons';
+import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 
 // ─── Design Tokens (Matching Screen 11 Mockup) ────────────────────────────────
 const PALETTE = {
@@ -34,7 +39,7 @@ const PALETTE = {
   alertBorder:   '#F0ECE4',
 };
 
-type FarmerAdminTab = 'Dashboard' | 'Listings' | 'Community' | 'Profile';
+type FarmerAdminTab = 'Dashboard' | 'Farmers' | 'Listings' | 'Community' | 'Profile';
 
 // ─── SVG Icons Matching Screen 11 ─────────────────────────────────────────────
 function SproutIcon() {
@@ -209,6 +214,8 @@ export function FarmerAdminDashboardScreen({
   }, []);
 
   const displayName = user?.fullName ?? 'Selvam Murugan';
+  // The signed-in admin's /auth/me permissions; empty (deny) until they arrive.
+  const adminCan = useMemo(() => makeCan(user?.permissions), [user]);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -353,6 +360,11 @@ export function FarmerAdminDashboardScreen({
           </ScrollView>
         )}
 
+        {/* Farmers Tab: the shared Farmers Management flow (zone scoping is server-side, BR-108a) */}
+        {activeTab === 'Farmers' && canOpenFarmers(adminCan) && (
+          <FarmersFlow can={adminCan} onBack={() => setActiveTab('Dashboard')} />
+        )}
+
         {/* Listings Queue Tab */}
         {activeTab === 'Listings' && (
           <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollPad} showsVerticalScrollIndicator={false}>
@@ -423,6 +435,17 @@ export function FarmerAdminDashboardScreen({
           <DashboardTabIcon active={activeTab === 'Dashboard'} />
           <Text style={[styles.tabLabel, activeTab === 'Dashboard' && styles.tabLabelActive]}>Dashboard</Text>
         </Pressable>
+
+        {canOpenFarmers(adminCan) ? (
+          <Pressable
+            style={styles.tabItem}
+            onPress={() => setActiveTab('Farmers')}
+            accessibilityRole="tab"
+          >
+            <FarmersPeopleGroupIcon color={activeTab === 'Farmers' ? PALETTE.orange : PALETTE.tabInactive} size={20} />
+            <Text style={[styles.tabLabel, activeTab === 'Farmers' && styles.tabLabelActive]}>{t('farmersEntry.tab.farmers')}</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           style={styles.tabItem}

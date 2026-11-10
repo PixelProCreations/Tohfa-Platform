@@ -120,6 +120,9 @@ import {
   walletLayout,
 } from '../warehouse/wallet-cashtopup/WalletParts';
 import { t } from '../../i18n';
+import { FarmersFlow } from '../farmers/FarmersFlow';
+import { FarmersPeopleIcon } from '../farmers/flow/FarmersEntryIcons';
+import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { adminColors, adminOverlay, adminRadius, adminShadow, adminSpacing, adminType } from '../../theme';
 import { OverviewDashboardCard } from '../../components';
 
@@ -1091,6 +1094,8 @@ export function SubWarehouseAdminDashboardScreen({
     }
   }, [initialShowRecentActivity, can]);
   const [activeTab, setActiveTab] = useState<SubWHTab>(initialTab || 'Home');
+  // Farmers Management (Module 1), opened from the Home "Farmers" tile; the More row opens it inside MoreScreen.
+  const [showFarmersFlow, setShowFarmersFlow] = useState(false);
   // The Receiving tab: ReceivingFlow (dashboard, shipments, search & filters,
   // shipment detail, wizard, history, quality issues) owns its stack (W4).
   // This entry only says where the tab opens.
@@ -1341,6 +1346,10 @@ export function SubWarehouseAdminDashboardScreen({
     return formatPaise(totalPaise);
   };
 
+
+  if (showFarmersFlow && canOpenFarmers(can)) {
+    return <FarmersFlow can={can} warehouseId={scope.warehouseId} onBack={() => setShowFarmersFlow(false)} />;
+  }
 
   if (taskOrderNo !== null) {
     // Order detail of a HomeFlow order task; back returns to the task list.
@@ -2274,6 +2283,16 @@ export function SubWarehouseAdminDashboardScreen({
                 >
                   <ActivityHistoryActionIcon />
                   <Text style={styles.quickActionLabel}>Activity</Text>
+                </Pressable>
+                ) : null}
+
+                {canOpenFarmers(can) ? (
+                <Pressable
+                  style={({ pressed }) => [styles.quickActionBtn, pressed && { borderColor: adminColors.brand, borderWidth: 1, backgroundColor: adminColors.dashboard.pressedTint }]}
+                  onPress={() => setShowFarmersFlow(true)}
+                >
+                  <FarmersPeopleIcon color={PALETTE.primary} />
+                  <Text style={styles.quickActionLabel}>{t('farmersEntry.tile.farmers')}</Text>
                 </Pressable>
                 ) : null}
               </View>

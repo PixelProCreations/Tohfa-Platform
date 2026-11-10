@@ -1,0 +1,101 @@
+/**
+ * Styles shared by the application review sections (team design
+ * AdminApplicationDetailScreen), on admin theme tokens only.
+ */
+import { StyleSheet } from 'react-native';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType } from '../../../theme';
+
+export const detailStyles = StyleSheet.create({
+  docCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+  },
+  docList: { gap: adminSpacing.sm },
+  docHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
+  },
+  docTitle: { ...adminType.rowTitle, color: adminColors.ink },
+  docSub: { ...adminType.rowMeta, color: adminColors.muted },
+  docButtonsRow: { flexDirection: 'row', gap: adminSpacing.md, marginTop: adminSpacing.md },
+  outlineBtn: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.smMd,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outlineBtnText: { ...adminType.rowTitle, color: adminColors.brand },
+  filledBtn: {
+    flex: 1,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.smMd,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filledBtnText: { ...adminType.rowTitle, color: adminColors.onBrand },
+  /** A DESIGN-ONLY control: drawn as designed but visibly not available. */
+  unavailable: { opacity: 0.45 },
+  caption: { ...adminType.rowMeta, color: adminColors.muted, marginTop: adminSpacing.sm },
+  section: { gap: adminSpacing.md },
+  infoBox: {
+    backgroundColor: adminColors.info.bg,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.md,
+  },
+  infoText: { ...adminType.body, color: adminColors.info.text },
+  fieldLabel: { ...adminType.rowTitle, color: adminColors.ink },
+  notesInput: {
+    ...adminType.body,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    color: adminColors.ink,
+    minHeight: adminSpacing.modalGap,
+    textAlignVertical: 'top',
+  },
+  notesBox: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+  },
+  notesText: { ...adminType.body, color: adminColors.ink },
+  saveProgressBtn: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.smMd,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveProgressText: { ...adminType.rowTitle, color: adminColors.brand },
+  reqCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    ...adminShadow.sm,
+    gap: adminSpacing.xs,
+  },
+  reqTitle: { ...adminType.sectionHead, color: adminColors.ink, marginBottom: adminSpacing.xs },
+  historyEmpty: { ...adminType.body, color: adminColors.muted },
+  rejectedTitle: { ...adminType.sectionHead, color: adminColors.danger.text },
+});

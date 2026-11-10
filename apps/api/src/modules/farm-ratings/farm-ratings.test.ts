@@ -359,11 +359,23 @@ describe('FarmRatingsService (Unit)', () => {
     expect(result).toMatchObject({ periodLabel: 'CYCLE-1', overallRating: 83, source: 'MANUAL', sourceAuditId: null });
   });
 
-  it('BR-06e: docs/rbac.json carries no farm-rating write permission (farmer.rating.edit removed)', () => {
-    const codes = loadRbac()
-      .document.permissions.map((permission) => permission.code)
+  it('BR-06e: docs/rbac.json carries farmer.rating.edit for SUPER_ADMIN and TOHFA_ADMIN only (reinstated by owner decision 2026-11-09; no endpoint yet)', () => {
+    const rbac = loadRbac();
+    const codes = rbac.document.permissions
+      .map((permission) => permission.code)
       .filter((code) => code.startsWith('farmer.rating.'));
-    expect(codes.sort()).toEqual(['farmer.rating.configure_tiers', 'farmer.rating.view']);
+    expect(codes.sort()).toEqual(['farmer.rating.configure_tiers', 'farmer.rating.edit', 'farmer.rating.view']);
+    expect(rbac.grantFor('farmer.rating.edit', RoleCode.SUPER_ADMIN)).toBe(ScopeLevel.ALL);
+    expect(rbac.grantFor('farmer.rating.edit', RoleCode.TOHFA_ADMIN)).toBe(ScopeLevel.ALL);
+    for (const role of [
+      RoleCode.FARMER_ADMIN,
+      RoleCode.MAIN_WH_ADMIN,
+      RoleCode.SUB_WH_ADMIN,
+      RoleCode.FARMER,
+      RoleCode.CUSTOMER,
+    ]) {
+      expect(rbac.grantFor('farmer.rating.edit', role), `${role} must not hold farmer.rating.edit`).toBe(ScopeLevel.NONE);
+    }
   });
 
   it('BR-06e: the service exposes no manual write (setRating is gone)', () => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -23,13 +23,9 @@ import {
   type MarketDay,
   MOCK_DAYS,
 } from './';
-import {
-  AdminAllFarmersScreen,
-  AdminFarmerDetailScreen,
-  AdminFarmMapScreen,
-  AdminRatingScorecardScreen,
-  type FarmerListItem,
-} from '../farmers';
+import { FarmersFlow } from '../farmers/FarmersFlow';
+import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
+import { makeCan } from '../../permissions/can';
 import {
   SalesChannelOverviewScreen,
   SalesOnlineOrdersScreen,
@@ -492,14 +488,7 @@ export type AdminScreenName =
   | 'MarketDaySchedule'
   | 'ListingApprovalQueue'
   | 'AuditCalendar'
-  | 'FinancialDashboard'
-  | 'AdminAllFarmers'
-  | 'AdminFarmerDetail'
-  | 'AdminFarmMap'
-  | 'AdminRatingScorecard'
-  | 'AdminCertVerification'
-  | 'AdminKycReview'
-  | 'AdminComplianceTiers';
+  | 'FinancialDashboard';
 
 export interface SuperAdminDashboardScreenProps {
   onSignOut: () => void;
@@ -512,8 +501,6 @@ export function SuperAdminDashboardScreen({
 }: SuperAdminDashboardScreenProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>('Dashboard');
   const [user, setUser] = useState<UserMe | null>(null);
-  const [selectedFarmer, setSelectedFarmer] = useState<FarmerListItem | null>(null);
-  const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
 
   // Sales subscreen navigation state
   const [salesSubScreen, setSalesSubScreen] = useState<
@@ -565,6 +552,8 @@ export function SuperAdminDashboardScreen({
   }, []);
 
   const displayName = user?.fullName && user.fullName !== 'Super Administrator' ? user.fullName : 'Rajesh Kumar';
+  // The signed-in admin's /auth/me permissions; empty (deny) until they arrive.
+  const adminCan = useMemo(() => makeCan(user?.permissions), [user]);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -782,13 +771,7 @@ export function SuperAdminDashboardScreen({
                     label="Total Farmers"
                     delta="↑ +18 this month"
                     deltaColor={PALETTE.greenText}
-                    onPress={() => {
-                      if (onNavigate) {
-                        onNavigate('AdminAllFarmers');
-                      } else {
-                        setActiveTab('Farmers');
-                      }
-                    }}
+                    {...(canOpenFarmers(adminCan) ? { onPress: () => setActiveTab('Farmers') } : {})}
                   />
                   <OverviewCard
                     iconBox={
@@ -899,37 +882,8 @@ export function SuperAdminDashboardScreen({
               <View style={{ height: 40 }} />
             </ScrollView>
           )
-        ) : activeTab === 'Farmers' ? (
-          farmerSubScreen === 'map' && selectedFarmer ? (
-            <AdminFarmMapScreen
-              farmer={selectedFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-            />
-          ) : farmerSubScreen === 'scorecard' && selectedFarmer ? (
-            <AdminRatingScorecardScreen
-              farmer={selectedFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => { }}
-            />
-          ) : selectedFarmer ? (
-            <AdminFarmerDetailScreen
-              farmer={selectedFarmer}
-              onBack={() => setSelectedFarmer(null)}
-              onOpenFarmMap={() => setFarmerSubScreen('map')}
-              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
-            />
-          ) : (
-            <AdminAllFarmersScreen
-              onBack={() => setActiveTab('Dashboard')}
-              onSelectFarmer={(f) => {
-                if (onNavigate) {
-                  onNavigate('AdminFarmerDetail');
-                } else {
-                  setSelectedFarmer(f);
-                }
-              }}
-            />
-          )
+        ) : activeTab === 'Farmers' && canOpenFarmers(adminCan) ? (
+          <FarmersFlow can={adminCan} onBack={() => setActiveTab('Dashboard')} />
         ) : activeTab === 'Sales' ? (
           salesSubScreen === 'online' ? (
             <SalesOnlineOrdersScreen
@@ -1065,17 +1019,15 @@ export function SuperAdminDashboardScreen({
           </Text>
         </TouchableOpacity>
 
+        {/* Farmers tab: only for holders of farmer.profile.view_all */}
+        {canOpenFarmers(adminCan) ? (
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
             setPricingSubScreen(null);
             setReportsSubScreen(null);
-            if (onNavigate) {
-              onNavigate('AdminAllFarmers');
-            } else {
-              setActiveTab('Farmers');
-            }
+            setActiveTab('Farmers');
           }}
           activeOpacity={0.7}
         >
@@ -1089,6 +1041,7 @@ export function SuperAdminDashboardScreen({
             Farmers
           </Text>
         </TouchableOpacity>
+        ) : null}
 
         <TouchableOpacity
           style={styles.tabItem}
