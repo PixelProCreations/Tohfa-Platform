@@ -12,12 +12,12 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import {
   adminColors,
+  adminOverlay,
   adminRadius,
   adminShadow,
   adminSpacing,
   adminType,
 } from '../../theme';
-import { t } from '../../i18n';
 import { OverviewDashboardCard, OverviewCardsGrid } from '../../components/OverviewDashboardCard';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
@@ -90,17 +90,19 @@ function BanknotesIcon({ size = 26, color = adminColors.brand }: { size?: number
 function FairPriceIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Dollar sign on top */}
       <Path
-        d="M11 3.5v2.2m0 8.8v2M13.5 7A2.2 2.2 0 0 0 11 5c-1.6 0-2.5.9-2.5 2 0 2 4.8 1.6 4.8 4 0 1.4-1 2.2-2.3 2.2a2.8 2.8 0 0 1-2.2-.9"
+        d="M11 2v2m0 9v2M13.5 5.5c0-1.1-.9-2-2.5-2s-2.5.9-2.5 2c0 2 5 1.5 5 4s-1 2.5-2.5 2.5-2.5-.9-2.5-2"
         stroke={color}
-        strokeWidth="2.1"
+        strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {/* Checkmark underneath */}
       <Path
-        d="M14.5 14l2.2 2.2 4.3-4.3"
+        d="M13 18l2.5 2.5 5-5"
         stroke={color}
-        strokeWidth="2.1"
+        strokeWidth="2.4"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -155,11 +157,170 @@ function PriceCheckIcon({ size = 28, color = adminColors.brand }: { size?: numbe
   );
 }
 
-function BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
+function _BlockCircleIcon({ size = 18, color = adminColors.muted }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
       <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function _FairPricesCardIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 3v2.2m0 8.8v2.2M13.5 6.8A2.2 2.2 0 0011 4.8c-1.6 0-2.5.9-2.5 2 0 2 4.8 1.6 4.8 4 0 1.4-1 2.2-2.3 2.2a2.8 2.8 0 01-2.2-.9"
+        stroke={color}
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M13.5 14l2.5 2.5 4.5-4.5"
+        stroke={color}
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function _ManageRetailPriceIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 6h14a1.8 1.8 0 011.8 1.8v7.4"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Rect x="2" y="8" width="17" height="11" rx="1.8" stroke={color} strokeWidth="1.8" />
+      <Circle cx="10.5" cy="13.5" r="2.5" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function ListingsQueueIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="5" cy="7" r="1.5" fill={color} />
+      <Line x1="10" y1="7" x2="21" y2="7" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Circle cx="5" cy="12" r="1.5" fill={color} />
+      <Line x1="10" y1="12" x2="21" y2="12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Circle cx="5" cy="17" r="1.5" fill={color} />
+      <Line x1="10" y1="17" x2="21" y2="17" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function PriceHistoryCounterOfferIcon({ size = 26, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3.5 12a8.5 8.5 0 108.5-8.5c-2.3 0-4.5.9-6.1 2.5L3.5 8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M3.5 3.5v4.5H8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M12 7.5v4.5l3 2"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function _NavHomeIcon({ active }: { active: boolean }) {
+  const color = active ? adminColors.brand : adminColors.muted;
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 10L12 3l9 7v10a1 1 0 01-1 1H4a1 1 0 01-1-1V10z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function _NavWorkQueueIcon({ active }: { active: boolean }) {
+  const color = active ? adminColors.brand : adminColors.muted;
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 13.5l3.5 3.5L13 9"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Line x1="16" y1="12" x2="22" y2="12" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+      <Line x1="16" y1="16.5" x2="22" y2="16.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function _NavInventoryIcon({ active }: { active: boolean }) {
+  const color = active ? adminColors.brand : adminColors.muted;
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 20h18M4 17l2.5-9h11L20 17M8 17v-4h8v4"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function _NavFinanceIcon({ active }: { active: boolean }) {
+  const color = active ? adminColors.brand : adminColors.muted;
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 6.5h14a1.8 1.8 0 011.8 1.8v7"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Rect x="2" y="8.5" width="17" height="11" rx="1.8" stroke={color} strokeWidth="1.8" />
+      <Circle cx="10.5" cy="14" r="2.5" stroke={color} strokeWidth="1.8" />
+    </Svg>
+  );
+}
+
+function _NavMenuIcon({ active }: { active: boolean }) {
+  const color = active ? adminColors.brand : adminColors.muted;
+  return (
+    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <Circle cx="5" cy="5" r="1.8" fill={color} />
+      <Circle cx="12" cy="5" r="1.8" fill={color} />
+      <Circle cx="19" cy="5" r="1.8" fill={color} />
+      <Circle cx="5" cy="12" r="1.8" fill={color} />
+      <Circle cx="12" cy="12" r="1.8" fill={color} />
+      <Circle cx="19" cy="12" r="1.8" fill={color} />
+      <Circle cx="5" cy="19" r="1.8" fill={color} />
+      <Circle cx="12" cy="19" r="1.8" fill={color} />
+      <Circle cx="19" cy="19" r="1.8" fill={color} />
     </Svg>
   );
 }
@@ -176,7 +337,16 @@ export interface MarketPricingHomeScreenProps {
   onOpenNotifications?: (() => void) | undefined;
   onNavigateToMarketDay?: (() => void) | undefined;
   onNavigateToListingApproval?: (() => void) | undefined;
-  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | undefined;
+  onSetFairPriceCeiling?: (() => void) | undefined;
+  onBulkUpdateCeilings?: (() => void) | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN' | 'SUPER_ADMIN') | undefined;
+  onNavigateHome?: (() => void) | undefined;
+  onNavigateWorkQueue?: (() => void) | undefined;
+  onNavigateInventory?: (() => void) | undefined;
+  onNavigateFinance?: (() => void) | undefined;
+  onNavigateMenu?: (() => void) | undefined;
+  activeBottomTab?: 'Home' | 'WorkQueue' | 'Inventory' | 'Finance' | 'Menu';
+
 }
 
 export function MarketPricingHomeScreen({
@@ -187,11 +357,233 @@ export function MarketPricingHomeScreen({
   onNavigateToPriceHistory,
   onNavigateToRetailPricing,
   onOpenNotifications,
-  onNavigateToMarketDay,
+  onNavigateToMarketDay: _onNavigateToMarketDay,
   onNavigateToListingApproval,
+  onSetFairPriceCeiling,
+  onBulkUpdateCeilings,
   role = 'TOHFA_ADMIN',
+  onNavigateHome: _onNavigateHome,
+  onNavigateWorkQueue: _onNavigateWorkQueue,
+  onNavigateInventory: _onNavigateInventory,
+  onNavigateFinance: _onNavigateFinance,
+  onNavigateMenu: _onNavigateMenu,
+  activeBottomTab: _activeBottomTab = 'Menu',
 }: MarketPricingHomeScreenProps) {
   const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SUPER ADMIN VIEW (Exact UI from Image 2 Left)
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (isSuperAdmin) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* Header */}
+        <View style={styles.saHeader}>
+          <View style={styles.saHeaderRow}>
+            {onBack ? (
+              <TouchableOpacity
+                style={styles.backBtn}
+                onPress={onBack}
+                activeOpacity={0.7}
+                accessibilityLabel="Go back"
+              >
+                <BackArrowIcon size={22} color={adminColors.onBrand} />
+              </TouchableOpacity>
+            ) : null}
+            <PriceTagHeaderIcon size={22} color={adminColors.onBrand} />
+            <Text style={styles.saHeaderTitle}>Market & Pricing</Text>
+          </View>
+          <TouchableOpacity style={styles.saHeaderFilterBtn} activeOpacity={0.8}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={adminColors.onBrand} strokeWidth="2" strokeLinecap="round" />
+            </Svg>
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollPad}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 4 KPI Cards in 2x2 Grid */}
+          <View style={styles.saKpiGrid}>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiVal}>236</Text>
+              <Text style={styles.saKpiSub}>Active Fair-price ceilings</Text>
+            </View>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiVal}>182</Text>
+              <Text style={styles.saKpiSub}>Retail prices</Text>
+            </View>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiVal}>24</Text>
+              <Text style={styles.saKpiSub}>Pending Listing Reviews</Text>
+            </View>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiVal}>17</Text>
+              <Text style={styles.saKpiSub}>Recent Price changes (30Days)</Text>
+            </View>
+          </View>
+
+          {/* Action Buttons */}
+          <TouchableOpacity
+            style={styles.saPrimaryBtn}
+            onPress={onSetFairPriceCeiling || onNavigateToFairPrice}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saPrimaryBtnText}>+ Set Fair Price Ceiling</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.saSecondaryBtn}
+            onPress={onBulkUpdateCeilings}
+            activeOpacity={0.8}
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke={adminColors.brand} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+            <Text style={styles.saSecondaryBtnText}>Bulk Update Ceilings</Text>
+          </TouchableOpacity>
+
+          {/* Section: Recent Price Changes */}
+          <View style={styles.saSectionHeaderRow}>
+            <Text style={styles.saSectionHeading}>Recent Price Changes</Text>
+            <TouchableOpacity onPress={onNavigateToPriceHistory} activeOpacity={0.7}>
+              <Text style={styles.saViewLink}>View →</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Row 1: Tomato */}
+          <View style={styles.saRecentCardItem}>
+            <View style={styles.saCropInfoCol}>
+              <Text style={styles.saCropName}>Tomato</Text>
+              <Text style={styles.saCropGrade}>Grade 1</Text>
+            </View>
+            <View style={styles.saPriceCol}>
+              <Text style={styles.saPriceCurrent}>₹140/kg</Text>
+              <Text style={styles.saPriceOld}>₹130/kg</Text>
+            </View>
+            <View style={styles.saBadgeCol}>
+              <View style={styles.saBadgeBoxSuccess}>
+                <Text style={styles.saPillSuccessText}>↑ +7.7%</Text>
+                <Text style={styles.saPillSubDanger}>↓ -7.5%</Text>
+              </View>
+            </View>
+            <View style={styles.saDateCol}>
+              <Text style={styles.saDatePrimary}>05 Oct 2026</Text>
+              <Text style={styles.saDateSecondary}>20 Sep 2026</Text>
+            </View>
+          </View>
+
+          {/* Row 2: Carrot */}
+          <View style={styles.saRecentCardItem}>
+            <View style={styles.saCropInfoCol}>
+              <Text style={styles.saCropName}>Carrot</Text>
+              <Text style={styles.saCropGrade}>Grade 1</Text>
+            </View>
+            <View style={styles.saPriceCol}>
+              <Text style={styles.saPriceCurrent}>₹75/kg</Text>
+              <Text style={styles.saPriceOld}>₹70/kg</Text>
+            </View>
+            <View style={styles.saBadgeCol}>
+              <View style={styles.saBadgeBoxSuccess}>
+                <Text style={styles.saPillSuccessText}>↑ +7.1%</Text>
+                <Text style={styles.saPillSubDanger}>↓ -6.8%</Text>
+              </View>
+            </View>
+            <View style={styles.saDateCol}>
+              <Text style={styles.saDatePrimary}>03 Oct 2026</Text>
+              <Text style={styles.saDateSecondary}>15 Sep 2026</Text>
+            </View>
+          </View>
+
+          {/* Row 3: Onion */}
+          <View style={styles.saRecentCardItem}>
+            <View style={styles.saCropInfoCol}>
+              <Text style={styles.saCropName}>Onion</Text>
+              <Text style={styles.saCropGrade}>Grade 2</Text>
+            </View>
+            <View style={styles.saPriceCol}>
+              <Text style={styles.saPriceCurrent}>₹50/kg</Text>
+              <Text style={styles.saPriceOld}>₹45/kg</Text>
+            </View>
+            <View style={styles.saBadgeCol}>
+              <View style={styles.saBadgeBoxDanger}>
+                <Text style={styles.saPillDangerText}>↓ -6.7%</Text>
+                <Text style={styles.saPillSubDanger}>↓ -6.8%</Text>
+              </View>
+            </View>
+            <View style={styles.saDateCol}>
+              <Text style={styles.saDatePrimary}>04 Oct 2026</Text>
+              <Text style={styles.saDateSecondary}>18 Sep 2026</Text>
+            </View>
+          </View>
+
+          {/* Section: Quick Actions */}
+          <Text style={[styles.saSectionHeading, { marginTop: 20 }]}>Quick actions</Text>
+          <View style={styles.saQuickGrid}>
+            <TouchableOpacity
+              style={styles.saQuickCard}
+              onPress={onNavigateToFairPrice}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Fair Prices"
+            >
+              <View style={styles.saQuickIconBox}>
+                <FairPriceIcon size={24} color={adminColors.brand} />
+              </View>
+              <Text style={styles.saQuickLabel}>Fair Prices</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.saQuickCard}
+              onPress={onNavigateToRetailPricing}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Manage Retail Prices"
+            >
+              <View style={styles.saQuickIconBox}>
+                <BanknotesIcon size={24} color={adminColors.brand} />
+              </View>
+              <Text style={styles.saQuickLabel}>Manage Retail Prices</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.saQuickCard}
+              onPress={onNavigateToListingApproval}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Listings Queue"
+            >
+              <View style={styles.saQuickIconBox}>
+                <ListingsQueueIcon size={20} color={adminColors.brand} />
+              </View>
+              <Text style={styles.saQuickLabel}>Listings Queue</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.saQuickCard}
+              onPress={onNavigateToPriceHistory}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Price History & Counter-offer"
+            >
+              <View style={styles.saQuickIconBox}>
+                <PriceHistoryCounterOfferIcon size={20} color={adminColors.brand} />
+              </View>
+              <Text style={styles.saQuickLabel}>Price History & Counter-offer</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ height: 20 }} />
+        </ScrollView>
+
+      </SafeAreaView>
+    );
+  }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // TOHFA ADMIN VIEW (Module 7 from Tohfa Admin Design Specification)
@@ -1057,5 +1449,308 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  saHeader: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  saHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  saHeaderTitle: {
+    color: adminColors.onBrand,
+    fontSize: 20,
+    fontWeight: '700',
+    includeFontPadding: false,
+    lineHeight: 24,
+  },
+  saHeaderFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: adminOverlay.whitePill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saKpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 16,
+  },
+  saKpiCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 12,
+  },
+  saKpiVal: {
+    color: adminColors.ink,
+    fontSize: 22,
+    fontWeight: '800',
+    includeFontPadding: false,
+    lineHeight: 26,
+  },
+  saKpiSub: {
+    color: adminColors.muted,
+    fontSize: 11,
+    marginTop: 4,
+    includeFontPadding: false,
+  },
+  saPrimaryBtn: {
+    backgroundColor: adminColors.brand,
+    height: 48,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    ...adminShadow.sm,
+  },
+  saPrimaryBtnText: {
+    color: adminColors.onBrand,
+    fontSize: 15,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saSecondaryBtn: {
+    backgroundColor: adminColors.card,
+    height: 48,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 20,
+  },
+  saSecondaryBtnText: {
+    color: adminColors.brand,
+    fontSize: 15,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saSectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  saSectionHeading: {
+    color: adminColors.brandDeep,
+    fontSize: 15,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saViewLink: {
+    color: adminColors.brand,
+    fontSize: 13,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saRecentCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 12,
+    ...adminShadow.sm,
+  },
+  saRecentCardItem: {
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EFE6DC',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    ...adminShadow.sm,
+  },
+  saBadgeBoxSuccess: {
+    backgroundColor: '#EAF7EE',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saBadgeBoxDanger: {
+    backgroundColor: '#FDE8E8',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saRecentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: adminColors.border,
+  },
+  saCropInfoCol: {
+    flex: 1.2,
+  },
+  saCropName: {
+    color: adminColors.ink,
+    fontSize: 13,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saCropGrade: {
+    color: adminColors.muted,
+    fontSize: 11,
+    includeFontPadding: false,
+  },
+  saPriceCol: {
+    flex: 1.1,
+  },
+  saPriceCurrent: {
+    color: adminColors.ink,
+    fontSize: 13,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saPriceOld: {
+    color: adminColors.muted,
+    fontSize: 11,
+    textDecorationLine: 'line-through',
+    includeFontPadding: false,
+  },
+  saBadgeCol: {
+    flex: 1.1,
+    alignItems: 'center',
+  },
+  saPillSuccess: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  saPillSuccessText: {
+    color: adminColors.success.text,
+    fontSize: 10,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saPillDanger: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  saPillDangerText: {
+    color: adminColors.danger.text,
+    fontSize: 10,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saPillSubDanger: {
+    color: adminColors.danger.text,
+    fontSize: 9,
+    marginTop: 2,
+    includeFontPadding: false,
+  },
+  saDateCol: {
+    flex: 1.2,
+    alignItems: 'flex-end',
+  },
+  saDatePrimary: {
+    color: adminColors.ink,
+    fontSize: 11,
+    fontWeight: '600',
+    includeFontPadding: false,
+  },
+  saDateSecondary: {
+    color: adminColors.muted,
+    fontSize: 10,
+    includeFontPadding: false,
+  },
+  saQuickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  saQuickCard: {
+    width: '48%',
+    backgroundColor: adminColors.card,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 80,
+  },
+  saQuickIconBox: {
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  saQuickIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  saQuickIconSymbol: {
+    color: adminColors.brand,
+    fontSize: 18,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saQuickLabel: {
+    color: adminColors.ink,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+    includeFontPadding: false,
+    lineHeight: 16,
+  },
+  saBottomBar: {
+    flexDirection: 'row',
+    height: 58,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
+  },
+  saTabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    minWidth: 54,
+  },
+  saTabLabel: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: adminColors.muted,
+    marginTop: 3,
+    includeFontPadding: false,
+  },
+  saTabLabelActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
   },
 });

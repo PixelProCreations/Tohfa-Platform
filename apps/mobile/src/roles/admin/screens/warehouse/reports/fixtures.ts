@@ -103,3 +103,32 @@ export const EXPORT_REPORT_OPTIONS: readonly { label: string; cardTitle: string 
   { label: 'Returns Report', cardTitle: 'Returns Report' },
   { label: 'Daily/Monthly Summary', cardTitle: 'Daily / Monthly Summary' },
 ];
+
+/**
+ * Super Admin report types for export wizard (23 system-wide reports per Super Admin design guide).
+ */
+export const SUPER_ADMIN_EXPORT_REPORT_OPTIONS: readonly string[] = [
+  'Farmer Report',
+  'Farmer Purchase Report',
+  'Farmer Delivery Report',
+  'Input & Pest Records',
+  'Audit & Compliance',
+  'Farmer Rating Report',
+  'Inventory Report',
+  'Stock Movement Report',
+  'Stock Aging Report',
+  'Receiving Report',
+  'Warehouse Transfer Report',
+  'Product Quality & Grading Report',
+  'Sales Report',
+  'Customer Report',
+  'Customer Orders Report',
+  'Returns & Refunds Report',
+  'Cash Top-Up Report',
+  'Expense Report',
+  'Revenue Report',
+  'Purchase Dues & Farmer Payout Report',
+  'Daily Cash & Reconciliation Report',
+  'Staff Attendance Report',
+  'Daily / Monthly Summary',
+];

@@ -31,6 +31,7 @@ export interface OrdersDashboardScreenProps extends OrderScreenBaseProps {
   /** Warehouses offered by the Main-view selector. Ignored when `scope.warehouseId` is set. */
   warehouses?: WarehouseOption[] | undefined;
   routeParams?: Record<string, unknown> | undefined;
+  role?: string | undefined;
 }
 
 /**
@@ -118,7 +119,7 @@ const RECENT_ORDERS_BY_WH: RecentOrderItem[] = [
 
 
 
-const FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed', 'Issues'];
+const _FILTER_PILLS = ['All', 'Confirmed', 'Packing', 'Ready', 'Completed', 'Issues'];
 
 const HIT_SLOP = { top: 10, bottom: 10, left: 10, right: 10 };
 
@@ -343,6 +344,7 @@ export function OrdersDashboardScreen({
   onTabChange: _onTabChange,
   routeParams,
   warehouses = DEFAULT_WAREHOUSES,
+  role,
 }: OrdersDashboardScreenProps) {
   const [activeFilterPill, setActiveFilterPill] = useState('All');
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | undefined>(
@@ -386,7 +388,7 @@ export function OrdersDashboardScreen({
                   </TouchableOpacity>
                 ) : null}
                 <GridMenuIcon />
-                <Text style={styles.headerTitle}>Customer Orders</Text>
+                <Text style={styles.headerTitle}>{role === 'SUPER_ADMIN' ? 'Sales & Orders' : 'Customer Orders'}</Text>
               </View>
               <TouchableOpacity style={styles.bellBtn} activeOpacity={0.75}>
                 <BellIcon />
@@ -406,7 +408,7 @@ export function OrdersDashboardScreen({
             <View style={styles.headerTopRow}>
               <View style={styles.titleWrap}>
                 <ReceiptHeaderIcon />
-                <Text style={styles.headerTitle}>Orders</Text>
+                <Text style={styles.headerTitle}>{role === 'SUPER_ADMIN' ? 'Sales & Orders' : 'Orders'}</Text>
               </View>
               <TouchableOpacity style={styles.bellBtn} activeOpacity={0.75}>
                 <BellIcon />

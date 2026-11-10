@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -12,6 +13,7 @@ import Svg, { Path } from 'react-native-svg';
 import {
   adminColors,
   adminRadius,
+  adminShadow,
   adminSpacing,
   adminType,
 } from '../../theme';
@@ -44,6 +46,7 @@ function PencilEditIcon({ size = 18, color = adminColors.onBrand }: { size?: num
 
 export interface ContentItemDetailScreenProps {
   onBack: () => void;
+  role?: string | undefined;
   onNavigateChat?: () => void;
   onNavigateMessages?: () => void;
   onNavigateEditContent?: () => void;
@@ -51,6 +54,7 @@ export interface ContentItemDetailScreenProps {
 
 export function ContentItemDetailScreen({
   onBack,
+  role,
   onNavigateChat,
   onNavigateMessages,
   onNavigateEditContent,
@@ -212,23 +216,55 @@ export function ContentItemDetailScreen({
         </View>
       </ScrollView>
 
-      {/* ─── Docked Bottom Actions (Screenshot 1: View chat + Cancel) ─── */}
-      <View style={styles.dockedFooter}>
-        <TouchableOpacity
-          style={styles.primarySolidBtn}
-          onPress={handleOpenChat}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.primarySolidBtnText}>View chat</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.cancelBtn}
-          onPress={onBack}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
-        </TouchableOpacity>
-      </View>
+      {/* ─── Docked Bottom Actions (Super Admin Image 3: Approval + Publish + Cancel) ─── */}
+      {role === 'SUPER_ADMIN' ? (
+        <View style={styles.dockedFooterTriple}>
+          <TouchableOpacity
+            style={styles.approvalSolidBtn}
+            onPress={() => {
+              Alert.alert('Content Approved', 'This content has been approved and verified.');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.approvalSolidBtnText}>Approval</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.publishOutlineBtn}
+            onPress={() => {
+              Alert.alert('Content Published', 'This content has been published to the Knowledge Library.');
+            }}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.publishOutlineBtnText}>Publish</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.cancelOutlineBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cancelOutlineBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.dockedFooter}>
+          <TouchableOpacity
+            style={styles.primarySolidBtn}
+            onPress={handleOpenChat}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.primarySolidBtnText}>View chat</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -436,5 +472,62 @@ const styles = StyleSheet.create({
     color: adminColors.ink,
     fontSize: 14,
     fontWeight: '700',
+  },
+  dockedFooterTriple: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.card,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    gap: 10,
+    ...adminShadow.md,
+  },
+  approvalSolidBtn: {
+    flex: 1.2,
+    height: 46,
+    borderRadius: adminRadius.lg,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  approvalSolidBtnText: {
+    ...adminType.rowTitle,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  publishOutlineBtn: {
+    flex: 1.2,
+    height: 46,
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  publishOutlineBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  cancelOutlineBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: adminRadius.lg,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelOutlineBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '600',
   },
 });

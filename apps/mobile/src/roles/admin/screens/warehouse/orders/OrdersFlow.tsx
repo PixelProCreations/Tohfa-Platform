@@ -63,6 +63,7 @@ export interface OrdersFlowNavigation {
 export interface OrdersFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: string | undefined;
   initialScreen?: string | undefined;
   initialParams?: OrdersRouteParams | undefined;
   /** Leave the order module (pressed back on its first screen). */
@@ -87,6 +88,7 @@ interface StackEntry {
 export function OrdersFlow({
   scope,
   can,
+  role,
   initialScreen = 'M5S01',
   initialParams = null,
   onBack,
@@ -125,6 +127,7 @@ export function OrdersFlow({
   const common = {
     scope,
     can,
+    role,
     onBack: back,
     onNavigate: (screen: string, nextParams?: Record<string, unknown>) => navigate(screen, nextParams ?? null),
   };
@@ -186,7 +189,7 @@ export function OrdersFlow({
         );
       case 'M5S04':
       case 'M5S04_OrderDetail':
-        return <OrderDetailScreen {...common} orderId={orderId} customerName={params?.customerName} />;
+        return <OrderDetailScreen {...common} orderId={orderId} customerName={params?.customerName} role={role} />;
       case 'M5S05':
       case 'M5S05_StockCheck':
         return <StockCheckScreen {...common} orderId={orderId} initialStep={params?.step} />;

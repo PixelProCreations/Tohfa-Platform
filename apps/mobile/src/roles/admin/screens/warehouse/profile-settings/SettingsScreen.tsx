@@ -38,6 +38,7 @@ import {
   profileLayout,
   ShieldIcon,
   SignedOutView,
+  SystemSettingsGearIcon,
   UserIcon,
 } from './ProfileParts';
 import type { ProfileRoute, WarehouseScreenBaseProps } from './types';
@@ -57,11 +58,12 @@ export interface SettingsScreenProps extends WarehouseScreenBaseProps {
   /** Sign out (host navigates to its login). Without it the signed-out state is shown. */
   onLogout?: (() => void) | undefined;
   subtitle?: string | undefined;
+  role?: string | undefined;
 }
 
 type SettingsView = 'hub' | 'changePassword' | 'signedOut';
 
-export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onLogout, subtitle }: SettingsScreenProps) {
+export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onLogout, subtitle, role }: SettingsScreenProps) {
   const [view, setView] = useState<SettingsView>(initialView);
   const [showLogout, setShowLogout] = useState(false);
   const [currentPass, setCurrentPass] = useState('');
@@ -203,6 +205,14 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
                 subtitle="Get help or contact support"
                 onPress={() => onOpen('HelpSupport')}
               />
+              {role === 'SUPER_ADMIN' ? (
+                <MenuRow
+                  icon={<SystemSettingsGearIcon />}
+                  title="System Settings & Audit Log"
+                  subtitle="Manage system configuration & audit records"
+                  onPress={() => onOpen('SystemSettings' as SettingsChildRoute)}
+                />
+              ) : null}
             </MenuCard>
 
             <SectionTitle>ABOUT</SectionTitle>

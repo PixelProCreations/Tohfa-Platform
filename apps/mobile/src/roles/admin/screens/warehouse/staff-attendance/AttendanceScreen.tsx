@@ -6,22 +6,16 @@
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
+import { adminColors, adminSpacing } from '../../../theme';
 import {
   EmptyState,
   inScope,
   isAllWarehouses,
-  ScopeHeader,
   SearchBar,
   WalletScreen,
   walletLayout,
 } from '../wallet-cashtopup/WalletParts';
 import {
-  ATTENDANCE_DAY,
-  ATTENDANCE_MONTH_DAYS,
-  ATTENDANCE_MONTH_FIRST_WEEKDAY,
-  ATTENDANCE_MONTH_LABEL,
-  ATTENDANCE_MONTH_SHORT,
   ATTENDANCE_RECORDS,
   STAFF_WAREHOUSES,
 } from './fixtures';
@@ -29,8 +23,6 @@ import {
   CalendarIcon,
   ChevronDownIcon,
   ClockOutlineIcon,
-  DatePickerModal,
-  FilterSlidersIcon,
   PersonIcon,
   RefreshIcon,
   UpdateAttendanceModal,
@@ -43,20 +35,24 @@ export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
   initialWarehouseId?: string | undefined;
   onSelectRecord?: ((record: AttendanceRecord) => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
+  onNavigateToCorrection?: ((record: AttendanceRecord) => void) | undefined;
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   records?: readonly AttendanceRecord[] | undefined;
+  role?: string | undefined;
 }
 
 export function AttendanceScreen({
   scope,
   onBack,
-  onTabChange,
+  onTabChange: _onTabChange,
   initialFilter = 'All',
   initialWarehouseId,
   onSelectRecord,
-  onNavigateToHistory,
+  onNavigateToHistory: _onNavigateToHistory,
+  onNavigateToCorrection,
   warehouseOptions = STAFF_WAREHOUSES,
   records = ATTENDANCE_RECORDS,
+  role,
 }: AttendanceScreenProps) {
   const isMain = isAllWarehouses(scope);
   const [filter, setFilter] = useState<AttendanceFilter>(initialFilter);
@@ -196,8 +192,31 @@ export function AttendanceScreen({
                   ? '#DC2626'
                   : '#D97706';
 
+              const isSuperAdmin = role === 'SUPER_ADMIN';
+
+              const handleItemPress = () => {
+                if (isSuperAdmin && onNavigateToCorrection) {
+                  onNavigateToCorrection(item);
+                } else if (onSelectRecord) {
+                  onSelectRecord(item);
+                }
+              };
+
+              const handleUpdatePress = () => {
+                if (isSuperAdmin && onNavigateToCorrection) {
+                  onNavigateToCorrection(item);
+                } else {
+                  setSelectedRecordForModal(item);
+                }
+              };
+
               return (
-                <View key={item.id} style={styles.employeeCard}>
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.employeeCard}
+                  onPress={handleItemPress}
+                  activeOpacity={0.85}
+                >
                   {/* Top Row: Avatar, Name/Role, Status Pill, Update Button */}
                   <View style={styles.cardTopRow}>
                     <View style={styles.avatarCircle}>
@@ -212,7 +231,7 @@ export function AttendanceScreen({
                     {/* Attendance Dropdown Pill */}
                     <TouchableOpacity
                       style={styles.statusPill}
-                      onPress={() => setSelectedRecordForModal(item)}
+                      onPress={handleUpdatePress}
                       activeOpacity={0.8}
                     >
                       <View style={[styles.statusDot, { backgroundColor: toneColor }]} />
@@ -223,7 +242,7 @@ export function AttendanceScreen({
                     {/* Update Button */}
                     <TouchableOpacity
                       style={styles.updateBtn}
-                      onPress={() => setSelectedRecordForModal(item)}
+                      onPress={handleUpdatePress}
                       activeOpacity={0.8}
                     >
                       <Text style={styles.updateBtnText}>Update</Text>
@@ -251,7 +270,7 @@ export function AttendanceScreen({
                       </Text>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>

@@ -143,6 +143,7 @@ const TABS: CommunityTabType[] = [
 
 export interface CommunityDetailsScreenProps {
   onBack: () => void;
+  role?: string | undefined;
   communityId?: string;
   onNavigateMemberDetail?: (memberId: string) => void;
   onNavigateGroupDetail?: (groupId: string) => void;
@@ -155,6 +156,7 @@ export interface CommunityDetailsScreenProps {
 
 export function CommunityDetailsScreen({
   onBack,
+  role,
   communityId: _communityId = 'comm-1',
   onNavigateMemberDetail,
   onNavigateGroupDetail,
@@ -169,6 +171,11 @@ export function CommunityDetailsScreen({
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [archiveReason, setArchiveReason] = useState('');
   const [isArchived, setIsArchived] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [showBlockChatModal, setShowBlockChatModal] = useState(false);
+  const [isDeactivated, setIsDeactivated] = useState(false);
+  const [isChatBlocked, setIsChatBlocked] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   const tabScrollRef = useRef<ScrollView>(null);
   const mainScrollRef = useRef<ScrollView>(null);
@@ -674,7 +681,7 @@ export function CommunityDetailsScreen({
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
-      {/* ─── Header Dropdown Popup Menu ─── */}
+      {/* ─── Header Dropdown Popup Menu (Image 2) ─── */}
       <Modal
         visible={showHeaderMenu}
         transparent
@@ -713,21 +720,175 @@ export function CommunityDetailsScreen({
               <Text style={styles.menuItemText}>Edit Community</Text>
             </TouchableOpacity>
 
-            <View style={styles.menuDivider} />
+            {role === 'SUPER_ADMIN' ? (
+              <>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItemRow}
+                  onPress={() => {
+                    setShowHeaderMenu(false);
+                    setShowBlockChatModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.menuItemText, { color: '#EF4444' }]}>🚫  Block Chat</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.menuItemRow}
-              onPress={() => {
-                setShowHeaderMenu(false);
-                if (onNavigateCreatePost) onNavigateCreatePost(_communityId);
-              }}
-              activeOpacity={0.7}
-            >
-              <PlusMiniIcon size={16} color={adminColors.ink} />
-              <Text style={styles.menuItemText}>Create post</Text>
-            </TouchableOpacity>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItemRow}
+                  onPress={() => {
+                    setShowHeaderMenu(false);
+                    setIsBlocked(!isBlocked);
+                    Alert.alert(
+                      isBlocked ? 'Community Unblocked' : 'Community Blocked',
+                      isBlocked ? 'Community has been unblocked.' : 'Community has been blocked from member activities.'
+                    );
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.menuItemText, { color: '#EF4444' }]}>⊗  Block Community</Text>
+                </TouchableOpacity>
+
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItemRow}
+                  onPress={() => {
+                    setShowHeaderMenu(false);
+                    if (isDeactivated) {
+                      setIsDeactivated(false);
+                      Alert.alert('Community Activated', 'This community is now active.');
+                    } else {
+                      setShowDeactivateModal(true);
+                    }
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.menuItemText, { color: isDeactivated ? '#16A34A' : '#F59E0B' }]}>
+                    {isDeactivated ? '🔄  Activate Community' : '⏸  Deactivate Community'}
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItemRow}
+                  onPress={() => {
+                    setShowHeaderMenu(false);
+                    setShowArchiveModal(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.menuItemText, { color: '#F97316' }]}>🗑  Archive community</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <View style={styles.menuDivider} />
+                <TouchableOpacity
+                  style={styles.menuItemRow}
+                  onPress={() => {
+                    setShowHeaderMenu(false);
+                    if (onNavigateCreatePost) onNavigateCreatePost(_communityId);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <PlusMiniIcon size={16} color={adminColors.ink} />
+                  <Text style={styles.menuItemText}>Create post</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* ─── Modal: Deactivate Community (Image 4 Left Phone) ─── */}
+      <Modal visible={showDeactivateModal} transparent animationType="fade">
+        <View style={styles.modalCenteredOverlay}>
+          <View style={styles.actionModalCard}>
+            <TouchableOpacity
+              style={styles.modalCloseTopRight}
+              onPress={() => setShowDeactivateModal(false)}
+            >
+              <Text style={{ fontSize: 16, color: adminColors.muted }}>✕</Text>
+            </TouchableOpacity>
+
+            <View style={styles.pauseIconCircle}>
+              <Text style={{ fontSize: 20 }}>⏸</Text>
+            </View>
+
+            <Text style={styles.actionModalTitle}>Deactivate Community</Text>
+            <Text style={styles.actionModalDesc}>
+              Temporarily disable this community. Members cannot post or create now discussions, but the data will be preserved.
+            </Text>
+
+            <View style={styles.actionModalBtnsRow}>
+              <TouchableOpacity
+                style={styles.modalOutlineBtn}
+                onPress={() => setShowDeactivateModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalOrangeBtn}
+                onPress={() => {
+                  setShowDeactivateModal(false);
+                  setIsDeactivated(true);
+                  Alert.alert('Community Deactivated', 'Nilgiris Organic Growers has been deactivated.');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalOrangeBtnText}>Deactivate</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── Modal: Block Chat (Image 4 Right Phone) ─── */}
+      <Modal visible={showBlockChatModal} transparent animationType="fade">
+        <View style={styles.modalCenteredOverlay}>
+          <View style={styles.actionModalCard}>
+            <TouchableOpacity
+              style={styles.modalCloseTopRight}
+              onPress={() => setShowBlockChatModal(false)}
+            >
+              <Text style={{ fontSize: 16, color: adminColors.muted }}>✕</Text>
+            </TouchableOpacity>
+
+            <View style={styles.banIconCircle}>
+              <Text style={{ fontSize: 20 }}>🚫</Text>
+            </View>
+
+            <Text style={styles.actionModalTitle}>Block Chat</Text>
+            <Text style={styles.actionModalDesc}>
+              You are block this group chat
+            </Text>
+
+            <View style={styles.actionModalBtnsRow}>
+              <TouchableOpacity
+                style={styles.modalOutlineBtn}
+                onPress={() => setShowBlockChatModal(false)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalOutlineBtnText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalRedBtn}
+                onPress={() => {
+                  setShowBlockChatModal(false);
+                  setIsChatBlocked(true);
+                  Alert.alert('Chat Blocked', 'Group chat has been blocked for this community.');
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalRedBtnText}>Block</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1159,5 +1320,106 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: adminColors.border,
     marginHorizontal: 12,
+  },
+  modalCenteredOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  actionModalCard: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: 22,
+    alignItems: 'center',
+    ...adminShadow.lg,
+  },
+  modalCloseTopRight: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    padding: 6,
+  },
+  pauseIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEF3C7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  banIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  actionModalTitle: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    marginBottom: 8,
+  },
+  actionModalDesc: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  actionModalBtnsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalOutlineBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOutlineBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    fontWeight: '600',
+  },
+  modalOrangeBtn: {
+    flex: 1.2,
+    height: 44,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOrangeBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  modalRedBtn: {
+    flex: 1.2,
+    height: 44,
+    borderRadius: adminRadius.md,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalRedBtnText: {
+    ...adminType.rowTitle,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 });
