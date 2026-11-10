@@ -81,6 +81,7 @@ import { adminDiaryTaxonomyRouter } from './modules/farm-diary/farm-diary.admin.
 import { farmsRouter } from './modules/farms/farms.routes.js';
 import { cropsRouter } from './modules/crops/crops.routes.js';
 import { adminCropMasterRouter } from './modules/crops/crops.admin.routes.js';
+import { adminProduceRouter } from './modules/admin-produce/admin-produce.routes.js';
 import { livestockRouter } from './modules/livestock/livestock.routes.js';
 import { livestockAdminRouter } from './modules/livestock/livestock.admin.routes.js';
 import { farmAssetsRouter } from './modules/farm-assets/farm-assets.routes.js';
@@ -219,6 +220,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/farms', router: farmsRouter },
   { prefix: '/v1/farmers/me', router: cropsRouter },
   { prefix: '/v1/admin/crop-master', router: adminCropMasterRouter },
+  { prefix: '/v1/admin/produce', router: adminProduceRouter },
   { prefix: '/v1/farmers/me', router: farmAssetsRouter },
   { prefix: '/v1/admin/farmers', router: adminFarmAssetsRouter },
   { prefix: '/v1/farmers/me/livestock', router: livestockRouter },
