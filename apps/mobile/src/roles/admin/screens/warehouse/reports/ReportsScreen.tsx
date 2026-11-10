@@ -44,7 +44,7 @@ import { PreviewReportsScreen } from '../../finance/PreviewReportsScreen';
 import { InvoiceDetailScreen } from '../billing-invoices';
 import type { WarehouseScope, WarehouseScreenBaseProps } from '../finance-expenses';
 import { WarehouseSelector } from '../inventory/WarehouseSelector';
-import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, reportVisible } from './fixtures';
+import { EXPORT_REPORT_OPTIONS, REPORT_CODES, REPORT_SECTIONS, REPORT_WAREHOUSES, SUPER_ADMIN_EXPORT_REPORT_OPTIONS, reportVisible } from './fixtures';
 import type { ReportCode, ReportScreenType } from './types';
 import {
   TimelineDotIcon,
@@ -83,6 +83,7 @@ export interface ReportsScreenProps extends WarehouseScreenBaseProps {
   /** Warehouses offered by the Main (all-warehouses) selector. */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
   initialScreen?: ReportScreenType | undefined;
+  role?: string | undefined;
 }
 
 // `onTabChange` (WarehouseScreenBaseProps) is accepted but unused: the screen
@@ -96,6 +97,7 @@ export function ReportsScreen({
   canExport,
   warehouseOptions = REPORT_WAREHOUSES,
   initialScreen = 'main',
+  role,
 }: ReportsScreenProps) {
   const [currentScreen, setCurrentScreen] = useState<ReportScreenType>(initialScreen || 'main');
   const [showPreviewScreen, setShowPreviewScreen] = useState(false);
@@ -121,8 +123,10 @@ export function ReportsScreen({
     reports: sec.reports.filter((r) => reportVisible(r, can)),
   })).filter((sec) => sec.reports.length > 0);
   const visibleTitles = new Set(visibleSections.flatMap((s) => s.reports.map((r) => r.title)));
-  // Only reports the viewer may open can be exported.
-  const exportOptions = EXPORT_REPORT_OPTIONS.filter((o) => visibleTitles.has(o.cardTitle)).map((o) => o.label);
+  // Only reports the viewer may open can be exported. Super Admin gets 23 system-wide reports.
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const defaultExportOptions = EXPORT_REPORT_OPTIONS.filter((o) => visibleTitles.has(o.cardTitle)).map((o) => o.label);
+  const exportOptions = isSuperAdmin ? SUPER_ADMIN_EXPORT_REPORT_OPTIONS : defaultExportOptions;
 
   // Sales filter
   const [salesChannel, setSalesChannel] = useState<'All' | 'Online' | 'Market' | 'HORECA' | 'B2B'>('All');
@@ -145,7 +149,7 @@ export function ReportsScreen({
 
   // Export report states (5 Steps + Generating + Ready + Downloaded)
   const [exportStep, setExportStep] = useState<1 | 2 | 3 | 4 | 5 | 'generating' | 'ready' | 'downloaded'>(1);
-  const [selectedExportReport, setSelectedExportReport] = useState<string>('Revenue Report');
+  const [selectedExportReport, setSelectedExportReport] = useState<string>(role === 'SUPER_ADMIN' ? 'Farmer Report' : 'Revenue Report');
   const [exportPeriod, setExportPeriod] = useState<'Today' | 'This Week' | 'This Month' | 'Custom'>('This Month');
   const [exportChannel, setExportChannel] = useState<'All' | 'Online' | 'Market'>('All');
   const [exportStatus, setExportStatus] = useState<'All' | 'Completed' | 'Cancelled'>('All');
@@ -154,11 +158,11 @@ export function ReportsScreen({
   useEffect(() => {
     if (exportStep === 'generating') {
       const timer = setTimeout(() => {
-        setExportStep('ready');
+        setExportStep(role === 'SUPER_ADMIN' ? 'downloaded' : 'ready');
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [exportStep]);
+  }, [exportStep, role]);
 
   // Daily / Monthly Summary filter
   const [summaryMode, setSummaryMode] = useState<'Daily' | 'Monthly'>('Daily');
@@ -717,8 +721,8 @@ export function ReportsScreen({
       <PreviewReportsScreen
         onBack={() => setShowPreviewScreen(false)}
         reportData={{
-          reportName: selectedExportReport || 'Inventory & Stock Report',
-          category: selectedExportReport?.includes('Expense') ? 'Expenses' : selectedExportReport?.includes('Sales') ? 'Sales' : 'Inventory',
+          reportName: selectedExportReport || (isSuperAdmin ? 'Farmer Report' : 'Inventory & Stock Report'),
+          category: selectedExportReport?.includes('Expense') ? 'Expenses' : selectedExportReport?.includes('Sales') ? 'Sales' : selectedExportReport?.includes('Farmer') ? 'Farmer' : selectedExportReport?.includes('Audit') ? 'Compliance' : 'Inventory',
           period: '01 Oct 2026 – 31 Oct 2026',
           warehouse: warehouseLabel,
           format: exportFormat === 'Excel' ? 'XLSX' : exportFormat === 'PDF' ? 'PDF' : 'CSV',
@@ -3718,7 +3722,11 @@ export function ReportsScreen({
 
     const handleBackStep = () => {
       if (exportStep === 'downloaded') {
-        setExportStep('ready');
+        if (role === 'SUPER_ADMIN') {
+          setExportStep(5);
+        } else {
+          setExportStep('ready');
+        }
       } else if (exportStep === 'generating') {
         setExportStep(5);
       } else if (exportStep === 'ready') {

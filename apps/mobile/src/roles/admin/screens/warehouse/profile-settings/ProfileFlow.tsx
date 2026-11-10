@@ -39,10 +39,11 @@ import { SecurityScreen } from './SecurityScreen';
 import { SessionSecurityScreen } from './SessionSecurityScreen';
 import { SettingsScreen } from './SettingsScreen';
 import { StorageInfoScreen } from './StorageInfoScreen';
-import { UserProfileScreen } from './UserProfileScreen';
+import { UserProfileScreen as _UserProfileScreen } from './UserProfileScreen';
 import { WarehouseEditProfileScreen, type EditWarehouseTab } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
+import { SystemSettingsFlow } from '../../dashboard/SystemSettingsFlow';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
 import { PROFILE_WAREHOUSES } from './warehouseFixtures';
 import type { FaqCategory, PermissionCheck, ProfileRoute, WarehouseScope, WarehouseTab } from './types';
@@ -88,7 +89,11 @@ export function ProfileFlow({
 }: ProfileFlowProps) {
   const effectiveRole: AdminRoleCode =
     adminRole ??
-    (role === 'MAIN_WH_ADMIN'
+    (role === 'SUPER_ADMIN'
+      ? 'SUPER_ADMIN'
+      : role === 'TOHFA_ADMIN'
+      ? 'TOHFA_ADMIN'
+      : role === 'MAIN_WH_ADMIN'
       ? 'MAIN_WH_ADMIN'
       : role === 'SUB_WH_ADMIN'
       ? 'SUB_WH_ADMIN'
@@ -126,7 +131,15 @@ export function ProfileFlow({
 
   switch (current) {
     case 'Settings':
-      return <SettingsScreen key="settings" {...common} subtitle={subtitle} onOpen={navigate} onLogout={onLogout} />;
+      return <SettingsScreen key="settings" {...common} role={role} subtitle={subtitle} onOpen={navigate} onLogout={onLogout} />;
+    case 'SystemSettings':
+      return (
+        <SystemSettingsFlow
+          role="SUPER_ADMIN"
+          can={can}
+          onBack={back}
+        />
+      );
     case 'ChangePassword':
       // The Settings screen's inline change-password state; back leaves it. The
       // distinct key gives it fresh state rather than reusing the hub instance.

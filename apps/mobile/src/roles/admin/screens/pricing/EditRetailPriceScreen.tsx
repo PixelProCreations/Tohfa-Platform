@@ -270,8 +270,16 @@ export function EditRetailPriceScreen({
           </View>
         </View>
 
-        {/* ── Bottom Buttons Matching Image 4 ── */}
+        {/* ── Bottom Buttons Matching Image 5 ── */}
         <View style={styles.bottomButtonsRow}>
+          <TouchableOpacity
+            style={styles.cancelBtn}
+            onPress={onBack}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.cancelBtnText}>Cancel</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.saveBtn,
@@ -288,14 +296,6 @@ export function EditRetailPriceScreen({
             >
               Save Retail Price
             </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.cancelBtn}
-            onPress={onBack}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.cancelBtnText}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

@@ -24,12 +24,16 @@ import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
 import { AttendanceDetailScreen } from './AttendanceDetailScreen';
+import { AttendanceCorrectionScreen } from './AttendanceCorrectionScreen';
+import { RolesScreen } from './RolesScreen';
+import { AssignAccessScreen } from './AssignAccessScreen';
 import { AttendanceHistoryScreen } from './AttendanceHistoryScreen';
 import { AttendanceScreen } from './AttendanceScreen';
+import { CreateStaffAccountScreen } from './CreateStaffAccountScreen';
 import { EditStaffProfileScreen } from './EditStaffProfileScreen';
 import { StaffDetailScreen } from './StaffDetailScreen';
 import { StaffListScreen } from './StaffListScreen';
-import { hasStaffRosterAccess, STAFF_ROSTER_CODE, StaffScreen } from './StaffScreen';
+import { hasStaffRosterAccess, StaffScreen } from './StaffScreen';
 import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
 interface StaffStackEntry {
@@ -41,7 +45,10 @@ interface StaffStackEntry {
 const ROSTER_ROUTES: readonly StaffRoute[] = ['Staff', 'StaffList', 'StaffDetail', 'EditStaffProfile'];
 
 /** True when `can` / `scope` allows opening `route` (roster routes need staff roster access). */
-export function canOpenStaffRoute(route: StaffRoute, can: PermissionCheck, scope?: WarehouseScope): boolean {
+export function canOpenStaffRoute(route: StaffRoute, can: PermissionCheck, scope?: WarehouseScope, role?: string): boolean {
+  if (role === 'SUPER_ADMIN' || role === 'TOHFA_ADMIN') {
+    return true;
+  }
   if (route === 'EditStaffProfile') {
     const isSub = scope?.warehouseId !== undefined;
     const hasEdit = can('admin.staff.manage') || can('warehouse.staff.edit') || can('admin.staff.edit');
@@ -91,7 +98,7 @@ export function StaffFlow({
   const params: StaffRouteParams = current.params ?? {};
 
   const navigate = (screen: StaffRoute, nextParams?: StaffRouteParams) => {
-    if (!canOpenStaffRoute(screen, can, scope)) return;
+    if (!canOpenStaffRoute(screen, can, scope, role)) return;
     setStack((prev) => [...prev, { screen, params: nextParams }]);
   };
   const back = () => {
@@ -123,6 +130,9 @@ export function StaffFlow({
           onNavigateToStaffList={() => navigate('StaffList')}
           onNavigateToAttendance={(warehouseId) => navigate('Attendance', { attendanceFilter: 'All', warehouseId })}
           onNavigateToHistory={(warehouseId) => navigate('AttendanceHistory', { warehouseId })}
+          onNavigateToRoles={() => navigate('Roles')}
+          onNavigateToAssignAccess={() => navigate('AssignAccess')}
+          onCreateAccount={() => navigate('EditStaffProfile')}
         />
       );
     case 'StaffList':
@@ -145,22 +155,63 @@ export function StaffFlow({
           onViewAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
           onViewAttendanceHistory={() => navigate('AttendanceHistory')}
           onAssignDelivery={onAssignDelivery ? () => onAssignDelivery(params.staff) : undefined}
+          onNavigateToAttendanceCorrection={(staff) => navigate('AttendanceCorrection', { staff })}
         />
       );
     case 'EditStaffProfile':
+      if (role === 'SUPER_ADMIN') {
+        return (
+          <CreateStaffAccountScreen
+            staff={params.staff}
+            role={role}
+            onBack={back}
+            onSave={() => {
+              backToStaffList();
+            }}
+          />
+        );
+      }
       return <EditStaffProfileScreen {...common} staff={params.staff} onSave={backToStaffList} />;
     case 'Attendance':
       return (
         <AttendanceScreen
           {...common}
+          role={role}
           initialFilter={params.attendanceFilter}
           initialWarehouseId={params.warehouseId}
           onSelectRecord={(record) => navigate('AttendanceDetail', { record })}
           onNavigateToHistory={() => navigate('AttendanceHistory', { warehouseId: params.warehouseId })}
+          onNavigateToCorrection={(record) => navigate('AttendanceCorrection', { record, staff: params.staff })}
         />
       );
     case 'AttendanceDetail':
       return <AttendanceDetailScreen {...common} record={params.record} />;
+    case 'AttendanceCorrection':
+      return (
+        <AttendanceCorrectionScreen
+          {...common}
+          role={role}
+          staff={params.staff}
+          record={params.record}
+          onSuccess={back}
+        />
+      );
+    case 'Roles':
+      return (
+        <RolesScreen
+          {...common}
+          role={role}
+          onSelectRole={(roleId, roleName) => navigate('AssignAccess', { roleName })}
+        />
+      );
+    case 'AssignAccess':
+      return (
+        <AssignAccessScreen
+          {...common}
+          role={role}
+          initialRoleName={params.roleName}
+        />
+      );
     case 'AttendanceHistory':
       return (
         <AttendanceHistoryScreen

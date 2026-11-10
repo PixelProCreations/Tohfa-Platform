@@ -78,6 +78,57 @@ export function PersonIcon({ size = 20, color = adminColors.brand }: IconProps) 
   );
 }
 
+export function SystemRolesAccessIcon({ size = 22, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="8.5" cy="7" r="3.5" stroke={color} strokeWidth="1.8" />
+      <Path
+        d="M2 20c0-3.3 2.7-6 6-6h1c3.3 0 6 2.7 6 6"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <Circle cx="16.5" cy="7.5" r="2.8" stroke={color} strokeWidth="1.6" />
+      <Path
+        d="M15 14.5c2.2.3 4 2 4 5.5"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+export function AssignAccessIcon({ size = 26, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="8.5" cy="7" r="4" stroke={color} strokeWidth="1.8" />
+      <Path d="M16 11l2.5 2.5 4.5-4.5" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function QuickCreateStaffIcon({ size = 26, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Circle cx="12" cy="7" r="4" stroke={color} strokeWidth="1.8" />
+      <Path d="M19 8v6M22 11h-6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function QuickStaffAttendanceIcon({ size = 26, color = adminColors.brand }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M16 2v4M8 2v4M3 10h18" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 15l2 2 4-4" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function StaffGroupIcon({ size = 22, color = adminColors.onBrand }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">

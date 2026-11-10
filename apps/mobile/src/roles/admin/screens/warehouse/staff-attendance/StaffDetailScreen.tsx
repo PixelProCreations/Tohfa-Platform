@@ -25,11 +25,11 @@ import {
   STAFF_ATTENDANCE_SUMMARY,
   staffWarehouseName,
 } from './fixtures';
-import { CalendarIcon, ChevronDownIcon, ClockOutlineIcon, PersonIcon, UpdateAttendanceModal } from './StaffParts';
+import { CalendarIcon, ChevronDownIcon, ClockOutlineIcon, PersonIcon } from './StaffParts';
 import { hasStaffRosterAccess } from './StaffScreen';
 import type { AttendanceStatus, PermissionCheck, StaffMember, WarehouseScreenBaseProps } from './types';
 
-function CheckmarkIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
+function _CheckmarkIcon({ size = 16, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M20 6L9 17l-5-5" stroke={color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -37,7 +37,7 @@ function CheckmarkIcon({ size = 16, color = adminColors.brand }: { size?: number
   );
 }
 
-function getStatusColor(status?: string | null): string {
+function _getStatusColor(status?: string | null): string {
   switch (status) {
     case 'Present':
     case 'Active':
@@ -71,7 +71,7 @@ function PencilIcon({ size = 16, color = '#FFFFFF' }: { size?: number; color?: s
   );
 }
 
-const STATUS_OPTIONS = [
+const _STATUS_OPTIONS = [
   'Present',
   'Absent',
   'Late Arrival',
@@ -95,6 +95,7 @@ export interface StaffDetailScreenProps extends WarehouseScreenBaseProps {
   onViewAttendance?: ((staff: StaffMember) => void) | undefined;
   onViewAttendanceHistory?: ((staff: StaffMember) => void) | undefined;
   onAssignDelivery?: ((staff: StaffMember) => void) | undefined;
+  onNavigateToAttendanceCorrection?: ((staff: StaffMember) => void) | undefined;
 }
 
 export function StaffDetailScreen({
@@ -104,12 +105,13 @@ export function StaffDetailScreen({
   onBack,
   staff,
   onEditProfile,
+  onNavigateToAttendanceCorrection,
 }: StaffDetailScreenProps) {
   const member = staff ?? DEFAULT_STAFF_MEMBER;
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [_showStatusDropdown, _setShowStatusDropdown] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-  const [currentAttendance, setCurrentAttendance] = useState<AttendanceStatus>((staff?.attendance as AttendanceStatus) || 'Present');
+  const [_showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [currentAttendance, _setCurrentAttendance] = useState<AttendanceStatus>((staff?.attendance as AttendanceStatus) || 'Present');
 
   if (!hasStaffRosterAccess(can, scope)) {
     return (
@@ -121,6 +123,7 @@ export function StaffDetailScreen({
   }
 
   const isDriver = member.type === 'driver' || member.role.toLowerCase().includes('driver');
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const isTohfa = isTohfaAdminUser(can, role);
   const isSubWH = role === 'SUB_WH_ADMIN';
   const isMainWH =
@@ -144,9 +147,9 @@ export function StaffDetailScreen({
 
   // RBAC: "Update active status *" dropdown is enabled for TOHFA_ADMIN and MAIN_WH_ADMIN only,
   // strictly hidden for SUB_WH_ADMIN per RBAC shared-screen specifications.
-  const hasUpdateStatus = !isSubWH && (isTohfa || isMainWH);
-  const canDeactivate = isTohfa;
-  const canEdit = isTohfa && !!onEditProfile;
+  const _hasUpdateStatus = !isSubWH && (isTohfa || isMainWH || isSuperAdmin);
+  const canDeactivate = isTohfa || isSuperAdmin;
+  const canEdit = (isTohfa || isSuperAdmin) && !!onEditProfile;
 
   const warehouseName = member.warehouseId ? staffWarehouseName(member.warehouseId) : scope.warehouseName ?? 'Coonoor';
   const summary = STAFF_ATTENDANCE_SUMMARY;
@@ -166,7 +169,7 @@ export function StaffDetailScreen({
           style: isDeactivated ? 'default' : 'destructive',
           onPress: () => {
             setSelectedStatus(nextStatus);
-            member.status = nextStatus as any;
+            member.status = nextStatus as StaffMember['status'];
           },
         },
       ]
@@ -353,8 +356,20 @@ export function StaffDetailScreen({
           </View>
         </View>
 
-        {/* Attendance Summary Section */}
-        <SectionTitle>Attendance Summary</SectionTitle>
+        {/* Attendance Summary Section with Edit for Super Admin (Image 2) */}
+        <View style={styles.sectionHeaderWithEdit}>
+          <SectionTitle>Attendance Summary</SectionTitle>
+          {isSuperAdmin && (
+            <TouchableOpacity
+              style={styles.summaryEditBtn}
+              onPress={() => onNavigateToAttendanceCorrection ? onNavigateToAttendanceCorrection(member) : onEditProfile?.(member)}
+              activeOpacity={0.8}
+            >
+              <PencilIcon size={12} color={adminColors.brand} />
+              <Text style={styles.summaryEditBtnText}>Edit</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.detailCard}>
           <View style={styles.gridRow}>
             <View style={styles.gridCol}>
@@ -373,6 +388,22 @@ export function StaffDetailScreen({
             </View>
           </View>
         </View>
+
+        {/* Responsibility Summary (Super Admin Image 2) */}
+        {isSuperAdmin && (
+          <>
+            <SectionTitle>Responsibility Summary</SectionTitle>
+            <View style={styles.detailCard}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.responsibilityTagsRow}>
+                {['Goods Receiving', 'Inventory', 'Orders', 'Sales', 'Finance'].map((tag) => (
+                  <View key={tag} style={styles.responsibilityTag}>
+                    <Text style={styles.responsibilityTagText}>{tag}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </>
+        )}
 
         {/* Activity Section */}
         <SectionTitle>Activity</SectionTitle>
@@ -412,21 +443,65 @@ export function StaffDetailScreen({
           </View>
         </View>
 
-        {/* Deactivate Button (Image 2) */}
-        {canDeactivate && (
-          <TouchableOpacity
-            style={[
-              styles.deactivateBtn,
-              isDeactivated && styles.activateBtn,
-            ]}
-            onPress={handleToggleDeactivate}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-          >
-            <Text style={styles.deactivateBtnText}>
-              {isDeactivated ? 'Activate' : 'Deactivate'}
-            </Text>
-          </TouchableOpacity>
+        {/* Bottom Actions: Image 2 dual buttons for Super Admin */}
+        {isSuperAdmin ? (
+          <View style={styles.superAdminActionRow}>
+            {isDeactivated ? (
+              <>
+                <TouchableOpacity
+                  style={styles.reactivateGreenBtn}
+                  onPress={handleToggleDeactivate}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.reactivateGreenBtnText}>Re-Activate account</Text>
+                </TouchableOpacity>
+
+                <View style={styles.disabledDeactivateBtn}>
+                  <Text style={styles.disabledDeactivateBtnText}>Deactivate</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.deactivateRedBtn}
+                  onPress={handleToggleDeactivate}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.deactivateRedBtnText}>Deactivate</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.endSessionsBtn}
+                  onPress={() => {
+                    Alert.alert(
+                      'End Active Sessions',
+                      `All active login sessions for ${member.name} have been terminated.`,
+                      [{ text: 'OK' }]
+                    );
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.endSessionsBtnText}>End active Sessions</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        ) : (
+          canDeactivate && (
+            <TouchableOpacity
+              style={[
+                styles.deactivateBtn,
+                isDeactivated && styles.activateBtn,
+              ]}
+              onPress={handleToggleDeactivate}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <Text style={styles.deactivateBtnText}>
+                {isDeactivated ? 'Activate' : 'Deactivate'}
+              </Text>
+            </TouchableOpacity>
+          )
         )}
       </ScrollView>
     </WalletScreen>
@@ -735,6 +810,106 @@ const styles = StyleSheet.create({
   deactivateBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
+  },
+  sectionHeaderWithEdit: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 4,
+  },
+  summaryEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.brand,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  summaryEditBtnText: {
+    ...adminType.caption,
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+  responsibilityTagsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  responsibilityTag: {
+    backgroundColor: adminColors.canvas,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  responsibilityTagText: {
+    ...adminType.caption,
+    color: adminColors.ink,
+    fontWeight: '600',
+  },
+  superAdminActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  deactivateRedBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: adminRadius.md,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deactivateRedBtnText: {
+    ...adminType.rowTitle,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  endSessionsBtn: {
+    flex: 1.2,
+    height: 46,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endSessionsBtnText: {
+    ...adminType.rowTitle,
+    color: '#EF4444',
+    fontWeight: '700',
+  },
+  reactivateGreenBtn: {
+    flex: 1.2,
+    height: 46,
+    borderRadius: adminRadius.md,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactivateGreenBtnText: {
+    ...adminType.rowTitle,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  disabledDeactivateBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: adminRadius.md,
+    backgroundColor: '#FCA5A5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    opacity: 0.6,
+  },
+  disabledDeactivateBtnText: {
+    ...adminType.rowTitle,
+    color: '#FFFFFF',
     fontWeight: '700',
   },
 });

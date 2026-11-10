@@ -687,6 +687,17 @@ export function AdminOperationsOverviewScreen({
       <View style={styles.headerBanner}>
         <View style={styles.headerTopRow}>
           <View style={styles.headerTitleGroup}>
+            {onBack && (
+              <TouchableOpacity
+                onPress={onBack}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Go back"
+                style={{ marginRight: 8 }}
+              >
+                <BackArrowWhiteIcon size={20} />
+              </TouchableOpacity>
+            )}
             <WarehouseHeaderIcon size={22} color={adminColors.onBrand} />
             <Text style={styles.headerTitle}>Inventory & Warehouse</Text>
           </View>

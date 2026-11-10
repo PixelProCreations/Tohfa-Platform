@@ -11,7 +11,7 @@
  */
 // Design id: M5S04 (M5S04_OrderDetail)
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar } from 'react-native';
+import { Alert, View, Text, ScrollView, TouchableOpacity, StyleSheet, SafeAreaView, Modal, StatusBar } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { adminColors, adminType, adminRadius, adminSpacing, adminShadow } from '../../../theme';
@@ -19,6 +19,7 @@ import type { OrderScreenBaseProps } from './types';
 
 export interface OrderDetailScreenProps extends OrderScreenBaseProps {
   customerName?: string | undefined;
+  role?: string | undefined;
 }
 
 const SAMPLE_ORDER_ID = 'ORD-1024';
@@ -90,10 +91,22 @@ export function OrderDetailScreen({
   orderId = SAMPLE_ORDER_ID,
   customerName = SAMPLE_CUSTOMER,
   scope,
+  can,
+  role,
   onBack,
   onNavigate,
 }: OrderDetailScreenProps) {
   const [showMenu, setShowMenu] = useState(false);
+  const [isAssignOpen, setIsAssignOpen] = useState(false);
+  const [assignedWarehouse, setAssignedWarehouse] = useState<string>(
+    scope?.warehouseName && scope.warehouseName !== '—' ? scope.warehouseName : 'Coonoor'
+  );
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('Ooty');
+  const [showWarehousePicker, setShowWarehousePicker] = useState(false);
+
+  const isSuperAdmin = role === 'SUPER_ADMIN';
+  const canAssignWarehouse = can ? can('order.warehouse.assign') : true;
+  const showAssignWarehouse = isSuperAdmin && canAssignWarehouse;
 
   // Mock data keyed off two demo invoice ids, as in the old M5S04, until orders are wired.
   const isInv251 = orderId === 'INV-00251' || orderId === 'ORD-00251';
@@ -169,7 +182,7 @@ export function OrderDetailScreen({
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Warehouse</Text>
-                <Text style={styles.colValue}>{warehouseName}</Text>
+                <Text style={styles.colValue}>{assignedWarehouse}</Text>
               </View>
             </View>
           </View>
@@ -197,7 +210,7 @@ export function OrderDetailScreen({
               </View>
               <View style={styles.col}>
                 <Text style={styles.colLabel}>Pickup Warehouse</Text>
-                <Text style={styles.colValue}>{warehouseName}</Text>
+                <Text style={styles.colValue}>{assignedWarehouse} Warehouse</Text>
               </View>
             </View>
           </View>
@@ -278,6 +291,66 @@ export function OrderDetailScreen({
             </View>
           </View>
 
+          {/* ─── Assign to Warehouse Action (Only on Super Admin with order.warehouse.assign) ─── */}
+          {showAssignWarehouse && (
+            !isAssignOpen ? (
+              <TouchableOpacity
+                style={styles.assignToWarehouseBtn}
+                onPress={() => setIsAssignOpen(true)}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Assign to warehouse"
+              >
+                <Text style={styles.assignToWarehouseBtnText}>Assign to warehouse</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.assignSectionWrap}>
+                <Text style={styles.sectionHeader}>Order assign</Text>
+                <View style={styles.card}>
+                  <Text style={styles.assignFieldLabel}>
+                    Select Assign Warehouse <Text style={styles.requiredAsterisk}>*</Text>
+                  </Text>
+
+                  <TouchableOpacity
+                    style={styles.dropdownSelector}
+                    onPress={() => setShowWarehousePicker(true)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Select Assign Warehouse"
+                  >
+                    <Text style={styles.dropdownText}>{selectedWarehouse}</Text>
+                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M6 9l6 6 6-6"
+                        stroke={adminColors.ink}
+                        strokeWidth="2.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.assignOrderSubmitBtn}
+                    onPress={() => {
+                      setAssignedWarehouse(selectedWarehouse);
+                      setIsAssignOpen(false);
+                      Alert.alert(
+                        'Order Assigned',
+                        `Order ${orderId} has been successfully assigned to ${selectedWarehouse} Warehouse.`
+                      );
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Assign order"
+                  >
+                    <Text style={styles.assignOrderSubmitBtnText}>Assign order</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )
+          )}
+
           <Text style={styles.sectionHeader}>Notes</Text>
           <View style={styles.card}>
             <Text style={styles.notesText}>Please pack tomatoes separately if possible.</Text>
@@ -335,22 +408,75 @@ export function OrderDetailScreen({
             <Text style={styles.primaryCheckBtnText}>Check Stock</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.outlineActionBtn}
-            activeOpacity={0.8}
-            onPress={() => onNavigate?.('M5S16', { orderId })}
-          >
-            <Text style={styles.outlineActionBtnText}>Report Issue</Text>
-          </TouchableOpacity>
+          <View style={styles.actionBtnRow}>
+            <TouchableOpacity
+              style={styles.outlineHalfBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S16', { orderId })}
+            >
+              <Text style={styles.outlineHalfBtnText}>Report Issue</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.cancelOrderBtn}
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('M5S17', { orderId })}
-          >
-            <Text style={styles.cancelOrderBtnText}>Cancel Order</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.outlineHalfBtn}
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('M5S17', { orderId })}
+            >
+              <Text style={styles.outlineHalfBtnText}>Cancel Order</Text>
+            </TouchableOpacity>
+          </View>
         </View>
+
+        {/* Warehouse Selection Picker Modal */}
+        <Modal
+          visible={showWarehousePicker}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowWarehousePicker(false)}
+        >
+          <TouchableOpacity
+            style={styles.pickerOverlay}
+            activeOpacity={1}
+            onPress={() => setShowWarehousePicker(false)}
+          >
+            <View style={styles.pickerSheet}>
+              <Text style={styles.pickerTitle}>Select Warehouse</Text>
+              {['Ooty', 'Coonoor', 'Kotagiri', 'Gudalur'].map((wh) => (
+                <TouchableOpacity
+                  key={wh}
+                  style={[
+                    styles.pickerOption,
+                    selectedWarehouse === wh && styles.pickerOptionActive,
+                  ]}
+                  onPress={() => {
+                    setSelectedWarehouse(wh);
+                    setShowWarehousePicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      selectedWarehouse === wh && styles.pickerOptionTextActive,
+                    ]}
+                  >
+                    {wh}
+                  </Text>
+                  {selectedWarehouse === wh && (
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M5 13l4 4L19 7"
+                        stroke={adminColors.brand}
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         <Modal visible={showMenu} transparent animationType="fade" onRequestClose={() => setShowMenu(false)}>
           {/* Was a translucent overlay; no translucent token, so the scrim is transparent and the sheet carries adminShadow.lg. */}
@@ -385,6 +511,125 @@ const STATUS_DOT = 7;
 const SECONDARY_BUTTON_HEIGHT = 48;
 
 const styles = StyleSheet.create({
+  // Assign to warehouse styles matching Image 2 and Image 4
+  assignToWarehouseBtn: {
+    height: 44,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.md,
+  },
+  assignToWarehouseBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    fontWeight: '600',
+  },
+  assignSectionWrap: {
+    marginBottom: 4,
+  },
+  assignFieldLabel: {
+    ...adminType.rowMeta,
+    color: adminColors.ink,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  requiredAsterisk: {
+    color: adminColors.danger.text,
+    fontWeight: '700',
+  },
+  dropdownSelector: {
+    height: 44,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  dropdownText: {
+    ...adminType.body,
+    color: adminColors.ink,
+    fontWeight: '500',
+  },
+  assignOrderSubmitBtn: {
+    height: 42,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  assignOrderSubmitBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    fontWeight: '600',
+  },
+  actionBtnRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  outlineHalfBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outlineHalfBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+    fontWeight: '600',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  pickerSheet: {
+    width: '100%',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    padding: 20,
+    ...adminShadow.lg,
+  },
+  pickerTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.ink,
+    marginBottom: 14,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: adminRadius.sm,
+    marginBottom: 4,
+  },
+  pickerOptionActive: {
+    backgroundColor: adminColors.brandTint,
+  },
+  pickerOptionText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  pickerOptionTextActive: {
+    color: adminColors.brand,
+    fontWeight: '700',
+  },
+
   safeArea: { flex: 1, backgroundColor: adminColors.brand },
   container: { flex: 1, backgroundColor: adminColors.canvas },
   header: {

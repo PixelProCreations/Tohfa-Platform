@@ -10720,7 +10720,7 @@ export function TohfaAdminDashboardScreen({
             onBack={() => setDashboardSubScreen('marketPricingHome')}
             onNavigateToRetailPricing={() => setDashboardSubScreen('retailPricing')}
             onNavigateToHistory={() => setDashboardSubScreen('priceHistory')}
-            onNavigateToBreakdown={(item) => {
+            onNavigateToBreakdown={(item: any) => {
               const matching = pricingRecords.find((r) => r.product === item?.product && r.grade === item?.grade);
               setSelectedPricingRecord(matching || null);
               setMarkupBreakdownReturnScreen('fairPriceCeiling');

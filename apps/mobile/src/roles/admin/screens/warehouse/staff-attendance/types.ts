@@ -82,6 +82,7 @@ export interface AttendanceRecord {
   checkInTime?: string | undefined;
   checkOutTime?: string | undefined;
   warehouseId?: string | undefined;
+  roleName?: string | undefined;
 }
 
 /** One row of Attendance History grouped by date. */
@@ -96,6 +97,7 @@ export interface AttendanceHistoryEntry {
   /** Rows older than seven days only show in the longer ranges (Main's 30 Days view). */
   olderThanWeek?: boolean | undefined;
   warehouseId?: string | undefined;
+  roleName?: string | undefined;
 }
 
 /** One month of one person's attendance: History grouped by staff (absorbed from Main, M14-S03). */
@@ -109,10 +111,11 @@ export interface StaffMonthSummary {
   leave: number;
   olderThanWeek?: boolean | undefined;
   warehouseId?: string | undefined;
+  roleName?: string | undefined;
 }
 
 /** Screens of the staff & attendance flow (old App.tsx keys without the 'SubWarehouse' prefix). */
-export type StaffRoute = 'Staff' | 'StaffList' | 'StaffDetail' | 'EditStaffProfile' | 'Attendance' | 'AttendanceDetail' | 'AttendanceHistory';
+export type StaffRoute = 'Staff' | 'StaffList' | 'StaffDetail' | 'EditStaffProfile' | 'Attendance' | 'AttendanceDetail' | 'AttendanceHistory' | 'AttendanceCorrection' | 'Roles' | 'AssignAccess';
 
 export interface StaffRouteParams {
   staff?: StaffMember | undefined;
@@ -120,4 +123,6 @@ export interface StaffRouteParams {
   /** Attendance opened on a filter chip (the old Today's Attendance key opens 'All'). */
   attendanceFilter?: AttendanceFilter | undefined;
   warehouseId?: string | undefined;
+  roleName?: string | undefined;
 }
+

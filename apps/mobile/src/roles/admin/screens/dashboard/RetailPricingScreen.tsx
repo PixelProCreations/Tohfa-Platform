@@ -200,10 +200,9 @@ export const SAMPLE_RETAIL_PRICES = INITIAL_RETAIL_MANAGEMENT_ITEMS;
 
 export interface RetailPricingScreenProps {
   onBack: () => void;
-  role?: string | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN' | 'SUPER_ADMIN') | string | undefined;
   onEditRetailPrice?: (record: PricingRecordItem) => void;
-  onSelectBreakdown?: (item?: any) => void;
-  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
+  onSelectBreakdown?: (item?: unknown) => void;
 }
 
 export function RetailPricingScreen({
@@ -216,8 +215,7 @@ export function RetailPricingScreen({
   const [searchQuery, setSearchQuery] = useState('');
   const [items] = useState<RetailPriceManagementItem[]>(INITIAL_RETAIL_MANAGEMENT_ITEMS);
 
-  // Inline Edit Drawer state for Tomato · Grade 1
-  const [drawerInputPrice, setDrawerInputPrice] = useState('58.00');
+
 
   // Filter popup state
   const [filterModalVisible, setFilterModalVisible] = useState(false);
@@ -262,19 +260,7 @@ export function RetailPricingScreen({
     setFilterModalVisible(false);
   };
 
-  // Live calculation for drawer
-  const drawerCalc = useMemo(() => {
-    const rawNum = parseFloat(drawerInputPrice.replace(/[^0-9.]/g, '')) || 0;
-    const ceiling = 60.0;
-    const diff = ceiling - rawNum;
-    const isWithin = rawNum <= ceiling;
-    return {
-      proposed: `₹${rawNum.toFixed(2)}`,
-      diffText: diff >= 0 ? `₹${diff.toFixed(2)} below` : `₹${Math.abs(diff).toFixed(2)} above`,
-      isWithin,
-      statusText: isWithin ? 'Within ceiling' : 'Above ceiling',
-    };
-  }, [drawerInputPrice]);
+
 
   // Filtering items
   const filteredItems = useMemo(() => {
@@ -544,100 +530,32 @@ export function RetailPricingScreen({
 
         {/* ── Item 1: Tomato · Grade 1 ── */}
         {filteredItems.some((i) => i.id === 'rpm-tomato-g1') && (
-          <>
-            <View style={styles.card}>
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>Tomato · Grade 1</Text>
-                <View style={styles.badgeWithinCeiling}>
-                  <Text style={styles.badgeWithinCeilingText}>Within ceiling</Text>
-                </View>
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <Text style={styles.cardTitle}>Tomato · Grade 1</Text>
+              <View style={styles.badgeWithinCeiling}>
+                <Text style={styles.badgeWithinCeilingText}>Within ceiling</Text>
               </View>
-
-              <Text style={styles.cardSubtitle1}>
-                Ceiling ₹60.00 · Retail ₹55.00 · Diff ₹5.00
-              </Text>
-              <Text style={styles.cardSubtitle2}>
-                Effective 10 Oct 2026 - Priya Nair
-              </Text>
-
-              <TouchableOpacity
-                style={styles.editOutlinedBtn}
-                onPress={() => {
-                  const itm = items.find((i) => i.id === 'rpm-tomato-g1')!;
-                  handleEditClick(itm);
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.editOutlinedBtnText}>Edit Retail Price</Text>
-              </TouchableOpacity>
             </View>
 
-            {/* ── Edit Drawer Section for Tomato · Grade 1 Matching Image 1 ── */}
-            <Text style={styles.drawerSectionHeading}>
-              Edit drawer (Tomato · Grade 1)
+            <Text style={styles.cardSubtitle1}>
+              Ceiling ₹60.00 · Retail ₹55.00 · Diff ₹5.00
+            </Text>
+            <Text style={styles.cardSubtitle2}>
+              Effective 10 Oct 2026 - Priya Nair
             </Text>
 
-            <View style={styles.drawerCard}>
-              <View style={styles.drawerRow}>
-                <Text style={styles.drawerLabel}>Current price</Text>
-                <Text style={styles.drawerValBold}>₹55.00</Text>
-              </View>
-              <View style={styles.divider} />
-
-              <View style={styles.drawerRow}>
-                <Text style={styles.drawerLabel}>Ceiling in force</Text>
-                <Text style={styles.drawerValBold}>₹60.00</Text>
-              </View>
-              <View style={styles.divider} />
-
-              <Text style={styles.inputFieldLabel}>New price *</Text>
-              <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.drawerTextInput}
-                  value={drawerInputPrice.startsWith('₹') ? drawerInputPrice : `₹${drawerInputPrice}`}
-                  onChangeText={(val) => setDrawerInputPrice(val.replace('₹', ''))}
-                  keyboardType="numeric"
-                />
-              </View>
-
-              <View style={[styles.drawerRow, { marginTop: 14 }]}>
-                <Text style={styles.drawerLabel}>Proposed</Text>
-                <Text style={styles.drawerValBold}>{drawerCalc.proposed}</Text>
-              </View>
-
-              <View style={[styles.drawerRow, { marginTop: 8 }]}>
-                <Text style={styles.drawerLabel}>Difference from ceiling</Text>
-                <Text
-                  style={[
-                    styles.drawerValBold,
-                    {
-                      color: drawerCalc.isWithin
-                        ? adminColors.success.text
-                        : adminColors.danger.text,
-                    },
-                  ]}
-                >
-                  {drawerCalc.diffText}
-                </Text>
-              </View>
-
-              <View style={[styles.drawerRow, { marginTop: 8 }]}>
-                <Text style={styles.drawerLabel}>Status</Text>
-                <Text
-                  style={[
-                    styles.drawerValBold,
-                    {
-                      color: drawerCalc.isWithin
-                        ? adminColors.success.text
-                        : adminColors.danger.text,
-                    },
-                  ]}
-                >
-                  {drawerCalc.statusText}
-                </Text>
-              </View>
-            </View>
-          </>
+            <TouchableOpacity
+              style={styles.editOutlinedBtn}
+              onPress={() => {
+                const itm = items.find((i) => i.id === 'rpm-tomato-g1')!;
+                handleEditClick(itm);
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.editOutlinedBtnText}>Edit Retail Price</Text>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* ── Item 2: Carrot · Grade 1 with Red Border Matching Image 1 ── */}

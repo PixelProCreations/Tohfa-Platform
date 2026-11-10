@@ -20,9 +20,20 @@ import {
   adminShadow,
   adminSpacing,
   adminType,
+  ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
+function ChevronRightIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 18l6-6-6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+
+
 
 function BackArrowIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -393,25 +404,27 @@ export type FairPriceItem = FairPriceCeilingRecord;
 
 export interface FairPriceCeilingScreenProps {
   onBack: () => void;
-  role?: string | undefined;
   onNavigateToRetailPricing?: (() => void) | undefined;
-  onNavigateToBreakdown?: ((item?: any) => void) | undefined;
-  onNavigateToHistory?: ((item?: any) => void) | undefined;
-  onSelectPriceItem?: ((item?: any) => void) | undefined;
-  onUpdatePrice?: ((item?: any) => void) | undefined;
+  onNavigateToBreakdown?: ((item?: unknown) => void) | undefined;
+  onNavigateToHistory?: ((item?: unknown) => void) | undefined;
+  onSelectPriceItem?: ((item?: unknown) => void) | undefined;
+  onUpdatePrice?: ((item?: unknown) => void) | undefined;
   onBulkUpdate?: (() => void) | undefined;
-  onViewHistory?: ((item?: any) => void) | undefined;
-  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN') | string | undefined;
+  onViewHistory?: ((item?: unknown) => void) | undefined;
+  role?: ('TOHFA_ADMIN' | 'FARMER_ADMIN' | 'SUPER_ADMIN') | string | undefined;
 }
 
 export function FairPriceCeilingScreen({
   onBack,
-  onNavigateToRetailPricing = () => {},
+  onNavigateToRetailPricing = () => { },
   onNavigateToBreakdown: _onNavigateToBreakdown,
   onNavigateToHistory,
+  onUpdatePrice,
+  onBulkUpdate: _onBulkUpdate,
   role = 'TOHFA_ADMIN',
 }: FairPriceCeilingScreenProps) {
   const isFarmerAdmin = role === 'FARMER_ADMIN';
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   // ── States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCeiling, setSelectedCeiling] = useState<FairPriceCeilingRecord | null>(null);
@@ -516,6 +529,223 @@ export function FairPriceCeilingScreen({
     return `${count} of ${total} ceiling records${tags.length > 0 ? ` · ${tags.join(', ')}` : ''}`;
   }, [filteredRecords.length, appliedRecords, appliedCategory, appliedGrade]);
 
+  if (isSuperAdmin) {
+    return (
+      <SafeAreaView style={styles.root}>
+        <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+
+        {/* Header */}
+        <View style={styles.saHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <BackArrowIcon size={20} color={adminColors.onBrand} />
+          </TouchableOpacity>
+          <Text style={styles.saHeaderTitle}>Fair Price Ceilings</Text>
+        </View>
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollPad, { paddingBottom: 90 }]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* 3 KPI Cards */}
+          <View style={styles.saKpiRow}>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiValue}>124</Text>
+              <Text style={styles.saKpiLabel}>Total Ceilings</Text>
+            </View>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiValue}>118</Text>
+              <Text style={styles.saKpiLabel}>Active</Text>
+            </View>
+            <View style={styles.saKpiCard}>
+              <Text style={styles.saKpiValue}>6</Text>
+              <Text style={styles.saKpiLabel}>Upcoming</Text>
+            </View>
+          </View>
+
+          {/* Search Bar */}
+          <View style={styles.saSearchBar}>
+            <SearchIcon size={16} color={adminColors.muted} />
+            <TextInput
+              style={styles.saSearchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search common or scientific name"
+              placeholderTextColor={adminColors.placeholder}
+            />
+            <TouchableOpacity style={styles.saFilterButton} activeOpacity={0.7}>
+              <HorizontalSlidersIcon size={16} color={adminColors.brand} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Application count header */}
+          <Text style={styles.saFilterCountText}>8 application</Text>
+
+          {/* 3 Dropdowns in full-width row matching Image 2 */}
+          <View style={styles.saFilterRowBoxes}>
+            <TouchableOpacity style={styles.saFilterBoxBtn} activeOpacity={0.7}>
+              <Text style={styles.saFilterBoxText}>All Crops</Text>
+              <ChevronDownIcon size={14} color={adminColors.ink} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saFilterBoxBtn} activeOpacity={0.7}>
+              <Text style={styles.saFilterBoxText}>All Grades</Text>
+              <ChevronDownIcon size={14} color={adminColors.ink} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.saFilterBoxBtn} activeOpacity={0.7}>
+              <Text style={styles.saFilterBoxText}>All Frequency</Text>
+              <ChevronDownIcon size={14} color={adminColors.ink} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Crop Ceiling Cards matching Image 2 */}
+          <TouchableOpacity
+            style={styles.saCropCard}
+            onPress={() => onUpdatePrice?.({ name: 'Tomato', category: 'Vegetables', price: 140 })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.saCropCardHeader}>
+              <View>
+                <Text style={styles.saCropTitle}>Tomato</Text>
+                <Text style={styles.saCropGradeSub}>Grade 1</Text>
+              </View>
+              <ChevronRightIcon size={16} color={adminColors.muted} />
+            </View>
+            <View style={styles.saCropGradesRow}>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 1</Text>
+                <Text style={styles.saGradeColPrice}>₹140/kg</Text>
+              </View>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 2</Text>
+                <Text style={styles.saGradeColPrice}>₹130/kg</Text>
+              </View>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 3</Text>
+                <Text style={styles.saGradeColPrice}>₹110/kg</Text>
+              </View>
+              <View style={styles.saBadgeColRight}>
+                <View style={styles.saFreqBadgeWeekly}>
+                  <Text style={styles.saFreqTextWeekly}>Weekly</Text>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.saCropCard}
+            onPress={() => onUpdatePrice?.({ name: 'Carrot', category: 'Vegetables', price: 140 })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.saCropCardHeader}>
+              <View>
+                <Text style={styles.saCropTitle}>Carrot</Text>
+                <Text style={styles.saCropGradeSub}>Grade 1</Text>
+              </View>
+              <ChevronRightIcon size={16} color={adminColors.muted} />
+            </View>
+            <View style={styles.saCropGradesRow}>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 1</Text>
+                <Text style={styles.saGradeColPrice}>₹140/kg</Text>
+              </View>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 2</Text>
+                <Text style={styles.saGradeColPrice}>₹130/kg</Text>
+              </View>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 3</Text>
+                <Text style={styles.saGradeColPrice}>₹110/kg</Text>
+              </View>
+              <View style={styles.saBadgeColRight}>
+                <View style={styles.saFreqBadgeWeekly}>
+                  <Text style={styles.saFreqTextWeekly}>Weekly</Text>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.saCropCard}
+            onPress={() => onUpdatePrice?.({ name: 'Onion', category: 'Vegetables', price: 140 })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.saCropCardHeader}>
+              <View>
+                <Text style={styles.saCropTitle}>Onion</Text>
+                <Text style={styles.saCropGradeSub}>Grade 1</Text>
+              </View>
+              <ChevronRightIcon size={16} color={adminColors.muted} />
+            </View>
+            <View style={styles.saCropGradesRow}>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 1</Text>
+                <Text style={styles.saGradeColPrice}>₹140/kg</Text>
+              </View>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 2</Text>
+                <Text style={styles.saGradeColPrice}>₹130/kg</Text>
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: 10 }} />
+              <View style={styles.saBadgeColRight}>
+                <View style={styles.saFreqBadgeDaily}>
+                  <Text style={styles.saFreqTextDaily}>Daily</Text>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.saCropCard}
+            onPress={() => onUpdatePrice?.({ name: 'Cabbage', category: 'Vegetables', price: 140 })}
+            activeOpacity={0.8}
+          >
+            <View style={styles.saCropCardHeader}>
+              <View>
+                <Text style={styles.saCropTitle}>Cabbage</Text>
+                <Text style={styles.saCropGradeSub}>Grade 1</Text>
+              </View>
+              <ChevronRightIcon size={16} color={adminColors.muted} />
+            </View>
+            <View style={styles.saCropGradesRow}>
+              <View style={styles.saGradeColWithBorder}>
+                <Text style={styles.saGradeColLabel}>Grade 1</Text>
+                <Text style={styles.saGradeColPrice}>₹140/kg</Text>
+              </View>
+              <View style={{ flex: 1, paddingHorizontal: 10 }} />
+              <View style={{ flex: 1, paddingHorizontal: 10 }} />
+              <View style={styles.saBadgeColRight}>
+                <View style={styles.saFreqBadgeWeekly}>
+                  <Text style={styles.saFreqTextWeekly}>Weekly</Text>
+                </View>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Sticky Bottom Set Fair Price Ceiling Button */}
+        <View style={styles.saBottomBar}>
+          <TouchableOpacity
+            style={styles.saBottomButton}
+            onPress={() => onUpdatePrice?.({ name: 'Tomato', category: 'Vegetables', price: 150 })}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Set Fair Price Ceiling"
+          >
+            <Text style={styles.saBottomButtonText}>+ Set Fair Price Ceiling</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+
+
   return (
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
@@ -619,90 +849,90 @@ export function FairPriceCeilingScreen({
           ))
         ) : (
           filteredRecords.map((item) => {
-          const isCurrent = item.status === 'Current';
-          const isScheduled = item.status === 'Scheduled';
-          const isNoCeiling = item.status === 'No ceiling';
+            const isCurrent = item.status === 'Current';
+            const isScheduled = item.status === 'Scheduled';
+            const isNoCeiling = item.status === 'No ceiling';
 
-          return (
-            <View key={item.id} style={styles.ceilingCard}>
-              {/* Card Header Row */}
-              <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardTitle}>
-                  {item.product} · {item.grade}
-                </Text>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    isCurrent && styles.badgeCurrent,
-                    isScheduled && styles.badgeScheduled,
-                    isNoCeiling && styles.badgeNoCeiling,
-                    item.status === 'Historical' && styles.badgeHistorical,
-                  ]}
-                >
-                  <Text
+            return (
+              <View key={item.id} style={styles.ceilingCard}>
+                {/* Card Header Row */}
+                <View style={styles.cardHeaderRow}>
+                  <Text style={styles.cardTitle}>
+                    {item.product} · {item.grade}
+                  </Text>
+                  <View
                     style={[
-                      styles.statusBadgeText,
-                      isCurrent && styles.badgeCurrentText,
-                      isScheduled && styles.badgeScheduledText,
-                      isNoCeiling && styles.badgeNoCeilingText,
-                      item.status === 'Historical' && styles.badgeHistoricalText,
+                      styles.statusBadge,
+                      isCurrent && styles.badgeCurrent,
+                      isScheduled && styles.badgeScheduled,
+                      isNoCeiling && styles.badgeNoCeiling,
+                      item.status === 'Historical' && styles.badgeHistorical,
                     ]}
                   >
-                    {item.status}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        isCurrent && styles.badgeCurrentText,
+                        isScheduled && styles.badgeScheduledText,
+                        isNoCeiling && styles.badgeNoCeilingText,
+                        item.status === 'Historical' && styles.badgeHistoricalText,
+                      ]}
+                    >
+                      {item.status}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Subtext 1: Category & Ceiling */}
+                <Text style={styles.cardSubtitle1}>
+                  {item.category}
+                  {item.status !== 'No ceiling' ? ` · Ceiling ${item.ceilingText}` : ` · ${item.ceilingText}`}
+                </Text>
+
+                {/* Subtext 2: Effective date / Super Admin */}
+                {item.status !== 'No ceiling' && (
+                  <Text style={styles.cardSubtitle2}>{item.effectiveText}</Text>
+                )}
+
+                {/* Action Links Row */}
+                <View style={styles.cardActionsRow}>
+                  {item.status !== 'No ceiling' && (
+                    <TouchableOpacity
+                      onPress={() => setSelectedCeiling(item)}
+                      activeOpacity={0.7}
+                      style={styles.cardActionBtn}
+                    >
+                      <Text style={styles.cardActionBold}>View</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={() => {
+                      if (onNavigateToHistory) {
+                        onNavigateToHistory(item);
+                      } else {
+                        setSelectedCeiling(item);
+                      }
+                    }}
+                    activeOpacity={0.7}
+                    style={styles.cardActionBtn}
+                  >
+                    <Text style={styles.cardActionRegular}>History</Text>
+                  </TouchableOpacity>
+
+                  {item.hasRetailLink && (
+                    <TouchableOpacity
+                      onPress={onNavigateToRetailPricing}
+                      activeOpacity={0.7}
+                      style={styles.cardActionBtn}
+                    >
+                      <Text style={styles.cardActionRegular}>Retail Price Management</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
-
-              {/* Subtext 1: Category & Ceiling */}
-              <Text style={styles.cardSubtitle1}>
-                {item.category}
-                {item.status !== 'No ceiling' ? ` · Ceiling ${item.ceilingText}` : ` · ${item.ceilingText}`}
-              </Text>
-
-              {/* Subtext 2: Effective date / Super Admin */}
-              {item.status !== 'No ceiling' && (
-                <Text style={styles.cardSubtitle2}>{item.effectiveText}</Text>
-              )}
-
-              {/* Action Links Row */}
-              <View style={styles.cardActionsRow}>
-                {item.status !== 'No ceiling' && (
-                  <TouchableOpacity
-                    onPress={() => setSelectedCeiling(item)}
-                    activeOpacity={0.7}
-                    style={styles.cardActionBtn}
-                  >
-                    <Text style={styles.cardActionBold}>View</Text>
-                  </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                  onPress={() => {
-                    if (onNavigateToHistory) {
-                      onNavigateToHistory(item);
-                    } else {
-                      setSelectedCeiling(item);
-                    }
-                  }}
-                  activeOpacity={0.7}
-                  style={styles.cardActionBtn}
-                >
-                  <Text style={styles.cardActionRegular}>History</Text>
-                </TouchableOpacity>
-
-                {item.hasRetailLink && (
-                  <TouchableOpacity
-                    onPress={onNavigateToRetailPricing}
-                    activeOpacity={0.7}
-                    style={styles.cardActionBtn}
-                  >
-                    <Text style={styles.cardActionRegular}>Retail Price Management</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          );
-        }))}
+            );
+          }))}
 
         <View style={{ height: 48 }} />
       </ScrollView>
@@ -1490,5 +1720,237 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: adminColors.ink,
+  },
+  saHeader: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  saHeaderTitle: {
+    color: adminColors.onBrand,
+    fontSize: 18,
+    fontWeight: '700',
+    includeFontPadding: false,
+    lineHeight: 22,
+  },
+  saKpiRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 14,
+  },
+  saKpiCard: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  saKpiValue: {
+    color: adminColors.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    includeFontPadding: false,
+  },
+  saKpiLabel: {
+    color: adminColors.muted,
+    fontSize: 11,
+    marginTop: 2,
+    includeFontPadding: false,
+  },
+  saSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: 12,
+    height: 44,
+    marginBottom: 12,
+  },
+  saSearchInput: {
+    flex: 1,
+    marginLeft: 8,
+    color: adminColors.ink,
+    fontSize: 13,
+    includeFontPadding: false,
+    padding: 0,
+  },
+  saFilterButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saFilterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  saFilterCountText: {
+    color: adminColors.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    includeFontPadding: false,
+    marginBottom: 8,
+  },
+  saFilterRowBoxes: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  saFilterBoxBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: '#EFE6DC',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  saFilterBoxText: {
+    color: adminColors.ink,
+    fontSize: 12,
+    fontWeight: '500',
+    includeFontPadding: false,
+  },
+  saGradeColWithBorder: {
+    flex: 1,
+    alignItems: 'flex-start',
+    borderRightWidth: 1,
+    borderRightColor: '#EFE6DC',
+    paddingRight: 8,
+  },
+  saBadgeColRight: {
+    paddingLeft: 8,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  saFilterPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  saFilterPillText: {
+    color: adminColors.ink,
+    fontSize: 11,
+    fontWeight: '500',
+    includeFontPadding: false,
+  },
+  saCropCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: 14,
+    marginBottom: 12,
+    ...adminShadow.sm,
+  },
+  saCropCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: adminColors.border,
+    marginBottom: 10,
+  },
+  saCropTitle: {
+    color: adminColors.ink,
+    fontSize: 15,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saCropGradeSub: {
+    color: adminColors.muted,
+    fontSize: 12,
+    includeFontPadding: false,
+    marginTop: 1,
+  },
+  saCropGradesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  saGradeCol: {
+    alignItems: 'flex-start',
+  },
+  saGradeColLabel: {
+    color: adminColors.muted,
+    fontSize: 11,
+    includeFontPadding: false,
+  },
+  saGradeColPrice: {
+    color: adminColors.ink,
+    fontSize: 13,
+    fontWeight: '700',
+    includeFontPadding: false,
+    marginTop: 2,
+  },
+  saFreqBadgeWeekly: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  saFreqTextWeekly: {
+    color: adminColors.success.text,
+    fontSize: 11,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saFreqBadgeDaily: {
+    backgroundColor: adminColors.purple.bg,
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  saFreqTextDaily: {
+    color: adminColors.purple.text,
+    fontSize: 11,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  saBottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: adminColors.card,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: adminColors.border,
+    ...adminShadow.md,
+  },
+  saBottomButton: {
+    backgroundColor: adminColors.brand,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saBottomButtonText: {
+    color: adminColors.onBrand,
+    fontSize: 15,
+    fontWeight: '700',
+    includeFontPadding: false,
   },
 });

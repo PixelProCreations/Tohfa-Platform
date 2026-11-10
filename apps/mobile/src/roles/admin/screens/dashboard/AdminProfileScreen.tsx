@@ -244,6 +244,7 @@ export function AdminProfileScreen({
 }: AdminProfileScreenProps): React.JSX.Element {
   const rbac = ROLE_RBAC_CONFIGS[role] ?? ROLE_RBAC_CONFIGS.FARMER_ADMIN;
   const isWarehouseAdmin = role === 'SUB_WH_ADMIN' || role === 'MAIN_WH_ADMIN';
+  const isSuperAdmin = role === 'SUPER_ADMIN';
 
   // Navigation View State
   const [currentView, setCurrentView] = useState<
@@ -1093,7 +1094,7 @@ export function AdminProfileScreen({
               </View>
             </View>
           </>
-        ) : (
+        ) : isSuperAdmin ? null : (
           <>
             <Text style={styles.sectionHeader}>Role information</Text>
             <View style={styles.card}>
