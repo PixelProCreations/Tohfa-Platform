@@ -1,0 +1,14 @@
+{
+  "farmersEntry.tab.farmers": "Farmers",
+  "farmersEntry.tile.farmers": "Farmers",
+  "farmersEntry.more.title": "Farmers Management",
+  "farmersEntry.more.subtitle": "View and manage registered farmers and farm details",
+  "farmersEntry.toast.saved.title": "Changes Saved",
+  "farmersEntry.toast.saved.message": "Details for {{name}} updated successfully.",
+  "farmersEntry.toast.approved.title": "Application Approved",
+  "farmersEntry.toast.approved.message": "{{name}} onboarded to Tohfa Platform successfully.",
+  "farmersEntry.toast.approved.messageNoName": "Applicant onboarded to Tohfa Platform successfully.",
+  "farmersEntry.toast.rejected.title": "Application Rejected",
+  "farmersEntry.toast.rejected.message": "{{name}}'s application was rejected: {{reason}}",
+  "farmersEntry.toast.rejected.messageNoName": "Application rejected: {{reason}}"
+}

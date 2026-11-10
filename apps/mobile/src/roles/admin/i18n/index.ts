@@ -19,9 +19,25 @@ import errorsTa from '../../../i18n/errors.ta.json';
 import { createI18n, LOCALES, type Locale } from '../../../i18n/runtime';
 import adminEn from './en.json';
 import adminTa from './ta.json';
+// Farmers Management catalogues: one file per screen group so parallel work never edits the same JSON.
+import farmerAppsEn from './farmerApps.en.json';
+import farmerAppsTa from './farmerApps.ta.json';
+import farmerDetailEn from './farmerDetail.en.json';
+import farmerDetailTa from './farmerDetail.ta.json';
+import farmersEntryEn from './farmersEntry.en.json';
+import farmersEntryTa from './farmersEntry.ta.json';
+import farmersListEn from './farmersList.en.json';
+import farmersListTa from './farmersList.ta.json';
 
-export const en = { ...errorsEn, ...adminEn };
-const ta: Record<string, string> = { ...errorsTa, ...adminTa };
+export const en = { ...errorsEn, ...adminEn, ...farmersListEn, ...farmerDetailEn, ...farmerAppsEn, ...farmersEntryEn };
+const ta: Record<string, string> = {
+  ...errorsTa,
+  ...adminTa,
+  ...farmersListTa,
+  ...farmerDetailTa,
+  ...farmerAppsTa,
+  ...farmersEntryTa,
+};
 
 export type TranslationKey = keyof typeof en;
 

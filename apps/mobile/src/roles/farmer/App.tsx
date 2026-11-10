@@ -200,25 +200,7 @@ import {
   GSTFilingReportDetailScreen,
   BasicAccountingLedgerScreen,
   AddManualJournalEntryScreen,
-  AdminAllFarmersScreen,
-  AdminFarmerDetailScreen,
-  AdminFarmMapScreen,
-  AdminRatingScorecardScreen,
-  AdminEditFarmerScreen,
-  AdminEditRatingCategoriesScreen,
-  type FarmerDetailTabType,
-  type FarmerListItem,
-  DEMO_ALL_FARMERS,
-  AdminPendingApplicationsScreen,
-  AdminApplicationDetailScreen,
-  type PendingApplicationItem,
-  DEMO_PENDING_APPLICATIONS,
-  AdminApplicationApproveScreen,
-  AdminApplicationRejectScreen,
-  AdminApplicationRequestInfoScreen,
-  AdminCertVerificationScreen,
   AdminComplianceTiersScreen,
-  AdminKycReviewScreen,
   SalesChannelOverviewScreen,
   SalesOnlineOrdersScreen,
   SalesMarketDayScreen,
@@ -428,20 +410,7 @@ export type ScreenName =
   | 'GSTFilingReportDetail'
   | 'BasicAccountingLedger'
   | 'AddManualJournalEntry'
-  | 'AdminAllFarmers'
-  | 'AdminFarmerDetail'
-  | 'AdminFarmMap'
-  | 'AdminRatingScorecard'
-  | 'AdminEditFarmer'
-  | 'AdminEditRatingCategories'
   | 'AdminComplianceTiers'
-  | 'AdminKycReview'
-  | 'AdminCertVerification'
-  | 'AdminPendingApplications'
-  | 'AdminApplicationDetail'
-  | 'AdminApplicationApprove'
-  | 'AdminApplicationReject'
-  | 'AdminApplicationRequestInfo'
   | 'CustomerMain'
   | 'Unsupported'
   | 'Certifications'
@@ -847,9 +816,6 @@ export default function App(): React.JSX.Element {
   const [auditReportData, setAuditReportData] = useState<AuditReportData | undefined>(undefined);
   const [selectedAuditHistoryRecord, setSelectedAuditHistoryRecord] = useState<any | undefined>(undefined);
   const [selectedPayoutDue, setSelectedPayoutDue] = useState<any | undefined>(undefined);
-  const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | undefined>(undefined);
-  const [adminFarmerActiveTab, setAdminFarmerActiveTab] = useState<FarmerDetailTabType>('Overview');
-  const [selectedPendingApp, setSelectedPendingApp] = useState<PendingApplicationItem | undefined>(undefined);
   const [selectedSalesOrder, setSelectedSalesOrder] = useState<OnlineOrderItem | null>(null);
   const [selectedSalesB2B, setSelectedSalesB2B] = useState<B2BAccount | null>(null);
   const [selectedSaleRecord] = useState<any | null>(null);
@@ -2016,169 +1982,12 @@ export default function App(): React.JSX.Element {
             onBack={goBack}
             onSuccess={() => navigate('AuditCalendar')}
           />
-        ) : screen === 'AdminAllFarmers' ? (
-          <AdminAllFarmersScreen
-            onBack={goBack}
-            onNavigateTab={(tab) => {
-              if (tab === 'Dashboard') {
-                navigate('TohfaAdminDashboard');
-              } else if (tab === 'Sales') {
-                navigate('SalesChannelOverview');
-              } else if (tab === 'Reports') {
-                navigate('ReportBuilder');
-              } else if (tab === 'Profile') {
-                // Same as the Profile tab on the other admin shells: the
-                // dashboard's Profile tab (AdminProfileScreen, which owns sign-out).
-                navigate('TohfaAdminDashboard', { initialTab: 'Profile' });
-              }
-            }}
-            onSelectFarmer={(f) => {
-              setSelectedAdminFarmer(f);
-              setAdminFarmerActiveTab('Overview');
-              navigate('AdminFarmerDetail');
-            }}
-          />
-        ) : screen === 'AdminFarmerDetail' ? (
-          <AdminFarmerDetailScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            initialTab={adminFarmerActiveTab}
-            onTabChange={setAdminFarmerActiveTab}
-            onBack={goBack}
-            onEdit={(tab) => {
-              setAdminFarmerActiveTab(tab);
-              navigate('AdminEditFarmer');
-            }}
-            onOpenFarmMap={() => {
-              setAdminFarmerActiveTab('Farm');
-              navigate('AdminFarmMap');
-            }}
-            onOpenRatingScorecard={() => {
-              setAdminFarmerActiveTab('Ratings');
-              navigate('AdminRatingScorecard');
-            }}
-            onOpenKycReview={() => {
-              setAdminFarmerActiveTab('KYC');
-              navigate('AdminKycReview');
-            }}
-          />
-        ) : screen === 'AdminEditFarmer' ? (
-          <AdminEditFarmerScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            initialTab={adminFarmerActiveTab}
-            onBack={goBack}
-            onSave={(updated, tab) => {
-              setSelectedAdminFarmer(updated);
-              setAdminFarmerActiveTab(tab);
-              setToast({
-                type: 'approve',
-                title: 'Changes Saved',
-                message: `${tab} details for ${updated.name} updated successfully.`,
-              });
-              goBack();
-            }}
-            onNavigateToEditCategories={() => navigate('AdminEditRatingCategories')}
-          />
-        ) : screen === 'AdminEditRatingCategories' ? (
-          <AdminEditRatingCategoriesScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onSave={(score, tier) => {
-              if (selectedAdminFarmer) {
-                setSelectedAdminFarmer({
-                  ...selectedAdminFarmer,
-                  rating: score,
-                  ratingTier: tier,
-                });
-              }
-              goBack();
-            }}
-          />
-        ) : screen === 'AdminFarmMap' ? (
-          <AdminFarmMapScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-          />
-        ) : screen === 'AdminRatingScorecard' ? (
-          <AdminRatingScorecardScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onOpenComplianceTiers={() => navigate('AdminComplianceTiers')}
-            onEditCategories={() => navigate('AdminEditRatingCategories')}
-          />
+        // Farmers Management (list, detail, edit, applications, reject and the
+        // farmer satellites) is the shared FarmersFlow, mounted by each admin
+        // dashboard with the signed-in admin's own permissions; no route here.
         ) : screen === 'AdminComplianceTiers' ? (
           <AdminComplianceTiersScreen
             onBack={goBack}
-          />
-        ) : screen === 'AdminKycReview' ? (
-          <AdminKycReviewScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onGoToCertificationVerification={() => navigate('AdminCertVerification')}
-          />
-        ) : screen === 'AdminCertVerification' ? (
-          <AdminCertVerificationScreen
-            farmer={selectedAdminFarmer ?? DEMO_ALL_FARMERS[0]!}
-            onBack={goBack}
-            onVerified={goBack}
-            onUnverified={goBack}
-          />
-        ) : screen === 'AdminPendingApplications' ? (
-          <AdminPendingApplicationsScreen
-            onBack={goBack}
-            onSelectApplication={(item) => {
-              setSelectedPendingApp(item);
-              navigate('AdminApplicationDetail');
-            }}
-          />
-        ) : screen === 'AdminApplicationDetail' ? (
-          <AdminApplicationDetailScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onApprove={() => navigate('AdminApplicationApprove')}
-            onReject={() => navigate('AdminApplicationReject')}
-            onRequestMoreInfo={() => navigate('AdminApplicationRequestInfo')}
-          />
-        ) : screen === 'AdminApplicationApprove' ? (
-          <AdminApplicationApproveScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onConfirmApprove={() => {
-              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
-              setToast({
-                type: 'approve',
-                title: 'Application Approved',
-                message: `${app.name} onboarded to Tohfa Platform successfully.`,
-              });
-              goBack();
-            }}
-          />
-        ) : screen === 'AdminApplicationReject' ? (
-          <AdminApplicationRejectScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onConfirmReject={(reason) => {
-              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
-              setToast({
-                type: 'reject',
-                title: 'Application Rejected',
-                message: `Notice sent to ${app.name}: ${reason}`,
-              });
-              goBack();
-            }}
-          />
-        ) : screen === 'AdminApplicationRequestInfo' ? (
-          <AdminApplicationRequestInfoScreen
-            application={selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!}
-            onBack={goBack}
-            onConfirmRequest={() => {
-              const app = selectedPendingApp ?? DEMO_PENDING_APPLICATIONS[0]!;
-              setToast({
-                type: 'info_request',
-                title: 'Info Request Sent',
-                message: `Checklist sent to ${app.name} via SMS and notification.`,
-              });
-              goBack();
-            }}
           />
         ) : screen === 'MarketPricingHome' ? (
           <MarketPricingHomeScreen

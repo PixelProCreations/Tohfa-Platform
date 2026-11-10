@@ -796,6 +796,21 @@
       "source": "reqs 6.1 \u2014 SA only"
     },
     {
+      "code": "farmer.rating.edit",
+      "module": "Farmers Management",
+      "description": "Manually edit a farmer rating (reinstated; what can be edited is not yet decided).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "owner decision 2026-11-09: Super Admin and Tohfa Admin can edit a farmer rating; what can be edited, reason and audit are NOT yet decided"
+    },
+    {
       "code": "farmer.subscription.extend_waive",
       "module": "Farmers Management",
       "description": "Extend or waive a farmer subscription.",
@@ -3713,7 +3728,7 @@
       "reqsCh6": "SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone only (reqs 6.1)",
       "roleMatrix": "not separately stated",
       "precedence": "product owner decision 2026-10-01 (explicit, supersedes reqs 6.1 for this row)",
-      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1."
+      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1. SUPERSEDED IN PART 2026-11-09: owner decision reinstates `farmer.rating.edit` for SUPER_ADMIN and TOHFA_ADMIN only (FARMER_ADMIN stays none); see BR-06 and Open contradictions #35 in docs/rules.md."
     },
     {
       "topic": "Material handling (inventory.material_handling.manage)",

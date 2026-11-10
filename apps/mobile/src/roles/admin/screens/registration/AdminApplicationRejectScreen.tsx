@@ -1,313 +1,305 @@
+/**
+ * Reject Application (POST /admin/farmer-applications/{id}/reject,
+ * farmer.application.reject, Idempotency-Key).
+ *
+ * Look: team design (tofhafarmfin-rbac) — back card, title, applicant card,
+ * radio list of reasons, feedback box, Confirm Rejection. Against the design:
+ *   - The radio list is the spec's reasonCode set (docs/openapi.yaml), in the
+ *     design's order; the feedback box is the required `reason`, 5-500
+ *     characters, checked before anything is sent. The client always sends
+ *     both (the server would otherwise default them).
+ *   - "Application rejected" appears only after the server agreed (the design
+ *     announced it before any reason was entered); the Idempotency-Key is then
+ *     released and the host's onConfirmReject runs.
+ *   - The applicant card comes from the API by id, never from the host's item
+ *     (which may be a demo row) or the design's fixture phone.
+ *   - "An SMS notification will be sent" is not claimed: the server publishes
+ *     an event, and what reaches the applicant is not this screen's to promise.
+ *
+ * Access fails closed: approve AND reject are needed (applicationLogic.ts);
+ * without them nothing is loaded and nothing can be sent.
+ */
 import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Icon, SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
+import type { ApplicationRejectReasonCode, FarmerApplicationDto } from '../../api/farmerApplications';
+import { useApplication, useRejectApplication } from '../../api/farmerHooks';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
+import { AdminEmptyState } from '../warehouse/shared/AsyncStates';
+import { BackButtonCard, partStyles } from './applications/ApplicationParts';
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import type { PendingApplicationItem } from './AdminPendingApplicationsScreen';
+  applicationAccess,
+  applicationErrorKey,
+  notAvailable,
+  orDash,
+  REJECT_REASON_MAX,
+  rejectReasonLabel,
+  rejectReasonMessage,
+  validateRejectReason,
+  type PendingApplicationItem,
+  type RejectReasonProblem,
+} from './applications/applicationLogic';
 
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  inputBorder: '#E0DDD7',
-  redAccent: '#D32F2F',
-  redPillBg: '#FFEBEE',
-};
-
-const REJECT_REASONS = [
-  'Incomplete Land Records or Invalid Survey Number',
-  'Aadhaar Photo or Details Mismatch',
-  'Outside Operating Agricultural Zone',
-  'Duplicate or Fraudulent Application',
-  'Other Reason',
-];
-
-interface Props {
-  application: PendingApplicationItem;
+export interface AdminApplicationRejectScreenProps {
+  applicationId?: string | undefined;
+  /** Legacy host item (roles/farmer/App.tsx); only its `id` is read, when applicationId is not given. */
+  application?: PendingApplicationItem | undefined;
+  /** Permission check from /auth/me. Missing = deny everything. */
+  can?: Can | undefined;
+  /** The caller's warehouse, for the query cache key only (BR-30). */
+  warehouseId?: string | undefined;
   onBack: () => void;
-  onConfirmReject: (reason: string, details: string) => void;
+  /** After the server rejected: the reason's label and the text that was sent. */
+  onConfirmReject?: ((reason: string, details: string, result: FarmerApplicationDto) => void) | undefined;
 }
 
-export const AdminApplicationRejectScreen: React.FC<Props> = ({
+/** The design's order of reasons, as spec reason codes. */
+const REASON_ORDER: readonly ApplicationRejectReasonCode[] = [
+  'LAND_NOT_VERIFIED',
+  'DOCUMENTS_INVALID',
+  'OUTSIDE_SERVICE_AREA',
+  'DUPLICATE_APPLICANT',
+  'OTHER',
+];
+
+export const AdminApplicationRejectScreen: React.FC<AdminApplicationRejectScreenProps> = ({
+  applicationId,
   application,
+  can,
+  warehouseId,
   onBack,
   onConfirmReject,
 }) => {
-  const [selectedReason, setSelectedReason] = useState<string>(REJECT_REASONS[0] ?? 'Incomplete Land Records');
+  const access = applicationAccess(can);
+  const allowed = access.canView && access.canDecide;
+  const id = applicationId ?? application?.id;
+  const live = useApplication(warehouseId, allowed ? id : undefined);
+  const reject = useRejectApplication(allowed ? id : undefined);
+
+  const [reasonCode, setReasonCode] = useState<ApplicationRejectReasonCode>('LAND_NOT_VERIFIED');
   const [details, setDetails] = useState('');
+  const [problem, setProblem] = useState<RejectReasonProblem | null>(null);
+  const [rejected, setRejected] = useState(false);
+
+  const app = live.application;
+  const name = orDash(app?.applicant.name);
+  const place = app?.applicant.address.village ?? app?.applicant.address.district ?? null;
+  const applicantSub = [place, app?.applicant.mobile ?? null].filter((p): p is string => p !== null && p !== '').join(' · ');
+  const initials = app === undefined ? notAvailable() : name.split(/\s+/).map((w) => w.charAt(0)).join('').slice(0, 2).toUpperCase();
+
+  const submit = () => {
+    if (!allowed || reject.isPending || rejected) return;
+    const found = validateRejectReason(details);
+    setProblem(found);
+    if (found !== null) return;
+    const reason = details.trim();
+    reject.run({ reasonCode, reason }, (result) => {
+      setRejected(true);
+      // The decision is done: the next one gets a fresh Idempotency-Key.
+      reject.finish();
+      onConfirmReject?.(rejectReasonLabel(reasonCode), reason, result);
+    });
+  };
+
+  const hasServerError = reject.error !== null && reject.error !== undefined;
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
-
-      {/* Header with Back button */}
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </TouchableOpacity>
+        <BackButtonCard onPress={onBack} />
       </View>
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.title}>Reject Application</Text>
-        <Text style={styles.subtitle}>
-          Provide a clear rejection reason for {application.name}. An SMS notification will be sent.
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.title} accessibilityRole="header">
+          {t('farmerApps.reject.title')}
         </Text>
 
-        {/* Applicant Details */}
-        <View style={styles.card}>
-          <View style={styles.applicantRow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{application.initials}</Text>
-            </View>
-            <View style={styles.applicantInfo}>
-              <Text style={styles.applicantName}>{application.name}</Text>
-              <Text style={styles.applicantSub}>
-                {application.location} · {application.phone ?? '+91 98XXX XX412'}
-              </Text>
-            </View>
+        {!allowed ? (
+          <AdminEmptyState title={t('farmerApps.reject.denied')} />
+        ) : rejected ? (
+          <View style={styles.card}>
+            <Text style={styles.doneTitle}>{t('farmerApps.reject.doneTitle')}</Text>
+            <Text style={styles.subtitle}>{t('farmerApps.reject.doneBody', { name })}</Text>
+            <TouchableOpacity style={styles.secondaryBtn} onPress={onBack} accessibilityRole="button" testID="farmerApps.rejectDoneBack">
+              <Text style={styles.secondaryBtnText}>{t('farmerApps.reject.doneBack')}</Text>
+            </TouchableOpacity>
           </View>
-        </View>
+        ) : (
+          <>
+            <Text style={styles.subtitle}>{t('farmerApps.reject.subtitle', { name })}</Text>
 
-        {/* Reason Selection */}
-        <Text style={styles.fieldLabel}>Primary Rejection Reason</Text>
-        <View style={styles.reasonsList}>
-          {REJECT_REASONS.map((reason) => {
-            const isSelected = selectedReason === reason;
-            return (
-              <TouchableOpacity
-                key={reason}
-                style={[styles.reasonOption, isSelected && styles.reasonOptionSelected]}
-                onPress={() => setSelectedReason(reason)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                  {isSelected && <View style={styles.radioInner} />}
+            <View style={styles.card}>
+              <View style={styles.applicantRow}>
+                <View style={partStyles.avatar}>
+                  <Text style={partStyles.avatarText}>{initials}</Text>
                 </View>
-                <Text style={[styles.reasonText, isSelected && styles.reasonTextSelected]}>
-                  {reason}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                <View style={styles.applicantInfo}>
+                  <Text style={styles.applicantName}>{name}</Text>
+                  {applicantSub === '' ? null : <Text style={styles.applicantSub}>{applicantSub}</Text>}
+                </View>
+              </View>
+            </View>
 
-        {/* Rejection Details & Instructions for Applicant */}
-        <Text style={styles.fieldLabel}>Feedback / Instructions for Farmer</Text>
-        <TextInput
-          style={styles.detailsInput}
-          placeholder="Explain what was missing or what documents need re-submission if re-applying..."
-          placeholderTextColor="#A09890"
-          multiline
-          numberOfLines={3}
-          value={details}
-          onChangeText={setDetails}
-        />
+            <Text style={styles.fieldLabel}>{t('farmerApps.reject.reasonLabel')}</Text>
+            <View style={styles.reasonsList}>
+              {REASON_ORDER.map((code) => {
+                const selected = code === reasonCode;
+                return (
+                  <TouchableOpacity
+                    key={code}
+                    style={[styles.reasonOption, selected ? styles.reasonOptionSelected : null]}
+                    onPress={() => setReasonCode(code)}
+                    activeOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    testID={`farmerApps.rejectReasonCode.${code}`}
+                  >
+                    <View style={[styles.radio, selected ? styles.radioSelected : null]}>{selected ? <View style={styles.radioInner} /> : null}</View>
+                    <Text style={[styles.reasonText, selected ? styles.reasonTextSelected : null]}>{rejectReasonLabel(code)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
-        {/* Confirm Reject Button */}
-        <TouchableOpacity
-          style={styles.rejectBtn}
-          activeOpacity={0.85}
-          onPress={() => onConfirmReject(selectedReason, details)}
-        >
-          <Icon name="cancel" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.rejectBtnText}>Confirm Rejection</Text>
-        </TouchableOpacity>
+            <Text style={styles.fieldLabel}>{t('farmerApps.reject.detailsLabel')}</Text>
+            <TextInput
+              style={[styles.detailsInput, problem !== null ? styles.detailsInputError : null]}
+              placeholder={t('farmerApps.reject.detailsPlaceholder')}
+              placeholderTextColor={adminColors.placeholder}
+              multiline
+              numberOfLines={3}
+              value={details}
+              onChangeText={(text) => {
+                setDetails(text);
+                if (problem !== null) setProblem(validateRejectReason(text));
+              }}
+              testID="farmerApps.rejectReason"
+            />
+            <View style={styles.inputMetaRow}>
+              <Text style={styles.problemText}>{problem === null ? '' : rejectReasonMessage(problem)}</Text>
+              <Text style={styles.counter}>{t('farmerApps.reject.counter', { count: details.trim().length, max: REJECT_REASON_MAX })}</Text>
+            </View>
 
-        <View style={{ height: 40 }} />
+            {hasServerError ? (
+              <View style={[partStyles.errorBox, styles.errorSpacing]} accessibilityLiveRegion="polite">
+                <Text style={partStyles.errorText}>{t(applicationErrorKey(reject.error))}</Text>
+              </View>
+            ) : null}
+
+            <TouchableOpacity
+              style={[styles.rejectBtn, reject.isPending ? styles.busy : null]}
+              activeOpacity={0.85}
+              onPress={submit}
+              disabled={reject.isPending}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: reject.isPending, busy: reject.isPending }}
+              testID="farmerApps.rejectConfirm"
+            >
+              <Icon name="cancel" size={adminSpacing.input} color={adminColors.onBrand} style={styles.rejectIcon} />
+              <Text style={styles.rejectBtnText}>{reject.isPending ? t('farmerApps.reject.rejecting') : t('farmerApps.reject.confirm')}</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: P.bg },
-  header: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 6 },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-    cursor: 'pointer' as any,
-  },
+  root: { flex: 1, backgroundColor: adminColors.canvas },
+  header: { paddingHorizontal: adminSpacing.input, paddingTop: adminSpacing.md, paddingBottom: adminSpacing.xsSm },
   container: { flex: 1 },
-  contentContainer: { paddingHorizontal: 20, paddingTop: 12 },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 4,
-    letterSpacing: -0.4,
-  },
-  subtitle: {
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: P.subtitle,
-    marginBottom: 20,
-  },
+  content: { paddingHorizontal: adminSpacing.input, paddingTop: adminSpacing.md },
+  title: { ...adminType.title, color: adminColors.brandDeep, marginBottom: adminSpacing.xs },
+  subtitle: { ...adminType.body, color: adminColors.muted, marginBottom: adminSpacing.input },
   card: {
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: P.cardBorder,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: adminColors.border,
+    padding: adminSpacing.lg,
+    marginBottom: adminSpacing.input,
+    ...adminShadow.sm,
   },
-  applicantRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#FFECE8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: P.titleBrown,
-  },
+  applicantRow: { flexDirection: 'row', alignItems: 'center' },
   applicantInfo: { flex: 1 },
-  applicantName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 3,
-  },
-  applicantSub: {
-    fontSize: 12.5,
-    color: P.subtitle,
-  },
-  fieldLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 8,
-  },
-  reasonsList: {
-    gap: 10,
-    marginBottom: 20,
-  },
+  applicantName: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.xs },
+  applicantSub: { ...adminType.rowMeta, color: adminColors.muted },
+  fieldLabel: { ...adminType.rowTitle, color: adminColors.ink, marginBottom: adminSpacing.sm },
+  reasonsList: { gap: adminSpacing.smMd, marginBottom: adminSpacing.input },
   reasonOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#E8E4DD',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    cursor: 'pointer' as any,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.mdLg,
+    paddingVertical: adminSpacing.md,
   },
-  reasonOptionSelected: {
-    borderColor: P.orange,
-    backgroundColor: '#FFF9F7',
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  reasonOptionSelected: { borderColor: adminColors.brand, backgroundColor: adminColors.brandTint },
+  radio: {
+    width: adminSpacing.input,
+    height: adminSpacing.input,
+    borderRadius: adminRadius.full,
     borderWidth: 2,
-    borderColor: '#CCC5BD',
+    borderColor: adminColors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: adminSpacing.md,
   },
-  radioCircleSelected: {
-    borderColor: P.orange,
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: P.orange,
-  },
-  reasonText: {
-    flex: 1,
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: P.ink,
-    lineHeight: 18,
-  },
-  reasonTextSelected: {
-    color: P.orange,
-    fontWeight: '700',
-  },
+  radioSelected: { borderColor: adminColors.brand },
+  radioInner: { width: adminSpacing.smMd, height: adminSpacing.smMd, borderRadius: adminRadius.full, backgroundColor: adminColors.brand },
+  reasonText: { ...adminType.body, flex: 1, color: adminColors.ink },
+  reasonTextSelected: { ...adminType.rowTitle, color: adminColors.brand },
   detailsInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E8E4DD',
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 14,
-    color: P.ink,
+    ...adminType.body,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.lg,
+    padding: adminSpacing.mdLg,
+    color: adminColors.ink,
     textAlignVertical: 'top',
-    minHeight: 88,
-    marginBottom: 24,
+    minHeight: adminSpacing.pageMargin,
   },
+  detailsInputError: { borderColor: adminColors.danger.text },
+  inputMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.xs,
+    marginBottom: adminSpacing.xl,
+  },
+  problemText: { ...adminType.rowMeta, color: adminColors.danger.text, flex: 1 },
+  counter: { ...adminType.rowMeta, color: adminColors.muted },
+  errorSpacing: { marginBottom: adminSpacing.lg },
   rejectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 16,
-    height: 52,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 6,
-    elevation: 3,
-    cursor: 'pointer' as any,
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.lg,
+    height: ADMIN_BUTTON_HEIGHT,
+    ...adminShadow.md,
   },
-  rejectBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+  busy: { opacity: 0.6 },
+  rejectIcon: { marginRight: adminSpacing.sm },
+  rejectBtnText: { ...adminType.rowTitle, color: adminColors.onBrand },
+  doneTitle: { ...adminType.sectionHead, color: adminColors.danger.text, marginBottom: adminSpacing.xs },
+  secondaryBtn: {
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  secondaryBtnText: { ...adminType.rowTitle, color: adminColors.ink },
+  bottomSpacer: { height: adminSpacing.largeSection },
 });

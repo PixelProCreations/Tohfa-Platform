@@ -1,592 +1,265 @@
-import React, { useEffect, useState } from 'react';
+/**
+ * Farmer Detail (Farmers Management): the team design's 9-tab profile
+ * (tofhafarmfin-rbac AdminFarmerDetailScreen) on live data.
+ *
+ * This file is the shell: access, the queries, the active tab, the sub-views
+ * (Edit Rating, inline Edit Profile) and the design modals. Each tab, the
+ * header and the modals live in ./detail/, and every decision they draw is a
+ * pure function in ./detail/model.ts (tests: farmerDetail_model.test.ts,
+ * farmerDetail_wiring.test.ts).
+ *
+ * Access is the `can` prop (permissions/can.ts), code-only and FAIL CLOSED:
+ * no `can` means nothing is permitted. Without `farmer.profile.view_all` the
+ * screen shows a neutral not-available state and no query is given an id, so
+ * nothing is fetched. Scope is server-side (BR-108a): a farmer outside the
+ * caller's scope is a 404, shown as "not found"; nothing filters by zone.
+ *
+ * Backward compatible with the Dev mounts (roles/farmer/App.tsx, the Super
+ * and Tohfa dashboards): `farmer` is still accepted, but only its `id` is used;
+ * the profile itself always comes from GET /admin/farmers/{id}. `onDisable` is
+ * still accepted but never called: Disable/Deactivate are DESIGN-ONLY until an
+ * endpoint exists.
+ *
+ * Dev behaviour kept: the Android BackHandler, the mobile-ui ScreenStatusBar /
+ * SafeAreaView wrappers, the locked mobile and masked Aadhaar rows, the rating
+ * tier capsule and the "Open Farm Map" button.
+ */
+import React, { useEffect, useReducer, useState } from 'react';
+import { BackHandler, RefreshControl, ScrollView, TouchableOpacity, Text, View } from 'react-native';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import {
-  BackHandler,
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { Icon, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
-import Svg, { Path } from 'react-native-svg';
-import type { FarmerListItem } from './AdminAllFarmersScreen';
-import telephoneIconAsset from '../../assets/images/telephone.png';
-import calendarIconAsset from '../../assets/images/calendar.png';
+  useFarmer,
+  useFarmerBankAccounts,
+  useFarmerDocuments,
+  useFarmerRating,
+  useFarmerSubscription,
+  useVerifyFarmerDocument,
+} from '../../api/farmerHooks';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { adminColors } from '../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
+import { AccountModals } from './detail/AccountModals';
+import { DetailTabBar, HeaderBanner, ProfileSummaryCard } from './detail/DetailHeader';
+import { EditRatingView } from './detail/EditRatingView';
+import { FarmLandTab } from './detail/FarmLandTab';
+import { EditBoxIcon } from './detail/icons';
+import { KycTab } from './detail/KycTab';
+import {
+  DESIGN_ACTION_IDLE,
+  designActionReducer,
+  farmerDetailAccess,
+  farmerDetailFetchIds,
+  farmerDetailViewState,
+  normalizeDetailTab,
+  type DesignActionKind,
+  type FarmerDetailTab,
+  type FarmerDetailTabType,
+} from './detail/model';
+import { AuditTab, HistoryTab, ProductListingTab, SoilTab, SubscriptionTab } from './detail/OtherTabs';
+import { PersonalTab } from './detail/PersonalTab';
+import { RatingsTab } from './detail/RatingsTab';
+import { RecordModals } from './detail/RecordModals';
+import { detailStyles as s } from './detail/styles';
 
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  divider: '#F2ECE4',
-  tabActiveBg: '#F0562A',
-  tabActiveText: '#FFFFFF',
-  tabInactiveText: '#4A443F',
-  tabContainerBorder: '#F0ECE6',
-  lockedBg: '#FFF3E0',
-  lockedText: '#B25E00',
-  ratingPillBg: '#FFF3E0',
-  ratingPillText: '#B25E00',
-  disableBtnBg: '#FFECE8',
-  disableBtnText: '#D32F2F',
-  greenSuccess: '#2E7D32',
-};
+export type { FarmerDetailTab, FarmerDetailTabType } from './detail/model';
 
-export type FarmerDetailTabType = 'Overview' | 'Farm' | 'KYC' | 'Ratings';
-
-interface Props {
-  farmer: FarmerListItem;
-  onBack: () => void;
-  onEdit?: (currentTab: FarmerDetailTabType) => void;
-  onDisable?: () => void;
-  onOpenFarmMap?: () => void;
-  onOpenKycReview?: () => void;
-  onOpenRatingScorecard?: () => void;
-  initialTab?: FarmerDetailTabType;
-  onTabChange?: (tab: FarmerDetailTabType) => void;
+/** What a caller already holds about the farmer (e.g. a list row). Only the id is read. */
+export interface AdminFarmerRef {
+  id: string;
 }
 
-export const AdminFarmerDetailScreen: React.FC<Props> = ({
-  farmer,
+export interface AdminFarmerDetailScreenProps {
+  /** The farmer uuid. Takes precedence over `farmer.id`. */
+  farmerId?: string | undefined;
+  /** Kept for the existing mounts: only `farmer.id` is used, never its other (fixture) fields. */
+  farmer?: AdminFarmerRef | undefined;
+  /** The caller's warehouse, for the query keys (BR-30); scope itself is server-side. */
+  warehouseId?: string | undefined;
+  /** Permission check (permissions/can.ts). Missing => nothing is permitted. */
+  can?: Can | undefined;
+  onBack: () => void;
+  /** Opens the edit screen; without it the edit form opens inline (as in the design). */
+  onEdit?: ((currentTab: FarmerDetailTabType) => void) | undefined;
+  /** Accepted for compatibility; never called (Disable is DESIGN-ONLY, no endpoint yet). */
+  onDisable?: (() => void) | undefined;
+  onOpenFarmMap?: (() => void) | undefined;
+  onOpenKycReview?: (() => void) | undefined;
+  onOpenRatingScorecard?: (() => void) | undefined;
+  initialTab?: FarmerDetailTabType | undefined;
+  onTabChange?: ((tab: FarmerDetailTabType) => void) | undefined;
+  /** Accepted for compatibility with the design's prop list; the Audit tab has no history link yet. */
+  onNavigateAuditHistory?: (() => void) | undefined;
+}
+
+export function AdminFarmerDetailScreen({
+  farmerId: farmerIdProp,
+  farmer: farmerRef,
+  warehouseId,
+  can,
   onBack,
   onEdit,
-  onDisable,
   onOpenFarmMap,
   onOpenKycReview,
   onOpenRatingScorecard,
-  initialTab = 'Overview',
+  initialTab,
   onTabChange,
-}) => {
-  const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(initialTab);
+}: AdminFarmerDetailScreenProps) {
+  const farmerId = farmerIdProp ?? farmerRef?.id;
+  const access = farmerDetailAccess(can);
+  const ids = farmerDetailFetchIds(access, farmerId);
+
+  const live = useFarmer(warehouseId, ids.farmer);
+  const documents = useFarmerDocuments(warehouseId, ids.documents);
+  const bank = useFarmerBankAccounts(warehouseId, ids.bankAccounts);
+  const subscription = useFarmerSubscription(warehouseId, ids.subscription);
+  const rating = useFarmerRating(warehouseId, ids.rating);
+  const verify = useVerifyFarmerDocument(ids.documents);
+
+  const [activeTab, setActiveTab] = useState<FarmerDetailTab>(normalizeDetailTab(initialTab));
+  const [editingRating, setEditingRating] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [designAction, dispatch] = useReducer(designActionReducer, DESIGN_ACTION_IDLE);
 
   useEffect(() => {
-    setActiveTab(initialTab);
+    setActiveTab(normalizeDetailTab(initialTab));
   }, [initialTab]);
 
-  const handleTabChange = (tab: FarmerDetailTabType) => {
+  // Dev behaviour: the Android back button leaves the sub-view first, then the screen.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (editingRating) setEditingRating(false);
+      else onBack();
+      return true;
+    });
+    return () => sub.remove();
+  }, [onBack, editingRating]);
+
+  const selectTab = (tab: FarmerDetailTab) => {
     setActiveTab(tab);
     onTabChange?.(tab);
   };
 
-  const handleBack = () => {
-    onBack();
+  const openDesignAction = (kind: DesignActionKind, record: string) => dispatch({ type: 'open', kind, record });
+
+  // A disabled query must never be refetched (TanStack's refetch ignores `enabled`): refresh only what is permitted.
+  const refreshAll = () => {
+    if (ids.farmer !== undefined) live.refresh();
+    if (ids.documents !== undefined) documents.refresh();
+    if (ids.bankAccounts !== undefined) bank.refresh();
+    if (ids.subscription !== undefined) subscription.refresh();
+    if (ids.rating !== undefined) rating.refresh();
   };
 
-  useEffect(() => {
-    const onHardwareBack = () => {
-      onBack();
-      return true;
-    };
-    const sub = BackHandler.addEventListener('hardwareBackPress', onHardwareBack);
-    return () => sub.remove();
-  }, [onBack]);
+  const view = farmerDetailViewState({
+    canView: access.canView,
+    hasFarmerId: farmerId !== undefined,
+    isLoading: live.isLoading,
+    error: live.error,
+    hasFarmer: live.farmer !== undefined,
+  });
+  const farmer = live.farmer;
+
+  if (editingProfile && access.canEdit && farmerId !== undefined) {
+    return (
+      <AdminEditFarmerScreen
+        farmerId={farmerId}
+        warehouseId={warehouseId}
+        can={can}
+        initialTab={activeTab}
+        onBack={() => setEditingProfile(false)}
+        onSaved={() => setEditingProfile(false)}
+      />
+    );
+  }
+
+  if (view === 'ready' && farmer !== undefined && editingRating && access.canEditRating) {
+    return (
+      <SafeAreaView style={s.root}>
+        <EditRatingView farmer={farmer} rating={rating.rating} onBack={() => setEditingRating(false)} />
+      </SafeAreaView>
+    );
+  }
+
+  const isRatings = activeTab === 'Ratings';
+  const showEdit = access.canEdit && !isRatings && farmer !== undefined;
+  const showRatingBar = view === 'ready' && isRatings && access.canEditRating;
 
   return (
-    <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+    <SafeAreaView style={s.root}>
+      <ScreenStatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+      <HeaderBanner
+        title={isRatings ? t('farmerDetail.header.rating') : t('farmerDetail.header.profile')}
+        subtitle={isRatings && farmer !== undefined ? t('farmerDetail.header.subtitle', { name: farmer.name, code: farmer.farmerCode }) : undefined}
+        onBack={onBack}
+        onEdit={showEdit ? () => (onEdit !== undefined ? onEdit(activeTab) : setEditingProfile(true)) : undefined}
+      />
 
-      {/* Header bar with Back button and Edit (pencil) button */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={handleBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
+      {view !== 'ready' || farmer === undefined ? (
+        <ScrollView style={s.scroll} contentContainerStyle={[s.scrollContent, s.stateWrap]}>
+          {view === 'denied' ? (
+            <AdminEmptyState title={t('farmerDetail.state.denied')} />
+          ) : view === 'notFound' ? (
+            <AdminEmptyState title={t('farmerDetail.state.notFound')} />
+          ) : view === 'error' ? (
+            <AdminErrorState error={live.error} onRetry={live.refresh} />
+          ) : (
+            <AdminLoadingState />
+          )}
+        </ScrollView>
+      ) : (
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={[s.scrollContent, showRatingBar && s.scrollContentWithBar]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={live.isRefreshing} onRefresh={refreshAll} tintColor={adminColors.brand} />}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <ProfileSummaryCard farmer={farmer} onOpenKycReview={onOpenKycReview} onOpenRatingScorecard={onOpenRatingScorecard} />
+          <DetailTabBar active={activeTab} onSelect={selectTab} />
+
+          {activeTab === 'Personal' ? (
+            <PersonalTab
+              farmer={farmer}
+              access={access}
+              onDeactivate={() => openDesignAction('deactivate', farmer.name)}
+              onDisable={() => openDesignAction('disable', farmer.name)}
             />
-          </Svg>
-        </TouchableOpacity>
+          ) : null}
+          {activeTab === 'Farm & land' ? (
+            <FarmLandTab farmer={farmer} access={access} onDesignAction={openDesignAction} onOpenFarmMap={onOpenFarmMap} />
+          ) : null}
+          {activeTab === 'Soil' ? <SoilTab farmer={farmer} access={access} onDesignAction={openDesignAction} /> : null}
+          {activeTab === 'Product listing' ? <ProductListingTab /> : null}
+          {activeTab === 'KYC' ? <KycTab access={access} documents={documents} bank={bank} verify={verify} /> : null}
+          {activeTab === 'Ratings' ? <RatingsTab farmer={farmer} access={access} live={rating} /> : null}
+          {activeTab === 'Subscription' ? <SubscriptionTab access={access} live={subscription} /> : null}
+          {activeTab === 'Audit' ? <AuditTab farmer={farmer} /> : null}
+          {activeTab === 'History' ? <HistoryTab /> : null}
+        </ScrollView>
+      )}
 
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => onEdit?.(activeTab)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Edit"
-        >
-          <Icon name="edit" size={18} color={P.ink} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Profile Header Block */}
-        <View style={styles.profileHeaderRow}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{farmer.initials}</Text>
-          </View>
-
-          <View style={styles.profileHeaderInfo}>
-            <Text style={styles.farmerName}>{farmer.name}</Text>
-            <Text style={styles.farmerSub}>
-              {farmer.code} · {farmer.farmName ?? 'Wild Eden Organic Farms'}
-            </Text>
-
-            {/* Rating pill */}
-            <TouchableOpacity
-              style={styles.ratingCapsule}
-              onPress={onOpenRatingScorecard}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.ratingCapsuleText}>
-                ★ {farmer.rating ?? '782'} · {farmer.ratingTier ?? 'Excellent'}
-              </Text>
-            </TouchableOpacity>
-          </View>
+      {showRatingBar ? (
+        <View style={s.bottomBar}>
+          <TouchableOpacity
+            style={s.bottomBarButton}
+            onPress={() => setEditingRating(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel={t('farmerDetail.rating.edit')}
+          >
+            <EditBoxIcon />
+            <Text style={s.bottomBarButtonText}>{t('farmerDetail.rating.edit')}</Text>
+          </TouchableOpacity>
         </View>
+      ) : null}
 
-        {/* Tab Segment (Overview, Farm, KYC, Ratings) */}
-        <View style={styles.tabContainer}>
-          {(['Overview', 'Farm', 'KYC', 'Ratings'] as FarmerDetailTabType[]).map((tab) => {
-            const isActive = activeTab === tab;
-            return (
-              <TouchableOpacity
-                key={tab}
-                style={[styles.tabButton, isActive && styles.tabButtonActive]}
-                onPress={() => handleTabChange(tab)}
-                activeOpacity={0.8}
-              >
-                <Text
-                  style={[styles.tabButtonText, isActive && styles.tabButtonTextActive]}
-                >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {activeTab === 'Overview' && (
-          <>
-            {/* Content Card (Overview) */}
-            <View style={styles.card}>
-              {/* Mobile */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaLabelRow}>
-                  <Image source={telephoneIconAsset} style={styles.metaImgIcon} resizeMode="contain" />
-                  <Text style={styles.metaLabel}>Mobile</Text>
-                </View>
-                <View style={styles.metaRightRow}>
-                  <Text style={styles.metaValue}>{farmer.mobile ?? '+91 98765 43210'}</Text>
-                  <View style={styles.lockedPill}>
-                    <Text style={styles.lockIcon}>🔒</Text>
-                    <Text style={styles.lockedText}>Locked</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.cardDivider} />
-
-              {/* Aadhaar */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaLabelRow}>
-                  <Image source={calendarIconAsset} style={styles.metaImgIcon} resizeMode="contain" />
-                  <Text style={styles.metaLabel}>Aadhaar</Text>
-                </View>
-                <View style={styles.metaRightRow}>
-                  <Text style={styles.metaValue}>{farmer.aadhaar ?? 'XXXX XXXX 7654'}</Text>
-                  <View style={styles.lockedPill}>
-                    <Text style={styles.lockIcon}>🔒</Text>
-                    <Text style={styles.lockedText}>Locked</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.cardDivider} />
-
-              {/* Location */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaLabelRow}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" style={styles.metaIcon}>
-                    <Path
-                      d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"
-                      stroke={P.textSecondary}
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <Path
-                      d="M12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"
-                      stroke={P.textSecondary}
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.metaLabel}>Location</Text>
-                </View>
-                <Text style={styles.metaValue}>{farmer.location}</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              {/* Member since */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaLabelRow}>
-                  <Image source={calendarIconAsset} style={styles.metaImgIcon} resizeMode="contain" />
-                  <Text style={styles.metaLabel}>Member since</Text>
-                </View>
-                <Text style={styles.metaValue}>{farmer.memberSince ?? 'Mar 2025'}</Text>
-              </View>
-              <View style={styles.cardDivider} />
-
-              {/* Subscription */}
-              <View style={styles.metaRow}>
-                <View style={styles.metaLabelRow}>
-                  <Icon name="credit_card" size={16} color={P.textSecondary} style={styles.metaIcon} />
-                  <Text style={styles.metaLabel}>Subscription</Text>
-                </View>
-                <Text style={[styles.metaValue, { color: P.greenSuccess }]}>
-                  {farmer.subscription ?? 'Active · Paid'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Danger button: Disable Farmer Account */}
-            <TouchableOpacity
-              style={styles.disableBtn}
-              activeOpacity={0.8}
-              onPress={onDisable}
-            >
-              <Icon name="block" size={18} color={P.disableBtnText} style={{ marginRight: 8 }} />
-              <Text style={styles.disableBtnText}>Disable Farmer Account</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {activeTab === 'Farm' && (
-          <View style={styles.tabContentContainer}>
-            <View style={styles.dashedCard}>
-              <Text style={styles.dashedCardText}>
-                Farm FMB, zones, and field context are shown on the dedicated Farm FMB & Zone Map screen.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryActionButton}
-              activeOpacity={0.85}
-              onPress={onOpenFarmMap}
-            >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-                <Path
-                  d="M9 20.5V6.5L3 4V18L9 20.5ZM9 20.5L15 18V4L9 6.5M9 20.5V6.5M15 18L21 20.5V6.5L15 4V18Z"
-                  stroke="#FFFFFF"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Text style={styles.primaryActionButtonText}>Open Farm Map</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {activeTab === 'KYC' && (
-          <View style={styles.tabContentContainer}>
-            <View style={styles.dashedCard}>
-              <Text style={styles.dashedCardText}>
-                Document review happens on the dedicated KYC Document Review screen.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryActionButton}
-              activeOpacity={0.85}
-              onPress={onOpenKycReview}
-            >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-                <Path
-                  d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19ZM7 10H9V12H7V10ZM7 7H9V9H7V7ZM7 13H9V15H7V13ZM11 7H17V9H11V7ZM11 10H17V12H11V10ZM11 13H17V15H11V13Z"
-                  fill="#FFFFFF"
-                />
-              </Svg>
-              <Text style={styles.primaryActionButtonText}>Open KYC Review</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {activeTab === 'Ratings' && (
-          <View style={styles.tabContentContainer}>
-            <View style={styles.dashedCard}>
-              <Text style={styles.dashedCardText}>
-                Full 10-category scorecard is on the dedicated Farm Rating Scorecard screen.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={styles.primaryActionButton}
-              activeOpacity={0.85}
-              onPress={onOpenRatingScorecard}
-            >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-                <Path
-                  d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"
-                  stroke="#FFFFFF"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-              <Text style={styles.primaryActionButtonText}>Open Rating Scorecard</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {farmer !== undefined ? (
+        <>
+          {access.canDeactivate || access.canDisable ? <AccountModals farmer={farmer} state={designAction} dispatch={dispatch} /> : null}
+          {access.canUseRecordDesignActions ? <RecordModals state={designAction} dispatch={dispatch} /> : null}
+        </>
+      ) : null}
     </SafeAreaView>
   );
-};
-
-const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: P.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 6,
-  },
-  headerBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
-    cursor: 'pointer' as any,
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  profileHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatarCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: P.orangeBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: P.titleBrown,
-  },
-  profileHeaderInfo: {
-    flex: 1,
-  },
-  farmerName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: P.titleBrown,
-    marginBottom: 3,
-  },
-  farmerSub: {
-    fontSize: 12,
-    color: P.subtitle,
-    marginBottom: 8,
-  },
-  ratingCapsule: {
-    alignSelf: 'flex-start',
-    backgroundColor: P.ratingPillBg,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  ratingCapsuleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: P.ratingPillText,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: P.tabContainerBorder,
-    padding: 4,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 12,
-    cursor: 'pointer' as any,
-  },
-  tabButtonActive: {
-    backgroundColor: P.tabActiveBg,
-  },
-  tabButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: P.tabInactiveText,
-  },
-  tabButtonTextActive: {
-    color: P.tabActiveText,
-    fontWeight: '700',
-  },
-  card: {
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: P.cardBorder,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  metaLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaIcon: {
-    marginRight: 10,
-  },
-  metaImgIcon: {
-    width: 16,
-    height: 16,
-    marginRight: 10,
-  },
-  metaLabel: {
-    fontSize: 13,
-    color: P.textSecondary,
-    fontWeight: '500',
-  },
-  metaRightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: P.ink,
-  },
-  lockedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.lockedBg,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginLeft: 8,
-  },
-  lockIcon: {
-    fontSize: 10,
-    marginRight: 3,
-  },
-  lockedText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: P.lockedText,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: P.divider,
-  },
-  disableBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: P.disableBtnBg,
-    cursor: 'pointer' as any,
-  },
-  disableBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.disableBtnText,
-  },
-  tabContentContainer: {
-    marginBottom: 20,
-  },
-  dashedCard: {
-    borderWidth: 1.5,
-    borderColor: '#E8DFD5',
-    borderStyle: 'dashed',
-    borderRadius: 18,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    backgroundColor: '#FAF8F5',
-    marginBottom: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dashedCardText: {
-    fontSize: 13.5,
-    lineHeight: 20,
-    color: P.subtitle,
-    textAlign: 'center',
-  },
-  primaryActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: P.orange,
-    borderRadius: 16,
-    height: 52,
-    shadowColor: P.orange,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-    cursor: 'pointer' as any,
-  },
-  primaryActionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-});
+}

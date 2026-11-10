@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Modal,
@@ -11,13 +11,9 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
-import {
-  AdminAllFarmersScreen,
-  AdminFarmerDetailScreen,
-  AdminFarmMapScreen,
-  AdminRatingScorecardScreen,
-  type FarmerListItem,
-} from '../farmers';
+import { FarmersFlow, type FarmersFlowEntry } from '../farmers/FarmersFlow';
+import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
+import { makeCan } from '../../permissions/can';
 import {
   SalesChannelOverviewScreen,
   SalesOnlineOrdersScreen,
@@ -33,7 +29,6 @@ import {
 import { AdminProfileScreen } from './AdminProfileScreen';
 import { ListingApprovalQueueScreen } from './ListingApprovalQueueScreen';
 import { AdminSupportScreen } from './AdminSupportScreen';
-import { AdminPendingApplicationsScreen } from '../registration';
 import {
   AdminReportsMainScreen,
   AnalyticsDashboardScreen,
@@ -401,10 +396,10 @@ export function TohfaAdminDashboardScreen({
   const [activeModal, setActiveModal] = useState<
     'approveListings' | 'scheduleAudit' | 'support' | null
   >(null);
-  const [selectedAdminFarmer, setSelectedAdminFarmer] = useState<FarmerListItem | null>(null);
-  const [farmerSubScreen, setFarmerSubScreen] = useState<'detail' | 'map' | 'scorecard' | null>(null);
+  // Where the Farmers tab's shared flow starts: its list, or the pending-applications queue.
+  const [farmersEntry, setFarmersEntry] = useState<FarmersFlowEntry>('list');
   const [dashboardSubScreen, setDashboardSubScreen] = useState<
-    'listingApproval' | 'scheduleAudit' | 'support' | 'reportBuilder' | 'pendingApplications' | null
+    'listingApproval' | 'scheduleAudit' | 'support' | 'reportBuilder' | null
   >(null);
 
   // Sales subscreen navigation state
@@ -432,17 +427,19 @@ export function TohfaAdminDashboardScreen({
   }, []);
 
   const adminName = user?.fullName ?? 'Ganga Devi';
+  // The signed-in admin's /auth/me permissions; empty (deny) until they arrive.
+  const adminCan = useMemo(() => makeCan(user?.permissions), [user]);
 
   const handleOpenFarmers = () => {
+    setFarmersEntry('list');
     setActiveTab('Farmers');
   };
 
+  // The pending queue opens inside the shared Farmers flow (it needs the same view_all entry gate).
   const handleOpenPendingApplications = () => {
-    if (onNavigate) {
-      onNavigate('AdminPendingApplications');
-    } else {
-      setDashboardSubScreen('pendingApplications');
-    }
+    if (!canOpenFarmers(adminCan)) return;
+    setFarmersEntry('pendingApplications');
+    setActiveTab('Farmers');
   };
 
   const handleOpenListingApproval = () => {
@@ -512,15 +509,6 @@ export function TohfaAdminDashboardScreen({
             <AdminSupportScreen onBack={() => setDashboardSubScreen(null)} />
           ) : dashboardSubScreen === 'reportBuilder' ? (
             <ReportBuilderScreen onBack={() => setDashboardSubScreen(null)} />
-          ) : dashboardSubScreen === 'pendingApplications' ? (
-            <AdminPendingApplicationsScreen
-              onBack={() => setDashboardSubScreen(null)}
-              onSelectApplication={(_item) => {
-                if (onNavigate) {
-                  onNavigate('AdminPendingApplications');
-                }
-              }}
-            />
           ) : (
             <ScrollView
               style={styles.scroll}
@@ -731,38 +719,13 @@ export function TohfaAdminDashboardScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             FARMERS TAB (Uses existing screens from Farmer management module)
            ══════════════════════════════════════════════════════════════════════ */}
-        {activeTab === 'Farmers' && (
-          farmerSubScreen === 'map' && selectedAdminFarmer ? (
-            <AdminFarmMapScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-            />
-          ) : farmerSubScreen === 'scorecard' && selectedAdminFarmer ? (
-            <AdminRatingScorecardScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setFarmerSubScreen(null)}
-              onOpenComplianceTiers={() => { }}
-            />
-          ) : selectedAdminFarmer ? (
-            <AdminFarmerDetailScreen
-              farmer={selectedAdminFarmer}
-              onBack={() => setSelectedAdminFarmer(null)}
-              onOpenFarmMap={() => setFarmerSubScreen('map')}
-              onOpenRatingScorecard={() => setFarmerSubScreen('scorecard')}
-            />
-          ) : (
-            <AdminAllFarmersScreen
-              showBottomNav={false}
-              onBack={() => setActiveTab('Dashboard')}
-              onSelectFarmer={(f) => {
-                if (onNavigate) {
-                  onNavigate('AdminFarmerDetail');
-                } else {
-                  setSelectedAdminFarmer(f);
-                }
-              }}
-            />
-          )
+        {activeTab === 'Farmers' && canOpenFarmers(adminCan) && (
+          <FarmersFlow
+            key={farmersEntry}
+            can={adminCan}
+            entry={farmersEntry}
+            onBack={() => setActiveTab('Dashboard')}
+          />
         )}
 
         {/* ══════════════════════════════════════════════════════════════════════
@@ -913,7 +876,8 @@ export function TohfaAdminDashboardScreen({
         </TouchableOpacity>
 
 
-        {/* Tab 2: Farmers */}
+        {/* Tab 2: Farmers (only for holders of farmer.profile.view_all) */}
+        {canOpenFarmers(adminCan) ? (
         <TouchableOpacity
           style={styles.navTabItem}
           onPress={() => {
@@ -934,6 +898,7 @@ export function TohfaAdminDashboardScreen({
             Farmers
           </Text>
         </TouchableOpacity>
+        ) : null}
 
         {/* Tab 3: Sales */}
         <TouchableOpacity

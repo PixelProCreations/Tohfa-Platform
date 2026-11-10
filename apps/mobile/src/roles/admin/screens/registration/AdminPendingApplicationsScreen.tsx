@@ -1,598 +1,386 @@
+/**
+ * Pending Applications: the farmer application review queue
+ * (GET /admin/farmer-applications, farmer.application.list_pending).
+ *
+ * Look: team design (tofhafarmfin-rbac) — back card, title, search, scrolling
+ * filter chips with the custom scroll bar, avatar cards with a status badge.
+ * Changes against the design, and why:
+ *   - The chips are the server's review statuses (All pending / Submitted /
+ *     Docs review / Farm verification / Audit). The design's "Docs Complete (6)"
+ *     and "Awaiting KYC (3)" have no data source and its Ooty / Kotagiri /
+ *     Coonoor chips were a client-side zone filter; zone scoping is the
+ *     server's job (not implemented there yet), so neither is ported.
+ *   - No counts in the title or chips (the API has no totals); "N more below"
+ *     becomes a real Load more.
+ *   - The server lists newest first; the design's "oldest first" line is gone.
+ *   - Drafts and decided applications are never listed (pendingRows).
+ *
+ * Access fails closed: without farmer.application.list_pending (or with no
+ * `can` at all) nothing is requested and a permission notice is shown.
+ */
 import React, { useRef, useState } from 'react';
-import {
-  Image,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { Image, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import type { ScrollViewInstance } from 'react-native';
+import { SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import pinIconAsset from '../../assets/images/pin.png';
+import { useApplicationList } from '../../api/farmerHooks';
+import type { ApplicationRowView } from '../../api/farmerTypes';
+import { t } from '../../i18n';
+import type { Can } from '../../permissions/can';
+import { adminColors, adminRadius, adminShadow, adminSpacing, adminType, ADMIN_BUTTON_HEIGHT } from '../../theme';
+import { AdminEmptyState, AdminErrorState, AdminLoadingState } from '../warehouse/shared/AsyncStates';
+import { queryViewState } from '../warehouse/shared/queryViewState';
+import { BackButtonCard, partStyles, StatusBadge } from './applications/ApplicationParts';
+import {
+  applicationAccess,
+  filterLabel,
+  listStatusParam,
+  PENDING_FILTERS,
+  pendingRows,
+  rowLocation,
+  searchApplications,
+  statusLabel,
+  statusTone,
+  submittedLabel,
+  toPendingApplicationItem,
+  type PendingApplicationItem,
+  type PendingFilter,
+} from './applications/applicationLogic';
 
-// ─── Theme & Palette ─────────────────────────────────────────────────────────
-const P = {
-  bg: '#FAF8F5',
-  cardBg: '#FFFFFF',
-  cardBorder: '#F2ECE4',
-  ink: '#1A1412',
-  titleBrown: '#662208',
-  subtitle: '#827871',
-  orange: '#F0562A',
-  orangeBg: '#FFECE8',
-  textSecondary: '#6B6560',
-  inputBg: '#FFFFFF',
-  inputBorder: '#EDE7DF',
-  placeholder: '#BDB6AF',
-  pillBorder: '#E8E1D7',
-  pillActiveBg: '#F0562A',
-  pillActiveText: '#FFFFFF',
-  pillInactiveBg: '#FFFFFF',
-  pillInactiveText: '#4A443F',
-  scrollTrack: '#FAF8F5',
-  scrollBar: '#78736E',
-  arrowColor: '#78736E',
-  statusGreenBg: '#E8F5E9',
-  statusGreenText: '#2E7D32',
-  statusAmberBg: '#FFF3E0',
-  statusAmberText: '#B25E00',
-  statusRedBg: '#FFEBEE',
-  statusRedText: '#D32F2F',
-  dashedBorder: '#DFCFC4',
-  dotRed: '#F0562A',
-};
+export type { PendingApplicationItem } from './applications/applicationLogic';
 
-export interface PendingApplicationItem {
-  id: string;
-  name: string;
-  initials: string;
-  location: string;
-  appliedTime: string;
-  badgeLabel: string;
-  badgeType: 'green' | 'amber' | 'red';
-  phone?: string;
-  aadhaar?: string;
-  farmSize?: string;
-  fmbZones?: string;
-  primaryCrops?: string;
-  dayCountText?: string;
-}
-
-export const DEMO_PENDING_APPLICATIONS: PendingApplicationItem[] = [
-  {
-    id: 'app-001',
-    name: 'Muthukumar S.',
-    initials: 'MS',
-    location: 'Kotagiri',
-    appliedTime: 'Applied 2 days ago',
-    badgeLabel: 'Docs OK',
-    badgeType: 'green',
-    phone: '+91 98XXX XX412',
-    aadhaar: 'XXXX XXXX 4821',
-    farmSize: '3.4 acres',
-    fmbZones: '6 zones marked',
-    primaryCrops: 'Carrots, Cabbage',
-    dayCountText: 'Review 3-5 day working days timeline applies — this application is on day 2 of 5.',
-  },
-  {
-    id: 'app-002',
-    name: 'Lakshmi R.',
-    initials: 'LR',
-    location: 'Ooty',
-    appliedTime: 'Applied 4 days ago',
-    badgeLabel: 'KYC Pending',
-    badgeType: 'amber',
-    phone: '+91 98XXX XX891',
-    aadhaar: 'XXXX XXXX 3390',
-    farmSize: '2.8 acres',
-    fmbZones: '4 zones marked',
-    primaryCrops: 'Potato, Garlic',
-    dayCountText: 'Review 3-5 day working days timeline applies — this application is on day 4 of 5.',
-  },
-  {
-    id: 'app-003',
-    name: 'Velu Kannan',
-    initials: 'VK',
-    location: 'Coonoor',
-    appliedTime: 'Applied 5 days ago',
-    badgeLabel: 'Day 5 of 5',
-    badgeType: 'red',
-    phone: '+91 98XXX XX104',
-    aadhaar: 'XXXX XXXX 9912',
-    farmSize: '5.1 acres',
-    fmbZones: '8 zones marked',
-    primaryCrops: 'Tea, Carrot',
-    dayCountText: 'Urgent review: 3-5 day working days timeline applies — this application is on day 5 of 5.',
-  },
-  {
-    id: 'app-004',
-    name: 'Pushpa T.',
-    initials: 'PT',
-    location: 'Gudalur',
-    appliedTime: 'Applied 1 day ago',
-    badgeLabel: 'Docs OK',
-    badgeType: 'green',
-    phone: '+91 98XXX XX557',
-    aadhaar: 'XXXX XXXX 6721',
-    farmSize: '4.2 acres',
-    fmbZones: '5 zones marked',
-    primaryCrops: 'Pepper, Banana, Cardamom',
-    dayCountText: 'Review 3-5 day working days timeline applies — this application is on day 1 of 5.',
-  },
-];
-
-interface Props {
+export interface AdminPendingApplicationsScreenProps {
   onBack: () => void;
+  /** Gets an item built from the tapped row; the review screen fetches by its `id`. */
   onSelectApplication: (item: PendingApplicationItem) => void;
+  /** Permission check from /auth/me. Missing = deny everything. */
+  can?: Can | undefined;
+  /** The caller's warehouse, for the query cache key only (BR-30); not a filter. */
+  warehouseId?: string | undefined;
 }
 
-const FILTER_PILLS = [
-  { id: 'ALL', label: 'All (9)' },
-  { id: 'DOCS', label: 'Docs Complete (6)' },
-  { id: 'KYC', label: 'Awaiting KYC (3)' },
-  { id: 'OOTY', label: 'Ooty' },
-  { id: 'KOTAGIRI', label: 'Kotagiri' },
-  { id: 'COONOOR', label: 'Coonoor' },
-];
+const THUMB_SHARE = 0.65;
 
-export const AdminPendingApplicationsScreen: React.FC<Props> = ({
+function SearchIcon() {
+  return (
+    <Svg width={adminSpacing.input} height={adminSpacing.input} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
+        stroke={adminColors.ink}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M21 21L16.65 16.65" stroke={adminColors.ink} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ScrollTriangle({ direction }: { direction: 'left' | 'right' }) {
+  const d = direction === 'left' ? 'M16 5L7 12L16 19Z' : 'M8 5L17 12L8 19Z';
+  return (
+    <Svg width={adminSpacing.smMd} height={adminSpacing.smMd} viewBox="0 0 24 24">
+      <Path d={d} fill={adminColors.muted} />
+    </Svg>
+  );
+}
+
+function ApplicationCard({ row, onPress }: { row: ApplicationRowView; onPress: () => void }) {
+  const location = rowLocation(row);
+  const submitted = submittedLabel(row.submittedAt);
+  return (
+    <TouchableOpacity style={styles.card} activeOpacity={0.85} onPress={onPress} accessibilityRole="button" testID={`farmerApps.card.${row.id}`}>
+      <View style={partStyles.avatar}>
+        <Text style={partStyles.avatarText}>{row.initials}</Text>
+      </View>
+      <View style={styles.cardInfo}>
+        <Text style={styles.cardName}>{row.name === '' ? t('farmerApps.notAvailable') : row.name}</Text>
+        <View style={styles.locationRow}>
+          <Image source={pinIconAsset} style={styles.pinImage} resizeMode="contain" />
+          <Text style={styles.locationText}>{location === '' ? submitted : `${location} · ${submitted}`}</Text>
+        </View>
+      </View>
+      <StatusBadge label={statusLabel(row.status)} tone={statusTone(row.status)} />
+    </TouchableOpacity>
+  );
+}
+
+export const AdminPendingApplicationsScreen: React.FC<AdminPendingApplicationsScreenProps> = ({
   onBack,
   onSelectApplication,
+  can,
+  warehouseId,
 }) => {
+  const access = applicationAccess(can);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('ALL');
+  const [filter, setFilter] = useState<PendingFilter>('ALL');
   const [scrollProgress, setScrollProgress] = useState(0);
-  const [trackWidth, setTrackWidth] = useState(260);
+  const [trackWidth, setTrackWidth] = useState(0);
   const filterScrollRef = useRef<ScrollViewInstance>(null);
 
-  const filteredApps = DEMO_PENDING_APPLICATIONS.filter((app) => {
-    if (selectedFilter === 'DOCS' && app.badgeType !== 'green') return false;
-    if (selectedFilter === 'KYC' && app.badgeType !== 'amber') return false;
-    if (selectedFilter === 'OOTY' && !app.location.includes('Ooty')) return false;
-    if (selectedFilter === 'KOTAGIRI' && !app.location.includes('Kotagiri')) return false;
-    if (selectedFilter === 'COONOOR' && !app.location.includes('Coonoor')) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        app.name.toLowerCase().includes(q) ||
-        app.location.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const status = listStatusParam(filter);
+  const list = useApplicationList(warehouseId, status === undefined ? {} : { status }, { enabled: access.canList });
+
+  const pending = pendingRows(list.items);
+  const rows = searchApplications(pending, searchQuery);
+  const view = queryViewState({ isLoading: list.isLoading, error: list.error, itemCount: pending.length });
 
   return (
     <SafeAreaView style={styles.root}>
-      <ScreenStatusBar barStyle="dark-content" backgroundColor={P.bg} />
+      <ScreenStatusBar barStyle="dark-content" backgroundColor={adminColors.canvas} />
 
-      {/* Header with circular back button */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={onBack}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M15 19L8 12L15 5"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </TouchableOpacity>
+        <BackButtonCard onPress={onBack} />
       </View>
 
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          access.canList ? <RefreshControl refreshing={list.isRefreshing} onRefresh={list.refresh} tintColor={adminColors.brand} /> : undefined
+        }
       >
-        {/* Title & Subtitle */}
-        <Text style={styles.title}>Pending Applications</Text>
-        <Text style={styles.subtitle}>
-          9 farmer applications awaiting review · sorted oldest first per the 3-5 day review window
+        <Text style={styles.title} accessibilityRole="header">
+          {t('farmerApps.list.title')}
         </Text>
 
-        {/* Search Bar */}
-        <View style={styles.searchBox}>
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" style={styles.searchIcon}>
-            <Path
-              d="M11 19C15.4183 19 19 15.4183 19 11C19 6.58172 15.4183 3 11 3C6.58172 3 3 6.58172 3 11C3 15.4183 6.58172 19 11 19Z"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M21 21L16.65 16.65"
-              stroke="#2B2523"
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or location"
-            placeholderTextColor={P.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
+        {!access.canList ? (
+          <AdminEmptyState title={t('farmerApps.list.denied')} />
+        ) : (
+          <>
+            <Text style={styles.subtitle}>{t('farmerApps.list.subtitle')}</Text>
 
-        {/* Horizontal scroll filter chips with Ooty, Kotagiri, Coonoor */}
-        <ScrollView
-          ref={filterScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScroll}
-          onScroll={(e) => {
-            const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-            const maxOffset = contentSize.width - layoutMeasurement.width;
-            if (maxOffset > 0) {
-              setScrollProgress(Math.min(1, Math.max(0, contentOffset.x / maxOffset)));
-            }
-          }}
-          scrollEventThrottle={16}
-        >
-          {FILTER_PILLS.map((pill) => {
-            const isActive = selectedFilter === pill.id;
-            return (
-              <TouchableOpacity
-                key={pill.id}
-                onPress={() => setSelectedFilter(pill.id)}
-                activeOpacity={0.8}
-                style={[
-                  styles.filterPill,
-                  isActive ? styles.filterPillActive : styles.filterPillInactive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterPillText,
-                    isActive ? styles.filterPillTextActive : styles.filterPillTextInactive,
-                  ]}
-                >
-                  {pill.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+            <View style={styles.searchBox}>
+              <SearchIcon />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('farmerApps.list.searchPlaceholder')}
+                placeholderTextColor={adminColors.placeholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                testID="farmerApps.search"
+              />
+            </View>
 
-        {/* Visual Custom Scroll Bar with left and right triangles */}
-        <View style={styles.scrollBarRow}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => {
-              filterScrollRef.current?.scrollTo({ x: 0, animated: true });
-            }}
-          >
-            <Text style={styles.scrollArrow}>◀</Text>
-          </TouchableOpacity>
-          <View
-            style={styles.scrollTrack}
-            onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
-          >
-            <View
-              style={[
-                styles.scrollThumb,
-                {
-                  width: trackWidth * 0.65,
-                  transform: [
-                    {
-                      translateX: scrollProgress * (trackWidth * 0.35),
-                    },
-                  ],
-                },
-              ]}
-            />
-          </View>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            onPress={() => {
-              filterScrollRef.current?.scrollToEnd({ animated: true });
-            }}
-          >
-            <Text style={styles.scrollArrow}>▶</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Application Cards */}
-        <View style={styles.listSection}>
-          {filteredApps.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.card}
-              activeOpacity={0.85}
-              onPress={() => onSelectApplication(item)}
+            <ScrollView
+              ref={filterScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
+              onScroll={(e) => {
+                const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                const maxOffset = contentSize.width - layoutMeasurement.width;
+                if (maxOffset > 0) setScrollProgress(Math.min(1, Math.max(0, contentOffset.x / maxOffset)));
+              }}
+              scrollEventThrottle={16}
             >
-              <View style={styles.avatarCircle}>
-                <Text style={styles.avatarText}>{item.initials}</Text>
-              </View>
+              {PENDING_FILTERS.map((f) => {
+                const active = filter === f;
+                return (
+                  <TouchableOpacity
+                    key={f}
+                    onPress={() => setFilter(f)}
+                    activeOpacity={0.8}
+                    style={[styles.pill, active ? styles.pillActive : styles.pillInactive]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    testID={`farmerApps.filter.${f}`}
+                  >
+                    <Text style={[styles.pillText, active ? styles.pillTextActive : styles.pillTextInactive]}>{filterLabel(f)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.cardName}>{item.name}</Text>
-                <View style={styles.locationRow}>
-                  <Image source={pinIconAsset} style={styles.pinImage} resizeMode="contain" />
-                  <Text style={styles.locationText}>
-                    {item.location} · {item.appliedTime}
-                  </Text>
-                </View>
-              </View>
-
-              <View
-                style={[
-                  styles.badge,
-                  item.badgeType === 'green' && styles.badgeGreen,
-                  item.badgeType === 'amber' && styles.badgeAmber,
-                  item.badgeType === 'red' && styles.badgeRed,
-                ]}
+            <View style={styles.scrollBarRow}>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: adminSpacing.sm, bottom: adminSpacing.sm, left: adminSpacing.sm, right: adminSpacing.sm }}
+                onPress={() => filterScrollRef.current?.scrollTo({ x: 0, animated: true })}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmerApps.list.scrollStart')}
               >
-                <Text
+                <ScrollTriangle direction="left" />
+              </TouchableOpacity>
+              <View style={styles.scrollTrack} onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}>
+                <View
                   style={[
-                    styles.badgeText,
-                    item.badgeType === 'green' && styles.badgeTextGreen,
-                    item.badgeType === 'amber' && styles.badgeTextAmber,
-                    item.badgeType === 'red' && styles.badgeTextRed,
+                    styles.scrollThumb,
+                    {
+                      width: trackWidth * THUMB_SHARE,
+                      transform: [{ translateX: scrollProgress * trackWidth * (1 - THUMB_SHARE) }],
+                    },
                   ]}
-                >
-                  {item.badgeLabel}
-                </Text>
+                />
               </View>
-            </TouchableOpacity>
-          ))}
-        </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                hitSlop={{ top: adminSpacing.sm, bottom: adminSpacing.sm, left: adminSpacing.sm, right: adminSpacing.sm }}
+                onPress={() => filterScrollRef.current?.scrollToEnd({ animated: true })}
+                accessibilityRole="button"
+                accessibilityLabel={t('farmerApps.list.scrollEnd')}
+              >
+                <ScrollTriangle direction="right" />
+              </TouchableOpacity>
+            </View>
 
-        {/* Dashed info bottom container */}
-        <View style={styles.dashedFooter}>
-          <Text style={styles.dashedFooterText}>
-            5 more applications below — scroll to review all 9.
-          </Text>
-        </View>
+            {view === 'loading' ? (
+              <AdminLoadingState />
+            ) : view === 'error' ? (
+              <AdminErrorState error={list.error} onRetry={list.refresh} />
+            ) : view === 'empty' ? (
+              <AdminEmptyState title={t('farmerApps.list.empty')} />
+            ) : rows.length === 0 ? (
+              <AdminEmptyState title={t('farmerApps.list.emptyFiltered')} />
+            ) : (
+              <View style={styles.listSection}>
+                {rows.map((row) => (
+                  <ApplicationCard key={row.id} row={row} onPress={() => onSelectApplication(toPendingApplicationItem(row))} />
+                ))}
+              </View>
+            )}
 
-        <View style={{ height: 36 }} />
+            {list.hasMore && view !== 'loading' && view !== 'error' ? (
+              <TouchableOpacity
+                style={styles.loadMore}
+                onPress={list.loadMore}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                testID="farmerApps.loadMore"
+              >
+                <Text style={styles.loadMoreText}>{t('farmerApps.list.loadMore')}</Text>
+              </TouchableOpacity>
+            ) : null}
+          </>
+        )}
+
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: P.bg,
-  },
+  root: { flex: 1, backgroundColor: adminColors.canvas },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 4,
+    paddingHorizontal: adminSpacing.input,
+    paddingTop: adminSpacing.mdLg,
+    paddingBottom: adminSpacing.xs,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EFE7DE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-    cursor: 'pointer' as any,
-  },
-  container: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
+  container: { flex: 1 },
+  content: {
+    paddingHorizontal: adminSpacing.input,
+    paddingTop: adminSpacing.md,
   },
   title: {
-    fontSize: 27,
-    fontWeight: '800',
-    color: '#602208',
-    marginBottom: 6,
-    letterSpacing: -0.4,
+    ...adminType.title,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.xsSm,
   },
   subtitle: {
-    fontSize: 13.5,
-    lineHeight: 19,
-    color: '#7A6F68',
-    marginBottom: 18,
+    ...adminType.body,
+    color: adminColors.muted,
+    marginBottom: adminSpacing.lg,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.inputBg,
-    borderRadius: 14,
+    gap: adminSpacing.smMd,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
     borderWidth: 1,
-    borderColor: P.inputBorder,
-    paddingHorizontal: 14,
-    height: 48,
-    marginBottom: 14,
-  },
-  searchIcon: {
-    marginRight: 10,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.mdLg,
+    height: ADMIN_BUTTON_HEIGHT,
+    marginBottom: adminSpacing.mdLg,
   },
   searchInput: {
+    ...adminType.body,
     flex: 1,
-    fontSize: 15,
-    color: P.ink,
+    color: adminColors.ink,
     paddingVertical: 0,
   },
   filterScroll: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 4,
-    paddingRight: 12,
+    gap: adminSpacing.sm,
+    paddingVertical: adminSpacing.xs,
+    paddingRight: adminSpacing.md,
   },
-  filterPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 22,
+  pill: {
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderRadius: adminRadius.full,
     borderWidth: 1,
-    cursor: 'pointer' as any,
   },
-  filterPillActive: {
-    backgroundColor: P.pillActiveBg,
-    borderColor: P.pillActiveBg,
-  },
-  filterPillInactive: {
-    backgroundColor: P.pillInactiveBg,
-    borderColor: P.pillBorder,
-  },
-  filterPillText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterPillTextActive: {
-    color: P.pillActiveText,
-  },
-  filterPillTextInactive: {
-    color: P.pillInactiveText,
-  },
+  pillActive: { backgroundColor: adminColors.brand, borderColor: adminColors.brand },
+  pillInactive: { backgroundColor: adminColors.card, borderColor: adminColors.border },
+  pillText: { ...adminType.rowTitle },
+  pillTextActive: { color: adminColors.onBrand },
+  pillTextInactive: { color: adminColors.ink },
   scrollBarRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  scrollArrow: {
-    fontSize: 9,
-    color: '#78736E',
-    marginHorizontal: 5,
-    cursor: 'pointer' as any,
+    gap: adminSpacing.xs,
+    marginTop: adminSpacing.xsSm,
+    marginBottom: adminSpacing.lg,
+    paddingHorizontal: adminSpacing.xs,
   },
   scrollTrack: {
     flex: 1,
-    height: 7,
-    backgroundColor: 'transparent',
-    borderRadius: 4,
-    position: 'relative',
+    height: adminSpacing.xsSm,
+    borderRadius: adminRadius.full,
     overflow: 'hidden',
   },
   scrollThumb: {
     position: 'absolute',
     top: 0,
-    height: 7,
-    backgroundColor: '#7C756F',
-    borderRadius: 4,
+    height: adminSpacing.xsSm,
+    backgroundColor: adminColors.muted,
+    borderRadius: adminRadius.full,
   },
-  listSection: {
-    gap: 12,
-  },
+  listSection: { gap: adminSpacing.md },
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: P.cardBg,
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
     borderWidth: 1,
-    borderColor: P.cardBorder,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
-    cursor: 'pointer' as any,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.lg,
+    ...adminShadow.sm,
   },
-  avatarCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: P.orangeBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  avatarText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: P.titleBrown,
-  },
-  cardInfo: {
-    flex: 1,
-  },
+  cardInfo: { flex: 1, marginRight: adminSpacing.sm },
   cardName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 4,
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
+  locationRow: { flexDirection: 'row', alignItems: 'center' },
   pinImage: {
-    width: 14,
-    height: 14,
-    marginRight: 4,
+    width: adminSpacing.mdLg,
+    height: adminSpacing.mdLg,
+    marginRight: adminSpacing.xs,
   },
   locationText: {
-    fontSize: 12,
-    color: P.textSecondary,
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    flexShrink: 1,
   },
-  badge: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  badgeGreen: {
-    backgroundColor: P.statusGreenBg,
-  },
-  badgeAmber: {
-    backgroundColor: P.statusAmberBg,
-  },
-  badgeRed: {
-    backgroundColor: P.statusRedBg,
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  badgeTextGreen: {
-    color: P.statusGreenText,
-  },
-  badgeTextAmber: {
-    color: P.statusAmberText,
-  },
-  badgeTextRed: {
-    color: P.statusRedText,
-  },
-  dashedFooter: {
-    marginTop: 16,
-    borderWidth: 1.2,
-    borderColor: P.dashedBorder,
-    borderStyle: 'dashed',
-    borderRadius: 24,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
+  loadMore: {
+    marginTop: adminSpacing.lg,
+    height: ADMIN_BUTTON_HEIGHT,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
   },
-  dashedFooterText: {
-    fontSize: 14,
-    color: '#5C554F',
-    textAlign: 'center',
-    fontWeight: '400',
-    lineHeight: 20,
-    letterSpacing: -0.1,
-  },
+  loadMoreText: { ...adminType.rowTitle, color: adminColors.ink },
+  bottomSpacer: { height: adminSpacing.largeSection },
 });
