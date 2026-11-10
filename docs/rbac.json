@@ -1158,7 +1158,7 @@
     {
       "code": "farmer.livestock.view_own",
       "module": "Livestock",
-      "description": "View own livestock_animals records and production logs (milk/curd/paneer/... and egg collection).",
+      "description": "View own livestock_animals records, production logs (milk/curd/paneer/... and egg collection) and the per-animal health, breeding, feed plan, feed log, housing and hygiene records.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1168,12 +1168,12 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "BR-47, product decision 2026-09-29"
+      "source": "BR-47, BR-137..BR-141, product decision 2026-09-29"
     },
     {
       "code": "farmer.livestock.create_own",
       "module": "Livestock",
-      "description": "Register a new animal (livestock_animals row) or log a production entry, on the farmer's own operation.",
+      "description": "Register a new animal (livestock_animals row), log a production entry, or add a health, breeding, feed plan, feed log, housing or hygiene record to an own animal, on the farmer's own operation.",
       "grants": {
         "SUPER_ADMIN": "all",
         "TOHFA_ADMIN": "all",
@@ -1183,7 +1183,7 @@
         "FARMER": "own",
         "CUSTOMER": "none"
       },
-      "source": "BR-47, product decision 2026-09-29"
+      "source": "BR-47, BR-137..BR-141, product decision 2026-09-29"
     },
     {
       "code": "farmer.livestock.edit_own",
@@ -3728,7 +3728,7 @@
       "reqsCh6": "SUPER_ADMIN all, TOHFA_ADMIN all, FARMER_ADMIN own zone only (reqs 6.1)",
       "roleMatrix": "not separately stated",
       "precedence": "product owner decision 2026-10-01 (explicit, supersedes reqs 6.1 for this row)",
-      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1. SUPERSEDED IN PART 2026-11-09: owner decision reinstates `farmer.rating.edit` for SUPER_ADMIN and TOHFA_ADMIN only (FARMER_ADMIN stays none); see BR-06 and Open contradictions #35 in docs/rules.md."
+      "decision": "Permission `farmer.rating.edit` REMOVED. The farm rating (BR-06) is derived only from completed INTERNAL audits, inside the audit completion transaction (guarded by `audit.conduct`); there is no manual rating write for any role. Reads stay on `farmer.rating.view`. Re-run db/seed/002_permissions.js so the DB drops the stale code and its grants. Confirm with client at sign-off, since it departs from reqs 6.1. SUPERSEDED IN PART 2026-11-09: owner decision reinstates `farmer.rating.edit` for SUPER_ADMIN and TOHFA_ADMIN only (FARMER_ADMIN stays none); see BR-06 and Open contradictions #36 in docs/rules.md."
     },
     {
       "topic": "Material handling (inventory.material_handling.manage)",

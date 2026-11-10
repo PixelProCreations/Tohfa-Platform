@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   Image,
   ScrollView,
@@ -8,10 +9,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import { authPalette as P, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import {
+  getNpkContribution,
+  listCropInputs,
+  type CropInputResponse,
+  type CropInputType,
+  type CropInputUnit,
+  type CropNpkContributionResponse,
+} from '../../../api/crops';
+import { formatAppliedDate } from './inputApplications';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -27,22 +38,6 @@ function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; colo
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function AlertTriangleIcon({ size = 20, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="12" y1="9" x2="12" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="12" y1="17" x2="12.01" y2="17" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -99,73 +94,19 @@ function SproutIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?
 }
 
 // ─────────────────────────────────────────────
-// Types & Sample Data
+// Types & formatting
 // ─────────────────────────────────────────────
 
-interface NutrientMetric {
-  name: string;
-  chemical: string;
-  percent: number;
-  actualKg: number;
-  targetKg: number;
-  statusColor: string;
-}
+/** Shown wherever the crop has no value; never replaced by a sample one. */
+const NO_VALUE = '—';
 
-const NUTRIENT_REQUIREMENTS: NutrientMetric[] = [
-  {
-    name: 'Nitrogen',
-    chemical: 'N',
-    percent: 40,
-    actualKg: 16,
-    targetKg: 40,
-    statusColor: P.twRed600,
-  },
-  {
-    name: 'Phosphorus',
-    chemical: 'P₂O₅',
-    percent: 40,
-    actualKg: 12,
-    targetKg: 30,
-    statusColor: P.twRed600,
-  },
-  {
-    name: 'Potassium',
-    chemical: 'K₂O',
-    percent: 90,
-    actualKg: 45,
-    targetKg: 50,
-    statusColor: P.twGreen700,
-  },
-  {
-    name: 'Magnesium',
-    chemical: 'MgO',
-    percent: 67,
-    actualKg: 8,
-    targetKg: 12,
-    statusColor: P.orange600,
-  },
-  {
-    name: 'Sulphur',
-    chemical: 'SO₃',
-    percent: 87,
-    actualKg: 13,
-    targetKg: 15,
-    statusColor: P.twGreen700,
-  },
-];
+/** The inputs list endpoint's page size; every page is followed. */
+const INPUTS_PAGE_LIMIT = 100;
 
 interface CumulativeIntakeItem {
   label: string;
   amount: string;
 }
-
-const CUMULATIVE_INTAKE: CumulativeIntakeItem[] = [
-  { label: 'Nitrogen (N)', amount: '6.4 kg' },
-  { label: 'Phosphorus (P₂O₅)', amount: '4.8 kg' },
-  { label: 'Potassium (K₂O)', amount: '18.0 kg' },
-  { label: 'Magnesium (MgO)', amount: '3.2 kg' },
-  { label: 'Sulphur (SO₃)', amount: '5.2 kg' },
-];
 
 interface ContributingApplication {
   id: string;
@@ -176,32 +117,61 @@ interface ContributingApplication {
   tags: string[];
 }
 
-const CONTRIBUTING_APPLICATIONS: ContributingApplication[] = [
-  {
-    id: 'c1',
-    title: 'Vermicompost',
-    timestamp: '12 Jul',
-    amount: '60 kg',
-    type: 'recycle',
-    tags: ['N', 'P₂O₅', 'K₂O'],
-  },
-  {
-    id: 'c2',
-    title: 'Panchagavya foliar spray',
-    timestamp: '28 Jun',
-    amount: '8 L',
-    type: 'flask',
-    tags: ['K₂O', 'MgO', 'SO₃'],
-  },
-  {
-    id: 'c3',
-    title: 'Bone meal top-dress',
-    timestamp: '10 Jun',
-    amount: '25 kg',
-    type: 'sprout',
-    tags: ['P₂O₅', 'SO₃'],
-  },
-];
+/** A kg total from the API, at most 2 decimals, without trailing zeros. */
+function formatKg(kg: number): string {
+  return t('farmer.npkContribution.amountKg', { amount: String(Math.round(kg * 100) / 100) });
+}
+
+function formatQuantity(quantity: number, unit: CropInputUnit): string {
+  const unitKey = {
+    KG: 'farmer.npkContribution.unit.kg',
+    LITRE: 'farmer.npkContribution.unit.litre',
+    GRAM: 'farmer.npkContribution.unit.gram',
+    ML: 'farmer.npkContribution.unit.ml',
+    BAG: 'farmer.npkContribution.unit.bag',
+    TONNE: 'farmer.npkContribution.unit.tonne',
+    OTHER: null,
+  } as const satisfies Record<CropInputUnit, string | null>;
+  const key = unitKey[unit];
+  return key === null ? String(quantity) : `${quantity} ${t(key)}`;
+}
+
+/** Which of this screen's three badge icons an input type is drawn with. */
+function iconTypeFor(inputType: CropInputType): ContributingApplication['type'] {
+  if (inputType === 'FERTILIZER') return 'flask';
+  if (inputType === 'BIO_INPUT') return 'sprout';
+  return 'recycle';
+}
+
+function toContributingApplication(input: CropInputResponse): ContributingApplication {
+  const tags: string[] = [];
+  if ((input.nitrogenPct ?? 0) > 0) tags.push('N');
+  if ((input.phosphorusPct ?? 0) > 0) tags.push('P₂O₅');
+  if ((input.potassiumPct ?? 0) > 0) tags.push('K₂O');
+  return {
+    id: input.id,
+    title: input.inputName,
+    timestamp: formatAppliedDate(input.appliedOn.slice(0, 10)),
+    amount: formatQuantity(input.quantity, input.unit),
+    type: iconTypeFor(input.inputType),
+    tags,
+  };
+}
+
+/** Every input applied to one crop; the endpoint is cursor-paginated. */
+async function listAllCropInputs(farmCropId: string): Promise<CropInputResponse[]> {
+  const items: CropInputResponse[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const page = await listCropInputs(farmCropId, {
+      limit: INPUTS_PAGE_LIMIT,
+      ...(cursor !== undefined ? { cursor } : {}),
+    });
+    items.push(...page.items);
+    if (!page.page.hasMore || page.page.nextCursor === null) return items;
+    cursor = page.page.nextCursor;
+  }
+}
 
 const DEFAULT_CARROT_THUMB =
   'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=400&auto=format&fit=crop&q=85';
@@ -210,6 +180,8 @@ export interface CropNPKContributionScreenProps {
   crop?: CropItem | null;
   onBack?: () => void;
 }
+
+type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
 export function CropNPKContributionScreen({
   crop,
@@ -227,13 +199,59 @@ export function CropNPKContributionScreen({
     return () => sub.remove();
   }, [onBack]);
 
-  const cropName = crop?.name ?? 'Carrot';
-  const variety = crop?.variety ?? 'Nantes';
-  const zone = crop?.zoneShort || crop?.zone || 'Zone 1';
+  const cropId = crop?.id;
+
+  // Real data (BR-56f): the crop's cumulative N/P/K totals and the inputs
+  // that make them up.
+  const [loadState, setLoadState] = useState<LoadState>(cropId ? 'loading' : 'idle');
+  const [npk, setNpk] = useState<CropNpkContributionResponse | null>(null);
+  const [inputs, setInputs] = useState<CropInputResponse[]>([]);
+
+  const load = useCallback(async () => {
+    if (!cropId) {
+      setLoadState('idle');
+      return;
+    }
+    setLoadState('loading');
+    try {
+      const [npkRes, inputsRes] = await Promise.all([
+        getNpkContribution(cropId),
+        listAllCropInputs(cropId),
+      ]);
+      setNpk(npkRes);
+      setInputs(inputsRes);
+      setLoadState('ready');
+    } catch {
+      setLoadState('error');
+    }
+  }, [cropId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const cropName = crop?.name ?? NO_VALUE;
+  const variety = crop?.variety ?? NO_VALUE;
+  const zone = crop?.zoneShort || crop?.zone || NO_VALUE;
   const subtitle = `${cropName} — ${variety} · ${zone}`;
-  const headerDetails = `${crop?.zone ?? 'Zone 1 — Upper Field'} · ${crop?.area ?? '0.4 ha'} · ${crop?.daysOld ?? 88} days old`;
+  const daysOldText =
+    crop?.daysOld !== null && crop?.daysOld !== undefined
+      ? t('farmer.npkContribution.daysOld', { days: crop.daysOld })
+      : NO_VALUE;
+  const headerDetails = `${crop?.zone || NO_VALUE} · ${crop?.area || NO_VALUE} · ${daysOldText}`;
   const thumbnailUri = crop?.imageUri ?? DEFAULT_CARROT_THUMB;
-  const areaLabel = crop?.area?.toUpperCase() ?? '0.4 HA';
+  const areaLabel = crop?.area ? crop.area.toUpperCase() : '';
+
+  // Only the three nutrients the API totals; no requirement target exists
+  // (see docs/rules.md Open contradictions), so no percentage is derived.
+  const cumulativeIntake: CumulativeIntakeItem[] = npk
+    ? [
+        { label: t('farmer.npkContribution.nitrogen'), amount: formatKg(npk.totalNitrogenKg) },
+        { label: t('farmer.npkContribution.phosphorus'), amount: formatKg(npk.totalPhosphorusKg) },
+        { label: t('farmer.npkContribution.potassium'), amount: formatKg(npk.totalPotassiumKg) },
+      ]
+    : [];
+  const contributingApplications = inputs.map(toContributingApplication);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -248,13 +266,13 @@ export function CropNPKContributionScreen({
             activeOpacity={0.7}
             hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
             accessibilityRole="button"
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('farmer.npkContribution.goBack')}
           >
             <ArrowBackIcon size={20} color={P.twGray800} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleCol}>
-            <Text style={styles.headerTitle}>NPK Contribution</Text>
+            <Text style={styles.headerTitle}>{t('farmer.npkContribution.title')}</Text>
             <Text style={styles.headerSubtitle}>{subtitle}</Text>
           </View>
         </View>
@@ -264,6 +282,24 @@ export function CropNPKContributionScreen({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {loadState === 'idle' ? (
+            <EmptyState title={t('farmer.npkContribution.noCrop')} />
+          ) : loadState === 'loading' ? (
+            <View style={styles.stateContainer}>
+              <ActivityIndicator
+                color={P.brandGreen}
+                accessibilityLabel={t('farmer.npkContribution.loading')}
+              />
+            </View>
+          ) : loadState === 'error' ? (
+            <ErrorState
+              title={t('farmer.npkContribution.loadErrorTitle')}
+              message={t('farmer.npkContribution.loadErrorMessage')}
+              retryTitle={t('farmer.npkContribution.retry')}
+              onRetry={() => void load()}
+            />
+          ) : (
+            <>
           {/* ── Top Crop Info Card ── */}
           <View style={styles.cropSummaryCard}>
             <Image source={{ uri: thumbnailUri }} style={styles.cropThumb} />
@@ -273,73 +309,30 @@ export function CropNPKContributionScreen({
             </View>
           </View>
 
-          {/* ── Alert Banner: 2 of 5 nutrients running low ── */}
-          <View style={styles.alertCard}>
-            <View style={styles.alertIconCol}>
-              <AlertTriangleIcon size={22} color={P.twOrange600} />
-            </View>
-            <View style={styles.alertTextCol}>
-              <Text style={styles.alertTitle}>2 of 5 nutrients running low</Text>
-              <Text style={styles.alertDescription}>
-                Nitrogen and Phosphorus are below 50% of requirement. Schedule a fertigation before
-                the next growth stage.
-              </Text>
-            </View>
-          </View>
-
           {/* ── Section: REQUIREMENT MET ── */}
+          {/* No owner-supplied nutrient targets or status bands exist, so this
+              section is neutral: no percentage, target, colour band or
+              "running low" alert is computed (CLAUDE.md 2.7). */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>REQUIREMENT MET</Text>
+            <Text style={styles.sectionHeaderText}>{t('farmer.npkContribution.requirementMet')}</Text>
           </View>
 
           <View style={styles.nutrientsCard}>
-            {NUTRIENT_REQUIREMENTS.map((item, index) => {
-              const isLast = index === NUTRIENT_REQUIREMENTS.length - 1;
-              return (
-                <View
-                  key={item.chemical}
-                  style={[styles.nutrientRow, !isLast && styles.nutrientRowBottomMargin]}
-                >
-                  {/* Top line: Name + % */}
-                  <View style={styles.nutrientTitleRow}>
-                    <Text style={styles.nutrientNameText}>
-                      {item.name} ({item.chemical})
-                    </Text>
-                    <Text style={[styles.nutrientPercentText, { color: item.statusColor }]}>
-                      {item.percent}%
-                    </Text>
-                  </View>
-
-                  {/* Progress track */}
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: `${item.percent}%`,
-                          backgroundColor: item.statusColor,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Subtitle: 16 of 40 kg/ha */}
-                  <Text style={styles.nutrientRatioText}>
-                    {item.actualKg} of {item.targetKg} kg/ha
-                  </Text>
-                </View>
-              );
-            })}
+            <Text style={styles.nutrientRatioText}>{t('farmer.npkContribution.targetsUnavailable')}</Text>
           </View>
 
           {/* ── Section: CUMULATIVE INTAKE ── */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>CUMULATIVE INTAKE · {areaLabel}</Text>
+            <Text style={styles.sectionHeaderText}>
+              {areaLabel
+                ? t('farmer.npkContribution.cumulativeIntake', { area: areaLabel })
+                : t('farmer.npkContribution.cumulativeIntakeNoArea')}
+            </Text>
           </View>
 
           <View style={styles.cumulativeCard}>
-            {CUMULATIVE_INTAKE.map((item, index) => {
-              const isLast = index === CUMULATIVE_INTAKE.length - 1;
+            {cumulativeIntake.map((item, index) => {
+              const isLast = index === cumulativeIntake.length - 1;
               return (
                 <View key={item.label}>
                   <View style={styles.cumulativeRow}>
@@ -354,11 +347,15 @@ export function CropNPKContributionScreen({
 
           {/* ── Section: CONTRIBUTING APPLICATIONS ── */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionHeaderText}>CONTRIBUTING APPLICATIONS</Text>
+            <Text style={styles.sectionHeaderText}>{t('farmer.npkContribution.contributing')}</Text>
           </View>
 
+          {contributingApplications.length === 0 ? (
+            <EmptyState title={t('farmer.npkContribution.empty')} />
+          ) : null}
+
           <View style={styles.applicationsList}>
-            {CONTRIBUTING_APPLICATIONS.map((app) => (
+            {contributingApplications.map((app) => (
               <View key={app.id} style={styles.appCard}>
                 {/* Icon Badge */}
                 <View
@@ -397,6 +394,8 @@ export function CropNPKContributionScreen({
               </View>
             ))}
           </View>
+            </>
+          )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -676,5 +675,11 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 20,
+  },
+  // Loading state (new; theme tokens only).
+  stateContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

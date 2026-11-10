@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   BackHandler,
   ScrollView,
   StyleSheet,
@@ -7,15 +8,21 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { authPalette as P, typography } from '../../../theme';
+import { t, type TranslationKey } from '../../../../../i18n/farmer';
+import { authPalette as P, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
 import {
-  CROP_MILESTONES_MAP,
-  CROP_PRESETS,
-  type CropMilestone,
-} from './CropDetailScreen';
+  getFarmCrop,
+  listCropMilestones,
+  listCropMilestoneTemplates,
+  updateCropMilestone,
+  type CropMilestoneResponse,
+  type CropMilestonesListResponse,
+  type CropMilestoneTemplateResponse,
+} from '../../../api/crops';
+import { formatAppliedDate } from './inputApplications';
 
 // ─────────────────────────────────────────────
 // Inline Vector Icons (strictly no emojis, no raw hex)
@@ -135,16 +142,47 @@ export interface CropMilestonesScreenProps {
   onBack?: () => void;
 }
 
-function getInitialMilestones(crop?: CropItem | null): CropMilestone[] {
-  if (!crop) return CROP_MILESTONES_MAP?.carrot ?? [];
-  const key = (crop.cropType ?? crop.name ?? 'carrot').toLowerCase();
-  if (CROP_MILESTONES_MAP) {
-    for (const [name, milestones] of Object.entries(CROP_MILESTONES_MAP)) {
-      if (key.includes(name)) return milestones;
-    }
-  }
-  return CROP_MILESTONES_MAP?.carrot ?? [];
+/** Shown wherever the API has no value; never replaced by a sample one. */
+const NO_VALUE = '—';
+
+/** `"2026-09-03"` -> `"3 Sep 2026"` (month from the i18n catalogue); null -> NO_VALUE. */
+function formatDate(iso: string | null | undefined): string {
+  return iso ? formatAppliedDate(iso.slice(0, 10), true) : NO_VALUE;
 }
+
+/**
+ * The category pill is the milestone's own stage code, translated. The six
+ * codes seeded by migration 0036 have catalogue entries; any other code the
+ * server sends is still shown, made readable (`STAGE_FRUITING` -> `Fruiting`),
+ * rather than hidden. The stage name itself is the card title.
+ */
+const STAGE_CATEGORY_KEY: Partial<Record<string, TranslationKey>> = {
+  STAGE_SOWING: 'farmer.cropMilestones.stage.STAGE_SOWING',
+  STAGE_VEGETATIVE: 'farmer.cropMilestones.stage.STAGE_VEGETATIVE',
+  STAGE_FLOWERING: 'farmer.cropMilestones.stage.STAGE_FLOWERING',
+  STAGE_FRUITING: 'farmer.cropMilestones.stage.STAGE_FRUITING',
+  STAGE_MATURITY: 'farmer.cropMilestones.stage.STAGE_MATURITY',
+  STAGE_HARVEST: 'farmer.cropMilestones.stage.STAGE_HARVEST',
+};
+
+function stageCategory(stageCode: string): string {
+  const key = STAGE_CATEGORY_KEY[stageCode];
+  if (key !== undefined) return t(key);
+  const words = stageCode.replace(/^STAGE_/, '').replace(/_/g, ' ').toLowerCase();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function recordedOutcome(m: CropMilestoneResponse): string {
+  if (m.status === 'COMPLETED') {
+    return m.completedOn
+      ? t('farmer.cropMilestones.outcomeCompletedOn', { date: formatDate(m.completedOn) })
+      : t('farmer.cropMilestones.outcomeCompleted');
+  }
+  if (m.status === 'SKIPPED') return t('farmer.cropMilestones.outcomeSkipped');
+  return t('farmer.cropMilestones.outcomePending');
+}
+
+type LoadState = 'idle' | 'loading' | 'error' | 'ready';
 
 export function CropMilestonesScreen({
   crop,
@@ -162,55 +200,94 @@ export function CropMilestonesScreen({
     return () => subscription.remove();
   }, [onBack]);
 
-  const preset = crop
-    ? (CROP_PRESETS?.[crop.cropType?.toLowerCase() ?? 'carrot'] ?? CROP_PRESETS?.carrot)
-    : CROP_PRESETS?.carrot;
-  const title = crop ? `${crop.name} — ${crop.variety}` : `Carrot — ${preset?.defaultVariety ?? 'Nantes'}`;
-  const subtitle = crop
-    ? `${crop.zone} · Expected ${preset?.expectedHarvest ?? '20 Jul 2026'}`
-    : `Zone 1 — Upper Field · Expected ${preset?.expectedHarvest ?? '20 Jul 2026'}`;
-  const daysOld = crop?.daysOld ?? 88;
+  const cropId = crop?.id;
 
-  // Milestone State
-  const [milestones, setMilestones] = useState<CropMilestone[]>(() => getInitialMilestones(crop));
+  // Real data (BR-57). The milestones list auto-initialises from templates on
+  // first read (BR-57b), so no separate initialise call is needed here. The
+  // templates supply each stage's description and expected day; the farm crop
+  // supplies the expected harvest date for the subtitle.
+  const [loadState, setLoadState] = useState<LoadState>(cropId ? 'loading' : 'idle');
+  const [data, setData] = useState<CropMilestonesListResponse | null>(null);
+  const [templates, setTemplates] = useState<CropMilestoneTemplateResponse[]>([]);
+  const [expectedHarvestOn, setExpectedHarvestOn] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [updateFailed, setUpdateFailed] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!cropId) {
+      setLoadState('idle');
+      return;
+    }
+    setLoadState('loading');
+    try {
+      // Templates are read for the crop's own crop_master so crop-specific
+      // templates (which win over universal ones, BR-57b) are included.
+      const [milestonesRes, farmCrop] = await Promise.all([
+        listCropMilestones(cropId),
+        getFarmCrop(cropId),
+      ]);
+      const templatesRes = await listCropMilestoneTemplates(farmCrop.cropMasterId);
+      setData(milestonesRes);
+      setTemplates(templatesRes);
+      setExpectedHarvestOn(farmCrop.expectedHarvestOn);
+      setLoadState('ready');
+    } catch {
+      setLoadState('error');
+    }
+  }, [cropId]);
 
   useEffect(() => {
-    setMilestones(getInitialMilestones(crop));
-  }, [crop]);
+    void load();
+  }, [load]);
 
-  const achievedCount = milestones.filter((m) => m.status === 'achieved').length;
-  const totalCount = milestones.length;
-  const progressPercent = totalCount > 0 ? Math.round((achievedCount / totalCount) * 100) : 0;
+  const templatesById = useMemo(() => new Map(templates.map((tpl) => [tpl.id, tpl])), [templates]);
+  const milestones = data?.items ?? [];
 
-  // Active or selected milestone
-  const defaultSelected = milestones.find((m) => m.status === 'active') ?? milestones[0];
-  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>(
-    defaultSelected ? defaultSelected.id : (milestones[0]?.id ?? '')
-  );
+  const title = crop ? `${crop.name} — ${crop.variety}` : NO_VALUE;
+  const subtitle = crop
+    ? t('farmer.cropMilestones.subtitleExpected', { zone: crop.zone, date: formatDate(expectedHarvestOn) })
+    : NO_VALUE;
+  const daysOld = crop?.daysOld ?? NO_VALUE;
 
-  const selectedMilestone = milestones.find((m) => m.id === selectedMilestoneId) ?? milestones[0];
-  const selectedIndex = milestones.findIndex((m) => m.id === selectedMilestone?.id);
+  // Counts and progress are the server's (BR-57c: only COMPLETED counts).
+  const achievedCount = data?.completedCount ?? 0;
+  const totalCount = data?.totalCount ?? 0;
+  const progressPercent = Math.round(data?.progressPct ?? 0);
 
-  // Toggle Completed action
-  const handleToggleComplete = (id: string) => {
-    setMilestones((prev) =>
-      prev.map((m) => {
-        if (m.id === id) {
-          const nextStatus: 'active' | 'achieved' = m.status === 'achieved' ? 'active' : 'achieved';
-          const updated: CropMilestone = {
-            ...m,
-            status: nextStatus,
-          };
-          if (nextStatus === 'achieved') {
-            updated.actual = (m.actual && !m.actual.includes('Pending'))
-              ? m.actual
-              : '8.8° Brix measured (Grade A)';
-          }
-          return updated;
-        }
-        return m;
-      })
-    );
+  // Active or selected milestone: the first one not yet completed.
+  const [selectedMilestoneId, setSelectedMilestoneId] = useState<string>('');
+  const defaultSelected = milestones.find((m) => m.status === 'PENDING') ?? milestones[0];
+  const selectedMilestone =
+    milestones.find((m) => m.id === selectedMilestoneId) ?? defaultSelected;
+  const selectedIndex = selectedMilestone
+    ? milestones.findIndex((m) => m.id === selectedMilestone.id)
+    : -1;
+  const selectedTemplate =
+    selectedMilestone?.templateId ? templatesById.get(selectedMilestone.templateId) : undefined;
+  const selectedAchieved = selectedMilestone?.status === 'COMPLETED';
+
+  // Toggle Completed action: PATCH the status, then re-read the list so the
+  // counts and progress shown are the server's, not a client recomputation.
+  const handleToggleComplete = async (m: CropMilestoneResponse) => {
+    if (!cropId || togglingId) return;
+    setTogglingId(m.id);
+    setUpdateFailed(false);
+    try {
+      // Going back to PENDING also clears completedOn: the PATCH schema accepts
+      // `completedOn: null` and the repo writes it, whereas a bare status change
+      // would leave the old completion date on a milestone that is no longer done.
+      await updateCropMilestone(
+        cropId,
+        m.id,
+        m.status === 'COMPLETED' ? { status: 'PENDING', completedOn: null } : { status: 'COMPLETED' },
+      );
+      setSelectedMilestoneId(m.id);
+      setData(await listCropMilestones(cropId));
+    } catch {
+      setUpdateFailed(true);
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   return (
@@ -225,21 +302,23 @@ export function CropMilestonesScreen({
           activeOpacity={0.7}
           hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('farmer.cropMilestones.goBack')}
         >
           <ArrowBackIcon size={20} color={P.ink} />
         </TouchableOpacity>
 
         <View style={styles.appBarTitleCol}>
-          <Text style={styles.appBarTitle}>Crop Milestones</Text>
+          <Text style={styles.appBarTitle}>{t('farmer.cropMilestones.title')}</Text>
           <Text style={styles.appBarSubtitle}>{title}</Text>
         </View>
 
-        <View style={styles.summaryBadge}>
-          <Text style={styles.summaryBadgeText}>
-            {achievedCount}/{totalCount} Done
-          </Text>
-        </View>
+        {data ? (
+          <View style={styles.summaryBadge}>
+            <Text style={styles.summaryBadgeText}>
+              {t('farmer.cropMilestones.doneBadge', { done: achievedCount, total: totalCount })}
+            </Text>
+          </View>
+        ) : null}
       </View>
 
       <ScrollView
@@ -247,6 +326,24 @@ export function CropMilestonesScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {loadState === 'idle' ? (
+          <EmptyState title={t('farmer.cropMilestones.noCrop')} />
+        ) : loadState === 'loading' ? (
+          <View style={styles.stateContainer}>
+            <ActivityIndicator
+              color={P.brandGreen}
+              accessibilityLabel={t('farmer.cropMilestones.loading')}
+            />
+          </View>
+        ) : loadState === 'error' ? (
+          <ErrorState
+            title={t('farmer.cropMilestones.loadErrorTitle')}
+            message={t('farmer.cropMilestones.loadErrorMessage')}
+            retryTitle={t('farmer.cropMilestones.retry')}
+            onRetry={() => void load()}
+          />
+        ) : (
+          <>
         {/* ── Summary Progress Banner ── */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerHeaderRow}>
@@ -269,13 +366,20 @@ export function CropMilestonesScreen({
 
           <View style={styles.bannerFooterRow}>
             <Text style={styles.bannerFooterText}>
-              {achievedCount} of {totalCount} milestones completed
+              {t('farmer.cropMilestones.completedSummary', { done: achievedCount, total: totalCount })}
             </Text>
-            <Text style={styles.bannerFooterSub}>Day {daysOld} of crop lifecycle</Text>
+            <Text style={styles.bannerFooterSub}>
+              {t('farmer.cropMilestones.lifecycleDay', { day: daysOld })}
+            </Text>
           </View>
         </View>
 
+        {milestones.length === 0 ? (
+          <EmptyState title={t('farmer.cropMilestones.empty')} />
+        ) : null}
+
         {/* ── Horizontal Milestone Tabs ── */}
+        {milestones.length > 0 ? (
         <View style={styles.tabsContainer}>
           <ScrollView
             horizontal
@@ -283,7 +387,7 @@ export function CropMilestonesScreen({
             contentContainerStyle={styles.tabsScrollContent}
           >
             {milestones.map((m) => {
-              const isAchieved = m.status === 'achieved';
+              const isAchieved = m.status === 'COMPLETED';
               const isSelected = m.id === selectedMilestone?.id;
 
               return (
@@ -298,7 +402,10 @@ export function CropMilestonesScreen({
                   activeOpacity={0.75}
                   accessibilityRole="tab"
                   accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={`Milestone ${m.milestoneNumber}: ${m.title}`}
+                  accessibilityLabel={t('farmer.cropMilestones.tabA11y', {
+                    number: m.sequenceOrder,
+                    title: m.stageName,
+                  })}
                 >
                   <View
                     style={[
@@ -316,7 +423,7 @@ export function CropMilestonesScreen({
                           isSelected && styles.tabBadgeNumberSelected,
                         ]}
                       >
-                        {m.milestoneNumber}
+                        {m.sequenceOrder}
                       </Text>
                     )}
                   </View>
@@ -329,13 +436,17 @@ export function CropMilestonesScreen({
                     ]}
                     numberOfLines={1}
                   >
-                    M{m.milestoneNumber} · {m.category || `Stage ${m.milestoneNumber}`}
+                    {t('farmer.cropMilestones.tabLabel', {
+                      number: m.sequenceOrder,
+                      category: stageCategory(m.stageCode),
+                    })}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         </View>
+        ) : null}
 
         {/* ── Selected Milestone Details Card ── */}
         {selectedMilestone && (
@@ -345,19 +456,27 @@ export function CropMilestonesScreen({
               <View style={styles.selectedMilestoneTitleCol}>
                 <View style={styles.milestoneTagRow}>
                   <Text style={styles.milestoneNumberText}>
-                    MILESTONE {selectedMilestone.milestoneNumber} OF {totalCount}
+                    {t('farmer.cropMilestones.milestoneOf', {
+                      number: selectedMilestone.sequenceOrder,
+                      total: totalCount,
+                    })}
                   </Text>
                   <View style={styles.milestoneCategoryPill}>
-                    <Text style={styles.milestoneCategoryText}>{selectedMilestone.category}</Text>
+                    <Text style={styles.milestoneCategoryText}>
+                      {stageCategory(selectedMilestone.stageCode)}
+                    </Text>
                   </View>
                 </View>
 
-                <Text style={styles.selectedMilestoneTitle}>{selectedMilestone.title}</Text>
+                <Text style={styles.selectedMilestoneTitle}>{selectedMilestone.stageName}</Text>
 
                 <View style={styles.milestoneDateRow}>
                   <CalendarIcon size={13} color={P.twGray400} />
                   <Text style={styles.selectedMilestoneDate}>
-                    Target: Day {selectedMilestone.day} · {selectedMilestone.targetDate}
+                    {t('farmer.cropMilestones.targetDay', {
+                      day: selectedTemplate?.expectedDaysAfterPlanting ?? NO_VALUE,
+                      date: formatDate(selectedMilestone.targetDate),
+                    })}
                   </Text>
                 </View>
               </View>
@@ -366,33 +485,45 @@ export function CropMilestonesScreen({
               <TouchableOpacity
                 style={[
                   styles.completeActionButton,
-                  selectedMilestone.status === 'achieved' && styles.completeActionButtonAchieved,
+                  selectedAchieved && styles.completeActionButtonAchieved,
                 ]}
-                onPress={() => handleToggleComplete(selectedMilestone.id)}
+                onPress={() => void handleToggleComplete(selectedMilestone)}
+                disabled={togglingId !== null}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 accessibilityRole="button"
+                accessibilityState={{ busy: togglingId === selectedMilestone.id }}
                 accessibilityLabel={
-                  selectedMilestone.status === 'achieved'
-                    ? 'Mark milestone as in-progress'
-                    : 'Mark milestone as completed'
+                  selectedAchieved
+                    ? t('farmer.cropMilestones.markInProgressA11y')
+                    : t('farmer.cropMilestones.markCompletedA11y')
                 }
               >
-                {selectedMilestone.status === 'achieved' ? (
+                {selectedAchieved ? (
                   <>
                     <CheckMiniIcon size={14} color={P.white} />
-                    <Text style={styles.completeActionButtonTextAchieved}>Completed</Text>
+                    <Text style={styles.completeActionButtonTextAchieved}>
+                      {t('farmer.cropMilestones.completed')}
+                    </Text>
                   </>
                 ) : (
                   <>
                     <View style={styles.uncompletedCircleIcon}>
                       <CheckMiniIcon size={10} color={P.twGreen700} />
                     </View>
-                    <Text style={styles.completeActionButtonText}>Mark Done</Text>
+                    <Text style={styles.completeActionButtonText}>
+                      {t('farmer.cropMilestones.markDone')}
+                    </Text>
                   </>
                 )}
               </TouchableOpacity>
             </View>
+
+            {updateFailed ? (
+              <Text style={styles.updateErrorText} accessibilityRole="alert">
+                {t('farmer.cropMilestones.updateError')}
+              </Text>
+            ) : null}
 
             {/* Target vs Actual Deliverables Grid */}
             <View style={styles.milestoneDeliverablesGrid}>
@@ -400,42 +531,43 @@ export function CropMilestonesScreen({
               <View style={styles.milestoneDeliverableCard}>
                 <View style={styles.deliverableCardHeader}>
                   <TargetMetricIcon size={13} color={P.twGray500} />
-                  <Text style={styles.deliverableCardLabel}>TARGET DELIVERABLE</Text>
+                  <Text style={styles.deliverableCardLabel}>
+                    {t('farmer.cropMilestones.targetDeliverable')}
+                  </Text>
                 </View>
-                <Text style={styles.deliverableCardValue}>{selectedMilestone.target}</Text>
+                <Text style={styles.deliverableCardValue}>
+                  {selectedTemplate?.description ?? NO_VALUE}
+                </Text>
               </View>
 
               {/* Recorded Outcome Card */}
               <View
                 style={[
                   styles.milestoneDeliverableCard,
-                  selectedMilestone.status === 'achieved' && styles.milestoneDeliverableCardAchieved,
+                  selectedAchieved && styles.milestoneDeliverableCardAchieved,
                 ]}
               >
                 <View style={styles.deliverableCardHeader}>
                   <CheckMiniIcon
                     size={13}
-                    color={selectedMilestone.status === 'achieved' ? P.twGreen700 : P.twGray400}
+                    color={selectedAchieved ? P.twGreen700 : P.twGray400}
                   />
                   <Text
                     style={[
                       styles.deliverableCardLabel,
-                      selectedMilestone.status === 'achieved' && styles.deliverableCardLabelAchieved,
+                      selectedAchieved && styles.deliverableCardLabelAchieved,
                     ]}
                   >
-                    RECORDED OUTCOME
+                    {t('farmer.cropMilestones.recordedOutcome')}
                   </Text>
                 </View>
                 <Text
                   style={[
                     styles.deliverableCardValue,
-                    selectedMilestone.status === 'achieved' && styles.deliverableCardValueAchieved,
+                    selectedAchieved && styles.deliverableCardValueAchieved,
                   ]}
                 >
-                  {selectedMilestone.actual ??
-                    (selectedMilestone.status === 'achieved'
-                      ? 'Completed & Verified'
-                      : 'In Progress / Upcoming')}
+                  {recordedOutcome(selectedMilestone)}
                 </Text>
               </View>
             </View>
@@ -444,9 +576,15 @@ export function CropMilestonesScreen({
             <View style={styles.milestoneObservationCard}>
               <View style={styles.observationHeaderRow}>
                 <SparklesIcon size={13} color={P.twGreen700} />
-                <Text style={styles.observationHeaderTitle}>Field Observation</Text>
+                <Text style={styles.observationHeaderTitle}>
+                  {t('farmer.cropMilestones.fieldObservation')}
+                </Text>
               </View>
-              <Text style={styles.observationCardText}>“{selectedMilestone.note}”</Text>
+              <Text style={styles.observationCardText}>
+                {selectedMilestone.notes
+                  ? `“${selectedMilestone.notes}”`
+                  : t('farmer.cropMilestones.noNote')}
+              </Text>
             </View>
 
             {/* Stepper Navigation Buttons (Prev / Next) */}
@@ -465,7 +603,7 @@ export function CropMilestonesScreen({
                 }}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Previous milestone"
+                accessibilityLabel={t('farmer.cropMilestones.prevA11y')}
               >
                 <ChevronLeftIcon
                   size={16}
@@ -477,12 +615,12 @@ export function CropMilestonesScreen({
                     selectedIndex <= 0 && styles.stepperNavBtnTextDisabled,
                   ]}
                 >
-                  Prev
+                  {t('farmer.cropMilestones.prev')}
                 </Text>
               </TouchableOpacity>
 
               <Text style={styles.stepperNavCounterText}>
-                Milestone {selectedIndex + 1} of {totalCount}
+                {t('farmer.cropMilestones.counter', { number: selectedIndex + 1, total: totalCount })}
               </Text>
 
               <TouchableOpacity
@@ -499,7 +637,7 @@ export function CropMilestonesScreen({
                 }}
                 activeOpacity={0.7}
                 accessibilityRole="button"
-                accessibilityLabel="Next milestone"
+                accessibilityLabel={t('farmer.cropMilestones.nextA11y')}
               >
                 <Text
                   style={[
@@ -507,7 +645,7 @@ export function CropMilestonesScreen({
                     selectedIndex >= totalCount - 1 && styles.stepperNavBtnTextDisabled,
                   ]}
                 >
-                  Next
+                  {t('farmer.cropMilestones.next')}
                 </Text>
                 <ChevronRightIcon
                   size={16}
@@ -516,6 +654,8 @@ export function CropMilestonesScreen({
               </TouchableOpacity>
             </View>
           </View>
+        )}
+          </>
         )}
 
         <View style={styles.bottomSpacer} />
@@ -958,5 +1098,16 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 30,
+  },
+  // Loading / error / update-failure states (new; theme tokens only).
+  stateContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateErrorText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed600,
+    marginBottom: spacing.md,
   },
 });

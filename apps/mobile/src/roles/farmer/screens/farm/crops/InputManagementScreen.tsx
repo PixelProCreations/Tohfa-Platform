@@ -2,16 +2,28 @@ import React, { useEffect } from 'react';
 import {
   BackHandler,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
-import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import { authPalette as P, spacing, typography } from '../../../theme';
 import type { CropItem } from './ProduceCalendarScreen';
+import {
+  applicationTitle,
+  applicationTypeLabel,
+  dueLabel,
+  formatApplicationCost,
+  formatAppliedDate,
+  useInputApplications,
+  type ApplicationIcon,
+  type DueReminder,
+} from './inputApplications';
 
 // ─────────────────────────────────────────────
 // Vector Icons (Strictly no emojis, theme tokens only)
@@ -171,71 +183,21 @@ function HistoryRotateIcon({ size = 18, color = P.forestGreen }: { size?: number
 // Types & Props
 // ─────────────────────────────────────────────
 
+/** The zone a pest reminder belongs to, so Log Pest Treatment saves against it. */
+export interface PestLogContext {
+  farmId: string;
+  plotId: string;
+}
+
 export interface InputManagementScreenProps {
   onBack?: (() => void) | undefined;
   onNavigateToLogInput?: ((crop?: CropItem | null | undefined, inputType?: ('Fertigation' | 'Pest Treatment') | undefined) => void) | undefined;
   onNavigateToLogFertigation?: ((crop?: CropItem | null | undefined) => void) | undefined;
-  onNavigateToLogPestTreatment?: ((crop?: CropItem | null | undefined) => void) | undefined;
+  onNavigateToLogPestTreatment?:
+    | ((crop?: CropItem | null | undefined, context?: PestLogContext | undefined) => void)
+    | undefined;
   onNavigateToFullHistory?: (() => void) | undefined;
 }
-
-interface RecentApplicationItem {
-  id: string;
-  name: string;
-  cropName: string;
-  date: string;
-  category: 'Fertigation' | 'Pest treatment';
-  cost: string;
-  badgeType: 'organic' | 'pest' | 'flask' | 'leaf' | 'seedling';
-}
-
-const RECENT_APPLICATIONS: RecentApplicationItem[] = [
-  {
-    id: 'rec_1',
-    name: 'Vermicompost',
-    cropName: 'Carrot',
-    date: '12 Jul',
-    category: 'Fertigation',
-    cost: '₹720',
-    badgeType: 'organic',
-  },
-  {
-    id: 'rec_2',
-    name: 'Neem oil spray',
-    cropName: 'Cabbage',
-    date: '8 Jul',
-    category: 'Pest treatment',
-    cost: '₹340',
-    badgeType: 'pest',
-  },
-  {
-    id: 'rec_3',
-    name: 'Panchagavya',
-    cropName: 'Carrot',
-    date: '28 Jun',
-    category: 'Fertigation',
-    cost: '₹640',
-    badgeType: 'flask',
-  },
-  {
-    id: 'rec_4',
-    name: 'Trichoderma drench',
-    cropName: 'Tomato',
-    date: '20 Jun',
-    category: 'Fertigation',
-    cost: '₹450',
-    badgeType: 'leaf',
-  },
-  {
-    id: 'rec_5',
-    name: 'Bone meal',
-    cropName: 'Carrot',
-    date: '10 Jun',
-    category: 'Fertigation',
-    cost: '₹525',
-    badgeType: 'seedling',
-  },
-];
 
 export function InputManagementScreen({
   onBack,
@@ -256,6 +218,9 @@ export function InputManagementScreen({
     return () => sub.remove();
   }, [onBack]);
 
+  // Recent crop inputs + pest treatment logs and open pest reminders (BR-56h, BR-38).
+  const { state, data, retry, refreshing, refresh } = useInputApplications('recent');
+
   // No crop is pre-selected: the log screens load the farmer's real crops
   // and let them pick one (the old mock cache pre-picked "carrot"/"tomato").
   const handleLogFertigation = () => {
@@ -266,15 +231,17 @@ export function InputManagementScreen({
     }
   };
 
-  const handleLogPestMgmt = () => {
+  // A pest reminder carries its zone (never a crop), so Log Pest Treatment can save against it.
+  const handleLogPestMgmt = (context?: PestLogContext) => {
     if (onNavigateToLogPestTreatment) {
-      onNavigateToLogPestTreatment(null);
+      if (context) onNavigateToLogPestTreatment(null, context);
+      else onNavigateToLogPestTreatment(null);
     } else if (onNavigateToLogInput) {
       onNavigateToLogInput(null, 'Pest Treatment');
     }
   };
 
-  const renderBadgeIcon = (type: RecentApplicationItem['badgeType']) => {
+  const renderBadgeIcon = (type: ApplicationIcon) => {
     switch (type) {
       case 'organic':
         return <OrganicSproutIcon size={20} color={P.forestGreen} />;
@@ -289,6 +256,141 @@ export function InputManagementScreen({
     }
   };
 
+  // Dev's "Pest check due" card, filled from a farmer-created pest treatment
+  // reminder. Overdue uses Dev's orange line with the bold overdue span.
+  const renderReminder = (reminder: DueReminder) => {
+    const overdue = reminder.daysUntilDue < 0;
+    return (
+      <View key={reminder.id} testID={`inputMgmt.reminder.${reminder.id}`} style={styles.reminderCard}>
+        <View style={[styles.reminderIconBadge, { backgroundColor: P.twPurple100 }]}>
+          <PestIcon size={20} color={P.deepPurple600} />
+        </View>
+
+        <View style={styles.reminderInfo}>
+          <Text testID={`inputMgmt.reminder.${reminder.id}.title`} style={styles.reminderTitle}>
+            {t('farmer.inputManagement.reminder.pestTitle', { title: reminder.title })}
+          </Text>
+          {overdue ? (
+            <Text testID={`inputMgmt.reminder.${reminder.id}.zone`} style={styles.reminderSubtitleOrange}>
+              {`${reminder.zoneName} · `}
+              <Text style={styles.reminderOverdueText}>{dueLabel(reminder.daysUntilDue)}</Text>
+            </Text>
+          ) : (
+            <Text testID={`inputMgmt.reminder.${reminder.id}.zone`} style={styles.reminderSubtitleGray}>
+              {`${reminder.zoneName} · ${dueLabel(reminder.daysUntilDue)}`}
+            </Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          testID={`inputMgmt.reminder.${reminder.id}.logNow`}
+          style={[styles.reminderLogBtn, { backgroundColor: P.deepPurple600 }]}
+          onPress={() => handleLogPestMgmt({ farmId: reminder.farmId, plotId: reminder.plotId })}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={t('farmer.inputManagement.reminder.logNowFor', { title: reminder.title })}
+        >
+          <Text style={styles.reminderLogBtnText}>{t('farmer.inputManagement.logNow')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  // While loading or on error the RECENT APPLICATIONS section below shows the
+  // state; reminders render nothing rather than a guess.
+  const renderRemindersBody = () => {
+    if (state !== 'ready' || data === null) return null;
+    return (
+      <View style={styles.remindersList}>
+        {data.reminders.length === 0 ? (
+          <Text testID="inputMgmt.reminders.empty" style={styles.reminderSubtitleGray}>
+            {t('farmer.inputManagement.reminders.empty')}
+          </Text>
+        ) : (
+          data.reminders.map(renderReminder)
+        )}
+        {/* No fertigation schedule exists in the API, so no fertigation reminder is invented (BR-38). */}
+        <Text testID="inputMgmt.reminders.fertigationUnavailable" style={styles.reminderSubtitleGray}>
+          {t('farmer.inputManagement.reminders.fertigationUnavailable')}
+        </Text>
+        {/* Some zone's pest data failed to load: what did load is shown, and this says so. */}
+        {data.partial ? (
+          <Text testID="inputMgmt.partial" style={styles.reminderSubtitleGray}>
+            {t('farmer.inputManagement.partial')}
+          </Text>
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderRecentBody = () => {
+    if (state === 'loading') {
+      return (
+        <View testID="inputMgmt.loading" style={styles.stateBox}>
+          <Skeleton />
+          <Skeleton />
+          <Skeleton />
+        </View>
+      );
+    }
+    if (state === 'error' || data === null) {
+      return (
+        <View testID="inputMgmt.error" style={styles.stateBox}>
+          <ErrorState
+            message={t('farmer.inputManagement.loadError')}
+            onRetry={retry}
+            retryTitle={t('farmer.common.retry')}
+          />
+        </View>
+      );
+    }
+    if (data.applications.length === 0) {
+      return (
+        <View testID="inputMgmt.empty" style={styles.stateBox}>
+          <EmptyState title={t('farmer.inputManagement.recent.empty')} />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.recentListCard}>
+        {data.applications.map((item, index) => {
+          const isLast = index === data.applications.length - 1;
+          const isPest = item.kind === 'pest';
+          return (
+            <View
+              key={item.key}
+              testID={`inputMgmt.app.${item.key}`}
+              style={[styles.recentItemRow, !isLast && styles.recentItemBorder]}
+            >
+              <View
+                testID={`inputMgmt.app.${item.key}.icon.${item.icon}`}
+                style={[
+                  styles.recentIconBadge,
+                  { backgroundColor: isPest ? P.twPurple100 : P.mintTintBg },
+                ]}
+              >
+                {renderBadgeIcon(item.icon)}
+              </View>
+
+              <View style={styles.recentInfoCol}>
+                <Text testID={`inputMgmt.app.${item.key}.title`} style={styles.recentItemTitle}>
+                  {applicationTitle(item)}
+                </Text>
+                <Text testID={`inputMgmt.app.${item.key}.subtitle`} style={styles.recentItemSubtitle}>
+                  {`${formatAppliedDate(item.appliedOn)} · ${applicationTypeLabel(item.kind)}`}
+                </Text>
+              </View>
+
+              <Text testID={`inputMgmt.app.${item.key}.cost`} style={styles.recentItemCost}>
+                {formatApplicationCost(item.cost)}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
@@ -296,19 +398,20 @@ export function InputManagementScreen({
       {/* Top Header Bar */}
       <View style={styles.headerBar}>
         <TouchableOpacity
+          testID="inputMgmt.back"
           style={styles.backButton}
           onPress={onBack}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel="Go back"
+          accessibilityLabel={t('farmer.inputManagement.back')}
         >
           <ArrowBackIcon size={20} color={P.deepGreen} />
         </TouchableOpacity>
 
         <View style={styles.headerTextGroup}>
-          <Text style={styles.headerTag}>FR-F05</Text>
-          <Text style={styles.headerTitle}>Input Management</Text>
-          <Text style={styles.headerSubtitle}>Fertigation & pest treatments</Text>
+          <Text style={styles.headerTag}>{t('farmer.inputManagement.code')}</Text>
+          <Text style={styles.headerTitle}>{t('farmer.inputManagement.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('farmer.inputManagement.subtitle')}</Text>
         </View>
       </View>
 
@@ -316,43 +419,48 @@ export function InputManagementScreen({
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={P.forestGreen} />
+        }
       >
         {/* 2-Column Action Cards */}
         <View style={styles.topCardsRow}>
           {/* Card 1: Fertigation */}
           <TouchableOpacity
+            testID="inputMgmt.logFertigation"
             style={[styles.topCard, { backgroundColor: P.forestGreen }]}
             onPress={handleLogFertigation}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Fertigation, Log a nutrient application"
+            accessibilityLabel={t('farmer.inputManagement.card.fertigation.a11y')}
           >
             <View style={styles.cardIconCircle}>
               <DropletIcon size={20} color={P.white} />
             </View>
-            <Text style={styles.cardTitle}>Fertigation</Text>
-            <Text style={styles.cardSubtitle}>Log a nutrient{'\n'}application</Text>
+            <Text style={styles.cardTitle}>{t('farmer.inputManagement.card.fertigation.title')}</Text>
+            <Text style={styles.cardSubtitle}>{t('farmer.inputManagement.card.fertigation.body')}</Text>
             <View style={styles.cardActionRow}>
-              <Text style={styles.cardActionText}>Log now</Text>
+              <Text style={styles.cardActionText}>{t('farmer.inputManagement.logNow')}</Text>
               <ArrowRightIcon size={15} color={P.white} />
             </View>
           </TouchableOpacity>
 
           {/* Card 2: Pest Mgmt */}
           <TouchableOpacity
+            testID="inputMgmt.logPest"
             style={[styles.topCard, { backgroundColor: P.deepPurple600 }]}
-            onPress={handleLogPestMgmt}
+            onPress={() => handleLogPestMgmt()}
             activeOpacity={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Pest Mgmt, Log a pest treatment"
+            accessibilityLabel={t('farmer.inputManagement.card.pest.a11y')}
           >
             <View style={styles.cardIconCircle}>
               <PestIcon size={20} color={P.white} />
             </View>
-            <Text style={styles.cardTitle}>Pest Mgmt</Text>
-            <Text style={styles.cardSubtitle}>Log a pest treatment</Text>
+            <Text style={styles.cardTitle}>{t('farmer.inputManagement.card.pest.title')}</Text>
+            <Text style={styles.cardSubtitle}>{t('farmer.inputManagement.card.pest.body')}</Text>
             <View style={styles.cardActionRow}>
-              <Text style={styles.cardActionText}>Log now</Text>
+              <Text style={styles.cardActionText}>{t('farmer.inputManagement.logNow')}</Text>
               <ArrowRightIcon size={15} color={P.white} />
             </View>
           </TouchableOpacity>
@@ -360,118 +468,40 @@ export function InputManagementScreen({
 
         {/* Section: UPCOMING REMINDERS */}
         <View style={styles.sectionHeaderWrap}>
-          <Text style={styles.sectionTitle}>UPCOMING REMINDERS</Text>
+          <Text style={styles.sectionTitle}>{t('farmer.inputManagement.reminders.title')}</Text>
         </View>
 
-        <View style={styles.remindersList}>
-          {/* Reminder 1: Fertigation due — Carrot */}
-          <View style={styles.reminderCard}>
-            <View style={[styles.reminderIconBadge, { backgroundColor: P.mintTintBg }]}>
-              <OrganicSproutIcon size={22} color={P.forestGreen} />
-            </View>
-
-            <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Fertigation due — Carrot</Text>
-              <Text style={styles.reminderSubtitleOrange}>
-                Zone 1 — Upper Field ·{' '}
-                <Text style={styles.reminderOverdueText}>overdue 1 day</Text>
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.reminderLogBtn, { backgroundColor: P.forestGreen }]}
-              onPress={handleLogFertigation}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Log now for Carrot"
-            >
-              <Text style={styles.reminderLogBtnText}>Log now</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Reminder 2: Pest check due — Tomato */}
-          <View style={styles.reminderCard}>
-            <View style={[styles.reminderIconBadge, { backgroundColor: P.twPurple100 }]}>
-              <PestIcon size={20} color={P.deepPurple600} />
-            </View>
-
-            <View style={styles.reminderInfo}>
-              <Text style={styles.reminderTitle}>Pest check due — Tomato</Text>
-              <Text style={styles.reminderSubtitleGray}>
-                Zone 2 — Lower Slope · due today
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              style={[styles.reminderLogBtn, { backgroundColor: P.deepPurple600 }]}
-              onPress={handleLogPestMgmt}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityLabel="Log now for Tomato"
-            >
-              <Text style={styles.reminderLogBtnText}>Log now</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {renderRemindersBody()}
 
         {/* Section: RECENT APPLICATIONS */}
         <View style={styles.recentHeaderRow}>
-          <Text style={styles.sectionTitle}>RECENT APPLICATIONS</Text>
+          <Text style={styles.sectionTitle}>{t('farmer.inputManagement.recent.title')}</Text>
           <TouchableOpacity
+            testID="inputMgmt.fullHistoryLink"
             onPress={onNavigateToFullHistory}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
-            accessibilityLabel="Full history"
+            accessibilityLabel={t('farmer.inputManagement.recent.fullHistory')}
           >
-            <Text style={styles.fullHistoryLink}>Full history</Text>
+            <Text style={styles.fullHistoryLink}>{t('farmer.inputManagement.recent.fullHistory')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* List of Recent Applications */}
-        <View style={styles.recentListCard}>
-          {RECENT_APPLICATIONS.map((item, index) => {
-            const isLast = index === RECENT_APPLICATIONS.length - 1;
-            const isPest = item.badgeType === 'pest';
-            return (
-              <View
-                key={item.id}
-                style={[styles.recentItemRow, !isLast && styles.recentItemBorder]}
-              >
-                <View
-                  style={[
-                    styles.recentIconBadge,
-                    { backgroundColor: isPest ? P.twPurple100 : P.mintTintBg },
-                  ]}
-                >
-                  {renderBadgeIcon(item.badgeType)}
-                </View>
-
-                <View style={styles.recentInfoCol}>
-                  <Text style={styles.recentItemTitle}>
-                    {item.name} · {item.cropName}
-                  </Text>
-                  <Text style={styles.recentItemSubtitle}>
-                    {item.date} · {item.category}
-                  </Text>
-                </View>
-
-                <Text style={styles.recentItemCost}>{item.cost}</Text>
-              </View>
-            );
-          })}
-        </View>
+        {renderRecentBody()}
 
         {/* Bottom Button: View full history */}
         <TouchableOpacity
+          testID="inputMgmt.viewFullHistory"
           style={styles.viewFullHistoryBtn}
           onPress={onNavigateToFullHistory}
           activeOpacity={0.75}
           accessibilityRole="button"
-          accessibilityLabel="View full history"
+          accessibilityLabel={t('farmer.inputManagement.recent.viewFullHistory')}
         >
           <HistoryRotateIcon size={18} color={P.forestGreen} />
-          <Text style={styles.viewFullHistoryBtnText}>View full history</Text>
+          <Text style={styles.viewFullHistoryBtnText}>{t('farmer.inputManagement.recent.viewFullHistory')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -747,5 +777,11 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '700',
     color: P.forestGreen,
+  },
+  // New (not on Dev): wrapper for the loading / error / empty states of RECENT APPLICATIONS,
+  // aligned to the list card's horizontal margin (spacing.input = Dev's 20).
+  stateBox: {
+    marginHorizontal: spacing.input,
+    gap: spacing.sm,
   },
 });

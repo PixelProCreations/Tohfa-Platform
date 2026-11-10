@@ -22,6 +22,16 @@ import {
   type ProductionLogResponse,
 } from '../../../api/livestock';
 import { type AnimalFormData } from './RegisterAnimalScreen';
+import { MilkDropletIcon, ProhibitedCircleIcon } from './animalDetailIcons';
+import { AnimalBreedingSection } from './AnimalBreedingSection';
+import { AnimalFeedSection } from './AnimalFeedSection';
+import { AnimalHealthSection } from './AnimalHealthSection';
+import { AnimalHousingSection } from './AnimalHousingSection';
+import { formatDayMonth, formatQuantity, formatRegisterFormDate } from './animalRecordView';
+import { AnimalRecordFormModal } from './AnimalRecordFormModal';
+import { AddRecordButton } from './animalDetailSectionParts';
+import { PRODUCTION_FORM_TYPES, productTypeLabel, type ProductionFormType } from './animalRecordForms';
+import { todayInKolkata } from '../../certifications/certificationForm';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -151,205 +161,6 @@ function TabHousingIcon({ size = 16, color = P.twGray700 }: { size?: number; col
   );
 }
 
-// ── Health Tab Icons ─────────────────────────────────────────────────────────
-
-function LeafIcon({ size = 18, color = colors.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M2 21c0-3 1.85-5.36 5.08-6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ProhibitedCircleIcon({ size = 18, color = P.twRed600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function VaccineVialsIcon({ size = 18, color = colors.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="7" width="6" height="13" rx="1.5" stroke={color} strokeWidth="2" />
-      <Line x1="7" y1="3" x2="7" y2="7" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Rect x="14" y="9" width="6" height="11" rx="1.5" stroke={color} strokeWidth="2" />
-      <Line x1="17" y1="5" x2="17" y2="9" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="12" x2="10" y2="12" stroke={color} strokeWidth="1.5" />
-      <Line x1="14" y1="14" x2="20" y2="14" stroke={color} strokeWidth="1.5" />
-    </Svg>
-  );
-}
-
-function DewormingBottleIcon({ size = 18, color = colors.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="6" width="14" height="15" rx="3" stroke={color} strokeWidth="2" />
-      <Rect x="8" y="2" width="8" height="4" rx="1" stroke={color} strokeWidth="2" />
-      <Line x1="12" y1="10" x2="12" y2="16" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="9" y1="13" x2="15" y2="13" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function StethoscopeIcon({ size = 20, color = P.twBlue700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4.5 3v5a5.5 5.5 0 0 0 11 0V3"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d="M10 13.5v3.5a3 3 0 0 0 6 0V15"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="16" cy="13" r="2" stroke={color} strokeWidth="2" />
-      <Path d="M3 3h3M14 3h3" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-// ── Feed Tab Icons ───────────────────────────────────────────────────────────
-
-function SproutFodderIcon({ size = 18, color = P.twAmber800 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 21V10" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M12 10a5 5 0 0 0-5-5M12 10a5 5 0 0 1 5-5" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="4" y1="21" x2="20" y2="21" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ConcentrateMeshIcon({ size = 18, color = P.twAmber800 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="8" cy="8" r="1.5" fill={color} />
-      <Circle cx="12" cy="8" r="1.5" fill={color} />
-      <Circle cx="16" cy="8" r="1.5" fill={color} />
-      <Circle cx="8" cy="12" r="1.5" fill={color} />
-      <Circle cx="12" cy="12" r="1.5" fill={color} />
-      <Circle cx="16" cy="12" r="1.5" fill={color} />
-      <Circle cx="8" cy="16" r="1.5" fill={color} />
-      <Circle cx="12" cy="16" r="1.5" fill={color} />
-      <Circle cx="16" cy="16" r="1.5" fill={color} />
-    </Svg>
-  );
-}
-
-function LinkChainIcon({ size = 13, color = P.twBlue600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-      <Path
-        d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
-        stroke={color}
-        strokeWidth="2.4"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-// ── Breeding Tab Icons ───────────────────────────────────────────────────────
-
-function CalfCowIcon({ size = 18, color = P.twAmber800 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7 5l2 3h6l2-3M6 9a6 6 0 0 0 12 0V8H6v1zM9 13h.01M15 13h.01M10 17h4"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function PlusCircleGreenIcon({ size = 17, color = colors.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Path d="M12 8v8M8 12h8" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-// ── Production Tab Icons ─────────────────────────────────────────────────────
-
-function MilkDropletIcon({ size = 18, color = P.twBlue600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-// ── Housing Tab Icons ────────────────────────────────────────────────────────
-
-function BarnOutlineIcon({ size = 18, color = P.twAmber800 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 10l9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V10z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path d="M9 22V13h6v9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function ShieldCheckBadgeIcon({ size = 20 }: { size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 2l2.4 2 3.1-.3 1.2 2.9 3 1-.5 3.1 1.8 2.6-2 2.4.3 3.1-2.9 1.2-1 3-3.1-.5-2.6 1.8-2.4-2-3.1.3-1.2-2.9-3-1 .5-3.1-1.8-2.6 2-2.4-.3-3.1 2.9-1.2 1-3 3.1.5L12 2z"
-        stroke={colors.brandGreen}
-        strokeWidth="1.8"
-      />
-      <Path d="M8.5 12l2.5 2.5 5-5" stroke={colors.brandGreen} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
-function BroomCleaningIcon({ size = 17, color = colors.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 3v10M7 17l5-4 5 4M6 21h12M5 18l1.5 3M19 18l-1.5 3" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
-}
-
 // ── Enum display / API mapping ──────────────────────────────────────────────
 // Explicit switches (not `.toUpperCase() as X`) so a future enum addition on
 // either side fails to compile instead of silently mismatching.
@@ -411,8 +222,10 @@ function todayIso(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
+// The server derives the withdrawal window on Asia/Kolkata dates (BR-138), so
+// "today" here is the IST date, not the device's local date.
 function isWithdrawalActive(withdrawalUntil: string | null): boolean {
-  return withdrawalUntil !== null && withdrawalUntil >= todayIso();
+  return withdrawalUntil !== null && withdrawalUntil >= todayInKolkata();
 }
 
 /** Short age label ("4 yr", "8 mo") computed client-side from `dateOfBirth`. */
@@ -433,18 +246,35 @@ function formatShortDate(iso: string): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
-function daysUntil(iso: string): number {
-  const target = parseIsoDate(iso).getTime();
-  const today = parseIsoDate(todayIso()).getTime();
-  return Math.max(0, Math.round((target - today) / (1000 * 60 * 60 * 24)));
+/**
+ * The animal's MEAT / WOOL / MANURE logs, newest first. The list endpoint
+ * filters on one productType, so it is one request per type (merged here)
+ * rather than an unfiltered page the daily milk logs would crowd out.
+ */
+async function loadOtherProduce(animalId: string): Promise<ProductionLogResponse[]> {
+  const pages = await Promise.all(
+    PRODUCTION_FORM_TYPES.map((productType) => listProductionLogs({ animalId, productType })),
+  );
+  return pages
+    .flatMap((p) => p.items)
+    .sort((a, b) =>
+      a.loggedOn === b.loggedOn ? b.createdAt.localeCompare(a.createdAt) : b.loggedOn.localeCompare(a.loggedOn),
+    );
 }
+
+function isProductionFormType(v: string): v is ProductionFormType {
+  return (PRODUCTION_FORM_TYPES as readonly string[]).includes(v);
+}
+
+/** What the Production tab says after a MEAT / WOOL / MANURE log is saved (BR-139). */
+type ProduceNotice = { restricted: false } | { restricted: true; until: string | null };
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface AnimalDetailProps {
-  animalId?: string;
-  animalName?: string;
-  animalCode?: string;
+  animalId?: string | undefined;
+  animalName?: string | undefined;
+  animalCode?: string | undefined;
   species?: string;
   breed?: string;
   gender?: string;
@@ -459,9 +289,9 @@ export interface AnimalDetailProps {
 type TabKey = 'Health' | 'Feed' | 'Breeding' | 'Production' | 'Housing';
 
 export function AnimalDetailScreen({
-  animalId = 'a1',
-  animalName = 'Lakshmi',
-  animalCode = 'C-014',
+  animalId,
+  animalName = '',
+  animalCode = '',
   species = 'Cattle',
   breed = 'Jersey cross',
   gender = 'Female',
@@ -478,14 +308,26 @@ export function AnimalDetailScreen({
   const [productionLogs, setProductionLogs] = useState<ProductionLogResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown | null>(null);
+  const [otherProduce, setOtherProduce] = useState<ProductionLogResponse[]>([]);
+  const [otherProduceFailed, setOtherProduceFailed] = useState(false);
+  const [addingProduce, setAddingProduce] = useState(false);
+  const [produceNotice, setProduceNotice] = useState<ProduceNotice | null>(null);
+  // No route param means no animal: render the missing-animal state rather
+  // than fetching (or showing) a stand-in animal.
+  const realAnimalId = animalId?.trim() ?? '';
+  const hasAnimal = realAnimalId.length > 0;
 
   const load = useCallback(async () => {
+    if (!hasAnimal) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setLoadError(null);
     try {
       const [fetchedAnimal, logsResult] = await Promise.all([
-        getAnimal(animalId),
-        listProductionLogs({ animalId, productType: 'MILK' }),
+        getAnimal(realAnimalId),
+        listProductionLogs({ animalId: realAnimalId, productType: 'MILK' }),
       ]);
       setAnimal(fetchedAnimal);
       setProductionLogs(logsResult.items);
@@ -494,11 +336,40 @@ export function AnimalDetailScreen({
     } finally {
       setLoading(false);
     }
-  }, [animalId]);
+  }, [hasAnimal, realAnimalId]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Separate from load(): a failure here must not take the whole screen down.
+  const refreshOtherProduce = useCallback(async () => {
+    if (!hasAnimal) return;
+    try {
+      setOtherProduce(await loadOtherProduce(realAnimalId));
+      setOtherProduceFailed(false);
+    } catch {
+      setOtherProduceFailed(true);
+    }
+  }, [hasAnimal, realAnimalId]);
+
+  useEffect(() => {
+    void refreshOtherProduce();
+  }, [refreshOtherProduce]);
+
+  /**
+   * Re-reads the animal without the full-screen skeleton (load() would unmount
+   * the open tab). Used after a treatment moved `withdrawalUntil` (BR-138), so
+   * the withdrawal banner follows the server. A failure keeps the shown animal.
+   */
+  const refreshAnimal = useCallback(async () => {
+    if (!hasAnimal) return;
+    try {
+      setAnimal(await getAnimal(realAnimalId));
+    } catch {
+      // The next full load shows the new date.
+    }
+  }, [hasAnimal, realAnimalId]);
 
   // Real, authoritative values once loaded; the route-param props above only
   // cover the brief window before the GET resolves.
@@ -547,15 +418,16 @@ export function AnimalDetailScreen({
     }
   };
 
-  const handleRegisterOffspring = () => {
+  // The calving record supplies the newborn's date of birth and sex; the rest is the dam's.
+  const handleRegisterOffspring = (calvingIso: string, offspringGender: AnimalGender | null) => {
     if (onNavigateToRegisterOffspring) {
       onNavigateToRegisterOffspring();
     } else if (onNavigateToEdit) {
       onNavigateToEdit({
-        species,
-        breed: `${breed} offspring`,
-        gender: 'Female',
-        dob: '14 Mar 2025',
+        species: displaySpecies,
+        breed: `${displayBreed} offspring`,
+        gender: offspringGender === null ? 'Female' : genderLabel(offspringGender),
+        dob: formatRegisterFormDate(calvingIso),
         source: 'born_on_farm',
         organicStatus: 'Organic',
       });
@@ -579,6 +451,31 @@ export function AnimalDetailScreen({
         return { alignSelf: 'flex-end' as const };
     }
   };
+
+  if (!hasAnimal) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <View style={styles.container} testID="animalDetail.missingAnimal">
+          <View style={styles.header}>
+            <TouchableOpacity
+              style={styles.circleHeaderBtn}
+              onPress={onBack}
+              activeOpacity={0.7}
+              testID="animalDetail.missingAnimalBack"
+              accessibilityRole="button"
+              accessibilityLabel={t('farmer.livestock.saleTransferCull.back')}
+            >
+              <ArrowBackIcon size={20} color={P.deepGreen} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.missingAnimalBody} accessibilityLiveRegion="polite">
+            <Text style={styles.missingAnimalText}>{t('farmer.livestock.detail.missingAnimal')}</Text>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (loading) {
     return (
@@ -682,6 +579,7 @@ export function AnimalDetailScreen({
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'Health' && styles.tabButtonActive]}
               onPress={() => setActiveTab('Health')}
+              testID="animalDetail.tab.Health"
               activeOpacity={0.8}
             >
               <TabHealthIcon size={16} color={activeTab === 'Health' ? P.white : P.twGray700} />
@@ -694,6 +592,7 @@ export function AnimalDetailScreen({
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'Feed' && styles.tabButtonActive]}
               onPress={() => setActiveTab('Feed')}
+              testID="animalDetail.tab.Feed"
               activeOpacity={0.8}
             >
               <TabFeedIcon size={16} color={activeTab === 'Feed' ? P.white : P.twGray700} />
@@ -706,6 +605,7 @@ export function AnimalDetailScreen({
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'Breeding' && styles.tabButtonActive]}
               onPress={() => setActiveTab('Breeding')}
+              testID="animalDetail.tab.Breeding"
               activeOpacity={0.8}
             >
               <TabBreedingIcon size={16} color={activeTab === 'Breeding' ? P.white : P.twGray700} />
@@ -720,6 +620,7 @@ export function AnimalDetailScreen({
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'Production' && styles.tabButtonActive]}
               onPress={() => setActiveTab('Production')}
+              testID="animalDetail.tab.Production"
               activeOpacity={0.8}
             >
               <TabProductionIcon
@@ -737,6 +638,7 @@ export function AnimalDetailScreen({
             <TouchableOpacity
               style={[styles.tabButton, activeTab === 'Housing' && styles.tabButtonActive]}
               onPress={() => setActiveTab('Housing')}
+              testID="animalDetail.tab.Housing"
               activeOpacity={0.8}
             >
               <TabHousingIcon size={16} color={activeTab === 'Housing' ? P.white : P.twGray700} />
@@ -757,253 +659,27 @@ export function AnimalDetailScreen({
             <View style={styles.arrowTriangleRight} />
           </View>
 
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* TAB 1: HEALTH                                                      */}
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {activeTab === 'Health' && (
-            <View style={styles.tabContentContainer}>
-              {/* Notice 1: Organic Standard */}
-              <View style={styles.organicNoticeCard}>
-                <View style={styles.organicNoticeIconCol}>
-                  <LeafIcon size={18} color={colors.brandGreen} />
-                </View>
-                <Text style={styles.organicNoticeText}>
-                  Organic standard — only herbal & homeopathic treatments permitted. Antibiotics are
-                  restricted.
-                </Text>
-              </View>
-
-              {/* Notice 2: Milk not sellable withdrawal alert — real, from animal.withdrawalUntil */}
-              {withdrawalActive && animal?.withdrawalUntil && (
-                <View style={styles.withdrawalAlertCard}>
-                  <View style={styles.withdrawalLeftAccentBar} />
-                  <View style={styles.withdrawalCardInner}>
-                    <View style={styles.withdrawalHeaderRow}>
-                      <ProhibitedCircleIcon size={19} color={P.twOrange700} />
-                      <Text style={styles.withdrawalTitle}>Milk not sellable — withdrawal active</Text>
-                    </View>
-                    <Text style={styles.withdrawalBody}>
-                      Clears <Text style={styles.boldText}>{formatShortDate(animal.withdrawalUntil)}</Text> ·{' '}
-                      {daysUntil(animal.withdrawalUntil)} days left.
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Section: VACCINATIONS */}
-              <Text style={styles.sectionHeaderTitle}>VACCINATIONS</Text>
-              <View style={styles.whiteCardContainer}>
-                {/* Vaccine Item 1 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <VaccineVialsIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>FMD vaccine</Text>
-                    <Text style={styles.itemSubtitle}>Given 10 Apr</Text>
-                  </View>
-                  <View style={styles.dueDateBadge}>
-                    <Text style={styles.dueDateBadgeText}>Next 10 Oct</Text>
-                  </View>
-                </View>
-
-                <View style={styles.dividerLine} />
-
-                {/* Vaccine Item 2 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <VaccineVialsIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>HS vaccine</Text>
-                    <Text style={styles.itemSubtitle}>Given 02 Feb</Text>
-                  </View>
-                  <View style={styles.dueDateBadge}>
-                    <Text style={styles.dueDateBadgeText}>Next 02 Aug</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Section: DEWORMING */}
-              <Text style={styles.sectionHeaderTitle}>DEWORMING</Text>
-              <View style={styles.whiteCardContainer}>
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <DewormingBottleIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Deworming dose</Text>
-                    <Text style={styles.itemSubtitle}>Given 01 Jul</Text>
-                  </View>
-                  <View style={styles.dueDateBadge}>
-                    <Text style={styles.dueDateBadgeText}>Next 01 Oct</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Section: CHECKUP & TREATMENT */}
-              <Text style={styles.sectionHeaderTitle}>CHECKUP & TREATMENT</Text>
-              <View style={styles.whiteCardContainer}>
-                <View style={styles.checkupCardContent}>
-                  <View style={styles.checkupHeaderRow}>
-                    <View style={styles.checkupTitleWithIcon}>
-                      <StethoscopeIcon size={18} color={P.twBlue700} />
-                      <Text style={styles.checkupTitle}>Checkup · 12 Jul</Text>
-                    </View>
-                    <Text style={styles.checkupDoctor}>Dr. Anand</Text>
-                  </View>
-                  <Text style={styles.checkupDescription}>
-                    Sub-clinical mastitis, left quarter. Advised herbal treatment.
-                  </Text>
-                </View>
-              </View>
-            </View>
+          {/* TAB 1: HEALTH — Dev's design, filled from the health-records API (AnimalHealthSection). */}
+          {activeTab === 'Health' && animal && (
+            <AnimalHealthSection
+              animal={animal}
+              withdrawalActive={withdrawalActive}
+              onAnimalChanged={() => void refreshAnimal()}
+              styles={styles}
+            />
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* TAB 2: FEED                                                        */}
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {activeTab === 'Feed' && (
-            <View style={styles.tabContentContainer}>
-              {/* Section: FEED REFERENCE */}
-              <Text style={styles.sectionHeaderTitle}>FEED REFERENCE</Text>
-              <View style={styles.whiteCardContainer}>
-                {/* Feed type */}
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Feed type</Text>
-                  <Text style={styles.tableValueBold}>Organic fodder + concentrate</Text>
-                </View>
-                <View style={styles.dividerLine} />
+          {/* TAB 2: FEED — Dev's design, filled from feed-plans / feed-logs (AnimalFeedSection). */}
+          {activeTab === 'Feed' && <AnimalFeedSection animalId={realAnimalId} styles={styles} />}
 
-                {/* Source */}
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Source</Text>
-                  <Text style={styles.tableValueBold}>Own-farm grown</Text>
-                </View>
-                <View style={styles.dividerLine} />
-
-                {/* Grazing */}
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Grazing</Text>
-                  <Text style={styles.tableValueBold}>Upper paddock · 5 h/day</Text>
-                </View>
-                <View style={styles.dividerLine} />
-
-                {/* Water source */}
-                <View style={styles.tableRow}>
-                  <Text style={styles.tableLabel}>Water source</Text>
-                  <View style={styles.waterSourceValRow}>
-                    <Text style={styles.tableValueBold}>Borewell</Text>
-                    <LinkChainIcon size={14} color={P.twBlue600} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Water source helper caption */}
-              <Text style={styles.footnoteCaption}>
-                Water source read from Field Context (Screen 18) — not re-entered here.
-              </Text>
-
-              {/* Section: DAILY FEED LOG */}
-              <Text style={styles.sectionHeaderTitle}>DAILY FEED LOG</Text>
-              <View style={styles.whiteCardContainer}>
-                {/* Log 1 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.tanIconSquare}>
-                    <SproutFodderIcon size={18} color={P.twAmber800} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Green fodder</Text>
-                    <Text style={styles.itemSubtitle}>16 Jul</Text>
-                  </View>
-                  <Text style={styles.itemAmountBold}>18 kg</Text>
-                </View>
-
-                <View style={styles.dividerLine} />
-
-                {/* Log 2 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.tanIconSquare}>
-                    <ConcentrateMeshIcon size={18} color={P.twAmber800} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Concentrate mix</Text>
-                    <Text style={styles.itemSubtitle}>15 Jul</Text>
-                  </View>
-                  <Text style={styles.itemAmountBold}>3 kg</Text>
-                </View>
-
-                <View style={styles.dividerLine} />
-
-                {/* Log 3 */}
-                <View style={styles.itemRow}>
-                  <View style={styles.tanIconSquare}>
-                    <SproutFodderIcon size={18} color={P.twAmber800} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Green fodder</Text>
-                    <Text style={styles.itemSubtitle}>14 Jul</Text>
-                  </View>
-                  <Text style={styles.itemAmountBold}>17 kg</Text>
-                </View>
-              </View>
-            </View>
-          )}
-
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* TAB 3: BREEDING                                                    */}
-          {/* ══════════════════════════════════════════════════════════════════ */}
+          {/* TAB 3: BREEDING — Dev's design, filled from breeding-records (AnimalBreedingSection). */}
           {activeTab === 'Breeding' && (
-            <View style={styles.tabContentContainer}>
-              {/* Section: CURRENT CYCLE */}
-              <Text style={styles.sectionHeaderTitle}>CURRENT CYCLE</Text>
-              <View style={styles.whiteCardContainer}>
-                <View style={styles.cycleTopRow}>
-                  <View style={styles.pregnantBadgePill}>
-                    <Text style={styles.pregnantBadgeText}>Confirmed pregnant</Text>
-                  </View>
-                  <Text style={styles.cycleCountText}>Cycle 3</Text>
-                </View>
-
-                <View style={styles.cycleGridRow}>
-                  {/* Left column: Bred */}
-                  <View style={styles.cycleGridCol}>
-                    <Text style={styles.cycleGridLabel}>Bred</Text>
-                    <Text style={styles.cycleGridValBold}>12 Feb</Text>
-                    <Text style={styles.cycleGridSubtext}>AI</Text>
-                  </View>
-
-                  {/* Right column: Expected delivery */}
-                  <View style={styles.cycleGridCol}>
-                    <Text style={styles.cycleGridLabel}>Expected delivery</Text>
-                    <Text style={styles.cycleGridValBold}>20 Nov 2026</Text>
-                    <Text style={styles.cycleGridCountdown}>≈ 4 months away</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Section: CALVING HISTORY */}
-              <Text style={styles.sectionHeaderTitle}>CALVING HISTORY</Text>
-              <View style={styles.whiteCardContainer}>
-                <View style={styles.calvingHeaderRow}>
-                  <CalfCowIcon size={19} color={P.twAmber800} />
-                  <Text style={styles.calvingTitle}>Delivered · 14 Mar 2025</Text>
-                </View>
-
-                <Text style={styles.calvingDescription}>
-                  Female calf — not yet registered as an animal.
-                </Text>
-
-                <TouchableOpacity
-                  style={styles.registerOffspringBtn}
-                  onPress={handleRegisterOffspring}
-                  activeOpacity={0.8}
-                >
-                  <PlusCircleGreenIcon size={18} color={colors.brandGreen} />
-                  <Text style={styles.registerOffspringBtnText}>Register offspring</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <AnimalBreedingSection
+              animalId={realAnimalId}
+              gender={animal?.gender ?? null}
+              styles={styles}
+              onRegisterOffspring={animal ? handleRegisterOffspring : undefined}
+            />
           )}
 
           {/* ══════════════════════════════════════════════════════════════════ */}
@@ -1081,83 +757,113 @@ export function AnimalDetailScreen({
                   ))}
                 </View>
               )}
+
+              {/* MEAT / WOOL / MANURE: logged per animal; BR-139 decides on the server whether each is sellable. */}
+              <Text style={styles.sectionHeaderTitle}>{t('farmer.livestock.detail.form.production.otherTitle')}</Text>
+              <AddRecordButton
+                label={t('farmer.livestock.detail.form.addProduction')}
+                onPress={() => {
+                  setProduceNotice(null);
+                  setAddingProduce(true);
+                }}
+                testID="animalDetail.production.add"
+                styles={styles}
+              />
+              {addingProduce ? (
+                <AnimalRecordFormModal
+                  kind="production"
+                  animalId={realAnimalId}
+                  withdrawalUntil={animal?.withdrawalUntil ?? null}
+                  onClose={() => setAddingProduce(false)}
+                  onSaved={(saved) => {
+                    setAddingProduce(false);
+                    // The server's flag, not the client's guess: BR-139 restricts whatever was sent.
+                    setProduceNotice(
+                      saved.production?.restrictedFromSale
+                        ? { restricted: true, until: animal?.withdrawalUntil ?? null }
+                        : { restricted: false },
+                    );
+                    void refreshOtherProduce();
+                  }}
+                />
+              ) : null}
+              {produceNotice?.restricted ? (
+                <View style={styles.productionAlertCard} accessibilityLiveRegion="polite">
+                  <ProhibitedCircleIcon size={17} color={P.twOrange700} />
+                  <Text
+                    style={[styles.productionAlertText, styles.itemMainCol]}
+                    testID="animalDetail.production.restrictedNotice"
+                  >
+                    {produceNotice.until
+                      ? t('farmer.livestock.detail.form.production.restrictedNotice', {
+                          date: formatDayMonth(produceNotice.until),
+                        })
+                      : t('farmer.livestock.detail.form.production.restrictedNoticeNoDate')}
+                  </Text>
+                </View>
+              ) : produceNotice ? (
+                <Text
+                  style={styles.itemSubtitle}
+                  accessibilityLiveRegion="polite"
+                  testID="animalDetail.production.savedNotice"
+                >
+                  {t('farmer.livestock.detail.form.production.savedNotice')}
+                </Text>
+              ) : null}
+              <View style={styles.whiteCardContainer}>
+                {otherProduceFailed ? (
+                  <Text style={styles.itemSubtitle} testID="animalDetail.production.otherFailed">
+                    {t('farmer.livestock.detail.form.production.otherLoadFailed')}
+                  </Text>
+                ) : otherProduce.length === 0 ? (
+                  <Text style={styles.itemSubtitle} testID="animalDetail.production.otherEmpty">
+                    {t('farmer.livestock.detail.form.production.otherEmpty')}
+                  </Text>
+                ) : (
+                  otherProduce.map((log, idx) => (
+                    <React.Fragment key={log.id}>
+                      {idx > 0 && <View style={styles.dividerLine} />}
+                      <View style={styles.itemRow} testID={`animalDetail.production.log:${log.id}`}>
+                        <View style={styles.itemMainCol}>
+                          <Text style={styles.itemTitle}>
+                            {t('farmer.livestock.detail.form.production.rowTitle', {
+                              product: isProductionFormType(log.productType)
+                                ? productTypeLabel(log.productType)
+                                : log.productType,
+                              date: formatDayMonth(log.loggedOn),
+                            })}
+                          </Text>
+                          {log.restrictedFromSale ? (
+                            <Text
+                              style={styles.productionAlertText}
+                              testID={`animalDetail.production.restricted:${log.id}`}
+                            >
+                              {t('farmer.livestock.detail.form.production.restrictedBadge')}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={styles.itemAmountBold}>
+                          {formatQuantity(log.quantity)} {t('farmer.livestock.detail.unit.KG')}
+                        </Text>
+                      </View>
+                    </React.Fragment>
+                  ))
+                )}
+              </View>
             </View>
           )}
 
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {/* TAB 5: HOUSING                                                     */}
-          {/* ══════════════════════════════════════════════════════════════════ */}
-          {activeTab === 'Housing' && (
-            <View style={styles.tabContentContainer}>
-              {/* Section: HOUSING */}
-              <Text style={styles.sectionHeaderTitle}>HOUSING</Text>
-              <View style={styles.whiteCardContainer}>
-                <View style={styles.housingHeaderRow}>
-                  <BarnOutlineIcon size={18} color={P.twAmber800} />
-                  <Text style={styles.housingHeaderTitle}>Barn (night) + grazing (day)</Text>
-                </View>
-
-                {/* 2 Stat metric boxes */}
-                <View style={styles.housingBoxesRow}>
-                  <View style={styles.housingMetricBox}>
-                    <View style={styles.metricValRow}>
-                      <Text style={styles.metricValNumber}>12</Text>
-                      <Text style={styles.metricValUnit}>sq.ft</Text>
-                    </View>
-                    <Text style={styles.metricValLabel}>Per animal</Text>
-                  </View>
-
-                  <View style={styles.housingMetricBox}>
-                    <View style={styles.metricValRow}>
-                      <Text style={styles.metricValNumber}>≥ 11</Text>
-                      <Text style={styles.metricValUnit}>sq.ft</Text>
-                    </View>
-                    <Text style={styles.metricValLabel}>NPOP minimum</Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Welfare standards compliance banner */}
-              <View style={styles.welfareNoticeCard}>
-                <ShieldCheckBadgeIcon size={20} />
-                <View style={styles.welfareNoticeCol}>
-                  <Text style={styles.welfareNoticeTitle}>Meets welfare & space standards</Text>
-                  <Text style={styles.welfareNoticeSubtitle}>Above NPOP organic minimum for cattle.</Text>
-                </View>
-              </View>
-
-              {/* Section: HYGIENE LOG */}
-              <Text style={styles.sectionHeaderTitle}>HYGIENE LOG</Text>
-              <View style={styles.whiteCardContainer}>
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <BroomCleaningIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Bedding replaced</Text>
-                    <Text style={styles.itemSubtitle}>16 Jul</Text>
-                  </View>
-                </View>
-
-                <View style={styles.dividerLine} />
-
-                <View style={styles.itemRow}>
-                  <View style={styles.greenIconSquare}>
-                    <BroomCleaningIcon size={17} color={colors.brandGreen} />
-                  </View>
-                  <View style={styles.itemMainCol}>
-                    <Text style={styles.itemTitle}>Barn washed</Text>
-                    <Text style={styles.itemSubtitle}>14 Jul</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
+          {/* TAB 5: HOUSING — Dev's design, filled from housing-records / hygiene-logs (AnimalHousingSection). */}
+          {activeTab === 'Housing' && animal && (
+            <AnimalHousingSection animalId={realAnimalId} species={animal.species} styles={styles} />
           )}
         </ScrollView>
       </View>
     </SafeAreaView>
   );
 }
+
+export type AnimalDetailStyles = typeof styles;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -1199,6 +905,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.nearBlack,
     letterSpacing: -0.2,
+  },
+  missingAnimalBody: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  missingAnimalText: {
+    fontSize: typography.body,
+    color: P.nearBlack,
+    textAlign: 'center',
   },
   headerActions: {
     flexDirection: 'row',
