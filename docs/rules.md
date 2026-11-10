@@ -1320,12 +1320,14 @@ See also BR-66.
 4. **Admin Content Management:** Only authorized administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`, via `learning.admin.manage`) can create, update, or remove articles, videos, trainings, and community groups, with full audit logging (BR-35) (`BR-59d`). Authorization of the admin routes is covered by `apps/api/src/rbac/rbac.test.ts`.
 5. **Participation is farmer-only:** A non-farmer actor cannot enrol in a training or join a group (403) (`BR-59e`).
 6. **Request validation:** `videoUrl` must be `https`, `trainingDate` a real calendar date, and free-text fields are length-bounded; violations are 422 (`BR-59j`).
+7. **Admin Content Reads:** Administrators (`SUPER_ADMIN`, `TOHFA_ADMIN`, via `learning.admin.manage`) can list and inspect all articles, videos, trainings, and community groups, including unpublished content (`BR-59l`). Unknown IDs return 404 `NOT_FOUND` (`BR-59m`). List endpoints support optional `language`, `isPublished` (`true`/`false`/absent=both), `q` (case-insensitive substring with escaped wildcards), and group sorting (`members`/`name`) (`BR-59n`).
+8. **Farmer Group Detail & Search:** Authenticated farmers can read single group details with `isJoined` status without leaking other farmers' identities (`BR-59o`). The farmer group list supports optional `q` substring search by name (`BR-59p`).
 
-**Open owner items.** Admin deletes are hard deletes; enrolment in a training whose date has passed is not refused; there are no admin read endpoints for learning content.
+**Open owner items.** Admin deletes are hard deletes; enrolment in a training whose date has passed is not refused.
 
 **Failure mode if unenforced.** Overbooking beyond field workshop capacity; unauthenticated or cross-tenant modification of educational materials.
 
-**Test contract.** (`apps/api/src/modules/learning-hub/learning-hub.test.ts`)
+**Test contract.** (`apps/api/src/modules/learning-hub/learning-hub.test.ts`, `learning-hub.admin-read.test.ts`)
 - `BR-59a` Allows farmers to view published articles, videos, trainings, and groups with language filtering.
 - `BR-59b` Enforces training capacity limits and handles enrollment/unenrollment; enrolling in an unpublished or unknown training is 404.
 - `BR-59c` Allows joining and leaving community groups.
@@ -1337,6 +1339,11 @@ See also BR-66.
 - `BR-59i` Replayed enrol, join, unenrol and leave return the existing state and write no extra audit row (also on a FULL training).
 - `BR-59j` Non-https `videoUrl`, non-calendar `trainingDate` and over-long free text are 422 on create and update.
 - `BR-59k` Unpublished articles and trainings are invisible to farmers (404 / absent) through the real SQL.
+- `BR-59l` Admin article, video, training and group lists include unpublished content; isPublished filter selects true or false; total equals the filtered count.
+- `BR-59m` Admin detail reads return full content (including unpublished); unknown id returns 404 NOT_FOUND.
+- `BR-59n` Admin search parameter q matches case-insensitively and treats % and _ literally; a q of 81 characters is 422; groups sort=members orders by memberCount desc; sort=name orders alphabetically.
+- `BR-59o` A farmer reads one group with isJoined true after joining and false after leaving; unknown id is 404 NOT_FOUND; response contains no farmer id or member identity.
+- `BR-59p` Farmer group list filter q searches case-insensitively by name with wildcards escaped; without q list is unchanged.
 
 ---
 

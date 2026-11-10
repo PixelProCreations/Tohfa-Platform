@@ -9,6 +9,10 @@ import {
   createTrainingBody,
   createVideoBody,
   learningIdParams,
+  listAdminArticlesQuery,
+  listAdminGroupsQuery,
+  listAdminTrainingsQuery,
+  listAdminVideosQuery,
   listArticlesQuery,
   listGroupsQuery,
   listTrainingsQuery,
@@ -112,6 +116,19 @@ farmerLearningRouter.get(
   }),
 );
 
+// GET /v1/farmers/me/learning/groups/:id
+farmerLearningRouter.get(
+  '/learning/groups/:id',
+  requireAuth,
+  requirePermission('farmer.learning.view'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.getFarmerGroup(scope.farmerId!, id));
+  }),
+);
+
 // POST /v1/farmers/me/learning/groups/:id/join
 farmerLearningRouter.post(
   '/learning/groups/:id/join',
@@ -141,6 +158,30 @@ farmerLearningRouter.delete(
 
 // ── Admin Routes (Mounted under /v1/admin) ───────────────────────────────────
 export const adminLearningRouter: Router = Router();
+
+// GET /v1/admin/learning/articles
+adminLearningRouter.get(
+  '/learning/articles',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ query: listAdminArticlesQuery }),
+  asyncHandler(async (req, res) => {
+    const query = getValidated(req, 'query', listAdminArticlesQuery);
+    res.json(await learningHubService.listAdminArticles(query));
+  }),
+);
+
+// GET /v1/admin/learning/articles/:id
+adminLearningRouter.get(
+  '/learning/articles/:id',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.getAdminArticle(id));
+  }),
+);
 
 // POST /v1/admin/learning/articles
 adminLearningRouter.post(
@@ -181,6 +222,30 @@ adminLearningRouter.delete(
     const { id } = getValidated(req, 'params', learningIdParams);
     await learningHubService.deleteArticle(scope, id);
     res.status(204).end();
+  }),
+);
+
+// GET /v1/admin/learning/videos
+adminLearningRouter.get(
+  '/learning/videos',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ query: listAdminVideosQuery }),
+  asyncHandler(async (req, res) => {
+    const query = getValidated(req, 'query', listAdminVideosQuery);
+    res.json(await learningHubService.listAdminVideos(query));
+  }),
+);
+
+// GET /v1/admin/learning/videos/:id
+adminLearningRouter.get(
+  '/learning/videos/:id',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.getAdminVideo(id));
   }),
 );
 
@@ -226,6 +291,30 @@ adminLearningRouter.delete(
   }),
 );
 
+// GET /v1/admin/learning/trainings
+adminLearningRouter.get(
+  '/learning/trainings',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ query: listAdminTrainingsQuery }),
+  asyncHandler(async (req, res) => {
+    const query = getValidated(req, 'query', listAdminTrainingsQuery);
+    res.json(await learningHubService.listAdminTrainings(query));
+  }),
+);
+
+// GET /v1/admin/learning/trainings/:id
+adminLearningRouter.get(
+  '/learning/trainings/:id',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.getAdminTraining(id));
+  }),
+);
+
 // POST /v1/admin/learning/trainings
 adminLearningRouter.post(
   '/learning/trainings',
@@ -265,6 +354,30 @@ adminLearningRouter.delete(
     const { id } = getValidated(req, 'params', learningIdParams);
     await learningHubService.deleteTraining(scope, id);
     res.status(204).end();
+  }),
+);
+
+// GET /v1/admin/learning/groups
+adminLearningRouter.get(
+  '/learning/groups',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ query: listAdminGroupsQuery }),
+  asyncHandler(async (req, res) => {
+    const query = getValidated(req, 'query', listAdminGroupsQuery);
+    res.json(await learningHubService.listAdminGroups(query));
+  }),
+);
+
+// GET /v1/admin/learning/groups/:id
+adminLearningRouter.get(
+  '/learning/groups/:id',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.getAdminGroup(id));
   }),
 );
 

@@ -22,6 +22,10 @@ import type {
   LearningGroupResponse,
   LearningTrainingResponse,
   LearningVideoResponse,
+  ListAdminArticlesQuery,
+  ListAdminGroupsQuery,
+  ListAdminTrainingsQuery,
+  ListAdminVideosQuery,
   ListArticlesQuery,
   ListGroupsQuery,
   ListTrainingsQuery,
@@ -108,6 +112,26 @@ function mapTraining(row: TrainingRow): LearningTrainingResponse {
   };
 }
 
+function mapAdminTraining(row: TrainingRow): LearningTrainingResponse {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    trainingDate: row.training_date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    mode: row.mode,
+    location: row.location,
+    instructor: row.instructor,
+    capacity: row.capacity,
+    enrolledCount: Number(row.enrolled_count ?? 0),
+    language: row.language,
+    isPublished: row.is_published,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
 function toEnrollmentResponse(row: EnrollmentRow) {
   return { trainingId: row.training_id, farmerId: row.farmer_id, enrolledAt: row.enrolled_at };
 }
@@ -120,6 +144,18 @@ function mapGroup(row: GroupRow): LearningGroupResponse {
     category: row.category,
     memberCount: Number(row.member_count ?? 0),
     isJoined: row.is_joined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapAdminGroup(row: GroupRow): LearningGroupResponse {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: row.category,
+    memberCount: Number(row.member_count ?? 0),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -555,6 +591,98 @@ export class LearningHubService {
         before: { groupId, farmerId },
       });
     });
+  }
+
+  // ── Admin Reads & Farmer Group Detail ──────────────────────────────────────
+  async listAdminArticles(query: ListAdminArticlesQuery) {
+    const { rows, total } = await this.deps.repo.findArticles(this.deps.db, {
+      ...query,
+      publishedOnly: false,
+    });
+    return {
+      items: rows.map(mapArticleSummary),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+
+  async getAdminArticle(id: string) {
+    const row = await this.deps.repo.findArticleById(this.deps.db, id, false);
+    if (!row) {
+      throw new AppError('NOT_FOUND', { detail: 'Learning article not found' });
+    }
+    return mapArticle(row);
+  }
+
+  async listAdminVideos(query: ListAdminVideosQuery) {
+    const { rows, total } = await this.deps.repo.findVideos(this.deps.db, {
+      ...query,
+      publishedOnly: false,
+    });
+    return {
+      items: rows.map(mapVideo),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+
+  async getAdminVideo(id: string) {
+    const row = await this.deps.repo.findVideoById(this.deps.db, id);
+    if (!row) {
+      throw new AppError('NOT_FOUND', { detail: 'Learning video not found' });
+    }
+    return mapVideo(row);
+  }
+
+  async listAdminTrainings(query: ListAdminTrainingsQuery) {
+    const { rows, total } = await this.deps.repo.findTrainings(this.deps.db, {
+      ...query,
+      publishedOnly: false,
+    });
+    return {
+      items: rows.map(mapAdminTraining),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+
+  async getAdminTraining(id: string) {
+    const row = await this.deps.repo.findTrainingById(this.deps.db, id);
+    if (!row) {
+      throw new AppError('NOT_FOUND', { detail: 'Learning training not found' });
+    }
+    return mapAdminTraining(row);
+  }
+
+  async listAdminGroups(query: ListAdminGroupsQuery) {
+    const { rows, total } = await this.deps.repo.findGroups(this.deps.db, {
+      ...query,
+    });
+    return {
+      items: rows.map(mapAdminGroup),
+      total,
+      page: query.page,
+      limit: query.limit,
+    };
+  }
+
+  async getAdminGroup(id: string) {
+    const row = await this.deps.repo.findGroupById(this.deps.db, id);
+    if (!row) {
+      throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
+    }
+    return mapAdminGroup(row);
+  }
+
+  async getFarmerGroup(farmerId: string, id: string) {
+    const row = await this.deps.repo.findGroupById(this.deps.db, id, farmerId);
+    if (!row) {
+      throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
+    }
+    return mapGroup(row);
   }
 }
 

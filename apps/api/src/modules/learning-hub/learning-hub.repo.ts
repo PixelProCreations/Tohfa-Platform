@@ -4,10 +4,6 @@ import type {
   CreateGroupBody,
   CreateTrainingBody,
   CreateVideoBody,
-  ListArticlesQuery,
-  ListGroupsQuery,
-  ListTrainingsQuery,
-  ListVideosQuery,
   UpdateArticleBody,
   UpdateGroupBody,
   UpdateTrainingBody,
@@ -15,113 +11,81 @@ import type {
 } from './learning-hub.schema.js';
 
 export interface ArticleRow {
-  id: string;
-  title: string;
-  content: string;
-  snippet: string | null;
-  read_time: string;
-  author: string;
-  tag: string;
-  language: 'en' | 'ta';
-  is_published: boolean;
-  created_at: string;
-  updated_at: string;
+  id: string; title: string; content: string; snippet: string | null;
+  read_time: string; author: string; tag: string; language: 'en' | 'ta';
+  is_published: boolean; created_at: string; updated_at: string;
 }
-
-export interface VideoRow {
-  id: string;
-  title: string;
-  description: string | null;
-  video_url: string;
-  duration: string;
-  author: string;
-  language: 'en' | 'ta';
-  is_featured: boolean;
-  is_published: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-/** An article as listed: everything but the (potentially long) body. */
 export type ArticleSummaryRow = Omit<ArticleRow, 'content'>;
 
+export interface VideoRow {
+  id: string; title: string; description: string | null; video_url: string;
+  duration: string; author: string; language: 'en' | 'ta'; is_featured: boolean;
+  is_published: boolean; created_at: string; updated_at: string;
+}
+
 export interface TrainingRow {
-  id: string;
-  title: string;
-  description: string | null;
-  training_date: string;
-  start_time: string;
-  end_time: string | null;
-  mode: 'IN_FIELD' | 'ONLINE_WEBINAR';
-  location: string;
-  instructor: string;
-  capacity: number | null;
-  language: 'en' | 'ta';
-  is_published: boolean;
-  created_at: string;
-  updated_at: string;
-  enrolled_count?: string | number;
-  is_enrolled?: boolean;
+  id: string; title: string; description: string | null; training_date: string;
+  start_time: string; end_time: string | null; mode: 'IN_FIELD' | 'ONLINE_WEBINAR';
+  location: string; instructor: string; capacity: number | null; language: 'en' | 'ta';
+  is_published: boolean; created_at: string; updated_at: string;
+  enrolled_count?: string | number; is_enrolled?: boolean;
 }
 
 export interface GroupRow {
-  id: string;
-  name: string;
-  description: string | null;
-  category: string;
-  created_at: string;
-  updated_at: string;
-  member_count?: string | number;
-  is_joined?: boolean;
+  id: string; name: string; description: string | null; category: string;
+  created_at: string; updated_at: string; member_count?: string | number; is_joined?: boolean;
 }
 
-/** The columns the enrolment/capacity decision needs, read under a row lock. */
 export interface TrainingLockRow {
-  id: string;
-  capacity: number | null;
-  is_published: boolean;
+  id: string; capacity: number | null; is_published: boolean;
 }
 
 export interface EnrollmentRow {
-  id: string;
-  training_id: string;
-  farmer_id: string;
-  enrolled_at: string;
+  id: string; training_id: string; farmer_id: string; enrolled_at: string;
 }
 
 export interface MembershipRow {
-  id: string;
-  group_id: string;
-  farmer_id: string;
-  joined_at: string;
+  id: string; group_id: string; farmer_id: string; joined_at: string;
+}
+
+function escapeIlike(str: string): string {
+  return str.replace(/([\\%_])/g, '\\$1');
+}
+
+export interface FindArticlesParams {
+  page: number; limit: number; language?: 'en' | 'ta' | undefined; tag?: string | undefined;
+  isPublished?: boolean | undefined; publishedOnly?: boolean | undefined; q?: string | undefined;
+}
+export interface FindVideosParams {
+  page: number; limit: number; language?: 'en' | 'ta' | undefined;
+  isPublished?: boolean | undefined; publishedOnly?: boolean | undefined; q?: string | undefined;
+}
+export interface FindTrainingsParams {
+  page: number; limit: number; language?: 'en' | 'ta' | undefined;
+  isPublished?: boolean | undefined; publishedOnly?: boolean | undefined; farmerId?: string | undefined; q?: string | undefined;
+}
+export interface FindGroupsParams {
+  page: number; limit: number; category?: string | undefined; farmerId?: string | undefined;
+  q?: string | undefined; sort?: 'members' | 'name' | undefined;
 }
 
 export interface LearningHubRepo {
   // Articles
-  findArticles(
-    db: Executor,
-    params: ListArticlesQuery & { publishedOnly?: boolean },
-  ): Promise<{ rows: ArticleSummaryRow[]; total: number }>;
+  findArticles(db: Executor, params: FindArticlesParams): Promise<{ rows: ArticleSummaryRow[]; total: number }>;
   findArticleById(db: Executor, id: string, publishedOnly?: boolean): Promise<ArticleRow | null>;
   createArticle(db: Executor, body: CreateArticleBody): Promise<ArticleRow>;
   updateArticle(db: Executor, id: string, patch: UpdateArticleBody): Promise<ArticleRow | null>;
   deleteArticle(db: Executor, id: string): Promise<boolean>;
 
   // Videos
-  findVideos(
-    db: Executor,
-    params: ListVideosQuery & { publishedOnly?: boolean },
-  ): Promise<{ rows: VideoRow[]; total: number }>;
+  findVideos(db: Executor, params: FindVideosParams): Promise<{ rows: VideoRow[]; total: number }>;
   findVideoById(db: Executor, id: string): Promise<VideoRow | null>;
   createVideo(db: Executor, body: CreateVideoBody): Promise<VideoRow>;
   updateVideo(db: Executor, id: string, patch: UpdateVideoBody): Promise<VideoRow | null>;
   deleteVideo(db: Executor, id: string): Promise<boolean>;
 
   // Trainings
-  findTrainings(
-    db: Executor,
-    params: ListTrainingsQuery & { publishedOnly?: boolean | undefined; farmerId?: string | undefined },
-  ): Promise<{ rows: TrainingRow[]; total: number }>;
+  findTrainings(db: Executor, params: FindTrainingsParams): Promise<{ rows: TrainingRow[]; total: number }>;
   findTrainingById(db: Executor, id: string, farmerId?: string | undefined): Promise<TrainingRow | null>;
   createTraining(db: Executor, body: CreateTrainingBody): Promise<TrainingRow>;
   updateTraining(db: Executor, id: string, patch: UpdateTrainingBody): Promise<TrainingRow | null>;
@@ -138,10 +102,7 @@ export interface LearningHubRepo {
   unenrollFarmerFromTraining(db: Executor, trainingId: string, farmerId: string): Promise<boolean>;
 
   // Groups
-  findGroups(
-    db: Executor,
-    params: ListGroupsQuery & { farmerId?: string | undefined },
-  ): Promise<{ rows: GroupRow[]; total: number }>;
+  findGroups(db: Executor, params: FindGroupsParams): Promise<{ rows: GroupRow[]; total: number }>;
   findGroupById(db: Executor, id: string, farmerId?: string | undefined): Promise<GroupRow | null>;
   createGroup(db: Executor, body: CreateGroupBody): Promise<GroupRow>;
   updateGroup(db: Executor, id: string, patch: UpdateGroupBody): Promise<GroupRow | null>;
@@ -157,13 +118,16 @@ export interface LearningHubRepo {
 
 export const learningHubRepo: LearningHubRepo = {
   // ── Articles ───────────────────────────────────────────────────────────────
-  async findArticles(db, { page, limit, language, tag, publishedOnly = true }) {
+  async findArticles(db, { page, limit, language, tag, publishedOnly = true, isPublished, q }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
 
     if (publishedOnly) {
       conditions.push(`is_published = true`);
+    } else if (typeof isPublished === 'boolean') {
+      conditions.push(`is_published = $${idx++}`);
+      params.push(isPublished);
     }
     if (language) {
       conditions.push(`language = $${idx++}`);
@@ -172,6 +136,10 @@ export const learningHubRepo: LearningHubRepo = {
     if (tag) {
       conditions.push(`tag = $${idx++}`);
       params.push(tag);
+    }
+    if (q) {
+      conditions.push(`title ILIKE $${idx++} ESCAPE '\\'`);
+      params.push(`%${escapeIlike(q)}%`);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -281,17 +249,24 @@ export const learningHubRepo: LearningHubRepo = {
   },
 
   // ── Videos ─────────────────────────────────────────────────────────────────
-  async findVideos(db, { page, limit, language, publishedOnly = true }) {
+  async findVideos(db, { page, limit, language, publishedOnly = true, isPublished, q }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
 
     if (publishedOnly) {
       conditions.push(`is_published = true`);
+    } else if (typeof isPublished === 'boolean') {
+      conditions.push(`is_published = $${idx++}`);
+      params.push(isPublished);
     }
     if (language) {
       conditions.push(`language = $${idx++}`);
       params.push(language);
+    }
+    if (q) {
+      conditions.push(`title ILIKE $${idx++} ESCAPE '\\'`);
+      params.push(`%${escapeIlike(q)}%`);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -400,17 +375,24 @@ export const learningHubRepo: LearningHubRepo = {
   },
 
   // ── Trainings ──────────────────────────────────────────────────────────────
-  async findTrainings(db, { page, limit, language, publishedOnly = true, farmerId }) {
+  async findTrainings(db, { page, limit, language, publishedOnly = true, isPublished, farmerId, q }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
 
     if (publishedOnly) {
       conditions.push(`t.is_published = true`);
+    } else if (typeof isPublished === 'boolean') {
+      conditions.push(`t.is_published = $${idx++}`);
+      params.push(isPublished);
     }
     if (language) {
       conditions.push(`t.language = $${idx++}`);
       params.push(language);
+    }
+    if (q) {
+      conditions.push(`t.title ILIKE $${idx++} ESCAPE '\\'`);
+      params.push(`%${escapeIlike(q)}%`);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -611,7 +593,7 @@ export const learningHubRepo: LearningHubRepo = {
   },
 
   // ── Groups ─────────────────────────────────────────────────────────────────
-  async findGroups(db, { page, limit, category, farmerId }) {
+  async findGroups(db, { page, limit, category, farmerId, q, sort }) {
     const conditions: string[] = [];
     const params: unknown[] = [];
     let idx = 1;
@@ -619,6 +601,10 @@ export const learningHubRepo: LearningHubRepo = {
     if (category) {
       conditions.push(`g.category = $${idx++}`);
       params.push(category);
+    }
+    if (q) {
+      conditions.push(`g.name ILIKE $${idx++} ESCAPE '\\'`);
+      params.push(`%${escapeIlike(q)}%`);
     }
 
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -636,13 +622,20 @@ export const learningHubRepo: LearningHubRepo = {
       ) AS is_joined`;
     }
 
+    let orderBy = 'g.created_at DESC';
+    if (sort === 'members') {
+      orderBy = 'member_count DESC, g.name ASC';
+    } else if (sort === 'name') {
+      orderBy = 'LOWER(g.name) ASC';
+    }
+
     const querySql = `
       SELECT g.id, g.name, g.description, g.category, g.created_at, g.updated_at,
              (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = g.id) AS member_count,
              ${joinedSelect}
       FROM learning_groups g
       ${whereClause}
-      ORDER BY g.created_at DESC
+      ORDER BY ${orderBy}
       LIMIT $${idx++} OFFSET $${idx++}
     `;
     params.push(limit, offset);
