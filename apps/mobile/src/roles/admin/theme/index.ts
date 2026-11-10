@@ -56,6 +56,8 @@ export const adminColors = {
   border: neutral('adminBorder'),
   /** Card — card surfaces. */
   card: neutral('adminCard'),
+  /** Surface — card surface background. */
+  surface: neutral('adminCard'),
   /** Input / search placeholder text (drawn in the PDF, not a named swatch). */
   placeholder: neutral('adminPlaceholder'),
   /** Text and icons sitting on a filled `brand` surface (primary button label). */

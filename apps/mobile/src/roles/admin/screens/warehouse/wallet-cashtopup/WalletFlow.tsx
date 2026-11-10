@@ -30,6 +30,7 @@ import { SAMPLE_TRANSACTION_ID, WALLET_WAREHOUSES } from './fixtures';
 import { TopUpDetailsScreen } from './TopUpDetailsScreen';
 import { TopUpHistoryScreen } from './TopUpHistoryScreen';
 import { TopUpSuccessScreen } from './TopUpSuccessScreen';
+import { WalletDeductionFlow } from '../../finance/WalletDeductionFlow';
 import type {
   CashTopUpDraft,
   PermissionCheck,
@@ -62,6 +63,8 @@ export interface WalletFlowProps {
   onNavigateToProfile?: (() => void) | undefined;
   /** Warehouses for the Main all-warehouses selectors (ignored for a Sub scope). */
   warehouseOptions?: readonly WarehouseScope[] | undefined;
+  /** Start a cash deduction flow for a customer. */
+  onDeductMoney?: ((customer: WalletCustomer) => void) | undefined;
 }
 
 /** The cash top-up wizard steps; finishing it drops them from the back stack. */
@@ -102,6 +105,7 @@ export function WalletFlow({
   onNavigateToNotifications,
   onNavigateToProfile,
   warehouseOptions = WALLET_WAREHOUSES,
+  onDeductMoney,
 }: WalletFlowProps) {
   const [stack, setStack] = useState<WalletStackEntry[]>(() => [{ screen: initialScreen, params: initialParams }]);
 
@@ -178,7 +182,22 @@ export function WalletFlow({
           {...common}
           customer={params.customer}
           onCashTopUp={(customer) => startTopUp(customer)}
+          onDeductMoney={onDeductMoney ?? ((customer) => navigate('WalletDeduction', { customer }))}
           onOpenTransaction={(transaction) => navigate('TransactionDetail', { transaction })}
+        />
+      );
+    case 'WalletDeduction':
+      return (
+        <WalletDeductionFlow
+          customer={params.customer ? {
+            name: params.customer.name,
+            id: params.customer.id,
+            mobile: params.customer.mobile,
+            balance: params.customer.balance,
+          } : undefined}
+          role={scope.warehouseId ? 'TOHFA_ADMIN' : 'SUPER_ADMIN'}
+          onBack={back}
+          onSuccess={back}
         />
       );
     case 'CashTopUp':

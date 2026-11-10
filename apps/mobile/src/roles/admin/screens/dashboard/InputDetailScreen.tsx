@@ -18,6 +18,8 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import type { Can } from '../../permissions/can';
+import { PencilEditIcon } from '../../components/AdminIcons';
 import { ApprovedInputItem } from './ApprovedInputsScreen';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -41,6 +43,10 @@ export interface InputDetailScreenProps {
   onBack: () => void;
   onEdit?: () => void;
   onDeactivate?: () => void;
+  onTerminate?: () => void;
+  onDelete?: () => void;
+  can?: Can | undefined;
+  role?: string | undefined;
 }
 
 export function InputDetailScreen({
@@ -48,7 +54,12 @@ export function InputDetailScreen({
   onBack,
   onEdit,
   onDeactivate,
+  onTerminate,
+  onDelete,
+  can: _can,
+  role = 'SUPER_ADMIN',
 }: InputDetailScreenProps) {
+  const isSuperAdmin = role === 'SUPER_ADMIN';
   const [activeTab, setActiveTab] = useState<'basic' | 'composition' | 'documents' | 'history'>('basic');
   const [isDeactivated, setIsDeactivated] = useState(false);
 
@@ -113,11 +124,77 @@ export function InputDetailScreen({
     }
   };
 
+  const handleSuperAdminDeactivate = () => {
+    if (onDeactivate) {
+      onDeactivate();
+      return;
+    }
+    Alert.alert(
+      'Deactivate account',
+      `Are you sure you want to deactivate the input account for ${name}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () => {
+            setIsDeactivated(true);
+            Alert.alert('Account Deactivated', `${name} account has been deactivated.`);
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSuperAdminTerminate = () => {
+    if (onTerminate) {
+      onTerminate();
+      return;
+    }
+    Alert.alert(
+      'Terminate Input',
+      `Are you sure you want to permanently terminate ${name}? This action will archive all associated approvals.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Terminate',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Terminated', `${name} has been terminated.`);
+            onBack();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSuperAdminDelete = () => {
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    Alert.alert(
+      'Delete Information',
+      `Are you sure you want to permanently delete all information for ${name}? This action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Deleted', `${name} information has been deleted.`);
+            onBack();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* ─── Header Banner (Image 5) ─── */}
+      {/* ─── Header Banner (Image 5 & SA-M6-S35) ─── */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
@@ -131,10 +208,23 @@ export function InputDetailScreen({
 
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>{name}</Text>
-            <Text style={styles.headerSubtitle}>
-              {code} · {status}
-            </Text>
+            {!isSuperAdmin && (
+              <Text style={styles.headerSubtitle}>
+                {code} · {status}
+              </Text>
+            )}
           </View>
+
+          {/* Pencil edit icon matching SA-M6-S35 */}
+          <TouchableOpacity
+            style={styles.headerPencilBtn}
+            onPress={handleEdit}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Input"
+          >
+            <PencilEditIcon size={20} color={adminColors.onBrand} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -144,87 +234,89 @@ export function InputDetailScreen({
         contentContainerStyle={styles.scrollPad}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Horizontal Segmented Pills (Image 1 reference) ─── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.pillsScrollView}
-          contentContainerStyle={styles.pillsScrollContent}
-        >
-          <TouchableOpacity
-            style={[
-              styles.pillBtn,
-              activeTab === 'basic' && styles.pillBtnActive,
-            ]}
-            onPress={() => setActiveTab('basic')}
-            activeOpacity={0.8}
+        {/* Horizontal Segmented Pills (Only shown for non-superadmin) */}
+        {!isSuperAdmin && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.pillsScrollView}
+            contentContainerStyle={styles.pillsScrollContent}
           >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.pillText,
-                activeTab === 'basic' && styles.pillTextActive,
+                styles.pillBtn,
+                activeTab === 'basic' && styles.pillBtnActive,
               ]}
+              onPress={() => setActiveTab('basic')}
+              activeOpacity={0.8}
             >
-              Basic Info
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.pillText,
+                  activeTab === 'basic' && styles.pillTextActive,
+                ]}
+              >
+                Basic Info
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.pillBtn,
-              activeTab === 'composition' && styles.pillBtnActive,
-            ]}
-            onPress={() => setActiveTab('composition')}
-            activeOpacity={0.8}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.pillText,
-                activeTab === 'composition' && styles.pillTextActive,
+                styles.pillBtn,
+                activeTab === 'composition' && styles.pillBtnActive,
               ]}
+              onPress={() => setActiveTab('composition')}
+              activeOpacity={0.8}
             >
-              Composition & Usage
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.pillText,
+                  activeTab === 'composition' && styles.pillTextActive,
+                ]}
+              >
+                Composition & Usage
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.pillBtn,
-              activeTab === 'documents' && styles.pillBtnActive,
-            ]}
-            onPress={() => setActiveTab('documents')}
-            activeOpacity={0.8}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.pillText,
-                activeTab === 'documents' && styles.pillTextActive,
+                styles.pillBtn,
+                activeTab === 'documents' && styles.pillBtnActive,
               ]}
+              onPress={() => setActiveTab('documents')}
+              activeOpacity={0.8}
             >
-              Documents
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.pillText,
+                  activeTab === 'documents' && styles.pillTextActive,
+                ]}
+              >
+                Documents
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.pillBtn,
-              activeTab === 'history' && styles.pillBtnActive,
-            ]}
-            onPress={() => setActiveTab('history')}
-            activeOpacity={0.8}
-          >
-            <Text
+            <TouchableOpacity
               style={[
-                styles.pillText,
-                activeTab === 'history' && styles.pillTextActive,
+                styles.pillBtn,
+                activeTab === 'history' && styles.pillBtnActive,
               ]}
+              onPress={() => setActiveTab('history')}
+              activeOpacity={0.8}
             >
-              Approval & History
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+              <Text
+                style={[
+                  styles.pillText,
+                  activeTab === 'history' && styles.pillTextActive,
+                ]}
+              >
+                Approval & History
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
 
-        {(activeTab === 'basic' || activeTab === 'composition') && (
+        {(isSuperAdmin || activeTab === 'basic' || activeTab === 'composition') && (
           <>
             {/* ─── Section 1: Basic Information ─── */}
             <Text style={styles.sectionHeading}>Basic Information</Text>
@@ -354,30 +446,61 @@ export function InputDetailScreen({
           </>
         )}
 
-        {/* Space for bottom fixed bar */}
-        <View style={{ height: 90 }} />
+        {/* Action Buttons for Super Admin (SA-M6-S35) */}
+        {isSuperAdmin && (
+          <View style={styles.superAdminActionsWrap}>
+            <TouchableOpacity
+              style={styles.deactivateAccountBtn}
+              onPress={handleSuperAdminDeactivate}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.deactivateAccountBtnText}>Deactivate account</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.outlineActionBtn}
+              onPress={handleSuperAdminTerminate}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.outlineActionBtnText}>Terminate</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.outlineActionBtn}
+              onPress={handleSuperAdminDelete}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.outlineActionBtnText}>Delete Information</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Space for bottom fixed bar on non-superadmin */}
+        {!isSuperAdmin && <View style={{ height: 90 }} />}
       </ScrollView>
 
-      {/* ─── Fixed Bottom Actions Bar (Image 5) ─── */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity
-          style={styles.editBtn}
-          onPress={handleEdit}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.editBtnText}>Edit</Text>
-        </TouchableOpacity>
+      {/* ─── Fixed Bottom Actions Bar for non-superadmin ─── */}
+      {!isSuperAdmin && (
+        <View style={styles.bottomBar}>
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={handleEdit}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.editBtnText}>Edit</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.deactivateBtn}
-          onPress={handleDeactivate}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.deactivateBtnText}>
-            {isDeactivated ? 'Activate' : 'Deactivate'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={styles.deactivateBtn}
+            onPress={handleDeactivate}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.deactivateBtnText}>
+              {isDeactivated ? 'Activate' : 'Deactivate'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -424,6 +547,14 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 2,
     fontWeight: '500',
+  },
+  headerPencilBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // Scroll Container
@@ -533,30 +664,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: adminSpacing.lg,
     paddingTop: adminSpacing.sm + 2,
     paddingBottom: adminSpacing.lg + 4,
-    backgroundColor: 'rgba(247, 244, 240, 0.98)',
+    backgroundColor: adminColors.canvas,
     borderTopWidth: 1,
-    borderTopColor: '#EDE7E1',
+    borderTopColor: adminColors.border,
   },
   editBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 12,
+    borderRadius: adminRadius.md,
     backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: '#7A2E14',
+    borderColor: adminColors.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
   },
   editBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#7A2E14',
+    color: adminColors.brandDeep,
   },
   deactivateBtn: {
     flex: 1,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: '#9E978E',
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.muted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -564,6 +695,37 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: adminColors.onBrand,
+  },
+  superAdminActionsWrap: {
+    marginTop: adminSpacing.lg,
+    gap: adminSpacing.sm,
+    paddingBottom: adminSpacing.xl,
+  },
+  deactivateAccountBtn: {
+    height: 48,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.danger.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deactivateAccountBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.onBrand,
+    fontWeight: '700',
+  },
+  outlineActionBtn: {
+    height: 48,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outlineActionBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brand,
+    fontWeight: '700',
   },
 });
 

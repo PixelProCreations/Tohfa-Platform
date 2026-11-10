@@ -432,21 +432,21 @@ export const DEMO_APPLICATIONS: ApplicationListItem[] = [
 ];
 
 export interface AdminAllFarmersScreenProps {
-  title?: string;
-  onBack?: () => void;
-  onSelectFarmer?: (farmer: FarmerListItem) => void;
-  onReviewApplication?: (application: ApplicationListItem) => void;
-  onNavigateTab?: (tab: 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More' | 'Dashboard' | 'Sales' | 'Reports' | 'Profile') => void;
-  showBottomNav?: boolean;
-  initialTab?: 'farmers' | 'applications';
-  can?: Can;
-  role?: string;
+  title?: string | undefined;
+  onBack?: (() => void) | undefined;
+  onSelectFarmer?: ((farmer: FarmerListItem) => void) | undefined;
+  onReviewApplication?: ((application: ApplicationListItem) => void) | undefined;
+  onNavigateTab?: ((tab: 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More' | 'Dashboard' | 'Sales' | 'Reports' | 'Profile') => void) | undefined;
+  showBottomNav?: boolean | undefined;
+  initialTab?: ('farmers' | 'applications') | undefined;
+  can?: Can | undefined;
+  role?: string | undefined;
   userScope?: {
     zoneId?: string | undefined;
     warehouseId?: string | undefined;
   } | undefined;
-  onViewChange?: (view: 'list' | 'search_filter' | 'profile') => void;
-  onNavigateAuditHistory?: () => void;
+  onViewChange?: ((view: 'list' | 'search_filter' | 'profile') => void) | undefined;
+  onNavigateAuditHistory?: (() => void) | undefined;
 }
 
 type Props = AdminAllFarmersScreenProps;
@@ -474,7 +474,7 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
   const effectiveRole = role ?? 'TOHFA_ADMIN';
   const isSubWarehouse = effectiveRole === 'SUB_WH_ADMIN' || Boolean(userScope?.warehouseId && !userScope?.warehouseId.toLowerCase().includes('main'));
   const canViewApplications = can
-    ? (can('farmer.application.view') || can('farmer.application.list_pending') || effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'SUPER_ADMIN')
+    ? (can('farmer.application.view') || can('farmer.application.list_pending'))
     : (effectiveRole === 'TOHFA_ADMIN' || effectiveRole === 'FARMER_ADMIN' || effectiveRole === 'SUPER_ADMIN');
 
   React.useEffect(() => {

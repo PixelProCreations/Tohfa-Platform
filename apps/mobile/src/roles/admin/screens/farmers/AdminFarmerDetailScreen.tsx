@@ -111,28 +111,32 @@ export const DEFAULT_CATEGORY_RATINGS: CategoryRating[] = [
 ];
 
 export interface AdminFarmerDetailScreenProps {
-  farmer: FarmerListItem;
+  farmer?: any;
+  farmerId?: string | undefined;
+  farmerName?: string | undefined;
   onBack: () => void;
-  can?: Can;
-  role?: string;
+  can?: Can | undefined;
+  role?: string | undefined;
   userScope?: {
     zoneId?: string | undefined;
     warehouseId?: string | undefined;
   } | undefined;
-  onEdit?: (currentTab: FarmerDetailTabType) => void;
-  onDisable?: () => void;
-  onOpenFarmMap?: () => void;
-  onOpenKycReview?: () => void;
-  onOpenRatingScorecard?: () => void;
-  initialTab?: FarmerDetailTabType;
-  onTabChange?: (tab: FarmerDetailTabType) => void;
-  onNavigateAuditHistory?: () => void;
+  onEdit?: ((currentTab: FarmerDetailTabType) => void) | undefined;
+  onDisable?: (() => void) | undefined;
+  onOpenFarmMap?: (() => void) | undefined;
+  onOpenKycReview?: (() => void) | undefined;
+  onOpenRatingScorecard?: (() => void) | undefined;
+  initialTab?: FarmerDetailTabType | undefined;
+  onTabChange?: ((tab: FarmerDetailTabType) => void) | undefined;
+  onNavigateAuditHistory?: (() => void) | undefined;
 }
 
 type Props = AdminFarmerDetailScreenProps;
 
 export const AdminFarmerDetailScreen: React.FC<Props> = ({
   farmer,
+  farmerId,
+  farmerName,
   onBack,
   can,
   role,
@@ -151,15 +155,57 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     return tab;
   };
 
-  const [currentFarmer, setCurrentFarmer] = useState<FarmerListItem>(farmer);
+  const resolvedFarmer: FarmerListItem = farmer
+    ? {
+        id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
+        name: farmer.name || farmerName || 'Farmer',
+        phone: farmer.phone || '+91 98765 43210',
+        status: farmer.status || farmer.accountStatus?.toUpperCase() || 'ACTIVE',
+        registeredDate: farmer.registeredDate || '12 Jan 2026',
+        farmSize: farmer.farmSize || '5.5 Acres',
+        zone: farmer.zone || 'Ooty North',
+        crops: farmer.crops || ['Carrot', 'Potato'],
+        rating: farmer.rating || '4.8',
+        kycStatus: farmer.kycStatus || 'VERIFIED',
+        disputeCount: farmer.disputeCount || 0,
+      }
+    : {
+        id: farmerId || 'FARM-001',
+        name: farmerName || 'Farmer',
+        phone: '+91 98765 43210',
+        status: 'ACTIVE',
+        registeredDate: '12 Jan 2026',
+        farmSize: '5.5 Acres',
+        zone: 'Ooty North',
+        crops: ['Carrot', 'Potato'],
+        rating: '4.8',
+        kycStatus: 'VERIFIED',
+        disputeCount: 0,
+      };
+
+  const [currentFarmer, setCurrentFarmer] = useState<FarmerListItem>(resolvedFarmer);
   const [activeTab, setActiveTab] = useState<FarmerDetailTabType>(normalizeTab(initialTab));
   const [accountStatus, setAccountStatus] = useState<'Active' | 'Inactive' | 'Disabled' | 'Terminated'>(
-    farmer.status === 'DISABLED' ? 'Disabled' : 'Active'
+    resolvedFarmer.status === 'DISABLED' ? 'Disabled' : 'Active'
   );
 
   useEffect(() => {
-    setCurrentFarmer(farmer);
-  }, [farmer]);
+    if (farmer) {
+      setCurrentFarmer({
+        id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
+        name: farmer.name || farmerName || 'Farmer',
+        phone: farmer.phone || '+91 98765 43210',
+        status: farmer.status || farmer.accountStatus?.toUpperCase() || 'ACTIVE',
+        registeredDate: farmer.registeredDate || '12 Jan 2026',
+        farmSize: farmer.farmSize || '5.5 Acres',
+        zone: farmer.zone || 'Ooty North',
+        crops: farmer.crops || ['Carrot', 'Potato'],
+        rating: farmer.rating || '4.8',
+        kycStatus: farmer.kycStatus || 'VERIFIED',
+        disputeCount: farmer.disputeCount || 0,
+      });
+    }
+  }, [farmer, farmerId, farmerName]);
 
   // Edit Farm Rating & Profile states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -169,14 +215,15 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
 
   const totalRatingScore = categoryRatings.reduce((sum, item) => sum + item.score, 0);
 
-  // RBAC: Edit Farm Rating access is granted strictly to Farmer Admin and Tohfa Admin (plus Super Admin).
-  // Warehouse Admins (Main Warehouse Admin, Sub Warehouse Admin) have read-only view.
-  const isFarmerAdmin = role === 'FARMER_ADMIN';
-  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
-  const canEditProfile = isTohfaAdmin;
-  const canDisableAccount = isTohfaAdmin;
+  // RBAC: Profile edits and account actions are gated by permission codes from docs/rbac.json.
+  const canEditProfile = Boolean(
+    can ? (can('farmer.profile.edit') || can('farmer.profile.edit_locked_field')) : (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
+  );
+  const canDisableAccount = Boolean(
+    can ? (can('farmer.account.disable') || can('farmer.account.reactivate')) : (role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
+  );
   const canEditRating = Boolean(
-    can ? can('farmer.rating.edit') || (isFarmerAdmin || isTohfaAdmin) : (isFarmerAdmin || isTohfaAdmin)
+    can ? can('farmer.rating.edit') : (role === 'FARMER_ADMIN' || role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN')
   );
 
   useEffect(() => {

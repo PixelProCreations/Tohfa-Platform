@@ -227,7 +227,7 @@ export function ProduceVerificationApprovalScreen({
   if (showFarmerProfile) {
     return (
       <AdminFarmerDetailScreen
-        farmerId={farmerId}
+        farmerId="FR-00241"
         farmerName={farmerName}
         farmer={{
           farmerId: 'FR-00241',

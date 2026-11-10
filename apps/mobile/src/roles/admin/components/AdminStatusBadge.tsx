@@ -20,25 +20,69 @@ export type AdminDomainStatus =
   | string;
 
 export interface AdminStatusBadgeProps {
-  status: AdminDomainStatus;
-  label?: string;
-  style?: StyleProp<ViewStyle>;
-  textStyle?: StyleProp<TextStyle>;
-  size?: 'sm' | 'md';
+  status?: AdminDomainStatus | undefined;
+  label?: string | undefined;
+  tone?: 'default' | 'success' | 'warning' | 'info' | 'danger' | string | undefined;
+  style?: StyleProp<ViewStyle> | undefined;
+  textStyle?: StyleProp<TextStyle> | undefined;
+  size?: ('sm' | 'md') | undefined;
 }
 
-function resolveStatusColors(status: string): { bg: string; text: string; border: string } {
-  const norm = status.toUpperCase().replace(/\s+/g, '_');
+function resolveStatusColors(
+  status?: string,
+  tone?: string,
+): { bg: string; text: string; border: string } {
+  if (tone === 'success') {
+    return {
+      bg: adminColors.success.bg,
+      text: adminColors.success.text,
+      border: adminColors.success.border,
+    };
+  }
+  if (tone === 'warning') {
+    return {
+      bg: adminColors.warning.bg,
+      text: adminColors.warning.text,
+      border: adminColors.warning.border,
+    };
+  }
+  if (tone === 'danger') {
+    return {
+      bg: adminColors.danger.bg,
+      text: adminColors.danger.text,
+      border: adminColors.danger.border,
+    };
+  }
+  if (tone === 'info') {
+    return {
+      bg: adminColors.info.bg,
+      text: adminColors.info.text,
+      border: adminColors.info.border,
+    };
+  }
+  const raw = typeof status === 'string' ? status : '';
+  const norm = raw.toUpperCase().replace(/\s+/g, '_');
   switch (norm) {
     case 'APPROVED':
     case 'ACTIVE':
     case 'COMPLETED':
     case 'VERIFIED':
     case 'PAID':
+    case 'RECORDED':
+    case 'PUBLISHED':
       return {
         bg: adminColors.success.bg,
         text: adminColors.success.text,
         border: adminColors.success.border,
+      };
+    case 'INFO':
+    case 'ESCALATED':
+    case 'HIGH_VALUE':
+    case 'AWAITING_SA_APPROVAL':
+      return {
+        bg: adminColors.info.bg,
+        text: adminColors.info.text,
+        border: adminColors.info.border,
       };
     case 'PENDING':
     case 'PENDING_REVIEW':
@@ -76,12 +120,14 @@ function resolveStatusColors(status: string): { bg: string; text: string; border
 export function AdminStatusBadge({
   status,
   label,
+  tone,
   style,
   textStyle,
   size = 'md',
 }: AdminStatusBadgeProps) {
-  const colors = resolveStatusColors(status);
-  const displayLabel = label ?? status.replace(/_/g, ' ');
+  const effectiveStatus = typeof status === 'string' ? status : (typeof label === 'string' ? label : '');
+  const colors = resolveStatusColors(effectiveStatus, tone);
+  const displayLabel = label ?? (typeof status === 'string' ? status.replace(/_/g, ' ') : '');
 
   return (
     <View
