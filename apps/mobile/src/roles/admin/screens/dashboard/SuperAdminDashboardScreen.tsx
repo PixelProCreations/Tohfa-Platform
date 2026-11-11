@@ -7,6 +7,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -36,24 +37,30 @@ import {
   ChevronRightIcon,
   ClipboardListIcon,
   DatabaseCylinderIcon,
+  EyeIcon,
   FilterSlidersIcon,
   GearSettingsIcon,
   InboxTrayIcon,
   MoreVerticalIcon,
   NavFarmersIcon,
   NavFinanceIcon,
+  NavHomeIcon,
   NavMenuIcon,
   NavOverviewIcon,
   NavWarehouseIcon,
   PackageBoxIcon,
   PauseCircleIcon,
+  PencilEditIcon,
   PieChartIcon,
+  RefreshIcon,
   RupeeTagIcon,
+  SearchIcon,
   FairPriceIcon,
   ShieldIcon,
   StoreIcon,
   SwitchArrowsIcon,
   TractorIcon,
+  TrashIcon,
   UserAvatarIcon,
   UserPlusIcon,
 } from '../../components/AdminIcons';
@@ -218,6 +225,9 @@ export function SuperAdminDashboardScreen({
   const [selectedRetailRecord, setSelectedRetailRecord] = useState<PricingRecordItem | null>(null);
   const [selectedPriceCrop, setSelectedPriceCrop] = useState<{ id?: string; name: string; category?: string; price: number } | null>(null);
   const [selectedThresholdData, setSelectedThresholdData] = useState<AlertThresholdData | undefined>(undefined);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateRange, setDateRange] = useState('Today · 7 Days · 30 Days · Custom');
+  const [lastUpdated, setLastUpdated] = useState('09:30 · All details');
 
   const [marketScheduleMode, setMarketScheduleMode] = useState<'open' | 'close'>('open');
   const [activeScheduleMenu, setActiveScheduleMenu] = useState<{
@@ -1077,101 +1087,99 @@ export function SuperAdminDashboardScreen({
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
-      {/* Top Header */}
-      {renderHeader(
-        t('superAdminDashboard.title'),
-        () => setActiveSubScreen('notifications'),
-        () => {
-          setProfileInitialScreen('UserProfile');
-          setActiveSubScreen('settings');
-        }
-      )}
-
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner} showsVerticalScrollIndicator={false}>
-        {/* Date Filter Bar */}
-        <View style={styles.dateFilterContainer}>
-          <View style={styles.dateFilterPill}>
-            <CalendarIcon size={16} color={adminColors.brandDeep} />
-            <Text style={styles.dateFilterText}>
-              {t('superAdminDashboard.dateFilter.today')}
+        {/* Top Header */}
+        {renderHeader(
+          t('superAdminDashboard.title'),
+          () => setActiveSubScreen('notifications'),
+          () => {
+            setProfileInitialScreen('UserProfile');
+            setActiveSubScreen('settings');
+          }
+        )}
+
+        <View style={styles.mainContent}>
+        {/* 1. Floating "Good morning, Super Admin" Summary Card */}
+        <View style={styles.greetingCard}>
+          <View style={styles.greetingTopRow}>
+            <Text style={styles.greetingTitle} numberOfLines={1}>
+              Good morning, Super Admin
             </Text>
-            <ChevronDownIcon size={16} color={adminColors.brandDeep} />
+            <View style={styles.roleBadgePill}>
+              <Text style={styles.roleBadgeText}>SUPER Admin</Text>
+            </View>
+          </View>
+
+          <Text style={styles.greetingSubTitle}>Today’s operational summary</Text>
+          <Text style={styles.greetingDateStamp}>Mon, 13 Oct 2026 · IST</Text>
+
+          <View style={styles.greetingBottomRow}>
+            <Text style={styles.lastUpdatedText}>Last updated {lastUpdated}</Text>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={() => {
+                const now = new Date();
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                setLastUpdated(`${timeStr} · All details`);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh operational summary"
+            >
+              <RefreshIcon size={16} color={adminColors.brandDeep} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* ─── Platform KPIs ─── */}
-        <OverviewSectionHeader title={t('superAdminDashboard.section.kpis')} />
-        <OverviewCardsGrid style={styles.kpiGrid}>
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.totalFarmers')}
-            value="214"
-            titlePosition="top"
-            onPress={() => {
-              setFarmerInitialTab('farmers');
-              setActiveTab('Farmers');
-            }}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.pendingApplications')}
-            value="9"
-            titlePosition="top"
-            tone="warning"
-            onPress={() => {
-              setFarmerInitialTab('applications');
-              setActiveTab('Farmers');
-            }}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.activeFarmers')}
-            value="196"
-            titlePosition="top"
-            onPress={() => {
-              setFarmerInitialTab('farmers');
-              setActiveTab('Farmers');
-            }}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.deactivatedFarmers')}
-            value="9"
-            titlePosition="top"
-            onPress={() => {
-              setFarmerInitialTab('farmers');
-              setActiveTab('Farmers');
-            }}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.pendingListings')}
-            value="5"
-            titlePosition="top"
-            tone="warning"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.activeAudits')}
-            value="6"
-            titlePosition="top"
-            onPress={() => setActiveSubScreen('audit_management')}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.totalCustomers')}
-            value="18"
-            titlePosition="top"
-            onPress={() => setActiveSubScreen('customers')}
-          />
-          <OverviewDashboardCard
-            title={t('superAdminDashboard.kpi.staffAndAdmins')}
-            value="27"
-            titlePosition="top"
-            onPress={() => setActiveSubScreen('manage_admins')}
-          />
-        </OverviewCardsGrid>
+        {/* 2. Search and Date Filter Bar (Tohfa Admin Reference) */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <SearchIcon size={18} color={adminColors.muted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search farmers, crops, orders, customers, staff"
+              placeholderTextColor={adminColors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert('Filter', 'Advanced filters for search');
+              }}
+              activeOpacity={0.7}
+            >
+              <FilterSlidersIcon size={18} color={adminColors.muted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Date filter pill */}
+          <View style={styles.dateFilterContainer}>
+            <TouchableOpacity
+              style={styles.dateFilterButton}
+              activeOpacity={0.7}
+              onPress={() => {
+                Alert.alert('Select Period', 'Choose time period for dashboard:', [
+                  { text: 'Today', onPress: () => setDateRange('Today') },
+                  { text: '7 Days', onPress: () => setDateRange('7 Days') },
+                  { text: '30 Days', onPress: () => setDateRange('30 Days') },
+                  { text: 'Custom', onPress: () => setDateRange('Custom Range') },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              }}
+            >
+              <CalendarIcon size={14} color={adminColors.brandDeep} />
+              <Text style={styles.dateFilterText}>{dateRange}</Text>
+              <ChevronDownIcon size={12} color={adminColors.brandDeep} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* ─── Market Control Card ─── */}
         <View style={styles.marketCard}>
           <View style={styles.marketHeaderRow}>
             <View style={styles.marketTitleContainer}>
               <View style={styles.marketIconBox}>
-                <StoreIcon size={20} color={adminColors.brandDeep} />
+                <StoreIcon size={20} color={adminColors.brand} />
               </View>
               <View style={styles.marketTitleCol}>
                 <Text style={styles.marketTitle}>{t('superAdminDashboard.market.title')}</Text>
@@ -1212,7 +1220,10 @@ export function SuperAdminDashboardScreen({
               <View key={schedule.id} style={styles.scheduleItem}>
                 <View style={styles.scheduleItemLeft}>
                   <View style={styles.scheduleCalendarBox}>
-                    <CalendarIcon size={16} color={adminColors.muted} />
+                    <CalendarIcon
+                      size={16}
+                      color={schedule.mode === 'open' ? adminColors.brand : adminColors.muted}
+                    />
                   </View>
                   <View style={styles.scheduleTextCol}>
                     <Text style={styles.scheduleItemTitle}>{schedule.title}</Text>
@@ -1401,119 +1412,123 @@ export function SuperAdminDashboardScreen({
           {renderActivityItem('Sub Warehouse Admin account created for Kotagiri', 'Yesterday, 04:20 PM')}
           {renderActivityItem('Channel Allocation updated to Online 70% / Live 10%', '12 Oct 2026, 02:15 PM')}
         </View>
-      </ScrollView>
+      </View>
+    </ScrollView>
 
-      {/* 3-Dots Schedule Options Popup Modal */}
-      <Modal
-        visible={!!activeScheduleMenu}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setActiveScheduleMenu(null)}
-      >
+      {/* 3-Dots Schedule Options Popup Modal */ }
+  <Modal
+    visible={!!activeScheduleMenu}
+    transparent
+    animationType="fade"
+    onRequestClose={() => setActiveScheduleMenu(null)}
+  >
+    <TouchableOpacity
+      style={styles.popupOverlay}
+      activeOpacity={1}
+      onPress={() => setActiveScheduleMenu(null)}
+    >
+      <View style={styles.scheduleOptionsMenu}>
         <TouchableOpacity
-          style={styles.popupOverlay}
-          activeOpacity={1}
-          onPress={() => setActiveScheduleMenu(null)}
+          style={styles.scheduleOptionItem}
+          onPress={() => {
+            if (activeScheduleMenu) {
+              setDetailsScheduleItem(activeScheduleMenu);
+            }
+            setActiveScheduleMenu(null);
+          }}
+          activeOpacity={0.7}
         >
-          <View style={styles.scheduleOptionsMenu}>
-            <TouchableOpacity
-              style={styles.scheduleOptionItem}
-              onPress={() => {
-                if (activeScheduleMenu) {
-                  setDetailsScheduleItem(activeScheduleMenu);
-                }
-                setActiveScheduleMenu(null);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.viewDetails')}</Text>
-            </TouchableOpacity>
+          <EyeIcon size={18} color={adminColors.ink} />
+          <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.viewDetails')}</Text>
+        </TouchableOpacity>
 
-            <View style={styles.scheduleOptionDivider} />
+        <View style={styles.scheduleOptionDivider} />
 
-            <TouchableOpacity
-              style={styles.scheduleOptionItem}
-              onPress={() => {
-                if (activeScheduleMenu) {
-                  setMarketScheduleMode(activeScheduleMenu.mode);
-                  setActiveSubScreen('schedule_market');
-                }
-                setActiveScheduleMenu(null);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.editSchedule')}</Text>
-            </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.scheduleOptionItem}
+          onPress={() => {
+            if (activeScheduleMenu) {
+              setMarketScheduleMode(activeScheduleMenu.mode);
+              setActiveSubScreen('schedule_market');
+            }
+            setActiveScheduleMenu(null);
+          }}
+          activeOpacity={0.7}
+        >
+          <PencilEditIcon size={18} color={adminColors.ink} />
+          <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.editSchedule')}</Text>
+        </TouchableOpacity>
 
-            <View style={styles.scheduleOptionDivider} />
+        <View style={styles.scheduleOptionDivider} />
 
-            <TouchableOpacity
-              style={styles.scheduleOptionItem}
-              onPress={() => {
-                if (activeScheduleMenu) {
-                  const targetId = activeScheduleMenu.id;
-                  setMarketSchedules((prev) => prev.filter((s) => s.id !== targetId));
-                  Alert.alert(
-                    t('scheduleMarket.title'),
-                    t('scheduleMarket.cancelSuccess')
-                  );
-                }
-                setActiveScheduleMenu(null);
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.scheduleOptionText, styles.scheduleOptionDanger]}>
-                {t('scheduleMarket.menu.cancelSchedule')}
+        <TouchableOpacity
+          style={styles.scheduleOptionItem}
+          onPress={() => {
+            if (activeScheduleMenu) {
+              const targetId = activeScheduleMenu.id;
+              setMarketSchedules((prev) => prev.filter((s) => s.id !== targetId));
+              Alert.alert(
+                t('scheduleMarket.title'),
+                t('scheduleMarket.cancelSuccess')
+              );
+            }
+            setActiveScheduleMenu(null);
+          }}
+          activeOpacity={0.7}
+        >
+          <TrashIcon size={18} color={adminColors.danger.text} />
+          <Text style={[styles.scheduleOptionText, styles.scheduleOptionDanger]}>
+            {t('scheduleMarket.menu.cancelSchedule')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  </Modal>
+
+  {/* Schedule Details Modal */ }
+  <Modal
+    visible={!!detailsScheduleItem}
+    transparent
+    animationType="fade"
+    onRequestClose={() => setDetailsScheduleItem(null)}
+  >
+    <TouchableOpacity
+      style={styles.popupOverlay}
+      activeOpacity={1}
+      onPress={() => setDetailsScheduleItem(null)}
+    >
+      <View style={styles.detailsModalContent}>
+        <Text style={styles.detailsModalTitle}>{t('scheduleMarket.details.title')}</Text>
+        {detailsScheduleItem ? (
+          <View style={styles.detailsModalBody}>
+            <View style={styles.detailsRow}>
+              <Text style={styles.detailsLabel}>{t('scheduleMarket.action')}:</Text>
+              <Text style={styles.detailsValue}>
+                {detailsScheduleItem.mode === 'open'
+                  ? t('scheduleMarket.actionOpen')
+                  : t('scheduleMarket.actionClose')}
               </Text>
-            </TouchableOpacity>
+            </View>
+            <View style={styles.detailsRow}>
+              <Text style={styles.detailsLabel}>{t('scheduleMarket.time')}:</Text>
+              <Text style={styles.detailsValue}>{detailsScheduleItem.time}</Text>
+            </View>
+            <View style={styles.detailsRow}>
+              <Text style={styles.detailsLabel}>{t('scheduleMarket.repeat')}:</Text>
+              <Text style={styles.detailsValue}>{detailsScheduleItem.repeat}</Text>
+            </View>
           </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Schedule Details Modal */}
-      <Modal
-        visible={!!detailsScheduleItem}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDetailsScheduleItem(null)}
-      >
+        ) : null}
         <TouchableOpacity
-          style={styles.popupOverlay}
-          activeOpacity={1}
+          style={styles.detailsCloseBtn}
           onPress={() => setDetailsScheduleItem(null)}
+          activeOpacity={0.8}
         >
-          <View style={styles.detailsModalContent}>
-            <Text style={styles.detailsModalTitle}>{t('scheduleMarket.details.title')}</Text>
-            {detailsScheduleItem && (
-              <View style={styles.detailsModalBody}>
-                <View style={styles.detailsRow}>
-                  <Text style={styles.detailsLabel}>{t('scheduleMarket.action')}:</Text>
-                  <Text style={styles.detailsValue}>
-                    {detailsScheduleItem.mode === 'open'
-                      ? t('scheduleMarket.actionOpen')
-                      : t('scheduleMarket.actionClose')}
-                  </Text>
-                </View>
-                <View style={styles.detailsRow}>
-                  <Text style={styles.detailsLabel}>{t('scheduleMarket.time')}:</Text>
-                  <Text style={styles.detailsValue}>{detailsScheduleItem.time}</Text>
-                </View>
-                <View style={styles.detailsRow}>
-                  <Text style={styles.detailsLabel}>{t('scheduleMarket.repeat')}:</Text>
-                  <Text style={styles.detailsValue}>{detailsScheduleItem.repeat}</Text>
-                </View>
-              </View>
-            )}
-            <TouchableOpacity
-              style={styles.detailsCloseBtn}
-              onPress={() => setDetailsScheduleItem(null)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.detailsCloseText}>{t('scheduleMarket.details.close')}</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.detailsCloseText}>{t('scheduleMarket.details.close')}</Text>
         </TouchableOpacity>
-      </Modal>
+      </View>
+    </TouchableOpacity>
+  </Modal>
 
       {/* Bottom Navigation Bar */}
       {renderBottomTabBar(activeTab, handleSelectTab)}
@@ -1602,8 +1617,10 @@ function renderBottomTabBar(
         style={styles.bottomTabItem}
         onPress={() => onSelectTab('Overview')}
         activeOpacity={0.75}
+        accessibilityRole="tab"
+        accessibilityLabel="Home"
       >
-        <NavOverviewIcon
+        <NavHomeIcon
           size={20}
           color={activeTab === 'Overview' ? adminColors.brand : adminColors.muted}
         />
@@ -1613,7 +1630,7 @@ function renderBottomTabBar(
             activeTab === 'Overview' && styles.bottomTabLabelActive,
           ]}
         >
-          {t('superAdminDashboard.tab.overview')}
+          {t('superAdminDashboard.tab.home')}
         </Text>
       </TouchableOpacity>
 
@@ -1701,7 +1718,7 @@ function renderBottomTabBar(
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: adminColors.canvas,
+    backgroundColor: adminColors.brand,
   },
   tabContainer: {
     flex: 1,
@@ -1709,10 +1726,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
+    backgroundColor: adminColors.canvas,
   },
   scrollInner: {
-    paddingHorizontal: adminSpacing.md,
-    paddingTop: adminSpacing.sm,
     paddingBottom: adminSpacing.xl,
   },
   header: {
@@ -1721,7 +1737,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: adminColors.brand,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    paddingTop: 18,
+    paddingBottom: 92,
+  },
+  mainContent: {
+    paddingHorizontal: adminSpacing.md,
+    marginTop: -48,
+  },
+  kpiSectionTitle: {
+    ...adminType.sectionHead,
+    color: adminColors.brandDeep,
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.xs,
   },
   headerLeft: {
     flexDirection: 'row',
@@ -1758,9 +1787,120 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-  dateFilterContainer: {
+  // 1. Floating Greeting Card (Image 1)
+  greetingCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  greetingTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: adminSpacing.sm,
+    marginBottom: 4,
+  },
+  greetingTitle: {
+    ...adminType.title,
+    color: adminColors.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    flex: 1,
+    marginRight: adminSpacing.sm,
+  },
+  roleBadgePill: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 5,
+    flexShrink: 0,
+    alignSelf: 'center',
+  },
+  roleBadgeText: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    fontWeight: '700',
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
+  greetingSubTitle: {
+    ...adminType.body,
+    color: adminColors.muted,
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  greetingDateStamp: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    fontSize: 12,
+    marginBottom: adminSpacing.md,
+  },
+  greetingBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  lastUpdatedText: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    fontSize: 12,
+  },
+  refreshButton: {
+    width: 32,
+    height: 32,
+    borderRadius: adminRadius.xs,
+    backgroundColor: adminColors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // 2. Search and Date Filter Bar (Tohfa Admin Reference)
+  searchContainer: {
+    marginBottom: adminSpacing.md,
+    gap: adminSpacing.sm,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    height: 46,
+    gap: adminSpacing.sm,
+    ...adminShadow.sm,
+  },
+  searchInput: {
+    flex: 1,
+    ...adminType.body,
+    color: adminColors.ink,
+    paddingVertical: 0,
+    fontSize: 13,
+  },
+  dateFilterRow: {
+    alignItems: 'flex-start',
+  },
+  dateFilterContainer: {
+    alignItems: 'flex-start',
+    marginVertical: adminSpacing.xs,
+  },
+  dateFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.brandTint,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: adminRadius.full,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    gap: 6,
   },
   dateFilterPill: {
     flexDirection: 'row',
@@ -1782,9 +1922,9 @@ const styles = StyleSheet.create({
   },
   marketCard: {
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.md,
-    borderWidth: 1,
-    borderColor: adminColors.brandTint,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: adminColors.brand,
     padding: adminSpacing.md,
     marginBottom: adminSpacing.md,
     ...adminShadow.sm,
@@ -1826,20 +1966,20 @@ const styles = StyleSheet.create({
   marketStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.success.bg,
+    backgroundColor: '#E8F8EE',
     borderRadius: adminRadius.full,
     paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs / 2,
-    gap: 5,
+    paddingVertical: 4,
+    gap: 6,
   },
   marketStatusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: adminColors.success.text,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#00A843',
   },
   marketStatusText: {
-    color: adminColors.success.text,
+    color: '#00A843',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1854,9 +1994,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: adminSpacing.xs,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-    borderWidth: 1,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: adminColors.danger.border,
     backgroundColor: adminColors.card,
   },
@@ -1866,14 +2006,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   scheduleMarketButton: {
-    flex: 1.2,
+    flex: 1.25,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: adminSpacing.xs,
-    paddingVertical: adminSpacing.sm,
-    borderRadius: adminRadius.sm,
-    backgroundColor: adminColors.success.text,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#00A843',
   },
   scheduleMarketText: {
     color: adminColors.onBrand,
@@ -1884,7 +2024,7 @@ const styles = StyleSheet.create({
     marginTop: adminSpacing.md,
     paddingTop: adminSpacing.sm,
     borderTopWidth: 1,
-    borderTopColor: adminColors.border,
+    borderTopColor: '#F3EFE9',
   },
   scheduleSectionTitle: {
     ...adminType.rowMeta,
@@ -1897,21 +2037,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: adminColors.canvas,
-    borderRadius: adminRadius.sm,
+    backgroundColor: adminColors.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E8E5E0',
     paddingHorizontal: adminSpacing.sm,
-    paddingVertical: adminSpacing.xs,
+    paddingVertical: 10,
     marginTop: adminSpacing.xs,
   },
   scheduleItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.xs,
+    gap: 10,
   },
   scheduleCalendarBox: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: adminRadius.xs,
+    borderWidth: 1,
+    borderColor: '#E8E5E0',
     backgroundColor: adminColors.card,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1925,20 +2069,21 @@ const styles = StyleSheet.create({
   scheduleItemTime: {
     color: adminColors.muted,
     fontSize: 11,
+    marginTop: 2,
   },
   scheduleItemRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.xs,
+    gap: 4,
   },
   scheduledPill: {
-    backgroundColor: adminColors.warning.bg,
-    borderRadius: adminRadius.xs,
-    paddingHorizontal: adminSpacing.xs,
-    paddingVertical: 2,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   scheduledPillText: {
-    color: adminColors.warning.text,
+    color: '#92400E',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -2096,6 +2241,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   scheduleOptionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     paddingVertical: adminSpacing.md,
     paddingHorizontal: adminSpacing.md,
   },

@@ -1,8 +1,14 @@
 {
-  /* Solution-style root config. `pnpm typecheck` == `tsc -b tsconfig.json`.
-     apps/admin-web (Angular) and the two React Native apps are NOT referenced
-     here: they use their own compilers/toolchains and are typechecked by their
-     own `typecheck` script. */
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
   "files": [],
   "references": [
     { "path": "./packages/design-tokens" },
