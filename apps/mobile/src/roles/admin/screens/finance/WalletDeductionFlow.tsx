@@ -294,10 +294,12 @@ export function WalletDeductionFlow({
                 <Text style={styles.cardMetaValue}>25 Sep 2026</Text>
               </View>
             </View>
-            <View style={styles.divider} />
-            <View style={styles.rowBetween}>
-              <Text style={styles.cardMetaLabel}>Time</Text>
-              <Text style={styles.cardMetaValue}>10:42 AM</Text>
+            <View style={[styles.twoColRow, { marginTop: 12 }]}>
+              <View style={styles.col}>
+                <Text style={styles.cardMetaLabel}>Time</Text>
+                <Text style={styles.cardMetaValue}>10:42 AM</Text>
+              </View>
+              <View style={styles.col} />
             </View>
           </View>
 

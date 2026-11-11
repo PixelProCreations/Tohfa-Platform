@@ -39,45 +39,60 @@ export interface ProfitLossScreenProps {
 
 interface WarehousePerformanceRow {
   warehouse: string;
-  subLocation: string;
   revenue: string;
   expenses: string;
   netProfit: string;
   margin: string;
+  sale: string;
+  otherIncome: string;
+  cogs: string;
+  opExpenses: string;
 }
 
 const WAREHOUSE_DATA: WarehousePerformanceRow[] = [
   {
     warehouse: 'Ooty',
-    subLocation: 'Sale: 3,50,000 | Other Income: 25,000 | COGS: 1,10,000 | Op. Expenses: 55,000',
     revenue: '₹ 5,20,000',
     expenses: '₹ 2,80,000',
     netProfit: '₹ 2,40,000',
     margin: '46.2%',
+    sale: '3,50,000',
+    otherIncome: '25,000',
+    cogs: '1,10,000',
+    opExpenses: '55,000',
   },
   {
     warehouse: 'Coonoor',
-    subLocation: 'Sale: 2,50,000 | Other Income: 20,000 | COGS: 1,10,000 | Op. Expenses: 55,000',
     revenue: '₹ 3,75,000',
     expenses: '₹ 1,95,000',
     netProfit: '₹ 1,80,000',
     margin: '48.0%',
+    sale: '2,50,000',
+    otherIncome: '20,000',
+    cogs: '1,10,000',
+    opExpenses: '55,000',
   },
   {
     warehouse: 'Nilgiri',
-    subLocation: 'Sale: 2,00,000 | Other Income: 25,000 | COGS: 1,10,000 | Op. Expenses: 55,000',
     revenue: '₹ 2,90,000',
     expenses: '₹ 1,50,000',
     netProfit: '₹ 1,40,000',
     margin: '48.3%',
+    sale: '2,00,000',
+    otherIncome: '25,000',
+    cogs: '1,10,000',
+    opExpenses: '55,000',
   },
   {
     warehouse: 'Kotagiri',
-    subLocation: 'Sale: 2,50,000 | Other Income: 25,000 | COGS: 1,10,000 | Op. Expenses: 55,000',
     revenue: '₹ 2,00,000',
     expenses: '₹ 1,20,000',
     netProfit: '₹ 80,000',
     margin: '40.2%',
+    sale: '2,50,000',
+    otherIncome: '25,000',
+    cogs: '1,10,000',
+    opExpenses: '55,000',
   },
 ];
 
@@ -366,14 +381,28 @@ export function ProfitLossScreen({
               {WAREHOUSE_DATA.map((item, idx) => (
                 <View key={item.warehouse} style={styles.whRowContainer}>
                   <View style={styles.whDataRow}>
-                    <Text style={[styles.whCellBold, { flex: 1.5 }]}>{item.warehouse}</Text>
-                    <Text style={[styles.whCell, { flex: 1.5, textAlign: 'right' }]}>{item.revenue}</Text>
-                    <Text style={[styles.whCell, { flex: 1.5, textAlign: 'right' }]}>{item.expenses}</Text>
-                    <Text style={[styles.whCellGreen, { flex: 1.5, textAlign: 'right' }]}>{item.netProfit}</Text>
-                    <Text style={[styles.whCellGreen, { flex: 1.2, textAlign: 'right' }]}>{item.margin}</Text>
+                    <Text style={[styles.whCellBold, { flex: 1.4 }]}>{item.warehouse}</Text>
+                    <Text style={[styles.whCell, { flex: 1.3, textAlign: 'right' }]}>{item.revenue}</Text>
+                    <Text style={[styles.whCell, { flex: 1.3, textAlign: 'right' }]}>{item.expenses}</Text>
+                    <Text style={[styles.whCellGreen, { flex: 1.3, textAlign: 'right' }]}>{item.netProfit}</Text>
+                    <Text style={[styles.whCellGreen, { flex: 1.1, textAlign: 'right' }]}>{item.margin}</Text>
                   </View>
-                  <View style={styles.whSubContainer}>
-                    <Text style={styles.whSubText}>{item.subLocation}</Text>
+                  <View style={styles.whSubGrid}>
+                    <View style={styles.whSubCol}>
+                      <Text style={styles.whSubText}>Sale: {item.sale}</Text>
+                    </View>
+                    <View style={styles.whSubDivider} />
+                    <View style={styles.whSubCol}>
+                      <Text style={styles.whSubText}>Other Income: {item.otherIncome}</Text>
+                    </View>
+                    <View style={styles.whSubDivider} />
+                    <View style={styles.whSubCol}>
+                      <Text style={styles.whSubText}>COGS: {item.cogs}</Text>
+                    </View>
+                    <View style={styles.whSubDivider} />
+                    <View style={styles.whSubCol}>
+                      <Text style={styles.whSubText}>Op. Expenses: {item.opExpenses}</Text>
+                    </View>
                   </View>
                   {idx < WAREHOUSE_DATA.length - 1 && <View style={styles.whDivider} />}
                 </View>
@@ -672,11 +701,34 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 4,
   },
+  whSubGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderWidth: 0.8,
+    borderColor: '#C8E6C9',
+    borderRadius: 6,
+    paddingVertical: 4,
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  whSubCol: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 1,
+  },
+  whSubDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: '#A5D6A7',
+  },
   whSubText: {
-    ...adminType.caption,
-    fontSize: 10,
-    color: adminColors.success.text,
+    fontSize: 9,
+    color: '#2E7D32',
     fontWeight: '500',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   whDivider: {
     height: 1,

@@ -93,43 +93,55 @@ function CategoryWalletIcon({ color }: { color: string }) {
 
 function MethodUpiIcon() {
   return (
-    <Svg width={28} height={28} viewBox="0 0 28 28" fill="none">
-      <Rect width="28" height="28" rx="6" fill="#F3F4F6" />
-      <Path d="M6 10l5 9h3l-5-9H6z" fill="#097939" />
-      <Path d="M13 10l5 9h3l-5-9h-3z" fill="#ED7524" />
-    </Svg>
+    <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#E8F8EE', alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={36} height={20} viewBox="0 0 72 28" fill="none">
+        <Path d="M4 4v12c0 4 3 7 7 7s7-3 7-7V4" stroke="#0F5132" strokeWidth="4.5" strokeLinecap="round" />
+        <Path d="M26 23V4h8c4.5 0 7.5 3 7.5 7s-3 7-7.5 7h-8" stroke="#0F5132" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M49 4v19" stroke="#0F5132" strokeWidth="4.5" strokeLinecap="round" />
+        <Path d="M57 7l7 7-7 7" stroke="#0F5132" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M64 7l7 7-7 7" stroke="#F0562A" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+      </Svg>
+    </View>
   );
 }
 
 function MethodCardIcon() {
   return (
-    <Svg width={28} height={28} viewBox="0 0 28 28" fill="none">
-      <Rect width="28" height="28" rx="6" fill="#E8F5E9" />
-      <Rect x="5" y="7" width="18" height="14" rx="2" stroke="#2E7D32" strokeWidth="1.8" />
-      <Line x1="5" y1="11" x2="23" y2="11" stroke="#2E7D32" strokeWidth="1.8" />
-      <Rect x="7" y="14" width="4" height="3" rx="0.5" fill="#2E7D32" />
-    </Svg>
+    <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#E8F8EE', alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+        <Rect x="2" y="5" width="20" height="14" rx="2.5" stroke="#16A34A" strokeWidth="1.8" />
+        <Line x1="2" y1="10" x2="22" y2="10" stroke="#16A34A" strokeWidth="1.8" />
+        <Rect x="5" y="13" width="4" height="3" rx="0.5" fill="#16A34A" />
+      </Svg>
+    </View>
   );
 }
 
 function MethodNetBankingIcon() {
   return (
-    <Svg width={28} height={28} viewBox="0 0 28 28" fill="none">
-      <Rect width="28" height="28" rx="6" fill="#E0F2F1" />
-      <Path d="M6 11l8-4 8 4v1H6v-1z" stroke="#00695C" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-      <Path d="M8 12v6M11.5 12v6M16.5 12v6M20 12v6M6 18h16M5 21h18" stroke="#00695C" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#E8F8EE', alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+        <Path d="M3 9.5L12 4l9 5.5v1H3v-1z" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <Line x1="6" y1="11" x2="6" y2="17" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" />
+        <Line x1="12" y1="11" x2="12" y2="17" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" />
+        <Line x1="18" y1="11" x2="18" y2="17" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" />
+        <Line x1="3" y1="17.5" x2="21" y2="17.5" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" />
+        <Line x1="2" y1="20" x2="22" y2="20" stroke="#16A34A" strokeWidth="1.8" strokeLinecap="round" />
+      </Svg>
+    </View>
   );
 }
 
 function MethodCashIcon() {
   return (
-    <Svg width={28} height={28} viewBox="0 0 28 28" fill="none">
-      <Rect width="28" height="28" rx="6" fill="#E8F5E9" />
-      <Rect x="5" y="8" width="18" height="12" rx="2" stroke="#1B5E20" strokeWidth="1.8" />
-      <Circle cx="14" cy="14" r="3" stroke="#1B5E20" strokeWidth="1.8" />
-      <Path d="M13 13h2M13 15h1.5" stroke="#1B5E20" strokeWidth="1.2" strokeLinecap="round" />
-    </Svg>
+    <View style={{ width: 44, height: 44, borderRadius: 10, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={26} height={22} viewBox="0 0 28 24" fill="none">
+        <Rect x="5" y="2" width="21" height="13" rx="2" stroke="#4B5563" strokeWidth="1.5" strokeDasharray="3 1" />
+        <Rect x="2" y="6" width="22" height="14" rx="2" stroke="#374151" strokeWidth="1.8" fill="#F3F4F6" />
+        <Circle cx="13" cy="13" r="3.5" stroke="#374151" strokeWidth="1.4" />
+        <Path d="M12 11h2M12 12.2h2M12 11v3.5c.8 0 1.2-.4 1.2-.9s-.4-.8-1.2-.8M13 13.5l1.2 1.8" stroke="#374151" strokeWidth="1" strokeLinecap="round" />
+      </Svg>
+    </View>
   );
 }
 
@@ -289,8 +301,8 @@ export function PaymentMethodsScreen({
               <Switch
                 value={upiEnabled}
                 onValueChange={setUpiEnabled}
-                trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                thumbColor={adminColors.card}
+                trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                thumbColor={'#FFFFFF'}
               />
               <View style={[styles.statusPill, upiEnabled ? styles.statusPillActive : styles.statusPillDisabled]}>
                 <Text style={[styles.statusPillText, upiEnabled ? styles.statusPillTextActive : styles.statusPillTextDisabled]}>
@@ -315,8 +327,8 @@ export function PaymentMethodsScreen({
               <Switch
                 value={cardEnabled}
                 onValueChange={setCardEnabled}
-                trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                thumbColor={adminColors.card}
+                trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                thumbColor={'#FFFFFF'}
               />
               <View style={[styles.statusPill, cardEnabled ? styles.statusPillActive : styles.statusPillDisabled]}>
                 <Text style={[styles.statusPillText, cardEnabled ? styles.statusPillTextActive : styles.statusPillTextDisabled]}>
@@ -341,8 +353,8 @@ export function PaymentMethodsScreen({
               <Switch
                 value={netBankingEnabled}
                 onValueChange={setNetBankingEnabled}
-                trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                thumbColor={adminColors.card}
+                trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                thumbColor={'#FFFFFF'}
               />
               <View style={[styles.statusPill, netBankingEnabled ? styles.statusPillActive : styles.statusPillDisabled]}>
                 <Text style={[styles.statusPillText, netBankingEnabled ? styles.statusPillTextActive : styles.statusPillTextDisabled]}>
@@ -367,8 +379,8 @@ export function PaymentMethodsScreen({
               <Switch
                 value={cashEnabled}
                 onValueChange={setCashEnabled}
-                trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                thumbColor={adminColors.card}
+                trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                thumbColor={'#FFFFFF'}
               />
               <View style={[styles.statusPill, cashEnabled ? styles.statusPillActive : styles.statusPillDisabled]}>
                 <Text style={[styles.statusPillText, cashEnabled ? styles.statusPillTextActive : styles.statusPillTextDisabled]}>
@@ -440,8 +452,8 @@ export function PaymentMethodsScreen({
                 <Switch
                   value={customerPayments}
                   onValueChange={setCustomerPayments}
-                  trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                  thumbColor={adminColors.card}
+                  trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                  thumbColor={'#FFFFFF'}
                   style={styles.miniSwitch}
                 />
                 <Text style={styles.summaryRowLabel}>Customer Payments</Text>
@@ -457,8 +469,8 @@ export function PaymentMethodsScreen({
                 <Switch
                   value={walletTopups}
                   onValueChange={setWalletTopups}
-                  trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                  thumbColor={adminColors.card}
+                  trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                  thumbColor={'#FFFFFF'}
                   style={styles.miniSwitch}
                 />
                 <Text style={styles.summaryRowLabel}>Wallet Top-ups</Text>
@@ -474,8 +486,8 @@ export function PaymentMethodsScreen({
                 <Switch
                   value={warehouseCounterPayments}
                   onValueChange={setWarehouseCounterPayments}
-                  trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                  thumbColor={adminColors.card}
+                  trackColor={{ false: '#E5E7EB', true: '#F0562A' }}
+                  thumbColor={'#FFFFFF'}
                   style={styles.miniSwitch}
                 />
                 <Text style={styles.summaryRowLabel}>Warehouse Counter Payments</Text>

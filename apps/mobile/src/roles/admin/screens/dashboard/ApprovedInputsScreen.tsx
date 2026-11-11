@@ -1451,7 +1451,7 @@ const addStyles = StyleSheet.create({
   saveBtn: {
     height: 48,
     borderRadius: 12,
-    backgroundColor: '#EA7C24',
+    backgroundColor: adminColors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     ...adminShadow.sm,

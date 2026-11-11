@@ -2322,31 +2322,31 @@ export function SystemSettingsFlow({
                     prev ? { ...prev, maintenanceMode: val } : null,
                   );
                 }}
-                trackColor={{ false: adminColors.border, true: adminColors.brand }}
-                thumbColor={adminColors.card}
+                trackColor={{ false: '#E5E7EB', true: adminColors.brand }}
+                thumbColor={'#FFFFFF'}
               />
             </View>
 
             <View
               style={{
                 height: 1,
-                backgroundColor: adminColors.border,
+                backgroundColor: '#EFE6DC',
                 marginVertical: adminSpacing.md,
               }}
             />
 
-            <Text style={[styles.fieldLabel, { marginBottom: adminSpacing.sm }]}>Allowed Uses</Text>
+            <Text style={[styles.fieldLabel, { marginBottom: adminSpacing.sm, fontWeight: '700', color: '#5A3E2B' }]}>Allowed Uses</Text>
             {['OTP /Verification', 'System Alerts', 'Marketing Messages'].map((useItem) => {
               const isChecked = (selectedIntegration.allowedUses ?? ['OTP / Verification']).some(
                 (u) =>
                   u.toLowerCase().replace(/\s/g, '') === useItem.toLowerCase().replace(/\s/g, ''),
               );
               return (
-                <View key={useItem} style={[styles.checkboxItem, { paddingVertical: 4 }]}>
-                  <View style={[styles.checkboxBox, isChecked && styles.checkboxBoxActive]}>
-                    {isChecked && <Text style={styles.checkmark}>✓</Text>}
+                <View key={useItem} style={[styles.checkboxItem, { paddingVertical: 5 }]}>
+                  <View style={[styles.checkboxSquare, isChecked && styles.checkboxSquareActive]}>
+                    {isChecked && <Text style={styles.checkboxCheckmark}>✓</Text>}
                   </View>
-                  <Text style={styles.checkboxLabel}>{useItem}</Text>
+                  <Text style={styles.checkboxLabelText}>{useItem}</Text>
                 </View>
               );
             })}
@@ -2390,12 +2390,12 @@ export function SystemSettingsFlow({
                   setTestProgress(60);
                 }}
               >
-                <SignalWifiIcon />
-                <Text style={styles.testConnectionOutlineBtnText}>Test Connection</Text>
+                <SignalWifiIcon size={16} color="#5A3E2B" />
+                <Text style={styles.testConnectionOutlineBtnText} numberOfLines={1}>Test Connection</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.saveButton}
+                style={styles.editIntegrationBtn}
                 activeOpacity={0.8}
                 onPress={() => {
                   setFormServiceName(selectedIntegration.name);
@@ -2410,7 +2410,7 @@ export function SystemSettingsFlow({
                   setCurrentScreen('edit_integration');
                 }}
               >
-                <Text style={styles.saveButtonText}>Edit Integration</Text>
+                <Text style={styles.editIntegrationBtnText}>Edit Integration</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -3459,21 +3459,66 @@ const styles = StyleSheet.create({
   },
   testConnectionOutlineBtn: {
     flex: 1,
-    height: 46,
-    borderRadius: adminRadius.md,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    backgroundColor: adminColors.card,
+    borderColor: '#E2D8CF',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 12,
     gap: 8,
+    ...adminShadow.sm,
   },
   testConnectionOutlineBtnText: {
-    ...adminType.rowTitle,
-    color: adminColors.ink,
+    color: '#3D2B1F',
+    fontSize: 13.5,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  editIntegrationBtn: {
+    flex: 1.15,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: adminColors.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    ...adminShadow.sm,
+  },
+  editIntegrationBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+    includeFontPadding: false,
+  },
+  checkboxSquare: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#D4C4B5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginRight: 10,
+  },
+  checkboxSquareActive: {
+    backgroundColor: adminColors.brand,
+    borderColor: adminColors.brand,
+  },
+  checkboxCheckmark: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '800',
+    includeFontPadding: false,
+  },
+  checkboxLabelText: {
     fontSize: 13,
-    fontWeight: '600',
+    color: '#3D2B1F',
+    fontWeight: '500',
+    includeFontPadding: false,
   },
   regenerateBtn: {
     height: 46,
