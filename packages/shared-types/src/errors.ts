@@ -119,6 +119,8 @@ export const ErrorCode = {
   ROLE_NOT_FOUND: 'ROLE_NOT_FOUND',
   /** The community planting summary's minimum group size (system_config.community_planting_min_farmers) is missing or unusable; there is no fallback (BR-136). HTTP 503. */
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'COMMUNITY_PLANTING_NOT_CONFIGURED',
+  /** POST /auth/me/set-password only sets a FIRST password; this account already has one (BR-142). HTTP 409. */
+  PASSWORD_ALREADY_SET: 'PASSWORD_ALREADY_SET',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

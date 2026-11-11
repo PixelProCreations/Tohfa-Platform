@@ -23,7 +23,7 @@ import {
   type OAuthProviderCode,
 } from '../../api/auth';
 import { preferredRoleForSelection } from '../../utils/adminShell';
-import { formatErrorMessage } from '../../../../shell/api/client';
+import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 import {
   signInWithGoogle,
   signInWithFacebook,
@@ -80,6 +80,7 @@ interface LoginScreenProps {
     screen:
       | 'Welcome'
       | 'Otp'
+      | 'CreatePassword'
       | 'ForgotPassword'
       | 'ApplicationStatus'
       | 'MainTabs'
@@ -94,7 +95,12 @@ interface LoginScreenProps {
 
 const MOBILE_PREFIX = '+91';
 
+type AuthMode = 'password' | 'otp';
+
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
+  // Password stays the default so existing password users see no change; the
+  // "OTP Sign-In" switch restores the S-42 OTP login entry (see handleOtpLogin).
+  const [authMode, setAuthMode] = useState<AuthMode>('password');
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -193,6 +199,45 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     }
   }
 
+  /**
+   * OTP login (purpose LOGIN). Restores the S-42 "OTP Sign-In" entry
+   * (2dd99bf2) that the 8e0d4feb redesign dropped: send a LOGIN challenge for
+   * the typed number and hand it to the existing OTP screen, which verifies it
+   * via `POST /auth/otp/verify` and routes exactly like a password login.
+   */
+  async function handleOtpLogin() {
+    const rawMobile = mobile.replace(/\s+/g, '').trim();
+    if (rawMobile.length < 10) {
+      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
+      return;
+    }
+    setLoading(true);
+    setErrorMsg(null);
+
+    const cMobile = rawMobile.startsWith('+') ? rawMobile : `${MOBILE_PREFIX}${rawMobile}`;
+
+    try {
+      const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
+      onNavigate('Otp', {
+        mobile: cMobile,
+        challengeId: res.challengeId,
+        resendAvailableAt: res.resendAvailableAt,
+        attemptsRemaining: res.attemptsRemaining,
+        mockCode: res._mockCode,
+        purpose: 'LOGIN',
+      });
+    } catch (err: unknown) {
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function switchMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setErrorMsg(null);
+  }
+
   async function handlePasswordLogin() {
     const rawMobile = mobile.replace(/\s+/g, '').trim();
     if (!rawMobile) {
@@ -239,7 +284,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       onNavigate(route.name, route.params);
     } catch (err: unknown) {
       console.error('[LoginScreen] Catch block hit:', err);
-      setErrorMsg(formatErrorMessage(err, 'Invalid credentials. Please check your mobile number and password.'));
+      if (err instanceof ApiError && err.is('UNAUTHENTICATED')) {
+        // BR-142: the server gives the same 401 for an unknown number, a wrong
+        // password and an account with no password yet (so it never reveals
+        // which). Every such refusal points to OTP sign-in, which is how a
+        // first-time user gets in and then creates a password.
+        setErrorMsg(t('farmer.auth.login.invalidCredentials'));
+      } else {
+        setErrorMsg(formatErrorMessage(err, t('error.generic')));
+      }
     } finally {
       setLoading(false);
     }
@@ -265,6 +318,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
       <Text style={styles.title}>{t('farmer.auth.login.title')}</Text>
       <Text style={styles.subtitle}>{t('farmer.auth.login.subtitle')}</Text>
 
+      <View style={styles.tabContainer}>
+        {(['password', 'otp'] as const).map((mode) => (
+          <TouchableOpacity
+            key={mode}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: authMode === mode }}
+            style={[styles.tabButton, authMode === mode && styles.tabButtonActive]}
+            onPress={() => switchMode(mode)}
+          >
+            <Text style={[styles.tabButtonText, authMode === mode && styles.tabButtonTextActive]}>
+              {mode === 'password' ? t('farmer.auth.login.tabPassword') : t('farmer.auth.login.tabOtp')}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {errorMsg ? <ErrorState message={errorMsg} onRetry={() => setErrorMsg(null)} /> : null}
 
       <View style={styles.fieldGroup}>
@@ -289,70 +358,83 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
-        <Text style={styles.fieldLabel}>{t('farmer.auth.login.password')}</Text>
-        <View style={[styles.fieldRow, isPasswordFocused && styles.fieldRowFocused]}>
-          <View style={styles.fieldIconWrap}>
-            <LockIcon size={18} color={isPasswordFocused ? P.primary : P.greyMid2} />
+      {authMode === 'password' ? (
+        <>
+        <View style={styles.fieldGroup}>
+          <Text style={styles.fieldLabel}>{t('farmer.auth.login.password')}</Text>
+          <View style={[styles.fieldRow, isPasswordFocused && styles.fieldRowFocused]}>
+            <View style={styles.fieldIconWrap}>
+              <LockIcon size={18} color={isPasswordFocused ? P.primary : P.greyMid2} />
+            </View>
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              onFocus={() => setIsPasswordFocused(true)}
+              onBlur={() => setIsPasswordFocused(false)}
+              secureTextEntry={!showPassword}
+              placeholder="••••••••"
+              placeholderTextColor={P.twGray400}
+              style={[
+                styles.fieldInput,
+                styles.passwordInput,
+                !showPassword && styles.passwordInputMasked,
+              ]}
+              accessibilityLabel={t('farmer.auth.login.password')}
+            />
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => setShowPassword((s) => !s)}
+              style={styles.eyeToggleBtn}
+              activeOpacity={0.7}
+            >
+              {showPassword ? (
+                <EyeOffIcon size={18} color={P.greyMid2} />
+              ) : (
+                <EyeIcon size={18} color={P.greyMid2} />
+              )}
+            </TouchableOpacity>
           </View>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            onFocus={() => setIsPasswordFocused(true)}
-            onBlur={() => setIsPasswordFocused(false)}
-            secureTextEntry={!showPassword}
-            placeholder="••••••••"
-            placeholderTextColor={P.twGray400}
-            style={[
-              styles.fieldInput,
-              styles.passwordInput,
-              !showPassword && styles.passwordInputMasked,
-            ]}
-            accessibilityLabel={t('farmer.auth.login.password')}
-          />
+        </View>
+
+        <View style={styles.optionRow}>
+          <TouchableOpacity
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rememberMe }}
+            style={styles.rememberWrap}
+            onPress={() => setRememberMe((r) => !r)}
+          >
+            <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+              {rememberMe ? <Icon name="check" size={12} color={P.white} /> : null}
+            </View>
+            <Text style={styles.rememberText}>{t('farmer.auth.login.rememberMe')}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             accessibilityRole="button"
-            onPress={() => setShowPassword((s) => !s)}
-            style={styles.eyeToggleBtn}
-            activeOpacity={0.7}
+            onPress={() => onNavigate('ForgotPassword')}
           >
-            {showPassword ? (
-              <EyeOffIcon size={18} color={P.greyMid2} />
-            ) : (
-              <EyeIcon size={18} color={P.greyMid2} />
-            )}
+            <Text style={styles.forgotText}>{t('farmer.auth.login.forgotPassword')}</Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={styles.optionRow}>
-        <TouchableOpacity
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: rememberMe }}
-          style={styles.rememberWrap}
-          onPress={() => setRememberMe((r) => !r)}
-        >
-          <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-            {rememberMe ? <Icon name="check" size={12} color={P.white} /> : null}
-          </View>
-          <Text style={styles.rememberText}>{t('farmer.auth.login.rememberMe')}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => onNavigate('ForgotPassword')}
-        >
-          <Text style={styles.forgotText}>{t('farmer.auth.login.forgotPassword')}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Button
-        title={t('farmer.auth.login.submit')}
-        onPress={handlePasswordLogin}
-        loading={loading}
-        disabled={!mobile || !password}
-        style={styles.loginButton}
-        textStyle={styles.loginButtonText}
-      />
+        <Button
+          title={t('farmer.auth.login.submit')}
+          onPress={handlePasswordLogin}
+          loading={loading}
+          disabled={!mobile || !password}
+          style={styles.loginButton}
+          textStyle={styles.loginButtonText}
+        />
+        </>
+      ) : (
+        <Button
+          title={t('farmer.auth.login.requestOtp')}
+          onPress={handleOtpLogin}
+          loading={loading}
+          disabled={!mobile}
+          style={styles.loginButton}
+          textStyle={styles.loginButtonText}
+        />
+      )}
 
       <View style={styles.dividerRow}>
         <View style={styles.dividerLine} />
@@ -473,6 +555,32 @@ const styles = StyleSheet.create({
     color: P.muted,
     textAlign: 'center',
     marginTop: 6,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    marginTop: 18,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: P.lightGreen,
+  },
+  tabButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabButtonActive: {
+    backgroundColor: P.white,
+  },
+  tabButtonText: {
+    fontSize: typography.bodySmall,
+    fontWeight: weights.semibold,
+    color: P.blueDeep1,
+  },
+  tabButtonTextActive: {
+    color: P.primary,
+    fontWeight: weights.bold,
   },
   socialRow: {
     flexDirection: 'row',

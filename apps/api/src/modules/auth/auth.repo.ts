@@ -112,6 +112,12 @@ export interface AuthRepo {
     },
   ): Promise<UserRow>;
   updateUserPassword(db: Executor, userId: string, passwordHash: string): Promise<void>;
+  /**
+   * BR-142: store a FIRST password. Writes only while `password_hash IS NULL`
+   * and reports whether it did, so a concurrent second request loses here
+   * rather than overwriting the first one's password.
+   */
+  setInitialPassword(db: Executor, userId: string, passwordHash: string): Promise<boolean>;
   updateUserStatus(db: Executor, userId: string, status: 'PENDING' | 'ACTIVE' | 'DISABLED'): Promise<void>;
   updateUserLastLogin(db: Executor, userId: string): Promise<void>;
   createSession(
@@ -296,6 +302,15 @@ export const authRepo: AuthRepo = {
       `UPDATE users SET password_hash = $1, updated_at = now() WHERE id = $2`,
       [passwordHash, userId],
     );
+  },
+
+  async setInitialPassword(db, userId, passwordHash) {
+    const result = await db.query(
+      `UPDATE users SET password_hash = $1, updated_at = now()
+        WHERE id = $2 AND password_hash IS NULL AND deleted_at IS NULL`,
+      [passwordHash, userId],
+    );
+    return (result.rowCount ?? 0) === 1;
   },
 
   async updateUserStatus(db, userId, status) {

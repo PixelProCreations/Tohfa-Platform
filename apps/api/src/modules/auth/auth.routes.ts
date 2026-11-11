@@ -15,6 +15,7 @@ import {
   registerCustomerBody,
   resetPasswordBody,
   sendOtpBody,
+  setPasswordBody,
   terminateSessionParams,
   updateMeBody,
   verifyOtpBody,
@@ -120,6 +121,23 @@ authRouter.post(
     const actor = requireActor(req.actor);
     const body = getValidated(req, 'body', changePasswordBody);
     await authService.changePassword(actor, body);
+    res.status(204).send();
+  }),
+);
+
+// BR-142: the first password of an account that signed in by OTP and has none.
+// Same own-password permission as change-password (granted to every role); the
+// user id comes from the token only. 409 PASSWORD_ALREADY_SET once one exists.
+authRouter.post(
+  '/me/set-password',
+  requireAuth,
+  requirePermission('auth.password.change_own'),
+  validate({ body: setPasswordBody }),
+  authRateLimit(),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const body = getValidated(req, 'body', setPasswordBody);
+    await authService.setInitialPassword(scope, body);
     res.status(204).send();
   }),
 );

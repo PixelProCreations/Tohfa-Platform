@@ -9,6 +9,7 @@
   "error.OTP_INVALID": "That code is not correct or has expired.",
   "error.OTP_LOCKED": "Verification locked due to too many failed attempts.",
   "error.OTP_RESEND_TOO_SOON": "Please wait before requesting another OTP.",
+  "error.PASSWORD_ALREADY_SET": "This account already has a password. Sign in with it, or use Forgot password.",
   "error.PRICE_ABOVE_CEILING": "This price is above the fair price ceiling for this crop.",
   "error.STOCK_UNAVAILABLE": "Sorry, that quantity just sold out.",
   "error.UNAUTHORIZED": "Invalid mobile number or password.",
