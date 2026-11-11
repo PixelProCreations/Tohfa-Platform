@@ -3,16 +3,16 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { t } from '../../../../i18n/farmer';
-import { Icon, ErrorState } from '@tohfa/mobile-ui';
+import { ErrorState } from '@tohfa/mobile-ui';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import { resetPassword } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
 import { authPalette as P, typography } from '../../theme';
+import { NewPasswordForm } from './NewPasswordForm';
 
 interface ResetPasswordScreenProps {
   challengeId: string;
@@ -21,18 +21,10 @@ interface ResetPasswordScreenProps {
 }
 
 export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ challengeId, code, onNavigate }) => {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  async function handleReset() {
-    if (password !== confirmPassword) {
-      setErrorMsg('Passwords do not match.');
-      return;
-    }
+  async function handleReset(password: string) {
     setLoading(true);
     setErrorMsg(null);
 
@@ -76,46 +68,12 @@ export const ResetPasswordScreen: React.FC<ResetPasswordScreenProps> = ({ challe
         </View>
       ) : null}
 
-      <Text style={styles.fieldLabel}>New Password</Text>
-      <View style={styles.fieldRow}>
-        <LockIcon size={16} color={P.muted} />
-        <TextInput
-          style={styles.fieldInput}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!showPassword}
-          placeholder="........"
-          placeholderTextColor={P.muted}
-        />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-          <Icon name={showPassword ? 'visibility_off' : 'visibility'} size={16} color={P.muted} />
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.fieldLabel}>Confirm Password</Text>
-      <View style={styles.fieldRow}>
-        <LockIcon size={16} color={P.muted} />
-        <TextInput
-          style={styles.fieldInput}
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={!showConfirmPassword}
-          placeholder="........"
-          placeholderTextColor={P.muted}
-        />
-        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-          <Icon name={showConfirmPassword ? 'visibility_off' : 'visibility'} size={16} color={P.muted} />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        accessibilityRole="button"
-        style={[styles.ctaButton, (!password || !confirmPassword || loading) && styles.ctaDisabled]}
-        onPress={handleReset}
-        disabled={!password || !confirmPassword || loading}
-      >
-        <Text style={styles.ctaText}>Save Password</Text>
-      </TouchableOpacity>
+      <NewPasswordForm
+        submitLabel={t('farmer.auth.reset.submit')}
+        loading={loading}
+        onSubmit={(password) => void handleReset(password)}
+        onMismatch={() => setErrorMsg(t('farmer.auth.password.mismatch'))}
+      />
     </ScrollView>
   );
 };
@@ -165,45 +123,5 @@ const styles = StyleSheet.create({
     color: P.muted,
     textAlign: 'center',
     marginTop: 8,
-  },
-  fieldLabel: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.ink,
-    marginTop: 24,
-    marginBottom: 6,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: P.white,
-    borderWidth: 1.5,
-    borderColor: P.border,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 48,
-  },
-  fieldInput: {
-    flex: 1,
-    fontSize: typography.bodyLarge,
-    color: P.ink,
-    paddingVertical: 0,
-  },
-  ctaButton: {
-    backgroundColor: P.primary,
-    borderRadius: 12,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 40,
-  },
-  ctaDisabled: {
-    opacity: 0.4,
-  },
-  ctaText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.white,
   },
 });

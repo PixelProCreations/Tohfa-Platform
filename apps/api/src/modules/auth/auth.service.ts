@@ -22,6 +22,7 @@ import type {
   RegisterCustomerBody,
   ResetPasswordBody,
   SendOtpBody,
+  SetPasswordBody,
   UpdateMeBody,
   VerifyOtpBody,
 } from './auth.schema.js';
@@ -73,6 +74,8 @@ export interface AuthService {
   forgotPassword(input: ForgotPasswordBody): Promise<unknown>;
   resetPassword(input: ResetPasswordBody): Promise<void>;
   changePassword(actor: Actor, input: ChangePasswordBody): Promise<void>;
+  /** BR-142: set the FIRST password of an account that has none; 409 PASSWORD_ALREADY_SET otherwise. */
+  setInitialPassword(scope: ResolvedScope, input: SetPasswordBody): Promise<void>;
   terminateSession(actor: Actor, sessionId: string): Promise<void>;
   getMe(actor: Actor): Promise<unknown>;
   /** BR-82: edit own fullName / preferredLocale. Returns the GET /auth/me shape. */
@@ -108,6 +111,9 @@ async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<un
     status: user.status,
     createdAt: user.created_at.toISOString(),
     lastLoginAt: user.last_login_at === null ? null : user.last_login_at.toISOString(),
+    // BR-142: derived from the existing column, never the hash itself. The
+    // mobile app routes an account without a password to Create Password.
+    hasPassword: user.password_hash !== null,
     roles: roles.map((r) => ({
       code: r.role_code,
       warehouseId: r.warehouse_id ?? undefined,
@@ -840,6 +846,45 @@ export function createAuthService(
       // already-issued access token stops working immediately instead of
       // riding out its remaining TTL.
       await markTokensInvalidBefore(user.id);
+    },
+
+    async setInitialPassword(scope, input) {
+      const user = await repo.findUserById(pool, scope.userId);
+      if (user === null) {
+        throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
+      }
+
+      // BR-142: this endpoint only ever sets a FIRST password. Replacing an
+      // existing one without proving the old one (or an OTP) would let a stolen
+      // access token take the account over, so that stays with
+      // /auth/me/change-password and /auth/reset-password.
+      if (user.password_hash !== null) {
+        throw new AppError('PASSWORD_ALREADY_SET', {
+          detail: 'This account already has a password. Use change password or forgot password instead.',
+        });
+      }
+
+      const passwordHash = await bcrypt.hash(input.newPassword, 12);
+      await withTransaction(async (tx) => {
+        // The check above is a fast path; this conditional UPDATE is the real
+        // guard, so two concurrent requests set the password once.
+        const written = await repo.setInitialPassword(tx, user.id, passwordHash);
+        if (!written) {
+          throw new AppError('PASSWORD_ALREADY_SET', {
+            detail: 'This account already has a password. Use change password or forgot password instead.',
+          });
+        }
+        // No session is revoked: the caller has just proved the mobile number
+        // by OTP and there was no earlier credential that could have leaked.
+        // The audit row names the event only, never password material.
+        await writeAuditLog(tx, {
+          actorId: user.id,
+          actorRole: scope.roleCode,
+          actionCode: 'auth.password.set_initial',
+          entityType: 'user',
+          entityId: user.id,
+        });
+      });
     },
 
     async terminateSession(actor, sessionId) {

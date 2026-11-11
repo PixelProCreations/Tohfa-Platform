@@ -21,7 +21,13 @@ const AUTH_SCREENS = [
   '../screens/auth/LoginScreen.tsx',
   '../screens/auth/ForgotPasswordScreen.tsx',
   '../screens/auth/ResetPasswordScreen.tsx',
+  // BR-142: the first-password screen and the password fields it shares with Reset.
+  '../screens/auth/CreatePasswordScreen.tsx',
+  '../screens/auth/OtpScreen.tsx',
 ];
+
+// Files whose literal keys must resolve but which show no error themselves.
+const AUTH_KEY_FILES = [...AUTH_SCREENS, '../screens/auth/NewPasswordForm.tsx'];
 
 // Other screens that use the same shared fallback key.
 const ERROR_GENERIC_USERS = [
@@ -40,7 +46,7 @@ function read(file: string): string {
 }
 
 describe('auth screens: every literal t() key exists in en and ta', () => {
-  it.each(AUTH_SCREENS)('%s', (file) => {
+  it.each(AUTH_KEY_FILES)('%s', (file) => {
     const keys = [...new Set(literalKeys(read(file)))];
     expect(keys.length).toBeGreaterThan(0);
     for (const key of keys) {

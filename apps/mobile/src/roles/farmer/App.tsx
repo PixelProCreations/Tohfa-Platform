@@ -25,6 +25,7 @@ import { LoginScreen } from './screens/auth/LoginScreen';
 import { OtpScreen } from './screens/auth/OtpScreen';
 import { ResetPasswordScreen } from './screens/auth/ResetPasswordScreen';
 import { PasswordChangedSuccessScreen } from './screens/auth/PasswordChangedSuccessScreen';
+import { CreatePasswordScreen } from './screens/auth/CreatePasswordScreen';
 import { RoleSelectionScreen } from './screens/auth/RoleSelectionScreen';
 import { HomeIcon } from './assets/icons/AssetIcons';
 import { SplashScreen } from './screens/auth/SplashScreen';
@@ -275,6 +276,7 @@ export type ScreenName =
   | 'ForgotPassword'
   | 'ResetPassword'
   | 'PasswordChangedSuccess'
+  | 'CreatePassword'
   | 'ApplicationStatus'
   | 'MainTabs'
   | 'AdminMain'
@@ -1276,6 +1278,9 @@ export default function App(): React.JSX.Element {
           />
         ) : screen === 'PasswordChangedSuccess' ? (
           <PasswordChangedSuccessScreen onNavigate={(s) => navigate(s)} />
+        ) : screen === 'CreatePassword' ? (
+          // BR-142: first password after an OTP sign-in; continues to the role route itself.
+          <CreatePasswordScreen onNavigate={(s, p) => navigate(s, p)} />
         ) : screen === 'ApplicationStatus' ? (
           <ApplicationStatusScreen
             applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}

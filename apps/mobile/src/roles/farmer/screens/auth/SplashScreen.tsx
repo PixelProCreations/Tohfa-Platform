@@ -19,7 +19,14 @@ import splashTeaGarden from '../../assets/splash-bg.jpg';
 
 interface SplashScreenProps {
   onNavigate: (
-    screen: 'Welcome' | 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported',
+    screen:
+      | 'Welcome'
+      | 'CreatePassword'
+      | 'ApplicationStatus'
+      | 'MainTabs'
+      | 'AdminMain'
+      | 'CustomerMain'
+      | 'Unsupported',
     params?: Record<string, string | number | undefined>,
   ) => void;
 }
