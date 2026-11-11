@@ -95,6 +95,7 @@ function EyeSlashIcon({ size = 18, color = adminColors.muted }: { size?: number;
 export interface CreateStaffAccountScreenProps {
   onBack: () => void;
   onSave?: (staffData?: unknown) => void;
+  onCancel?: () => void;
   staff?: StaffMember | null | undefined;
   role?: string | undefined;
 }
@@ -102,7 +103,9 @@ export interface CreateStaffAccountScreenProps {
 export function CreateStaffAccountScreen({
   onBack,
   onSave,
+  onCancel,
   staff,
+  role,
 }: CreateStaffAccountScreenProps) {
   const isEditing = Boolean(staff);
 
@@ -1184,7 +1187,7 @@ export function CreateStaffAccountScreen({
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.workforceCreateCancelBtn}
-            onPress={onBack}
+            onPress={onCancel || onBack}
             activeOpacity={0.85}
           >
             <Text style={styles.workforceCreateCancelBtnText}>Cancel</Text>

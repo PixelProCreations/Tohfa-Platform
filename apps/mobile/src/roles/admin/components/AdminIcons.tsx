@@ -456,6 +456,29 @@ export function UserPlusIcon({ size = 20, color = adminColors.brand }: AdminIcon
   );
 }
 
+export function FairPriceIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      {/* Dollar sign on top */}
+      <Path
+        d="M11 2v2m0 9v2M13.5 5.5c0-1.1-.9-2-2.5-2s-2.5.9-2.5 2c0 2 5 1.5 5 4s-1 2.5-2.5 2.5-2.5-.9-2.5-2"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* Checkmark underneath */}
+      <Path
+        d="M13 18l2.5 2.5 5-5"
+        stroke={color}
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function RupeeTagIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -623,13 +646,19 @@ export function LeafIcon({ size = 20, color = adminColors.brand }: AdminIconProp
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M11 20A7 7 0 0 1 4 13c0-4.42 4-9 8-9 5.52 0 8 2.48 8 8 0 4.42-4.58 8-9 8z"
+        d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"
         stroke={color}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M12 4v16" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path
+        d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }

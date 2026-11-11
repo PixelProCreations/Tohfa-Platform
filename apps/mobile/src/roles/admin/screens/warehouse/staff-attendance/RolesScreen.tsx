@@ -15,7 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
 import {
   adminColors,
@@ -77,72 +77,111 @@ function ChevronRightOrangeIcon() {
 
 function CrownIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      {/* 3 Jewels */}
+      <Circle cx="4.5" cy="8.5" r="1.5" stroke={adminColors.brand} strokeWidth="1.8" />
+      <Circle cx="12" cy="6" r="1.5" stroke={adminColors.brand} strokeWidth="1.8" />
+      <Circle cx="19.5" cy="8.5" r="1.5" stroke={adminColors.brand} strokeWidth="1.8" />
+      {/* Crown Outline */}
       <Path
-        d="M3 18h18M4 15l2-9 5 5 4-7 4 11H4z"
+        d="M5 10l3.5 5 3.5-7 3.5 7 3.5-5v8H5V10z"
         stroke={adminColors.brand}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {/* Base Line */}
+      <Line x1="4" y1="20" x2="20" y2="20" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
 function BankPillarIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M3 10h18M12 3l9 4H3l9-4z" stroke={adminColors.brand} strokeWidth="1.8" strokeLinejoin="round" />
-      <Path d="M5 10v7M9 10v7M15 10v7M19 10v7" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 3L3 7.5h18L12 3z" stroke={adminColors.brand} strokeWidth="1.8" strokeLinejoin="round" />
+      <Line x1="3" y1="9" x2="21" y2="9" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="6" y1="10.5" x2="6" y2="17" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="10" y1="10.5" x2="10" y2="17" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="14" y1="10.5" x2="14" y2="17" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="18" y1="10.5" x2="18" y2="17" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="3" y1="18" x2="21" y2="18" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="2" y1="20.5" x2="22" y2="20.5" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function ShieldSecurityIcon() {
+function FarmerAdminShieldIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+        d="M12 21s7-3.5 7-9V5.5l-7-2.5-7 2.5V12c0 5.5 7 9 7 9z"
         stroke={adminColors.brand}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {/* User inside shield */}
+      <Circle cx="12" cy="10" r="2" stroke={adminColors.brand} strokeWidth="1.5" />
+      <Path d="M9 16c0-1.7 1.3-3 3-3s3 1.3 3 3" stroke={adminColors.brand} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function WarehouseBuildingIcon() {
+function MainWarehouseIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Path d="M3 21h18M3 9l9-5 9 5v12H3V9z" stroke={adminColors.brand} strokeWidth="1.8" strokeLinejoin="round" />
-      <Path d="M9 21v-7h6v7" stroke={adminColors.brand} strokeWidth="1.8" strokeLinejoin="round" />
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 20V9l9-5 9 5v11H3z" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      {/* Wide Roll-up Shutter Door */}
+      <Rect x="7" y="11" width="10" height="9" stroke={adminColors.brand} strokeWidth="1.6" />
+      <Line x1="7" y1="14" x2="17" y2="14" stroke={adminColors.brand} strokeWidth="1.4" />
+      <Line x1="7" y1="17" x2="17" y2="17" stroke={adminColors.brand} strokeWidth="1.4" />
     </Svg>
   );
 }
 
-function FarmerPersonIcon() {
+function SubWarehouseIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="7" r="4" stroke={adminColors.brand} strokeWidth="1.8" />
-      <Path d="M6 21v-2a4 4 0 014-4h4a4 4 0 014 4v2" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M5 8h14" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 20V10l8-4 8 4v10H4z" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x="8" y="12" width="8" height="8" stroke={adminColors.brand} strokeWidth="1.6" />
+      <Line x1="8" y1="15" x2="16" y2="15" stroke={adminColors.brand} strokeWidth="1.4" />
+      <Line x1="8" y1="17.5" x2="16" y2="17.5" stroke={adminColors.brand} strokeWidth="1.4" />
+    </Svg>
+  );
+}
+
+function FarmerHatIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      {/* Straw Hat Crown */}
+      <Path d="M9 8.5a3 3 0 016 0" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      {/* Hat Brim */}
+      <Path d="M4 11c2.5-1 13.5-1 16 0" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      {/* Face */}
+      <Path d="M8 12v1.5a4 4 0 008 0V12" stroke={adminColors.brand} strokeWidth="1.6" strokeLinecap="round" />
+      {/* Shoulders & Overalls */}
+      <Path d="M5 20v-1a5 5 0 0110 0v1" stroke={adminColors.brand} strokeWidth="1.8" strokeLinecap="round" />
+      <Line x1="10" y1="16" x2="10" y2="20" stroke={adminColors.brand} strokeWidth="1.4" />
+      <Line x1="14" y1="16" x2="14" y2="20" stroke={adminColors.brand} strokeWidth="1.4" />
     </Svg>
   );
 }
 
 function CustomerCartIcon() {
   return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
       <Circle cx="9" cy="20" r="1.5" fill={adminColors.brand} />
       <Circle cx="18" cy="20" r="1.5" fill={adminColors.brand} />
       <Path
-        d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"
+        d="M2 3h3.5l2.6 11a2 2 0 002 1.5h9.8a2 2 0 002-1.5L23 6H6"
         stroke={adminColors.brand}
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      <Line x1="9" y1="9" x2="20" y2="9" stroke={adminColors.brand} strokeWidth="1.2" strokeLinecap="round" />
+      <Line x1="10.5" y1="12" x2="18.5" y2="12" stroke={adminColors.brand} strokeWidth="1.2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -182,25 +221,25 @@ const SYSTEM_ROLES: RoleItem[] = [
     id: 'farmer_admin',
     name: 'Farmer Admin',
     description: 'Manages assigned farmers, farm operations and farmer records.',
-    icon: <ShieldSecurityIcon />,
+    icon: <FarmerAdminShieldIcon />,
   },
   {
     id: 'main_warehouse_admin',
     name: 'Main Warehouse Admin',
     description: 'Manages main warehouse inventory, operations and staff.',
-    icon: <WarehouseBuildingIcon />,
+    icon: <MainWarehouseIcon />,
   },
   {
     id: 'sub_warehouse_admin',
     name: 'Sub warehouse Admin',
     description: 'Manages assigned farmers, farm operations and farmer records.',
-    icon: <WarehouseBuildingIcon />,
+    icon: <SubWarehouseIcon />,
   },
   {
     id: 'farmer',
     name: 'Farmer',
     description: 'Manages assigned farmers, farm operations and farmer records.',
-    icon: <FarmerPersonIcon />,
+    icon: <FarmerHatIcon />,
   },
   {
     id: 'customer',

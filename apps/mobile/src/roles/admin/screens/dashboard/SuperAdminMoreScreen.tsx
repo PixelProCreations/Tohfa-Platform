@@ -366,7 +366,7 @@ export function SuperAdminMoreScreen({
         },
         {
           id: 'settings',
-          label: 'Settings',
+          label: 'Settings & Profile',
           icon: <SystemSettingsGearIcon />,
           actionKey: 'settings',
         },

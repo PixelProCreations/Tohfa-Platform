@@ -49,6 +49,7 @@ import {
   PauseCircleIcon,
   PieChartIcon,
   RupeeTagIcon,
+  FairPriceIcon,
   ShieldIcon,
   StoreIcon,
   SwitchArrowsIcon,
@@ -64,6 +65,7 @@ import {
 import { TransfersFlow } from '../warehouse/transfers/TransfersFlow';
 import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
 import { StaffFlow } from '../warehouse/staff-attendance/StaffFlow';
+import { CreateStaffAccountScreen } from '../warehouse/staff-attendance/CreateStaffAccountScreen';
 import {
   PLStatementScreen,
   PayoutProcessingScreen,
@@ -105,6 +107,7 @@ import { CustomersFlow } from '../warehouse/customers/CustomersFlow';
 import { OrdersFlow } from '../warehouse/orders/OrdersFlow';
 import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
 import { ProfileFlow } from '../warehouse/profile-settings/ProfileFlow';
+import type { ProfileRoute } from '../warehouse/profile-settings/types';
 import { ReportsScreen } from '../warehouse/reports/ReportsScreen';
 import { EditRetailPriceScreen } from '../pricing/EditRetailPriceScreen';
 import { UpdateFairPriceScreen } from './UpdateFairPriceScreen';
@@ -257,6 +260,7 @@ export function SuperAdminDashboardScreen({
   const [selectedApprovalRequest, setSelectedApprovalRequest] = useState<AdminAccountRequest | null>(null);
   const [warehouseModule, setWarehouseModule] = useState<'admin' | 'transfers' | 'inventory' | 'staff' | 'admin_operations' | 'add_profile'>('admin');
   const [inventoryInitialScreen, setInventoryInitialScreen] = useState<string>('M3S01');
+  const [profileInitialScreen, setProfileInitialScreen] = useState<ProfileRoute>('Settings');
 
   const handleSelectTab = (tab: SuperAdminTab) => {
     if (tab === 'Warehouse') {
@@ -273,7 +277,7 @@ export function SuperAdminDashboardScreen({
       .then((me) => {
         if (isMounted) setUser(me);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => {
       isMounted = false;
     };
@@ -319,6 +323,7 @@ export function SuperAdminDashboardScreen({
         can={can}
         role="SUPER_ADMIN"
         subtitle="Super Admin · All Warehouses"
+        initialScreen={profileInitialScreen}
         onBack={() => setActiveSubScreen(null)}
         onLogout={onSignOut}
       />
@@ -535,9 +540,10 @@ export function SuperAdminDashboardScreen({
 
   if (activeSubScreen === 'create_admin') {
     return (
-      <CreateAdminAccountScreen
+      <CreateStaffAccountScreen
+        role="SUPER_ADMIN"
         onBack={() => setActiveSubScreen(null)}
-        onSuccess={() => setActiveSubScreen(null)}
+        onSave={() => setActiveSubScreen(null)}
       />
     );
   }
@@ -597,8 +603,8 @@ export function SuperAdminDashboardScreen({
       <AdminReportsMainScreen
         onBack={() => setActiveSubScreen(null)}
         onOpenPLReport={() => setActiveSubScreen('pl_statement')}
-        onOpenFarmerPerformanceReport={() => {}}
-        onOpenWarehouseOpsReport={() => {}}
+        onOpenFarmerPerformanceReport={() => { }}
+        onOpenWarehouseOpsReport={() => { }}
         onOpenAnalyticsDashboard={() => setActiveSubScreen('analytics')}
       />
     );
@@ -1054,7 +1060,10 @@ export function SuperAdminDashboardScreen({
             onNavigateCommunity={() => setActiveSubScreen('community')}
             onNavigateNotifications={() => setActiveSubScreen('notifications')}
             onNavigateReports={() => setActiveSubScreen('reports')}
-            onNavigateSettings={() => setActiveSubScreen('settings')}
+            onNavigateSettings={() => {
+              setProfileInitialScreen('Settings');
+              setActiveSubScreen('settings');
+            }}
           />
         </View>
         {renderBottomTabBar(activeTab, handleSelectTab)}
@@ -1069,7 +1078,14 @@ export function SuperAdminDashboardScreen({
       <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
 
       {/* Top Header */}
-      {renderHeader(t('superAdminDashboard.title'), onSignOut)}
+      {renderHeader(
+        t('superAdminDashboard.title'),
+        () => setActiveSubScreen('notifications'),
+        () => {
+          setProfileInitialScreen('UserProfile');
+          setActiveSubScreen('settings');
+        }
+      )}
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollInner} showsVerticalScrollIndicator={false}>
         {/* Date Filter Bar */}
@@ -1264,7 +1280,7 @@ export function SuperAdminDashboardScreen({
           {can('pricing.fair_price.set') ? (
             <OverviewActionCard
               title="Fair Prices"
-              icon={<RupeeTagIcon size={20} color={adminColors.brandDeep} />}
+              icon={<FairPriceIcon size={20} color={adminColors.brandDeep} />}
               onPress={() => setActiveSubScreen('fair_price_ceiling')}
             />
           ) : null}
@@ -1507,7 +1523,11 @@ export function SuperAdminDashboardScreen({
 
 // ─── Reusable Render Helpers ──────────────────────────────────────────────────
 
-function renderHeader(titleText: string, onSignOut: () => void) {
+function renderHeader(
+  titleText: string,
+  onNavigateNotifications: () => void,
+  onNavigateProfile: () => void
+) {
   return (
     <View style={styles.header}>
       <View style={styles.headerLeft}>
@@ -1515,13 +1535,22 @@ function renderHeader(titleText: string, onSignOut: () => void) {
         <Text style={styles.headerTitle}>{titleText}</Text>
       </View>
       <View style={styles.headerRight}>
-        <View style={styles.bellWrapper}>
+        <TouchableOpacity
+          style={styles.bellWrapper}
+          onPress={onNavigateNotifications}
+          activeOpacity={0.7}
+          accessibilityLabel="Notifications"
+        >
           <BellIcon size={22} color={adminColors.onBrand} />
           <View style={styles.notificationBadge}>
             <Text style={styles.notificationBadgeText}>4</Text>
           </View>
-        </View>
-        <TouchableOpacity onPress={onSignOut} activeOpacity={0.7}>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onNavigateProfile}
+          activeOpacity={0.7}
+          accessibilityLabel="Profile"
+        >
           <UserAvatarIcon size={24} color={adminColors.onBrand} />
         </TouchableOpacity>
       </View>
