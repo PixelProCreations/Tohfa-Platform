@@ -171,7 +171,9 @@ export type FinanceSubScreen =
   | 'overview'
   | 'profitLoss'
   | 'salesIncome'
+  | 'salesOverview'
   | 'expenses'
+  | 'expensesBreakdown'
   | 'purchaseSales'
   | 'duesPayouts'
   | 'customerWallet'
@@ -368,7 +370,7 @@ export function FinanceManagementFlow({
             value="₹2,14,600.00"
             icon="card"
             preserveCase
-            onPress={() => setSubScreen('salesOverview')}
+            onPress={() => setSubScreen('salesIncome')}
           />
           <OverviewDashboardCard
             title="Farmer Purchase Value"
@@ -389,7 +391,7 @@ export function FinanceManagementFlow({
             value="₹18,200.00"
             icon="wallet"
             preserveCase
-            onPress={() => setSubScreen('expensesBreakdown')}
+            onPress={() => setSubScreen('expenses')}
           />
           <OverviewDashboardCard
             title="Wallet Liability"

@@ -268,6 +268,20 @@ export function EyeIcon({ size = 20, color = adminColors.brand }: AdminIconProps
   );
 }
 
+export function TrashIcon({ size = 20, color = adminColors.danger.text }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14zM10 11v6M14 11v6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function DownloadIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
@@ -500,6 +514,35 @@ export function CashBillIcon({ size = 20, color = adminColors.brand }: AdminIcon
 }
 
 // ─── Bottom Navigation Icons ─────────────────────────────────────────────────
+
+export function RefreshIcon({ size = 16, color = adminColors.brandDeep }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M21 12a9 9 0 1 1-2.64-6.36L21 8"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M21 3v5h-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function NavHomeIcon({ size = 20, color = adminColors.muted }: AdminIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 10.25L12 3l9 7.25V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1v-9.75z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 export function NavOverviewIcon({ size = 20, color = adminColors.brand }: AdminIconProps) {
   return (

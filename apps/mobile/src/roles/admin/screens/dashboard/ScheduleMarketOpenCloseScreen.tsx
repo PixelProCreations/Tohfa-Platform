@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import {
   adminColors,
@@ -29,11 +30,30 @@ import {
   CalendarIcon,
   ChevronDownIcon,
   HistoryClockIcon,
-  InfoCircleIcon,
   RepeatIcon,
   StoreIcon,
 } from '../../components/AdminIcons';
 import { t } from '../../i18n';
+
+const MARKET_GREEN = '#00A843';
+
+function ScheduleOpenPlayIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Path d="M10 8.5L16 12L10 15.5V8.5Z" fill={color} />
+    </Svg>
+  );
+}
+
+function ScheduleCloseCrossIcon({ size = 18, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
+      <Path d="M9 9L15 15M15 9L9 15" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 export type ScheduleRepeatOption = 'One Time' | 'Daily' | 'Weekly' | 'Monthly' | 'Custom';
 
@@ -169,9 +189,9 @@ export function ScheduleMarketOpenCloseScreen({
             onPress={() => handleModeChange('open')}
             activeOpacity={0.8}
           >
-            <HistoryClockIcon
+            <ScheduleOpenPlayIcon
               size={18}
-              color={isModeOpen ? adminColors.onBrand : adminColors.muted}
+              color={isModeOpen ? '#FFFFFF' : adminColors.muted}
             />
             <Text
               style={[
@@ -191,9 +211,9 @@ export function ScheduleMarketOpenCloseScreen({
             onPress={() => handleModeChange('close')}
             activeOpacity={0.8}
           >
-            <HistoryClockIcon
+            <ScheduleCloseCrossIcon
               size={18}
-              color={!isModeOpen ? adminColors.onBrand : adminColors.muted}
+              color={!isModeOpen ? '#FFFFFF' : adminColors.muted}
             />
             <Text
               style={[
@@ -208,8 +228,8 @@ export function ScheduleMarketOpenCloseScreen({
 
         {/* Info Banner */}
         <View style={styles.infoBanner}>
-          <View style={styles.infoIconBox}>
-            <InfoCircleIcon size={18} color={adminColors.info.text} />
+          <View style={styles.infoIconBadge}>
+            <Text style={styles.infoIconLetter}>i</Text>
           </View>
           <Text style={styles.infoText}>
             {isModeOpen ? t('scheduleMarket.infoOpen') : t('scheduleMarket.infoClose')}
@@ -221,7 +241,7 @@ export function ScheduleMarketOpenCloseScreen({
           {/* Date Input */}
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>
-              {isModeOpen ? t('scheduleMarket.openDate') : t('scheduleMarket.closeDate')}
+              {isModeOpen ? 'Open Date' : 'Close Date'} <Text style={styles.asterisk}>*</Text>
             </Text>
             <TouchableOpacity
               style={styles.inputBox}
@@ -239,7 +259,7 @@ export function ScheduleMarketOpenCloseScreen({
           {/* Time Input */}
           <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>
-              {isModeOpen ? t('scheduleMarket.openTime') : t('scheduleMarket.closeTime')}
+              {isModeOpen ? 'Open Time' : 'Close Time'} <Text style={styles.asterisk}>*</Text>
             </Text>
             <TouchableOpacity
               style={styles.inputBox}
@@ -256,7 +276,9 @@ export function ScheduleMarketOpenCloseScreen({
 
           {/* Repeat Input */}
           <View style={styles.fieldGroup}>
-            <Text style={styles.fieldLabel}>{t('scheduleMarket.repeat')}</Text>
+            <Text style={styles.fieldLabel}>
+              Repeat <Text style={styles.optionalText}>(Optional)</Text>
+            </Text>
             <TouchableOpacity
               style={styles.inputBox}
               onPress={() => setShowRepeatDropdown(!showRepeatDropdown)}
@@ -303,35 +325,32 @@ export function ScheduleMarketOpenCloseScreen({
         {/* Summary Card */}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
-            <StoreIcon size={20} color={adminColors.success.text} />
+            <StoreIcon size={20} color={MARKET_GREEN} />
             <Text style={styles.summaryTitle}>{t('scheduleMarket.summary')}</Text>
           </View>
-          <View style={styles.summaryDivider} />
+          <View style={styles.summaryHeaderDivider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{t('scheduleMarket.action')}</Text>
-            <Text style={styles.summaryColon}>:</Text>
-            <Text style={styles.summaryValue}>
-              {isModeOpen ? t('scheduleMarket.actionOpen') : t('scheduleMarket.actionClose')}
-            </Text>
+            <Text style={styles.summaryColon}>: {isModeOpen ? t('scheduleMarket.actionOpen') : t('scheduleMarket.actionClose')}</Text>
           </View>
+          <View style={styles.summaryRowDivider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{t('scheduleMarket.date')}</Text>
-            <Text style={styles.summaryColon}>:</Text>
-            <Text style={styles.summaryValue}>{date}</Text>
+            <Text style={styles.summaryColon}>: {date}</Text>
           </View>
+          <View style={styles.summaryRowDivider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{t('scheduleMarket.time')}</Text>
-            <Text style={styles.summaryColon}>:</Text>
-            <Text style={styles.summaryValue}>{time}</Text>
+            <Text style={styles.summaryColon}>: {time}</Text>
           </View>
+          <View style={styles.summaryRowDivider} />
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>{t('scheduleMarket.repeat')}</Text>
-            <Text style={styles.summaryColon}>:</Text>
-            <Text style={styles.summaryValue}>{repeat}</Text>
+            <Text style={styles.summaryColon}>: {repeat}</Text>
           </View>
         </View>
 
@@ -486,12 +505,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: adminColors.card,
-    borderRadius: adminRadius.lg,
-    padding: adminSpacing.xs,
+    borderRadius: 12,
+    padding: 4,
     marginBottom: adminSpacing.md,
-    gap: adminSpacing.xs,
+    gap: 4,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#E5E7EB',
   },
   segmentTab: {
     flex: 1,
@@ -499,60 +518,79 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     height: 44,
-    borderRadius: adminRadius.md,
+    borderRadius: 10,
     gap: adminSpacing.xs,
   },
   segmentTabActive: {
-    backgroundColor: adminColors.success.text,
+    backgroundColor: MARKET_GREEN,
   },
   segmentTabInactive: {
     backgroundColor: adminColors.card,
   },
   segmentTabText: {
     ...adminType.rowTitle,
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 13,
   },
   segmentTabTextActive: {
     color: adminColors.onBrand,
   },
   segmentTabTextInactive: {
-    color: adminColors.ink,
+    color: adminColors.muted,
   },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: adminColors.info.bg,
+    backgroundColor: '#EBF3FE',
     borderWidth: 1,
-    borderColor: adminColors.info.border,
-    borderRadius: adminRadius.md,
+    borderColor: '#D6E6FD',
+    borderRadius: 10,
     paddingHorizontal: adminSpacing.md,
-    paddingVertical: adminSpacing.sm,
+    paddingVertical: 10,
     marginBottom: adminSpacing.lg,
     gap: adminSpacing.sm,
   },
-  infoIconBox: {
-    width: 24,
-    height: 24,
+  infoIconBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#1A73E8',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  infoIconLetter: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+    fontStyle: 'italic',
+  },
   infoText: {
-    ...adminType.caption,
-    color: adminColors.info.text,
-    flex: 1,
+    color: '#1558D6',
+    fontSize: 13,
     lineHeight: 18,
+    flex: 1,
+    fontWeight: '500',
   },
   formSection: {
     gap: adminSpacing.md,
     marginBottom: adminSpacing.lg,
   },
   fieldGroup: {
-    gap: adminSpacing.xs,
+    gap: 6,
   },
   fieldLabel: {
-    ...adminType.rowTitle,
     color: adminColors.ink,
     fontWeight: '600',
+    fontSize: 13.5,
+  },
+  asterisk: {
+    color: adminColors.danger.text,
+    fontWeight: '700',
+  },
+  optionalText: {
+    color: adminColors.muted,
+    fontWeight: '400',
+    fontSize: 12.5,
   },
   inputBox: {
     flexDirection: 'row',
@@ -560,10 +598,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
     paddingHorizontal: adminSpacing.md,
-    height: ADMIN_BUTTON_HEIGHT,
+    height: 48,
   },
   inputLeft: {
     flexDirection: 'row',
@@ -571,29 +609,32 @@ const styles = StyleSheet.create({
     gap: adminSpacing.sm,
   },
   inputValue: {
-    ...adminType.body,
     color: adminColors.ink,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   dropdownCard: {
     backgroundColor: adminColors.card,
     borderWidth: 1,
-    borderColor: adminColors.border,
-    borderRadius: adminRadius.md,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
     marginTop: adminSpacing.xs,
-    ...adminShadow.sm,
+    ...adminShadow.md,
+    overflow: 'hidden',
   },
   dropdownItem: {
-    paddingVertical: adminSpacing.sm,
+    paddingVertical: 12,
     paddingHorizontal: adminSpacing.md,
   },
   dropdownItemBorder: {
     borderBottomWidth: 1,
-    borderBottomColor: adminColors.border,
+    borderBottomColor: '#F3F4F6',
   },
   dropdownItemText: {
     ...adminType.body,
     color: adminColors.ink,
+    fontSize: 13.5,
+    fontWeight: '500',
   },
   dropdownItemTextSelected: {
     color: adminColors.brand,
@@ -602,10 +643,10 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: adminColors.card,
     borderWidth: 1.5,
-    borderColor: adminColors.success.border,
-    borderRadius: adminRadius.lg,
+    borderColor: MARKET_GREEN,
+    borderRadius: 14,
     padding: adminSpacing.md,
-    gap: adminSpacing.sm,
+    ...adminShadow.sm,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -613,33 +654,36 @@ const styles = StyleSheet.create({
     gap: adminSpacing.xs,
   },
   summaryTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.success.text,
+    color: MARKET_GREEN,
+    fontSize: 15,
     fontWeight: '700',
   },
-  summaryDivider: {
+  summaryHeaderDivider: {
     height: 1,
-    backgroundColor: adminColors.border,
-    marginVertical: adminSpacing.xs,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 10,
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 2,
+  },
+  summaryRowDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 8,
   },
   summaryLabel: {
-    ...adminType.body,
     color: adminColors.muted,
-    width: 70,
+    fontSize: 13,
+    fontWeight: '500',
+    width: 80,
   },
   summaryColon: {
-    ...adminType.body,
-    color: adminColors.muted,
-    width: 20,
-  },
-  summaryValue: {
-    ...adminType.body,
     color: adminColors.ink,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
+    flex: 1,
   },
   bottomSpacer: {
     height: 80,
@@ -661,33 +705,33 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    height: ADMIN_BUTTON_HEIGHT,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: adminRadius.md,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: adminColors.border,
+    borderColor: '#D1D5DB',
     backgroundColor: adminColors.card,
   },
   cancelBtnText: {
-    ...adminType.body,
     color: adminColors.ink,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
   },
   submitBtn: {
     flex: 1,
-    height: ADMIN_BUTTON_HEIGHT,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: adminRadius.md,
+    borderRadius: 10,
     backgroundColor: adminColors.brand,
   },
   submitBtnDisabled: {
     opacity: 0.5,
   },
   submitBtnText: {
-    ...adminType.body,
     color: adminColors.onBrand,
+    fontSize: 14,
     fontWeight: '700',
   },
   modalOverlay: {

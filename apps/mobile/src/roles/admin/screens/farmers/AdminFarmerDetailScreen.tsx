@@ -1067,7 +1067,10 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           <>
             {/* Big Rating Hero Card (Screen 1) */}
             <View style={styles.heroRatingCard}>
-              <Text style={styles.heroScoreNum}>{totalRatingScore} / 100</Text>
+              <View style={styles.heroScoreRow}>
+                <Text style={styles.heroScoreNum}>{totalRatingScore}</Text>
+                <Text style={styles.heroScoreDenominator}> / 100</Text>
+              </View>
               <Text style={styles.heroRatingLabel}>OVERALL RATING</Text>
               <Text style={styles.heroRatingDate}>Last rated 15 Oct 2026</Text>
             </View>
@@ -1084,7 +1087,10 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                   ]}
                 >
                   <Text style={styles.categoryLabel}>{cat.name}</Text>
-                  <Text style={styles.categoryScore}>{cat.score}/{cat.max}</Text>
+                  <View style={styles.categoryScoreBadge}>
+                    <Text style={styles.categoryScoreNum}>{cat.score}</Text>
+                    <Text style={styles.categoryScoreMax}>/{cat.max}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -2306,35 +2312,56 @@ const styles = StyleSheet.create({
   // ─── Ratings Tab Styles (Images 1 & 2) ───
   heroRatingCard: {
     backgroundColor: adminColors.brand,
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    borderRadius: 18,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: adminSpacing.md,
     ...adminShadow.md,
   },
+  heroScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+  },
   heroScoreNum: {
-    ...adminType.kpiValue,
     color: adminColors.onBrand,
-    fontSize: 34,
+    fontSize: 38,
+    lineHeight: 46,
     fontWeight: '900',
     letterSpacing: -0.5,
+    includeFontPadding: false,
+    textAlign: 'center',
+  },
+  heroScoreDenominator: {
+    color: adminColors.onBrand,
+    fontSize: 22,
+    lineHeight: 30,
+    fontWeight: '700',
+    opacity: 0.88,
+    includeFontPadding: false,
   },
   heroRatingLabel: {
-    ...adminType.rowMeta,
     color: adminColors.onBrand,
     fontSize: 11,
+    lineHeight: 15,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
     marginTop: 6,
+    textAlign: 'center',
+    opacity: 0.95,
   },
   heroRatingDate: {
     ...adminType.caption,
     fontWeight: '500',
+    fontSize: 12,
+    lineHeight: 16,
     color: adminColors.onBrand,
-    opacity: 0.95,
+    opacity: 0.88,
     marginTop: 4,
+    textAlign: 'center',
   },
   twoColumnGrid: {
     flexDirection: 'row',
@@ -2455,16 +2482,31 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F5F0EA',
   },
   categoryLabel: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '700',
     color: adminColors.ink,
     flex: 1,
   },
-  categoryScore: {
-    fontSize: 12.5,
+  categoryScoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    backgroundColor: '#F8F5F0',
+    borderWidth: 1,
+    borderColor: '#EFEAE2',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    marginLeft: 12,
+  },
+  categoryScoreNum: {
+    fontSize: 13,
     fontWeight: '800',
     color: adminColors.ink,
-    marginLeft: 12,
+  },
+  categoryScoreMax: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: adminColors.muted,
   },
   ratingHistoryCard: {
     backgroundColor: adminColors.card,
