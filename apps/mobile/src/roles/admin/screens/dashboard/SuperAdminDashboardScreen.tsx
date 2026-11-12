@@ -124,6 +124,7 @@ import type { PricingRecordItem } from '../pricing/MarketPricingOverviewScreen';
 import { CommunityKnowledgeHomeScreen } from './CommunityKnowledgeHomeScreen';
 import { CommunityKnowledgeFlow } from './CommunityKnowledgeFlow';
 import { SuperAdminMoreScreen } from './SuperAdminMoreScreen';
+import { AdminZoneManagementScreen } from './AdminZoneManagementScreen';
 import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
 import { AdminWorkQueueScreen } from './AdminWorkQueueScreen';
 
@@ -217,6 +218,7 @@ export function SuperAdminDashboardScreen({
     | 'finance_business_overview'
     | 'customers'
     | 'community'
+    | 'zone_management'
     | null
   >(null);
 
@@ -904,6 +906,14 @@ export function SuperAdminDashboardScreen({
     );
   }
 
+  if (activeSubScreen === 'zone_management') {
+    return (
+      <AdminZoneManagementScreen
+        onBack={() => setActiveSubScreen(null)}
+      />
+    );
+  }
+
   // ─── Main Tabs Rendering ───────────────────────────────────────────────────
 
   // Tab 2: Farmers (Consolidated FarmerManagementFlow)
@@ -1074,6 +1084,7 @@ export function SuperAdminDashboardScreen({
               setProfileInitialScreen('Settings');
               setActiveSubScreen('settings');
             }}
+            onNavigateZoneManagement={() => setActiveSubScreen('zone_management')}
           />
         </View>
         {renderBottomTabBar(activeTab, handleSelectTab)}
@@ -1099,436 +1110,436 @@ export function SuperAdminDashboardScreen({
         )}
 
         <View style={styles.mainContent}>
-        {/* 1. Floating "Good morning, Super Admin" Summary Card */}
-        <View style={styles.greetingCard}>
-          <View style={styles.greetingTopRow}>
-            <Text style={styles.greetingTitle} numberOfLines={1}>
-              Good morning, Super Admin
-            </Text>
-            <View style={styles.roleBadgePill}>
-              <Text style={styles.roleBadgeText}>SUPER Admin</Text>
-            </View>
-          </View>
-
-          <Text style={styles.greetingSubTitle}>Today’s operational summary</Text>
-          <Text style={styles.greetingDateStamp}>Mon, 13 Oct 2026 · IST</Text>
-
-          <View style={styles.greetingBottomRow}>
-            <Text style={styles.lastUpdatedText}>Last updated {lastUpdated}</Text>
-            <TouchableOpacity
-              style={styles.refreshButton}
-              onPress={() => {
-                const now = new Date();
-                const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-                setLastUpdated(`${timeStr} · All details`);
-              }}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Refresh operational summary"
-            >
-              <RefreshIcon size={16} color={adminColors.brandDeep} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 2. Search and Date Filter Bar (Tohfa Admin Reference) */}
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <SearchIcon size={18} color={adminColors.muted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search farmers, crops, orders, customers, staff"
-              placeholderTextColor={adminColors.placeholder}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            <TouchableOpacity
-              onPress={() => {
-                Alert.alert('Filter', 'Advanced filters for search');
-              }}
-              activeOpacity={0.7}
-            >
-              <FilterSlidersIcon size={18} color={adminColors.muted} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Date filter pill */}
-          <View style={styles.dateFilterContainer}>
-            <TouchableOpacity
-              style={styles.dateFilterButton}
-              activeOpacity={0.7}
-              onPress={() => {
-                Alert.alert('Select Period', 'Choose time period for dashboard:', [
-                  { text: 'Today', onPress: () => setDateRange('Today') },
-                  { text: '7 Days', onPress: () => setDateRange('7 Days') },
-                  { text: '30 Days', onPress: () => setDateRange('30 Days') },
-                  { text: 'Custom', onPress: () => setDateRange('Custom Range') },
-                  { text: 'Cancel', style: 'cancel' },
-                ]);
-              }}
-            >
-              <CalendarIcon size={14} color={adminColors.brandDeep} />
-              <Text style={styles.dateFilterText}>{dateRange}</Text>
-              <ChevronDownIcon size={12} color={adminColors.brandDeep} />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* ─── Market Control Card ─── */}
-        <View style={styles.marketCard}>
-          <View style={styles.marketHeaderRow}>
-            <View style={styles.marketTitleContainer}>
-              <View style={styles.marketIconBox}>
-                <StoreIcon size={20} color={adminColors.brand} />
-              </View>
-              <View style={styles.marketTitleCol}>
-                <Text style={styles.marketTitle}>{t('superAdminDashboard.market.title')}</Text>
-                <Text style={styles.marketSubtitle}>{t('superAdminDashboard.market.subtitle')}</Text>
-              </View>
-            </View>
-            <View style={styles.marketStatusBadge}>
-              <View style={styles.marketStatusDot} />
-              <Text style={styles.marketStatusText}>{t('superAdminDashboard.market.statusOpen')}</Text>
-            </View>
-          </View>
-
-          {/* Action Buttons */}
-          <View style={styles.marketActionsRow}>
-            <TouchableOpacity style={styles.closeMarketButton} activeOpacity={0.75}>
-              <PauseCircleIcon size={16} color={adminColors.danger.text} />
-              <Text style={styles.closeMarketText}>{t('superAdminDashboard.market.close')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.scheduleMarketButton}
-              activeOpacity={0.75}
-              onPress={() => {
-                setMarketScheduleMode('open');
-                setActiveSubScreen('schedule_market');
-              }}
-            >
-              <CalendarIcon size={16} color={adminColors.onBrand} />
-              <Text style={styles.scheduleMarketText}>{t('superAdminDashboard.market.schedule')}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Upcoming Schedule */}
-          <View style={styles.scheduleSection}>
-            <Text style={styles.scheduleSectionTitle}>{t('superAdminDashboard.market.upcoming')}</Text>
-
-            {marketSchedules.map((schedule) => (
-              <View key={schedule.id} style={styles.scheduleItem}>
-                <View style={styles.scheduleItemLeft}>
-                  <View style={styles.scheduleCalendarBox}>
-                    <CalendarIcon
-                      size={16}
-                      color={schedule.mode === 'open' ? adminColors.brand : adminColors.muted}
-                    />
-                  </View>
-                  <View style={styles.scheduleTextCol}>
-                    <Text style={styles.scheduleItemTitle}>{schedule.title}</Text>
-                    <Text style={styles.scheduleItemTime}>{schedule.time}</Text>
-                  </View>
-                </View>
-                <View style={styles.scheduleItemRight}>
-                  <View style={styles.scheduledPill}>
-                    <Text style={styles.scheduledPillText}>{t('superAdminDashboard.market.scheduled')}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.menuDotBtn}
-                    activeOpacity={0.7}
-                    onPress={() => setActiveScheduleMenu(schedule)}
-                  >
-                    <MoreVerticalIcon size={16} color={adminColors.muted} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ─── Quick Access (Reusable OverviewActionCard) ─── */}
-        <OverviewSectionHeader title={t('superAdminDashboard.section.quickAccess')} />
-        <OverviewCardsGrid style={styles.quickAccessGrid}>
-          {can('allocation.channel_percentage.set') ? (
-            <OverviewActionCard
-              title="Configure Allocation"
-              icon={<PieChartIcon size={20} color={adminColors.brandDeep} />}
-              onPress={() => setActiveSubScreen('allocation')}
-            />
-          ) : null}
-          <OverviewActionCard
-            title="Approval Inbox"
-            icon={<InboxTrayIcon size={20} color={adminColors.brandDeep} />}
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          {can('transfer.inter_warehouse.initiate') ? (
-            <OverviewActionCard
-              title="Manage Transfers"
-              icon={<SwitchArrowsIcon size={20} color={adminColors.brandDeep} />}
-              onPress={() => setActiveSubScreen('transfers_flow')}
-            />
-          ) : null}
-          <OverviewActionCard
-            title="Work Queue"
-            icon={<ClipboardListIcon size={20} color={adminColors.brandDeep} />}
-            onPress={() => setActiveSubScreen('work_queue')}
-          />
-          {can('admin.super_admin.create') ? (
-            <OverviewActionCard
-              title="Create Admin"
-              icon={<UserPlusIcon size={20} color={adminColors.brandDeep} />}
-              onPress={() => setActiveSubScreen('create_admin')}
-            />
-          ) : null}
-          {can('system.config.manage') ? (
-            <OverviewActionCard
-              title="Alert Thresholds"
-              icon={<FilterSlidersIcon size={20} color={adminColors.brandDeep} />}
-              onPress={() => setActiveSubScreen('alert_thresholds')}
-            />
-          ) : null}
-          {can('pricing.fair_price.set') ? (
-            <OverviewActionCard
-              title="Fair Prices"
-              icon={<FairPriceIcon size={20} color={adminColors.brandDeep} />}
-              onPress={() => setActiveSubScreen('fair_price_ceiling')}
-            />
-          ) : null}
-          {can('pricing.fair_price.set') ? (
-            <OverviewActionCard
-              title="Manage Retail Prices"
-              icon={<CashBillIcon size={20} color={adminColors.brandDeep} />}
-              onPress={() => setActiveSubScreen('retail_pricing')}
-            />
-          ) : null}
-        </OverviewCardsGrid>
-
-        {/* ─── Work Queue (Reusable OverviewQueueCard) ─── */}
-        <OverviewSectionHeader title={t('superAdminDashboard.section.workQueue')} />
-        <View style={styles.workQueueList}>
-          <OverviewQueueCard
-            title="PAY-0002 · Kumar"
-            badgeLabel="Awaiting SA approval"
-            badgeStatus="INFO"
-            meta="₹18,000.00 · Requested 9 Oct 2026, 10:00"
-            viewDetailsLabel={t('superAdminDashboard.viewDetails')}
-            accentTone="danger"
-            onPress={() => {
-              setSelectedPayoutId('PAY-0002');
-              setActiveSubScreen('approval_payout_detail');
-            }}
-          />
-          <OverviewQueueCard
-            title="APP-2026-0101 · Sathish Kumar"
-            badgeLabel="Pending Review"
-            badgeStatus="PENDING"
-            meta="Submitted 5 Oct 2026"
-            viewDetailsLabel={t('superAdminDashboard.viewDetails')}
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewQueueCard
-            title="AUD-2026-0052 · Vijay"
-            badgeLabel="Past scheduled date"
-            badgeStatus="REJECTED"
-            meta="Due 8 Oct 2026"
-            viewDetailsLabel={t('superAdminDashboard.viewDetails')}
-            onPress={() => setActiveSubScreen('audit_management')}
-          />
-        </View>
-
-        {/* ─── Approval Inbox (Reusable OverviewApprovalCard) ─── */}
-        <OverviewSectionHeader
-          title={t('superAdminDashboard.section.approvalInbox')}
-          actionLabel="View All"
-          onAction={() => setActiveSubScreen('approval_inbox')}
-        />
-        <View style={styles.approvalInboxList}>
-          <OverviewApprovalCard
-            category="Farmer Payout (>₹10,000)"
-            title="PAY-0002 · Kumar · ₹18,000.00"
-            meta="Escalated by Demo TOHFA Admin · Waiting 4 days"
-            badgeLabel="Escalated"
-            badgeStatus="INFO"
-            onPress={() => {
-              setSelectedPayoutId('PAY-0002');
-              setActiveSubScreen('approval_payout_detail');
-            }}
-          />
-          <OverviewApprovalCard
-            category="Inter-Warehouse Transfer"
-            title="TR-0015 · Ooty → Coonoor · ₹42,000.00"
-            meta="Requested by Demo Main Warehouse Admin · Waiting 1 day"
-            badgeLabel="High value"
-            badgeStatus="INFO"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewApprovalCard
-            category="Warehouse Admin Promotion"
-            title="Priya Nair → Main Warehouse Admin"
-            meta="Requested by Demo TOHFA Admin · Waiting 2 days"
-            badgeLabel="Pending"
-            badgeStatus="PENDING"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewApprovalCard
-            category="Stock Adjustment"
-            title="ADJ-0031 · Carrot · -42 kg (Main Warehouse, Ooty)"
-            meta="Requested by Demo Sub Warehouse Admin · Waiting 6 hours"
-            badgeLabel="Pending"
-            badgeStatus="PENDING"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewApprovalCard
-            category="Farmer Application"
-            title="APP-2026-0101 · Sathish Kumar"
-            meta="Submitted 5 Oct 2026 · Waiting 3 days"
-            badgeLabel="Pending Review"
-            badgeStatus="PENDING"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewApprovalCard
-            category="Produce Listing"
-            title="LST-2026-0045 · Tomato Grade 1 · Selvi"
-            meta="Submitted 11 Oct 2026 · Waiting 2 days"
-            badgeLabel="Pending Review"
-            badgeStatus="PENDING"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-          <OverviewApprovalCard
-            category="Produce Listing"
-            title="LST-2026-0047 · Carrot Grade 2 · Demo Farmer Admin"
-            meta="Auto-routed away from the Farmer Admin who owns it · Waiting 1 day"
-            badgeLabel="Routed — own listing"
-            badgeStatus="UNVERIFIED"
-            onPress={() => setActiveSubScreen('approval_inbox')}
-          />
-        </View>
-
-        {/* ─── Recent Activity ─── */}
-        <OverviewSectionHeader title={t('superAdminDashboard.section.recentActivity')} />
-        <View style={styles.activityCard}>
-          {renderActivityItem('Fair Price ceiling updated for Carrot Grade 1', 'Today, 10:45 AM')}
-          {renderActivityItem('Sub Warehouse Admin account created for Kotagiri', 'Yesterday, 04:20 PM')}
-          {renderActivityItem('Channel Allocation updated to Online 70% / Live 10%', '12 Oct 2026, 02:15 PM')}
-        </View>
-      </View>
-    </ScrollView>
-
-      {/* 3-Dots Schedule Options Popup Modal */ }
-  <Modal
-    visible={!!activeScheduleMenu}
-    transparent
-    animationType="fade"
-    onRequestClose={() => setActiveScheduleMenu(null)}
-  >
-    <TouchableOpacity
-      style={styles.popupOverlay}
-      activeOpacity={1}
-      onPress={() => setActiveScheduleMenu(null)}
-    >
-      <View style={styles.scheduleOptionsMenu}>
-        <TouchableOpacity
-          style={styles.scheduleOptionItem}
-          onPress={() => {
-            if (activeScheduleMenu) {
-              setDetailsScheduleItem(activeScheduleMenu);
-            }
-            setActiveScheduleMenu(null);
-          }}
-          activeOpacity={0.7}
-        >
-          <EyeIcon size={18} color={adminColors.ink} />
-          <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.viewDetails')}</Text>
-        </TouchableOpacity>
-
-        <View style={styles.scheduleOptionDivider} />
-
-        <TouchableOpacity
-          style={styles.scheduleOptionItem}
-          onPress={() => {
-            if (activeScheduleMenu) {
-              setMarketScheduleMode(activeScheduleMenu.mode);
-              setActiveSubScreen('schedule_market');
-            }
-            setActiveScheduleMenu(null);
-          }}
-          activeOpacity={0.7}
-        >
-          <PencilEditIcon size={18} color={adminColors.ink} />
-          <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.editSchedule')}</Text>
-        </TouchableOpacity>
-
-        <View style={styles.scheduleOptionDivider} />
-
-        <TouchableOpacity
-          style={styles.scheduleOptionItem}
-          onPress={() => {
-            if (activeScheduleMenu) {
-              const targetId = activeScheduleMenu.id;
-              setMarketSchedules((prev) => prev.filter((s) => s.id !== targetId));
-              Alert.alert(
-                t('scheduleMarket.title'),
-                t('scheduleMarket.cancelSuccess')
-              );
-            }
-            setActiveScheduleMenu(null);
-          }}
-          activeOpacity={0.7}
-        >
-          <TrashIcon size={18} color={adminColors.danger.text} />
-          <Text style={[styles.scheduleOptionText, styles.scheduleOptionDanger]}>
-            {t('scheduleMarket.menu.cancelSchedule')}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  </Modal>
-
-  {/* Schedule Details Modal */ }
-  <Modal
-    visible={!!detailsScheduleItem}
-    transparent
-    animationType="fade"
-    onRequestClose={() => setDetailsScheduleItem(null)}
-  >
-    <TouchableOpacity
-      style={styles.popupOverlay}
-      activeOpacity={1}
-      onPress={() => setDetailsScheduleItem(null)}
-    >
-      <View style={styles.detailsModalContent}>
-        <Text style={styles.detailsModalTitle}>{t('scheduleMarket.details.title')}</Text>
-        {detailsScheduleItem ? (
-          <View style={styles.detailsModalBody}>
-            <View style={styles.detailsRow}>
-              <Text style={styles.detailsLabel}>{t('scheduleMarket.action')}:</Text>
-              <Text style={styles.detailsValue}>
-                {detailsScheduleItem.mode === 'open'
-                  ? t('scheduleMarket.actionOpen')
-                  : t('scheduleMarket.actionClose')}
+          {/* 1. Floating "Good morning, Super Admin" Summary Card */}
+          <View style={styles.greetingCard}>
+            <View style={styles.greetingTopRow}>
+              <Text style={styles.greetingTitle} numberOfLines={1}>
+                Good morning, Super Admin
               </Text>
+              <View style={styles.roleBadgePill}>
+                <Text style={styles.roleBadgeText}>SUPER Admin</Text>
+              </View>
             </View>
-            <View style={styles.detailsRow}>
-              <Text style={styles.detailsLabel}>{t('scheduleMarket.time')}:</Text>
-              <Text style={styles.detailsValue}>{detailsScheduleItem.time}</Text>
-            </View>
-            <View style={styles.detailsRow}>
-              <Text style={styles.detailsLabel}>{t('scheduleMarket.repeat')}:</Text>
-              <Text style={styles.detailsValue}>{detailsScheduleItem.repeat}</Text>
+
+            <Text style={styles.greetingSubTitle}>Today’s operational summary</Text>
+            <Text style={styles.greetingDateStamp}>Mon, 13 Oct 2026 · IST</Text>
+
+            <View style={styles.greetingBottomRow}>
+              <Text style={styles.lastUpdatedText}>Last updated {lastUpdated}</Text>
+              <TouchableOpacity
+                style={styles.refreshButton}
+                onPress={() => {
+                  const now = new Date();
+                  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+                  setLastUpdated(`${timeStr} · All details`);
+                }}
+                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel="Refresh operational summary"
+              >
+                <RefreshIcon size={16} color={adminColors.brandDeep} />
+              </TouchableOpacity>
             </View>
           </View>
-        ) : null}
+
+          {/* 2. Search and Date Filter Bar (Tohfa Admin Reference) */}
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <SearchIcon size={18} color={adminColors.muted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search farmers, crops, orders, customers, staff"
+                placeholderTextColor={adminColors.placeholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
+              <TouchableOpacity
+                onPress={() => {
+                  Alert.alert('Filter', 'Advanced filters for search');
+                }}
+                activeOpacity={0.7}
+              >
+                <FilterSlidersIcon size={18} color={adminColors.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Date filter pill */}
+            <View style={styles.dateFilterContainer}>
+              <TouchableOpacity
+                style={styles.dateFilterButton}
+                activeOpacity={0.7}
+                onPress={() => {
+                  Alert.alert('Select Period', 'Choose time period for dashboard:', [
+                    { text: 'Today', onPress: () => setDateRange('Today') },
+                    { text: '7 Days', onPress: () => setDateRange('7 Days') },
+                    { text: '30 Days', onPress: () => setDateRange('30 Days') },
+                    { text: 'Custom', onPress: () => setDateRange('Custom Range') },
+                    { text: 'Cancel', style: 'cancel' },
+                  ]);
+                }}
+              >
+                <CalendarIcon size={14} color={adminColors.brandDeep} />
+                <Text style={styles.dateFilterText}>{dateRange}</Text>
+                <ChevronDownIcon size={12} color={adminColors.brandDeep} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ─── Market Control Card ─── */}
+          <View style={styles.marketCard}>
+            <View style={styles.marketHeaderRow}>
+              <View style={styles.marketTitleContainer}>
+                <View style={styles.marketIconBox}>
+                  <StoreIcon size={20} color={adminColors.brand} />
+                </View>
+                <View style={styles.marketTitleCol}>
+                  <Text style={styles.marketTitle}>{t('superAdminDashboard.market.title')}</Text>
+                  <Text style={styles.marketSubtitle}>{t('superAdminDashboard.market.subtitle')}</Text>
+                </View>
+              </View>
+              <View style={styles.marketStatusBadge}>
+                <View style={styles.marketStatusDot} />
+                <Text style={styles.marketStatusText}>{t('superAdminDashboard.market.statusOpen')}</Text>
+              </View>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.marketActionsRow}>
+              <TouchableOpacity style={styles.closeMarketButton} activeOpacity={0.75}>
+                <PauseCircleIcon size={16} color={adminColors.danger.text} />
+                <Text style={styles.closeMarketText}>{t('superAdminDashboard.market.close')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.scheduleMarketButton}
+                activeOpacity={0.75}
+                onPress={() => {
+                  setMarketScheduleMode('open');
+                  setActiveSubScreen('schedule_market');
+                }}
+              >
+                <CalendarIcon size={16} color={adminColors.onBrand} />
+                <Text style={styles.scheduleMarketText}>{t('superAdminDashboard.market.schedule')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Upcoming Schedule */}
+            <View style={styles.scheduleSection}>
+              <Text style={styles.scheduleSectionTitle}>{t('superAdminDashboard.market.upcoming')}</Text>
+
+              {marketSchedules.map((schedule) => (
+                <View key={schedule.id} style={styles.scheduleItem}>
+                  <View style={styles.scheduleItemLeft}>
+                    <View style={styles.scheduleCalendarBox}>
+                      <CalendarIcon
+                        size={16}
+                        color={schedule.mode === 'open' ? adminColors.brand : adminColors.muted}
+                      />
+                    </View>
+                    <View style={styles.scheduleTextCol}>
+                      <Text style={styles.scheduleItemTitle}>{schedule.title}</Text>
+                      <Text style={styles.scheduleItemTime}>{schedule.time}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.scheduleItemRight}>
+                    <View style={styles.scheduledPill}>
+                      <Text style={styles.scheduledPillText}>{t('superAdminDashboard.market.scheduled')}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.menuDotBtn}
+                      activeOpacity={0.7}
+                      onPress={() => setActiveScheduleMenu(schedule)}
+                    >
+                      <MoreVerticalIcon size={16} color={adminColors.muted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* ─── Quick Access (Reusable OverviewActionCard) ─── */}
+          <OverviewSectionHeader title={t('superAdminDashboard.section.quickAccess')} />
+          <OverviewCardsGrid style={styles.quickAccessGrid}>
+            {can('allocation.channel_percentage.set') ? (
+              <OverviewActionCard
+                title="Configure Allocation"
+                icon={<PieChartIcon size={20} color={adminColors.brandDeep} />}
+                onPress={() => setActiveSubScreen('allocation')}
+              />
+            ) : null}
+            <OverviewActionCard
+              title="Approval Inbox"
+              icon={<InboxTrayIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            {can('transfer.inter_warehouse.initiate') ? (
+              <OverviewActionCard
+                title="Manage Transfers"
+                icon={<SwitchArrowsIcon size={20} color={adminColors.brandDeep} />}
+                onPress={() => setActiveSubScreen('transfers_flow')}
+              />
+            ) : null}
+            <OverviewActionCard
+              title="Work Queue"
+              icon={<ClipboardListIcon size={20} color={adminColors.brandDeep} />}
+              onPress={() => setActiveSubScreen('work_queue')}
+            />
+            {can('admin.super_admin.create') ? (
+              <OverviewActionCard
+                title="Create Admin"
+                icon={<UserPlusIcon size={20} color={adminColors.brandDeep} />}
+                onPress={() => setActiveSubScreen('create_admin')}
+              />
+            ) : null}
+            {can('system.config.manage') ? (
+              <OverviewActionCard
+                title="Alert Thresholds"
+                icon={<FilterSlidersIcon size={20} color={adminColors.brandDeep} />}
+                onPress={() => setActiveSubScreen('alert_thresholds')}
+              />
+            ) : null}
+            {can('pricing.fair_price.set') ? (
+              <OverviewActionCard
+                title="Fair Prices"
+                icon={<FairPriceIcon size={20} color={adminColors.brandDeep} />}
+                onPress={() => setActiveSubScreen('fair_price_ceiling')}
+              />
+            ) : null}
+            {can('pricing.fair_price.set') ? (
+              <OverviewActionCard
+                title="Manage Retail Prices"
+                icon={<CashBillIcon size={20} color={adminColors.brandDeep} />}
+                onPress={() => setActiveSubScreen('retail_pricing')}
+              />
+            ) : null}
+          </OverviewCardsGrid>
+
+          {/* ─── Work Queue (Reusable OverviewQueueCard) ─── */}
+          <OverviewSectionHeader title={t('superAdminDashboard.section.workQueue')} />
+          <View style={styles.workQueueList}>
+            <OverviewQueueCard
+              title="PAY-0002 · Kumar"
+              badgeLabel="Awaiting SA approval"
+              badgeStatus="INFO"
+              meta="₹18,000.00 · Requested 9 Oct 2026, 10:00"
+              viewDetailsLabel={t('superAdminDashboard.viewDetails')}
+              accentTone="danger"
+              onPress={() => {
+                setSelectedPayoutId('PAY-0002');
+                setActiveSubScreen('approval_payout_detail');
+              }}
+            />
+            <OverviewQueueCard
+              title="APP-2026-0101 · Sathish Kumar"
+              badgeLabel="Pending Review"
+              badgeStatus="PENDING"
+              meta="Submitted 5 Oct 2026"
+              viewDetailsLabel={t('superAdminDashboard.viewDetails')}
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            <OverviewQueueCard
+              title="AUD-2026-0052 · Vijay"
+              badgeLabel="Past scheduled date"
+              badgeStatus="REJECTED"
+              meta="Due 8 Oct 2026"
+              viewDetailsLabel={t('superAdminDashboard.viewDetails')}
+              onPress={() => setActiveSubScreen('audit_management')}
+            />
+          </View>
+
+          {/* ─── Approval Inbox (Reusable OverviewApprovalCard) ─── */}
+          <OverviewSectionHeader
+            title={t('superAdminDashboard.section.approvalInbox')}
+            actionLabel="View All"
+            onAction={() => setActiveSubScreen('approval_inbox')}
+          />
+          <View style={styles.approvalInboxList}>
+            <OverviewApprovalCard
+              category="Farmer Payout (>₹10,000)"
+              title="PAY-0002 · Kumar · ₹18,000.00"
+              meta="Escalated by Demo TOHFA Admin · Waiting 4 days"
+              badgeLabel="Escalated"
+              badgeStatus="INFO"
+              onPress={() => {
+                setSelectedPayoutId('PAY-0002');
+                setActiveSubScreen('approval_payout_detail');
+              }}
+            />
+            <OverviewApprovalCard
+              category="Inter-Warehouse Transfer"
+              title="TR-0015 · Ooty → Coonoor · ₹42,000.00"
+              meta="Requested by Demo Main Warehouse Admin · Waiting 1 day"
+              badgeLabel="High value"
+              badgeStatus="INFO"
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            <OverviewApprovalCard
+              category="Warehouse Admin Promotion"
+              title="Priya Nair → Main Warehouse Admin"
+              meta="Requested by Demo TOHFA Admin · Waiting 2 days"
+              badgeLabel="Pending"
+              badgeStatus="PENDING"
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            <OverviewApprovalCard
+              category="Stock Adjustment"
+              title="ADJ-0031 · Carrot · -42 kg (Main Warehouse, Ooty)"
+              meta="Requested by Demo Sub Warehouse Admin · Waiting 6 hours"
+              badgeLabel="Pending"
+              badgeStatus="PENDING"
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            <OverviewApprovalCard
+              category="Farmer Application"
+              title="APP-2026-0101 · Sathish Kumar"
+              meta="Submitted 5 Oct 2026 · Waiting 3 days"
+              badgeLabel="Pending Review"
+              badgeStatus="PENDING"
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            <OverviewApprovalCard
+              category="Produce Listing"
+              title="LST-2026-0045 · Tomato Grade 1 · Selvi"
+              meta="Submitted 11 Oct 2026 · Waiting 2 days"
+              badgeLabel="Pending Review"
+              badgeStatus="PENDING"
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+            <OverviewApprovalCard
+              category="Produce Listing"
+              title="LST-2026-0047 · Carrot Grade 2 · Demo Farmer Admin"
+              meta="Auto-routed away from the Farmer Admin who owns it · Waiting 1 day"
+              badgeLabel="Routed — own listing"
+              badgeStatus="UNVERIFIED"
+              onPress={() => setActiveSubScreen('approval_inbox')}
+            />
+          </View>
+
+          {/* ─── Recent Activity ─── */}
+          <OverviewSectionHeader title={t('superAdminDashboard.section.recentActivity')} />
+          <View style={styles.activityCard}>
+            {renderActivityItem('Fair Price ceiling updated for Carrot Grade 1', 'Today, 10:45 AM')}
+            {renderActivityItem('Sub Warehouse Admin account created for Kotagiri', 'Yesterday, 04:20 PM')}
+            {renderActivityItem('Channel Allocation updated to Online 70% / Live 10%', '12 Oct 2026, 02:15 PM')}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* 3-Dots Schedule Options Popup Modal */}
+      <Modal
+        visible={!!activeScheduleMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActiveScheduleMenu(null)}
+      >
         <TouchableOpacity
-          style={styles.detailsCloseBtn}
-          onPress={() => setDetailsScheduleItem(null)}
-          activeOpacity={0.8}
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setActiveScheduleMenu(null)}
         >
-          <Text style={styles.detailsCloseText}>{t('scheduleMarket.details.close')}</Text>
+          <View style={styles.scheduleOptionsMenu}>
+            <TouchableOpacity
+              style={styles.scheduleOptionItem}
+              onPress={() => {
+                if (activeScheduleMenu) {
+                  setDetailsScheduleItem(activeScheduleMenu);
+                }
+                setActiveScheduleMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <EyeIcon size={18} color={adminColors.ink} />
+              <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.viewDetails')}</Text>
+            </TouchableOpacity>
+
+            <View style={styles.scheduleOptionDivider} />
+
+            <TouchableOpacity
+              style={styles.scheduleOptionItem}
+              onPress={() => {
+                if (activeScheduleMenu) {
+                  setMarketScheduleMode(activeScheduleMenu.mode);
+                  setActiveSubScreen('schedule_market');
+                }
+                setActiveScheduleMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <PencilEditIcon size={18} color={adminColors.ink} />
+              <Text style={styles.scheduleOptionText}>{t('scheduleMarket.menu.editSchedule')}</Text>
+            </TouchableOpacity>
+
+            <View style={styles.scheduleOptionDivider} />
+
+            <TouchableOpacity
+              style={styles.scheduleOptionItem}
+              onPress={() => {
+                if (activeScheduleMenu) {
+                  const targetId = activeScheduleMenu.id;
+                  setMarketSchedules((prev) => prev.filter((s) => s.id !== targetId));
+                  Alert.alert(
+                    t('scheduleMarket.title'),
+                    t('scheduleMarket.cancelSuccess')
+                  );
+                }
+                setActiveScheduleMenu(null);
+              }}
+              activeOpacity={0.7}
+            >
+              <TrashIcon size={18} color={adminColors.danger.text} />
+              <Text style={[styles.scheduleOptionText, styles.scheduleOptionDanger]}>
+                {t('scheduleMarket.menu.cancelSchedule')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  </Modal>
+      </Modal>
+
+      {/* Schedule Details Modal */}
+      <Modal
+        visible={!!detailsScheduleItem}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDetailsScheduleItem(null)}
+      >
+        <TouchableOpacity
+          style={styles.popupOverlay}
+          activeOpacity={1}
+          onPress={() => setDetailsScheduleItem(null)}
+        >
+          <View style={styles.detailsModalContent}>
+            <Text style={styles.detailsModalTitle}>{t('scheduleMarket.details.title')}</Text>
+            {detailsScheduleItem ? (
+              <View style={styles.detailsModalBody}>
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailsLabel}>{t('scheduleMarket.action')}:</Text>
+                  <Text style={styles.detailsValue}>
+                    {detailsScheduleItem.mode === 'open'
+                      ? t('scheduleMarket.actionOpen')
+                      : t('scheduleMarket.actionClose')}
+                  </Text>
+                </View>
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailsLabel}>{t('scheduleMarket.time')}:</Text>
+                  <Text style={styles.detailsValue}>{detailsScheduleItem.time}</Text>
+                </View>
+                <View style={styles.detailsRow}>
+                  <Text style={styles.detailsLabel}>{t('scheduleMarket.repeat')}:</Text>
+                  <Text style={styles.detailsValue}>{detailsScheduleItem.repeat}</Text>
+                </View>
+              </View>
+            ) : null}
+            <TouchableOpacity
+              style={styles.detailsCloseBtn}
+              onPress={() => setDetailsScheduleItem(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.detailsCloseText}>{t('scheduleMarket.details.close')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Bottom Navigation Bar */}
       {renderBottomTabBar(activeTab, handleSelectTab)}
@@ -1545,29 +1556,37 @@ function renderHeader(
 ) {
   return (
     <View style={styles.header}>
-      <View style={styles.headerLeft}>
-        <ShieldIcon size={20} color={adminColors.onBrand} />
-        <Text style={styles.headerTitle}>{titleText}</Text>
-      </View>
-      <View style={styles.headerRight}>
-        <TouchableOpacity
-          style={styles.bellWrapper}
-          onPress={onNavigateNotifications}
-          activeOpacity={0.7}
-          accessibilityLabel="Notifications"
-        >
-          <BellIcon size={22} color={adminColors.onBrand} />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.notificationBadgeText}>4</Text>
+      <View style={styles.headerTopRow}>
+        <View style={styles.headerLeftCol}>
+          <View style={styles.headerBrandTitleRow}>
+            <ShieldIcon size={20} color={adminColors.onBrand} />
+            <Text style={styles.headerBrandText}>{titleText}</Text>
           </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onNavigateProfile}
-          activeOpacity={0.7}
-          accessibilityLabel="Profile"
-        >
-          <UserAvatarIcon size={24} color={adminColors.onBrand} />
-        </TouchableOpacity>
+          <Text style={styles.headerDateText}>Mon, 13 Oct 2026 · IST</Text>
+        </View>
+
+        <View style={styles.headerIconsRow}>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={onNavigateNotifications}
+            activeOpacity={0.8}
+            accessibilityLabel="Notifications"
+          >
+            <BellIcon size={20} color={adminColors.onBrand} />
+            <View style={styles.notificationDot}>
+              <Text style={styles.notificationDotText}>4</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={onNavigateProfile}
+            activeOpacity={0.8}
+            accessibilityLabel="Profile"
+          >
+            <UserAvatarIcon size={20} color={adminColors.onBrand} />
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
@@ -1732,60 +1751,74 @@ const styles = StyleSheet.create({
     paddingBottom: adminSpacing.xl,
   },
   header: {
+    backgroundColor: adminColors.brand,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: 14,
+    paddingBottom: adminSpacing.lg,
+  },
+  headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: adminColors.brand,
-    paddingHorizontal: adminSpacing.md,
-    paddingTop: 18,
-    paddingBottom: 92,
   },
-  mainContent: {
-    paddingHorizontal: adminSpacing.md,
-    marginTop: -48,
+  headerLeftCol: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  kpiSectionTitle: {
-    ...adminType.sectionHead,
-    color: adminColors.brandDeep,
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: adminSpacing.sm,
-    marginTop: adminSpacing.xs,
-  },
-  headerLeft: {
+  headerBrandTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 4,
     gap: adminSpacing.xs,
   },
-  headerTitle: {
+  headerBrandText: {
     ...adminType.title,
     color: adminColors.onBrand,
-    fontSize: 18,
     fontWeight: '800',
+    fontSize: 18,
+    letterSpacing: 0.2,
   },
-  headerRight: {
+  headerDateText: {
+    ...adminType.rowMeta,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  headerIconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: adminSpacing.md,
+    gap: adminSpacing.sm,
   },
-  bellWrapper: {
+  headerIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: adminRadius.full,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
-  notificationBadge: {
+  notificationDot: {
     position: 'absolute',
-    top: -4,
-    right: -6,
+    top: -2,
+    right: -2,
     backgroundColor: adminColors.danger.text,
     borderRadius: adminRadius.full,
-    width: 16,
+    minWidth: 16,
     height: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 3,
   },
-  notificationBadgeText: {
+  notificationDotText: {
     color: adminColors.onBrand,
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
+  },
+  mainContent: {
+    paddingHorizontal: adminSpacing.md,
+    marginTop: adminSpacing.md,
   },
   // 1. Floating Greeting Card (Image 1)
   greetingCard: {
