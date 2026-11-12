@@ -1614,6 +1614,7 @@ See also BR-66.
 - `BR-69e` A bad `aadhaarLast4` or `dob` is 422 and the value is not echoed.
 - `BR-69f` Unknown keys are 422 on every step.
 - `BR-69g` Bad coordinates, an unclosed ring, or a missing `id` / `label` / `areaAcres` are 422.
+- `BR-69h` (added 2026-11-11, spec gap: no rule covered approval onto an existing `farmers` row) When a `farmers` row already exists for the applicant's user, approval fills each step-1/step-2 data column (`dob`, `gender`, `pincode`, `address_line1`, `village`, `taluk`, `district`, `aadhaar_last4`, `farming_experience_years`, `zone_id`) only where it is still NULL, and never overwrites a value the row already holds; status columns are set as before. Tests: `farmer-applications.test.ts` (unit SQL shape, and a PostgreSQL round trip).
 
 ---
 
@@ -3474,6 +3475,34 @@ Every other place that adds a role creates a brand-new account in the same trans
 - `BR-141a` Against an 11 sq.ft standard: 11 SQ_FT meets, 10.99 SQ_FT does not; 1.02 SQ_M (10.979 sq.ft) does not, 1.03 SQ_M (11.087 sq.ft) meets; 1 SQ_M meets 10.76 and fails 10.77; 0.01 ACRES (435.6 sq.ft) meets 435.6 and fails 435.61.
 - `BR-141b` The list carries `spaceStandard.minIndoorSqFtPerAnimal` from `system_config` and changing it changes the verdicts; the response schema requires `spaceStandard` (object or null) and `meetsIndoorSpaceStandard` (boolean or null) on every item; an empty or foreign page still carries `spaceStandard`.
 - `BR-141c` A missing or unusable value (absent, `null`, `"11"`, `true`, `{}`, `[11]`, 0, 0.00, -1, 11.005) gives 200 with the records, `spaceStandard: null` and a null verdict on every item (no number invented), also for a foreign animal; the value is read on every list and never on create; against PostgreSQL the key is absent after migration (so no verdict), a configured JSON number is honoured, and a deleted key or a string value returns to no verdict.
+
+---
+
+### BR-142 — A certificate's document is read only through a short-lived signed URL, issued to the farmer who uploaded it
+| | |
+|---|---|
+| **Source** | Specification gap, 2026-11-11: the farmer app's Certifications "View" opened the certificate's `documentUrl`, the permanent storage URL from `POST /uploads/sign`, which is not readable (private container; in dev nothing served `/storage/*`, so every View was a 404). Extends BR-36 and BR-54's signed-URL doctrine (BR-54c) to every certificate, not only the first one shown in `GET /farmers/me/documents`. |
+| **Status** | DERIVED |
+| **Layer** | Server-side, `GET /farmers/me/certifications/{id}/document` (`certification.manage_own`, FARMER `own`): `certificationsService.getMyCertificationDocument`, `certificationsRepo.findOwnCertificateDocument` / `isUploadOwnedBy`. Dev/test storage: `BlobStorage.storageKeyFromUrl`, the HMAC-signed local read URL (`LocalDiskBlobStorage` / `InMemoryBlobStorage`) and `GET /storage/*` (`apps/api/src/storage/storage.routes.ts`). Mobile: `getCertificationDocumentReadUrl` (farmer `api/farmer.ts`), fetched on each View tap. |
+| **Scope** | Track 1 |
+
+**Rule.**
+1. **Own certificate only (`BR-142b`).** The endpoint answers for the caller's own live certificate. Another farmer's certificate, a soft-deleted one (BR-50), an unknown id and a certificate with no document are all 404 `NOT_FOUND`, never 403 (BR-36).
+2. **Signed, short-lived (`BR-142a`).** The response is `{ readUrl, expiresAt }` only: a signed read URL valid for 15 minutes (BR-54c's lifetime) and its expiry. The stored permanent URL and the storage key are never returned; the response carries `Cache-Control: no-store`. The app requests a fresh URL on every View and never logs or displays it.
+3. **The file must be the caller's upload (`BR-142c`).** `documentUrl` is client input. A key is derived from it only when it is this platform's own storage URL (or a bare key); an external URL, a non-storage path or a `..` segment is 404 and never fetched or echoed. The key is signed only when a live `uploads` row for exactly that key has `uploaded_by` = the caller, so a farmer cannot record another user's upload on their certificate and read it.
+4. **Dev/test storage serves only signed reads (`BR-142d`).** Without Azure, read URLs are `/storage/<key>?expires=<ISO>&sig=<HMAC-SHA256 over key and expiry>`, and `GET /storage/*` returns the bytes `PUT /v1/uploads/mock/*` stored only for an unexpired, exact signature; the unsigned permanent URL, a tampered or expired signature, another key and a missing file are the same 404. PDFs and images are served inline with their type, anything else as an `application/octet-stream` attachment, never cached. With Azure configured the read URL is an Azure read SAS and `/storage/*` answers 404.
+
+**Failure mode if unenforced.** Without a signed read the View button can never open a private document; a long-lived or permanent URL is a standing bearer link to a farmer's certificate; signing whatever URL the certificate holds lets one farmer read another's (or an arbitrary) file through the platform; a dev route serving unsigned paths exposes every stored KYC document to anyone who can guess a key.
+
+**Known limitations.** The admin certification views still show the stored `documentUrl` (not covered here). `GET /farmers/me/documents`' CERTIFICATE slot signs `farmer_documents.storage_key` as a key, but the certificate create path stores the full public URL there, so that slot's `readUrl` is malformed for app-created certificates; it should use `storageKeyFromUrl` plus the BR-142c ownership check (open item).
+
+**Test contract.** (`apps/api/src/modules/certifications/certifications.test.ts`, `apps/api/src/storage/blobStorage.test.ts`, mobile `apps/mobile/src/roles/farmer/tests/certification_document.test.ts`)
+- `BR-142a` The owner gets `{ readUrl, expiresAt }` only, with a signature and a ~15-minute expiry; the stored URL is never returned; a bare-key document is signed the same way.
+- `BR-142b` Another farmer's, an unknown and a soft-deleted certificate, and one with no document, are 404 (unit and PostgreSQL).
+- `BR-142c` An external URL, a non-storage path, a traversal and another user's upload planted on the certificate are 404 and never signed (unit and PostgreSQL, including a soft-deleted upload row).
+- `BR-142d` `storageKeyFromUrl` accepts only this storage's own URL; a read URL verifies only for its exact key and unexpired expiry and secret; `GET /storage/*` serves the PUT bytes with the extension's type and `no-store` on a valid signature, and 404s the unsigned URL, a tampered or expired signature, another key and a missing file; unknown types are an `octet-stream` attachment.
+- `BR-142e` Wiring: 401 without a token; 403 for every role without `certification.manage_own`; 422 on a malformed id.
+- `BR-142f` (mobile) View fetches a fresh signed URL each time, shows a loading state, and on failure shows the shared error dialog without the URL; a 404 shows the "no document" dialog.
 
 ---
 

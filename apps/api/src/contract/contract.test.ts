@@ -21,8 +21,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import request from 'supertest';
-import { createApp, API_MOUNTS, CORRELATION_HEADER } from '../app.js';
+import { createApp, API_MOUNTS, CORRELATION_HEADER, STORAGE_READ_PREFIX } from '../app.js';
 import { healthRouter } from '../modules/health/health.routes.js';
+import { storageReadRouter } from '../storage/storage.routes.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
 const OPENAPI_PATH = join(REPO_ROOT, 'docs', 'openapi.yaml');
@@ -142,6 +143,8 @@ function collectRegisteredRoutes(): RegisteredRoute[] {
   const routes: RegisteredRoute[] = [];
   // The unauthenticated liveness/readiness probes are mounted at the root.
   for (const r of routesIn(healthRouter, '')) routes.push(r);
+  // The dev/test storage read route is also mounted at the root, outside API_MOUNTS.
+  for (const r of routesIn(storageReadRouter, STORAGE_READ_PREFIX)) routes.push(r);
   for (const { prefix, router } of API_MOUNTS) {
     for (const r of routesIn(router, prefix)) routes.push(r);
   }

@@ -13,6 +13,8 @@ import { BackButtonIcon, CallIcon, LockIcon } from '../../assets/icons/AssetIcon
 import { requestOtp } from '../../api/auth';
 import { ApiError } from '../../../../shell/api/client';
 import { authPalette as P, typography } from '../../theme';
+import { toE164IndianMobile, useFieldValidation } from '../../utils/validation';
+import { forgotRules, type ForgotField } from './authValidation';
 
 interface ForgotPasswordScreenProps {
   onNavigate: (screen: 'Login' | 'Otp', params?: Record<string, string | number | undefined>) => void;
@@ -31,13 +33,17 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
   const [mobile, setMobile] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const validation = useFieldValidation<ForgotField>({ values: { mobile }, rules: forgotRules });
+  const mobileError = validation.messageFor('mobile');
 
   async function handleSubmit() {
-    if (!mobile.trim()) return;
+    if (!validation.validateAll().valid) return;
+    const cleanMobile = toE164IndianMobile(mobile);
+    if (cleanMobile === null) return;
     setLoading(true);
+    setErrorMsg(null);
 
     try {
-      const cleanMobile = mobile.startsWith('+') ? mobile.trim() : `+91${mobile.trim()}`;
       const res = await requestOtp({ mobile: cleanMobile, purpose: 'PASSWORD_RESET' });
       onNavigate('Otp', {
         mobile: cleanMobile,
@@ -92,6 +98,7 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
           style={styles.fieldInput}
           value={mobile}
           onChangeText={setMobile}
+          onBlur={() => validation.onBlur('mobile')}
           keyboardType="phone-pad"
           placeholder="98765 43210"
           placeholderTextColor={P.muted}
@@ -99,12 +106,17 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
           accessibilityLabel={t('farmer.auth.login.mobile')}
         />
       </View>
+      {mobileError ? (
+        <Text accessibilityRole="alert" style={styles.fieldError}>
+          {mobileError}
+        </Text>
+      ) : null}
 
       <TouchableOpacity
         accessibilityRole="button"
-        style={[styles.ctaButton, (!mobile || loading) && styles.ctaDisabled]}
+        style={[styles.ctaButton, loading && styles.ctaDisabled]}
         onPress={handleSubmit}
-        disabled={!mobile || loading}
+        disabled={loading}
       >
         <Text style={styles.ctaText}>{t('farmer.auth.forgot.sendOtp')}</Text>
       </TouchableOpacity>
@@ -124,6 +136,11 @@ export const ForgotPasswordScreen: React.FC<ForgotPasswordScreenProps> = ({ onNa
 };
 
 const styles = StyleSheet.create({
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
+  },
   container: {
     flex: 1,
     backgroundColor: P.bg,

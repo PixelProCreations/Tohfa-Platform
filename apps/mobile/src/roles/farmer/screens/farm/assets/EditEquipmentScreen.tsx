@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
@@ -15,6 +16,8 @@ import { ErrorState, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, typography } from '../../../theme';
 import { formatSafeDate } from '../../../polyfills';
 import { t } from '../../../../../i18n/farmer';
+import { useFieldValidation } from '../../../utils/validation';
+import { EQUIPMENT_RULES, ASSET_NAME_MAX_LENGTH, ASSET_AREA_MAX_CHARS, ASSET_INTERVAL_MAX_DIGITS } from './assetFormRules';
 import { extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarmAsset, updateFarmAsset } from '../../../api/farmAssets';
 import {
@@ -137,6 +140,7 @@ export function EditEquipmentScreen({
   onSave,
   onRemove,
 }: EditEquipmentScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const assetId = equipment?.id;
 
   const [loading, setLoading] = useState(true);
@@ -151,6 +155,12 @@ export function EditEquipmentScreen({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validation = useFieldValidation<'name' | 'coverageArea' | 'serviceInterval'>({
+    values: { name, coverageArea, serviceInterval },
+    rules: EQUIPMENT_RULES,
+    order: ['name', 'coverageArea', 'serviceInterval'],
+  });
 
   const loadAsset = useCallback(async () => {
     if (!assetId) {
@@ -200,9 +210,9 @@ export function EditEquipmentScreen({
 
   async function handleSave(): Promise<void> {
     if (isSaving || !assetId) return;
-    if (!name.trim() || !serviceInterval.trim()) return;
     setSaveError('');
     setFieldErrors({});
+    if (!validation.validateAll().valid) return;
 
     const intervalDays = Number(serviceInterval.trim());
     if (!Number.isInteger(intervalDays) || intervalDays <= 0) {
@@ -311,8 +321,13 @@ export function EditEquipmentScreen({
             onChangeText={setName}
             placeholder="e.g. Drip Irrigation Kit"
             placeholderTextColor={P.twGray400}
+            maxLength={ASSET_NAME_MAX_LENGTH}
+            onBlur={() => validation.onBlur('name')}
           />
         </View>
+        {validation.messageFor('name') ?? fieldErrors.name ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('name') ?? fieldErrors.name}</Text>
+        ) : null}
 
         {/* Purchase Date Field */}
         <Text style={styles.fieldLabel}>Purchase date</Text>
@@ -343,11 +358,13 @@ export function EditEquipmentScreen({
             placeholder="e.g. 2.5"
             placeholderTextColor={P.twGray400}
             keyboardType="decimal-pad"
+            maxLength={ASSET_AREA_MAX_CHARS}
+            onBlur={() => validation.onBlur('coverageArea')}
           />
         </View>
-        {fieldErrors.coverageArea && (
-          <Text style={styles.fieldErrorText}>{fieldErrors.coverageArea}</Text>
-        )}
+        {validation.messageFor('coverageArea') ?? fieldErrors.coverageArea ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('coverageArea') ?? fieldErrors.coverageArea}</Text>
+        ) : null}
 
         {/* Service Interval Field */}
         <Text style={styles.fieldLabel}>
@@ -361,11 +378,13 @@ export function EditEquipmentScreen({
             placeholder="e.g. 120"
             placeholderTextColor={P.twGray400}
             keyboardType="numeric"
+            maxLength={ASSET_INTERVAL_MAX_DIGITS}
+            onBlur={() => validation.onBlur('serviceInterval')}
           />
         </View>
-        {fieldErrors.serviceInterval && (
-          <Text style={styles.fieldErrorText}>{fieldErrors.serviceInterval}</Text>
-        )}
+        {validation.messageFor('serviceInterval') ?? fieldErrors.serviceInterval ? (
+          <Text style={styles.fieldErrorText}>{validation.messageFor('serviceInterval') ?? fieldErrors.serviceInterval}</Text>
+        ) : null}
 
         {/* Info Note */}
         <View style={styles.infoRow}>
@@ -392,8 +411,8 @@ export function EditEquipmentScreen({
 
       {/* Purchase Date Calendar Modal */}
       {showPurchaseDateCalendar ? (
-        <Modal transparent visible animationType="fade" onRequestClose={closePurchaseDateCalendar}>
-          <View style={styles.calendarOverlay}>
+        <Modal statusBarTranslucent navigationBarTranslucent transparent visible animationType="fade" onRequestClose={closePurchaseDateCalendar}>
+          <View style={[styles.calendarOverlay, { paddingBottom: insets.bottom }]}>
             <View style={styles.calendarScrim} pointerEvents="none" />
             <TouchableOpacity
               style={styles.calendarBackdrop}

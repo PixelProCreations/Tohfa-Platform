@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Icon } from '@tohfa/mobile-ui';
 import { authPalette as P, useTheme, colors, typography, weights, spacing, radius, MIN_TOUCH_TARGET } from '../../theme';
-import { t, type TranslationKey } from '../../../../i18n/farmer';
-import { manualRowIssue, type ManualRowIssue } from '../registration/manualPoints';
+import { t } from '../../../../i18n/farmer';
+import {
+  COORDINATE_INPUT_MAX_LENGTH,
+  rowFieldErrors,
+  sanitizeCoordinateText,
+  type CoordinateField,
+  type RowTouched,
+} from '../registration/locationInputRules';
+import { errorMessage } from '../../utils/validation';
 import type { ZoneBoundaryEditor } from './useZoneBoundaryEditor';
 
 interface ZoneBoundaryEditorCardProps {
@@ -11,13 +18,6 @@ interface ZoneBoundaryEditorCardProps {
   /** The colour the zone is drawn in on the map -- its swatch here uses the same one. */
   zoneColor: string;
 }
-
-/** i18n key for one manual point row's own inline problem (see `manualRowIssue`). */
-const MANUAL_ROW_ISSUE_KEY: Record<ManualRowIssue, TranslationKey> = {
-  incomplete: 'farmer.registration.step3.bothCoordinates',
-  latitudeRange: 'farmer.registration.step3.latitudeRange',
-  longitudeRange: 'farmer.registration.step3.longitudeRange',
-};
 
 /**
  * The bottom card while one zone is being drawn or edited on the Zones map: its name (opening the
@@ -31,6 +31,10 @@ const MANUAL_ROW_ISSUE_KEY: Record<ManualRowIssue, TranslationKey> = {
  */
 export function ZoneBoundaryEditorCard({ editor, zoneColor }: ZoneBoundaryEditorCardProps) {
   const { colors } = useTheme();
+  // Row errors show once a field is left; the editor's own save check still gates committing.
+  const [touched, setTouched] = useState<Record<string, RowTouched>>({});
+  const markTouched = (rowId: string, field: CoordinateField) =>
+    setTouched((prev) => ({ ...prev, [rowId]: { ...prev[rowId], [field]: true } }));
   const { mode, details, hasBoundary, metrics, pointCount, positioning, manualPoints, manualShape } = editor;
 
   const positioningBadge = editor.isEditingMap ? (
@@ -145,14 +149,15 @@ export function ZoneBoundaryEditorCard({ editor, zoneColor }: ZoneBoundaryEditor
         <View>
           <ScrollView style={styles.manualPointsList} nestedScrollEnabled={true} keyboardShouldPersistTaps="handled">
             {manualPoints.map((row, index) => {
-              const issue = manualRowIssue(row);
+              const rowErrors = rowFieldErrors(row, touched[row.id] ?? {});
+              const latMessage = errorMessage(rowErrors.latText, t);
+              const lngMessage = errorMessage(rowErrors.lngText, t);
+              const rowIsFine = !rowErrors.latText && !rowErrors.lngText;
               // Checked only once the row is otherwise fine, so each row shows one message at most.
               // A point is a lat/lng PAIR, so being outside the farm marks both fields.
-              const outsideFarm = issue === null && editor.isManualRowOutsideFarm(row);
-              const latHasError =
-                outsideFarm || issue === 'latitudeRange' || (issue === 'incomplete' && row.latText.trim() === '');
-              const lngHasError =
-                outsideFarm || issue === 'longitudeRange' || (issue === 'incomplete' && row.lngText.trim() === '');
+              const outsideFarm = rowIsFine && editor.isManualRowOutsideFarm(row);
+              const latHasError = outsideFarm || latMessage !== undefined;
+              const lngHasError = outsideFarm || lngMessage !== undefined;
               return (
                 <View key={row.id} style={styles.manualPointBlock}>
                   <View style={styles.manualPointRow}>
@@ -160,8 +165,10 @@ export function ZoneBoundaryEditorCard({ editor, zoneColor }: ZoneBoundaryEditor
                     <TextInput
                       style={[styles.fieldInput, latHasError && styles.inputError]}
                       value={row.latText}
-                      onChangeText={(text) => editor.handleManualPointChange(row.id, 'latText', text)}
+                      onChangeText={(text) => editor.handleManualPointChange(row.id, 'latText', sanitizeCoordinateText(text))}
+                      onBlur={() => markTouched(row.id, 'latText')}
                       keyboardType="numbers-and-punctuation"
+                      maxLength={COORDINATE_INPUT_MAX_LENGTH}
                       placeholder={t('farmer.registration.gps.manualLat')}
                       placeholderTextColor={colors.textPlaceholder}
                       accessibilityLabel={t('farmer.registration.gps.manualLat')}
@@ -169,8 +176,10 @@ export function ZoneBoundaryEditorCard({ editor, zoneColor }: ZoneBoundaryEditor
                     <TextInput
                       style={[styles.fieldInput, lngHasError && styles.inputError]}
                       value={row.lngText}
-                      onChangeText={(text) => editor.handleManualPointChange(row.id, 'lngText', text)}
+                      onChangeText={(text) => editor.handleManualPointChange(row.id, 'lngText', sanitizeCoordinateText(text))}
+                      onBlur={() => markTouched(row.id, 'lngText')}
                       keyboardType="numbers-and-punctuation"
+                      maxLength={COORDINATE_INPUT_MAX_LENGTH}
                       placeholder={t('farmer.registration.gps.manualLng')}
                       placeholderTextColor={colors.textPlaceholder}
                       accessibilityLabel={t('farmer.registration.gps.manualLng')}
@@ -187,8 +196,8 @@ export function ZoneBoundaryEditorCard({ editor, zoneColor }: ZoneBoundaryEditor
                       </TouchableOpacity>
                     ) : null}
                   </View>
-                  {issue ? (
-                    <Text style={styles.fieldErrorText}>{t(MANUAL_ROW_ISSUE_KEY[issue])}</Text>
+                  {latMessage || lngMessage ? (
+                    <Text style={styles.fieldErrorText}>{latMessage ?? lngMessage}</Text>
                   ) : outsideFarm ? (
                     <Text style={styles.fieldErrorText}>{t('farmer.zones.add.manualRowOutsideFarm')}</Text>
                   ) : null}

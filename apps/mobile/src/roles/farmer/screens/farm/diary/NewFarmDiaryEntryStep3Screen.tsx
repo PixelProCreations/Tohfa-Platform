@@ -11,10 +11,22 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import DocumentPicker, { type DocumentPickerResponse } from '../../../native/documentPicker';
 import { t } from '../../../../../i18n/farmer';
+import { errorMessage, useFieldValidation } from '../../../utils/validation';
+import {
+  DIARY_FIELD_ORDER,
+  DIARY_MINUTES_MAX_CHARS,
+  DIARY_NOTES_MAX_LENGTH,
+  DIARY_WORKER_NAME_MAX_LENGTH,
+  diaryEntryRules,
+  workerFieldError,
+  type DiaryEntryField,
+  type DiaryWorkerField,
+} from './diaryRules';
 import { extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { authPalette as P, typography } from '../../../theme';
 import {
@@ -45,7 +57,7 @@ function ArrowBackIcon({ size = 18, color = P.twGreen700 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -339,6 +351,12 @@ export interface NewFarmDiaryEntryStep3ScreenProps {
 
 /** Mirrors the server's zod bound on `minutes` (farm-diary.schema.ts). */
 const MAX_MINUTES = 1440;
+const ENTRY_RULES = diaryEntryRules(MAX_MINUTES);
+
+/** Inline message for one worker-row field (null when valid or blank). */
+function workerFieldMessage(field: DiaryWorkerField, value: string): string | null {
+  return errorMessage(workerFieldError(field, value), t) ?? null;
+}
 
 function toWorkerInputs(
   workers: WorkerEntry[],
@@ -369,6 +387,7 @@ export function NewFarmDiaryEntryStep3Screen({
   onDone,
   onSave,
 }: NewFarmDiaryEntryStep3ScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const cropName = cropNameProp ?? crop?.name ?? '';
 
   // A missing id here is a navigation bug, not something to mock around: surface
@@ -418,6 +437,12 @@ export function NewFarmDiaryEntryStep3Screen({
   // Attachments State
   const [photos, setPhotos] = useState<DiaryPhotoDraft[]>([]);
   const [notes, setNotes] = useState<string>('');
+
+  const entryValidation = useFieldValidation<DiaryEntryField>({
+    values: { minutes: timeSpent, notes },
+    rules: ENTRY_RULES,
+    order: DIARY_FIELD_ORDER,
+  });
 
   const handleRemoveWorker = (workerId: string) => {
     setWorkers((prev) => prev.filter((w) => w.id !== workerId));
@@ -470,6 +495,13 @@ export function NewFarmDiaryEntryStep3Screen({
    * parse to something above zero, blocks Save (mirrors `missingIds` below). */
   const isWorkerRowInvalid = (w: WorkerEntry): boolean => {
     if (!w.name.trim() || !w.hoursWorked.trim()) return true;
+    if (
+      workerFieldError('name', w.name) !== null ||
+      workerFieldError('hours', w.hoursWorked) !== null ||
+      workerFieldError('wage', w.wageRateInput) !== null
+    ) {
+      return true;
+    }
     const trimmedWage = w.wageRateInput.trim();
     if (!trimmedWage) return true;
     try {
@@ -614,6 +646,16 @@ export function NewFarmDiaryEntryStep3Screen({
       setSubmitError(
         t('farmer.farmDiary.newEntry.step3.missingIdsError', { missing: missingIdsLabel }),
       );
+      return;
+    }
+
+    const { valid: entryFieldsValid } = entryValidation.validateAll();
+    if (!entryFieldsValid) {
+      if (entryValidation.allErrors.minutes) {
+        setFieldErrors({
+          minutes: t('farmer.farmDiary.newEntry.step3.minutesValidationError', { max: MAX_MINUTES }),
+        });
+      }
       return;
     }
 
@@ -816,11 +858,16 @@ export function NewFarmDiaryEntryStep3Screen({
               value={timeSpent}
               onChangeText={setTimeSpent}
               keyboardType="numeric"
-              maxLength={4}
+              maxLength={DIARY_MINUTES_MAX_CHARS}
+              onBlur={() => entryValidation.onBlur('minutes')}
             />
             <Text style={styles.timeSpentUnit}>{t('farmer.farmDiary.newEntry.step3.minutesUnit')}</Text>
           </View>
-          {fieldErrors['minutes'] ? (
+          {entryValidation.errors.minutes ? (
+            <Text style={styles.fieldErrorText}>
+              {t('farmer.farmDiary.newEntry.step3.minutesValidationError', { max: MAX_MINUTES })}
+            </Text>
+          ) : fieldErrors['minutes'] ? (
             <Text style={styles.fieldErrorText}>{fieldErrors['minutes']}</Text>
           ) : null}
         </View>
@@ -860,7 +907,11 @@ export function NewFarmDiaryEntryStep3Screen({
                         onChangeText={(text) => updateWorker(worker.id, { name: text })}
                         placeholder={t('farmer.farmDiary.newEntry.step3.workerNamePlaceholder')}
                         placeholderTextColor={P.slate400}
+                        maxLength={DIARY_WORKER_NAME_MAX_LENGTH}
                       />
+                      {workerFieldMessage('name', worker.name) ? (
+                        <Text style={styles.fieldErrorText}>{workerFieldMessage('name', worker.name)}</Text>
+                      ) : null}
                       <Text style={styles.workerRole}>{worker.role}</Text>
                     </View>
                     <TouchableOpacity
@@ -882,14 +933,17 @@ export function NewFarmDiaryEntryStep3Screen({
                         <TextInput
                           style={styles.statValueInput}
                           value={worker.hoursWorked}
-                          onChangeText={(text) => updateWorker(worker.id, { hoursWorked: text })}
-                          keyboardType="numeric"
+                          onChangeText={(text) => updateWorker(worker.id, { hoursWorked: text.replace(/[^0-9.]/g, '') })}
+                          keyboardType="decimal-pad"
                           maxLength={5}
                           placeholder="0.0"
                           placeholderTextColor={P.slate400}
                         />
                         <Text style={styles.statUnit}>{t('farmer.farmDiary.newEntry.step3.hrsUnit')}</Text>
                       </View>
+                      {workerFieldMessage('hours', worker.hoursWorked) ? (
+                        <Text style={styles.fieldErrorText}>{workerFieldMessage('hours', worker.hoursWorked)}</Text>
+                      ) : null}
                     </View>
 
                     <View style={[styles.statBox, styles.wageStatBox]}>
@@ -899,14 +953,17 @@ export function NewFarmDiaryEntryStep3Screen({
                         <TextInput
                           style={styles.wageValueInput}
                           value={worker.wageRateInput}
-                          onChangeText={(text) => handleWageInputChange(worker.id, text)}
-                          keyboardType="numeric"
+                          onChangeText={(text) => handleWageInputChange(worker.id, text.replace(/[^0-9.]/g, ''))}
+                          keyboardType="decimal-pad"
                           maxLength={8}
                           placeholder="0.00"
                           placeholderTextColor={P.twGreen700}
                         />
                         <Text style={styles.wageStatUnit}>{t('farmer.farmDiary.newEntry.step3.perHrUnit')}</Text>
                       </View>
+                      {workerFieldMessage('wage', worker.wageRateInput) ? (
+                        <Text style={styles.fieldErrorText}>{workerFieldMessage('wage', worker.wageRateInput)}</Text>
+                      ) : null}
                     </View>
                   </View>
 
@@ -1102,7 +1159,12 @@ export function NewFarmDiaryEntryStep3Screen({
             onChangeText={setNotes}
             multiline
             textAlignVertical="top"
+            maxLength={DIARY_NOTES_MAX_LENGTH}
+            onBlur={() => entryValidation.onBlur('notes')}
           />
+          {entryValidation.messageFor('notes') ? (
+            <Text style={styles.fieldErrorText}>{entryValidation.messageFor('notes')}</Text>
+          ) : null}
         </View>
 
         {submitError ? (
@@ -1149,14 +1211,14 @@ export function NewFarmDiaryEntryStep3Screen({
       </View>
 
       {/* ── Irrigation Method Selection Modal ── */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={isMethodModalOpen}
         transparent
         animationType="fade"
         onRequestClose={() => setIsMethodModalOpen(false)}
       >
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setIsMethodModalOpen(false)}
         >

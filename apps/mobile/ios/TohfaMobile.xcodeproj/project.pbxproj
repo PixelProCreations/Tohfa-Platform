@@ -14,6 +14,11 @@
 		13B07FC11A68108700A75B9A /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 13B07FB71A68108700A75B9A /* main.m */; };
 		7699B88040F8A987B510C191 /* libPods-TohfaMobile-TohfaMobileTests.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 19F6CBCC0A4E27FBF8BF4A61 /* libPods-TohfaMobile-TohfaMobileTests.a */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
+		F0A7C0DE0000000000000101 /* Poppins-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0A7C0DE0000000000000001 /* Poppins-Regular.ttf */; };
+		F0A7C0DE0000000000000102 /* Poppins-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0A7C0DE0000000000000002 /* Poppins-Medium.ttf */; };
+		F0A7C0DE0000000000000103 /* Poppins-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0A7C0DE0000000000000003 /* Poppins-SemiBold.ttf */; };
+		F0A7C0DE0000000000000104 /* Poppins-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0A7C0DE0000000000000004 /* Poppins-Bold.ttf */; };
+		F0A7C0DE0000000000000105 /* Poppins-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F0A7C0DE0000000000000005 /* Poppins-ExtraBold.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +50,11 @@
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = TohfaMobile/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		89C6BE57DB24E9ADA2F236DE /* Pods-TohfaMobile-TohfaMobileTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-TohfaMobile-TohfaMobileTests.release.xcconfig"; path = "Target Support Files/Pods-TohfaMobile-TohfaMobileTests/Pods-TohfaMobile-TohfaMobileTests.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		F0A7C0DE0000000000000001 /* Poppins-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Poppins-Regular.ttf; path = TohfaMobile/Fonts/Poppins-Regular.ttf; sourceTree = "<group>"; };
+		F0A7C0DE0000000000000002 /* Poppins-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Poppins-Medium.ttf; path = TohfaMobile/Fonts/Poppins-Medium.ttf; sourceTree = "<group>"; };
+		F0A7C0DE0000000000000003 /* Poppins-SemiBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Poppins-SemiBold.ttf; path = TohfaMobile/Fonts/Poppins-SemiBold.ttf; sourceTree = "<group>"; };
+		F0A7C0DE0000000000000004 /* Poppins-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Poppins-Bold.ttf; path = TohfaMobile/Fonts/Poppins-Bold.ttf; sourceTree = "<group>"; };
+		F0A7C0DE0000000000000005 /* Poppins-ExtraBold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = Poppins-ExtraBold.ttf; path = TohfaMobile/Fonts/Poppins-ExtraBold.ttf; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -94,6 +104,11 @@
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB71A68108700A75B9A /* main.m */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
+				F0A7C0DE0000000000000001 /* Poppins-Regular.ttf */,
+				F0A7C0DE0000000000000002 /* Poppins-Medium.ttf */,
+				F0A7C0DE0000000000000003 /* Poppins-SemiBold.ttf */,
+				F0A7C0DE0000000000000004 /* Poppins-Bold.ttf */,
+				F0A7C0DE0000000000000005 /* Poppins-ExtraBold.ttf */,
 			);
 			name = TohfaMobile;
 			sourceTree = "<group>";
@@ -245,6 +260,11 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				F0A7C0DE0000000000000101 /* Poppins-Regular.ttf in Resources */,
+				F0A7C0DE0000000000000102 /* Poppins-Medium.ttf in Resources */,
+				F0A7C0DE0000000000000103 /* Poppins-SemiBold.ttf in Resources */,
+				F0A7C0DE0000000000000104 /* Poppins-Bold.ttf in Resources */,
+				F0A7C0DE0000000000000105 /* Poppins-ExtraBold.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

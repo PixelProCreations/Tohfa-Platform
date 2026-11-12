@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import {
-  Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
@@ -8,7 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../../theme';
 
@@ -18,7 +17,7 @@ function ArrowBackIcon({ size = 20, color = P.deepGreen }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -186,21 +185,21 @@ export function CropManagementScreen({
         if (onNavigateToInputManagement) {
           onNavigateToInputManagement();
         } else {
-          Alert.alert('Input Management', 'Fertilizers, fertigation schedule, and approved inputs coming soon.');
+          appAlert('Input Management', 'Fertilizers, fertigation schedule, and approved inputs coming soon.');
         }
         break;
       case 'soil_mgmt':
         if (onNavigateToSoilManagement) {
           onNavigateToSoilManagement();
         } else {
-          Alert.alert('Soil Management', 'Soil tests, health tracker, amendments, and rotation coming soon.');
+          appAlert('Soil Management', 'Soil tests, health tracker, amendments, and rotation coming soon.');
         }
         break;
       case 'pest_mgmt':
         if (onNavigateToPestManagement) {
           onNavigateToPestManagement();
         } else {
-          Alert.alert('Pest Management', 'Detection log, pest library, and treatment schedule coming soon.');
+          appAlert('Pest Management', 'Detection log, pest library, and treatment schedule coming soon.');
         }
         break;
       default:

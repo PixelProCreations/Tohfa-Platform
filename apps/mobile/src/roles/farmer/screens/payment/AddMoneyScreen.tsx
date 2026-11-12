@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -10,9 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { useFieldValidation } from '../../utils/validation';
+import { amountRules, boundFromText, type AmountField } from './paymentValidation';
+
+/** "10,000,000,000.00": Money's 10 integer digits + 2 decimals, plus grouping commas and the point. */
+const AMOUNT_INPUT_MAX_LENGTH = 17;
 
 function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
@@ -71,6 +75,13 @@ function InfoCircleIcon({ size = 16, color = P.twGray500 }: { size?: number; col
 
 export interface AddMoneyScreenProps {
   currentBalance?: string;
+  /**
+   * Smallest / largest top-up in rupees, as text ("500", "10,000"). These come from
+   * system_config (e.g. the BR-19 cash-top-up cap) -- the screen holds no threshold of its own,
+   * so omitted means "no bound beyond a positive Money amount".
+   */
+  minAmount?: string;
+  maxAmount?: string;
   onClose?: () => void;
   onSuccess?: () => void;
   onNavigateToCashTopUp?: (data: { amount: string; referenceCode: string }) => void;
@@ -78,12 +89,20 @@ export interface AddMoneyScreenProps {
 
 export function AddMoneyScreen({
   currentBalance = '₹4,250',
+  minAmount,
+  maxAmount,
   onClose,
   onSuccess,
   onNavigateToCashTopUp,
 }: AddMoneyScreenProps): React.JSX.Element {
   const [amount, setAmount] = useState('2,000');
   const [method, setMethod] = useState<'Razorpay' | 'Cash'>('Cash');
+  const rules = useMemo(
+    () => amountRules({ min: boundFromText(minAmount), max: boundFromText(maxAmount) }),
+    [minAmount, maxAmount],
+  );
+  const validation = useFieldValidation<AmountField>({ values: { amount }, rules });
+  const amountError = validation.messageFor('amount');
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -97,6 +116,7 @@ export function AddMoneyScreen({
   }, [onClose]);
 
   const handleAction = () => {
+    if (!validation.validateAll().valid) return;
     if (method === 'Cash') {
       if (onNavigateToCashTopUp) {
         onNavigateToCashTopUp({
@@ -104,7 +124,7 @@ export function AddMoneyScreen({
           referenceCode: 'CASH-TU-7734',
         });
       } else {
-        Alert.alert(
+        appAlert(
           'Reference Code Generated',
           `Reference Code CASH-TU-7734 generated for ₹${amount}. Please deposit cash at any TOHFA warehouse.`,
           [
@@ -115,11 +135,12 @@ export function AddMoneyScreen({
                 else if (onClose) onClose();
               },
             },
-          ]
+          ],
+          { tone: 'success' },
         );
       }
     } else {
-      Alert.alert(
+      appAlert(
         'Razorpay Checkout',
         `Simulating secure payment of ₹${amount} via Razorpay (UPI / Cards / NetBanking). Amount will be credited to wallet immediately upon success.`,
         [
@@ -130,7 +151,8 @@ export function AddMoneyScreen({
               else if (onClose) onClose();
             },
           },
-        ]
+        ],
+        { tone: 'info' },
       );
     }
   };
@@ -176,11 +198,18 @@ export function AddMoneyScreen({
                 style={styles.amountInput}
                 value={amount}
                 onChangeText={setAmount}
+                onBlur={() => validation.onBlur('amount')}
+                maxLength={AMOUNT_INPUT_MAX_LENGTH}
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={P.twGray400}
               />
             </View>
+            {amountError ? (
+              <Text accessibilityRole="alert" style={styles.fieldError}>
+                {amountError}
+              </Text>
+            ) : null}
             <View style={styles.helperRow}>
               <InfoCircleIcon size={14} color={P.twGray500} />
               <Text style={styles.fieldHelper}>
@@ -377,6 +406,11 @@ const styles = StyleSheet.create({
   },
   helperIconBox: {
     marginTop: 2,
+  },
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
   },
   fieldHelper: {
     fontSize: typography.bodySmall,

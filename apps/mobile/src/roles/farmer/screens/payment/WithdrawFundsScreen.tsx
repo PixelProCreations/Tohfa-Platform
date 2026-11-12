@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Platform,
   ScrollView,
@@ -10,9 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { useFieldValidation } from '../../utils/validation';
+import { amountRules, boundFromText, type AmountField } from './paymentValidation';
+
+/** "10,000,000,000.00": Money's 10 integer digits + 2 decimals, plus grouping commas and the point. */
+const AMOUNT_INPUT_MAX_LENGTH = 17;
 
 function CloseIcon({ size = 20, color = P.twGray700 }: { size?: number; color?: string }) {
   return (
@@ -54,17 +58,27 @@ function InfoCircleIcon({ size = 16, color = P.twBlue700 }: { size?: number; col
 
 export interface WithdrawFundsScreenProps {
   availableBalance?: string;
+  /** Smallest withdrawal in rupees as text, from system_config; omitted means no minimum beyond > 0. */
+  minAmount?: string;
   onClose?: () => void;
   onRequestSuccess?: () => void;
 }
 
 export function WithdrawFundsScreen({
   availableBalance = '₹4,250',
+  minAmount,
   onClose,
   onRequestSuccess,
 }: WithdrawFundsScreenProps): React.JSX.Element {
   const [amount, setAmount] = useState('4,250');
   const [method, setMethod] = useState<'Bank' | 'UPI'>('UPI');
+  // A withdrawal can never exceed the available balance; that is the only upper bound here.
+  const rules = useMemo(
+    () => amountRules({ min: boundFromText(minAmount), max: boundFromText(availableBalance) }),
+    [minAmount, availableBalance],
+  );
+  const validation = useFieldValidation<AmountField>({ values: { amount }, rules });
+  const amountError = validation.messageFor('amount');
 
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -78,7 +92,8 @@ export function WithdrawFundsScreen({
   }, [onClose]);
 
   const handleRequest = () => {
-    Alert.alert(
+    if (!validation.validateAll().valid) return;
+    appAlert(
       'Withdrawal Requested',
       `Your request to withdraw ₹${amount} via ${method} has been submitted. Funds will be credited after admin verification.`,
       [
@@ -89,7 +104,8 @@ export function WithdrawFundsScreen({
             else if (onClose) onClose();
           },
         },
-      ]
+      ],
+      { tone: 'success' },
     );
   };
 
@@ -134,11 +150,18 @@ export function WithdrawFundsScreen({
                 style={styles.amountInput}
                 value={amount}
                 onChangeText={setAmount}
+                onBlur={() => validation.onBlur('amount')}
+                maxLength={AMOUNT_INPUT_MAX_LENGTH}
                 keyboardType="numeric"
                 placeholder="0"
                 placeholderTextColor={P.twGray400}
               />
             </View>
+            {amountError ? (
+              <Text accessibilityRole="alert" style={styles.fieldError}>
+                {amountError}
+              </Text>
+            ) : null}
             <Text style={styles.fieldHelper}>
               Entered manually — no auto-fill to full balance.
             </Text>
@@ -307,6 +330,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: P.twGray900,
     padding: 0,
+  },
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
   },
   fieldHelper: {
     fontSize: typography.bodySmall,

@@ -18,6 +18,7 @@ import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 
 interface RegistrationFlowProps {
   onNavigate: (screen: 'ApplicationStatus' | 'Welcome', params?: Record<string, string | number | undefined>) => void;
+  onBack?: () => void;
 }
 
 const STEP_TITLES: Record<number, string> = {
@@ -28,7 +29,7 @@ const STEP_TITLES: Record<number, string> = {
   5: 'Review & Submit',
 };
 
-export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavigate }) => {
+export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavigate, onBack }) => {
   const theme = useTheme();
   const { colors } = theme;
   const [apiError, setApiError] = useState<string | null>(null);
@@ -139,7 +140,8 @@ export const RegistrationFlowScreen: React.FC<RegistrationFlowProps> = ({ onNavi
 
   function handleBack() {
     if (draft.currentStep <= 1) {
-      onNavigate('Welcome');
+      if (onBack) onBack();
+      else onNavigate('Welcome');
       return;
     }
     goBackInStore();

@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +9,7 @@ import {
 } from 'react-native';
 import DocumentPicker from '../../native/documentPicker';
 import Svg, { Line, Path, Rect, Circle } from 'react-native-svg';
-import { DatePicker, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { DatePicker, ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 import {
@@ -35,6 +34,9 @@ import {
   resolveCertificateContentType,
   serverCertificationFieldErrors,
   todayInKolkata,
+  CERT_NUMBER_MAX_LENGTH,
+  CUSTOM_TYPE_NAME_MAX_LENGTH,
+  ISSUING_BODY_MAX_LENGTH,
   validateCertificationForm,
   type CertificationFormField,
   type CertificationFormInput,
@@ -223,9 +225,9 @@ export function EditCertificationScreen({
 
   /** The certificate was deleted elsewhere: say so and let the list refresh itself. */
   const showGone = () => {
-    Alert.alert(t('farmer.certifications.edit.goneTitle'), t('farmer.certifications.edit.goneBody'), [
+    appAlert(t('farmer.certifications.edit.goneTitle'), t('farmer.certifications.edit.goneBody'), [
       { text: t('farmer.common.ok'), onPress: () => onDeleted?.(certification.id) },
-    ]);
+    ], { tone: 'error' });
   };
 
   /** A request failed with something other than a field-level 422. */
@@ -235,9 +237,9 @@ export function EditCertificationScreen({
       showGone();
       return;
     }
-    Alert.alert(
+    appAlert(
       t('farmer.certifications.add.errorTitle'),
-      kind === 'network' ? t('farmer.listings.error.network') : t(fallbackBodyKey),
+      kind === 'network' ? t('farmer.listings.error.network') : t(fallbackBodyKey), undefined, { tone: 'error' },
     );
   };
 
@@ -262,7 +264,7 @@ export function EditCertificationScreen({
     if (mapped === null) return false;
     setFieldErrors(renderFieldErrors(mapped.fields, t));
     if (mapped.other.length > 0) {
-      Alert.alert(t('farmer.certifications.add.errorTitle'), mapped.other.join('\n'));
+      appAlert(t('farmer.certifications.add.errorTitle'), mapped.other.join('\n'), undefined, { tone: 'error' });
     }
     return true;
   };
@@ -284,7 +286,7 @@ export function EditCertificationScreen({
 
   const handleDelete = () => {
     if (submittingRef.current) return;
-    Alert.alert(
+    appAlert(
       t('farmer.certifications.edit.deleteConfirmTitle'),
       t('farmer.certifications.edit.deleteConfirmBody', { number: certification.certNumber }),
       [
@@ -294,7 +296,7 @@ export function EditCertificationScreen({
           style: 'destructive',
           onPress: () => void performDelete(),
         },
-      ],
+      ], { tone: 'warning' },
     );
   };
 
@@ -334,7 +336,7 @@ export function EditCertificationScreen({
           }
           documentUrl = uploaded.fileUrl;
         } catch {
-          Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.uploadFailed'));
+          appAlert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.uploadFailed'), undefined, { tone: 'error' });
           return;
         }
       }
@@ -345,7 +347,7 @@ export function EditCertificationScreen({
       // BR-49: the server's answer decides what the farmer is told, not the local guess.
       const reset =
         updated.verificationStatus === 'UNVERIFIED' && certification.verificationStatus !== 'UNVERIFIED';
-      Alert.alert(
+      appAlert(
         t('farmer.certifications.edit.savedTitle'),
         t(reset ? 'farmer.certifications.edit.savedReverifyBody' : 'farmer.certifications.edit.savedBody'),
         [{ text: t('farmer.common.ok'), onPress: () => onSaved?.(updated) }],
@@ -368,7 +370,7 @@ export function EditCertificationScreen({
       const name = picked.name ?? t('farmer.certifications.doc.defaultName');
       const contentType = resolveCertificateContentType(name, picked.type);
       if (contentType === null) {
-        Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.unsupported'));
+        appAlert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.unsupported'), undefined, { tone: 'error' });
         return;
       }
       const sizeMB = ((picked.size ?? 1024 * 1024) / (1024 * 1024)).toFixed(1);
@@ -385,7 +387,7 @@ export function EditCertificationScreen({
       // A cancel is the farmer's own choice. Anything else is a real failure: say
       // so and change nothing -- never a stand-in document.
       if (!DocumentPicker.isCancel(err)) {
-        Alert.alert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.pickFailed'));
+        appAlert(t('farmer.certifications.add.errorTitle'), t('farmer.certifications.doc.error.pickFailed'), undefined, { tone: 'error' });
       }
     }
   };
@@ -477,6 +479,7 @@ export function EditCertificationScreen({
             <TextInput
               style={[E.textInput, fieldErrors.customTypeName ? E.inputError : undefined]}
               value={customTypeName}
+              maxLength={CUSTOM_TYPE_NAME_MAX_LENGTH}
               onChangeText={(v) => { setCustomTypeName(v); clearFieldError('customTypeName'); }}
               placeholder={t('farmer.certifications.add.otherNamePlaceholder')}
               placeholderTextColor={P.twGray400}
@@ -495,6 +498,7 @@ export function EditCertificationScreen({
         <TextInput
           style={[E.textInput, fieldErrors.certNumber ? E.inputError : undefined]}
           value={certNumber}
+          maxLength={CERT_NUMBER_MAX_LENGTH}
           onChangeText={(v) => { setCertNumber(v); clearFieldError('certNumber'); }}
           placeholder={t('farmer.certifications.add.number')}
           placeholderTextColor={P.twGray400}
@@ -510,6 +514,7 @@ export function EditCertificationScreen({
         <TextInput
           style={[E.textInput, fieldErrors.issuingBody ? E.inputError : undefined]}
           value={issuer}
+          maxLength={ISSUING_BODY_MAX_LENGTH}
           onChangeText={(v) => { setIssuer(v); clearFieldError('issuingBody'); }}
           placeholder={t('farmer.certifications.add.issuer')}
           placeholderTextColor={P.twGray400}

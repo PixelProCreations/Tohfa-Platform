@@ -1,3 +1,17 @@
+function ChevronLeft({ size = 20, color = P.white }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ScrollView,
@@ -6,7 +20,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Svg, { Circle, Line, Polygon, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Polygon, Path, Text as SvgText } from 'react-native-svg';
 import { ErrorState, Icon, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import {
   deriveFarmRatingView,
@@ -194,7 +208,7 @@ export function FarmRatingsScreen({ onNavigateBack }: FarmRatingsScreenProps): R
       <View style={styles.header}>
         <View style={styles.headerNavRow}>
           <TouchableOpacity style={styles.navCircleButton} onPress={onNavigateBack}>
-            <Text style={styles.navBackIcon}>‹</Text>
+            <ChevronLeft size={20} color={P.white} />
           </TouchableOpacity>
           <View style={styles.headerTitleBox}>
             <Text style={styles.headerTitle}>{t('farmer.profile.rating.title')}</Text>

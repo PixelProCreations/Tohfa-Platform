@@ -212,6 +212,24 @@ export interface CertificationsRepo {
     },
   ): Promise<{ items: CertificationRow[]; nextCursor: string | null; hasMore: boolean }>;
   findByIdAdmin(db: Executor, id: string): Promise<CertificationRow | null>;
+  /**
+   * BR-142: the caller's own live certificate's document reference -- the
+   * value recorded in its farmer_documents row (a public storage URL, or a
+   * bare key), null when it has none. Null (not found) for an unknown id,
+   * another farmer's certificate or a deleted one, so they all look alike.
+   */
+  findOwnCertificateDocument(
+    db: Executor,
+    id: string,
+    farmerId: string,
+  ): Promise<{ documentRef: string | null } | null>;
+  /**
+   * BR-142c: true only when a live `uploads` row for exactly this key was
+   * uploaded by `userId` (POST /uploads/sign records the caller as
+   * uploaded_by). The certificate's documentUrl is client input, so this --
+   * not the certificate -- is what proves the file is the caller's.
+   */
+  isUploadOwnedBy(db: Executor, storageKey: string, userId: string): Promise<boolean>;
 }
 
 export const certificationsRepo: CertificationsRepo = {
@@ -643,6 +661,33 @@ export const certificationsRepo: CertificationsRepo = {
       [id],
     );
     return result.rows[0] ?? null;
+  },
+
+  async findOwnCertificateDocument(db, id, farmerId) {
+    // The document row must be the same farmer's and not deleted, as in
+    // farmer-documents.repo findCertifications.
+    const result = await db.query<{ document_ref: string | null }>(
+      `SELECT fd.storage_key AS document_ref
+         FROM certifications c
+    LEFT JOIN farmer_documents fd
+           ON fd.id = c.document_id AND fd.farmer_id = c.farmer_id AND fd.deleted_at IS NULL
+        WHERE c.id = $1 AND c.farmer_id = $2 AND c.deleted_at IS NULL
+        LIMIT 1`,
+      [id, farmerId],
+    );
+    const row = result.rows[0];
+    return row === undefined ? null : { documentRef: row.document_ref };
+  },
+
+  async isUploadOwnedBy(db, storageKey, userId) {
+    const result = await db.query(
+      `SELECT 1
+         FROM uploads
+        WHERE storage_key = $1 AND uploaded_by = $2 AND deleted_at IS NULL
+        LIMIT 1`,
+      [storageKey, userId],
+    );
+    return (result.rowCount ?? 0) > 0;
   },
 };
 

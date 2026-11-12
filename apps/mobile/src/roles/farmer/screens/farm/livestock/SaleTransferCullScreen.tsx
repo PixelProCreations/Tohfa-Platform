@@ -1,3 +1,4 @@
+import { ScreenStatusBar as StatusBar, appAlert } from '@tohfa/mobile-ui';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -17,7 +18,11 @@ import { authPalette as P, colors, typography } from '../../../theme';
 import { t } from '../../../../../i18n/farmer';
 import { ApiError, extractFieldErrors, formatErrorMessage } from '../../../../../shell/api/client';
 import { parseMoney, toPaise } from '@tohfa/shared-types';
+import { COUNTERPARTY_MAX, REASON_MAX, validateSaleTransferCull } from './saleTransferCullValidation';
 import { recordLifecycleEvent, type LifecycleEventType, type RecordLifecycleEventBody } from '../../../api/livestock';
+
+/** Money's 10 integer digits + point + 2 decimals. */
+const MONEY_INPUT_MAX_LENGTH = 13;
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -25,7 +30,7 @@ function ArrowBackIcon({ size = 20, color = P.deepGreen }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -173,6 +178,12 @@ export function SaleTransferCullScreen({
     setSubmitError('');
     setFieldErrors({});
 
+    const inputErrors = validateSaleTransferCull(eventType, { buyer, salePrice, destinationFarm, cullReason });
+    if (Object.keys(inputErrors).length > 0) {
+      setFieldErrors(inputErrors);
+      return;
+    }
+
     // Sale price (Rs.) -> integer paise. Routed through parseMoney/toPaise,
     // never a raw `* 100` float multiply (root CLAUDE.md §2.2), same as
     // NewFarmDiaryEntryStep3Screen's wage handling and NewCropScreen's cost
@@ -201,7 +212,7 @@ export function SaleTransferCullScreen({
     try {
       await recordLifecycleEvent(realAnimalId, body);
 
-      Alert.alert(
+      appAlert(
         t(`farmer.livestock.saleTransferCull.savedTitle.${eventType}` as const),
         t('farmer.livestock.saleTransferCull.savedBody', { name: animalName, code: animalCode }),
         [
@@ -213,6 +224,7 @@ export function SaleTransferCullScreen({
             },
           },
         ],
+        { tone: 'success' },
       );
     } catch (err: unknown) {
       if (err instanceof ApiError && err.is('LIVESTOCK_ALREADY_EXITED')) {
@@ -398,7 +410,9 @@ export function SaleTransferCullScreen({
                     onChangeText={setBuyer}
                     placeholder="Buyer name or farm"
                     placeholderTextColor={P.twGray400}
+                    maxLength={COUNTERPARTY_MAX}
                   />
+                  {fieldErrors['buyer'] ? <Text style={styles.fieldErrorText}>{fieldErrors['buyer']}</Text> : null}
                 </View>
 
                 {/* Sale price */}
@@ -410,7 +424,8 @@ export function SaleTransferCullScreen({
                     onChangeText={setSalePrice}
                     placeholder="₹ 0"
                     placeholderTextColor={P.twGray400}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
+                    maxLength={MONEY_INPUT_MAX_LENGTH}
                   />
                   {fieldErrors['salePrice'] ? (
                     <Text style={styles.fieldErrorText}>{fieldErrors['salePrice']}</Text>
@@ -430,7 +445,11 @@ export function SaleTransferCullScreen({
                     onChangeText={setDestinationFarm}
                     placeholder="e.g. Ooty Dairy Collective"
                     placeholderTextColor={P.twGray400}
+                    maxLength={COUNTERPARTY_MAX}
                   />
+                  {fieldErrors['destinationFarm'] ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors['destinationFarm']}</Text>
+                  ) : null}
                 </View>
               </>
             )}
@@ -446,7 +465,11 @@ export function SaleTransferCullScreen({
                     onChangeText={setCullReason}
                     placeholder="e.g. Chronic mastitis / Old age"
                     placeholderTextColor={P.twGray400}
+                    maxLength={REASON_MAX}
                   />
+                  {fieldErrors['cullReason'] ? (
+                    <Text style={styles.fieldErrorText}>{fieldErrors['cullReason']}</Text>
+                  ) : null}
                 </View>
               </>
             )}

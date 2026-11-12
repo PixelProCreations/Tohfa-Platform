@@ -30,6 +30,8 @@ import {
   SocialSignInCancelledError,
 } from '../../native/socialSignIn';
 import { authPalette as P, colors, typography, weights } from '../../theme';
+import { toE164IndianMobile, useFieldValidation } from '../../utils/validation';
+import { LOGIN_FIELD_ORDER, PASSWORD_MAX_LENGTH, loginRules, type LoginField } from './authValidation';
 import { BackButtonIcon, CallIcon, LockIcon } from '../../assets/icons/AssetIcons';
 import googleIcon from '../../assets/icons/googleee.png';
 import facebookIcon from '../../assets/icons/facebook.png';
@@ -117,7 +119,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     setLocaleState(lang);
   };
 
-  const cleanMobile = () => (mobile.startsWith('+') ? mobile.trim() : `+91${mobile.trim()}`);
+  const validation = useFieldValidation<LoginField>({
+    values: { mobile, password },
+    rules: loginRules,
+    order: LOGIN_FIELD_ORDER,
+  });
+  const mobileError = validation.messageFor('mobile');
+  const passwordError = validation.messageFor('password');
+
+  // E.164 from whatever the farmer typed (spaces / +91 / 0 prefix tolerated); the
+  // fallback keeps the old behaviour for the social-link path, which only checks non-blank.
+  const cleanMobile = () =>
+    toE164IndianMobile(mobile) ?? (mobile.startsWith('+') ? mobile.trim() : `+91${mobile.trim()}`);
 
   /**
    * Social sign-in (BR-39). Apple Sign-In has been removed from this screen
@@ -238,20 +251,75 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     setErrorMsg(null);
   }
 
-  async function handlePasswordLogin() {
+  /**
+   * OTP login (purpose LOGIN). Restores the S-42 "OTP Sign-In" entry
+   * (2dd99bf2) that the 8e0d4feb redesign dropped: send a LOGIN challenge for
+   * the typed number and hand it to the existing OTP screen, which verifies it
+   * via `POST /auth/otp/verify` and routes exactly like a password login.
+   */
+  async function handleOtpLogin() {
     const rawMobile = mobile.replace(/\s+/g, '').trim();
-    if (!rawMobile) {
-      setErrorMsg('Please enter your mobile number.');
-      return;
-    }
     if (rawMobile.length < 10) {
-      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
       return;
     }
-    if (!password.trim()) {
-      setErrorMsg('Please enter your password.');
+    setLoading(true);
+    setErrorMsg(null);
+
+    const cMobile = rawMobile.startsWith('+') ? rawMobile : `${MOBILE_PREFIX}${rawMobile}`;
+
+    try {
+      const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
+      onNavigate('Otp', {
+        mobile: cMobile,
+        challengeId: res.challengeId,
+        resendAvailableAt: res.resendAvailableAt,
+        attemptsRemaining: res.attemptsRemaining,
+        mockCode: res._mockCode,
+        purpose: 'LOGIN',
+      });
+    } catch (err: unknown) {
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function switchMode(mode: AuthMode) {
+    setAuthMode(mode);
+    setErrorMsg(null);
+  }
+
+  async function handleOtpLogin() {
+    // Only the mobile number is needed for an OTP login.
+    if (validation.allErrors.mobile !== undefined) {
+      validation.validateAll();
       return;
     }
+    setLoading(true);
+    setErrorMsg(null);
+
+    const cMobile = cleanMobile();
+
+    try {
+      const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
+      onNavigate('Otp', {
+        mobile: cMobile,
+        challengeId: res.challengeId,
+        resendAvailableAt: res.resendAvailableAt,
+        attemptsRemaining: res.attemptsRemaining,
+        mockCode: res._mockCode,
+        purpose: 'LOGIN',
+      });
+    } catch (err: unknown) {
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordLogin() {
+    if (!validation.validateAll().valid) return;
     setLoading(true);
     setErrorMsg(null);
 
@@ -348,14 +416,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
             value={mobile}
             onChangeText={setMobile}
             onFocus={() => setIsMobileFocused(true)}
-            onBlur={() => setIsMobileFocused(false)}
+            onBlur={() => {
+              setIsMobileFocused(false);
+              validation.onBlur('mobile');
+            }}
             keyboardType="phone-pad"
+            maxLength={16}
             placeholder="98765 43210"
             placeholderTextColor={P.twGray400}
             style={styles.fieldInput}
             accessibilityLabel={t('farmer.auth.login.mobile')}
           />
         </View>
+        {mobileError ? <Text accessibilityRole="alert" style={styles.fieldError}>{mobileError}</Text> : null}
       </View>
 
       {authMode === 'password' ? (
@@ -370,9 +443,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
               value={password}
               onChangeText={setPassword}
               onFocus={() => setIsPasswordFocused(true)}
-              onBlur={() => setIsPasswordFocused(false)}
+              onBlur={() => {
+              setIsPasswordFocused(false);
+              validation.onBlur('password');
+            }}
               secureTextEntry={!showPassword}
-              placeholder="••••••••"
+              maxLength={PASSWORD_MAX_LENGTH}
+            placeholder="••••••••"
               placeholderTextColor={P.twGray400}
               style={[
                 styles.fieldInput,
@@ -394,7 +471,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
               )}
             </TouchableOpacity>
           </View>
-        </View>
+          {passwordError ? <Text accessibilityRole="alert" style={styles.fieldError}>{passwordError}</Text> : null}
+      </View>
 
         <View style={styles.optionRow}>
           <TouchableOpacity
@@ -420,8 +498,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           title={t('farmer.auth.login.submit')}
           onPress={handlePasswordLogin}
           loading={loading}
-          disabled={!mobile || !password}
-          style={styles.loginButton}
+            style={styles.loginButton}
           textStyle={styles.loginButtonText}
         />
         </>
@@ -510,6 +587,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
   );
 };
 const styles = StyleSheet.create({
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
+  },
   container: {
     flex: 1,
     backgroundColor: P.bg,

@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   RefreshControl,
   ScrollView,
@@ -9,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Button, EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton } from '@tohfa/mobile-ui';
+import { Button, EmptyState, ErrorState, SafeAreaView, ScreenStatusBar, Skeleton, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { t } from '../../../../../i18n/farmer';
 import { deleteCropInput } from '../../../api/crops';
@@ -48,7 +47,7 @@ function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -197,7 +196,7 @@ export function CropInputsAppliedScreen({
       deleteCropInput(target.farmCropId, target.id)
         .then(() => refresh())
         .catch(() => {
-          Alert.alert(t('farmer.inputHistory.deleteFailed.title'), t('farmer.inputHistory.deleteFailed.body'));
+          appAlert(t('farmer.inputHistory.deleteFailed.title'), t('farmer.inputHistory.deleteFailed.body'), undefined, { tone: 'error' });
         })
         .finally(() => setDeletingKey(null));
     });
@@ -207,12 +206,12 @@ export function CropInputsAppliedScreen({
     if (onNewInput) {
       onNewInput();
     } else if (crop) {
-      Alert.alert(
+      appAlert(
         t('farmer.inputHistory.applyInput.title'),
         t('farmer.inputHistory.applyInput.body', { crop: crop.name, zone }),
       );
     } else {
-      Alert.alert(t('farmer.inputHistory.applyInput.title'), t('farmer.inputHistory.addHint'));
+      appAlert(t('farmer.inputHistory.applyInput.title'), t('farmer.inputHistory.addHint'));
     }
   };
 

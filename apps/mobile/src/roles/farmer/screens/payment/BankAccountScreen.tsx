@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -11,9 +10,20 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../theme';
+import { useFieldValidation } from '../../utils/validation';
+import {
+  ACCOUNT_HOLDER_MAX,
+  ACCOUNT_NUMBER_MAX,
+  BANK_FIELD_ORDER,
+  BANK_NAME_MAX,
+  BRANCH_NAME_MAX,
+  IFSC_LENGTH,
+  bankRules,
+  type BankField,
+} from './paymentValidation';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -21,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = P.twGray800 }: { size?: number; colo
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -108,6 +118,20 @@ export function BankAccountScreen({
   // Active focused input for border highlight
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Only the last 4 digits of an account number ever come back from the server (BR-53a), so a
+  // number the farmer has not retyped is not re-validated -- only a new one is.
+  const rules = useMemo(() => bankRules(draftNumber === accountNumber), [draftNumber, accountNumber]);
+  const validation = useFieldValidation<BankField>({
+    values: { holder: draftHolder, bank: draftBank, account: draftNumber, ifsc: draftIfsc, branch: draftBranch },
+    rules,
+    order: BANK_FIELD_ORDER,
+  });
+  const holderError = validation.messageFor('holder');
+  const bankError = validation.messageFor('bank');
+  const accountError = validation.messageFor('account');
+  const ifscError = validation.messageFor('ifsc');
+  const branchError = validation.messageFor('branch');
+
   // Hardware back press handling
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -130,6 +154,7 @@ export function BankAccountScreen({
     setDraftNumber(accountNumber);
     setDraftIfsc(ifscCode);
     setDraftBranch(branch);
+    validation.reset();
     setIsEditing(true);
   };
 
@@ -140,6 +165,7 @@ export function BankAccountScreen({
     setDraftNumber(accountNumber);
     setDraftIfsc(ifscCode);
     setDraftBranch(branch);
+    validation.reset();
     setIsEditing(false);
   };
 
@@ -152,10 +178,7 @@ export function BankAccountScreen({
   };
 
   const handleSave = () => {
-    if (!draftHolder.trim() || !draftBank.trim() || !draftNumber.trim() || !draftIfsc.trim()) {
-      Alert.alert('Missing Required Fields', 'Please fill in all required fields marked with *.');
-      return;
-    }
+    if (!validation.validateAll().valid) return;
 
     // Save changes
     setAccountHolder(draftHolder.trim());
@@ -166,7 +189,7 @@ export function BankAccountScreen({
     setVerificationStatus('Pending Verification');
     setIsEditing(false);
 
-    Alert.alert(
+    appAlert(
       'Account Updated',
       'Your bank account details have been updated and submitted to TOHFA Admin for re-verification.',
       [
@@ -176,7 +199,8 @@ export function BankAccountScreen({
             if (onSaveSuccess) onSaveSuccess();
           },
         },
-      ]
+      ],
+      { tone: 'success' },
     );
   };
 
@@ -266,16 +290,25 @@ export function BankAccountScreen({
                   ]}
                   value={draftHolder}
                   onChangeText={setDraftHolder}
+                  maxLength={ACCOUNT_HOLDER_MAX}
                   placeholder="Full name as on passbook"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('holder')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('holder');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{accountHolder}</Text>
                 </View>
               )}
+              {holderError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {holderError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 2: Bank Name */}
@@ -291,16 +324,25 @@ export function BankAccountScreen({
                   ]}
                   value={draftBank}
                   onChangeText={setDraftBank}
+                  maxLength={BANK_NAME_MAX}
                   placeholder="Bank name"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('bank')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('bank');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{bankName}</Text>
                 </View>
               )}
+              {bankError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {bankError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 3: Account Number */}
@@ -315,17 +357,27 @@ export function BankAccountScreen({
                     focusedField === 'account' && styles.inputFocused,
                   ]}
                   value={draftNumber}
-                  onChangeText={setDraftNumber}
+                  onChangeText={(text) => setDraftNumber(text.replace(/\s/g, ''))}
+                  maxLength={ACCOUNT_NUMBER_MAX}
+                  keyboardType="number-pad"
                   placeholder="Account number"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('account')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('account');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{accountNumber}</Text>
                 </View>
               )}
+              {accountError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {accountError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 4: IFSC Code */}
@@ -340,18 +392,28 @@ export function BankAccountScreen({
                     focusedField === 'ifsc' && styles.inputFocused,
                   ]}
                   value={draftIfsc}
-                  onChangeText={(t) => setDraftIfsc(t.toUpperCase())}
+                  onChangeText={(text) => setDraftIfsc(text.replace(/\s/g, '').toUpperCase())}
+                  maxLength={IFSC_LENGTH}
+                  autoCorrect={false}
                   placeholder="IFSC code"
                   placeholderTextColor={P.twGray400}
                   autoCapitalize="characters"
                   onFocus={() => setFocusedField('ifsc')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('ifsc');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{ifscCode}</Text>
                 </View>
               )}
+              {ifscError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {ifscError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Field 5: Branch (Optional, no star) */}
@@ -365,16 +427,25 @@ export function BankAccountScreen({
                   ]}
                   value={draftBranch}
                   onChangeText={setDraftBranch}
+                  maxLength={BRANCH_NAME_MAX}
                   placeholder="Branch name"
                   placeholderTextColor={P.twGray400}
                   onFocus={() => setFocusedField('branch')}
-                  onBlur={() => setFocusedField(null)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    validation.onBlur('branch');
+                  }}
                 />
               ) : (
                 <View style={styles.viewBox}>
                   <Text style={styles.viewBoxText}>{branch}</Text>
                 </View>
               )}
+              {branchError ? (
+                <Text accessibilityRole="alert" style={styles.fieldError}>
+                  {branchError}
+                </Text>
+              ) : null}
             </View>
 
             {/* Warning / Helper Note */}
@@ -420,6 +491,11 @@ export function BankAccountScreen({
 }
 
 const styles = StyleSheet.create({
+  fieldError: {
+    color: P.red700,
+    fontSize: typography.caption,
+    marginTop: 6,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: P.white,

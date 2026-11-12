@@ -36,6 +36,9 @@ export function validateStep(step: number, data: unknown): StepValidationResult 
     const s1 = (data ?? {}) as Step1PersonalData;
     if (!s1.fullName || s1.fullName.trim().length < 2) {
       errors['fullName'] = t('farmer.registration.validation.fullName');
+    } else if (s1.fullName.trim().length > 120) {
+      // docs/openapi.yaml personal.fullName maxLength 120.
+      errors['fullName'] = t('farmer.validation.tooLong', { max: 120 });
     }
     if (!s1.mobile || !/^\+[1-9][0-9]{7,14}$/.test(s1.mobile.trim())) {
       errors['mobile'] = t('farmer.registration.validation.mobile');
@@ -53,6 +56,9 @@ export function validateStep(step: number, data: unknown): StepValidationResult 
     }
     if (s1.addressLine1 !== undefined && s1.addressLine1.trim().length === 0) {
       errors['addressLine1'] = t('farmer.registration.validation.addressLine1');
+    } else if (s1.addressLine1 !== undefined && s1.addressLine1.trim().length > 300) {
+      // docs/openapi.yaml personal.address maxLength 300.
+      errors['addressLine1'] = t('farmer.validation.tooLong', { max: 300 });
     }
     if (s1.village !== undefined && s1.village.trim().length === 0) {
       errors['village'] = t('farmer.registration.validation.village');
@@ -146,6 +152,9 @@ export function validateStep(step: number, data: unknown): StepValidationResult 
           errors[`locations.${index}.label`] = t(
             'farmer.registration.validation.locationLabelRequired',
           );
+        } else if (location.label.trim().length > 120) {
+          // docs/openapi.yaml location.locations[].label maxLength 120.
+          errors[`locations.${index}.label`] = t('farmer.validation.tooLong', { max: 120 });
         }
         if (!location?.areaAcres || location.areaAcres <= 0) {
           errors[`locations.${index}.areaAcres`] = t(

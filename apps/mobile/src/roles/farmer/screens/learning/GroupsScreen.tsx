@@ -10,6 +10,7 @@ import {
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { colors, authPalette as P, typography } from '../../theme';
+import { LEARNING_SEARCH_MAX_LENGTH } from './learningValidation';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -275,6 +276,7 @@ export function GroupsScreen({ onBack, onNavigateToGroupDetail }: GroupsScreenPr
             placeholderTextColor={P.greyMid2}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            maxLength={LEARNING_SEARCH_MAX_LENGTH}
             accessibilityLabel="Search groups"
           />
           {searchQuery.length > 0 && (

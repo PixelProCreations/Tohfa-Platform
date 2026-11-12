@@ -1,3 +1,19 @@
+import Svg, { Path } from 'react-native-svg';
+
+function ChevronLeft({ size = 20, color = P.twGray800 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
 import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
@@ -111,7 +127,7 @@ export function MyListingsScreen({
           accessibilityRole="button"
           accessibilityLabel={t('farmer.common.back')}
         >
-          <Icon name="arrow_back" size={20} color={P.twGray800} />
+          <ChevronLeft size={20} color={P.twGray800} />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>{t('farmer.listings.mine.title')}</Text>

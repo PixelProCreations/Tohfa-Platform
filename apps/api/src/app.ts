@@ -137,8 +137,12 @@ import { tierConfigRouter } from './modules/tier-config/tier-config.routes.js';
 import { adminAccountsRouter } from './modules/admin-accounts/admin-accounts.routes.js';
 import { adminPromotionsRouter } from './modules/admin-promotions/admin-promotions.routes.js';
 import { rolesRouter } from './modules/roles/roles.routes.js';
+import { storageReadRouter } from './storage/storage.routes.js';
 
 export const CORRELATION_HEADER = 'x-correlation-id';
+
+/** Where storage/storage.routes.ts is mounted; the contract test walks the same prefix. */
+export const STORAGE_READ_PREFIX = '/storage';
 
 /**
  * Every router the API exposes, with the path prefix it is mounted under.
@@ -307,6 +311,10 @@ export function createApp(): Express {
 
   // Probes are unversioned: orchestrators should not care about the API version.
   app.use(healthRouter);
+
+  // Dev/test storage reads (signed URLs only; 404 for everything when Azure is configured).
+  // Unversioned like the probes: `/storage/<key>` is the URL shape the local storage mints.
+  app.use(STORAGE_READ_PREFIX, storageReadRouter);
 
   // Every business router, mounted from the same table the contract test reads.
   for (const { prefix, router } of API_MOUNTS) {

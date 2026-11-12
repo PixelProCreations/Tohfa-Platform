@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Alert,
   Linking,
   Platform,
   ScrollView,
@@ -10,9 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../theme';
+import { maxLength, useFieldValidation, type FieldRules } from '../../utils/validation';
+
+/** SPEC GAP: no feedback endpoint exists in docs/openapi.yaml; a generic cap keeps the free text bounded. */
+const FEEDBACK_MAX_LENGTH = 1000;
+const FEEDBACK_RULES: FieldRules<'feedback'> = { feedback: [maxLength(FEEDBACK_MAX_LENGTH)] };
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
 
@@ -20,7 +24,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -231,32 +235,38 @@ export function AboutSupportScreen({
   const [rating, setRating] = useState<number>(4);
   const [feedbackText, setFeedbackText] = useState<string>('');
 
+  const feedbackValidation = useFieldValidation<'feedback'>({
+    values: { feedback: feedbackText },
+    rules: FEEDBACK_RULES,
+  });
+
   const toggleFaq = (id: string) => {
     setExpandedFaq((prev) => (prev === id ? null : id));
   };
 
   const handleOpenTerms = () => {
-    Alert.alert('Terms of Service', 'Opening TOHFA Terms of Service document...');
+    appAlert('Terms of Service', 'Opening TOHFA Terms of Service document...');
   };
 
   const handleOpenPrivacy = () => {
-    Alert.alert('Privacy Policy', 'Opening TOHFA Privacy & Data Policy document...');
+    appAlert('Privacy Policy', 'Opening TOHFA Privacy & Data Policy document...');
   };
 
   const handleCallHelpline = () => {
     Linking.openURL('tel:18004251661').catch(() => {
-      Alert.alert('Helpline', 'Call 1800 425 1661 (Toll-Free, Mon–Sat 9:00 am – 6:00 pm)');
+      appAlert('Helpline', 'Call 1800 425 1661 (Toll-Free, Mon–Sat 9:00 am – 6:00 pm)');
     });
   };
 
   const handleEmailSupport = () => {
     Linking.openURL('mailto:support@tohfa.org').catch(() => {
-      Alert.alert('Email Support', 'Write to support@tohfa.org');
+      appAlert('Email Support', 'Write to support@tohfa.org');
     });
   };
 
   const handleSubmitFeedback = () => {
-    Alert.alert(
+    if (!feedbackValidation.validateAll().valid) return;
+    appAlert(
       'Thank you!',
       `Your feedback (${rating} stars) has been submitted to the TOHFA team.`,
       [{ text: 'OK', onPress: () => setFeedbackText('') }]
@@ -438,11 +448,16 @@ export function AboutSupportScreen({
             style={styles.feedbackInput}
             value={feedbackText}
             onChangeText={setFeedbackText}
+            onBlur={() => feedbackValidation.onBlur('feedback')}
+            maxLength={FEEDBACK_MAX_LENGTH + 100}
             placeholder="Tell us what's working or what could be better... (optional)"
             placeholderTextColor={P.twGray400}
             multiline
             numberOfLines={3}
           />
+          {feedbackValidation.messageFor('feedback') ? (
+            <Text style={styles.feedbackErrorText}>{feedbackValidation.messageFor('feedback')}</Text>
+          ) : null}
 
           {/* Submit Feedback Button */}
           <TouchableOpacity
@@ -720,6 +735,7 @@ const styles = StyleSheet.create({
   starTouch: {
     padding: 2,
   },
+  feedbackErrorText: { color: P.red600, fontSize: typography.bodySmall, fontWeight: '600', marginBottom: 10 },
   feedbackInput: {
     backgroundColor: P.tanTint5,
     borderRadius: 12,

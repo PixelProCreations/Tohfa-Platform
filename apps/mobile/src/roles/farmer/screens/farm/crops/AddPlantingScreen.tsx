@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Modal,
   ScrollView,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Circle, Rect, Line } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
@@ -23,6 +24,9 @@ import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { createIdempotencyKeyCache } from '../../../../../shell/api/idempotency';
 import { createTreePlanting } from '../../../api/treePlantings';
+import { useFieldValidation } from '../../../utils/validation';
+import { FieldErrorText } from '../FieldErrorText';
+import { PLANTING_FIELD_ORDER, PLANTING_RULES } from './plantingValidation';
 
 const CALENDAR_THEME = {
   calendarBackground: colors.white,
@@ -101,6 +105,7 @@ export interface AddPlantingScreenProps {
 }
 
 export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [speciesName, setSpeciesName] = useState('');
   const [treeCount, setTreeCount] = useState('');
   const [plantedDate, setPlantedDate] = useState<Date | null>(null);
@@ -114,6 +119,12 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   // an edited body gets a fresh key (re-using one would be 409 IDEMPOTENCY_KEY_REUSED).
   const idempotencyRef = useRef(createIdempotencyKeyCache());
 
+  const values = useMemo(
+    () => ({ species: speciesName, treeCount, zone, purpose }),
+    [speciesName, treeCount, zone, purpose],
+  );
+  const validation = useFieldValidation({ values, rules: PLANTING_RULES, order: PLANTING_FIELD_ORDER });
+
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
   const calendarStartDate = toCalendarDateString(plantedDate ?? new Date());
   const latestSelectableDate = todayCalendarDateString();
@@ -124,8 +135,10 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
   }
 
   async function handleSave(): Promise<void> {
+    if (isSaving) return;
+    const { valid: fieldsValid } = validation.validateAll();
     const trimmedSpecies = speciesName.trim();
-    if (!trimmedSpecies || isSaving) return;
+    if (!trimmedSpecies) return;
     // BR-55a: a whole number of trees, 1 or more. Checked here so "2.5" is not
     // silently truncated to 2; the API enforces the same rule.
     const trimmedCount = treeCount.trim();
@@ -134,6 +147,7 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
       setSaveError(t('farmer.trees.countInvalid'));
       return;
     }
+    if (!fieldsValid) return;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -197,10 +211,13 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
             style={styles.textInput}
             value={speciesName}
             onChangeText={setSpeciesName}
+            onBlur={() => validation.onBlur('species')}
+            maxLength={200}
             placeholder="e.g. Silver Oak / Guava"
             placeholderTextColor={P.twGray400}
           />
         </View>
+        <FieldErrorText message={validation.messageFor('species')} testID="add-planting-species-error" />
 
         {/* Tree Count */}
         <Text style={styles.fieldLabel}>
@@ -211,11 +228,14 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
             style={styles.textInput}
             value={treeCount}
             onChangeText={setTreeCount}
+            onBlur={() => validation.onBlur('treeCount')}
+            maxLength={10}
             placeholder="e.g. 12"
             placeholderTextColor={P.twGray400}
-            keyboardType="numeric"
+            keyboardType="number-pad"
           />
         </View>
+        <FieldErrorText message={validation.messageFor('treeCount')} testID="add-planting-count-error" />
 
         {/* Planting Date */}
         <Text style={styles.fieldLabel}>Date Planted</Text>
@@ -237,10 +257,13 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
             style={styles.textInput}
             value={zone}
             onChangeText={setZone}
+            onBlur={() => validation.onBlur('zone')}
+            maxLength={200}
             placeholder="e.g. Zone A boundary / Near Zone B"
             placeholderTextColor={P.twGray400}
           />
         </View>
+        <FieldErrorText message={validation.messageFor('zone')} />
 
         {/* Purpose */}
         <Text style={styles.fieldLabel}>Primary Purpose</Text>
@@ -249,10 +272,13 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
             style={styles.textInput}
             value={purpose}
             onChangeText={setPurpose}
+            onBlur={() => validation.onBlur('purpose')}
+            maxLength={500}
             placeholder="e.g. Shade & windbreak / Seasonal yield"
             placeholderTextColor={P.twGray400}
           />
         </View>
+        <FieldErrorText message={validation.messageFor('purpose')} />
 
         {/* Info Note */}
         <View style={styles.infoRow}>
@@ -271,8 +297,8 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
 
       {/* Calendar Modal */}
       {showCalendar ? (
-        <Modal transparent visible animationType="fade" onRequestClose={() => setShowCalendar(false)}>
-          <View style={styles.calendarOverlay}>
+        <Modal statusBarTranslucent navigationBarTranslucent transparent visible animationType="fade" onRequestClose={() => setShowCalendar(false)}>
+          <View style={[styles.calendarOverlay, { paddingBottom: insets.bottom }]}>
             <View style={styles.calendarScrim} pointerEvents="none" />
             <TouchableOpacity
               style={styles.calendarBackdrop}
@@ -313,11 +339,13 @@ export function AddPlantingScreen({ onNavigateBack, onSave }: AddPlantingScreenP
       {/* Sticky Save Button */}
       <View style={styles.stickyBottom}>
         <TouchableOpacity
-          style={[styles.saveButton, (!speciesName || !treeCount || isSaving) && styles.saveButtonDisabled]}
+          style={[styles.saveButton, (!speciesName.trim() || !treeCount.trim() || isSaving) && styles.saveButtonDisabled]}
           activeOpacity={0.8}
           disabled={isSaving}
           onPress={() => {
-            if (speciesName && treeCount) {
+            // Blank required fields keep the muted button inert; any other
+            // problem is surfaced under its field by validateAll() in handleSave.
+            if (speciesName.trim() && treeCount.trim()) {
               void handleSave();
             }
           }}

@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Alert,
   BackHandler,
   Modal,
   Platform,
@@ -11,7 +10,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenStatusBar, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Path } from 'react-native-svg';
 import { t, type TranslationKey } from '../../../../../i18n/farmer';
 import { createIdempotencyKeyCache } from '../../../../../shell/api/idempotency';
@@ -27,10 +27,13 @@ import {
 } from '../../../api/crops';
 import { todayInKolkata } from '../../certifications/certificationForm';
 import { authPalette as P, typography } from '../../../theme';
+import { useFieldValidation } from '../../../utils/validation';
+import { FieldErrorText } from '../FieldErrorText';
 import type { CropItem } from './ProduceCalendarScreen';
 import { useActiveCropItems } from './cropItems';
 import { parseQuantity } from './fertigationQuantity';
 import { parseAppliedOn } from './inputApplications';
+import { INPUT_APPLIED_FIELD_ORDER, INPUT_APPLIED_RULES } from './inputAppliedValidation';
 import {
   PEST_CODES,
   PURPOSE_CODES,
@@ -142,6 +145,7 @@ function CropPickerField({
   selected: CropItem | null;
   onSelect: (crop: CropItem) => void;
 }): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const { items, loading, error, reload } = useActiveCropItems();
   const [open, setOpen] = useState(false);
 
@@ -183,8 +187,8 @@ function CropPickerField({
         <ChevronDownIcon size={18} color={P.twGray500} />
       </TouchableOpacity>
 
-      <Modal visible={open} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setOpen(false)}>
+      <Modal statusBarTranslucent navigationBarTranslucent onRequestClose={() => setOpen(false)} visible={open} transparent animationType="fade">
+        <TouchableOpacity style={[styles.modalBackdrop, { paddingBottom: insets.bottom }]} activeOpacity={1} onPress={() => setOpen(false)}>
           <View style={styles.pickerModalContent}>
             <Text style={styles.pickerModalTitle}>{t('farmer.addInput.crop.title')}</Text>
             {items.map((item) => {
@@ -220,6 +224,7 @@ export function AddInputAppliedScreen({
   onSave,
   onDeleted,
 }: AddInputAppliedScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   // Hardware back button handler for Android
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -279,6 +284,18 @@ export function AddInputAppliedScreen({
   const [appliedBy, setAppliedBy] = useState(record?.appliedBy ?? '');
   const [notes, setNotes] = useState(record?.notes ?? '');
 
+  // Inline per-field messages (inputAppliedValidation.ts). The Alerts in handleSave stay as the
+  // backstop and keep the BR-56a/56b and Dev required-name messages unchanged.
+  const fieldValues = useMemo(
+    () => ({ productName, quantity, dateTime, notes }),
+    [productName, quantity, dateTime, notes],
+  );
+  const validation = useFieldValidation({
+    values: fieldValues,
+    rules: INPUT_APPLIED_RULES,
+    order: INPUT_APPLIED_FIELD_ORDER,
+  });
+
   // A stored unit the picker does not offer (BAG, TONNE, OTHER) stays selectable, so editing
   // another field never silently changes it.
   const unitOptions: readonly CropInputUnit[] = UNITS.includes(unit) ? UNITS : [...UNITS, unit];
@@ -297,7 +314,7 @@ export function AddInputAppliedScreen({
     }
   };
 
-  const showError = (message: string) => Alert.alert(t('farmer.addInput.error.title'), message);
+  const showError = (message: string) => appAlert(t('farmer.addInput.error.title'), message, undefined, { tone: 'error' });
 
   /**
    * Adding: POST /farmers/me/crops/:farmCropId/inputs (BR-56) with an Idempotency-Key (BR-56i).
@@ -309,8 +326,10 @@ export function AddInputAppliedScreen({
    */
   const handleSave = async () => {
     if (saving || deleting) return;
+    // Surface every inline message at once; the specific Alerts below still decide first.
+    const { valid: fieldsValid } = validation.validateAll();
     if (!productName.trim()) {
-      Alert.alert(t('farmer.addInput.required.title'), t('farmer.addInput.required.body'));
+      appAlert(t('farmer.addInput.required.title'), t('farmer.addInput.required.body'), undefined, { tone: 'warning' });
       return;
     }
     const cropId = existing?.farmCropId ?? targetCrop?.id;
@@ -332,6 +351,7 @@ export function AddInputAppliedScreen({
       showError(date.reason === 'future' ? t('farmer.addInput.error.futureDate') : t('farmer.addInput.error.date'));
       return;
     }
+    if (!fieldsValid) return;
 
     const isFertigation = inputType === 'Fertigation';
     const purposeValue = isFertigation ? purpose : null;
@@ -403,7 +423,7 @@ export function AddInputAppliedScreen({
           }
         })
         .catch(() => {
-          Alert.alert(t('farmer.inputHistory.deleteFailed.title'), t('farmer.inputHistory.deleteFailed.body'));
+          appAlert(t('farmer.inputHistory.deleteFailed.title'), t('farmer.inputHistory.deleteFailed.body'), undefined, { tone: 'error' });
         })
         .finally(() => setDeleting(false));
     });
@@ -506,6 +526,8 @@ export function AddInputAppliedScreen({
               style={styles.textInput}
               value={productName}
               onChangeText={setProductName}
+              onBlur={() => validation.onBlur('productName')}
+              maxLength={200}
               placeholder={
                 inputType === 'Pest Treatment'
                   ? t('farmer.addInput.productPlaceholder.pest')
@@ -515,6 +537,7 @@ export function AddInputAppliedScreen({
               accessibilityLabel={t('farmer.addInput.productNameA11y')}
             />
           </View>
+          <FieldErrorText message={validation.messageFor('productName')} testID="addInput.productNameError" />
           <Text style={styles.helperText}>{t('farmer.addInput.productHelper')}</Text>
         </View>
 
@@ -531,6 +554,7 @@ export function AddInputAppliedScreen({
                 style={styles.textInput}
                 value={quantity}
                 onChangeText={setQuantity}
+                onBlur={() => validation.onBlur('quantity')}
                 keyboardType="numeric"
                 placeholder={t('farmer.addInput.quantityPlaceholder')}
                 placeholderTextColor={P.twGray400}
@@ -549,6 +573,7 @@ export function AddInputAppliedScreen({
               <ChevronDownIcon size={18} color={P.twGray500} />
             </TouchableOpacity>
           </View>
+          <FieldErrorText message={validation.messageFor('quantity')} testID="addInput.quantityError" />
         </View>
 
         {/* ── 4. Date & Time ── */}
@@ -563,11 +588,14 @@ export function AddInputAppliedScreen({
               style={styles.textInput}
               value={dateTime}
               onChangeText={setDateTime}
+              onBlur={() => validation.onBlur('dateTime')}
+              maxLength={50}
               placeholder={t('farmer.addInput.dateTimePlaceholder')}
               placeholderTextColor={P.twGray400}
               accessibilityLabel={t('farmer.addInput.dateTimeA11y')}
             />
           </View>
+          <FieldErrorText message={validation.messageFor('dateTime')} testID="addInput.dateTimeError" />
           <Text style={styles.helperText}>{t('farmer.addInput.dateTimeHelper')}</Text>
         </View>
 
@@ -634,6 +662,8 @@ export function AddInputAppliedScreen({
             style={styles.notesInput}
             value={notes}
             onChangeText={setNotes}
+            onBlur={() => validation.onBlur('notes')}
+            maxLength={2000}
             multiline
             numberOfLines={3}
             placeholder={t('farmer.addInput.notesPlaceholder')}
@@ -641,6 +671,7 @@ export function AddInputAppliedScreen({
             textAlignVertical="top"
             accessibilityLabel={t('farmer.addInput.notesA11y')}
           />
+          <FieldErrorText message={validation.messageFor('notes')} testID="addInput.notesError" />
         </View>
 
         {/* ── Bottom Buttons ── */}
@@ -683,9 +714,9 @@ export function AddInputAppliedScreen({
       </ScrollView>
 
       {/* ── Unit Selection Modal ── */}
-      <Modal visible={showUnitModal} transparent animationType="fade">
+      <Modal statusBarTranslucent navigationBarTranslucent onRequestClose={() => setShowUnitModal(false)} visible={showUnitModal} transparent animationType="fade">
         <TouchableOpacity
-          style={styles.modalBackdrop}
+          style={[styles.modalBackdrop, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowUnitModal(false)}
         >
@@ -718,9 +749,9 @@ export function AddInputAppliedScreen({
       </Modal>
 
       {/* ── Target Pest Selection Modal ── */}
-      <Modal visible={showPestModal} transparent animationType="fade">
+      <Modal statusBarTranslucent navigationBarTranslucent onRequestClose={() => setShowPestModal(false)} visible={showPestModal} transparent animationType="fade">
         <TouchableOpacity
-          style={styles.modalBackdrop}
+          style={[styles.modalBackdrop, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowPestModal(false)}
         >
@@ -766,9 +797,9 @@ export function AddInputAppliedScreen({
       </Modal>
 
       {/* ── Purpose Selection Modal ── */}
-      <Modal visible={showPurposeModal} transparent animationType="fade">
+      <Modal statusBarTranslucent navigationBarTranslucent onRequestClose={() => setShowPurposeModal(false)} visible={showPurposeModal} transparent animationType="fade">
         <TouchableOpacity
-          style={styles.modalBackdrop}
+          style={[styles.modalBackdrop, { paddingBottom: insets.bottom }]}
           activeOpacity={1}
           onPress={() => setShowPurposeModal(false)}
         >

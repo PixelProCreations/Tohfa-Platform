@@ -12,8 +12,8 @@
  * two taps can land before React re-renders the button as disabled.
  */
 import React, { useMemo, useRef, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Button, Input, SafeAreaView } from '@tohfa/mobile-ui';
+import { Modal, ScrollView, type LayoutChangeEvent, type ScrollViewInstance, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Button, Input, ModalSafeArea } from '@tohfa/mobile-ui';
 import { authPalette as P, colors, radius, spacing, typography, weights } from '../../../theme';
 import { t, type TranslationKey } from '../../../../../i18n/farmer';
 import { todayInKolkata } from '../../certifications/certificationForm';
@@ -56,6 +56,12 @@ export interface AnimalRecordFormModalProps {
 
 const ID = 'animalRecordForm';
 
+function withoutKey(errors: FieldErrors, name: string): FieldErrors {
+  const next = { ...errors };
+  delete next[name];
+  return next;
+}
+
 export function AnimalRecordFormModal({
   kind,
   animalId,
@@ -76,16 +82,50 @@ export function AnimalRecordFormModal({
   const showWithdrawalWarning =
     kind === 'production' && productionUnderWithdrawal(withdrawalUntil, values['loggedOn'] ?? '', today);
 
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  // Each field block's y inside the ScrollView content, for scrolling to the first invalid one.
+  const fieldY = useRef<Record<string, number>>({});
+
+  /**
+   * The error `name` would have for `candidate` values, using the same rules as
+   * submit (buildRecord) so blur, typing and submit can never disagree. Only
+   * this field's message is read: the other fields are not yet "touched".
+   */
+  const errorFor = (name: string, candidate: Record<string, string>): string | undefined => {
+    const built = buildRecord(kind, candidate, animalId);
+    return built.ok ? undefined : built.errors[name];
+  };
+
   const setValue = (name: string, value: string) => {
-    setValues((prev) =>
-      name === 'recordType' ? valuesForRecordType(kind, prev, value, today) : { ...prev, [name]: value },
-    );
+    const next = name === 'recordType' ? valuesForRecordType(kind, values, value, today) : { ...values, [name]: value };
+    setValues(next);
     setErrors((prev) => {
+      if (name === 'recordType') return prev;
       if (!(name in prev)) return prev;
-      const next = { ...prev };
-      delete next[name];
-      return next;
+      // An error clears the moment the value is valid; while it is still invalid the message tracks the new text.
+      const live = errorFor(name, next);
+      const copy = { ...prev };
+      if (live === undefined) delete copy[name];
+      else copy[name] = live;
+      return copy;
     });
+  };
+
+  const blurField = (name: string) => {
+    const message = errorFor(name, values);
+    setErrors((prev) => {
+      if (message === undefined) return name in prev ? withoutKey(prev, name) : prev;
+      return prev[name] === message ? prev : { ...prev, [name]: message };
+    });
+  };
+
+  const scrollToFirstInvalid = (invalid: FieldErrors) => {
+    const first = fields.find((f) => f.name in invalid);
+    if (!first) return;
+    const y = fieldY.current[first.name];
+    if (y === undefined) return;
+    // A little headroom so the label is not flush against the top edge.
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - spacing.lg), animated: true });
   };
 
   const pickAttachment = async () => {
@@ -102,6 +142,7 @@ export function AnimalRecordFormModal({
     if (!built.ok) {
       setErrors(built.errors);
       setSubmitError(t('farmer.livestock.detail.form.error.fixForm'));
+      scrollToFirstInvalid(built.errors);
       return;
     }
     submittingRef.current = true;
@@ -123,7 +164,9 @@ export function AnimalRecordFormModal({
       onSaved(saved);
     } catch (err: unknown) {
       setSubmitError(submitErrorMessage(kind, err, sendAttachment));
-      setErrors(serverFieldErrors(err, fields));
+      const rejected = serverFieldErrors(err, fields);
+      setErrors(rejected);
+      scrollToFirstInvalid(rejected);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
@@ -131,8 +174,15 @@ export function AnimalRecordFormModal({
   };
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <SafeAreaView style={local.sheet}>
+    <Modal
+      visible
+      animationType="slide"
+      presentationStyle="pageSheet"
+      statusBarTranslucent
+      navigationBarTranslucent
+      onRequestClose={onClose}
+    >
+      <ModalSafeArea style={local.sheet}>
         <View style={local.container} testID={`${ID}.${kind}`}>
           <View style={local.header}>
             <Text style={local.title}>{t(TITLE_KEYS[kind])}</Text>
@@ -148,7 +198,7 @@ export function AnimalRecordFormModal({
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={local.body} keyboardShouldPersistTaps="handled">
+          <ScrollView ref={scrollRef} contentContainerStyle={local.body} keyboardShouldPersistTaps="handled">
             {showWithdrawalWarning && withdrawalUntil ? (
               <View style={local.warning} accessibilityLiveRegion="polite" testID={`${ID}.withdrawalWarning`}>
                 <Text style={local.warningText}>
@@ -164,6 +214,10 @@ export function AnimalRecordFormModal({
                 value={values[field.name] ?? ''}
                 error={errors[field.name]}
                 onChange={(v) => setValue(field.name, v)}
+                onBlur={() => blurField(field.name)}
+                onBlockLayout={(y) => {
+                  fieldY.current[field.name] = y;
+                }}
               />
             ))}
 
@@ -226,7 +280,7 @@ export function AnimalRecordFormModal({
             />
           </View>
         </View>
-      </SafeAreaView>
+      </ModalSafeArea>
     </Modal>
   );
 }
@@ -236,11 +290,15 @@ function FormField({
   value,
   error,
   onChange,
+  onBlur,
+  onBlockLayout,
 }: {
   field: FieldSpec;
   value: string;
   error: string | undefined;
   onChange: (value: string) => void;
+  onBlur: () => void;
+  onBlockLayout: (y: number) => void;
 }): React.JSX.Element {
   const labelText = `${t(field.label)}${field.required ? ` ${t('farmer.livestock.detail.form.requiredMark')}` : ''}`;
   const errorText = error ? (
@@ -249,10 +307,16 @@ function FormField({
     </Text>
   ) : null;
 
+  const blockProps = {
+    style: local.fieldBlock,
+    testID: `${ID}.block.${field.name}`,
+    onLayout: (e: LayoutChangeEvent) => onBlockLayout(e.nativeEvent.layout.y),
+  };
+
   switch (field.kind) {
     case 'choice':
       return (
-        <View style={local.fieldBlock}>
+        <View {...blockProps}>
           <Text style={local.label}>{labelText}</Text>
           <View style={local.chipRow}>
             {field.options.map((opt) => {
@@ -278,7 +342,7 @@ function FormField({
     case 'toggle': {
       const on = value === 'true';
       return (
-        <View style={local.fieldBlock}>
+        <View {...blockProps}>
           <TouchableOpacity
             style={local.toggleRow}
             onPress={() => onChange(on ? '' : 'true')}
@@ -306,11 +370,12 @@ function FormField({
             : undefined;
       const multiline = field.kind === 'text' && field.multiline === true;
       return (
-        <View style={local.fieldBlock}>
+        <View {...blockProps}>
           <Input
             label={labelText}
             value={value}
             onChangeText={onChange}
+            onBlur={onBlur}
             placeholder={placeholder}
             keyboardType={field.kind === 'number' ? 'decimal-pad' : field.kind === 'text' ? 'default' : 'numbers-and-punctuation'}
             maxLength={field.kind === 'text' ? field.maxLength : undefined}

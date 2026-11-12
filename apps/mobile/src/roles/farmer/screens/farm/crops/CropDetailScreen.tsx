@@ -1,253 +1,24 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import {
-  BackHandler,
-  Image,
-  Platform,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import React, { useEffect } from 'react';
+import { BackHandler, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
+import { ErrorState, Skeleton, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { fromPaise, format as formatMoney } from '@tohfa/shared-types';
 import { t } from '../../../../../i18n/farmer';
-import { authPalette as P, typography } from '../../../theme';
-import { listDiaryPlots, listDiaryEntries, type DiaryPlot, type DiaryEntrySummary } from '../../../api/farmDiary';
-import { getFarmCrop, type FarmCropResponse } from '../../../api/crops';
+import { authPalette as P, radius, spacing } from '../../../theme';
+import type { DiaryEntrySummary } from '../../../api/farmDiary';
 import type { CropItem } from './ProduceCalendarScreen';
+import { CropDetailsSection } from './cropDetail/CropDetailsSection';
+import { CropHeroCard } from './cropDetail/CropHeroCard';
+import { LinkedRecordsSection } from './cropDetail/LinkedRecordsSection';
+import { RecentDiarySection } from './cropDetail/RecentDiarySection';
+import { daysBetween, formatGradeLabel, formatIsoDisplay } from './cropDetail/format';
+import { useCropDetail } from './cropDetail/useCropDetail';
 
-// ─────────────────────────────────────────────
-// Real-data helpers (dates, money-safe seed cost, diary summaries)
-// ─────────────────────────────────────────────
-
-const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** Whole-day difference, `b - a`, ignoring time-of-day. */
-function daysBetween(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / 86_400_000);
-}
-
-/** `"YYYY-MM-DD"` -> `"15 Jul 2026"`; `null` -> a translated placeholder. */
-function formatIsoDisplay(iso: string | null): string {
-  if (!iso) return t('farmer.crops.detail.notSet');
-  const parts = iso.split('-').map(Number);
-  const year = parts[0];
-  const month = parts[1];
-  const day = parts[2];
-  if (!year || !month || !day) return iso;
-  return `${day} ${MONTHS_SHORT[month - 1] ?? ''} ${year}`;
-}
-
-/** `"2026-07-15T06:45:00Z"` -> `"15 Jul · 06:45 AM"`, matching this screen's existing diary-entry format. */
-function formatDiaryTimestamp(iso: string): string {
-  const date = new Date(iso);
-  const day = date.getDate();
-  const month = MONTHS_SHORT[date.getMonth()] ?? '';
-  let hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const suffix = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  if (hours === 0) hours = 12;
-  return `${day} ${month} · ${String(hours).padStart(2, '0')}:${minutes} ${suffix}`;
-}
-
-/** `95` -> `"1h 35m"`, `50` -> `"50m"`. */
-function formatMinutesDuration(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h <= 0) return `${m}m`;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-const GRADE_LABELS: Record<string, string> = {
-  GRADE_A: 'Grade A',
-  GRADE_B: 'Grade B',
-  GRADE_C: 'Grade C',
-};
-
-/** `"manure_application"` -> `"Manure application"`. No taxonomy lookup is fetched
- * just for this display label — see the diary-entries docblock above. */
-function formatActivityTitle(key: string): string {
-  const spaced = key.replace(/_/g, ' ');
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
-/**
- * t()'s key parameter is a literal string union, so a template-built key
- * (`` `farmer.crops.status.${status.toLowerCase()}` ``) doesn't type-check —
- * this maps the four real enum values to the literal keys added alongside it
- * in farmer.en.json/farmer.ta.json.
- */
-function cropStatusLabelKey(
-  status: FarmCropResponse['status'],
-): 'farmer.crops.status.planned' | 'farmer.crops.status.growing' | 'farmer.crops.status.harvested' | 'farmer.crops.status.failed' {
-  switch (status) {
-    case 'PLANNED':
-      return 'farmer.crops.status.planned';
-    case 'GROWING':
-      return 'farmer.crops.status.growing';
-    case 'HARVESTED':
-      return 'farmer.crops.status.harvested';
-    case 'FAILED':
-      return 'farmer.crops.status.failed';
-  }
-}
-
-// ─────────────────────────────────────────────
-// Inline Vector Icons (strictly no emojis, no raw hex)
-// ─────────────────────────────────────────────
-
-function ArrowBackIcon({ size = 20, color = P.white }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function PencilEditIcon({ size = 15, color = P.white }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function ChevronRightIcon({ size = 18, color = P.twGray400 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 18l6-6-6-6"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function FlagMilestoneIcon({ size = 16, color = P.brandGreen }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CalendarIcon({ size = 18, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="4" width="18" height="18" rx="3" stroke={color} strokeWidth="2" />
-      <Line x1="16" y1="2" x2="16" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="8" y1="2" x2="8" y2="6" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Line x1="3" y1="10" x2="21" y2="10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function BeakerIcon({ size = 18, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M9 3h6M10 3v5l-6 10a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3l-6-10V3"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Line x1="7" y1="15" x2="17" y2="15" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function WorkforceUsersIcon({ size = 18, color = P.twBlue600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Circle cx="9" cy="7" r="4" stroke={color} strokeWidth="2" />
-      <Path
-        d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-function AnalyticsChartIcon({ size = 18, color = P.twOrange600 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M3 20h18M6 16l4-6 4 4 6-8"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Rect x="5" y="14" width="2" height="6" rx="0.5" fill={color} />
-      <Rect x="11" y="11" width="2" height="9" rx="0.5" fill={color} />
-      <Rect x="17" y="7" width="2" height="13" rx="0.5" fill={color} />
-    </Svg>
-  );
-}
-
-function SproutDiaryIcon({ size = 16, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="4" width="16" height="16" rx="3" stroke={color} strokeWidth="1.8" />
-      <Path
-        d="M12 16v-5M12 11c0-2 1.5-3.5 3.5-3.5 0 2-1.5 3.5-3.5 3.5zM12 13c0-1.8-1.2-3-3-3 0 1.8 1.2 3 3 3z"
-        stroke={color}
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function CompostIcon({ size = 16, color = P.twGreen700 }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" />
-      <Path
-        d="M8 12c0-2.2 1.8-4 4-4 1.5 0 2.8.8 3.5 2M16 12c0 2.2-1.8 4-4 4-1.5 0-2.8-.8-3.5-2"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
+// Preset-mode fallbacks shown when no real farm_crops row backs the screen.
+const FALLBACK_DAYS_OLD = 88;
+const FALLBACK_DAYS_TO_HARVEST = 3;
+const RECENT_DIARY_LIMIT = 2;
+const HERO_SKELETON_HEIGHT = 220;
+const CARD_SKELETON_HEIGHT = 160;
 
 // ─────────────────────────────────────────────
 // Crop Lifecycles & Agronomic Stages
@@ -1300,44 +1071,8 @@ export function CropDetailScreen({
     return () => subscription.remove();
   }, [onBack]);
 
-  // Real farm_crops row (+ its plot + recent diary entries) for CROP DETAILS,
-  // LINKED RECORDS and RECENT DIARY ENTRIES below. Every other section on this
-  // screen (lifecycle stages, milestones, inputs/workforce/NPK summaries) has
-  // no backing table and is left on its existing preset/mock data untouched.
-  const [farmCrop, setFarmCrop] = useState<FarmCropResponse | null>(null);
-  const [cropPlot, setCropPlot] = useState<DiaryPlot | null>(null);
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntrySummary[] | null>(null);
-  const [loadingCrop, setLoadingCrop] = useState(Boolean(crop?.id));
-  const [cropError, setCropError] = useState<unknown | null>(null);
-
   const cropId = crop?.id;
-  const loadCropDetail = useCallback(async () => {
-    if (!cropId) return;
-    setLoadingCrop(true);
-    setCropError(null);
-    try {
-      const fetchedCrop = await getFarmCrop(cropId);
-      // No backend filter exists for "diary entries for this crop" (only by
-      // plotId/date/month/categoryKey — see farm-diary.schema.ts's
-      // listDiaryEntriesQuery), so this lists by plotId and shows the plot's
-      // most recent entries, not strictly this crop cycle's own.
-      const [plots, diary] = await Promise.all([
-        listDiaryPlots(),
-        listDiaryEntries({ plotId: fetchedCrop.plotId, limit: 20 }),
-      ]);
-      setFarmCrop(fetchedCrop);
-      setCropPlot(plots.find((p) => p.id === fetchedCrop.plotId) ?? null);
-      setDiaryEntries(diary.items);
-    } catch (err: unknown) {
-      setCropError(err);
-    } finally {
-      setLoadingCrop(false);
-    }
-  }, [cropId]);
-
-  useEffect(() => {
-    void loadCropDetail();
-  }, [loadCropDetail]);
+  const { farmCrop, cropPlot, diaryEntries, loadingCrop, cropError, loadCropDetail } = useCropDetail(cropId);
 
   const preset = getCropPreset(crop);
   const lifecycle = getCropLifecycle(crop);
@@ -1346,47 +1081,57 @@ export function CropDetailScreen({
   const expectedHarvestOnDate = farmCrop?.expectedHarvestOn ? new Date(farmCrop.expectedHarvestOn) : null;
 
   const title = farmCrop
-    ? `${farmCrop.cropName} — ${farmCrop.seedVariety ?? farmCrop.cropName}`
+    ? t('farmer.cropDetail.title', { crop: farmCrop.cropName, variety: farmCrop.seedVariety ?? farmCrop.cropName })
     : crop
-      ? `${crop.name} — ${crop.variety}`
-      : `Carrot — ${preset.defaultVariety}`;
+      ? t('farmer.cropDetail.title', { crop: crop.name, variety: crop.variety })
+      : t('farmer.cropDetail.title', {
+        crop: t('farmer.cropDetail.fallback.cropName'),
+        variety: preset.defaultVariety,
+      });
   const subtitle = farmCrop
-    ? `${cropPlot?.name ?? crop?.zone ?? ''} · ${farmCrop.seedVariety ?? farmCrop.cropName} seed`
+    ? t('farmer.cropDetail.subtitle', {
+      zone: cropPlot?.name ?? crop?.zone ?? '',
+      variety: farmCrop.seedVariety ?? farmCrop.cropName,
+    })
     : crop
-      ? `${crop.zone} · ${crop.variety} seed`
-      : `Zone 1 — Upper Field · ${preset.defaultVariety} seed`;
+      ? t('farmer.cropDetail.subtitle', { zone: crop.zone, variety: crop.variety })
+      : t('farmer.cropDetail.subtitle', {
+        zone: t('farmer.cropDetail.fallback.zone'),
+        variety: preset.defaultVariety,
+      });
   const daysOld = farmCrop
     ? plantedOnDate
       ? Math.max(0, daysBetween(plantedOnDate, new Date()))
       : 0
-    : (crop?.daysOld ?? 88);
+    : (crop?.daysOld ?? FALLBACK_DAYS_OLD);
   const daysToHarvest = farmCrop
     ? expectedHarvestOnDate
       ? daysBetween(new Date(), expectedHarvestOnDate)
       : 0
-    : (crop?.statusDays ?? 3);
+    : (crop?.statusDays ?? FALLBACK_DAYS_TO_HARVEST);
   const grade = farmCrop?.expectedGrade ? farmCrop.expectedGrade.replace('GRADE_', '') : preset.grade;
   const zoneArea = farmCrop
-    ? `${cropPlot?.name ?? '—'}${cropPlot?.areaAcres !== null && cropPlot?.areaAcres !== undefined ? ` · ${cropPlot.areaAcres} ac` : ''}`
+    ? `${cropPlot?.name ?? '—'}${cropPlot?.areaAcres !== null && cropPlot?.areaAcres !== undefined
+      ? ` · ${cropPlot.areaAcres} ${t('farmer.cropDetail.unit.acres')}`
+      : ''
+    }`
     : crop
       ? `${crop.zoneShort} · ${crop.area}`
-      : 'Zone 1 · 0.4 ha';
+      : t('farmer.cropDetail.fallback.zoneArea');
   const varietyCompany = farmCrop
     ? `${farmCrop.seedVariety ?? '—'} · ${farmCrop.seedCompany ?? '—'}`
     : crop
       ? `${crop.variety} · ${preset.company}`
       : `${preset.defaultVariety} · ${preset.company}`;
   const seedUsedCost = farmCrop
-    ? `${farmCrop.seedQuantity ?? '—'}${farmCrop.seedQuantityUnit ? ` ${farmCrop.seedQuantityUnit}` : ''} · ${
-        farmCrop.seedCostPaise !== null ? formatMoney(fromPaise(farmCrop.seedCostPaise)) : '—'
-      }`
+    ? `${farmCrop.seedQuantity ?? '—'}${farmCrop.seedQuantityUnit ? ` ${farmCrop.seedQuantityUnit}` : ''} · ${farmCrop.seedCostPaise !== null ? formatMoney(fromPaise(farmCrop.seedCostPaise)) : '—'
+    }`
     : preset.seedUsedCost;
   const plantedOn = farmCrop ? formatIsoDisplay(farmCrop.plantedOn) : preset.plantedOn;
   const expectedHarvest = farmCrop ? formatIsoDisplay(farmCrop.expectedHarvestOn) : preset.expectedHarvest;
   const expectedQty = farmCrop
-    ? `${farmCrop.expectedYieldKg ?? '—'} kg${
-        farmCrop.expectedGrade ? ` · ${GRADE_LABELS[farmCrop.expectedGrade] ?? farmCrop.expectedGrade}` : ''
-      }`
+    ? `${farmCrop.expectedYieldKg ?? '—'} ${t('farmer.cropDetail.unit.kg')}${farmCrop.expectedGrade ? ` · ${formatGradeLabel(farmCrop.expectedGrade)}` : ''
+    }`
     : preset.expectedQty;
 
   const mostRecentDiaryEntry = diaryEntries?.reduce<DiaryEntrySummary | null>(
@@ -1399,10 +1144,13 @@ export function CropDetailScreen({
       : diaryEntries.length === 0
         ? t('farmer.crops.detail.diaryNone')
         : t('farmer.crops.detail.diarySummary', {
-            count: diaryEntries.length,
-            days: mostRecentDiaryEntry ? Math.max(0, daysBetween(new Date(mostRecentDiaryEntry.loggedAt), new Date())) : 0,
-          });
-  const recentDiaryEntries = (diaryEntries ?? []).slice().sort((a, b) => (a.loggedAt < b.loggedAt ? 1 : -1)).slice(0, 2);
+          count: diaryEntries.length,
+          days: mostRecentDiaryEntry ? Math.max(0, daysBetween(new Date(mostRecentDiaryEntry.loggedAt), new Date())) : 0,
+        });
+  const recentDiaryEntries = (diaryEntries ?? [])
+    .slice()
+    .sort((a, b) => (a.loggedAt < b.loggedAt ? 1 : -1))
+    .slice(0, RECENT_DIARY_LIMIT);
   const heroImageUri = resolveHeroImageUri(crop, preset);
   const thumbnailUri = resolveThumbnailUri(crop, preset);
 
@@ -1427,9 +1175,9 @@ export function CropDetailScreen({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Skeleton width="100%" height={220} borderRadius={16} />
-          <Skeleton width="100%" height={160} borderRadius={16} />
-          <Skeleton width="100%" height={160} borderRadius={16} />
+          <Skeleton width="100%" height={HERO_SKELETON_HEIGHT} borderRadius={radius.xl} />
+          <Skeleton width="100%" height={CARD_SKELETON_HEIGHT} borderRadius={radius.xl} />
+          <Skeleton width="100%" height={CARD_SKELETON_HEIGHT} borderRadius={radius.xl} />
         </View>
       </SafeAreaView>
     );
@@ -1454,361 +1202,51 @@ export function CropDetailScreen({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Top Hero Banner with Background Image ── */}
-        <View style={styles.heroBackground}>
-          <Image
-            source={{ uri: heroImageUri }}
-            style={[StyleSheet.absoluteFill, styles.heroBackgroundImage]}
-          />
-          {/* Dark gradient overlay */}
-          <View style={styles.heroOverlay}>
-            <SafeAreaView style={styles.heroSafeArea}>
-              {/* Navigation row: Back `<` and `Edit` */}
-              <View style={styles.heroNavRow}>
-                <TouchableOpacity
-                  style={styles.heroBackButton}
-                  onPress={onBack}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Go back"
-                >
-                  <ArrowBackIcon size={20} color={P.white} />
-                </TouchableOpacity>
+        <CropHeroCard
+          heroImageUri={heroImageUri}
+          thumbnailUri={thumbnailUri}
+          title={title}
+          subtitle={subtitle}
+          daysOld={daysOld}
+          daysToHarvest={daysToHarvest}
+          grade={grade}
+          onBack={onBack}
+          onEdit={onEdit}
+        />
 
-                <TouchableOpacity
-                  style={styles.heroEditButton}
-                  onPress={onEdit}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Edit crop details"
-                >
-                  <PencilEditIcon size={14} color={P.white} />
-                  <Text style={styles.heroEditText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Crop Title & Thumbnail Row */}
-              <View style={styles.heroCropInfoRow}>
-                <View style={styles.heroThumbnailWrapper}>
-                  <Image source={{ uri: thumbnailUri }} style={styles.heroThumbnail} />
-                </View>
-
-                <View style={styles.heroTitleCol}>
-                  <Text style={styles.heroCropTitle}>{title}</Text>
-                  <Text style={styles.heroCropSubtitle}>{subtitle}</Text>
-                </View>
-              </View>
-
-              {/* 3 Glassmorphism Stat Cards */}
-              <View style={styles.heroStatsRow}>
-                <View style={styles.glassStatCard}>
-                  <Text style={styles.glassStatValue}>{daysOld}</Text>
-                  <Text style={styles.glassStatLabel}>Days old</Text>
-                </View>
-
-                <View style={styles.glassStatCard}>
-                  <Text style={styles.glassStatValue}>{daysToHarvest}</Text>
-                  <Text style={styles.glassStatLabel}>Days to harvest</Text>
-                </View>
-
-                <View style={styles.glassStatCard}>
-                  <Text style={styles.glassStatValue}>{grade}</Text>
-                  <Text style={styles.glassStatLabel}>Expected grade</Text>
-                </View>
-              </View>
-            </SafeAreaView>
-          </View>
-        </View>
-
-        {/* ── Content Body below Hero ── */}
+        {/* Content body below hero */}
         <View style={styles.bodyContent}>
-          {/* ── Section 1: CROP DETAILS ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>CROP DETAILS</Text>
-          </View>
+          <CropDetailsSection
+            farmCrop={farmCrop}
+            currentStage={currentStage}
+            zoneArea={zoneArea}
+            varietyCompany={varietyCompany}
+            seedUsedCost={seedUsedCost}
+            plantedOn={plantedOn}
+            expectedHarvest={expectedHarvest}
+            expectedQty={expectedQty}
+          />
 
-          <View style={styles.detailsCard}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Current stage</Text>
-              <Text style={styles.detailValueStage}>
-                Stage {currentStage?.stageNumber} ({currentStage?.name})
-              </Text>
-            </View>
+          <LinkedRecordsSection
+            achievedMilestonesCount={achievedMilestonesCount}
+            milestonesTotal={milestones.length}
+            milestonesPercent={milestonesPercent}
+            diarySummaryText={diarySummaryText}
+            inputsSummary={preset.inputsSummary}
+            workforceSummary={preset.workforceSummary}
+            npkSummary={preset.npkSummary}
+            onNavigateToMilestones={onNavigateToMilestones}
+            onNavigateToDiary={onNavigateToDiary}
+            onNavigateToInputs={onNavigateToInputs}
+            onNavigateToWorkforce={onNavigateToWorkforce}
+            onNavigateToNPK={onNavigateToNPK}
+          />
 
-            <View style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Zone · Area</Text>
-              <Text style={styles.detailValue}>{zoneArea}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Variety · Company</Text>
-              <Text style={styles.detailValue}>{varietyCompany}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Seed used · Cost</Text>
-              <Text style={styles.detailValue}>{seedUsedCost}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Planted on</Text>
-              <Text style={styles.detailValue}>{plantedOn}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Expected harvest</Text>
-              <Text style={styles.detailValue}>{expectedHarvest}</Text>
-            </View>
-
-            <View style={styles.divider} />
-
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Expected quantity</Text>
-              <Text style={styles.detailValue}>{expectedQty}</Text>
-            </View>
-
-            {farmCrop && (
-              <>
-                <View style={styles.divider} />
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>Status</Text>
-                  <Text style={styles.detailValue}>
-                    {t(cropStatusLabelKey(farmCrop.status))}
-                  </Text>
-                </View>
-
-                {farmCrop.actualHarvestOn && (
-                  <>
-                    <View style={styles.divider} />
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Actual harvest</Text>
-                      <Text style={styles.detailValue}>
-                        {formatIsoDisplay(farmCrop.actualHarvestOn)}
-                        {farmCrop.actualYieldKg !== null ? ` · ${farmCrop.actualYieldKg} kg` : ''}
-                      </Text>
-                    </View>
-                  </>
-                )}
-
-                {farmCrop.notes && (
-                  <>
-                    <View style={styles.divider} />
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Notes</Text>
-                      <Text style={styles.detailValue}>{farmCrop.notes}</Text>
-                    </View>
-                  </>
-                )}
-              </>
-            )}
-          </View>
-
-          {/* ── Section: LINKED RECORDS ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>LINKED RECORDS</Text>
-          </View>
-
-          <View style={styles.linkedRecordsList}>
-            {/* Crop milestones */}
-            <TouchableOpacity
-              style={styles.linkedRecordCard}
-              onPress={onNavigateToMilestones}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="View crop milestones"
-            >
-              <View style={[styles.linkedIconBadge, { backgroundColor: P.twGreen100 }]}>
-                <FlagMilestoneIcon size={18} color={P.brandGreen} />
-              </View>
-
-              <View style={styles.linkedTextCol}>
-                <Text style={styles.linkedTitle}>Crop milestones</Text>
-                <Text style={styles.linkedSubtitle}>
-                  {achievedMilestonesCount} of {milestones.length} completed · {milestonesPercent}% on track
-                </Text>
-              </View>
-
-              <ChevronRightIcon size={18} color={P.twGray400} />
-            </TouchableOpacity>
-
-            {/* Diary entries */}
-            <TouchableOpacity
-              style={styles.linkedRecordCard}
-              onPress={onNavigateToDiary}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="View diary entries"
-            >
-              <View style={[styles.linkedIconBadge, { backgroundColor: P.twGreen100 }]}>
-                <CalendarIcon size={18} color={P.twGreen700} />
-              </View>
-
-              <View style={styles.linkedTextCol}>
-                <Text style={styles.linkedTitle}>Diary entries</Text>
-                <Text style={styles.linkedSubtitle}>{diarySummaryText}</Text>
-              </View>
-
-              <ChevronRightIcon size={18} color={P.twGray400} />
-            </TouchableOpacity>
-
-            {/* Inputs applied */}
-            <TouchableOpacity
-              style={styles.linkedRecordCard}
-              onPress={onNavigateToInputs}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="View inputs applied"
-            >
-              <View style={[styles.linkedIconBadge, { backgroundColor: P.twOrange100 }]}>
-                <BeakerIcon size={18} color={P.twOrange600} />
-              </View>
-
-              <View style={styles.linkedTextCol}>
-                <Text style={styles.linkedTitle}>Inputs applied</Text>
-                <Text style={styles.linkedSubtitle}>{preset.inputsSummary}</Text>
-              </View>
-
-              <ChevronRightIcon size={18} color={P.twGray400} />
-            </TouchableOpacity>
-
-            {/* Workforce hours */}
-            <TouchableOpacity
-              style={styles.linkedRecordCard}
-              onPress={onNavigateToWorkforce}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="View workforce hours"
-            >
-              <View style={[styles.linkedIconBadge, { backgroundColor: P.twBlue50 }]}>
-                <WorkforceUsersIcon size={18} color={P.twBlue600} />
-              </View>
-
-              <View style={styles.linkedTextCol}>
-                <Text style={styles.linkedTitle}>Workforce hours</Text>
-                <Text style={styles.linkedSubtitle}>{preset.workforceSummary}</Text>
-              </View>
-
-              <ChevronRightIcon size={18} color={P.twGray400} />
-            </TouchableOpacity>
-
-            {/* NPK contribution */}
-            <TouchableOpacity
-              style={[styles.linkedRecordCard, styles.npkCard]}
-              onPress={onNavigateToNPK}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="View NPK contribution"
-            >
-              <View style={[styles.linkedIconBadge, { backgroundColor: P.twOrange100 }]}>
-                <AnalyticsChartIcon size={18} color={P.twOrange600} />
-              </View>
-
-              <View style={styles.linkedTextCol}>
-                <Text style={styles.linkedTitle}>NPK contribution</Text>
-                <Text style={styles.npkAlertSubtitle}>{preset.npkSummary}</Text>
-              </View>
-
-              <ChevronRightIcon size={18} color={P.twOrange600} />
-            </TouchableOpacity>
-          </View>
-
-          {/* ── Section: RECENT DIARY ENTRIES ── */}
-          <View style={styles.diarySectionHeader}>
-            <Text style={styles.sectionTitle}>RECENT DIARY ENTRIES</Text>
-            <TouchableOpacity onPress={onNavigateToDiary} activeOpacity={0.7}>
-              <Text style={styles.viewAllText}>View all</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.recentDiaryList}>
-            {farmCrop ? (
-              recentDiaryEntries.length > 0 ? (
-                recentDiaryEntries.map((entry) => (
-                  <TouchableOpacity
-                    key={entry.id}
-                    style={styles.recentDiaryItem}
-                    onPress={onNavigateToDiary}
-                    activeOpacity={0.75}
-                    accessibilityRole="button"
-                    accessibilityLabel={`View ${entry.subActivityKey} diary entry`}
-                  >
-                    <View style={[styles.diaryIconBadge, { backgroundColor: P.twGreen100 }]}>
-                      <SproutDiaryIcon size={16} color={P.twGreen700} />
-                    </View>
-
-                    <View style={styles.diaryTextCol}>
-                      <Text style={styles.diaryActivityTitle}>
-                        {formatActivityTitle(entry.subActivityKey)}
-                      </Text>
-                      <Text style={styles.diaryActivityTime}>
-                        {formatDiaryTimestamp(entry.loggedAt)}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.diaryDurationText}>
-                      {formatMinutesDuration(entry.minutes)}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              ) : (
-                <Text style={styles.diaryEmptyText}>{t('farmer.crops.detail.diaryNone')}</Text>
-              )
-            ) : (
-              <>
-                {/* Entry 1 */}
-                <TouchableOpacity
-                  style={styles.recentDiaryItem}
-                  onPress={onNavigateToDiary}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityLabel="View Weeding diary entry"
-                >
-                  <View style={[styles.diaryIconBadge, { backgroundColor: P.twGreen100 }]}>
-                    <SproutDiaryIcon size={16} color={P.twGreen700} />
-                  </View>
-
-                  <View style={styles.diaryTextCol}>
-                    <Text style={styles.diaryActivityTitle}>Weeding</Text>
-                    <Text style={styles.diaryActivityTime}>15 Jul · 06:45 AM</Text>
-                  </View>
-
-                  <Text style={styles.diaryDurationText}>50m</Text>
-                </TouchableOpacity>
-
-                {/* Entry 2 */}
-                <TouchableOpacity
-                  style={styles.recentDiaryItem}
-                  onPress={onNavigateToDiary}
-                  activeOpacity={0.75}
-                  accessibilityRole="button"
-                  accessibilityLabel="View Manure application diary entry"
-                >
-                  <View style={[styles.diaryIconBadge, { backgroundColor: P.twGreen100 }]}>
-                    <CompostIcon size={16} color={P.twGreen700} />
-                  </View>
-
-                  <View style={styles.diaryTextCol}>
-                    <Text style={styles.diaryActivityTitle}>Manure application</Text>
-                    <Text style={styles.diaryActivityTime}>15 Jul · 11:00 AM</Text>
-                  </View>
-
-                  <Text style={styles.diaryDurationText}>1h 15m</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
+          <RecentDiarySection
+            hasFarmCrop={farmCrop !== null}
+            recentDiaryEntries={recentDiaryEntries}
+            onNavigateToDiary={onNavigateToDiary}
+          />
 
           <View style={styles.bottomSpacer} />
         </View>
@@ -1817,9 +1255,13 @@ export function CropDetailScreen({
   );
 }
 
-// ─────────────────────────────────────────────
 // Stylesheet (strictly no raw hex literals)
-// ─────────────────────────────────────────────
+
+const SCROLL_PADDING_BOTTOM = 40;
+const LOADING_GAP = 14;
+const ERROR_PADDING = 24;
+const BODY_PADDING_TOP = 18;
+const BOTTOM_SPACER_HEIGHT = 30;
 
 const styles = StyleSheet.create({
   container: {
@@ -1830,685 +1272,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: SCROLL_PADDING_BOTTOM,
   },
   loadingContainer: {
     flex: 1,
-    padding: 16,
-    gap: 14,
+    padding: spacing.lg,
+    gap: LOADING_GAP,
     justifyContent: 'center',
   },
   errorContainer: {
     flex: 1,
-    padding: 24,
+    padding: ERROR_PADDING,
     justifyContent: 'center',
-  },
-  diaryEmptyText: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    paddingVertical: 12,
-  },
-  heroBackground: {
-    width: '100%',
-    minHeight: 330,
-  },
-  heroBackgroundImage: {
-    resizeMode: 'cover',
-  },
-  heroOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-  },
-  heroSafeArea: {
-    flex: 1,
-    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 32) + 8 : 8,
-  },
-  heroNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  heroBackButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroEditButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.35)',
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 22,
-    gap: 6,
-  },
-  heroEditText: {
-    color: P.white,
-    fontSize: typography.body,
-    fontWeight: '700',
-  },
-  heroCropInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  heroThumbnailWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.5)',
-    backgroundColor: P.twGray100,
-  },
-  heroThumbnail: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  heroTitleCol: {
-    marginLeft: 14,
-    flex: 1,
-  },
-  heroCropTitle: {
-    fontSize: typography.title,
-    fontWeight: '700',
-    color: P.white,
-    letterSpacing: -0.3,
-  },
-  heroCropSubtitle: {
-    fontSize: typography.body,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginTop: 4,
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  glassStatCard: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  glassStatValue: {
-    fontSize: typography.title,
-    fontWeight: '800',
-    color: P.white,
-  },
-  glassStatLabel: {
-    fontSize: typography.caption,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginTop: 2,
-  },
-  heroLifecycleBar: {
-    backgroundColor: 'rgba(255, 255, 255, 0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    marginTop: 10,
-  },
-  heroLifecycleTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 6,
-  },
-  heroStageBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-    marginRight: 8,
-  },
-  heroStageBadgeText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.white,
-    letterSpacing: -0.1,
-  },
-  heroProgressPercentText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '800',
-    color: P.white,
-  },
-  heroProgressBarBg: {
-    height: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  heroProgressBarFill: {
-    height: '100%',
-    backgroundColor: P.leafGreen,
-    borderRadius: 3,
   },
   bodyContent: {
-    paddingHorizontal: 16,
-    paddingTop: 18,
-  },
-  sectionHeader: {
-    marginBottom: 10,
-    marginTop: 6,
-  },
-  sectionTitle: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.twGray500,
-    letterSpacing: 0.8,
-  },
-  detailsCard: {
-    backgroundColor: P.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginBottom: 20,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-  },
-  detailLabel: {
-    fontSize: typography.body,
-    color: P.twGray500,
-    fontWeight: '500',
-  },
-  detailValue: {
-    fontSize: typography.body,
-    color: P.ink,
-    fontWeight: '700',
-  },
-  detailValueStage: {
-    fontSize: typography.body,
-    color: P.brandGreen,
-    fontWeight: '800',
-    backgroundColor: P.twGreen50,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: P.twGreen300,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: P.twGray100,
-  },
-
-  // ── Crop Milestones (Accordion Structure) Styles ──
-  milestonesSectionHeader: {
-    marginBottom: 12,
-    marginTop: 4,
-  },
-  lifecycleHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  milestoneHeaderTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  milestoneAchievedBadge: {
-    backgroundColor: P.twGreen50,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.twGreen300,
-  },
-  milestoneAchievedBadgeText: {
-    fontSize: typography.caption,
-    fontWeight: '700',
-    color: P.twGreen800,
-  },
-  stepperContainerCard: {
-    backgroundColor: P.white,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    paddingTop: 16,
-    paddingHorizontal: 14,
-    paddingBottom: 14,
-    marginBottom: 20,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  stepperRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    position: 'relative',
-    paddingHorizontal: 6,
-    paddingTop: 2,
-    paddingBottom: 14,
-  },
-  stepperTrackBackground: {
-    position: 'absolute',
-    top: 20,
-    left: 22,
-    right: 22,
-    height: 3,
-    backgroundColor: P.twGray200,
-    borderRadius: 1.5,
-    zIndex: 0,
-  },
-  stepperTrackFill: {
-    height: 3,
-    backgroundColor: P.brandGreen,
-    borderRadius: 1.5,
-  },
-  stepNodeTouchable: {
-    alignItems: 'center',
-    zIndex: 1,
-    paddingHorizontal: 2,
-  },
-  stepNodeCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: P.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: P.twGray300,
-  },
-  stepNodeCircleAchieved: {
-    backgroundColor: P.brandGreen,
-    borderColor: P.brandGreen,
-    shadowColor: P.brandGreen,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  stepNodeCircleActive: {
-    backgroundColor: P.twGreen50,
-    borderColor: P.brandGreen,
-    borderWidth: 2,
-  },
-  stepNodeCircleUpcoming: {
-    backgroundColor: P.twGray100,
-    borderColor: P.twGray300,
-  },
-  stepNodeCircleSelected: {
-    borderColor: P.brandGreen,
-    borderWidth: 2.5,
-    shadowColor: P.brandGreen,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  stepNodeNumber: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.twGray500,
-  },
-  stepNodeNumberSelected: {
-    color: P.brandGreen,
-    fontWeight: '800',
-  },
-  stepNodeLabel: {
-    fontSize: typography.caption,
-    fontWeight: '600',
-    color: P.twGray400,
-    marginTop: 5,
-  },
-  stepNodeLabelActive: {
-    color: P.twGreen700,
-    fontWeight: '700',
-  },
-  stepNodeLabelSelected: {
-    color: P.brandGreen,
-    fontWeight: '800',
-  },
-  stepNodeActivePill: {
-    width: 14,
-    height: 3,
-    backgroundColor: P.brandGreen,
-    borderRadius: 1.5,
-    marginTop: 3,
-  },
-  selectedMilestoneCard: {
-    backgroundColor: P.twGray50,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    padding: 14,
-    marginTop: 4,
-  },
-  selectedMilestoneHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    gap: 8,
-  },
-  selectedMilestoneTitleCol: {
-    flex: 1,
-  },
-  selectedMilestoneTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '800',
-    color: P.ink,
-    letterSpacing: -0.3,
-    lineHeight: 21,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  milestoneDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  selectedMilestoneDate: {
-    fontSize: typography.bodySmall,
-    color: P.twGray500,
-    fontWeight: '500',
-  },
-  milestoneTagRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  milestoneNumberText: {
-    fontSize: typography.caption,
-    fontWeight: '800',
-    color: P.twGray400,
-    letterSpacing: 0.5,
-  },
-  milestoneCategoryPill: {
-    backgroundColor: P.twGray200,
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-  },
-  milestoneCategoryText: {
-    fontSize: typography.caption,
-    fontWeight: '700',
-    color: P.twGray600,
-  },
-  completeActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: P.twGreen50,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1.2,
-    borderColor: P.twGreen300,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  completeActionButtonAchieved: {
-    backgroundColor: P.brandGreen,
-    borderColor: P.brandGreen,
-  },
-  completeActionButtonText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.twGreen700,
-  },
-  completeActionButtonTextAchieved: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.white,
-  },
-  uncompletedCircleIcon: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1.2,
-    borderColor: P.twGreen600,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  milestoneDeliverablesGrid: {
-    gap: 8,
-    marginBottom: 10,
-  },
-  milestoneDeliverableCard: {
-    backgroundColor: P.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    padding: 11,
-  },
-  milestoneDeliverableCardAchieved: {
-    backgroundColor: P.twGreen50,
-    borderColor: P.twGreen100,
-  },
-  deliverableCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 4,
-  },
-  deliverableCardLabel: {
-    fontSize: typography.caption,
-    fontWeight: '800',
-    color: P.twGray500,
-    letterSpacing: 0.4,
-  },
-  deliverableCardLabelAchieved: {
-    color: P.twGreen700,
-  },
-  deliverableCardValue: {
-    fontSize: typography.body,
-    fontWeight: '600',
-    color: P.ink,
-    lineHeight: 18,
-  },
-  deliverableCardValueAchieved: {
-    color: P.twGreen900,
-    fontWeight: '700',
-  },
-  milestoneObservationCard: {
-    backgroundColor: P.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    padding: 11,
-    marginBottom: 12,
-  },
-  observationHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginBottom: 4,
-  },
-  observationHeaderTitle: {
-    fontSize: typography.caption,
-    fontWeight: '800',
-    color: P.twGray600,
-    letterSpacing: 0.2,
-  },
-  observationCardText: {
-    fontSize: typography.bodySmall,
-    lineHeight: 17,
-    color: P.twGray600,
-    fontStyle: 'italic',
-  },
-  stepperNavControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: P.twGray200,
-  },
-  stepperNavBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: P.white,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-  },
-  stepperNavBtnDisabled: {
-    backgroundColor: P.twGray50,
-    borderColor: P.twGray100,
-    opacity: 0.5,
-  },
-  stepperNavBtnText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.twGreen700,
-  },
-  stepperNavBtnTextDisabled: {
-    color: P.twGray300,
-  },
-  stepperNavCounterText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.twGray500,
-  },
-  linkedRecordsList: {
-    gap: 12,
-    marginBottom: 22,
-  },
-  linkedRecordCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: P.white,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 5,
-    elevation: 2,
-  },
-  npkCard: {
-    borderColor: P.twOrange200,
-  },
-  linkedIconBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  linkedTextCol: {
-    flex: 1,
-    marginLeft: 14,
-  },
-  linkedTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.ink,
-  },
-  linkedSubtitle: {
-    fontSize: typography.bodySmall,
-    color: P.twGray500,
-    marginTop: 2,
-  },
-  npkAlertSubtitle: {
-    fontSize: typography.bodySmall,
-    color: P.twOrange600,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  diarySectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    marginTop: 4,
-  },
-  viewAllText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGreen700,
-  },
-  recentDiaryList: {
-    backgroundColor: P.white,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: P.twGray200,
-    overflow: 'hidden',
-    shadowColor: P.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  recentDiaryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: P.twGray100,
-  },
-  diaryIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  diaryTextCol: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  diaryActivityTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-    color: P.ink,
-  },
-  diaryActivityTime: {
-    fontSize: typography.bodySmall,
-    color: P.twGray400,
-    marginTop: 2,
-  },
-  diaryDurationText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.twGreen700,
+    paddingHorizontal: spacing.lg,
+    paddingTop: BODY_PADDING_TOP,
   },
   bottomSpacer: {
-    height: 30,
+    height: BOTTOM_SPACER_HEIGHT,
   },
 });

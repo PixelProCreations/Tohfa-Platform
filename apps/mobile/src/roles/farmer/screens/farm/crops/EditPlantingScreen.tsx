@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -9,7 +8,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Line, Path, Rect } from 'react-native-svg';
 import { Calendar } from 'react-native-calendars';
 import type { DateData } from 'react-native-calendars';
@@ -24,6 +24,9 @@ import {
 import { canDeleteAsset, TREE_REMOVE_UNAVAILABLE_MESSAGE } from '../assets/RemoveItemScreen';
 import { t } from '../../../../../i18n/farmer';
 import { formatErrorMessage } from '../../../../../shell/api/client';
+import { useFieldValidation } from '../../../utils/validation';
+import { FieldErrorText } from '../FieldErrorText';
+import { PLANTING_FIELD_ORDER, PLANTING_RULES } from './plantingValidation';
 import { getTreePlanting, parsePlantedOn, updateTreePlanting } from '../../../api/treePlantings';
 
 // ── Calendar theme ───────────────────────────────────────────────────────────
@@ -162,6 +165,7 @@ export function EditPlantingScreen({
   onSave,
   onRemove,
 }: EditPlantingScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const plantingId = planting?.id;
   const [species, setSpecies] = useState(planting?.species || '');
   const [treeCount, setTreeCount] = useState<number>(planting?.treeCount ?? 1);
@@ -201,6 +205,13 @@ export function EditPlantingScreen({
 
   // Saving needs a stored record to update (BR-55): no id, or a record that
   // failed to load, means there is nothing real to write back.
+  // treeCount is a +/- counter (not typed), but is validated with the same rule
+  // as Add so both forms enforce the API's 1..2147483647 range.
+  const values = useMemo(
+    () => ({ species, treeCount: String(treeCount), zone: locationZone, purpose }),
+    [species, treeCount, locationZone, purpose],
+  );
+  const validation = useFieldValidation({ values, rules: PLANTING_RULES, order: PLANTING_FIELD_ORDER });
   const canSave = Boolean(plantingId) && loadState === 'ready' && !isSaving;
 
   const plantedDateLabel = plantedDate ? formatSafeDate(plantedDate) : null;
@@ -229,14 +240,18 @@ export function EditPlantingScreen({
 
   function handleRemove(): void {
     if (!canRemove) {
-      Alert.alert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE);
+      appAlert('Not available yet', TREE_REMOVE_UNAVAILABLE_MESSAGE, undefined, { tone: 'error' });
       return;
     }
     onRemove?.();
   }
 
   async function handleSave(): Promise<void> {
-    if (!species.trim() || !plantingId || !canSave) return;
+    if (!species.trim() || !plantingId || !canSave) {
+      validation.validateAll();
+      return;
+    }
+    if (!validation.validateAll().valid) return;
     setIsSaving(true);
     setSaveError(null);
     try {
@@ -315,10 +330,13 @@ export function EditPlantingScreen({
             style={styles.textInput}
             value={species}
             onChangeText={setSpecies}
+            onBlur={() => validation.onBlur('species')}
+            maxLength={200}
             placeholder="e.g. Silver Oak"
             placeholderTextColor={P.twGray400}
           />
         </View>
+        <FieldErrorText message={validation.messageFor('species')} testID="edit-planting-species-error" />
 
         {/* Number of trees */}
         <Text style={styles.fieldLabel}>
@@ -372,10 +390,13 @@ export function EditPlantingScreen({
             style={styles.textInput}
             value={locationZone}
             onChangeText={setLocationZone}
+            onBlur={() => validation.onBlur('zone')}
+            maxLength={200}
             placeholder="e.g. Zone A boundary"
             placeholderTextColor={P.twGray400}
           />
         </View>
+        <FieldErrorText message={validation.messageFor('zone')} />
 
         {/* Purpose Field */}
         <Text style={styles.fieldLabel}>Purpose</Text>
@@ -384,10 +405,13 @@ export function EditPlantingScreen({
             style={styles.textInput}
             value={purpose}
             onChangeText={setPurpose}
+            onBlur={() => validation.onBlur('purpose')}
+            maxLength={500}
             placeholder="e.g. Shade & windbreak"
             placeholderTextColor={P.twGray400}
           />
         </View>
+        <FieldErrorText message={validation.messageFor('purpose')} />
 
         {/* Remove Button — muted and honestly labelled when unsupported, rather
             than handing off to a screen that only says so after the fact. */}
@@ -415,8 +439,8 @@ export function EditPlantingScreen({
 
       {/* Planting Date Calendar Modal */}
       {showCalendar ? (
-        <Modal transparent visible animationType="fade" onRequestClose={() => setShowCalendar(false)}>
-          <View style={styles.calendarOverlay}>
+        <Modal statusBarTranslucent navigationBarTranslucent transparent visible animationType="fade" onRequestClose={() => setShowCalendar(false)}>
+          <View style={[styles.calendarOverlay, { paddingBottom: insets.bottom }]}>
             <View style={styles.calendarScrim} pointerEvents="none" />
             <TouchableOpacity
               style={styles.calendarBackdrop}

@@ -30,6 +30,8 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  // The screen now raises its confirmation through the themed popup, which has Alert.alert's call shape.
+  appAlert: alertMock,
   SafeAreaView: 'SafeAreaView',
   ScreenStatusBar: 'ScreenStatusBar',
 }));

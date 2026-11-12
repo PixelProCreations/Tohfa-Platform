@@ -28,7 +28,7 @@ import { getMyListings, type Listing } from '../../api/listings';
 import { listNotifications } from '../../api/notifications';
 import { listMyAudits, shortMonthKey, type FarmerAuditSummary } from '../../api/audits';
 import { listAllActiveFarmCrops, type ActiveFarmCropsResult } from '../../api/crops';
-import { ErrorState, Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { ErrorState, Icon, ModalSafeArea, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
 import { getLocale, t, type TranslationKey } from '../../../../i18n/farmer';
 
 import { authPalette as P, colors, typography } from '../../theme';
@@ -53,6 +53,8 @@ import {
 } from './dashboardWidgets';
 
 /** Audits fetched for the mini-card: one page, soonest first (BR-03a allows one per quarter). */
+/** SPEC GAP: the dashboard search filters on-device (no API schema); a generic ceiling on the query length. */
+const SEARCH_MAX_LENGTH = 100;
 const UPCOMING_AUDITS_PAGE_SIZE = 100; // LimitParam maximum in docs/openapi.yaml
 
 function auditMiniValue(countdown: AuditCountdown): string {
@@ -831,18 +833,28 @@ export function DashboardScreen({
         <View style={styles.mainContent}>
           {/* Weather Card */}
           <TouchableOpacity style={styles.weatherCard} activeOpacity={0.9} onPress={onNavigateToWeather}>
-            <View style={styles.weatherTop}>
+            <View style={styles.weatherHeader}>
+              <View style={styles.locationRow}>
+                <Icon name="place" size={14} color={P.grey600} />
+                <Text style={styles.locationText}>{t('farmer.dashboard.weather.location')}</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.forecastButton}
+                onPress={onNavigateToWeather}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.forecastText}>{t('farmer.dashboard.weather.forecast')} {'>'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.weatherMain}>
               <View style={styles.weatherIconContainer}>
-                <Icon name={weatherIconName} size={32} color={weatherIconColor} />
+                <Icon name={weatherIconName} size={30} color={weatherIconColor} />
               </View>
               <View style={styles.weatherInfo}>
-                <View style={styles.locationRow}>
-                  <Icon name="place" size={12} color={P.grey600} />
-                  <Text style={styles.locationText}>{t('farmer.dashboard.weather.location')}</Text>
-                </View>
                 <View style={styles.tempRow}>
                   <Text style={styles.temperature}>{weatherTemperature}</Text>
-                  <Text style={styles.condition}>{weatherCondition}</Text>
+                  <Text style={styles.condition} numberOfLines={1}>{weatherCondition}</Text>
                 </View>
                 {isWeatherEstimated ? (
                   <Text style={styles.weatherEstimatedLabel}>
@@ -850,24 +862,30 @@ export function DashboardScreen({
                   </Text>
                 ) : null}
               </View>
-              <TouchableOpacity style={styles.forecastButton} onPress={onNavigateToWeather}>
-                <Text style={styles.forecastText}>{t('farmer.dashboard.weather.forecast')} {'>'}</Text>
-              </TouchableOpacity>
             </View>
+
             <View style={styles.weatherBottom}>
-              <View style={styles.weatherStat}>
-                <Icon name="water_drop" size={14} color={P.lightBlue700} />
-                <Text style={styles.weatherStatValue}> {weatherHumidity} </Text>
+              <View style={styles.weatherStatItem}>
+                <View style={styles.weatherStatMetric}>
+                  <Icon name="water_drop" size={14} color={P.lightBlue700} />
+                  <Text style={styles.weatherStatValue}>{weatherHumidity}</Text>
+                </View>
                 <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.humidity')}</Text>
               </View>
-              <View style={styles.weatherStat}>
-                <Icon name="air" size={14} color={P.blueGrey400} />
-                <Text style={styles.weatherStatValue}> {weatherWind} </Text>
+              <View style={styles.weatherStatDivider} />
+              <View style={styles.weatherStatItem}>
+                <View style={styles.weatherStatMetric}>
+                  <Icon name="air" size={14} color={P.blueGrey400} />
+                  <Text style={styles.weatherStatValue}>{weatherWind}</Text>
+                </View>
                 <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.wind')}</Text>
               </View>
-              <View style={styles.weatherStat}>
-                <Icon name="rainy" size={14} color={P.blue700} />
-                <Text style={styles.weatherStatValue}> {weatherRain} </Text>
+              <View style={styles.weatherStatDivider} />
+              <View style={styles.weatherStatItem}>
+                <View style={styles.weatherStatMetric}>
+                  <Icon name="rainy" size={14} color={P.blue700} />
+                  <Text style={styles.weatherStatValue}>{weatherRain}</Text>
+                </View>
                 <Text style={styles.weatherStatLabel}>{t('farmer.dashboard.weather.rain')}</Text>
               </View>
             </View>
@@ -1124,9 +1142,11 @@ export function DashboardScreen({
         visible={showSearch}
         animationType="slide"
         transparent={false}
+        statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={() => setShowSearch(false)}
       >
-        <SafeAreaView style={styles.searchModalScreen}>
+        <ModalSafeArea style={styles.searchModalScreen}>
           {/* Search Header */}
           <View style={styles.searchHeader}>
             <View style={styles.searchInputContainer}>
@@ -1139,6 +1159,7 @@ export function DashboardScreen({
                 placeholderTextColor={P.twGray400}
                 autoFocus={true}
                 returnKeyType="search"
+                maxLength={SEARCH_MAX_LENGTH}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity
@@ -1220,7 +1241,7 @@ export function DashboardScreen({
               </View>
             }
           />
-        </SafeAreaView>
+        </ModalSafeArea>
       </Modal>
     </SafeAreaView>
   );
@@ -1353,84 +1374,104 @@ const styles = StyleSheet.create({
   },
 
   weatherCard: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: P.white,
+    borderRadius: 18,
+    padding: 16,
     shadowColor: P.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
     elevation: 3,
   },
-  weatherTop: {
+  weatherHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
-  },
-  weatherIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 15,
-    backgroundColor: P.orange50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  weatherInfo: {
-    flex: 1,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginBottom: 4,
   },
   locationText: {
     color: P.grey600,
-    fontSize: typography.body,
-  },
-  tempRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  temperature: {
-    fontSize: typography.headline,
-    fontWeight: 'bold',
-    color: P.grey900,
-  },
-  condition: {
-    fontSize: typography.bodyLarge,
-    color: P.grey600,
-  },
-  weatherEstimatedLabel: {
     fontSize: typography.bodySmall,
-    fontWeight: '700',
-    color: P.orange500,
-    marginTop: 2,
+    fontWeight: '500',
   },
   forecastButton: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
     backgroundColor: P.lightGreen50,
     borderRadius: 12,
   },
   forecastText: {
     color: colors.brandGreen,
-    fontSize: typography.bodySmall,
+    fontSize: typography.caption,
     fontWeight: 'bold',
+  },
+  weatherMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  weatherIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: P.orange50,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  weatherInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  tempRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  temperature: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: P.grey900,
+  },
+  condition: {
+    fontSize: typography.body,
+    fontWeight: '600',
+    color: P.grey700,
+  },
+  weatherEstimatedLabel: {
+    fontSize: typography.caption,
+    fontWeight: '700',
+    color: P.orange600,
+    marginTop: 2,
   },
   weatherBottom: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 15,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: P.grey100,
   },
-  weatherStat: {
+  weatherStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weatherStatMetric: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  weatherStatDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: P.grey200,
   },
   weatherStatValue: {
     fontSize: typography.body,
@@ -1438,8 +1479,9 @@ const styles = StyleSheet.create({
     color: P.grey900,
   },
   weatherStatLabel: {
-    fontSize: typography.body,
+    fontSize: typography.caption,
     color: P.grey600,
+    marginTop: 2,
   },
 
   alertCard: {
