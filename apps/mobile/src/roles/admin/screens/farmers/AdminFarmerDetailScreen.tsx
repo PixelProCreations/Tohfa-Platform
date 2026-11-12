@@ -25,9 +25,14 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { CalendarIcon } from '../../components/AdminIcons';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 import { type Can } from '../../permissions/can';
 import type { FarmerListItem } from './AdminAllFarmersScreen';
 import { AdminEditFarmerScreen } from './AdminEditFarmerScreen';
+import { AdminAddFarmRecordScreen, type AddRecordTab } from './AdminAddFarmRecordScreen';
+import { AdminEditFarmRecordScreen, type EditFarmRecordData } from './AdminEditFarmRecordScreen';
+import { FarmRecordsSection } from './FarmRecordsSection';
 
 function BackArrowWhiteIcon({ size = 20, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (
@@ -82,6 +87,8 @@ export type FarmerDetailTabType =
   | 'KYC'
   | 'Ratings'
   | 'Subscription'
+  | 'Verification & Compliance'
+  | 'Farmer Records'
   | 'Audit'
   | 'History'
   | 'Personal'
@@ -111,56 +118,74 @@ export const DEFAULT_CATEGORY_RATINGS: CategoryRating[] = [
 ];
 
 export interface AdminFarmerDetailScreenProps {
-  farmer?: any;
+  farmer?: FarmerListItem | undefined;
   farmerId?: string | undefined;
   farmerName?: string | undefined;
   onBack: () => void;
-  can?: Can | undefined;
-  role?: string | undefined;
-  userScope?: {
-    zoneId?: string | undefined;
-    warehouseId?: string | undefined;
-  } | undefined;
   onEdit?: ((currentTab: FarmerDetailTabType) => void) | undefined;
   onDisable?: (() => void) | undefined;
   onOpenFarmMap?: (() => void) | undefined;
   onOpenKycReview?: (() => void) | undefined;
   onOpenRatingScorecard?: (() => void) | undefined;
+  onNavigateAuditHistory?: (() => void) | undefined;
   initialTab?: FarmerDetailTabType | undefined;
   onTabChange?: ((tab: FarmerDetailTabType) => void) | undefined;
-  onNavigateAuditHistory?: (() => void) | undefined;
+  can?: Can | undefined;
+  role?: string | undefined;
+  userScope?: unknown;
 }
 
 type Props = AdminFarmerDetailScreenProps;
 
 export const AdminFarmerDetailScreen: React.FC<Props> = ({
-  farmer,
+  farmer: passedFarmer,
   farmerId,
   farmerName,
   onBack,
   can,
   role,
-  userScope,
+  userScope: _userScope,
   onEdit,
   onDisable,
   onOpenFarmMap,
   onOpenKycReview,
   onOpenRatingScorecard,
+  onNavigateAuditHistory: _onNavigateAuditHistory,
   initialTab = 'Personal',
   onTabChange,
 }) => {
+  const farmer: FarmerListItem = React.useMemo(
+    () =>
+      passedFarmer || ({
+        id: farmerId || 'f1',
+        name: farmerName || 'Farmer',
+        farmName: 'Ramesh Kumar Farm',
+        code: 'FMR-00124',
+        location: 'Coonoor, Nilgiris',
+        phone: '+91 98765 00124',
+        mobile: '+91 98765 00124',
+        status: 'ACTIVE',
+        rating: 4.5,
+        cropCount: 3,
+        landSize: '4.25 acres',
+      } as unknown as FarmerListItem),
+    [passedFarmer, farmerId, farmerName],
+  );
   const normalizeTab = (tab?: FarmerDetailTabType): FarmerDetailTabType => {
     if (!tab || tab === 'Overview') return 'Personal';
     if (tab === 'Farm') return 'Farm & land';
     return tab;
   };
 
+  const normalizeStatus = (raw?: string): 'ACTIVE' | 'DISABLED' =>
+    raw?.toUpperCase() === 'DISABLED' ? 'DISABLED' : 'ACTIVE';
+
   const resolvedFarmer: FarmerListItem = farmer
     ? {
         id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
         name: farmer.name || farmerName || 'Farmer',
         phone: farmer.phone || '+91 98765 43210',
-        status: farmer.status || farmer.accountStatus?.toUpperCase() || 'ACTIVE',
+        status: normalizeStatus(farmer.status || farmer.accountStatus),
         registeredDate: farmer.registeredDate || '12 Jan 2026',
         farmSize: farmer.farmSize || '5.5 Acres',
         zone: farmer.zone || 'Ooty North',
@@ -168,6 +193,8 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
         rating: farmer.rating || '4.8',
         kycStatus: farmer.kycStatus || 'VERIFIED',
         disputeCount: farmer.disputeCount || 0,
+        ...(farmer.certStatus ? { certStatus: farmer.certStatus } : {}),
+        ...(farmer.hasExpiredCert !== undefined ? { hasExpiredCert: farmer.hasExpiredCert } : {}),
       }
     : {
         id: farmerId || 'FARM-001',
@@ -190,22 +217,24 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   );
 
   useEffect(() => {
-    if (farmer) {
-      setCurrentFarmer({
-        id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
-        name: farmer.name || farmerName || 'Farmer',
-        phone: farmer.phone || '+91 98765 43210',
-        status: farmer.status || farmer.accountStatus?.toUpperCase() || 'ACTIVE',
-        registeredDate: farmer.registeredDate || '12 Jan 2026',
-        farmSize: farmer.farmSize || '5.5 Acres',
-        zone: farmer.zone || 'Ooty North',
-        crops: farmer.crops || ['Carrot', 'Potato'],
-        rating: farmer.rating || '4.8',
-        kycStatus: farmer.kycStatus || 'VERIFIED',
-        disputeCount: farmer.disputeCount || 0,
-      });
-    }
-  }, [farmer, farmerId, farmerName]);
+    setCurrentFarmer({
+      id: farmer.id || farmer.farmerId || farmerId || 'FARM-001',
+      name: farmer.name || farmerName || 'Farmer',
+      phone: farmer.phone || farmer.mobile || '+91 98765 43210',
+      mobile: farmer.mobile || farmer.phone || '+91 90000 20000',
+      location: farmer.location || farmer.zone || 'Coonoor',
+      status: normalizeStatus(farmer.status || farmer.accountStatus),
+      registeredDate: farmer.registeredDate || '12 Jan 2026',
+      farmSize: farmer.farmSize || '5.5 Acres',
+      zone: farmer.zone || 'Ooty North',
+      crops: farmer.crops || ['Carrot', 'Potato'],
+      rating: farmer.rating || '4.8',
+      kycStatus: farmer.kycStatus || 'VERIFIED',
+      disputeCount: farmer.disputeCount || 0,
+      ...(farmer.certStatus ? { certStatus: farmer.certStatus } : {}),
+      ...(farmer.hasExpiredCert !== undefined ? { hasExpiredCert: farmer.hasExpiredCert } : {}),
+    });
+  }, [farmer]);
 
   // Edit Farm Rating & Profile states
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -236,17 +265,60 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   const [trackWidth, setTrackWidth] = useState(200);
   const maxScrollWidthRef = useRef(150);
 
-  const tabs: { key: FarmerDetailTabType; label: string }[] = [
-    { key: 'Personal', label: 'Personal' },
-    { key: 'Farm & land', label: 'Farm & land' },
-    { key: 'Soil', label: 'Soil' },
-    { key: 'Product listing', label: 'Product listing' },
-    { key: 'KYC', label: 'KYC' },
-    { key: 'Ratings', label: 'Ratings' },
-    { key: 'Subscription', label: 'Subscription' },
-    { key: 'Audit', label: 'Audit' },
-    { key: 'History', label: 'History' },
-  ];
+  // KYC accordion & document states (Images 4 & 5)
+  const [kycIdentityOpen, setKycIdentityOpen] = useState(true);
+  const [kycLandOpen, setKycLandOpen] = useState(false);
+  const [kycBankOpen, setKycBankOpen] = useState(false);
+  const [kycDocStatus, setKycDocStatus] = useState<
+    Record<'aadhar' | 'voter' | 'land', 'Verified' | 'Unverified' | 'Rejected'>
+  >({
+    aadhar: 'Verified',
+    voter: 'Verified',
+    land: 'Verified',
+  });
+  const [kycPreviewDoc, setKycPreviewDoc] = useState<{
+    key: 'aadhar' | 'voter' | 'land';
+    title: string;
+    docName: string;
+    fileName: string;
+  } | null>(null);
+  const [liveHistoryEvents, setLiveHistoryEvents] = useState<
+    Array<{ id: string; timeActor: string; action: string }>
+  >([]);
+
+  const isSuperAdmin = role === 'SUPER_ADMIN' || (can ? can('farmer.document.verify') : false);
+
+  const tabs: { key: FarmerDetailTabType; label: string }[] = React.useMemo(() => {
+    const list: { key: FarmerDetailTabType; label: string }[] = [
+      { key: 'Personal', label: 'Personal' },
+      { key: 'Farm & land', label: 'Farm & land' },
+      { key: 'Soil', label: 'Soil' },
+      { key: 'Product listing', label: 'Product listing' },
+      { key: 'KYC', label: 'KYC' },
+      { key: 'Ratings', label: 'Ratings' },
+      { key: 'Subscription', label: 'Subscription' },
+    ];
+    if (isSuperAdmin) {
+      list.push({ key: 'Verification & Compliance', label: 'Verification & Compliance' });
+      list.push({ key: 'Farmer Records', label: 'Farmer Records' });
+    }
+    list.push({ key: 'Audit', label: 'Audit' }, { key: 'History', label: 'History' });
+    return list;
+  }, [isSuperAdmin]);
+
+  useEffect(() => {
+    const idx = tabs.findIndex((t) => t.key === activeTab);
+    if (idx >= 3) {
+      const timer = setTimeout(() => {
+        tabScrollRef.current?.scrollTo({
+          x: Math.max(0, idx * 96 - 40),
+          animated: true,
+        });
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [activeTab, tabs]);
 
   const handleTabScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
@@ -283,6 +355,40 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
   // Form input states
   const [reasonInput, setReasonInput] = useState('');
   const [internalNoteInput, setInternalNoteInput] = useState('');
+  const [addRecordInitialTab, setAddRecordInitialTab] = useState<AddRecordTab | null>(null);
+  const [editingRecordData, setEditingRecordData] = useState<EditFarmRecordData | null>(null);
+
+  // Subscription extend & waive states (Image 4 & 5)
+  const [extendBy, setExtendBy] = useState<'30 days' | '90 days' | '1 year'>('30 days');
+  const [newExpiryDate, setNewExpiryDate] = useState('12 Apr 1982');
+  const [expiryCalendarOpen, setExpiryCalendarOpen] = useState(false);
+  const [extendReason, setExtendReason] = useState('Goodwill extension for a payment delay (demo).');
+  const [waiveTarget, setWaiveTarget] = useState<'Current renewal (₹500.00)' | 'Full plan'>('Current renewal (₹500.00)');
+  const [waiveReason, setWaiveReason] = useState('Waived as compensation for a platform outage (demo).');
+
+  const handleExtendSubscription = () => {
+    setLiveHistoryEvents((prev) => [
+      {
+        id: `hist-ext-${Date.now()}`,
+        timeActor: 'Just now · Super Admin',
+        action: `Subscription extended by ${extendBy} (new expiry ${newExpiryDate})`,
+      },
+      ...prev,
+    ]);
+    Alert.alert('Subscription Extended', `Farmer subscription extended by ${extendBy}. New expiry: ${newExpiryDate}.`);
+  };
+
+  const handleWaiveFee = () => {
+    setLiveHistoryEvents((prev) => [
+      {
+        id: `hist-waive-${Date.now()}`,
+        timeActor: 'Just now · Super Admin',
+        action: `Subscription fee waived (${waiveTarget})`,
+      },
+      ...prev,
+    ]);
+    Alert.alert('Fee Waived', `Subscription fee waived for ${waiveTarget}.`);
+  };
 
   const handleOpenDeactivateModal = () => {
     setReasonInput('');
@@ -395,6 +501,51 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
     );
   }
 
+  // ─── SUBVIEW: EDIT FARM RECORD (Diary -> AdminEditFarmRecordScreen; Plant/Crop, Livestock, Asset -> AdminAddFarmRecordScreen in edit mode) ───
+  if (editingRecordData !== null) {
+    if (editingRecordData.type === 'diary') {
+      return (
+        <AdminEditFarmRecordScreen
+          record={editingRecordData}
+          onBack={() => setEditingRecordData(null)}
+          onSave={() => setEditingRecordData(null)}
+        />
+      );
+    }
+    const editTab =
+      editingRecordData.type === 'crop'
+        ? 'Plant'
+        : editingRecordData.type === 'livestock'
+          ? 'Livestock'
+          : 'Assets';
+    return (
+      <AdminAddFarmRecordScreen
+        initialTab={editTab}
+        mode="edit"
+        initialRecord={editingRecordData}
+        farmerName={farmer.name}
+        farmerId={farmer.code ?? farmer.id ?? 'FMR-00124'}
+        allowAddOptions={false}
+        onBack={() => setEditingRecordData(null)}
+        onSave={() => setEditingRecordData(null)}
+      />
+    );
+  }
+
+  // ─── SUBVIEW: ADD FARM RECORDS (Images 1-5) ───
+  if (addRecordInitialTab !== null) {
+    return (
+      <AdminAddFarmRecordScreen
+        initialTab={addRecordInitialTab}
+        farmerName={farmer.name}
+        farmerId={farmer.code ?? farmer.id ?? 'FMR-00124'}
+        allowAddOptions={false}
+        onBack={() => setAddRecordInitialTab(null)}
+        onSave={() => setAddRecordInitialTab(null)}
+      />
+    );
+  }
+
   // ─── SUBVIEW: EDIT FARM RATING (Images 3 & 4) ───
   if (isEditingRating) {
     return (
@@ -465,8 +616,30 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <View style={styles.greenPill}>
                 <Text style={styles.greenPillText}>KYC Verified</Text>
               </View>
-              <View style={styles.redPill}>
-                <Text style={styles.redPillText}>Certification expired</Text>
+              <View
+                style={
+                  currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
+                    ? styles.redPill
+                    : currentFarmer.certStatus === 'Pending'
+                    ? styles.amberPill
+                    : styles.greenPill
+                }
+              >
+                <Text
+                  style={
+                    currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
+                      ? styles.redPillText
+                      : currentFarmer.certStatus === 'Pending'
+                      ? styles.amberPillText
+                      : styles.greenPillText
+                  }
+                >
+                  {currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
+                    ? 'Certification expired'
+                    : currentFarmer.certStatus === 'Pending'
+                    ? 'Cert pending'
+                    : 'Certified'}
+                </Text>
               </View>
               <View style={styles.neutralPill}>
                 <Text style={styles.neutralPillText}>Since 10 Jan 2026</Text>
@@ -606,40 +779,41 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
             <BackArrowWhiteIcon />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>
-              {activeTab === 'Ratings' ? 'Farm Rating' : 'Farmer Profile'}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {activeTab === 'Verification & Compliance'
+                ? (farmer.name || 'Ramesh Kumar')
+                : 'Farmer Profile'}
             </Text>
-            {activeTab === 'Ratings' && (
-              <Text style={styles.headerSubtitleText}>
-                {farmer.name || 'Ramesh Kumar'} Farming · {farmer.code || 'FR-00124'}
+            {activeTab === 'Verification & Compliance' && (
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                {(farmer.code || 'FMR-00124')} · Verification & Compliance
               </Text>
             )}
           </View>
-          {canEditProfile && activeTab !== 'Ratings' && (
-            <TouchableOpacity
-              style={styles.headerEditCircleButton}
-              onPress={() => {
-                if (onEdit) {
-                  onEdit(activeTab);
-                } else {
-                  setIsEditingProfile(true);
-                }
-              }}
-              activeOpacity={0.7}
-              accessibilityRole="button"
-              accessibilityLabel="Edit Farmer Profile"
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
-                  stroke={adminColors.onBrand}
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.backButton, { marginLeft: 'auto' }]}
+            onPress={() => setIsEditingProfile(true)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Farmer Profile"
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <Path
+                d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+                stroke={adminColors.onBrand}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -698,8 +872,30 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <Text style={styles.greenPillText}>KYC Verified</Text>
             </TouchableOpacity>
 
-            <View style={styles.redPill}>
-              <Text style={styles.redPillText}>Certification expired</Text>
+            <View
+              style={
+                currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
+                  ? styles.redPill
+                  : currentFarmer.certStatus === 'Pending'
+                  ? styles.amberPill
+                  : styles.greenPill
+              }
+            >
+              <Text
+                style={
+                  currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
+                    ? styles.redPillText
+                    : currentFarmer.certStatus === 'Pending'
+                    ? styles.amberPillText
+                    : styles.greenPillText
+                }
+              >
+                {currentFarmer.certStatus === 'Expired' || currentFarmer.hasExpiredCert
+                  ? 'Certification expired'
+                  : currentFarmer.certStatus === 'Pending'
+                  ? 'Cert pending'
+                  : 'Certified'}
+              </Text>
             </View>
 
             <TouchableOpacity
@@ -822,39 +1018,51 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
                 <Text style={styles.tableValue}>Mixed vegetable farm.</Text>
               </View>
 
-              <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.tableRow}>
                 <Text style={styles.tableLabel}>Registered</Text>
                 <Text style={styles.tableValue}>{farmer.memberSince || '10 Jan 2026'}</Text>
+              </View>
+
+              <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.tableLabel}>Account States</Text>
+                <Text style={styles.tableValue}>{accountStatus}</Text>
               </View>
             </View>
 
             {/* Account Lifecycle */}
             <Text style={styles.sectionHeaderTitle}>Account lifecycle</Text>
             <View style={styles.lifecycleCard}>
-              <Text style={styles.lifecycleTime}>5 Oct 2026, 10:00 · Applicant</Text>
+              <Text style={styles.lifecycleTime}>16 Oct 2026, 2:30 · TOHFA Admin</Text>
+              <Text style={styles.lifecycleStatus}>Deactivated</Text>
+              <Text style={[styles.lifecycleTime, { marginTop: adminSpacing.sm }]}>5 Oct 2026, 10:00 · Applicant</Text>
               <Text style={styles.lifecycleStatus}>Approved</Text>
             </View>
 
-            {/* Action Buttons Row */}
-            {canDisableAccount && (
-              <View style={styles.actionButtonsRow}>
-              <TouchableOpacity
-                style={styles.deactivateBtn}
-                onPress={handleOpenDeactivateModal}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.deactivateBtnText}>Deactivate account</Text>
-              </TouchableOpacity>
+            {/* Action Buttons Row matching Image 2 */}
+            <View style={styles.actionButtonsRow}>
+              {(!can || can('farmer.account.reactivate')) && (
+                <TouchableOpacity
+                  style={styles.reactivateBtn}
+                  onPress={() => {
+                    setAccountStatus('Active');
+                    Alert.alert('Account Re-Activated', 'Farmer account has been successfully re-activated.');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.reactivateBtnText}>Re-Activate account</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={styles.terminateBtn}
-                onPress={handleOpenTerminateModal}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.terminateBtnText}>Disable Account</Text>
-              </TouchableOpacity>
+              {(!can || can('farmer.account.disable')) && (
+                <TouchableOpacity
+                  style={styles.deactivateBtn}
+                  onPress={handleOpenDeactivateModal}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.deactivateBtnText}>Deactivate account</Text>
+                </TouchableOpacity>
+              )}
             </View>
-            )}
           </>
         )}
 
@@ -1007,6 +1215,21 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               </View>
             </View>
 
+            {/* Product Card 3 (Image 3) */}
+            <View style={styles.productCard}>
+              <View style={styles.productHeaderRow}>
+                <Text style={styles.productTitle}>Carrot · Grade B</Text>
+                <View style={styles.readyBluePill}>
+                  <Text style={styles.readyBluePillText}>Ready</Text>
+                </View>
+              </View>
+              <Text style={styles.productMetaLine}>Listed 05 Oct 2026 · 123 KG</Text>
+              <View style={styles.priceRow}>
+                <Text style={styles.priceLabel}>Counter price</Text>
+                <Text style={styles.priceValue}>₹56.00 / KG</Text>
+              </View>
+            </View>
+
             <Text style={[styles.sectionHeaderTitle, { marginTop: adminSpacing.md }]}>Listing history</Text>
 
             {/* Listing History Card */}
@@ -1034,49 +1257,257 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
               <View style={styles.historyRow}>
                 <View style={styles.historyLeft}>
                   <Text style={styles.historyCropTitle}>Beans · Grade C · 60 KG</Text>
-                  <Text style={styles.historyCropSubtitle}>05 Aug 2026 · Rejected</Text>
+                  <Text style={styles.historyCropSubtitle}>06 Aug 2026 · Rejected</Text>
                 </View>
                 <Text style={styles.historyPrice}>₹18.00/KG</Text>
               </View>
             </View>
+
+            {/* Action Buttons Row matching Image 3 */}
+            <View style={[styles.actionButtonsRow, { marginTop: adminSpacing.lg }]}>
+              <TouchableOpacity
+                style={styles.raisePoBtn}
+                onPress={() => Alert.alert('Purchase Order', 'Raise Purchase Order action triggered.')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.raisePoBtnText}>Raise Purchase Order</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.blockListingsBtn}
+                onPress={() => Alert.alert('Block Listings', 'Block Listings action triggered.')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.blockListingsBtnText}>Block Listings</Text>
+              </TouchableOpacity>
+            </View>
           </>
         )}
 
-        {/* ─── TAB 5: KYC (Image 3 Screen 4) ─── */}
-        {activeTab === 'KYC' && (
-          <View style={styles.detailsCard}>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Identity proof</Text>
-              <Text style={styles.kycVerifiedText}>Verified</Text>
-            </View>
+        {/* ─── TAB 5: KYC (Images 4 & 5) ─── */}
+        {activeTab === 'KYC' && (() => {
+          const canVerifyDocs = !can || can('farmer.document.verify');
+          const renderKycDocRow = (doc: {
+            key: 'aadhar' | 'voter' | 'land';
+            title: string;
+            docName: string;
+            fileName: string;
+          }) => {
+            const status = kycDocStatus[doc.key];
+            return (
+              <View key={doc.key} style={styles.kycDocRowCard}>
+                <View style={styles.kycDocLeftWrap}>
+                  <Text style={styles.kycDocCloseGlyph}>✕</Text>
+                  <View style={styles.kycDocLabelWrap}>
+                    <Text style={styles.kycDocTitleText}>{doc.title}</Text>
+                    {status !== 'Verified' ? (
+                      <Text style={styles.kycDocStatusWarning}>{status}</Text>
+                    ) : null}
+                  </View>
+                </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Land ownership proof</Text>
-              <Text style={styles.kycVerifiedText}>Verified</Text>
-            </View>
+                <View style={styles.kycDocActionsRow}>
+                  <TouchableOpacity
+                    style={styles.kycPreviewBtn}
+                    onPress={() => setKycPreviewDoc(doc)}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Preview ${doc.title}`}
+                  >
+                    <Text style={styles.kycPreviewBtnText}>Preview</Text>
+                  </TouchableOpacity>
 
-            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.tableLabel}>Bank details</Text>
-              <Text style={styles.kycVerifiedText}>Verified</Text>
-            </View>
-          </View>
-        )}
+                  <TouchableOpacity
+                    style={styles.kycRejectBtn}
+                    onPress={() => {
+                      if (!canVerifyDocs) {
+                        Alert.alert('Access Restricted', 'You do not have permission to reject KYC documents.');
+                        return;
+                      }
+                      setKycDocStatus((prev) => ({ ...prev, [doc.key]: 'Rejected' }));
+                      Alert.alert('Document Rejected', `${doc.title} has been marked as rejected.`);
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Reject ${doc.title}`}
+                  >
+                    <Text style={styles.kycRejectBtnText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          };
 
-        {/* ─── TAB 6: RATINGS (Image 1 - M2-S06 · Farmer Ratings) ─── */}
+          const identityAllVerified =
+            kycDocStatus.aadhar === 'Verified' && kycDocStatus.voter === 'Verified';
+          const landVerified = kycDocStatus.land === 'Verified';
+
+          return (
+            <>
+              <View style={styles.kycAccordionCard}>
+                {/* Identity proof */}
+                <TouchableOpacity
+                  style={styles.accordionHeaderRow}
+                  onPress={() => setKycIdentityOpen((prev) => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.accordionTitleWrap}>
+                    <Text style={styles.kycAccordionChevron}>{kycIdentityOpen ? '∧' : '∨'}</Text>
+                    <Text style={styles.accordionTitle}>Identity proof</Text>
+                  </View>
+                  <Text style={identityAllVerified ? styles.kycVerifiedText : styles.kycWarningStatusText}>
+                    {identityAllVerified ? 'Verified' : 'Needs Review'}
+                  </Text>
+                </TouchableOpacity>
+
+                {kycIdentityOpen && (
+                  <View style={styles.kycDocsListWrap}>
+                    {renderKycDocRow({
+                      key: 'aadhar',
+                      title: 'Aadhar card',
+                      docName: 'Aadhar Card',
+                      fileName: 'aadhar_card-1.pdf',
+                    })}
+                    {renderKycDocRow({
+                      key: 'voter',
+                      title: 'Voter ID',
+                      docName: 'Voter ID',
+                      fileName: 'voter_id-1.pdf',
+                    })}
+                  </View>
+                )}
+
+                <View style={styles.accordionDivider} />
+
+                {/* Land ownership proof */}
+                <TouchableOpacity
+                  style={styles.accordionHeaderRow}
+                  onPress={() => setKycLandOpen((prev) => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.accordionTitleWrap}>
+                    <Text style={styles.kycAccordionChevron}>{kycLandOpen ? '∧' : '∨'}</Text>
+                    <Text style={styles.accordionTitle}>Land ownership proof</Text>
+                  </View>
+                  <Text style={landVerified ? styles.kycVerifiedText : styles.kycWarningStatusText}>
+                    {landVerified ? 'Verified' : kycDocStatus.land}
+                  </Text>
+                </TouchableOpacity>
+
+                {kycLandOpen && (
+                  <View style={styles.kycDocsListWrap}>
+                    {renderKycDocRow({
+                      key: 'land',
+                      title: 'Patta / Land Ownership',
+                      docName: 'Land Ownership Proof',
+                      fileName: 'land_ownership-1.pdf',
+                    })}
+                  </View>
+                )}
+
+                <View style={styles.accordionDivider} />
+
+                {/* Bank details */}
+                <TouchableOpacity
+                  style={styles.accordionHeaderRow}
+                  onPress={() => setKycBankOpen((prev) => !prev)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.accordionTitleWrap}>
+                    <Text style={styles.kycAccordionChevron}>{kycBankOpen ? '∧' : '∨'}</Text>
+                    <Text style={styles.accordionTitle}>Bank details</Text>
+                  </View>
+                  <Text style={styles.kycVerifiedText}>Verified</Text>
+                </TouchableOpacity>
+
+                {kycBankOpen && (
+                  <View style={styles.bankDetailsContainer}>
+                    <Text style={styles.bankAccountsHeader}>Bank accounts</Text>
+
+                    {/* Bank Account 1 */}
+                    <View style={styles.bankAccountCard}>
+                      <View style={styles.bankAccountHeader}>
+                        <Text style={styles.bankAccountName}>Indian Bank · Savings</Text>
+                        <View style={styles.verifiedGreenPill}>
+                          <Text style={styles.verifiedGreenPillText}>Default for payouts</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.bankAccountMeta}>Account holder: {currentFarmer.name || 'Ramesh Kumar'}</Text>
+                      <Text style={styles.bankAccountMeta}>Account number: XXXXXXXX4821</Text>
+                      <Text style={styles.bankAccountMeta}>IFSC: IDIB000C123 · Branch: Coonoor</Text>
+                    </View>
+
+                    {/* Bank Account 2 */}
+                    <View style={styles.bankAccountCard}>
+                      <View style={styles.bankAccountHeader}>
+                        <Text style={styles.bankAccountName}>Canara Bank · Savings</Text>
+                        <View style={styles.secondaryGrayPill}>
+                          <Text style={styles.secondaryGrayPillText}>Secondary</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.bankAccountMeta}>Account holder: {currentFarmer.name || 'Ramesh Kumar'}</Text>
+                      <Text style={styles.bankAccountMeta}>Account number: XXXXXXXX0097</Text>
+                      <Text style={styles.bankAccountMeta}>IFSC: CNRB0001904 · Branch: Ooty</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              {/* UPI IDs */}
+              <Text style={styles.subscriptionSectionHeading}>UPI IDs</Text>
+              <View style={styles.upiCard}>
+                <Text style={styles.upiIdText}>ramesh.kumar@okaxis</Text>
+                <View style={styles.verifiedGreenPill}>
+                  <Text style={styles.verifiedGreenPillText}>Verified</Text>
+                </View>
+              </View>
+
+              {/* Payout history (preview) */}
+              <Text style={styles.subscriptionSectionHeading}>Payout history (preview)</Text>
+              <View style={styles.payoutPreviewCard}>
+                <View style={styles.payoutPreviewTopRow}>
+                  <Text style={styles.upiIdText}>PAY-0002</Text>
+                  <View style={styles.escalatedBluePill}>
+                    <Text style={styles.escalatedBluePillText}>Escalated</Text>
+                  </View>
+                </View>
+                <Text style={styles.payoutPreviewSub}>
+                  ₹18,000.00 · To Indian Bank ·•4821 · 10 Oct 2026
+                </Text>
+              </View>
+
+              <View style={styles.payoutPreviewCard}>
+                <View style={styles.payoutPreviewTopRow}>
+                  <Text style={styles.upiIdText}>PAY-0001</Text>
+                  <View style={styles.verifiedGreenPill}>
+                    <Text style={styles.verifiedGreenPillText}>Paid</Text>
+                  </View>
+                </View>
+                <Text style={styles.payoutPreviewSub}>
+                  ₹7,200.00 · To Indian Bank ·•4821 · 2 Oct 2026
+                </Text>
+              </View>
+            </>
+          );
+        })()}
+
+        {/* ─── TAB 6: RATINGS (Image 2) ─── */}
         {activeTab === 'Ratings' && (
           <>
-            {/* Big Rating Hero Card (Screen 1) */}
-            <View style={styles.heroRatingCard}>
-              <View style={styles.heroScoreRow}>
-                <Text style={styles.heroScoreNum}>{totalRatingScore}</Text>
-                <Text style={styles.heroScoreDenominator}> / 100</Text>
+            {/* Rating Categories Section */}
+            <Text style={styles.sectionHeaderTitle}>Rating categories</Text>
+
+            {/* New Overall Rating Card */}
+            <View style={styles.categoryOverallCard}>
+              <Text style={styles.categoryOverallLabel}>NEW OVERALL RATING</Text>
+              <View style={styles.categoryOverallRow}>
+                <Text style={styles.categoryBigNumber}>{totalRatingScore}</Text>
+                <Text style={styles.categoryDenominator}> / 100</Text>
               </View>
-              <Text style={styles.heroRatingLabel}>OVERALL RATING</Text>
-              <Text style={styles.heroRatingDate}>Last rated 15 Oct 2026</Text>
+              <Text style={styles.categoryPreviousText}>Previous: 68 / 100</Text>
             </View>
 
-            {/* Category Scores Section */}
-            <Text style={styles.sectionHeaderTitle}>Category Scores</Text>
+            {/* Categories Breakdown Table */}
             <View style={styles.detailsCard}>
               {categoryRatings.map((cat, idx) => (
                 <View
@@ -1140,77 +1571,388 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           </>
         )}
 
-        {/* ─── TAB 7: SUBSCRIPTION (M3-S04e · Subscription tab) ─── */}
+        {/* ─── TAB 7: SUBSCRIPTION (Image 4 & Image 5) ─── */}
         {activeTab === 'Subscription' && (
-          <View style={styles.detailsCard}>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Plan</Text>
-              <Text style={styles.tableValue}>Basic</Text>
+          <>
+            <Text style={styles.subscriptionSectionHeading}>Current plan</Text>
+            <View style={styles.detailsCard}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Plan</Text>
+                <Text style={styles.tableValue}>Annual subscription</Text>
+              </View>
+
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Status</Text>
+                <Text style={[styles.tableValue, { color: adminColors.success.text }]}>Active</Text>
+              </View>
+
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Period</Text>
+                <Text style={styles.tableValue}>1 Nov 2025 to 20 Nov 2026</Text>
+              </View>
+
+              <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.tableLabel}>Amount</Text>
+                <Text style={styles.tableValue}>₹500.00 per year</Text>
+              </View>
             </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Status</Text>
-              <Text style={styles.tableValue}>Active</Text>
+            {/* Free-tier limits (RBAC: farmer.subscription.view_tier_limits) */}
+            {(!can || can('farmer.subscription.view_tier_limits')) && (
+              <>
+                <Text style={styles.subscriptionSectionHeading}>Free-tier limits</Text>
+                <View style={styles.detailsCard}>
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Free listings per month</Text>
+                    <Text style={styles.tableValue}>5 of 5 used</Text>
+                  </View>
+
+                  <View style={styles.tableRow}>
+                    <Text style={styles.tableLabel}>Free storage days</Text>
+                    <Text style={styles.tableValue}>7 of 7 used</Text>
+                  </View>
+
+                  <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+                    <Text style={styles.tableLabel}>Resets</Text>
+                    <Text style={styles.tableValue}>1 Nov 2026</Text>
+                  </View>
+                </View>
+              </>
+            )}
+
+            {/* Extend subscription (RBAC: farmer.subscription.extend_waive) */}
+            {(!can || can('farmer.subscription.extend_waive')) && (
+              <>
+                <Text style={styles.subscriptionSectionHeading}>Extend subscription</Text>
+                <View style={styles.subFormCard}>
+                  <Text style={styles.subInputLabel}>Extend by</Text>
+                  <View style={styles.subPillsRow}>
+                    {(['30 days', '90 days', '1 year'] as const).map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.subSelectorPill,
+                          extendBy === opt && styles.subSelectorPillActive,
+                        ]}
+                        onPress={() => setExtendBy(opt)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.subSelectorPillText,
+                            extendBy === opt && styles.subSelectorPillTextActive,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.subInputLabel}>New expiry date (required)</Text>
+                  <View style={styles.subDateRow}>
+                    <Text style={styles.subDateText}>{newExpiryDate}</Text>
+                    <TouchableOpacity
+                      onPress={() => setExpiryCalendarOpen(true)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Pick new expiry date"
+                    >
+                      <CalendarIcon size={18} color={adminColors.muted} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.subInputLabel}>
+                    Reason <Text style={{ color: adminColors.danger.text }}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.subTextArea}
+                    value={extendReason}
+                    onChangeText={setExtendReason}
+                    multiline
+                    placeholder="Enter reason..."
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.subPrimaryBtn}
+                    onPress={handleExtendSubscription}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.subPrimaryBtnText}>Extend Subscription</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Waive fee (RBAC: farmer.subscription.extend_waive) */}
+            {(!can || can('farmer.subscription.extend_waive')) && (
+              <>
+                <Text style={styles.subscriptionSectionHeading}>Waive fee</Text>
+                <View style={styles.subFormCard}>
+                  <Text style={styles.subInputLabel}>Waive</Text>
+                  <View style={styles.subPillsRow}>
+                    {(['Current renewal (₹500.00)', 'Full plan'] as const).map((opt) => (
+                      <TouchableOpacity
+                        key={opt}
+                        style={[
+                          styles.subSelectorPill,
+                          waiveTarget === opt && styles.subSelectorPillActive,
+                        ]}
+                        onPress={() => setWaiveTarget(opt)}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.subSelectorPillText,
+                            waiveTarget === opt && styles.subSelectorPillTextActive,
+                          ]}
+                        >
+                          {opt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={styles.subInputLabel}>
+                    Reason <Text style={{ color: adminColors.danger.text }}>*</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.subTextArea}
+                    value={waiveReason}
+                    onChangeText={setWaiveReason}
+                    multiline
+                    placeholder="Enter reason..."
+                    placeholderTextColor={adminColors.placeholder}
+                  />
+
+                  <TouchableOpacity
+                    style={styles.subDangerOutlineBtn}
+                    onPress={handleWaiveFee}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.subDangerOutlineBtnText}>Waive Fee</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ─── TAB: VERIFICATION & COMPLIANCE (Image 4) ─── */}
+        {activeTab === 'Verification & Compliance' && (
+          <>
+            {/* Card 1: PGS Organic */}
+            <View style={styles.complianceCardBox}>
+              <View style={styles.complianceHeaderRow}>
+                <Text style={styles.complianceCertTitle}>PGS Organic</Text>
+                <View style={styles.verifiedGreenPill}>
+                  <Text style={styles.verifiedGreenPillText}>Verified</Text>
+                </View>
+              </View>
+              <Text style={styles.complianceCertSubtext}>
+                Cert. no. PGS-TN-04821 · Issued by PGS India Council
+              </Text>
+              <Text style={styles.complianceCertSubtext}>
+                Expires 30 Aug 2027 · Verified 4 Nov 2025 by Demo Super Admin
+              </Text>
+              <View style={styles.complianceBtnRow}>
+                <TouchableOpacity
+                  style={styles.outlineActionBtn}
+                  onPress={() => Alert.alert('Issuer Portal', 'Redirecting to pgsindia-ncof.gov.in...')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.outlineActionBtnText}>Verify on Issuer Portal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.outlineDangerBtn}
+                  onPress={() => Alert.alert('Marked Unverified', 'Certificate marked unverified.')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.outlineDangerBtnText}>Mark Unverified</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Valid from</Text>
-              <Text style={styles.tableValue}>10 Jan 2026</Text>
+            {/* Card 2: NPOP (Expired) with red border */}
+            <View style={[styles.complianceCardBox, styles.complianceExpiredBorder]}>
+              <View style={styles.complianceHeaderRow}>
+                <Text style={styles.complianceCertTitle}>NPOP</Text>
+                <View style={styles.expiredRedPill}>
+                  <Text style={styles.expiredRedPillText}>Expired</Text>
+                </View>
+              </View>
+              <Text style={styles.complianceCertSubtext}>
+                Cert. no. NPOP-2023-1187 · Issued by APEDA
+              </Text>
+              <Text style={styles.complianceCertSubtext}>
+                Expired 24 Sep 2026 · Last verified 2 Sep 2025
+              </Text>
+
+              {/* Warning Banner */}
+              <View style={styles.complianceWarningBanner}>
+                <BanAlertIcon size={16} color={adminColors.danger.text} />
+                <Text style={styles.complianceWarningText}>
+                  Listings under this certification are blocked until it is renewed and re-verified.
+                </Text>
+              </View>
+
+              <View style={styles.complianceBtnRow}>
+                <TouchableOpacity
+                  style={styles.outlineActionBtn}
+                  onPress={() => Alert.alert('Issuer Portal', 'Redirecting to issuing portal...')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.outlineActionBtnText}>Verify on Issuer Portal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.solidDangerBtn}
+                  onPress={() => Alert.alert('Listings Blocked', 'Listings under this certificate have been blocked.')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.solidDangerBtnText}>Block Listings</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Valid until</Text>
-              <Text style={styles.tableValue}>10 Jan 2027</Text>
+            {/* Verify on issuer portal */}
+            <Text style={styles.subscriptionSectionHeading}>Verify on issuer portal</Text>
+            <View style={styles.detailsCard}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Issuing body portal</Text>
+                <TouchableOpacity onPress={() => Alert.alert('Portal', 'Opening pgsindia-ncof.gov.in in browser')}>
+                  <Text style={styles.portalLinkText}>pgsindia-ncof.gov.in</Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.portalDescriptionText}>
+                Opens the issuing body's own lookup in a new tab. The record here is only marked verified or unverified after you confirm it there — nothing is fetched automatically.
+              </Text>
             </View>
 
-            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.tableLabel}>Payment history</Text>
-              <Text style={styles.tableValue}>Not available</Text>
+            {/* Correct or remove a record */}
+            <Text style={styles.subscriptionSectionHeading}>Correct or remove a record</Text>
+            <View style={styles.subFormCard}>
+              <Text style={styles.subInputLabel}>
+                Reason <Text style={{ color: adminColors.danger.text }}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.subTextArea}
+                defaultValue="Certificate number was entered incorrectly at onboarding (demo)."
+                multiline
+                placeholder="Enter correction reason..."
+                placeholderTextColor={adminColors.placeholder}
+              />
             </View>
-          </View>
+          </>
         )}
 
         {/* ─── TAB 8: AUDIT (M3-S04f · Audit tab) ─── */}
         {activeTab === 'Audit' && (
-          <View style={styles.detailsCard}>
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Certification</Text>
-              <Text style={styles.auditExpiredValue}>Expired</Text>
-            </View>
+          <>
+            <View style={styles.detailsCard}>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Certification</Text>
+                <Text style={styles.auditExpiredValue}>Expired</Text>
+              </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Expiry</Text>
-              <Text style={styles.tableValue}>24 Sep 2026</Text>
-            </View>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Expiry</Text>
+                <Text style={styles.tableValue}>24 Sep 2026</Text>
+              </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Latest audit</Text>
-              <Text style={styles.tableValue}>AUD-2026-40 · Corrective action required</Text>
-            </View>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Latest audit</Text>
+                <Text style={styles.tableValue}>AUD-2026-40 · Corrective action required</Text>
+              </View>
 
-            <View style={styles.tableRow}>
-              <Text style={styles.tableLabel}>Next audit</Text>
-              <Text style={styles.tableValue}>13 Dec 2026</Text>
-            </View>
+              <View style={styles.tableRow}>
+                <Text style={styles.tableLabel}>Next audit</Text>
+                <Text style={styles.tableValue}>13 Dec 2026</Text>
+              </View>
 
-            <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.tableLabel}>Open corrective actions</Text>
-              <Text style={styles.tableValue}>1</Text>
+              <View style={[styles.tableRow, { borderBottomWidth: 0 }]}>
+                <Text style={styles.tableLabel}>Open corrective actions</Text>
+                <Text style={styles.tableValue}>1</Text>
+              </View>
             </View>
-          </View>
+          </>
         )}
 
         {/* ─── TAB 9: HISTORY (M3-S04g · History tab) ─── */}
-        {activeTab === 'History' && (
-          <View style={styles.historyTabWrap}>
-            <Text style={styles.historyEventTime}>10 Jan 2026, 09:00 · System</Text>
-            <Text style={styles.historyEventAction}>Registered: — to Active</Text>
+        {activeTab === 'History' && (() => {
+          const farmerDisplayName = currentFarmer.name || 'Ramesh Kumar';
+          const farmerHistoryRecords = [
+            ...liveHistoryEvents,
+            {
+              id: 'hist-audit',
+              timeActor: '26 Oct 2026, 11:20 · Demo Super Admin',
+              action: `Quarterly Compliance Audit logged (AUD-2026-40 · ${totalRatingScore}/100)`,
+            },
+            {
+              id: 'hist-diary',
+              timeActor: `24 Oct 2026, 15:40 · ${farmerDisplayName}`,
+              action: `Farm record logged in ${currentFarmer.location || 'Coonoor'} (Diary · Hand weeding)`,
+            },
+            {
+              id: 'hist-cert',
+              timeActor: '18 Oct 2026, 14:15 · TOHFA Admin',
+              action: 'Certification verified: PGS Organic (PGS-TN-04821)',
+            },
+            {
+              id: 'hist-rating',
+              timeActor: '12 Oct 2026, 10:05 · Farmer Admin',
+              action: `Farm rating updated: 68/100 to ${totalRatingScore}/100`,
+            },
+            {
+              id: 'hist-kyc',
+              timeActor: '05 Oct 2026, 16:30 · Demo Super Admin',
+              action: 'KYC verified: Aadhar card, Voter ID & Bank details',
+            },
+            {
+              id: 'hist-sub',
+              timeActor: '01 Oct 2026, 09:30 · System',
+              action: 'Subscription activated: Annual plan (₹500.00 / year)',
+            },
+            {
+              id: 'hist-reg',
+              timeActor: `${farmer.memberSince || '10 Jan 2026'}, 09:00 · System`,
+              action: 'Registered: — to Active',
+            },
+          ];
 
-            <View style={styles.appendOnlyBox}>
-              <LockIcon size={16} color={adminColors.muted} />
-              <Text style={styles.appendOnlyText}>The history is append-only.</Text>
+          return (
+            <View style={styles.historyTabWrap}>
+              {farmerHistoryRecords.map((entry, idx) => (
+                <View
+                  key={entry.id}
+                  style={[
+                    styles.historyEntryRow,
+                    idx === farmerHistoryRecords.length - 1 && styles.historyEntryRowLast,
+                  ]}
+                >
+                  <Text style={styles.historyEventTime}>{entry.timeActor}</Text>
+                  <Text style={styles.historyEventAction}>{entry.action}</Text>
+                </View>
+              ))}
+
+              <View style={styles.appendOnlyBox}>
+                <LockIcon size={16} color={adminColors.muted} />
+                <Text style={styles.appendOnlyText}>The history is append-only.</Text>
+              </View>
             </View>
-          </View>
+          );
+        })()}
+
+        {/* ─── TAB 10: FARMER RECORDS (Super Admin - Images 1-4) ─── */}
+        {activeTab === 'Farmer Records' && (
+          <FarmRecordsSection
+            farmerName={currentFarmer.name}
+            farmerCode={farmer.code ?? farmer.id ?? 'FMR-00101'}
+            zone={currentFarmer.location}
+            onAddRecord={(tab) => setAddRecordInitialTab(tab)}
+            onEditRecord={(record) => setEditingRecordData(record)}
+            onEditDiary={(record) => setEditingRecordData(record)}
+          />
         )}
 
         <View style={{ height: activeTab === 'Ratings' ? 80 : adminSpacing.xxxl }} />
@@ -1440,6 +2182,62 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
       </Modal>
 
       {/* ══════════════════════════════════════════════════════════════════════
+          MODAL 3b: KYC DOCUMENT PREVIEW (Aadhar / Voter ID / Land Ownership - Image 5)
+         ══════════════════════════════════════════════════════════════════════ */}
+      <Modal
+        visible={kycPreviewDoc !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setKycPreviewDoc(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalBackdropTouch}
+            onPress={() => setKycPreviewDoc(null)}
+          />
+          <View style={styles.bottomSheetCard}>
+            <Text style={styles.bottomSheetTitle}>
+              {kycPreviewDoc ? `${kycPreviewDoc.title} preview` : 'Document preview'}
+            </Text>
+
+            <View style={styles.fmbPreviewCard}>
+              <DocumentIcon size={38} color="#4B5563" />
+              <Text style={styles.fmbPreviewTitle}>{kycPreviewDoc?.docName ?? 'Document'}</Text>
+              <Text style={styles.fmbPreviewFilename}>{kycPreviewDoc?.fileName ?? 'document.pdf'}</Text>
+            </View>
+
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                style={styles.kycModalDangerBtn}
+                onPress={() => {
+                  if (!kycPreviewDoc) return;
+                  if (can && !can('farmer.document.verify')) {
+                    Alert.alert('Access Restricted', 'You do not have permission to update KYC verification.');
+                    return;
+                  }
+                  const target = kycPreviewDoc;
+                  setKycDocStatus((prev) => ({ ...prev, [target.key]: 'Unverified' }));
+                  setKycPreviewDoc(null);
+                  Alert.alert('Marked Unverified', `${target.docName} has been marked unverified.`);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.kycModalDangerBtnText}>Mark Unverified</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalOutlineBtn}
+                onPress={() => setKycPreviewDoc(null)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.modalOutlineBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ══════════════════════════════════════════════════════════════════════
           MODAL 4: MARK AS VERIFIED? (Image 3 Screen 1)
          ══════════════════════════════════════════════════════════════════════ */}
       <Modal
@@ -1603,6 +2401,14 @@ export const AdminFarmerDetailScreen: React.FC<Props> = ({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <AdminCalendarPickerModal
+        visible={expiryCalendarOpen}
+        format="DD MMM YYYY"
+        value={newExpiryDate}
+        onSelect={setNewExpiryDate}
+        onClose={() => setExpiryCalendarOpen(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -1754,6 +2560,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#D32F2F',
+  },
+  amberPill: {
+    backgroundColor: adminColors.warning.bg,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: adminRadius.full,
+  },
+  amberPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: adminColors.warning.text,
   },
   tabSection: {
     marginBottom: adminSpacing.md,
@@ -2543,6 +3360,15 @@ const styles = StyleSheet.create({
   historyTabWrap: {
     paddingTop: 4,
   },
+  historyEntryRow: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE6DF',
+    paddingVertical: adminSpacing.sm,
+  },
+  historyEntryRowLast: {
+    borderBottomWidth: 0,
+    marginBottom: adminSpacing.md,
+  },
   historyEventTime: {
     fontSize: 11.5,
     color: adminColors.muted,
@@ -2552,7 +3378,6 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     color: adminColors.ink,
-    marginBottom: adminSpacing.lg,
   },
   appendOnlyBox: {
     backgroundColor: adminColors.card,
@@ -2711,5 +3536,537 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     color: adminColors.onBrand,
+  },
+  subscriptionSectionHeading: {
+    ...adminType.sectionHead,
+    fontSize: 14,
+    fontWeight: '800',
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
+  },
+  subFormCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.lg,
+    ...adminShadow.sm,
+  },
+  subInputLabel: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+    marginTop: adminSpacing.xs,
+  },
+  subPillsRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginBottom: adminSpacing.md,
+  },
+  subSelectorPill: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: adminSpacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subSelectorPillActive: {
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
+  },
+  subSelectorPillText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  subSelectorPillTextActive: {
+    color: adminColors.brandDeep,
+    fontWeight: '700',
+  },
+  subDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    height: 44,
+    marginBottom: adminSpacing.md,
+  },
+  subDateText: {
+    ...adminType.body,
+    color: adminColors.ink,
+  },
+  subTextArea: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.sm,
+    minHeight: 64,
+    textAlignVertical: 'top',
+    ...adminType.body,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.md,
+  },
+  subPrimaryBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subPrimaryBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  subDangerOutlineBtn: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  subDangerOutlineBtnText: {
+    ...adminType.body,
+    fontWeight: '700',
+    color: adminColors.danger.text,
+  },
+  headerSubtitle: {
+    ...adminType.caption,
+    color: adminColors.onBrand,
+    opacity: 0.9,
+    marginTop: 2,
+  },
+  reactivateBtn: {
+    flex: 1,
+    backgroundColor: adminColors.success.text,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reactivateBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  readyBluePill: {
+    backgroundColor: adminColors.info.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+  },
+  readyBluePillText: {
+    ...adminType.caption,
+    color: adminColors.info.text,
+    fontWeight: '700',
+  },
+  raisePoBtn: {
+    flex: 1,
+    backgroundColor: adminColors.success.text,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  raisePoBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  blockListingsBtn: {
+    flex: 1,
+    backgroundColor: adminColors.danger.text,
+    borderRadius: adminRadius.md,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  blockListingsBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  complianceCardBox: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    padding: adminSpacing.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  complianceExpiredBorder: {
+    borderColor: adminColors.danger.border,
+    borderWidth: 1.5,
+  },
+  complianceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
+  },
+  complianceCertTitle: {
+    ...adminType.rowTitle,
+    fontSize: 16,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  verifiedGreenPill: {
+    backgroundColor: adminColors.success.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: adminColors.success.border,
+  },
+  verifiedGreenPillText: {
+    ...adminType.caption,
+    color: adminColors.success.text,
+    fontWeight: '700',
+  },
+  expiredRedPill: {
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+  },
+  expiredRedPillText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    fontWeight: '700',
+  },
+  complianceCertSubtext: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  complianceBtnRow: {
+    flexDirection: 'row',
+    gap: adminSpacing.sm,
+    marginTop: adminSpacing.md,
+  },
+  outlineActionBtn: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outlineActionBtnText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  outlineDangerBtn: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  outlineDangerBtnText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.danger.text,
+  },
+  solidDangerBtn: {
+    flex: 1,
+    backgroundColor: adminColors.danger.text,
+    borderRadius: adminRadius.md,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  solidDangerBtnText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '600',
+    color: adminColors.onBrand,
+  },
+  complianceWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs,
+    backgroundColor: adminColors.danger.bg,
+    borderRadius: adminRadius.md,
+    padding: adminSpacing.sm,
+    marginTop: adminSpacing.sm,
+  },
+  complianceWarningText: {
+    ...adminType.caption,
+    color: adminColors.danger.text,
+    flex: 1,
+  },
+  portalLinkText: {
+    ...adminType.rowTitle,
+    color: adminColors.info.text,
+    textDecorationLine: 'underline',
+  },
+  portalDescriptionText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    paddingVertical: adminSpacing.xs,
+  },
+  kycAccordionCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingVertical: adminSpacing.sm,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    marginBottom: adminSpacing.md,
+    ...adminShadow.sm,
+  },
+  accordionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.md,
+  },
+  accordionTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+  },
+  kycAccordionChevron: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  accordionTitle: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    color: adminColors.ink,
+  },
+  accordionDivider: {
+    height: 1,
+    backgroundColor: adminColors.border,
+  },
+  bankDetailsContainer: {
+    paddingTop: adminSpacing.sm,
+    paddingBottom: adminSpacing.md,
+  },
+  bankAccountsHeader: {
+    ...adminType.sectionHead,
+    fontSize: 13,
+    color: adminColors.brandDeep,
+    marginBottom: adminSpacing.sm,
+  },
+  bankAccountCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    marginBottom: adminSpacing.sm,
+  },
+  bankAccountHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: adminSpacing.xs,
+  },
+  bankAccountName: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+    fontWeight: '700',
+    color: adminColors.ink,
+  },
+  bankAccountMeta: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+  },
+  secondaryGrayPill: {
+    backgroundColor: adminColors.canvas,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+  },
+  secondaryGrayPillText: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  upiCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    height: 48,
+    marginBottom: adminSpacing.md,
+  },
+  upiIdText: {
+    ...adminType.body,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  escalatedBluePill: {
+    backgroundColor: adminColors.info.bg,
+    borderRadius: adminRadius.full,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: adminColors.info.border,
+  },
+  escalatedBluePillText: {
+    ...adminType.caption,
+    color: adminColors.info.text,
+    fontWeight: '700',
+  },
+  kycWarningStatusText: {
+    ...adminType.caption,
+    fontWeight: '700',
+    color: adminColors.danger.text,
+  },
+  kycDocsListWrap: {
+    paddingBottom: adminSpacing.md,
+    gap: adminSpacing.sm,
+  },
+  kycDocRowCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm + 2,
+    gap: adminSpacing.sm,
+  },
+  kycDocLeftWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: adminSpacing.sm,
+  },
+  kycDocCloseGlyph: {
+    fontSize: 13,
+    color: adminColors.muted,
+    fontWeight: '600',
+  },
+  kycDocLabelWrap: {
+    flex: 1,
+  },
+  kycDocTitleText: {
+    ...adminType.body,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: adminColors.ink,
+  },
+  kycDocStatusWarning: {
+    ...adminType.caption,
+    fontSize: 11,
+    color: adminColors.danger.text,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  kycDocActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.xs + 2,
+  },
+  kycPreviewBtn: {
+    backgroundColor: adminColors.brand,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kycPreviewBtnText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.onBrand,
+  },
+  kycRejectBtn: {
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.md,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kycRejectBtnText: {
+    ...adminType.caption,
+    fontSize: 12,
+    fontWeight: '700',
+    color: adminColors.danger.text,
+  },
+  kycModalDangerBtn: {
+    flex: 1,
+    backgroundColor: adminColors.card,
+    borderWidth: 1.2,
+    borderColor: adminColors.danger.border,
+    borderRadius: adminRadius.md,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  kycModalDangerBtnText: {
+    ...adminType.rowTitle,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: adminColors.danger.text,
+  },
+  payoutPreviewCard: {
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    paddingHorizontal: adminSpacing.md,
+    paddingVertical: adminSpacing.sm + 4,
+    marginBottom: adminSpacing.sm,
+  },
+  payoutPreviewTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  payoutPreviewSub: {
+    ...adminType.caption,
+    color: adminColors.muted,
+    fontSize: 12,
   },
 });

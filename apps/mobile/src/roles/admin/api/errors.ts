@@ -15,8 +15,18 @@
  * code in @tohfa/shared-types has a string, so step 4 only catches codes the
  * shared types do not list yet.
  */
+import type { GenericProblemCode } from '@tohfa/shared-types';
 import { ApiError, NetworkError } from '../../../shell/api/client';
 import { hasKey, type TranslationKey } from '../i18n';
+
+/** Shared problem codes documented by admin API endpoints (401, 403, 404, 422, 500). */
+export const ADMIN_API_ERROR_CODES: readonly GenericProblemCode[] = [
+  'UNAUTHENTICATED',
+  'FORBIDDEN',
+  'NOT_FOUND',
+  'VALIDATION_FAILED',
+  'INTERNAL',
+];
 
 export const ADMIN_ERROR_GENERIC = 'admin.error.generic' satisfies TranslationKey;
 export const ADMIN_ERROR_NETWORK = 'admin.error.network' satisfies TranslationKey;

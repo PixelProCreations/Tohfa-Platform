@@ -19,6 +19,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -109,6 +110,7 @@ export function AuditReportHistoryScreen({
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('All');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [calendarTarget, setCalendarTarget] = useState<'from' | 'to' | null>(null);
 
   // Exact 5 items matching media_1792339614899.png
   const [reportsList, setReportsList] = useState<ReportHistoryItem[]>([
@@ -378,7 +380,14 @@ export function AuditReportHistoryScreen({
                 value={dateFrom}
                 onChangeText={setDateFrom}
               />
-              <CalendarInputIcon />
+              <TouchableOpacity
+                onPress={() => setCalendarTarget('from')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Pick start date"
+              >
+                <CalendarInputIcon />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.modalDateInputWrap}>
@@ -389,7 +398,14 @@ export function AuditReportHistoryScreen({
                 value={dateTo}
                 onChangeText={setDateTo}
               />
-              <CalendarInputIcon />
+              <TouchableOpacity
+                onPress={() => setCalendarTarget('to')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Pick end date"
+              >
+                <CalendarInputIcon />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -420,6 +436,17 @@ export function AuditReportHistoryScreen({
         </View>
       </View>
     </Modal>
+
+    <AdminCalendarPickerModal
+      visible={calendarTarget !== null}
+      format="YYYY-MM-DD"
+      value={calendarTarget === 'from' ? dateFrom : dateTo}
+      onSelect={(d) => {
+        if (calendarTarget === 'from') setDateFrom(d);
+        else setDateTo(d);
+      }}
+      onClose={() => setCalendarTarget(null)}
+    />
     </SafeAreaView >
   );
 }

@@ -230,6 +230,7 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: '10 Jan 2026',
     subscription: 'Active · Paid',
     kycVerifiedText: 'KYC Verified',
+    certStatus: 'Expired',
     hasExpiredCert: true,
   },
   {
@@ -248,6 +249,7 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: '15 Feb 2026',
     subscription: 'Active · Paid',
     kycVerifiedText: 'KYC Verified',
+    certStatus: 'Verified',
     hasExpiredCert: false,
   },
   {
@@ -266,6 +268,7 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: '05 Jan 2026',
     subscription: 'Pending',
     kycVerifiedText: 'KYC Verified',
+    certStatus: 'Pending',
     hasExpiredCert: false,
   },
   {
@@ -284,6 +287,7 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: 'Mar 2025',
     subscription: 'Active · Paid',
     kycVerifiedText: 'KYC Verified',
+    certStatus: 'Verified',
     hasExpiredCert: false,
   },
   {
@@ -302,7 +306,8 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: '05 Jan 2026',
     subscription: 'Inactive',
     kycVerifiedText: 'KYC Verified',
-    hasExpiredCert: false,
+    certStatus: 'Expired',
+    hasExpiredCert: true,
   },
   {
     id: 'fmr-00145',
@@ -320,6 +325,7 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: '20 Jan 2026',
     subscription: 'Pending',
     kycVerifiedText: 'KYC Verified',
+    certStatus: 'Pending',
     hasExpiredCert: false,
   },
   {
@@ -338,6 +344,7 @@ export const DEMO_ALL_FARMERS: FarmerListItem[] = [
     memberSince: '12 Dec 2025',
     subscription: 'Inactive',
     kycVerifiedText: 'KYC Verified',
+    certStatus: 'Verified',
     hasExpiredCert: false,
   },
 ];
@@ -439,6 +446,8 @@ export interface AdminAllFarmersScreenProps {
   onNavigateTab?: ((tab: 'Home' | 'Farmers' | 'Produce' | 'Audits' | 'More' | 'Dashboard' | 'Sales' | 'Reports' | 'Profile') => void) | undefined;
   showBottomNav?: boolean | undefined;
   initialTab?: ('farmers' | 'applications') | undefined;
+  initialStatusFilter?: string | undefined;
+  initialShowFilter?: boolean | undefined;
   can?: Can | undefined;
   role?: string | undefined;
   userScope?: {
@@ -459,6 +468,8 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
   onNavigateTab,
   showBottomNav = false,
   initialTab = 'farmers',
+  initialStatusFilter = 'All',
+  initialShowFilter = false,
   can,
   role,
   userScope,
@@ -466,9 +477,9 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
 }) => {
   const [activeMainTab, setActiveMainTab] = useState<'farmers' | 'applications'>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showFilterModal, setShowFilterModal] = useState(initialShowFilter);
   const [selectedZoneFilter, setSelectedZoneFilter] = useState<string>('All');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('All');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>(initialStatusFilter);
 
   // RBAC checks
   const effectiveRole = role ?? 'TOHFA_ADMIN';
@@ -482,6 +493,18 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
       setActiveMainTab(initialTab);
     }
   }, [initialTab]);
+
+  React.useEffect(() => {
+    if (initialStatusFilter) {
+      setSelectedStatusFilter(initialStatusFilter);
+    }
+  }, [initialStatusFilter]);
+
+  React.useEffect(() => {
+    if (initialShowFilter) {
+      setShowFilterModal(true);
+    }
+  }, [initialShowFilter]);
 
   // Base list of farmers: Sub Warehouse Admin is strictly scoped to Coonoor warehouse farmers only.
   // TOHFA Admin, Main Warehouse Admin, and Farmer Admin see farmers across all warehouses.
@@ -585,6 +608,10 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             title="ALL FARMERS"
             icon="users"
             titlePosition="top"
+            onPress={() => {
+              setSelectedStatusFilter('All');
+              setActiveMainTab('farmers');
+            }}
           />
           <OverviewDashboardCard
             value={isSubWarehouse ? "62" : "221"}
@@ -592,6 +619,10 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             icon="users"
             tone="success"
             titlePosition="top"
+            onPress={() => {
+              setSelectedStatusFilter('Active');
+              setActiveMainTab('farmers');
+            }}
           />
           <OverviewDashboardCard
             value={isSubWarehouse ? "3" : "12"}
@@ -610,6 +641,10 @@ export const AdminAllFarmersScreen: React.FC<Props> = ({
             title="INACTIVE"
             icon="alert"
             titlePosition="top"
+            onPress={() => {
+              setSelectedStatusFilter('Inactive');
+              setActiveMainTab('farmers');
+            }}
           />
         </OverviewCardsGrid>
 

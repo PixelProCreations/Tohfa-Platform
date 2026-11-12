@@ -10,8 +10,12 @@ export * from './ReviewProduceListingScreen';
 export * from './ListingHistoryScreen';
 export * from './ProduceVerificationApprovalScreen';
 export * from './PurchaseOrdersScreen';
-export * from './PurchaseOrderDetailScreen';
-export * from './PurchaseHistoryScreen';
+export * from '../sales/PurchaseOrderDetailScreen';
+export {
+  PurchaseHistoryScreen,
+  type PurchaseHistoryScreenProps,
+  type HistoryOrderItem,
+} from '../warehouse/customers/PurchaseHistoryScreen';
 export * from './ConfirmPurchaseTermsScreen';
 export * from './FarmerHandoverScreen';
 export * from './CollectionConfirmationScreen';

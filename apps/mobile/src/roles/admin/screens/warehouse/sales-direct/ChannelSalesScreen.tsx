@@ -131,7 +131,7 @@ export function ChannelSalesScreen({
   onTabChange,
 }: ChannelSalesScreenProps): React.JSX.Element {
   const isMain = isAllWarehouses(scope);
-  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
   const canCreateOrder = isTohfaAdmin;
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrderDetail, setSelectedOrderDetail] = useState<ChannelOrderItem | null>(null);

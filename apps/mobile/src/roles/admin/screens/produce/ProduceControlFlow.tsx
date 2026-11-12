@@ -250,7 +250,9 @@ export function ProduceControlFlow({
             <BackArrowIcon size={22} color={adminColors.onBrand} />
           </TouchableOpacity>
           <TractorIcon size={24} color={adminColors.onBrand} />
-          <Text style={styles.headerTitle}>Produce Calendar</Text>
+          <Text style={styles.headerTitle}>
+            {role === 'SUPER_ADMIN' ? 'Crop & Produce Calendar' : 'Produce Calendar'}
+          </Text>
         </View>
         <Text style={styles.headerSubtitle}>October 2026 · 43 crop records</Text>
       </View>

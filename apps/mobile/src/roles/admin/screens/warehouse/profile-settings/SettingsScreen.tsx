@@ -160,7 +160,7 @@ export function SettingsScreen({ scope, onBack, initialView = 'hub', onOpen, onL
   }
 
   return (
-    <WalletScreen title="Settings" subtitle={accountLabel} onBack={onBack}>
+    <WalletScreen title={role === 'SUPER_ADMIN' ? 'Settings & Profile' : 'Settings'} subtitle={accountLabel} onBack={onBack}>
       <ScrollView contentContainerStyle={profileLayout.scrollContent} showsVerticalScrollIndicator={false}>
         <SectionTitle>ACCOUNT</SectionTitle>
         <MenuCard>

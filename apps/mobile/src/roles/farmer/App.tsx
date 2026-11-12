@@ -1408,6 +1408,10 @@ export default function App(): React.JSX.Element {
               role="SUPER_ADMIN"
               onSignOut={() => signOutTo('Welcome')}
               onNavigate={(s) => navigate(s as ScreenName)}
+              onSwitchRole={() => {
+                setCurrentTab('Home');
+                navigate('MainTabs');
+              }}
             />
           )
         ) : screen === 'SuperAdminDashboard' ? (
@@ -1417,6 +1421,10 @@ export default function App(): React.JSX.Element {
             role="SUPER_ADMIN"
             onSignOut={() => signOutTo('Welcome')}
             onNavigate={(s) => navigate(s as ScreenName)}
+            onSwitchRole={() => {
+              setCurrentTab('Home');
+              navigate('MainTabs');
+            }}
           />
         ) : screen === 'TohfaAdminDashboard' ? (
           <TohfaAdminDashboardScreen

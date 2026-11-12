@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 import { adminColors, adminShadow, adminSpacing } from '../../theme';
-import { InvoiceDetailScreen, type InvoiceDetailData } from './InvoiceDetailScreen';
+import { InvoiceDetailScreen, type InvoiceDetailData } from '../warehouse/billing-invoices/InvoiceDetailScreen';
 import { TransactionHistoryScreen } from './TransactionHistoryScreen';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {

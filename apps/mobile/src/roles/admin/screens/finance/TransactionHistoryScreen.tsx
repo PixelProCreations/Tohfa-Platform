@@ -17,7 +17,7 @@ import { EXPENSES_LIST, type ExpenseManagementRecord } from './fixtures';
 import { SalesOrderDetailScreen, type SalesOrderRecord } from '../sales/SalesOrderDetailScreen';
 import { PurchaseOrderPayoutScreen } from '../sales/PurchaseOrderPayoutScreen';
 import type { PurchaseOrderRecord } from '../sales/PurchaseSalesOrdersScreen';
-import { InvoiceDetailScreen, type InvoiceDetailData } from './InvoiceDetailScreen';
+import { InvoiceDetailScreen, type InvoiceDetailData } from '../warehouse/billing-invoices/InvoiceDetailScreen';
 
 function BackArrowWhiteIcon({ size = 22, color = adminColors.onBrand }: { size?: number; color?: string }) {
   return (

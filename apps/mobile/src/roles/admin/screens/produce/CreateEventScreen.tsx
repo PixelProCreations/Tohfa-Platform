@@ -24,6 +24,7 @@ import {
   HistoryClockIcon,
   PlusIcon,
 } from '../../components/AdminIcons';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 export interface CreateEventScreenProps {
   onBack: () => void;
@@ -48,6 +49,7 @@ export function CreateEventScreen({
 
   const [startDate, setStartDate] = useState('28-10-2026');
   const [endDate, setEndDate] = useState('28-10-2026');
+  const [calendarTarget, setCalendarTarget] = useState<'start' | 'end' | null>(null);
   const [startTime, setStartTime] = useState('10:00 AM');
   const [endTime, setEndTime] = useState('01:00 PM');
 
@@ -200,7 +202,14 @@ export function CreateEventScreen({
                 placeholder="DD-MM-YYYY"
                 placeholderTextColor={adminColors.placeholder}
               />
-              <CalendarIcon size={18} color={adminColors.muted} />
+              <TouchableOpacity
+                onPress={() => setCalendarTarget('start')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Pick start date"
+              >
+                <CalendarIcon size={18} color={adminColors.muted} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -214,7 +223,14 @@ export function CreateEventScreen({
                 placeholder="DD-MM-YYYY"
                 placeholderTextColor={adminColors.placeholder}
               />
-              <CalendarIcon size={18} color={adminColors.muted} />
+              <TouchableOpacity
+                onPress={() => setCalendarTarget('end')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Pick end date"
+              >
+                <CalendarIcon size={18} color={adminColors.muted} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -308,6 +324,16 @@ export function CreateEventScreen({
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
       </View>
+
+      <AdminCalendarPickerModal
+        visible={calendarTarget !== null}
+        value={calendarTarget === 'start' ? startDate : endDate}
+        onSelect={(d) => {
+          if (calendarTarget === 'start') setStartDate(d);
+          else setEndDate(d);
+        }}
+        onClose={() => setCalendarTarget(null)}
+      />
     </SafeAreaView>
   );
 }

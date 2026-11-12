@@ -1633,5 +1633,35 @@
   "payoutDetail.approveButton": "Approve",
   "payoutDetail.rejectConfirmTitle": "Reject Payout",
   "payoutDetail.rejectConfirmMessage": "Are you sure you want to reject this payout request?",
-  "payoutDetail.rejectButton": "Reject"
+  "payoutDetail.rejectButton": "Reject",
+
+  "superAdmin.farmersManagement.title": "Farmers Management",
+  "superAdmin.farmersManagement.totalFarmers": "Total Farmers",
+  "superAdmin.farmersManagement.pendingApplications": "Pending Applications",
+  "superAdmin.farmersManagement.activeFarmers": "Active Farmers",
+  "superAdmin.farmersManagement.deactivated": "Deactivated",
+  "superAdmin.farmersManagement.expiredCerts": "Expired Certs",
+  "superAdmin.farmersManagement.expiredCertifications": "Expired Certifications",
+  "superAdmin.farmersManagement.subscriptionOverview": "Subscription Overview",
+  "superAdmin.farmersManagement.approvalInbox": "Approval Inbox",
+  "superAdmin.farmersManagement.farmersByZone": "Farmers by Zone",
+  "superAdmin.farmersManagement.viewZones": "View Zones",
+  "superAdmin.farmersManagement.quickAccess": "Quick Access",
+  "superAdmin.farmersManagement.farmRecords": "Farm Records",
+  "superAdmin.farmersManagement.verificationCompliance": "Verification & Compliance",
+  "superAdmin.farmersManagement.farmersApplications": "Farmers & Applications",
+  "superAdmin.farmersManagement.addFarmer": "Add Farmer",
+  "superAdmin.farmersManagement.searchPlaceholder": "Search farmers by name, ID, crop or zone...",
+  "superAdmin.farmersManagement.farmersCount": "{{current}} of {{total}} farmers",
+
+  "superAdmin.farmRecords.title": "Farm Records",
+  "superAdmin.farmRecords.searchFarmer": "Search Farmer",
+
+  "superAdmin.compliance.title": "Verification & Compliance",
+  "superAdmin.compliance.searchPlaceholder": "Search farmers by name, ID or status...",
+  "superAdmin.compliance.viewCompliance": "View Compliance",
+  "superAdmin.compliance.viewCertificate": "View Certificate",
+  "superAdmin.compliance.viewRatingDetails": "View Rating Details",
+  "superAdmin.compliance.viewAuditRecord": "View Audit Record",
+  "superAdmin.compliance.viewHistory": "View History"
 }

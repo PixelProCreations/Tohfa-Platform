@@ -126,7 +126,7 @@ const INITIAL_TASKS: WorkQueueTask[] = [
     detail: 'Awaiting review',
     created: 'Created 05 Oct 2026',
     actionLabel: 'Review Application',
-    permissionRequired: 'farmer.application.review',
+    permissionRequired: 'farmer.application.view',
     category: 'Farmer application',
   },
   {
@@ -139,18 +139,18 @@ const INITIAL_TASKS: WorkQueueTask[] = [
     detail: '',
     created: 'Created 08 Oct 2026 · Due 08 Oct 2026',
     actionLabel: 'View Audit',
-    permissionRequired: 'audit.manage',
+    permissionRequired: 'audit.view',
     category: 'Audit follow-up',
   },
 ];
 
 export interface AdminWorkQueueScreenProps {
   onBack: () => void;
-  can?: Can;
-  role?: string;
-  onReviewException?: (task: WorkQueueTask) => void;
-  onReviewApplication?: (task: WorkQueueTask) => void;
-  onViewAudit?: (task: WorkQueueTask) => void;
+  can?: Can | undefined;
+  role?: string | undefined;
+  onReviewException?: ((task: WorkQueueTask) => void) | undefined;
+  onReviewApplication?: ((task: WorkQueueTask) => void) | undefined;
+  onViewAudit?: ((task: WorkQueueTask) => void) | undefined;
 }
 
 export function AdminWorkQueueScreen({

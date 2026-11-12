@@ -103,7 +103,7 @@ export function NewSaleScreen({
   onSelectProducts,
   onSelectChannel,
 }: NewSaleScreenProps) {
-  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
   const [salesChannel, setSalesChannel] = useState<'Direct' | 'LiveMarket' | 'HORECA' | 'B2B'>('Direct');
   const selectedCustomer = customerLabel || 'Select Customer / Walk-in';
 

@@ -25,7 +25,7 @@ import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
 import { PurchaseOrderReceiptScreen } from './PurchaseOrderReceiptScreen';
 import { PurchaseOrderPayoutScreen } from './PurchaseOrderPayoutScreen';
 import { SalesOrderDetailScreen, type SalesOrderRecord } from './SalesOrderDetailScreen';
-import { InvoiceDetailScreen, type InvoiceDetailData } from '../finance/InvoiceDetailScreen';
+import { InvoiceDetailScreen, type InvoiceDetailData } from '../warehouse/billing-invoices/InvoiceDetailScreen';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
