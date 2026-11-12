@@ -11,7 +11,11 @@ export * from './AddManualJournalEntryScreen';
 export * from './PurchaseDuesPayoutsScreen';
 export * from './SalesIncomeRevenueScreen';
 export * from './fixtures';
-export * from './InvoiceDetailScreen';
+export {
+  InvoiceDetailScreen,
+  type InvoiceDetailData,
+  type InvoiceDetailScreenProps,
+} from '../warehouse/billing-invoices/InvoiceDetailScreen';
 export * from './InvoicesGstBillingScreen';
 export * from './ReturnsRmaDetailScreen';
 export * from './ReturnsRmaRefundsScreen';
@@ -19,7 +23,7 @@ export * from './TransactionHistoryScreen';
 
 export * from './ReportsExportScreen';
 export * from './PreviewReportsScreen';
-export * from './ExpenseDetailScreen';
+export { ExpenseDetailScreen, type ExpenseDetailScreenProps } from '../warehouse/finance-expenses/ExpenseDetailScreen';
 export * from './ProfitLossScreen';
 export * from './WalletDeductionFlow';
 export * from './PaymentMethodsScreen';

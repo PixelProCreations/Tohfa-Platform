@@ -4,9 +4,9 @@
  */
 // Design id: M14-S03
 import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { adminColors, adminSpacing } from '../../../theme';
+import { adminColors, adminOverlay, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   EmptyState,
   inScope,
@@ -29,6 +29,14 @@ import {
 } from './StaffParts';
 import { StaffFiltersScreen } from './StaffFiltersScreen';
 import type { AttendanceFilter, AttendanceRecord, AttendanceStatus, WarehouseScope, WarehouseScreenBaseProps } from './types';
+
+const ATTENDANCE_STATUS_OPTIONS: readonly AttendanceStatus[] = ['Present', 'Absent', 'On Leave'];
+
+function getStatusToneColor(status: AttendanceStatus): string {
+  if (status === 'Present') return adminColors.success.text;
+  if (status === 'Absent') return adminColors.danger.text;
+  return adminColors.warning.text;
+}
 
 export interface AttendanceScreenProps extends WarehouseScreenBaseProps {
   initialFilter?: AttendanceFilter | undefined;
@@ -63,6 +71,7 @@ export function AttendanceScreen({
   const [showFilterScreen, setShowFilterScreen] = useState(false);
   const [dayRecords, setDayRecords] = useState<AttendanceRecord[]>(() => [...records]);
   const [selectedRecordForModal, setSelectedRecordForModal] = useState<AttendanceRecord | null>(null);
+  const [statusDropdownRecord, setStatusDropdownRecord] = useState<AttendanceRecord | null>(null);
 
   const warehouseName = isMain
     ? 'All Warehouses'
@@ -185,12 +194,7 @@ export function AttendanceScreen({
         ) : (
           <View style={styles.listContainer}>
             {visible.map((item) => {
-              const toneColor =
-                item.status === 'Present'
-                  ? '#16A34A'
-                  : item.status === 'Absent'
-                  ? '#DC2626'
-                  : '#D97706';
+              const toneColor = getStatusToneColor(item.status);
 
               const isSuperAdmin = role === 'SUPER_ADMIN';
 
@@ -231,12 +235,14 @@ export function AttendanceScreen({
                     {/* Attendance Dropdown Pill */}
                     <TouchableOpacity
                       style={styles.statusPill}
-                      onPress={handleUpdatePress}
+                      onPress={() => setStatusDropdownRecord(item)}
                       activeOpacity={0.8}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Change attendance status for ${item.name}`}
                     >
                       <View style={[styles.statusDot, { backgroundColor: toneColor }]} />
                       <Text style={[styles.statusPillText, { color: toneColor }]}>{item.status}</Text>
-                      <ChevronDownIcon size={12} color="#6B7280" />
+                      <ChevronDownIcon size={12} color={adminColors.muted} />
                     </TouchableOpacity>
 
                     {/* Update Button */}
@@ -298,6 +304,59 @@ export function AttendanceScreen({
           }}
         />
       )}
+
+      {/* Quick Status Dropdown Menu (Present / Absent / On Leave) */}
+      <Modal
+        visible={!!statusDropdownRecord}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStatusDropdownRecord(null)}
+      >
+        <TouchableOpacity
+          style={styles.statusMenuBackdrop}
+          activeOpacity={1}
+          onPress={() => setStatusDropdownRecord(null)}
+        >
+          <View style={styles.statusMenuSheet}>
+            <Text style={styles.statusMenuTitle}>
+              {statusDropdownRecord?.name} — Attendance Status
+            </Text>
+            {ATTENDANCE_STATUS_OPTIONS.map((opt) => {
+              const isSelected = statusDropdownRecord?.status === opt;
+              const optColor = getStatusToneColor(opt);
+              return (
+                <TouchableOpacity
+                  key={opt}
+                  style={[styles.statusMenuOption, isSelected && styles.statusMenuOptionSelected]}
+                  activeOpacity={0.75}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    if (!statusDropdownRecord) return;
+                    setDayRecords((prev) =>
+                      prev.map((r) =>
+                        r.id === statusDropdownRecord.id
+                          ? {
+                              ...r,
+                              status: opt,
+                              checkInTime: opt === 'Absent' ? undefined : (r.checkInTime || '09:02 AM'),
+                            }
+                          : r
+                      )
+                    );
+                    setStatusDropdownRecord(null);
+                  }}
+                >
+                  <View style={styles.statusMenuOptionLeft}>
+                    <View style={[styles.statusDot, { backgroundColor: optColor }]} />
+                    <Text style={[styles.statusMenuOptionText, { color: optColor }]}>{opt}</Text>
+                  </View>
+                  {isSelected ? <Text style={[styles.statusMenuCheck, { color: optColor }]}>✓</Text> : null}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </WalletScreen>
   );
 }
@@ -441,5 +500,55 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 11,
     color: '#6B7280',
+  },
+  statusMenuBackdrop: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: adminSpacing.lg,
+  },
+  statusMenuSheet: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: adminColors.card,
+    borderRadius: adminRadius.lg,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    padding: adminSpacing.md,
+    gap: adminSpacing.xs,
+  },
+  statusMenuTitle: {
+    ...adminType.rowTitle,
+    color: adminColors.ink,
+    marginBottom: adminSpacing.xs,
+  },
+  statusMenuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: adminSpacing.sm + 2,
+    paddingHorizontal: adminSpacing.md,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    backgroundColor: adminColors.card,
+  },
+  statusMenuOptionSelected: {
+    backgroundColor: adminColors.brandTint,
+    borderColor: adminColors.brand,
+  },
+  statusMenuOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: adminSpacing.sm,
+  },
+  statusMenuOptionText: {
+    ...adminType.rowTitle,
+    fontSize: 14,
+  },
+  statusMenuCheck: {
+    ...adminType.rowTitle,
+    fontSize: 15,
   },
 });

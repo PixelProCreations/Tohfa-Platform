@@ -50,6 +50,7 @@ export interface InventoryFlowNavigation {
 export interface InventoryFlowProps {
   scope: WarehouseScope;
   can: PermissionCheck;
+  role?: string | undefined;
   initialScreen?: string | undefined;
   initialParams?: InventoryRouteParams | undefined;
   /** Leave the inventory module (pressed back on its first screen). */
@@ -73,6 +74,7 @@ interface StackEntry {
 export function InventoryFlow({
   scope,
   can,
+  role,
   initialScreen = 'M3S01',
   initialParams = null,
   onBack,
@@ -114,6 +116,7 @@ export function InventoryFlow({
   const common = {
     scope,
     can,
+    role,
     onBack: back,
     onNavigate: (screen: string, nextParams?: Record<string, unknown>) => navigate(screen, nextParams ?? null),
     onTabChange,
@@ -146,7 +149,7 @@ export function InventoryFlow({
       case 'M3S06':
         return <StockLedgerScreen {...common} />;
       case 'M3S07':
-        return <StockAllocationDashboardScreen {...common} />;
+        return <StockAllocationDashboardScreen {...common} role={role} />;
       case 'M3S08':
         return (
           <StorageInfoScreen

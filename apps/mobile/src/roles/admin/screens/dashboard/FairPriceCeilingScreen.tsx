@@ -22,6 +22,7 @@ import {
   adminType,
   ADMIN_BUTTON_HEIGHT,
 } from '../../theme';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 function ChevronRightIcon({ size = 16, color = adminColors.muted }: { size?: number; color?: string }) {
@@ -446,6 +447,7 @@ export function FairPriceCeilingScreen({
   const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
   const [gradeDropdownOpen, setGradeDropdownOpen] = useState(false);
   const [recordsDropdownOpen, setRecordsDropdownOpen] = useState(false);
+  const [inForceCalendarOpen, setInForceCalendarOpen] = useState(false);
 
   // Sync draft filters when modal opens
   const openFiltersModal = () => {
@@ -1156,7 +1158,14 @@ export function FairPriceCeilingScreen({
                 value={draftInForceDate}
                 onChangeText={setDraftInForceDate}
               />
-              <CalendarEventIcon size={18} color={adminColors.muted} />
+              <TouchableOpacity
+                onPress={() => setInForceCalendarOpen(true)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Pick in force date"
+              >
+                <CalendarEventIcon size={18} color={adminColors.muted} />
+              </TouchableOpacity>
             </View>
 
             {/* 4. Records Field */}
@@ -1224,6 +1233,13 @@ export function FairPriceCeilingScreen({
           </Pressable>
         </Pressable>
       </Modal>
+
+      <AdminCalendarPickerModal
+        visible={inForceCalendarOpen}
+        value={draftInForceDate}
+        onSelect={setDraftInForceDate}
+        onClose={() => setInForceCalendarOpen(false)}
+      />
     </SafeAreaView>
   );
 }

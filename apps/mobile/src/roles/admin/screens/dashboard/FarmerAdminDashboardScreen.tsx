@@ -48,8 +48,8 @@ import { FarmerDisputeResolutionScreen } from './FarmerDisputeResolutionScreen';
 import { type DisputeItem, INITIAL_DISPUTES } from './fixtures';
 
 import { PurchaseOrdersScreen } from './PurchaseOrdersScreen';
-import { PurchaseOrderDetailScreen } from './PurchaseOrderDetailScreen';
-import { PurchaseHistoryScreen } from './PurchaseHistoryScreen';
+import { PurchaseOrderDetailScreen } from '../sales/PurchaseOrderDetailScreen';
+import { PurchaseHistoryScreen } from '../warehouse/customers/PurchaseHistoryScreen';
 import { ConfirmPurchaseTermsScreen } from './ConfirmPurchaseTermsScreen';
 import { FarmerHandoverScreen } from './FarmerHandoverScreen';
 import { CollectionConfirmationScreen } from './CollectionConfirmationScreen';

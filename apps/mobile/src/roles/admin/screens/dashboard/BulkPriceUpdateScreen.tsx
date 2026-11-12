@@ -29,6 +29,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 export interface BulkPriceUpdateScreenProps {
   onBack: () => void;
@@ -130,7 +131,8 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [applyMode, setApplyMode] = useState<'% Changes' | 'Fixed Value'>('% Changes');
   const [percentValue, setPercentValue] = useState('+5');
-  const [effectiveDate, _setEffectiveDate] = useState('20 Oct 2026');
+  const [effectiveDate, setEffectiveDate] = useState('20 Oct 2026');
+  const [effectiveCalendarOpen, setEffectiveCalendarOpen] = useState(false);
   const [confirmedCheckbox, setConfirmedCheckbox] = useState(true);
   const [filterCrop, setFilterCrop] = useState('All Crops');
   const [filterGrade, setFilterGrade] = useState('All Grades');
@@ -329,7 +331,14 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
                   <Text style={styles.inputMiniLabel}>Grade</Text>
                   <View style={styles.datePickerWrap}>
                     <Text style={styles.datePickerText}>{effectiveDate}</Text>
-                    <CalendarIcon size={18} color="#9E9085" />
+                    <TouchableOpacity
+                      onPress={() => setEffectiveCalendarOpen(true)}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel="Pick effective date"
+                    >
+                      <CalendarIcon size={16} />
+                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -850,6 +859,14 @@ export function BulkPriceUpdateScreen({ onBack, onApply }: BulkPriceUpdateScreen
           </View>
         </Pressable>
       </Modal>
+
+      <AdminCalendarPickerModal
+        visible={effectiveCalendarOpen}
+        format="DD MMM YYYY"
+        value={effectiveDate}
+        onSelect={setEffectiveDate}
+        onClose={() => setEffectiveCalendarOpen(false)}
+      />
     </SafeAreaView>
   );
 }

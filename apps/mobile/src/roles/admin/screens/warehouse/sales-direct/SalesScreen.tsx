@@ -357,7 +357,7 @@ export function SalesScreen({
   // const isMain = isAllWarehouses(scope);
   const [pickedWarehouse, setPickedWarehouse] = useState<string | undefined>(undefined);
 
-  const isTohfaAdmin = role === 'TOHFA_ADMIN';
+  const isTohfaAdmin = role === 'TOHFA_ADMIN' || role === 'SUPER_ADMIN';
 
   const headerWarehouse =
     scope.warehouseName ??
@@ -1195,5 +1195,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
-
-export default SalesScreen;

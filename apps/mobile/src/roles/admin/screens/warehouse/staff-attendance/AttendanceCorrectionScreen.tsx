@@ -26,6 +26,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../../theme';
+import { AdminCalendarPickerModal } from '../../../components/AdminCalendarPickerModal';
 import type { AttendanceRecord, StaffMember, WarehouseScreenBaseProps } from './types';
 
 export interface AttendanceCorrectionScreenProps extends WarehouseScreenBaseProps {
@@ -44,20 +45,6 @@ function BackArrowIcon() {
         d="M19 12H5M12 19l-7-7 7-7"
         stroke={adminColors.onBrand}
         strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
-function PencilWhiteIcon() {
-  return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"
-        stroke={adminColors.onBrand}
-        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -138,7 +125,8 @@ export function AttendanceCorrectionScreen({
   const recordDate = record?.dateText || '04 Nov 2026';
 
   // Form State
-  const [selectedDate, _setSelectedDate] = useState('20 Oct 2026');
+  const [selectedDate, setSelectedDate] = useState('20 Oct 2026');
+  const [dateCalendarOpen, setDateCalendarOpen] = useState(false);
   const [updatedStatus, setUpdatedStatus] = useState<'Present' | 'Absent' | 'On Leave'>('Present');
   const [checkInTime, _setCheckInTime] = useState('09:15 AM');
   const [checkOutTime, _setCheckOutTime] = useState('06:05 PM');
@@ -185,15 +173,6 @@ export function AttendanceCorrectionScreen({
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Attendance Correction</Text>
         </View>
-        <TouchableOpacity
-          style={styles.headerActionBtn}
-          onPress={() => setShowReviewModal(true)}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Edit"
-        >
-          <PencilWhiteIcon />
-        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -255,7 +234,14 @@ export function AttendanceCorrectionScreen({
           </Text>
           <View style={styles.dateInputRow}>
             <Text style={styles.dateText}>{selectedDate}</Text>
-            <CalendarIcon />
+            <TouchableOpacity
+              onPress={() => setDateCalendarOpen(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Pick attendance date"
+            >
+              <CalendarIcon />
+            </TouchableOpacity>
           </View>
 
           {/* Updated Status */}
@@ -514,6 +500,14 @@ export function AttendanceCorrectionScreen({
           </View>
         </View>
       </Modal>
+
+      <AdminCalendarPickerModal
+        visible={dateCalendarOpen}
+        format="DD MMM YYYY"
+        value={selectedDate}
+        onSelect={setSelectedDate}
+        onClose={() => setDateCalendarOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -584,14 +578,6 @@ const styles = StyleSheet.create({
     ...adminType.title,
     color: adminColors.onBrand,
     fontSize: 18,
-  },
-  headerActionBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: adminRadius.full,
-    backgroundColor: adminColors.brandDeep,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   container: {
     flex: 1,

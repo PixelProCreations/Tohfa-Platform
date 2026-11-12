@@ -29,6 +29,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 export interface UpdateFairPriceScreenProps {
   onBack: () => void;
@@ -104,6 +105,7 @@ export function UpdateFairPriceScreen({
   const [gradeModalVisible, setGradeModalVisible] = useState(false);
   const [effectiveTime, setEffectiveTime] = useState('10:00 AM');
   const [reason, setReason] = useState('');
+  const [effectiveCalendarOpen, setEffectiveCalendarOpen] = useState(false);
 
   const handleSave = () => {
     const numericPrice = parseFloat(ceilingAmount) || currentPrice;
@@ -215,7 +217,14 @@ export function UpdateFairPriceScreen({
               <View style={[styles.fieldGroup, { flex: 1, marginRight: 8 }]}>
                 <Text style={styles.fieldLabel}>Effective From</Text>
                 <View style={styles.iconInputWrap}>
-                  <CalendarIcon size={18} color={adminColors.muted} />
+                  <TouchableOpacity
+                    onPress={() => setEffectiveCalendarOpen(true)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Pick effective date"
+                  >
+                    <CalendarIcon size={18} color={adminColors.muted} />
+                  </TouchableOpacity>
                   <TextInput
                     style={styles.iconInput}
                     value={effectiveFrom}
@@ -354,6 +363,14 @@ export function UpdateFairPriceScreen({
           </View>
         </Pressable>
       </Modal>
+
+      <AdminCalendarPickerModal
+        visible={effectiveCalendarOpen}
+        format="DD MMM YYYY"
+        value={effectiveFrom}
+        onSelect={setEffectiveFrom}
+        onClose={() => setEffectiveCalendarOpen(false)}
+      />
     </SafeAreaView>
   );
 }

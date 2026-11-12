@@ -15,7 +15,6 @@
 import React from 'react';
 import { ScrollView } from 'react-native';
 
-import { adminColors, adminRadius, adminSpacing, adminType } from '../../../theme';
 import {
   SAMPLE_DATE,
   SAMPLE_FISCAL_TAG,

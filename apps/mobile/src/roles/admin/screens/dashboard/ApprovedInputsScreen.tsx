@@ -20,6 +20,7 @@ import {
   adminSpacing,
   adminType,
 } from '../../theme';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
@@ -845,6 +846,7 @@ export function AddNewInputScreen({
   const [pickerModalOptions, setPickerModalOptions] = useState<string[]>([]);
   const [pickerOnSelect, setPickerOnSelect] = useState<(val: string) => void>(() => () => {});
   const [showPickerModal, setShowPickerModal] = useState(false);
+  const [validityCalendarOpen, setValidityCalendarOpen] = useState(false);
 
   const openPicker = (title: string, options: string[], onSelect: (val: string) => void) => {
     setPickerModalTitle(title);
@@ -1068,7 +1070,14 @@ export function AddNewInputScreen({
                 value={validityDate}
                 onChangeText={setValidityDate}
               />
-              <CalendarIcon size={18} color="#6B7280" />
+              <TouchableOpacity
+                onPress={() => setValidityCalendarOpen(true)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel="Pick validity date"
+              >
+                <CalendarIcon size={18} color="#6B7280" />
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1253,6 +1262,13 @@ export function AddNewInputScreen({
           </View>
         </View>
       </Modal>
+
+      <AdminCalendarPickerModal
+        visible={validityCalendarOpen}
+        value={validityDate}
+        onSelect={setValidityDate}
+        onClose={() => setValidityCalendarOpen(false)}
+      />
     </View>
   );
 }

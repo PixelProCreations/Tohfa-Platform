@@ -152,6 +152,20 @@ export function UnifiedAdminDashboardScreen({
     );
   }
 
+  if (effectiveRole === 'SUPER_ADMIN') {
+    return (
+      <SuperAdminDashboardScreen
+        can={can}
+        scope={{ warehouseName: 'All Warehouses' }}
+        role="SUPER_ADMIN"
+        onSignOut={onSignOut}
+        onNavigate={onNavigate}
+        onSwitchRole={onSwitchRole ? () => onSwitchRole() : undefined}
+        initialTab={initialTab as SuperAdminTab | undefined}
+      />
+    );
+  }
+
   return (
     <TohfaAdminDashboardScreen
       onSignOut={onSignOut}

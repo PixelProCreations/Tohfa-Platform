@@ -17,6 +17,7 @@ import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { adminColors, adminSpacing, adminRadius, adminType, adminShadow, adminOverlay, ADMIN_BUTTON_HEIGHT } from '../../theme';
 import { type Can } from '../../permissions/can';
 import { t } from '../../i18n';
+import { AdminCalendarPickerModal } from '../../components/AdminCalendarPickerModal';
 
 // ─── SVG Icons ───────────────────────────────────────────────────────────────
 
@@ -537,6 +538,7 @@ export function FarmerRatingsScreen({
   const [filterMaxScore, setFilterMaxScore] = useState('100');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+  const [dateCalendarTarget, setDateCalendarTarget] = useState<'from' | 'to' | null>(null);
   const [filterTrend, setFilterTrend] = useState<'Any' | 'Improved' | 'Declined' | 'No Change'>('Any');
 
   // Inline dropdown open state in Filter screen
@@ -1805,7 +1807,14 @@ export function FarmerRatingsScreen({
                     value={filterDateFrom}
                     onChangeText={setFilterDateFrom}
                   />
-                  <CalendarInputIcon size={18} color={adminColors.muted} />
+                  <TouchableOpacity
+                    onPress={() => setDateCalendarTarget('from')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Pick assessed from date"
+                  >
+                    <CalendarInputIcon size={18} color={adminColors.muted} />
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -1819,7 +1828,14 @@ export function FarmerRatingsScreen({
                     value={filterDateTo}
                     onChangeText={setFilterDateTo}
                   />
-                  <CalendarInputIcon size={18} color={adminColors.muted} />
+                  <TouchableOpacity
+                    onPress={() => setDateCalendarTarget('to')}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Pick assessed to date"
+                  >
+                    <CalendarInputIcon size={18} color={adminColors.muted} />
+                  </TouchableOpacity>
                 </View>
               </View>
             </View>
@@ -1906,6 +1922,16 @@ export function FarmerRatingsScreen({
             </TouchableOpacity>
           </View>
         </ScrollView>
+
+        <AdminCalendarPickerModal
+          visible={dateCalendarTarget !== null}
+          value={dateCalendarTarget === 'from' ? filterDateFrom : filterDateTo}
+          onSelect={(d) => {
+            if (dateCalendarTarget === 'from') setFilterDateFrom(d);
+            else setFilterDateTo(d);
+          }}
+          onClose={() => setDateCalendarTarget(null)}
+        />
       </SafeAreaView>
     );
   }

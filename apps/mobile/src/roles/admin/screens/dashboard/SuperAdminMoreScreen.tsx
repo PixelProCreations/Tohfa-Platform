@@ -10,6 +10,7 @@
  */
 import React from 'react';
 import {
+  Alert,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -24,8 +25,10 @@ import {
   adminColors,
   adminRadius,
 } from '../../theme';
+import { type Can } from '../../permissions/can';
 
 export interface SuperAdminMoreScreenProps {
+  can?: Can | undefined;
   onBack?: () => void;
   onNavigateProduce?: () => void;
   onNavigateAudit?: () => void;
@@ -35,13 +38,13 @@ export interface SuperAdminMoreScreenProps {
   onNavigateAllocation?: () => void;
   onNavigateSalesOrders?: () => void;
   onNavigateCustomers?: () => void;
-  onNavigateFinance?: () => void;
   onNavigateStaff?: () => void;
   onNavigateCommunity?: () => void;
   onNavigateNotifications?: () => void;
   onNavigateReports?: () => void;
   onNavigateSettings?: () => void;
   onNavigateZoneManagement?: () => void;
+  onLogout?: (() => void) | undefined;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -166,17 +169,6 @@ function CustomersIcon({ size = 22, color = adminColors.brand }: { size?: number
   );
 }
 
-// 9. Finance
-function FinanceBanknoteIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="3" y="6" width="18" height="12" rx="2" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="12" r="2.5" stroke={color} strokeWidth="2" />
-      <Path d="M6 9.5v.01M18 14.5v.01" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 // 10. Staff & Admin Accounts
 function StaffBadgeIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
   return (
@@ -244,13 +236,17 @@ function SystemSettingsGearIcon({ size = 22, color = adminColors.brand }: { size
   );
 }
 
-// 14. My Account
-function _MyAccountProfileIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+// 14. Logout
+function LogoutIcon({ size = 20, color = adminColors.danger.text }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="9" stroke={color} strokeWidth="2" />
-      <Circle cx="12" cy="9" r="3" stroke={color} strokeWidth="1.8" />
-      <Path d="M6.5 18.5c1.2-2 3.2-3 5.5-3s4.3 1 5.5 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <Path
+        d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+        stroke={color}
+        strokeWidth="1.9"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
@@ -268,6 +264,7 @@ interface MoreMenuGroup {
 }
 
 export function SuperAdminMoreScreen({
+  can,
   onBack,
   onNavigateProduce,
   onNavigateAudit,
@@ -277,13 +274,13 @@ export function SuperAdminMoreScreen({
   onNavigateAllocation,
   onNavigateSalesOrders,
   onNavigateCustomers,
-  onNavigateFinance,
   onNavigateStaff,
   onNavigateCommunity,
   onNavigateNotifications,
   onNavigateReports,
   onNavigateSettings,
   onNavigateZoneManagement,
+  onLogout,
 }: SuperAdminMoreScreenProps): React.JSX.Element {
   const menuGroups: MoreMenuGroup[] = [
     {
@@ -291,19 +288,19 @@ export function SuperAdminMoreScreen({
       items: [
         {
           id: 'produce_crops',
-          label: 'Produce & Crops',
+          label: 'Crop & Produce Calendar',
           icon: <SproutPlantIcon />,
           actionKey: 'produce',
         },
         {
           id: 'audit',
-          label: 'Audit',
+          label: 'Audit Management',
           icon: <AuditChecklistIcon />,
           actionKey: 'audit',
         },
         {
           id: 'inputs_pest',
-          label: 'Inputs & Pest',
+          label: 'Inputs & Pest Management',
           icon: <InputsPestIcon />,
           actionKey: 'inputs',
         },
@@ -313,12 +310,20 @@ export function SuperAdminMoreScreen({
           icon: <MarketPricingStoreIcon />,
           actionKey: 'market_pricing',
         },
-        {
-          id: 'purchases',
-          label: 'Purchases',
-          icon: <PurchasesCartIcon />,
-          actionKey: 'purchases',
-        },
+        ...(!can ||
+        can('sales.channel.manage') ||
+        can('sales.dashboard.view') ||
+        can('purchase.order.view') ||
+        can('sales.sale.create')
+          ? [
+              {
+                id: 'purchases',
+                label: 'Purchase & Sales Orders',
+                icon: <PurchasesCartIcon />,
+                actionKey: 'purchases',
+              },
+            ]
+          : []),
         {
           id: 'zone_management',
           label: 'Zone Management',
@@ -330,12 +335,16 @@ export function SuperAdminMoreScreen({
     {
       groupTitle: 'SALES & MONEY',
       items: [
-        {
-          id: 'allocation',
-          label: 'Allocation',
-          icon: <AllocationPieIcon />,
-          actionKey: 'allocation',
-        },
+        ...(!can || can('allocation.channel_percentage.set') || can('inventory.stock_ledger.view_all')
+          ? [
+              {
+                id: 'allocation',
+                label: 'Stock Allocation',
+                icon: <AllocationPieIcon />,
+                actionKey: 'allocation',
+              },
+            ]
+          : []),
         {
           id: 'sales_orders',
           label: 'Sales & Orders',
@@ -347,12 +356,6 @@ export function SuperAdminMoreScreen({
           label: 'Customers',
           icon: <CustomersIcon />,
           actionKey: 'customers',
-        },
-        {
-          id: 'finance',
-          label: 'Finance',
-          icon: <FinanceBanknoteIcon />,
-          actionKey: 'finance',
         },
       ],
     },
@@ -367,7 +370,7 @@ export function SuperAdminMoreScreen({
         },
         {
           id: 'community_learning',
-          label: 'Community, Learning & Support',
+          label: 'Community & Knowledge',
           icon: <CommunityTeamIcon />,
           actionKey: 'community',
         },
@@ -394,9 +397,30 @@ export function SuperAdminMoreScreen({
           icon: <SystemSettingsGearIcon />,
           actionKey: 'settings',
         },
+        {
+          id: 'logout',
+          label: 'Logout',
+          icon: <LogoutIcon />,
+          actionKey: 'logout',
+        },
       ],
     },
   ];
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Logout',
+      'Are you sure you want to sign out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: () => onLogout?.(),
+        },
+      ]
+    );
+  };
 
   const handleItemPress = (actionKey?: string) => {
     if (actionKey === 'produce' && onNavigateProduce) {
@@ -415,8 +439,6 @@ export function SuperAdminMoreScreen({
       onNavigateSalesOrders();
     } else if (actionKey === 'customers' && onNavigateCustomers) {
       onNavigateCustomers();
-    } else if (actionKey === 'finance' && onNavigateFinance) {
-      onNavigateFinance();
     } else if (actionKey === 'staff' && onNavigateStaff) {
       onNavigateStaff();
     } else if (actionKey === 'community' && onNavigateCommunity) {
@@ -429,6 +451,8 @@ export function SuperAdminMoreScreen({
       onNavigateSettings();
     } else if (actionKey === 'zone_management' && onNavigateZoneManagement) {
       onNavigateZoneManagement();
+    } else if (actionKey === 'logout') {
+      handleLogout();
     }
   };
 
@@ -472,7 +496,14 @@ export function SuperAdminMoreScreen({
               >
                 <View style={styles.itemLeft}>
                   <View style={styles.iconContainer}>{item.icon}</View>
-                  <Text style={styles.itemLabel}>{item.label}</Text>
+                  <Text
+                    style={[
+                      styles.itemLabel,
+                      item.id === 'logout' && { color: adminColors.danger.text },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
                 </View>
                 <ChevronRightIcon />
               </TouchableOpacity>

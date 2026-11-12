@@ -65,12 +65,13 @@ import {
   UserPlusIcon,
 } from '../../components/AdminIcons';
 import { t } from '../../i18n';
-import { FarmerManagementFlow } from '../farmers/FarmerManagementFlow';
+import { FarmerManagementFlow, type FarmerManagementSubView } from '../farmers/FarmerManagementFlow';
 import {
   type WarehouseScope,
 } from '../warehouse';
 import { TransfersFlow } from '../warehouse/transfers/TransfersFlow';
 import { InventoryFlow } from '../warehouse/inventory/InventoryFlow';
+import { SalesFlow } from '../warehouse/sales-direct';
 import { StaffFlow } from '../warehouse/staff-attendance/StaffFlow';
 import { CreateStaffAccountScreen } from '../warehouse/staff-attendance/CreateStaffAccountScreen';
 import {
@@ -81,10 +82,8 @@ import {
   PaymentMethodsScreen,
 } from '../finance';
 import { SystemConfigScreen } from '../config/SystemConfigScreen';
-import { EditChannelAllocationScreen } from '../config/EditChannelAllocationScreen';
 import { IntegrationDetailScreen } from '../config/IntegrationDetailScreen';
 import { SystemAuditLogsScreen } from '../config/SystemAuditLogsScreen';
-import { CreateAdminAccountScreen } from './CreateAdminAccountScreen';
 import { ManageAdminsScreen } from './ManageAdminsScreen';
 import { AdminPermissionsMatrixScreen } from './AdminPermissionsMatrixScreen';
 import { FairPriceCeilingScreen } from './FairPriceCeilingScreen';
@@ -131,10 +130,11 @@ import { AdminWorkQueueScreen } from './AdminWorkQueueScreen';
 export type SuperAdminTab = 'Overview' | 'Farmers' | 'Warehouse' | 'Finance' | 'Menu';
 
 export interface SuperAdminDashboardScreenProps {
-  can?: Can;
-  scope?: WarehouseScope;
-  role?: string;
+  can?: Can | undefined;
+  scope?: WarehouseScope | undefined;
+  role?: string | undefined;
   onSignOut: () => void;
+  onSwitchRole?: (() => void) | undefined;
   onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
   initialTab?: SuperAdminTab | undefined;
 }
@@ -142,6 +142,13 @@ export interface SuperAdminDashboardScreenProps {
 const ALL_WAREHOUSES_SCOPE: WarehouseScope = {
   warehouseName: 'All Warehouses',
 };
+
+const SUPER_ADMIN_WAREHOUSE_OPTIONS: readonly WarehouseScope[] = [
+  { warehouseId: 'WH-MAIN', warehouseName: 'Ooty (WH-MAIN)' },
+  { warehouseId: 'WH-COON', warehouseName: 'Coonoor (WH-SUB1)' },
+  { warehouseId: 'WH-KOT', warehouseName: 'Kotagiri (WH-SUB2)' },
+  { warehouseId: 'WH-GUD', warehouseName: 'Gudalur Market (WH-SUB3)' },
+];
 
 /**
  * SuperAdminDashboardScreen
@@ -162,6 +169,11 @@ export function SuperAdminDashboardScreen({
 }: SuperAdminDashboardScreenProps): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<SuperAdminTab>(initialTab);
   const [farmerInitialTab, setFarmerInitialTab] = useState<'farmers' | 'applications'>('farmers');
+  const [farmerSubView, setFarmerSubView] = useState<FarmerManagementSubView>('overview');
+  const farmerUserScope = useMemo(
+    () => ({ warehouseId: scope.warehouseId }),
+    [scope.warehouseId],
+  );
   const [user, setUser] = useState<UserMe | null>(null);
 
   // Sub-screen navigation states for Super Admin features
@@ -223,6 +235,7 @@ export function SuperAdminDashboardScreen({
   >(null);
 
   const [selectedPayoutId, setSelectedPayoutId] = useState<string>('PAY-0002');
+  const [workQueueReturnSubScreen, setWorkQueueReturnSubScreen] = useState<'market_pricing' | 'purchases' | null>(null);
   const [marketDaysList, setMarketDaysList] = useState<MarketDay[]>(MOCK_DAYS);
   const [selectedRetailRecord, setSelectedRetailRecord] = useState<PricingRecordItem | null>(null);
   const [selectedPriceCrop, setSelectedPriceCrop] = useState<{ id?: string; name: string; category?: string; price: number } | null>(null);
@@ -277,6 +290,10 @@ export function SuperAdminDashboardScreen({
   const handleSelectTab = (tab: SuperAdminTab) => {
     if (tab === 'Warehouse') {
       setWarehouseModule('admin');
+    }
+    if (tab === 'Farmers') {
+      setFarmerInitialTab('farmers');
+      setFarmerSubView('overview');
     }
     setActiveTab(tab);
   };
@@ -353,6 +370,48 @@ export function SuperAdminDashboardScreen({
     );
   }
 
+  if (activeSubScreen === 'purchases') {
+    if (
+      !can('sales.channel.manage') &&
+      !can('sales.dashboard.view') &&
+      !can('purchase.order.view') &&
+      !can('sales.sale.create')
+    ) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          {renderHeader(
+            'Purchase & Sales',
+            () => setActiveSubScreen('notifications'),
+            () => {
+              setProfileInitialScreen('UserProfile');
+              setActiveSubScreen('settings');
+            },
+          )}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity onPress={() => setActiveSubScreen(null)} style={{ padding: adminSpacing.lg }}>
+              <Text style={adminType.body}>Access restricted. Tap to go back.</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+    return (
+      <SalesFlow
+        scope={scope}
+        can={can}
+        role={role ?? 'SUPER_ADMIN'}
+        initialScreen="Sales"
+        onBack={() => setActiveSubScreen(null)}
+        onNavigateToNotifications={() => setActiveSubScreen('notifications')}
+        onNavigateToNeedsAttention={() => {
+          setWorkQueueReturnSubScreen('purchases');
+          setActiveSubScreen('work_queue');
+        }}
+      />
+    );
+  }
+
   if (activeSubScreen === 'staff') {
     return (
       <StaffFlow
@@ -387,7 +446,10 @@ export function SuperAdminDashboardScreen({
         onBulkUpdateCeilings={() => setActiveSubScreen('bulk_price_update')}
         onNavigateToFairPrice={() => setActiveSubScreen('fair_price_ceiling')}
         onNavigateToRetailPricing={() => setActiveSubScreen('retail_pricing')}
-        onNavigateToListingApproval={() => setActiveSubScreen('work_queue')}
+        onNavigateToListingApproval={() => {
+          setWorkQueueReturnSubScreen('market_pricing');
+          setActiveSubScreen('work_queue');
+        }}
         onNavigateToPriceHistory={() => setActiveSubScreen('price_history')}
         onNavigateToMarketDay={() => setActiveSubScreen('market_days')}
       />
@@ -459,8 +521,33 @@ export function SuperAdminDashboardScreen({
     );
   }
   if (activeSubScreen === 'allocation') {
+    if (!can('allocation.channel_percentage.set') && !can('inventory.stock_ledger.view_all')) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
+          {renderHeader(
+            'Stock Allocation',
+            () => setActiveSubScreen('notifications'),
+            () => {
+              setProfileInitialScreen('UserProfile');
+              setActiveSubScreen('settings');
+            },
+          )}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity onPress={() => setActiveSubScreen(null)} style={{ padding: adminSpacing.lg }}>
+              <Text style={adminType.body}>Access restricted. Tap to go back.</Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
     return (
-      <EditChannelAllocationScreen
+      <InventoryFlow
+        scope={scope}
+        can={can}
+        role={role ?? 'SUPER_ADMIN'}
+        initialScreen="M3S07"
+        warehouseOptions={SUPER_ADMIN_WAREHOUSE_OPTIONS}
         onBack={() => setActiveSubScreen(null)}
       />
     );
@@ -519,7 +606,17 @@ export function SuperAdminDashboardScreen({
   if (activeSubScreen === 'work_queue') {
     return (
       <AdminWorkQueueScreen
-        onBack={() => setActiveSubScreen('market_pricing')}
+        can={can}
+        role={role ?? 'SUPER_ADMIN'}
+        onBack={() => setActiveSubScreen(workQueueReturnSubScreen)}
+        onReviewException={() => setActiveSubScreen('purchases')}
+        onReviewApplication={() => {
+          setFarmerInitialTab('applications');
+          setFarmerSubView('applications');
+          setActiveSubScreen(null);
+          setActiveTab('Farmers');
+        }}
+        onViewAudit={() => setActiveSubScreen('audit_management')}
       />
     );
   }
@@ -550,10 +647,10 @@ export function SuperAdminDashboardScreen({
     );
   }
 
-  if (activeSubScreen === 'create_admin') {
+  if (activeSubScreen === 'create_admin' && can('admin.super_admin.create')) {
     return (
       <CreateStaffAccountScreen
-        role="SUPER_ADMIN"
+        role={role ?? 'SUPER_ADMIN'}
         onBack={() => setActiveSubScreen(null)}
         onSave={() => setActiveSubScreen(null)}
       />
@@ -664,7 +761,7 @@ export function SuperAdminDashboardScreen({
     return (
       <ProduceControlFlow
         can={can}
-        role={role}
+        role={role ?? 'SUPER_ADMIN'}
         onBack={() => setActiveSubScreen(null)}
         onOpenFarmerProfile={() => {
           setActiveSubScreen(null);
@@ -678,7 +775,7 @@ export function SuperAdminDashboardScreen({
     return (
       <ProduceControlFlow
         can={can}
-        role={role}
+        role={role ?? 'SUPER_ADMIN'}
         initialScreen="cropData"
         onBack={() => setActiveSubScreen(null)}
         onOpenFarmerProfile={() => {
@@ -926,9 +1023,11 @@ export function SuperAdminDashboardScreen({
             can={can}
             role={role}
             initialTab={farmerInitialTab}
-            userScope={{ warehouseId: scope.warehouseId }}
+            userScope={farmerUserScope}
             onBack={() => setActiveTab('Overview')}
-            onNavigateTab={(tab) => {
+            onSubViewChange={setFarmerSubView}
+            onOpenApprovalInbox={() => setActiveSubScreen('approval_inbox')}
+            onNavigateTab={(tab: string) => {
               if (tab === 'Dashboard' || tab === 'Home') setActiveTab('Overview');
               else if (tab === 'Farmers') setActiveTab('Farmers');
               else if (tab === 'Reports') setActiveSubScreen('reports_main');
@@ -936,7 +1035,7 @@ export function SuperAdminDashboardScreen({
             }}
           />
         </View>
-        {renderBottomTabBar(activeTab, handleSelectTab)}
+        {farmerSubView === 'overview' ? renderBottomTabBar(activeTab, handleSelectTab) : null}
       </SafeAreaView>
     );
   }
@@ -965,7 +1064,9 @@ export function SuperAdminDashboardScreen({
             <InventoryFlow
               scope={scope}
               can={can}
+              role={role ?? 'SUPER_ADMIN'}
               initialScreen={inventoryInitialScreen}
+              warehouseOptions={SUPER_ADMIN_WAREHOUSE_OPTIONS}
               onBack={() => setWarehouseModule('admin')}
             />
           </View>
@@ -1066,6 +1167,7 @@ export function SuperAdminDashboardScreen({
         <StatusBar barStyle="light-content" backgroundColor={adminColors.brand} />
         <View style={styles.tabContainer}>
           <SuperAdminMoreScreen
+            can={can}
             onBack={() => setActiveTab('Overview')}
             onNavigateProduce={() => setActiveSubScreen('produce_control')}
             onNavigateAudit={() => setActiveSubScreen('audit_management')}
@@ -1075,7 +1177,6 @@ export function SuperAdminDashboardScreen({
             onNavigateAllocation={() => setActiveSubScreen('allocation')}
             onNavigateSalesOrders={() => setActiveSubScreen('orders')}
             onNavigateCustomers={() => setActiveSubScreen('customers')}
-            onNavigateFinance={() => setActiveTab('Finance')}
             onNavigateStaff={() => setActiveSubScreen('staff')}
             onNavigateCommunity={() => setActiveSubScreen('community')}
             onNavigateNotifications={() => setActiveSubScreen('notifications')}
@@ -1142,48 +1243,89 @@ export function SuperAdminDashboardScreen({
             </View>
           </View>
 
-          {/* 2. Search and Date Filter Bar (Tohfa Admin Reference) */}
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <SearchIcon size={18} color={adminColors.muted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search farmers, crops, orders, customers, staff"
-                placeholderTextColor={adminColors.placeholder}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-              <TouchableOpacity
-                onPress={() => {
-                  Alert.alert('Filter', 'Advanced filters for search');
-                }}
-                activeOpacity={0.7}
-              >
-                <FilterSlidersIcon size={18} color={adminColors.muted} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Date filter pill */}
-            <View style={styles.dateFilterContainer}>
-              <TouchableOpacity
-                style={styles.dateFilterButton}
-                activeOpacity={0.7}
-                onPress={() => {
-                  Alert.alert('Select Period', 'Choose time period for dashboard:', [
-                    { text: 'Today', onPress: () => setDateRange('Today') },
-                    { text: '7 Days', onPress: () => setDateRange('7 Days') },
-                    { text: '30 Days', onPress: () => setDateRange('30 Days') },
-                    { text: 'Custom', onPress: () => setDateRange('Custom Range') },
-                    { text: 'Cancel', style: 'cancel' },
-                  ]);
-                }}
-              >
-                <CalendarIcon size={14} color={adminColors.brandDeep} />
-                <Text style={styles.dateFilterText}>{dateRange}</Text>
-                <ChevronDownIcon size={12} color={adminColors.brandDeep} />
-              </TouchableOpacity>
-            </View>
-          </View>
+        {/* ─── Platform KPIs (Uses shared OverviewDashboardCard layout directly) ─── */}
+        <OverviewCardsGrid style={styles.kpiGrid}>
+          {[
+            {
+              title: t('superAdminDashboard.kpi.totalFarmers'),
+              value: '214',
+              icon: 'users' as const,
+              onPress: () => {
+                setFarmerInitialTab('farmers');
+                setFarmerSubView('overview');
+                setActiveTab('Farmers');
+              },
+            },
+            {
+              title: t('superAdminDashboard.kpi.pendingApplications'),
+              value: '9',
+              icon: 'clipboard' as const,
+              tone: 'warning' as const,
+              onPress: () => {
+                setFarmerInitialTab('applications');
+                setFarmerSubView('applications');
+                setActiveTab('Farmers');
+              },
+            },
+            {
+              title: t('superAdminDashboard.kpi.activeFarmers'),
+              value: '196',
+              icon: 'users' as const,
+              tone: 'success' as const,
+              onPress: () => {
+                setFarmerInitialTab('farmers');
+                setFarmerSubView('overview');
+                setActiveTab('Farmers');
+              },
+            },
+            {
+              title: t('superAdminDashboard.kpi.deactivatedFarmers'),
+              value: '9',
+              icon: 'alert' as const,
+              tone: 'danger' as const,
+              onPress: () => {
+                setFarmerInitialTab('farmers');
+                setFarmerSubView('overview');
+                setActiveTab('Farmers');
+              },
+            },
+            {
+              title: t('superAdminDashboard.kpi.pendingListings'),
+              value: '5',
+              icon: 'inventory' as const,
+              tone: 'warning' as const,
+              onPress: () => setActiveSubScreen('approval_inbox'),
+            },
+            {
+              title: t('superAdminDashboard.kpi.activeAudits'),
+              value: '6',
+              icon: 'clipboard' as const,
+              onPress: () => setActiveSubScreen('audit_management'),
+            },
+            {
+              title: t('superAdminDashboard.kpi.totalCustomers'),
+              value: '18',
+              icon: 'store' as const,
+              onPress: () => setActiveSubScreen('customers'),
+            },
+            {
+              title: t('superAdminDashboard.kpi.staffAndAdmins'),
+              value: '27',
+              icon: 'users' as const,
+              onPress: () => setActiveSubScreen('manage_admins'),
+            },
+          ].map((kpi) => (
+            <OverviewDashboardCard
+              key={kpi.title}
+              value={kpi.value}
+              title={kpi.title}
+              icon={kpi.icon}
+              tone={kpi.tone ?? 'default'}
+              preserveCase={false}
+              onPress={kpi.onPress}
+            />
+          ))}
+        </OverviewCardsGrid>
 
           {/* ─── Market Control Card ─── */}
           <View style={styles.marketCard}>

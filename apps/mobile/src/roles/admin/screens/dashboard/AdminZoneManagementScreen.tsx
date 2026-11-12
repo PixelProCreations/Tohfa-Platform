@@ -13,6 +13,7 @@ import React, { useState } from 'react';
 import type { DimensionValue } from 'react-native';
 import {
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StatusBar,
@@ -714,6 +715,7 @@ export function AdminZoneManagementScreen({
   const [currentView, setCurrentView] = useState<ZoneScreenView>('dashboard');
   const [zones, setZones] = useState<ZoneData[]>(INITIAL_ZONES);
   const [selectedZone, setSelectedZone] = useState<ZoneData>(INITIAL_ZONES[0]!);
+  const [actionMenuZone, setActionMenuZone] = useState<ZoneData | null>(null);
   const [detailsSubTab, setDetailsSubTab] = useState<'Overview' | 'Locations' | 'Farmers' | 'Warehouses'>('Overview');
 
   // Filter States for Zone List
@@ -823,7 +825,12 @@ export function AdminZoneManagementScreen({
 
   // Navigation handlers
   const handleNavigateToDetails = (zone: ZoneData) => {
+    const zoneLabel = `${zone.name} (${zone.shortCode})`;
     setSelectedZone(zone);
+    setSelectedLocationZone(zoneLabel);
+    setFarmerSelectedZone(zoneLabel);
+    setWarehouseSelectedZone(zoneLabel);
+    setDetailsSubTab('Overview');
     setCurrentView('details');
     onSelectZone?.(zone.id);
   };
@@ -894,16 +901,6 @@ export function AdminZoneManagementScreen({
       }
     }
     setCurrentView('zone_map');
-  };
-
-  const handleNavigateToFarmerList = (zoneName?: string) => {
-    if (zoneName) {
-      const match = zones.find((z) => z.name === zoneName || z.id === zoneName);
-      if (match) {
-        setFarmerSelectedZone(`${match.name} (${match.shortCode})`);
-      }
-    }
-    setCurrentView('farmer_list');
   };
 
   const handleNavigateToAssignFarmers = (from: ZoneScreenView = 'dashboard') => {
@@ -1069,16 +1066,6 @@ export function AdminZoneManagementScreen({
     setCurrentView('farmer_transfer');
   };
 
-  const handleNavigateToWarehouseMapping = (zoneName?: string) => {
-    if (zoneName) {
-      const match = zones.find((z) => z.name === zoneName || z.id === zoneName);
-      if (match) {
-        setWarehouseSelectedZone(`${match.name} (${match.shortCode})`);
-      }
-    }
-    setCurrentView('warehouse_mapping');
-  };
-
   const handleNavigateToReports = () => {
     setCurrentView('zone_reports');
   };
@@ -1099,6 +1086,29 @@ export function AdminZoneManagementScreen({
       'Export Report',
       `Zone-wise report generated for ${reportZone} (${reportFarmerStatus} status, ${reportFarmingType} farming type).\nExported as CSV to Downloads.`,
       [{ text: 'OK' }]
+    );
+  };
+
+  const handleDeactivateZone = () => {
+    if (deactivationReason.trim().length < 5) {
+      Alert.alert(
+        'Reason Required',
+        'Please enter a valid reason (at least 5 characters) for deactivating this zone. This will be recorded in the activity log.'
+      );
+      return;
+    }
+    const updatedZone = { ...deactivationZone, status: 'Inactive' as const };
+    setDeactivationZone(updatedZone);
+    setZones((prev) =>
+      prev.map((z) => (z.id === updatedZone.id ? updatedZone : z))
+    );
+    if (selectedZone.id === updatedZone.id) {
+      setSelectedZone(updatedZone);
+    }
+    Alert.alert(
+      'Zone Deactivated',
+      `${updatedZone.name} (${updatedZone.code}) has been deactivated. Existing farmer assignments remain frozen.`,
+      [{ text: 'OK', onPress: () => setDeactivationReason('') }]
     );
   };
 
@@ -1283,6 +1293,459 @@ export function AdminZoneManagementScreen({
 
     setCurrentView('list');
   };
+
+  const renderLocationManagementContent = () => {
+    const matchedZone =
+      zones.find(
+        (z) =>
+          selectedLocationZone.includes(z.shortCode) ||
+          selectedLocationZone.includes(z.name)
+      ) || selectedZone;
+
+    const zoneLocations = locations.filter(
+      (l) => l.zoneId === matchedZone.id || l.zoneName.includes(matchedZone.shortCode)
+    );
+
+    const filteredLocations = zoneLocations.filter((loc) => {
+      if (
+        locationSearchQuery.trim() &&
+        !loc.name.toLowerCase().includes(locationSearchQuery.toLowerCase()) &&
+        !loc.code.toLowerCase().includes(locationSearchQuery.toLowerCase()) &&
+        !loc.pinCode.includes(locationSearchQuery)
+      ) {
+        return false;
+      }
+      if (locationFilterType !== 'All' && loc.type !== locationFilterType) {
+        return false;
+      }
+      if (locationFilterStatus !== 'All' && loc.status !== locationFilterStatus) {
+        return false;
+      }
+      return true;
+    });
+
+    return (
+      <>
+        {/* Zone Selector Card */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.inputLabelRequired}>Zone</Text>
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            onPress={() => {
+              const idx = zones.findIndex((z) => `${z.name} (${z.shortCode})` === selectedLocationZone);
+              const nextIdx = (idx + 1) % zones.length;
+              const nextZone = zones[nextIdx];
+              if (nextZone) {
+                setSelectedLocationZone(`${nextZone.name} (${nextZone.shortCode})`);
+              }
+            }}
+          >
+            <Text style={styles.dropdownVal}>{selectedLocationZone}</Text>
+            <ChevronDownIcon />
+          </TouchableOpacity>
+        </View>
+
+        {/* Search & Filters Card */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.inputLabel}>Search locations</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder=""
+            placeholderTextColor={adminColors.muted}
+            value={locationSearchQuery}
+            onChangeText={setLocationSearchQuery}
+          />
+
+          <View style={styles.filterDropdownRow}>
+            <View style={styles.filterDropdownCol}>
+              <Text style={styles.filterFieldLabel}>Type</Text>
+              <TouchableOpacity
+                style={styles.dropdownBox}
+                onPress={() => {
+                  const types = ['All', 'Town', 'Village', 'Locality'];
+                  const idx = types.indexOf(locationFilterType);
+                  setLocationFilterType(types[(idx + 1) % types.length] ?? 'All');
+                }}
+              >
+                <Text style={styles.dropdownVal}>{locationFilterType}</Text>
+                <ChevronDownIcon />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.filterDropdownCol}>
+              <Text style={styles.filterFieldLabel}>Status</Text>
+              <TouchableOpacity
+                style={styles.dropdownBox}
+                onPress={() => {
+                  const statuses = ['All', 'Active', 'Inactive'];
+                  const idx = statuses.indexOf(locationFilterStatus);
+                  setLocationFilterStatus(statuses[(idx + 1) % statuses.length] ?? 'All');
+                }}
+              >
+                <Text style={styles.dropdownVal}>{locationFilterStatus}</Text>
+                <ChevronDownIcon />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Add Location Primary Button */}
+          <TouchableOpacity
+            style={[styles.primaryActionButton, { marginTop: 14 }]}
+            activeOpacity={0.8}
+            onPress={() => handleNavigateToAddLocation(selectedLocationZone, 'location_management')}
+          >
+            <Text style={styles.primaryActionText}>Add Location</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Location Count Heading */}
+        <Text style={styles.resultsCountText}>
+          {filteredLocations.length} of {zoneLocations.length} locations in {matchedZone.name}
+        </Text>
+
+        {/* Location Cards List */}
+        <View style={styles.zoneCardsList}>
+          {filteredLocations.map((loc) => {
+            const isActive = loc.status === 'Active';
+            return (
+              <View key={loc.id} style={styles.locationCard}>
+                <View style={styles.zoneListItemHeader}>
+                  <View style={styles.zoneListItemTitleRow}>
+                    <Text style={styles.zoneListItemName}>{loc.name}</Text>
+                    <View style={isActive ? styles.activeBadge : styles.inactiveBadge}>
+                      <Text style={isActive ? styles.activeBadgeText : styles.inactiveBadgeText}>
+                        {loc.status}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <Text style={styles.zoneListItemCodeLine}>
+                  {loc.type} · {loc.district}
+                </Text>
+                <Text style={[styles.zoneListItemStatsLine, { marginBottom: 12 }]}>
+                  PIN {loc.pinCode} · {loc.farmersCount} assigned farmers
+                </Text>
+
+                {/* Action buttons row: Edit & Deactivate */}
+                <View style={styles.locationCardActionsRow}>
+                  <TouchableOpacity
+                    style={styles.locationOutlineBtn}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setNewLocZone(`${matchedZone.name} (${matchedZone.shortCode})`);
+                      setNewLocName(loc.name);
+                      setNewLocType(loc.type);
+                      setNewLocTaluk(loc.taluk);
+                      setNewLocPin(loc.pinCode);
+                      setNewLocLat(loc.latitude || '11.4102');
+                      setNewLocLong(loc.longitude || '76.6950');
+                      setPreviousViewBeforeAddLoc('location_management');
+                      setCurrentView('add_location');
+                    }}
+                  >
+                    <Text style={styles.locationOutlineBtnText}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.locationOutlineBtn}
+                    activeOpacity={0.8}
+                    onPress={() => handleToggleLocationStatus(loc.id)}
+                  >
+                    <Text style={styles.locationOutlineBtnText}>
+                      {isActive ? 'Deactivate' : 'Activate'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      </>
+    );
+  };
+
+  const renderFarmerListContent = () => {
+    const zoneObj = zones.find(
+      (z) => `${z.name} (${z.shortCode})` === farmerSelectedZone
+    );
+    const q = farmerSearchQuery.trim().toLowerCase();
+    const zoneFarmers = farmersList.filter(
+      (f) => !zoneObj || f.zoneId === zoneObj.id
+    );
+    const zoneFilteredFarmers = zoneFarmers.filter(
+      (f) =>
+        !q ||
+        f.name.toLowerCase().includes(q) ||
+        f.code.toLowerCase().includes(q) ||
+        f.location.toLowerCase().includes(q)
+    );
+    const zoneTotalCount = Math.max(
+      zoneFilteredFarmers.length,
+      zoneObj?.farmersCount ?? zoneFilteredFarmers.length
+    );
+
+    return (
+      <>
+        {/* Zone Selector Card */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.filterFieldLabel}>Zone</Text>
+          <TouchableOpacity
+            style={styles.dropdownBox}
+            onPress={() => {
+              const idx = zones.findIndex((z) => `${z.name} (${z.shortCode})` === farmerSelectedZone);
+              const nextIdx = (idx + 1) % zones.length;
+              const nextZone = zones[nextIdx];
+              if (nextZone) {
+                setFarmerSelectedZone(`${nextZone.name} (${nextZone.shortCode})`);
+              }
+            }}
+          >
+            <Text style={styles.dropdownVal}>{farmerSelectedZone}</Text>
+            <ChevronDownIcon />
+          </TouchableOpacity>
+        </View>
+
+        {/* Search & Filters Card */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.filterFieldLabel}>Search farmers</Text>
+          <TextInput
+            style={styles.formInput}
+            placeholder=""
+            placeholderTextColor={adminColors.muted}
+            value={farmerSearchQuery}
+            onChangeText={setFarmerSearchQuery}
+          />
+
+          <View style={styles.filterDropdownRow}>
+            <View style={styles.filterDropdownCol}>
+              <Text style={styles.filterFieldLabel}>Location</Text>
+              <View style={styles.dropdownBox}>
+                <Text style={styles.dropdownVal}>{farmerFilterLocation}</Text>
+                <ChevronDownIcon />
+              </View>
+            </View>
+            <View style={styles.filterDropdownCol}>
+              <Text style={styles.filterFieldLabel}>Farmer status</Text>
+              <View style={styles.dropdownBox}>
+                <Text style={styles.dropdownVal}>{farmerFilterStatus}</Text>
+                <ChevronDownIcon />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.filterDropdownRow}>
+            <View style={styles.filterDropdownCol}>
+              <Text style={styles.filterFieldLabel}>Farming type</Text>
+              <View style={styles.dropdownBox}>
+                <Text style={styles.dropdownVal}>{farmerFilterType}</Text>
+                <ChevronDownIcon />
+              </View>
+            </View>
+            <View style={styles.filterDropdownCol}>
+              <Text style={styles.filterFieldLabel}>Verification</Text>
+              <View style={styles.dropdownBox}>
+                <Text style={styles.dropdownVal}>{farmerFilterVerification}</Text>
+                <ChevronDownIcon />
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.actionRow, { marginTop: 10 }]}>
+            <TouchableOpacity
+              style={styles.secondaryActionButton}
+              activeOpacity={0.8}
+              onPress={() => Alert.alert('Export List', `Exporting farmer roster for ${farmerSelectedZone}.`)}
+            >
+              <Text style={styles.secondaryActionText}>Export List</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.primaryActionButton}
+              activeOpacity={0.8}
+              onPress={() => handleNavigateToAssignFarmers('farmer_list')}
+            >
+              <Text style={styles.primaryActionText}>Assign Farmers</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text style={styles.farmerCountHeader}>
+          {zoneFilteredFarmers.length} of {zoneTotalCount} farmers in{' '}
+          {farmerSelectedZone.split(' (')[0]}
+        </Text>
+
+        {zoneFilteredFarmers.length === 0 ? (
+          <View style={styles.cardContainer}>
+            <Text style={styles.farmerMetaText}>
+              No matching farmers found in {farmerSelectedZone.split(' (')[0]}.
+            </Text>
+          </View>
+        ) : (
+          zoneFilteredFarmers.map((farmer) => (
+            <View key={farmer.id} style={styles.farmerCard}>
+              <View style={styles.farmerCardHeader}>
+                <Text style={styles.farmerName}>{farmer.name}</Text>
+                <View style={styles.farmerBadgeRow}>
+                  <View style={styles.activeBadge}>
+                    <Text style={styles.activeBadgeText}>{farmer.status}</Text>
+                  </View>
+                  <View
+                    style={
+                      farmer.verification === 'Verified'
+                        ? styles.verifiedBadge
+                        : styles.pendingBadge
+                    }
+                  >
+                    <Text
+                      style={
+                        farmer.verification === 'Verified'
+                          ? styles.verifiedBadgeText
+                          : styles.pendingBadgeText
+                      }
+                    >
+                      {farmer.verification}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <Text style={styles.farmerCodeLoc}>
+                {farmer.code} · {farmer.location}
+              </Text>
+              <Text style={styles.farmerMetaText}>
+                {farmer.phone} · {farmer.farmingType} · {farmer.acres} acres
+              </Text>
+
+              <View style={styles.farmerCardBtnRow}>
+                <TouchableOpacity
+                  style={styles.farmerCardBtn}
+                  activeOpacity={0.8}
+                  onPress={() =>
+                    Alert.alert(
+                      'Farmer Details',
+                      `Farmer: ${farmer.name}\nCode: ${farmer.code}\nLocation: ${farmer.location}`
+                    )
+                  }
+                >
+                  <Text style={styles.farmerCardBtnText}>View Farmer</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.farmerCardBtn}
+                  activeOpacity={0.8}
+                  onPress={() => handleNavigateToFarmerTransfer(farmer)}
+                >
+                  <Text style={styles.farmerCardBtnText}>Transfer Zone</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.farmerProfileBtn}
+                activeOpacity={0.8}
+                onPress={() =>
+                  Alert.alert('Farmer Profile', `Viewing full profile for ${farmer.name}.`)
+                }
+              >
+                <Text style={styles.farmerProfileBtnText}>View Farmer Profile</Text>
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+
+        {/* Show More Button */}
+        <TouchableOpacity
+          style={styles.showMoreBtn}
+          activeOpacity={0.8}
+          onPress={() => Alert.alert('Load More', 'Loading remaining farmers...')}
+        >
+          <Text style={styles.showMoreBtnText}>Show more (89 left)</Text>
+        </TouchableOpacity>
+      </>
+    );
+  };
+
+  const renderWarehouseMappingContent = () => (
+    <>
+      {/* Zone Selector Card */}
+      <View style={styles.cardContainer}>
+        <Text style={styles.filterFieldLabel}>Zone</Text>
+        <TouchableOpacity
+          style={styles.dropdownBox}
+          onPress={() => {
+            const idx = zones.findIndex((z) => `${z.name} (${z.shortCode})` === warehouseSelectedZone);
+            const nextIdx = (idx + 1) % zones.length;
+            const nextZone = zones[nextIdx];
+            if (nextZone) {
+              setWarehouseSelectedZone(`${nextZone.name} (${nextZone.shortCode})`);
+            }
+          }}
+        >
+          <Text style={styles.dropdownVal}>{warehouseSelectedZone}</Text>
+          <ChevronDownIcon />
+        </TouchableOpacity>
+      </View>
+
+      {/* Warehouse Mapping Cards */}
+      {warehouseMappings.map((wh) => (
+        <View key={wh.id} style={styles.warehouseCard}>
+          <View style={styles.warehouseCardHeader}>
+            <Text style={styles.warehouseName}>{wh.name}</Text>
+            <View style={styles.activeBadge}>
+              <Text style={styles.activeBadgeText}>{wh.status}</Text>
+            </View>
+          </View>
+          <Text style={styles.warehouseSubtitle}>
+            {wh.code} · {wh.type} · since {wh.sinceDate}
+          </Text>
+          <TouchableOpacity
+            style={styles.turnOffMappingBtn}
+            activeOpacity={0.8}
+            onPress={() => {
+              Alert.alert(
+                'Turn off mapping',
+                `Are you sure you want to turn off mapping for ${wh.name}?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Turn Off',
+                    style: 'destructive',
+                    onPress: () => {
+                      setWarehouseMappings((prev) =>
+                        prev.filter((item) => item.id !== wh.id)
+                      );
+                      Alert.alert('Mapping Removed', `Mapping for ${wh.name} has been turned off.`);
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={styles.turnOffMappingText}>Turn off mapping</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+
+      {/* Add Mapping Button */}
+      <TouchableOpacity
+        style={styles.addMappingBtn}
+        activeOpacity={0.8}
+        onPress={() => {
+          const nextId = `wh-map-${warehouseMappings.length + 1}`;
+          const newMapping: ZoneWarehouseMappingData = {
+            id: nextId,
+            code: 'WH-KOTA',
+            name: 'Kotagiri Sub-Warehouse',
+            type: 'Sub warehouse',
+            sinceDate: '2026-10-15',
+            status: 'Active',
+            isMapped: true,
+          };
+          setWarehouseMappings((prev) => [...prev, newMapping]);
+          Alert.alert('Mapping Added', 'Kotagiri Sub-Warehouse added to zone mapping.');
+        }}
+      >
+        <Text style={styles.addMappingBtnText}>Add Mapping</Text>
+      </TouchableOpacity>
+    </>
+  );
 
   const handleHeaderBack = () => {
     if (currentView === 'add_location') {
@@ -1791,8 +2254,10 @@ export function AdminZoneManagementScreen({
                         </View>
                       </View>
                       <TouchableOpacity
-                        onPress={() => handleNavigateToEditZone(zone)}
+                        onPress={() => setActionMenuZone(zone)}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Actions for ${zone.name}`}
                       >
                         <ThreeDotsIcon />
                       </TouchableOpacity>
@@ -1889,14 +2354,15 @@ export function AdminZoneManagementScreen({
                       detailsSubTab === tab && styles.detailsTabPillActive,
                     ]}
                     onPress={() => {
-                      setDetailsSubTab(tab);
+                      const zoneLabel = `${selectedZone.name} (${selectedZone.shortCode})`;
                       if (tab === 'Locations') {
-                        handleNavigateToLocationManagement(selectedZone.name);
+                        setSelectedLocationZone(zoneLabel);
                       } else if (tab === 'Farmers') {
-                        handleNavigateToFarmerList(selectedZone.name);
+                        setFarmerSelectedZone(zoneLabel);
                       } else if (tab === 'Warehouses') {
-                        handleNavigateToWarehouseMapping(selectedZone.name);
+                        setWarehouseSelectedZone(zoneLabel);
                       }
+                      setDetailsSubTab(tab);
                     }}
                   >
                     <Text
@@ -1915,99 +2381,113 @@ export function AdminZoneManagementScreen({
               </View>
             </View>
 
-            {/* 4 KPI Cards using OverviewDashboardCard */}
-            <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
-              <OverviewDashboardCard
-                title="Locations"
-                value={selectedZone.locationsCount}
-                icon="market"
-                tone="default"
-                titlePosition="bottom"
-                preserveCase
-              />
-              <OverviewDashboardCard
-                title="Farmers"
-                value={selectedZone.farmersCount}
-                icon="users"
-                tone="default"
-                titlePosition="bottom"
-                preserveCase
-              />
-              <OverviewDashboardCard
-                title="Warehouses"
-                value={selectedZone.warehousesCount}
-                icon="building"
-                tone="default"
-                titlePosition="bottom"
-                preserveCase
-              />
-              <OverviewDashboardCard
-                title="Farm area (acres)"
-                value={selectedZone.farmAreaAcres}
-                icon="categories"
-                tone="success"
-                titlePosition="bottom"
-                preserveCase
-              />
-            </OverviewCardsGrid>
+            {/* Overview Tab Content */}
+            {detailsSubTab === 'Overview' && (
+              <>
+                {/* 4 KPI Cards using OverviewDashboardCard */}
+                <OverviewCardsGrid style={{ marginBottom: adminSpacing.md }}>
+                  <OverviewDashboardCard
+                    title="Locations"
+                    value={selectedZone.locationsCount}
+                    icon="market"
+                    tone="default"
+                    titlePosition="bottom"
+                    preserveCase
+                  />
+                  <OverviewDashboardCard
+                    title="Farmers"
+                    value={selectedZone.farmersCount}
+                    icon="users"
+                    tone="default"
+                    titlePosition="bottom"
+                    preserveCase
+                  />
+                  <OverviewDashboardCard
+                    title="Warehouses"
+                    value={selectedZone.warehousesCount}
+                    icon="building"
+                    tone="default"
+                    titlePosition="bottom"
+                    preserveCase
+                  />
+                  <OverviewDashboardCard
+                    title="Farm area (acres)"
+                    value={selectedZone.farmAreaAcres}
+                    icon="categories"
+                    tone="success"
+                    titlePosition="bottom"
+                    preserveCase
+                  />
+                </OverviewCardsGrid>
 
-            {/* Details Specs Card */}
-            <View style={[styles.cardContainer, { marginBottom: adminSpacing.md }]}>
-              <View style={styles.detailsTableRow}>
-                <Text style={styles.detailsTableLabel}>Verified farmers</Text>
-                <Text style={styles.detailsTableValBold}>
-                  {selectedZone.verifiedFarmers} of {selectedZone.farmersCount}
-                </Text>
-              </View>
-              <View style={styles.dashedDivider} />
+                {/* Details Specs Card */}
+                <View style={[styles.cardContainer, { marginBottom: adminSpacing.md }]}>
+                  <View style={styles.detailsTableRow}>
+                    <Text style={styles.detailsTableLabel}>Verified farmers</Text>
+                    <Text style={styles.detailsTableValBold}>
+                      {selectedZone.verifiedFarmers} of {selectedZone.farmersCount}
+                    </Text>
+                  </View>
+                  <View style={styles.dashedDivider} />
 
-              <View style={styles.detailsTableRow}>
-                <Text style={styles.detailsTableLabel}>Active farmers</Text>
-                <Text style={styles.detailsTableValBold}>
-                  {selectedZone.activeFarmers} of {selectedZone.farmersCount}
-                </Text>
-              </View>
-              <View style={styles.dashedDivider} />
+                  <View style={styles.detailsTableRow}>
+                    <Text style={styles.detailsTableLabel}>Active farmers</Text>
+                    <Text style={styles.detailsTableValBold}>
+                      {selectedZone.activeFarmers} of {selectedZone.farmersCount}
+                    </Text>
+                  </View>
+                  <View style={styles.dashedDivider} />
 
-              <View style={styles.detailsTableRow}>
-                <Text style={styles.detailsTableLabel}>Description</Text>
-                <Text style={[styles.detailsTableValBold, { flex: 1, textAlign: 'right', marginLeft: 10 }]}>
-                  {selectedZone.description}
-                </Text>
-              </View>
-              <View style={styles.dashedDivider} />
+                  <View style={styles.detailsTableRow}>
+                    <Text style={styles.detailsTableLabel}>Description</Text>
+                    <Text style={[styles.detailsTableValBold, { flex: 1, textAlign: 'right', marginLeft: 10 }]}>
+                      {selectedZone.description}
+                    </Text>
+                  </View>
+                  <View style={styles.dashedDivider} />
 
-              <View style={styles.detailsTableRow}>
-                <Text style={styles.detailsTableLabel}>Contact</Text>
-                <Text style={styles.detailsTableValBold}>{selectedZone.contact}</Text>
-              </View>
-              <View style={styles.dashedDivider} />
+                  <View style={styles.detailsTableRow}>
+                    <Text style={styles.detailsTableLabel}>Contact</Text>
+                    <Text style={styles.detailsTableValBold}>{selectedZone.contact}</Text>
+                  </View>
+                  <View style={styles.dashedDivider} />
 
-              <View style={styles.detailsTableRow}>
-                <Text style={styles.detailsTableLabel}>Boundary</Text>
-                <Text style={styles.detailsTableValBold}>
-                  {selectedZone.boundaryPoints} points
-                </Text>
-              </View>
-            </View>
+                  <View style={styles.detailsTableRow}>
+                    <Text style={styles.detailsTableLabel}>Boundary</Text>
+                    <Text style={styles.detailsTableValBold}>
+                      {selectedZone.boundaryPoints} points
+                    </Text>
+                  </View>
+                </View>
 
-            {/* Bottom 2 Action Buttons */}
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                style={styles.outlinedActionBtn}
-                activeOpacity={0.8}
-                onPress={() => handleNavigateToAssignFarmers('details')}
-              >
-                <Text style={styles.outlinedActionText}>Assign Farmers</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.outlinedActionBtn}
-                activeOpacity={0.8}
-                onPress={() => handleNavigateToZoneMap(selectedZone.name)}
-              >
-                <Text style={styles.outlinedActionText}>Open Map</Text>
-              </TouchableOpacity>
-            </View>
+                {/* Bottom 2 Action Buttons */}
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.outlinedActionBtn}
+                    activeOpacity={0.8}
+                    onPress={() => handleNavigateToAssignFarmers('details')}
+                  >
+                    <Text style={styles.outlinedActionText}>Assign Farmers</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.outlinedActionBtn}
+                    activeOpacity={0.8}
+                    onPress={() => handleNavigateToZoneMap(selectedZone.name)}
+                  >
+                    <Text style={styles.outlinedActionText}>Open Map</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+
+            {/* Locations Tab Content (existing Location Management screen inline) */}
+            {detailsSubTab === 'Locations' && renderLocationManagementContent()}
+
+            {/* Farmers Tab Content (existing Zone Farmer List screen inline) */}
+            {detailsSubTab === 'Farmers' && renderFarmerListContent()}
+
+            {/* Warehouses Tab Content (existing Zone Warehouse Mapping screen inline) */}
+            {detailsSubTab === 'Warehouses' && renderWarehouseMappingContent()}
           </>
         )}
 
@@ -2346,183 +2826,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 6: ZM-06 LOCATION MANAGEMENT (Images 3 & 4)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'location_management' && (() => {
-          const matchedZone =
-            zones.find(
-              (z) =>
-                selectedLocationZone.includes(z.shortCode) ||
-                selectedLocationZone.includes(z.name)
-            ) || selectedZone;
-
-          const zoneLocations = locations.filter(
-            (l) => l.zoneId === matchedZone.id || l.zoneName.includes(matchedZone.shortCode)
-          );
-
-          const filteredLocations = zoneLocations.filter((loc) => {
-            if (
-              locationSearchQuery.trim() &&
-              !loc.name.toLowerCase().includes(locationSearchQuery.toLowerCase()) &&
-              !loc.code.toLowerCase().includes(locationSearchQuery.toLowerCase()) &&
-              !loc.pinCode.includes(locationSearchQuery)
-            ) {
-              return false;
-            }
-            if (locationFilterType !== 'All' && loc.type !== locationFilterType) {
-              return false;
-            }
-            if (locationFilterStatus !== 'All' && loc.status !== locationFilterStatus) {
-              return false;
-            }
-            return true;
-          });
-
-          return (
-            <>
-              {/* Zone Selector Card */}
-              <View style={styles.cardContainer}>
-                <Text style={styles.inputLabelRequired}>Zone</Text>
-                <TouchableOpacity
-                  style={styles.dropdownBox}
-                  onPress={() => {
-                    const idx = zones.findIndex((z) => `${z.name} (${z.shortCode})` === selectedLocationZone);
-                    const nextIdx = (idx + 1) % zones.length;
-                    const nextZone = zones[nextIdx];
-                    if (nextZone) {
-                      setSelectedLocationZone(`${nextZone.name} (${nextZone.shortCode})`);
-                    }
-                  }}
-                >
-                  <Text style={styles.dropdownVal}>{selectedLocationZone}</Text>
-                  <ChevronDownIcon />
-                </TouchableOpacity>
-              </View>
-
-              {/* Search & Filters Card */}
-              <View style={styles.cardContainer}>
-                <Text style={styles.inputLabel}>Search locations</Text>
-                <TextInput
-                  style={styles.formInput}
-                  placeholder=""
-                  placeholderTextColor={adminColors.muted}
-                  value={locationSearchQuery}
-                  onChangeText={setLocationSearchQuery}
-                />
-
-                <View style={styles.filterDropdownRow}>
-                  <View style={styles.filterDropdownCol}>
-                    <Text style={styles.filterFieldLabel}>Type</Text>
-                    <TouchableOpacity
-                      style={styles.dropdownBox}
-                      onPress={() => {
-                        const types = ['All', 'Town', 'Village', 'Locality'];
-                        const idx = types.indexOf(locationFilterType);
-                        setLocationFilterType(types[(idx + 1) % types.length] ?? 'All');
-                      }}
-                    >
-                      <Text style={styles.dropdownVal}>{locationFilterType}</Text>
-                      <ChevronDownIcon />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.filterDropdownCol}>
-                    <Text style={styles.filterFieldLabel}>Status</Text>
-                    <TouchableOpacity
-                      style={styles.dropdownBox}
-                      onPress={() => {
-                        const statuses = ['All', 'Active', 'Inactive'];
-                        const idx = statuses.indexOf(locationFilterStatus);
-                        setLocationFilterStatus(statuses[(idx + 1) % statuses.length] ?? 'All');
-                      }}
-                    >
-                      <Text style={styles.dropdownVal}>{locationFilterStatus}</Text>
-                      <ChevronDownIcon />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Add Location Primary Button */}
-                <TouchableOpacity
-                  style={[styles.primaryActionButton, { marginTop: 14 }]}
-                  activeOpacity={0.8}
-                  onPress={() => handleNavigateToAddLocation(selectedLocationZone, 'location_management')}
-                >
-                  <Text style={styles.primaryActionText}>Add Location</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Location Count Heading */}
-              <Text style={styles.resultsCountText}>
-                {filteredLocations.length} of {zoneLocations.length} locations in {matchedZone.name}
-              </Text>
-
-              {/* Location Cards List */}
-              <View style={styles.zoneCardsList}>
-                {filteredLocations.map((loc) => {
-                  const isActive = loc.status === 'Active';
-                  return (
-                    <View key={loc.id} style={styles.locationCard}>
-                      <View style={styles.zoneListItemHeader}>
-                        <View style={styles.zoneListItemTitleRow}>
-                          <Text style={styles.zoneListItemName}>{loc.name}</Text>
-                          <View
-                            style={isActive ? styles.activeBadge : styles.inactiveBadge}
-                          >
-                            <Text
-                              style={
-                                isActive
-                                  ? styles.activeBadgeText
-                                  : styles.inactiveBadgeText
-                              }
-                            >
-                              {loc.status}
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-
-                      <Text style={styles.zoneListItemCodeLine}>
-                        {loc.type} · {loc.district}
-                      </Text>
-                      <Text style={[styles.zoneListItemStatsLine, { marginBottom: 12 }]}>
-                        PIN {loc.pinCode} · {loc.farmersCount} assigned farmers
-                      </Text>
-
-                      {/* Action buttons row: Edit & Deactivate */}
-                      <View style={styles.locationCardActionsRow}>
-                        <TouchableOpacity
-                          style={styles.locationOutlineBtn}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setNewLocZone(`${matchedZone.name} (${matchedZone.shortCode})`);
-                            setNewLocName(loc.name);
-                            setNewLocType(loc.type);
-                            setNewLocTaluk(loc.taluk);
-                            setNewLocPin(loc.pinCode);
-                            setNewLocLat(loc.latitude || '11.4102');
-                            setNewLocLong(loc.longitude || '76.6950');
-                            setPreviousViewBeforeAddLoc('location_management');
-                            setCurrentView('add_location');
-                          }}
-                        >
-                          <Text style={styles.locationOutlineBtnText}>Edit</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.locationOutlineBtn}
-                          activeOpacity={0.8}
-                          onPress={() => handleToggleLocationStatus(loc.id)}
-                        >
-                          <Text style={styles.locationOutlineBtnText}>
-                            {isActive ? 'Deactivate' : 'Activate'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </>
-          );
-        })()}
+        {currentView === 'location_management' && renderLocationManagementContent()}
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 7: ZM-07 ADD LOCATION (Image 5)
@@ -3238,208 +3542,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 9: ZM-09 ZONE FARMER LIST (Images 3 & 4)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'farmer_list' && (
-          <>
-            {/* Zone Selector Card */}
-            <View style={styles.cardContainer}>
-              <Text style={styles.filterFieldLabel}>Zone</Text>
-              <TouchableOpacity
-                style={styles.dropdownBox}
-                onPress={() => {
-                  const idx = zones.findIndex((z) => `${z.name} (${z.shortCode})` === farmerSelectedZone);
-                  const nextIdx = (idx + 1) % zones.length;
-                  const nextZone = zones[nextIdx];
-                  if (nextZone) {
-                    setFarmerSelectedZone(`${nextZone.name} (${nextZone.shortCode})`);
-                  }
-                }}
-              >
-                <Text style={styles.dropdownVal}>{farmerSelectedZone}</Text>
-                <ChevronDownIcon />
-              </TouchableOpacity>
-            </View>
-
-            {/* Search & Filters Card */}
-            <View style={styles.cardContainer}>
-              <Text style={styles.filterFieldLabel}>Search farmers</Text>
-              <TextInput
-                style={styles.formInput}
-                placeholder=""
-                placeholderTextColor={adminColors.muted}
-                value={farmerSearchQuery}
-                onChangeText={setFarmerSearchQuery}
-              />
-
-              <View style={styles.filterDropdownRow}>
-                <View style={styles.filterDropdownCol}>
-                  <Text style={styles.filterFieldLabel}>Location</Text>
-                  <View style={styles.dropdownBox}>
-                    <Text style={styles.dropdownVal}>{farmerFilterLocation}</Text>
-                    <ChevronDownIcon />
-                  </View>
-                </View>
-                <View style={styles.filterDropdownCol}>
-                  <Text style={styles.filterFieldLabel}>Farmer status</Text>
-                  <View style={styles.dropdownBox}>
-                    <Text style={styles.dropdownVal}>{farmerFilterStatus}</Text>
-                    <ChevronDownIcon />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.filterDropdownRow}>
-                <View style={styles.filterDropdownCol}>
-                  <Text style={styles.filterFieldLabel}>Farming type</Text>
-                  <View style={styles.dropdownBox}>
-                    <Text style={styles.dropdownVal}>{farmerFilterType}</Text>
-                    <ChevronDownIcon />
-                  </View>
-                </View>
-                <View style={styles.filterDropdownCol}>
-                  <Text style={styles.filterFieldLabel}>Verification</Text>
-                  <View style={styles.dropdownBox}>
-                    <Text style={styles.dropdownVal}>{farmerFilterVerification}</Text>
-                    <ChevronDownIcon />
-                  </View>
-                </View>
-              </View>
-
-              <View style={[styles.actionRow, { marginTop: 10 }]}>
-                <TouchableOpacity
-                  style={styles.secondaryActionButton}
-                  activeOpacity={0.8}
-                  onPress={() => Alert.alert('Export List', `Exporting farmer roster for ${farmerSelectedZone}.`)}
-                >
-                  <Text style={styles.secondaryActionText}>Export List</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.primaryActionButton}
-                  activeOpacity={0.8}
-                  onPress={() => handleNavigateToAssignFarmers('farmer_list')}
-                >
-                  <Text style={styles.primaryActionText}>Assign Farmers</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Results Count Header & Filtered Farmer Cards */}
-            {(() => {
-              const zoneObj = zones.find(
-                (z) => `${z.name} (${z.shortCode})` === farmerSelectedZone
-              );
-              const q = farmerSearchQuery.trim().toLowerCase();
-              const zoneFarmers = farmersList.filter(
-                (f) => !zoneObj || f.zoneId === zoneObj.id
-              );
-              const zoneFilteredFarmers = zoneFarmers.filter(
-                (f) =>
-                  !q ||
-                  f.name.toLowerCase().includes(q) ||
-                  f.code.toLowerCase().includes(q) ||
-                  f.location.toLowerCase().includes(q)
-              );
-              const zoneTotalCount = Math.max(
-                zoneFilteredFarmers.length,
-                zoneObj?.farmersCount ?? zoneFilteredFarmers.length
-              );
-
-              return (
-                <>
-                  <Text style={styles.farmerCountHeader}>
-                    {zoneFilteredFarmers.length} of {zoneTotalCount} farmers in{' '}
-                    {farmerSelectedZone.split(' (')[0]}
-                  </Text>
-
-                  {zoneFilteredFarmers.length === 0 ? (
-                    <View style={styles.cardContainer}>
-                      <Text style={styles.farmerMetaText}>
-                        No matching farmers found in {farmerSelectedZone.split(' (')[0]}.
-                      </Text>
-                    </View>
-                  ) : (
-                    zoneFilteredFarmers.map((farmer) => (
-                      <View key={farmer.id} style={styles.farmerCard}>
-                        <View style={styles.farmerCardHeader}>
-                          <Text style={styles.farmerName}>{farmer.name}</Text>
-                          <View style={styles.farmerBadgeRow}>
-                            <View style={styles.activeBadge}>
-                              <Text style={styles.activeBadgeText}>{farmer.status}</Text>
-                            </View>
-                            <View
-                              style={
-                                farmer.verification === 'Verified'
-                                  ? styles.verifiedBadge
-                                  : styles.pendingBadge
-                              }
-                            >
-                              <Text
-                                style={
-                                  farmer.verification === 'Verified'
-                                    ? styles.verifiedBadgeText
-                                    : styles.pendingBadgeText
-                                }
-                              >
-                                {farmer.verification}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        <Text style={styles.farmerCodeLoc}>
-                          {farmer.code} · {farmer.location}
-                        </Text>
-                        <Text style={styles.farmerMetaText}>
-                          {farmer.phone} · {farmer.farmingType} · {farmer.acres} acres
-                        </Text>
-
-                        <View style={styles.farmerCardBtnRow}>
-                          <TouchableOpacity
-                            style={styles.farmerCardBtn}
-                            activeOpacity={0.8}
-                            onPress={() =>
-                              Alert.alert(
-                                'Farmer Details',
-                                `Farmer: ${farmer.name}\nCode: ${farmer.code}\nLocation: ${farmer.location}`
-                              )
-                            }
-                          >
-                            <Text style={styles.farmerCardBtnText}>View Farmer</Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.farmerCardBtn}
-                            activeOpacity={0.8}
-                            onPress={() => handleNavigateToFarmerTransfer(farmer)}
-                          >
-                            <Text style={styles.farmerCardBtnText}>Transfer Zone</Text>
-                          </TouchableOpacity>
-                        </View>
-
-                        <TouchableOpacity
-                          style={styles.farmerProfileBtn}
-                          activeOpacity={0.8}
-                          onPress={() =>
-                            Alert.alert('Farmer Profile', `Viewing full profile for ${farmer.name}.`)
-                          }
-                        >
-                          <Text style={styles.farmerProfileBtnText}>View Farmer Profile</Text>
-                        </TouchableOpacity>
-                      </View>
-                    ))
-                  )}
-                </>
-              );
-            })()}
-
-            {/* Show More Button */}
-            <TouchableOpacity
-              style={styles.showMoreBtn}
-              activeOpacity={0.8}
-              onPress={() => Alert.alert('Load More', 'Loading remaining farmers...')}
-            >
-              <Text style={styles.showMoreBtnText}>Show more (89 left)</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        {currentView === 'farmer_list' && renderFarmerListContent()}
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 10: ZM-10 ASSIGN FARMERS (Steps 1–4 Wizard)
@@ -4757,90 +4860,7 @@ export function AdminZoneManagementScreen({
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 13: ZM-13 ZONE WAREHOUSE MAPPING (Image 5 right)
         ══════════════════════════════════════════════════════════════════════ */}
-        {currentView === 'warehouse_mapping' && (
-          <>
-            {/* Zone Selector Card */}
-            <View style={styles.cardContainer}>
-              <Text style={styles.filterFieldLabel}>Zone</Text>
-              <TouchableOpacity
-                style={styles.dropdownBox}
-                onPress={() => {
-                  const idx = zones.findIndex((z) => `${z.name} (${z.shortCode})` === warehouseSelectedZone);
-                  const nextIdx = (idx + 1) % zones.length;
-                  const nextZone = zones[nextIdx];
-                  if (nextZone) {
-                    setWarehouseSelectedZone(`${nextZone.name} (${nextZone.shortCode})`);
-                  }
-                }}
-              >
-                <Text style={styles.dropdownVal}>{warehouseSelectedZone}</Text>
-                <ChevronDownIcon />
-              </TouchableOpacity>
-            </View>
-
-            {/* Warehouse Mapping Cards */}
-            {warehouseMappings.map((wh) => (
-              <View key={wh.id} style={styles.warehouseCard}>
-                <View style={styles.warehouseCardHeader}>
-                  <Text style={styles.warehouseName}>{wh.name}</Text>
-                  <View style={styles.activeBadge}>
-                    <Text style={styles.activeBadgeText}>{wh.status}</Text>
-                  </View>
-                </View>
-                <Text style={styles.warehouseSubtitle}>
-                  {wh.code} · {wh.type} · since {wh.sinceDate}
-                </Text>
-                <TouchableOpacity
-                  style={styles.turnOffMappingBtn}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    Alert.alert(
-                      'Turn off mapping',
-                      `Are you sure you want to turn off mapping for ${wh.name}?`,
-                      [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                          text: 'Turn Off',
-                          style: 'destructive',
-                          onPress: () => {
-                            setWarehouseMappings((prev) =>
-                              prev.filter((item) => item.id !== wh.id)
-                            );
-                            Alert.alert('Mapping Removed', `Mapping for ${wh.name} has been turned off.`);
-                          },
-                        },
-                      ]
-                    );
-                  }}
-                >
-                  <Text style={styles.turnOffMappingText}>Turn off mapping</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-
-            {/* Add Mapping Button */}
-            <TouchableOpacity
-              style={styles.addMappingBtn}
-              activeOpacity={0.8}
-              onPress={() => {
-                const nextId = `wh-map-${warehouseMappings.length + 1}`;
-                const newMapping: ZoneWarehouseMappingData = {
-                  id: nextId,
-                  code: 'WH-KOTA',
-                  name: 'Kotagiri Sub-Warehouse',
-                  type: 'Sub warehouse',
-                  sinceDate: '2026-10-15',
-                  status: 'Active',
-                  isMapped: true,
-                };
-                setWarehouseMappings((prev) => [...prev, newMapping]);
-                Alert.alert('Mapping Added', 'Kotagiri Sub-Warehouse added to zone mapping.');
-              }}
-            >
-              <Text style={styles.addMappingBtnText}>Add Mapping</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        {currentView === 'warehouse_mapping' && renderWarehouseMappingContent()}
 
         {/* ══════════════════════════════════════════════════════════════════════
             VIEW 14: ZM-14 / SA-M18-S14 ZONE-WISE REPORTS
@@ -5220,24 +5240,157 @@ export function AdminZoneManagementScreen({
 
             {/* Action Buttons Row */}
             <View style={styles.deactivationButtonsRow}>
-              <TouchableOpacity
-                style={styles.reactivateSolidBtn}
-                activeOpacity={0.8}
-                onPress={handleReactivateZone}
-              >
-                <Text style={styles.reactivateSolidBtnText}>Reactivate Zone</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.archiveOutlineBtn}
-                activeOpacity={0.8}
-                onPress={handleArchiveZone}
-              >
-                <Text style={styles.archiveOutlineBtnText}>Archive Zone</Text>
-              </TouchableOpacity>
+              {deactivationZone.status === 'Active' ? (
+                <TouchableOpacity
+                  style={styles.deactivateOutlineBtn}
+                  activeOpacity={0.8}
+                  onPress={handleDeactivateZone}
+                >
+                  <Text style={styles.deactivateOutlineBtnText}>Deactivate Zone</Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={styles.reactivateSolidBtn}
+                    activeOpacity={0.8}
+                    onPress={handleReactivateZone}
+                  >
+                    <Text style={styles.reactivateSolidBtnText}>Reactivate Zone</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.archiveOutlineBtn}
+                    activeOpacity={0.8}
+                    onPress={handleArchiveZone}
+                  >
+                    <Text style={styles.archiveOutlineBtnText}>Archive Zone</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </>
         )}
       </ScrollView>
+
+      {/* Zone List 3-Dots Action Bottom Sheet */}
+      <Modal
+        visible={actionMenuZone !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setActionMenuZone(null)}
+      >
+        <TouchableOpacity
+          style={styles.zoneActionSheetOverlay}
+          activeOpacity={1}
+          onPress={() => setActionMenuZone(null)}
+        >
+          <TouchableOpacity
+            style={styles.zoneActionSheetContainer}
+            activeOpacity={1}
+            onPress={(e) => e.stopPropagation()}
+          >
+            {actionMenuZone && (
+              <>
+                <Text style={styles.zoneActionSheetTitle}>{actionMenuZone.name}</Text>
+                <Text style={styles.zoneActionSheetSubtitle}>
+                  {actionMenuZone.code} · {actionMenuZone.shortCode}
+                </Text>
+
+                <TouchableOpacity
+                  style={styles.zoneActionSheetBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = actionMenuZone;
+                    setActionMenuZone(null);
+                    handleNavigateToDetails(target);
+                  }}
+                >
+                  <Text style={styles.zoneActionSheetBtnText}>View Details</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.zoneActionSheetBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = actionMenuZone;
+                    setActionMenuZone(null);
+                    handleNavigateToEditZone(target);
+                  }}
+                >
+                  <Text style={styles.zoneActionSheetBtnText}>Edit Zone</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.zoneActionSheetBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = actionMenuZone;
+                    setActionMenuZone(null);
+                    handleNavigateToLocationManagement(target.name);
+                  }}
+                >
+                  <Text style={styles.zoneActionSheetBtnText}>Manage Locations</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.zoneActionSheetBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = actionMenuZone;
+                    setActionMenuZone(null);
+                    setAssignSelectedZoneId(target.id);
+                    handleNavigateToAssignFarmers('list');
+                  }}
+                >
+                  <Text style={styles.zoneActionSheetBtnText}>Assign Farmers</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.zoneActionSheetBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = actionMenuZone;
+                    setActionMenuZone(null);
+                    setReportZone(target.name);
+                    handleNavigateToReports();
+                  }}
+                >
+                  <Text style={styles.zoneActionSheetBtnText}>View Reports</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.zoneActionSheetBtn,
+                    actionMenuZone.status === 'Active' && styles.zoneActionSheetDangerBtn,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = actionMenuZone;
+                    setActionMenuZone(null);
+                    handleNavigateToZoneStatus(target, 'list');
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.zoneActionSheetBtnText,
+                      actionMenuZone.status === 'Active' && styles.zoneActionSheetDangerText,
+                    ]}
+                  >
+                    {actionMenuZone.status === 'Active' ? 'Deactivate Zone' : 'Zone Status'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.zoneActionSheetBtn}
+                  activeOpacity={0.8}
+                  onPress={() => setActionMenuZone(null)}
+                >
+                  <Text style={styles.zoneActionSheetBtnText}>Close</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -7189,5 +7342,63 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: adminColors.brandSoft.text,
+  },
+  deactivateOutlineBtn: {
+    flex: 1,
+    borderRadius: adminRadius.md,
+    borderWidth: 1,
+    borderColor: adminColors.danger.border,
+    backgroundColor: adminColors.card,
+    paddingVertical: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deactivateOutlineBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.danger.text,
+  },
+  zoneActionSheetOverlay: {
+    flex: 1,
+    backgroundColor: adminOverlay.scrim,
+    justifyContent: 'flex-end',
+  },
+  zoneActionSheetContainer: {
+    backgroundColor: adminColors.card,
+    borderTopLeftRadius: adminRadius.xl,
+    borderTopRightRadius: adminRadius.xl,
+    paddingHorizontal: adminSpacing.lg,
+    paddingTop: adminSpacing.lg,
+    paddingBottom: adminSpacing.xxl,
+    ...adminShadow.lg,
+  },
+  zoneActionSheetTitle: {
+    ...adminType.title,
+    color: adminColors.brandDeep,
+  },
+  zoneActionSheetSubtitle: {
+    ...adminType.rowMeta,
+    color: adminColors.muted,
+    marginTop: 2,
+    marginBottom: adminSpacing.md,
+  },
+  zoneActionSheetBtn: {
+    borderWidth: 1,
+    borderColor: adminColors.border,
+    borderRadius: adminRadius.md,
+    backgroundColor: adminColors.card,
+    paddingVertical: adminSpacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: adminSpacing.sm,
+  },
+  zoneActionSheetBtnText: {
+    ...adminType.rowTitle,
+    color: adminColors.brandDeep,
+  },
+  zoneActionSheetDangerBtn: {
+    borderColor: adminColors.danger.border,
+  },
+  zoneActionSheetDangerText: {
+    color: adminColors.danger.text,
   },
 });
