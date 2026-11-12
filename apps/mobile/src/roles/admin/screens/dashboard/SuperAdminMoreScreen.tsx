@@ -41,6 +41,7 @@ export interface SuperAdminMoreScreenProps {
   onNavigateNotifications?: () => void;
   onNavigateReports?: () => void;
   onNavigateSettings?: () => void;
+  onNavigateZoneManagement?: () => void;
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
@@ -110,6 +111,22 @@ function PurchasesCartIcon({ size = 22, color = adminColors.brand }: { size?: nu
       <Path d="M3 3h2l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <Circle cx="9.5" cy="20.5" r="1.5" fill={color} />
       <Circle cx="17.5" cy="20.5" r="1.5" fill={color} />
+    </Svg>
+  );
+}
+
+// 5b. Zone Management
+function ZoneManagementIcon({ size = 22, color = adminColors.brand }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3V6z"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 3v15M15 6v15" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -266,6 +283,7 @@ export function SuperAdminMoreScreen({
   onNavigateNotifications,
   onNavigateReports,
   onNavigateSettings,
+  onNavigateZoneManagement,
 }: SuperAdminMoreScreenProps): React.JSX.Element {
   const menuGroups: MoreMenuGroup[] = [
     {
@@ -300,6 +318,12 @@ export function SuperAdminMoreScreen({
           label: 'Purchases',
           icon: <PurchasesCartIcon />,
           actionKey: 'purchases',
+        },
+        {
+          id: 'zone_management',
+          label: 'Zone Management',
+          icon: <ZoneManagementIcon />,
+          actionKey: 'zone_management',
         },
       ],
     },
@@ -403,6 +427,8 @@ export function SuperAdminMoreScreen({
       onNavigateReports();
     } else if (actionKey === 'settings' && onNavigateSettings) {
       onNavigateSettings();
+    } else if (actionKey === 'zone_management' && onNavigateZoneManagement) {
+      onNavigateZoneManagement();
     }
   };
 
