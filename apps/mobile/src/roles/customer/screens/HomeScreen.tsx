@@ -588,7 +588,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <View style={styles.topRightActions}>
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => setShowWalletModal(true)}
+                  onPress={() => onNavigate?.('CustomerWallet')}
                   style={styles.circleTouchTarget}
                   accessibilityLabel="Wallet"
                 />

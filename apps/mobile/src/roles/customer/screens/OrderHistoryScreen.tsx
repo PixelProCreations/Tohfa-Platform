@@ -1,69 +1,354 @@
-import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
-import { useOrders, useReorder } from '../api/orders';
-import { colors } from '../theme';
-import { neutral } from '@tohfa/design-tokens';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Image,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+  StatusBar,
+} from 'react-native';
+import Svg, { Path, Circle } from 'react-native-svg';
+import {
+  customerColors,
+  customerFonts,
+  customerRadius,
+  customerShadow,
+  customerSpacing,
+} from '../theme';
+import { ProductImages } from '../assets/images/products';
 
-export const OrderHistoryScreen = ({
+export interface OrderHistoryScreenProps {
+  onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
+  onBack?: () => void;
+}
+
+const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M19 12H5M5 12L12 19M5 12L12 5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const SearchSvg = ({ color = '#9CA3AF', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={11} cy={11} r={8} stroke={color} strokeWidth={1.8} />
+    <Path d="M21 21l-4.35-4.35" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
+const ChevronRightSvg = ({ color = '#9CA3AF', size = 15 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M9 18L15 12L9 6"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+/**
+ * Screen 69 · My Orders / Recent Orders
+ * Pixel-perfect implementation from Figma.
+ */
+export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
   onNavigate,
-}: {
-  onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
+  onBack,
 }) => {
-  const { data: orders, isLoading } = useOrders();
-  const reorderMutation = useReorder();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const handleReorder = (orderId: string) => {
-    reorderMutation.mutate(orderId, {
-      onSuccess: () => {
-        onNavigate?.('Cart');
-      },
-      onError: (error) => {
-        console.error('Reorder failed', error);
-      }
-    });
-  };
+  const group1Orders = [
+    {
+      id: 'ord-1',
+      title: 'Royal Gala',
+      orderNumber: 'ORD-20261105-0039',
+      date: '06/11/2026',
+      badge: 'Arrive Tomorrow',
+      image: ProductImages.fruitApple,
+    },
+    {
+      id: 'ord-2',
+      title: 'Red Tomato',
+      orderNumber: 'ORD-20261105-0039',
+      date: '06/11/2026',
+      badge: 'Arrive Tomorrow',
+      image: ProductImages.foryouTomatoes,
+    },
+    {
+      id: 'ord-3',
+      title: 'Yellow Cherry Tomato',
+      orderNumber: 'ORD-20261105-0039',
+      date: '06/11/2026',
+      badge: 'Arrive Tomorrow',
+      image: ProductImages.foryouTomatoes,
+    },
+  ];
 
-  if (isLoading) return <ActivityIndicator style={styles.centered} />;
+  const group2Orders = [
+    {
+      id: 'ord-4',
+      title: 'Fresh Carrot',
+      orderNumber: 'ORD-20261023-0856',
+      actionText: 'View details',
+      image: ProductImages.vegCarrot,
+    },
+    {
+      id: 'ord-5',
+      title: 'Cabbage',
+      orderNumber: 'ORD-20261023-0856',
+      actionText: 'View details',
+      image: ProductImages.foryouLettuce,
+    },
+    {
+      id: 'ord-6',
+      title: 'Cauliflower',
+      orderNumber: 'ORD-20261023-0856',
+      actionText: 'View details',
+      image: ProductImages.vegCauliflower,
+    },
+  ];
+
+  const filteredGroup1 = group1Orders.filter(o =>
+    o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredGroup2 = group2Orders.filter(o =>
+    o.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    o.orderNumber.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Order History</Text>
-      <FlatList
-        data={orders}
-        keyExtractor={item => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.header}>
-              <Text style={styles.orderNumber}>#{item.orderNumber}</Text>
-              <Text style={styles.status}>{item.status}</Text>
-            </View>
-            <Text style={styles.text}>Total: ₹{item.totalAmount}</Text>
-            <Text style={styles.text}>{new Date(item.placedAt).toLocaleDateString()}</Text>
-            
-            <TouchableOpacity 
-              style={styles.reorderBtn} 
-              onPress={() => handleReorder(item.id)}
-              disabled={reorderMutation.isPending}
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onBack || (() => onNavigate?.('CustomerAccount'))}
+            style={styles.circleIconButton}
+            accessibilityLabel="Back"
+          >
+            <BackArrowSvg color={customerColors.heading} size={18} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Orders</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── SEARCH BAR ──────────────────────────────────────────────────────── */}
+        <View style={[styles.searchBox, customerShadow.subtle]}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search..."
+            placeholderTextColor={customerColors.muted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          <SearchSvg color={customerColors.muted} size={18} />
+        </View>
+
+        {/* ── SECTION TITLE: RESENT ORDERS ────────────────────────────────────── */}
+        <Text style={styles.sectionTitle}>Resent Orders</Text>
+
+        {/* ── GROUP 1: 05/11/2026 ──────────────────────────────────────────────── */}
+        <Text style={styles.dateHeader}>05/11/2026</Text>
+        <View style={styles.ordersList}>
+          {filteredGroup1.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.7}
+              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber })}
+              style={styles.orderRow}
+              accessibilityLabel={item.title}
             >
-              <Text style={styles.reorderBtnText}>Reorder</Text>
+              <Image source={item.image} style={styles.productThumb} resizeMode="contain" />
+              <View style={styles.orderInfoCol}>
+                <Text style={styles.productName}>{item.title}</Text>
+                <Text style={styles.orderNumber}>{item.orderNumber}</Text>
+              </View>
+              <View style={styles.orderRightCol}>
+                <Text style={styles.deliveryDate}>{item.date}</Text>
+                <View style={styles.arrivePill}>
+                  <Text style={styles.arrivePillText}>{item.badge}</Text>
+                </View>
+              </View>
+              <ChevronRightSvg color="#9CA3AF" size={15} />
             </TouchableOpacity>
-          </View>
-        )}
-      />
-    </SafeAreaView>
+          ))}
+        </View>
+
+        {/* ── GROUP 2: 23/10/2026 ──────────────────────────────────────────────── */}
+        <Text style={[styles.dateHeader, { marginTop: customerSpacing.lg }]}>23/10/2026</Text>
+        <View style={styles.ordersList}>
+          {filteredGroup2.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              activeOpacity={0.7}
+              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber })}
+              style={styles.orderRow}
+              accessibilityLabel={item.title}
+            >
+              <Image source={item.image} style={styles.productThumb} resizeMode="contain" />
+              <View style={styles.orderInfoCol}>
+                <Text style={styles.productName}>{item.title}</Text>
+                <Text style={styles.orderNumber}>{item.orderNumber}</Text>
+              </View>
+              <View style={styles.viewDetailsRow}>
+                <Text style={styles.viewDetailsText}>{item.actionText}</Text>
+                <ChevronRightSvg color={customerColors.body} size={13} />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: colors.surface },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 16 },
-  card: { backgroundColor: colors.white, padding: 16, borderRadius: 8, marginBottom: 16, shadowColor: neutral('black'), shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  orderNumber: { fontSize: 18, fontWeight: 'bold' },
-  status: { fontSize: 16, color: colors.success },
-  text: { fontSize: 16, marginBottom: 4 },
-  reorderBtn: { backgroundColor: colors.primary, padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 12 },
-  reorderBtnText: { color: colors.white, fontSize: 16, fontWeight: 'bold' },
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: customerSpacing.base,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1A2E1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+  },
+  headerTitle: {
+    fontSize: 22,
+    color: '#1A2E1A',
+    fontFamily: customerFonts.editorial,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: customerSpacing.base,
+    paddingTop: 8,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: customerRadius.pill,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    height: 44,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: customerColors.body,
+    fontFamily: customerFonts.regular,
+    paddingVertical: 0,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    color: '#1A2E1A',
+    fontFamily: customerFonts.editorial,
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  dateHeader: {
+    fontSize: 12,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+    marginBottom: 10,
+  },
+  ordersList: {
+    gap: 14,
+  },
+  orderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 4,
+  },
+  productThumb: {
+    width: 36,
+    height: 36,
+  },
+  orderInfoCol: {
+    flex: 1,
+  },
+  productName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: customerColors.body,
+    fontFamily: customerFonts.semibold,
+  },
+  orderNumber: {
+    fontSize: 10,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+    marginTop: 2,
+  },
+  orderRightCol: {
+    alignItems: 'flex-end',
+    gap: 3,
+  },
+  deliveryDate: {
+    fontSize: 10,
+    color: customerColors.muted,
+    fontFamily: customerFonts.regular,
+  },
+  arrivePill: {
+    backgroundColor: '#EDF8EE',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: customerRadius.pill,
+  },
+  arrivePillText: {
+    fontSize: 10,
+    color: customerColors.brand,
+    fontFamily: customerFonts.regular,
+  },
+  viewDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  viewDetailsText: {
+    fontSize: 11,
+    color: customerColors.body,
+    fontFamily: customerFonts.regular,
+  },
 });

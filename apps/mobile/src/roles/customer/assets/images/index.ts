@@ -14,6 +14,7 @@ export { default as cauliflower } from './cauliflower.jpg';
 export { default as branchLeavesTopLeft } from './branch_leaves_top_left.png';
 export { default as permissionsHeroCrate } from './permissions_hero_crate.jpg';
 export { default as satelliteMapCoimbatore } from './satellite_map_coimbatore.jpg';
+export { default as walletPouchCard } from './Gemini_Generated_Image_w2evv0w2evv0w2ev2 1 (1).png';
 export { default as accountHeaderBg } from './account_header_bg.png';
 export { default as profileAdsBanner } from './profileimages/ads banner.png';
 export { default as profileOrdersIcon } from './profileimages/image 25.png';
