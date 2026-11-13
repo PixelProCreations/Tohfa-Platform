@@ -58,7 +58,7 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
     <View style={styles.container}>
       {/* Edge-to-edge transparent status bar, status bar hidden */}
       <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
-      <StatusBar hidden={true} translucent={true} backgroundColor="transparent" barStyle="dark-content" />
+      <StatusBar hidden={true} barStyle="dark-content" />
 
       {/* Decorative foliage assets from Figma */}
       <Image

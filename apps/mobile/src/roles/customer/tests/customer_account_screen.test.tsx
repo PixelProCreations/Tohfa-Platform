@@ -23,6 +23,7 @@ vi.mock('react-native', () => ({
   TouchableOpacity: 'TouchableOpacity',
   View: 'View',
   StatusBar: 'StatusBar',
+  Modal: (props: any) => (props.visible ? React.createElement('Modal', props, props.children) : null),
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
@@ -200,7 +201,26 @@ describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 
-  it('calls onSignOut when Logout is pressed', async () => {
+  it('navigates to AccountSettings when Account settings menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const settingsBtn = tree.root.findByProps({ accessibilityLabel: 'Account settings' });
+    await act(async () => {
+      settingsBtn.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerAccountSettings');
+  });
+
+  it('opens Logout Confirmation Modal when Logout is pressed and signs out on confirm', async () => {
     let tree!: renderer.ReactTestRenderer;
     await act(async () => {
       tree = renderer.create(
@@ -214,6 +234,19 @@ describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
     const logoutBtn = tree.root.findByProps({ accessibilityLabel: 'Logout' });
     await act(async () => {
       logoutBtn.props.onPress();
+    });
+
+    // Verify modal content
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Log Out?');
+    expect(json).toContain('Are you sure you want to log out of Your TOHFA Market Account?');
+    expect(json).toContain('Cancel');
+    expect(json).toContain('Log out');
+
+    // Confirm logout
+    const confirmBtn = tree.root.findByProps({ accessibilityLabel: 'Log out confirm' });
+    await act(async () => {
+      confirmBtn.props.onPress();
     });
     expect(mockSignOut).toHaveBeenCalled();
   });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Platform,
+  Modal,
 } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import {
@@ -169,6 +170,41 @@ const LogoutSvg = ({ color = '#DC2626', size = 20 }: { color?: string; size?: nu
   </Svg>
 );
 
+const CloseCircleSvg = ({ size = 24 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={12} r={10} fill="#F3F4F6" />
+    <Path d="M15 9l-6 6M9 9l6 6" stroke="#4B5563" strokeWidth={1.6} strokeLinecap="round" />
+  </Svg>
+);
+
+const LogOutDoorIllustrationSvg = ({ size = 76 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 80 80" fill="none">
+    <Circle cx={40} cy={40} r={34} fill="#E9F7E9" />
+    <Path
+      d="M24 45c-4-1-7-5-6-9 4 0 7 3 7 7l-1 2z"
+      fill="#22C55E"
+    />
+    <Path
+      d="M26 38c-3-3-3-8 1-9 1 4 0 7-1 9z"
+      fill="#4ADE80"
+    />
+    <Rect x={30} y={20} width={24} height={40} rx={3} stroke="#15803D" strokeWidth={2.5} fill="#FFFFFF" />
+    <Path
+      d="M30 20l15 6v28l-15 6V20z"
+      fill="#22C55E"
+      stroke="#16A34A"
+      strokeWidth={1.5}
+    />
+    <Circle cx={41} cy={40} r={1.6} fill="#FFFFFF" />
+    <Path
+      d="M60 22l4-2M63 27l4 1M60 32l3 2"
+      stroke="#16A34A"
+      strokeWidth={2}
+      strokeLinecap="round"
+    />
+  </Svg>
+);
+
 const ProfileBadgeSvg = ({ color = '#FFFFFF', size = 28 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={12} cy={12} r={10} stroke={color} strokeWidth={2} />
@@ -194,6 +230,8 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
   onSignOut,
   onViewProfile,
 }) => {
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
   return (
     <View style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
@@ -345,7 +383,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Row 3: Account settings */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => {}}
+            onPress={() => onNavigate?.('CustomerAccountSettings')}
             style={styles.menuItem}
             accessibilityLabel="Account settings"
           >
@@ -363,7 +401,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Row 4: Contact Support */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => {}}
+            onPress={() => onNavigate?.('CustomerSupport')}
             style={styles.menuItem}
             accessibilityLabel="Contact Support"
           >
@@ -381,7 +419,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Row 5: Help & FAQs */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => {}}
+            onPress={() => onNavigate?.('CustomerHelp')}
             style={styles.menuItem}
             accessibilityLabel="Help & FAQs"
           >
@@ -399,7 +437,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Row 6: Logout */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={onSignOut}
+            onPress={() => setShowLogoutModal(true)}
             style={styles.menuItem}
             accessibilityLabel="Logout"
           >
@@ -434,12 +472,72 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
       <View style={styles.floatingButtonWrap} pointerEvents="box-none">
         <TouchableOpacity
           activeOpacity={0.85}
+          onPress={() => onNavigate?.('CustomerProfile')}
           style={[styles.floatingProfileButton, customerShadow.raised]}
           accessibilityLabel="Active Profile"
         >
           <ProfileBadgeSvg color="#FFFFFF" size={26} />
         </TouchableOpacity>
       </View>
+
+      {/* ── LOGOUT CONFIRMATION MODAL (EXACT FIGMA SPEC) ────────────────────── */}
+      <Modal
+        visible={showLogoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLogoutModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.logoutModalCard, customerShadow.raised]}>
+            {/* Top Right Close Button */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setShowLogoutModal(false)}
+              style={styles.modalCloseButton}
+              accessibilityLabel="Close Modal"
+            >
+              <CloseCircleSvg size={24} />
+            </TouchableOpacity>
+
+            {/* Illustration */}
+            <View style={styles.logoutIllustrationWrap}>
+              <LogOutDoorIllustrationSvg size={76} />
+            </View>
+
+            {/* Title */}
+            <Text style={styles.logoutModalTitle}>Log Out?</Text>
+
+            {/* Subtitle */}
+            <Text style={styles.logoutModalSubtitle}>
+              Are you sure you want to log out of Your TOHFA Market Account?
+            </Text>
+
+            {/* Action Buttons */}
+            <View style={styles.logoutButtonsRow}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setShowLogoutModal(false)}
+                style={styles.cancelModalButton}
+                accessibilityLabel="Cancel"
+              >
+                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  setShowLogoutModal(false);
+                  onSignOut?.();
+                }}
+                style={styles.confirmLogoutButton}
+                accessibilityLabel="Log out confirm"
+              >
+                <Text style={styles.confirmLogoutButtonText}>Log out</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -650,5 +748,91 @@ const styles = StyleSheet.create({
     backgroundColor: customerColors.brand,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  // ── LOGOUT MODAL STYLES ────────────────────────────────────────────────────
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  logoutModalCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingTop: 24,
+    paddingBottom: 22,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  logoutIllustrationWrap: {
+    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutModalTitle: {
+    fontSize: 24,
+    fontFamily: customerFonts.editorial,
+    color: '#1A2E1A',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  logoutModalSubtitle: {
+    fontSize: 12.5,
+    fontFamily: customerFonts.regular,
+    color: '#4B5563',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 22,
+    paddingHorizontal: 10,
+  },
+  logoutButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+  },
+  cancelModalButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: customerRadius.pill,
+    borderWidth: 1.2,
+    borderColor: '#2E7D32',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelModalButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+    fontFamily: customerFonts.semibold,
+  },
+  confirmLogoutButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: customerRadius.pill,
+    backgroundColor: '#E04F4F',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmLogoutButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: customerFonts.semibold,
   },
 });

@@ -143,7 +143,7 @@ export const CustomerLoadingMarketScreen: React.FC<CustomerLoadingMarketScreenPr
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden={true} translucent={true} backgroundColor="transparent" barStyle="dark-content" />
+      <StatusBar hidden={true} barStyle="dark-content" />
 
       <Animated.View style={[styles.centeredContainer, { opacity: fadeAnim }]}>
         {/* ── TOP SECTION: TOHFA LOGO + FROM OUR FARMERS TO YOUR HOME ─────── */}

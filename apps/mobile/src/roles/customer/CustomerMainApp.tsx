@@ -15,6 +15,13 @@ import { OrderTrackingScreen } from './screens/OrderTrackingScreen';
 import { OrderHistoryScreen } from './screens/OrderHistoryScreen';
 import { CustomerAccountScreen } from './screens/CustomerAccountScreen';
 import { CustomerProfileScreen } from './screens/CustomerProfileScreen';
+import { CustomerWalletScreen } from './screens/CustomerWalletScreen';
+import { CustomerSupportScreen } from './screens/CustomerSupportScreen';
+import { CustomerHelpScreen } from './screens/CustomerHelpScreen';
+import { CustomerNotificationsScreen } from './screens/CustomerNotificationsScreen';
+import { CustomerAccountSettingsScreen } from './screens/CustomerAccountSettingsScreen';
+import { CustomerPrivacyPolicyScreen } from './screens/CustomerPrivacyPolicyScreen';
+import { CustomerTermsScreen } from './screens/CustomerTermsScreen';
 import { HomeScreen } from './screens/HomeScreen';
 
 /**
@@ -42,7 +49,14 @@ type ScreenName =
   | 'OrderTracking'
   | 'OrderHistory'
   | 'CustomerAccount'
-  | 'CustomerProfile';
+  | 'CustomerProfile'
+  | 'CustomerWallet'
+  | 'CustomerSupport'
+  | 'CustomerHelp'
+  | 'CustomerNotifications'
+  | 'CustomerAccountSettings'
+  | 'CustomerPrivacyPolicy'
+  | 'CustomerTerms';
 
 interface NavigationParams {
   categoryId?: string | undefined;
@@ -169,6 +183,55 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           {currentScreen === 'CustomerProfile' && (
             <CustomerProfileScreen
               initialMode={navParams.mode || (navParams.isNewUser ? 'empty' : 'view')}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerWallet' && (
+            <CustomerWalletScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerSupport' && (
+            <CustomerSupportScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerHelp' && (
+            <CustomerHelpScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerNotifications' && (
+            <CustomerNotificationsScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerAccountSettings' && (
+            <CustomerAccountSettingsScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerPrivacyPolicy' && (
+            <CustomerPrivacyPolicyScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerTerms' && (
+            <CustomerTermsScreen
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />
