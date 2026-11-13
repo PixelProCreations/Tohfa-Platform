@@ -20,7 +20,6 @@ import renderer, { act, type ReactTestRendererJSON } from 'react-test-renderer';
 type AlertButton = { text: string; style?: string; onPress?: () => void };
 const alert = vi.hoisted(() => vi.fn());
 vi.mock('react-native', () => ({
-  Alert: { alert },
   BackHandler: { addEventListener: () => ({ remove: () => undefined }) },
   Modal: 'Modal',
   Platform: { OS: 'ios', select: (obj: Record<string, unknown>) => obj['ios'] ?? obj['default'] },
@@ -41,6 +40,7 @@ vi.mock('react-native-svg', () => ({
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({
+  appAlert: alert,
   Button: 'Button',
   EmptyState: 'EmptyState',
   ErrorState: 'ErrorState',
@@ -301,7 +301,7 @@ describe('EditInputAppliedScreen (BR-56l)', () => {
     const tree = await mountEdit({ onSaved });
     await pressLabel(tree, t('farmer.addInput.save'));
     expect(onSaved).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.saveFailed'));
+    expect(alert).toHaveBeenLastCalledWith(t('farmer.addInput.error.title'), t('farmer.addInput.error.saveFailed'), undefined, { tone: 'error' });
   });
 
   it('BR-56l: Delete asks first; Cancel sends nothing, Delete sends DELETE and calls onDeleted', async () => {
@@ -478,6 +478,8 @@ describe('Inputs Applied history — edit and delete (BR-56l)', () => {
     expect(alert).toHaveBeenLastCalledWith(
       t('farmer.inputHistory.deleteFailed.title'),
       t('farmer.inputHistory.deleteFailed.body'),
+      undefined,
+      { tone: 'error' },
     );
     expect(hasTestId(tree, 'inputHistory.row.cropInput:i-a')).toBe(true);
   });

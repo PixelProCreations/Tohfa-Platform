@@ -1,142 +1,22 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import {
-  Alert,
   View,
-  StyleSheet,
   Text,
   TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-  ScrollView,
   Keyboard,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
   PanResponder,
 } from 'react-native';
 import type { TextInputInstance } from 'react-native';
-import Svg, { Path, Circle as SvgCircle, Line } from 'react-native-svg';
 import { MAPBOX_ACCESS_TOKEN } from '@env';
 import {
   FarmBoundaryMap,
   type FarmBoundaryMapHandle,
   type FarmBoundaryMapMode,
+  appAlert,
 } from '@tohfa/mobile-ui';
-
-const ChevronLeft = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m15 18-6-6 6-6"/>
-  </Svg>
-);
-
-// Mirror of ChevronLeft's own path (same viewBox/stroke), for the location-slider's "next" arrow.
-const ChevronRight = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="m9 18 6-6-6-6"/>
-  </Svg>
-);
-
-const Crosshair = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <SvgCircle cx="12" cy="12" r="10"/>
-    <Line x1="12" y1="2" x2="12" y2="6"/>
-    <Line x1="12" y1="18" x2="12" y2="22"/>
-    <Line x1="4" y1="12" x2="2" y2="12"/>
-    <Line x1="22" y1="12" x2="20" y2="12"/>
-  </Svg>
-);
-
-const PenIcon = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M12 20h9"/>
-    <Path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-  </Svg>
-);
-
-const PlusIcon = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <Line x1="12" y1="5" x2="12" y2="19"/>
-    <Line x1="5" y1="12" x2="19" y2="12"/>
-  </Svg>
-);
-
-const MinusIcon = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <Line x1="5" y1="12" x2="19" y2="12"/>
-  </Svg>
-);
-
-const SearchIcon = ({ size = 20, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <SvgCircle cx="11" cy="11" r="8"/>
-    <Line x1="21" y1="21" x2="16.65" y2="16.65"/>
-  </Svg>
-);
-
-const CloseIcon = ({ size = 20, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <Line x1="18" y1="6" x2="6" y2="18"/>
-    <Line x1="6" y1="6" x2="18" y2="18"/>
-  </Svg>
-);
-
-const PinIcon = ({ size = 20, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-    <SvgCircle cx="12" cy="10" r="3"/>
-  </Svg>
-);
-
-const LeafIcon = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2v1c0 5.6-4.5 11.2-11 11.2V20Z"/>
-  </Svg>
-);
-
-const CheckIcon = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M20 6 9 17l-5-5"/>
-  </Svg>
-);
-
-const TrashIcon = ({ size = 24, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M3 6h18"/>
-    <Path d="M8 6V4h8v2"/>
-    <Path d="M19 6l-1 14H6L5 6"/>
-    <Line x1="10" y1="11" x2="10" y2="17"/>
-    <Line x1="14" y1="11" x2="14" y2="17"/>
-  </Svg>
-);
-
-const SolidDot = ({ size = 10, color = "currentColor" }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
-    <SvgCircle cx="12" cy="12" r="10"/>
-  </Svg>
-);
-
-interface MapboxFeature {
-  id: string;
-  text: string;
-  place_name: string;
-  center: [number, number];
-  context?: Array<{
-    id: string;
-    text: string;
-  }>;
-}
-import {
-  colors,
-  useTheme,
-  spacing,
-  typography,
-  weights,
-  radius,
-  MIN_TOUCH_TARGET,
-} from '../../theme';
+import { useTheme, spacing } from '../../theme';
 import { authPalette as P } from '../../theme';
 import {
-  generateLocationId,
   type FarmLocationData,
   type Step3LocationData,
 } from '../../storage/registrationDraft';
@@ -144,104 +24,51 @@ import { calculatePolygonMetrics } from '../../utils/geo';
 import { validateStep } from './validation';
 import {
   classifyManualPoints,
-  isValidLatitudeText,
-  isValidLongitudeText,
   makeManualRow,
-  manualRowIssue,
   manualSeedOf,
-  type BoundaryOrigin,
-  type LngLat,
   type ManualPointRow,
-  type ManualRowIssue,
   type ParcelPositioning,
 } from './manualPoints';
-import { t, type TranslationKey } from '../../../../i18n/farmer';
-
-/**
- * A TOHFA farmer runs ONE farming operation whose land sits in several physical places. What
- * repeats is therefore a land LOCATION -- a labelled parcel with its own acreage and its own
- * boundary -- and each one is captured here, whole, on this screen.
- *
- * A location is self-contained: it carries its own `label`, `areaAcres` and `fmbPolygon`, so
- * there is nothing to correlate back to step 2 (which now describes the operation, not a list of
- * farms). If a `farmId` match between the two steps ever reappears here, the model has drifted.
- *
- * Total land area is deliberately not held anywhere -- it is the sum of these parcels' `areaAcres`
- * and is derived wherever it is displayed.
- */
-function makeBlankLocation(): FarmLocationData {
-  return { id: generateLocationId(), label: '', areaAcres: 0 };
-}
-
-/** The outer ring of a location's saved boundary, or an empty ring when it has none. */
-function ringOf(location: FarmLocationData | undefined): number[][] {
-  const ring = location?.fmbPolygon?.coordinates?.[0];
-  return Array.isArray(ring) ? ring : [];
-}
-
-/**
- * The saved parcel's own manually-typed position, if it has one and no ring -- used only for the
- * map's mount-time camera centre. A ring always wins (its centroid lives in these same two fields
- * but is not manual data), mirroring the seeding rules in `manualSeedOf` (./manualPoints.ts).
- */
-function savedManualPinOf(location: FarmLocationData | undefined): LngLat | null {
-  if (ringOf(location).length > 0) return null;
-  if (location?.latitude === undefined || location?.longitude === undefined) return null;
-  return isValidLatitudeText(String(location.latitude)) && isValidLongitudeText(String(location.longitude))
-    ? [location.longitude, location.latitude]
-    : null;
-}
-
-/** i18n key for one manual point row's own inline problem (see `manualRowIssue`). */
-const MANUAL_ROW_ISSUE_KEY: Record<ManualRowIssue, TranslationKey> = {
-  incomplete: 'farmer.registration.step3.bothCoordinates',
-  latitudeRange: 'farmer.registration.step3.latitudeRange',
-  longitudeRange: 'farmer.registration.step3.longitudeRange',
-};
-
-/** Coordinates written back into manual rows from a dragged vertex: ~0.1 m, more than GPS gives. */
-const MANUAL_COORD_DECIMALS = 6;
-function formatManualCoord(value: number): string {
-  return String(Number(value.toFixed(MANUAL_COORD_DECIMALS)));
-}
-
-/**
- * How far, and how much more horizontal than vertical, a drag on the bottom card must travel
- * before the swipe-between-locations gesture (see `swipeResponder` below) claims it. Both guard
- * against the same failure: a plain tap (near-zero movement either way) or an accidental small
- * wobble must still reach the Edit/Delete Boundary buttons or a manual-entry field underneath,
- * not be swallowed as a page change.
- */
-const SWIPE_MIN_DISTANCE = 48; // logical px -- comfortably past a stray touch, short of a full drag
-const SWIPE_DIRECTION_RATIO = 1.5; // |dx| must beat |dy| by this much before it reads as horizontal
-
-/**
- * `validation.ts` keys every per-location error by the parcel's POSITION -- `locations.2.label`,
- * `locations.2.areaAcres`, `locations.2.coordinates`. These helpers are the only places that
- * knowledge lives, so an error can be routed to the parcel it is actually about instead of being
- * shown against whichever one happens to be on screen. The trailing dot matters: without it
- * `locations.1.` would also claim `locations.10.label`.
- */
-function hasErrorsFor(errors: Record<string, string>, index: number): boolean {
-  const prefix = `locations.${index}.`;
-  return Object.keys(errors).some((key) => key.startsWith(prefix));
-}
-
-/**
- * Whether the parcel at `index` has a problem with one of the two fields that live in the
- * location-details popup (name, area) -- as opposed to only a positioning problem, which is fixed
- * on the map, not in the popup.
- */
-function hasDetailsErrorsFor(errors: Record<string, string>, index: number): boolean {
-  return Boolean(errors[`locations.${index}.label`] || errors[`locations.${index}.areaAcres`]);
-}
-
-function firstIndexWithErrors(errors: Record<string, string>, count: number): number {
-  for (let i = 0; i < count; i += 1) {
-    if (hasErrorsFor(errors, i)) return i;
-  }
-  return -1;
-}
+import { t } from '../../../../i18n/farmer';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  PenIcon,
+  PlusIcon,
+  MinusIcon,
+  SearchIcon,
+  LeafIcon,
+  CheckIcon,
+  TrashIcon,
+  SolidDot,
+} from './step3Location/icons';
+import { styles } from './step3Location/styles';
+import {
+  type MapboxFeature,
+  makeBlankLocation,
+  ringOf,
+  savedManualPinOf,
+  formatManualCoord,
+  hasErrorsFor,
+  hasDetailsErrorsFor,
+  firstIndexWithErrors,
+  SWIPE_MIN_DISTANCE,
+  SWIPE_DIRECTION_RATIO,
+} from './step3Location/locationUtils';
+import {
+  patchReducer,
+  INITIAL_SEARCH_STATE,
+  INITIAL_DETAILS_STATE,
+  SEARCH_CLOSED,
+  type SearchState,
+  type DetailsModalState,
+  type PlaceState,
+  type ManualState,
+} from './step3Location/formState';
+import { SearchOverlay } from './step3Location/SearchOverlay';
+import { DetailsModal } from './step3Location/DetailsModal';
+import { ManualPointsPanel } from './step3Location/ManualPointsPanel';
 
 interface Step3Props {
   initialData?: Step3LocationData | undefined;
@@ -291,18 +118,20 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
   // source of truth that `commitActiveLocation` reads. The drafts are always seeded explicitly by
   // `openDetailsModal` -- never left over from a previous opening -- and `goToLocation` closes the
   // popup, so it can never show one parcel's name while another parcel is active.
-  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [draftLabel, setDraftLabel] = useState('');
-  const [draftAreaAcresText, setDraftAreaAcresText] = useState('');
+  const [details, patchDetails] = useReducer(patchReducer<DetailsModalState>, INITIAL_DETAILS_STATE);
   const areaInputRef = useRef<TextInputInstance>(null);
 
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [suggestions, setSuggestions] = useState<MapboxFeature[]>([]);
-  const [selectedVillage, setSelectedVillage] = useState(activeLocation?.village ?? '');
-  const [selectedTaluk, setSelectedTaluk] = useState(activeLocation?.taluk ?? '');
-  const [selectedDistrict, setSelectedDistrict] = useState(activeLocation?.district ?? '');
+  const [search, patchSearch] = useReducer(patchReducer<SearchState>, INITIAL_SEARCH_STATE);
+  const { query: searchQuery, isSearching, suggestions } = search;
+  const [place, patchPlace] = useReducer(
+    patchReducer<PlaceState>,
+    activeLocation,
+    (location): PlaceState => ({
+      village: location?.village ?? '',
+      taluk: location?.taluk ?? '',
+      district: location?.district ?? '',
+    }),
+  );
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const [coords, setCoords] = useState<number[][]>(() => ringOf(activeLocation));
@@ -312,22 +141,35 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
   // whatever is already on the (restored or freshly-committed) parcel, so reopening it shows what
   // it actually has, and the panel starts open exactly when there is manual data to show. The seed
   // is computed once here (row ids are generated per call) and re-derived by `goToLocation`.
-  const [initialManualSeed] = useState(() => manualSeedOf(activeLocation));
-  const [manualPoints, setManualPoints] = useState<ManualPointRow[]>(initialManualSeed.rows);
-  const [manualEntryOpen, setManualEntryOpen] = useState(initialManualSeed.entryOpen);
+  // The seed is computed once by the lazy initialiser below (row ids are generated per call).
   // Where the boundary on the map came from -- see `BoundaryOrigin`. A manual boundary's rows are
   // its source of truth, so a drag must be written back into them and reopening the panel must not
   // wipe it; a tap-drawn one has no rows and is replaced (with a confirm) by opening the panel.
-  const [boundaryOrigin, setBoundaryOrigin] = useState<BoundaryOrigin>(initialManualSeed.origin);
   // The map has nothing else to show for a single manually-typed point (no polygon), so this is
   // the pin FarmBoundaryMap renders for it -- see its `markerCoordinate` prop. Seeded from the same
   // source as `manualPoints` above so a restored draft's marker (and, via `mapInitialCenter` below,
   // the camera) is correct on the very first render, not only after the farmer retypes something.
   // Kept as its own [lng, lat] pair rather than derived inline from the rows because it must NOT
   // track every keystroke -- see `syncManualToMap`.
-  const [manualMarkerCoord, setManualMarkerCoord] = useState<LngLat | null>(
-    initialManualSeed.markerCoord,
+  const [manual, patchManual] = useReducer(
+    patchReducer<ManualState>,
+    activeLocation,
+    (location): ManualState => {
+      const seed = manualSeedOf(location);
+      return {
+        points: seed.rows,
+        entryOpen: seed.entryOpen,
+        origin: seed.origin,
+        markerCoord: seed.markerCoord,
+      };
+    },
   );
+  const {
+    points: manualPoints,
+    entryOpen: manualEntryOpen,
+    origin: boundaryOrigin,
+    markerCoord: manualMarkerCoord,
+  } = manual;
   // Deliberately separate from `debounceTimerRef` (place-search): the manual-coordinates fields
   // stay mounted and editable even while the search overlay is showing (see the JSX below -- the
   // bottom card with the manual panel isn't inside the `isSearchOpen` branch), so a shared timer
@@ -430,9 +272,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
    * popup with the parcel being LEFT.
    */
   function openDetailsModal(seedLabel: string, seedAreaAcresText: string) {
-    setDraftLabel(seedLabel);
-    setDraftAreaAcresText(seedAreaAcresText);
-    setIsDetailsModalOpen(true);
+    patchDetails({ isOpen: true, draftLabel: seedLabel, draftAreaAcresText: seedAreaAcresText });
   }
 
   /** Bottom card's name: reopens the popup for the parcel already on screen, to fix a typo. */
@@ -447,16 +287,16 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
    * inline field blank was, so there is still exactly one place that decides a parcel is complete.
    */
   function handleSaveDetails() {
-    setLabel(draftLabel);
-    setAreaAcresText(draftAreaAcresText);
+    setLabel(details.draftLabel);
+    setAreaAcresText(details.draftAreaAcresText);
     clearFieldError(`locations.${activeIndex}.label`);
     clearFieldError(`locations.${activeIndex}.areaAcres`);
-    setIsDetailsModalOpen(false);
+    patchDetails({ isOpen: false });
   }
 
   /** Discards the drafts; `label`/`areaAcresText` keep whatever they held before opening. */
   function handleCancelDetails() {
-    setIsDetailsModalOpen(false);
+    patchDetails({ isOpen: false });
   }
 
   // Real GPS-grounded center: reuse the *active* parcel's already-saved boundary centroid if one
@@ -486,42 +326,42 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
   const fetchSuggestions = async (query: string, selectFirstOnSuccess = false) => {
     const trimmed = query.trim();
     if (!trimmed || trimmed.length < 2) {
-      setSuggestions([]);
-      setIsSearching(false);
+      patchSearch({ suggestions: [] });
+      patchSearch({ isSearching: false });
       return;
     }
-    setIsSearching(true);
+    patchSearch({ isSearching: true });
     try {
       const url =
         `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json` +
         `?access_token=${encodeURIComponent(MAPBOX_ACCESS_TOKEN)}&autocomplete=true&limit=5&country=in`;
       const res = await fetch(url);
       if (!res.ok) {
-        setSuggestions([]);
+        patchSearch({ suggestions: [] });
         return;
       }
       const data = await res.json();
       const features: MapboxFeature[] = data.features || [];
-      setSuggestions(features);
+      patchSearch({ suggestions: features });
       const firstFeature = features[0];
       if (selectFirstOnSuccess && firstFeature) {
         handleSelectSuggestion(firstFeature);
       }
     } catch {
-      setSuggestions([]);
+      patchSearch({ suggestions: [] });
     } finally {
-      setIsSearching(false);
+      patchSearch({ isSearching: false });
     }
   };
 
   const handleSearchChange = (text: string) => {
-    setSearchQuery(text);
+    patchSearch({ query: text });
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
     if (!text.trim()) {
-      setSuggestions([]);
-      setIsSearching(false);
+      patchSearch({ suggestions: [] });
+      patchSearch({ isSearching: false });
       return;
     }
     debounceTimerRef.current = setTimeout(() => {
@@ -536,15 +376,13 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
       mapRef.current?.flyTo([centerLng, centerLat], 16, 900);
     }
     if (item.text) {
-      setSelectedVillage(item.text);
+      patchPlace({ village: item.text });
     }
     if (item.context) {
       const dist = item.context.find((c) => c.id.startsWith('district'));
-      if (dist) setSelectedDistrict(dist.text);
+      if (dist) patchPlace({ district: dist.text });
     }
-    setIsSearchOpen(false);
-    setSearchQuery('');
-    setSuggestions([]);
+    patchSearch(SEARCH_CLOSED);
   };
 
   const handleSearchSubmit = () => {
@@ -591,25 +429,25 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     // `setPolygon` returns to view mode, which would end the farmer's edit session mid-adjustment.
     if (mode === 'edit' && boundaryOrigin === 'manual' && next.length >= 3) {
       const vertices = next.slice(0, -1); // `onPolygonChange` hands over a closed ring
-      setManualPoints((prev) =>
-        vertices.map(([vertexLng, vertexLat], index) => ({
-          id: prev[index]?.id ?? makeManualRow().id,
+      patchManual((prev) => ({
+        points: vertices.map(([vertexLng, vertexLat], index) => ({
+          id: prev.points[index]?.id ?? makeManualRow().id,
           latText: formatManualCoord(vertexLat),
           lngText: formatManualCoord(vertexLng),
         })),
-      );
+      }));
       clearFieldError(`locations.${activeIndex}.coordinates`);
       return;
     }
     // A tap-drawn vertex. Only real taps and drags reach here, and a typed outline can only be
     // replaced by drawing after `resetPositioning` (which already sets 'map'), so this is always
     // a map-drawn boundary.
-    setBoundaryOrigin('map');
+    patchManual({ origin: 'map' });
     if (next.length >= 3) {
       clearFieldError(`locations.${activeIndex}.coordinates`);
       // A completed boundary outranks manual entry for this parcel (see `commitActiveLocation`),
       // so collapse the panel rather than show two positioning methods as if both still applied.
-      setManualEntryOpen(false);
+      patchManual({ entryOpen: false });
       // A manual-marker fly/reveal queued from typing just before the boundary was completed
       // would otherwise land a beat later and yank the camera off the boundary the farmer just
       // finished drawing -- `committedManualShape` (and so the marker prop below) already flips
@@ -623,7 +461,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
   }
 
   /**
-   * The screen's one confirm-before-destroying dialog: React Native's own `Alert.alert` with a
+   * The screen's one confirm-before-destroying dialog: the shared `appAlert` with a
    * cancel and a destructive button, the same shape PayrollScreen's `handlePayout` uses --
    * @tohfa/mobile-ui has no shared dialog component to use instead.
    *
@@ -638,7 +476,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     onConfirm: () => void,
   ) {
     const parcelIdAtOpen = activeLocation?.id;
-    Alert.alert(title, message, [
+    appAlert(title, message, [
       { text: t('farmer.common.cancel'), style: 'cancel' },
       {
         text: confirmLabel,
@@ -648,7 +486,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
           onConfirm();
         },
       },
-    ]);
+    ], { tone: 'warning' });
   }
 
   /**
@@ -665,10 +503,10 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     cancelManualSync();
     applyProgrammaticPolygonChange(() => mapRef.current?.clear());
     setCoords([]);
-    setManualPoints([makeManualRow()]);
-    setManualEntryOpen(false);
-    setManualMarkerCoord(null);
-    setBoundaryOrigin('map');
+    patchManual({ points: [makeManualRow()] });
+    patchManual({ entryOpen: false });
+    patchManual({ markerCoord: null });
+    patchManual({ origin: 'map' });
   }
 
   /**
@@ -686,7 +524,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
    */
   function handleToggleManualEntry() {
     if (manualEntryOpen) {
-      setManualEntryOpen(false);
+      patchManual({ entryOpen: false });
       return;
     }
     if (coords.length >= 3 && boundaryOrigin === 'map') {
@@ -697,7 +535,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
         () => {
           mapRef.current?.finish();
           resetPositioning();
-          setManualEntryOpen(true);
+          patchManual({ entryOpen: true });
         },
       );
       return;
@@ -708,7 +546,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     if (coords.length > 0 && boundaryOrigin === 'map') {
       applyProgrammaticPolygonChange(() => mapRef.current?.clear());
     }
-    setManualEntryOpen(true);
+    patchManual({ entryOpen: true });
   }
 
   /**
@@ -732,13 +570,13 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     }
     if (shape.kind === 'point') {
       manualCoordsDebounceTimerRef.current = setTimeout(() => {
-        setManualMarkerCoord(shape.point);
+        patchManual({ markerCoord: shape.point });
         mapRef.current?.flyTo(shape.point, 16, 900);
       }, 300);
     } else if (shape.kind === 'polygon') {
       manualCoordsDebounceTimerRef.current = setTimeout(() => {
         applyProgrammaticPolygonChange(() => mapRef.current?.setPolygon(shape.ring));
-        setBoundaryOrigin('manual');
+        patchManual({ origin: 'manual' });
         const { centroid } = calculatePolygonMetrics(shape.ring);
         mapRef.current?.flyTo([centroid.longitude, centroid.latitude], 16, 900);
       }, 300);
@@ -747,7 +585,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
 
   /** Every edit to the rows goes through here, so the error clear and map sync can't be skipped. */
   function updateManualPoints(rows: ManualPointRow[]) {
-    setManualPoints(rows);
+    patchManual({ points: rows });
     const shape = classifyManualPoints(rows);
     if (shape.kind === 'point' || shape.kind === 'polygon') {
       clearFieldError(`locations.${activeIndex}.coordinates`);
@@ -763,7 +601,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
 
   /** A new blank row. Blank rows are ignored by `classifyManualPoints`, so no map sync is needed. */
   function handleAddManualPoint() {
-    setManualPoints((prev) => [...prev, makeManualRow()]);
+    patchManual((prev) => ({ points: [...prev.points, makeManualRow()] }));
   }
 
   /** Removes one row; the list always keeps at least one (the control is hidden at one row). */
@@ -885,9 +723,9 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
       next.calculatedAreaHectares = metrics.areaHectares;
       next.fmbPolygon = { type: 'Polygon', coordinates: [coords] };
     }
-    const village = selectedVillage || activeLocation.village || '';
-    const taluk = selectedTaluk || activeLocation.taluk || '';
-    const district = selectedDistrict || activeLocation.district || '';
+    const village = place.village || activeLocation.village || '';
+    const taluk = place.taluk || activeLocation.taluk || '';
+    const district = place.district || activeLocation.district || '';
     if (village) next.village = village;
     if (taluk) next.taluk = taluk;
     if (district) next.district = district;
@@ -911,24 +749,24 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     setAreaAcresText(target?.areaAcres ? String(target.areaAcres) : '');
     setCoords(ringOf(target));
     setMode('view');
-    setSelectedVillage(target?.village ?? '');
-    setSelectedTaluk(target?.taluk ?? '');
-    setSelectedDistrict(target?.district ?? '');
-    setIsSearchOpen(false);
-    setSearchQuery('');
-    setSuggestions([]);
+    patchPlace({
+      village: target?.village ?? '',
+      taluk: target?.taluk ?? '',
+      district: target?.district ?? '',
+    });
+    patchSearch(SEARCH_CLOSED);
     // The details popup edits drafts of the parcel that was active when it opened; left open across
     // a switch it would show (and on Save write) the previous parcel's name onto this one. Callers
     // that want it open on the new parcel reopen it afterwards with an explicit seed.
-    setIsDetailsModalOpen(false);
+    patchDetails({ isOpen: false });
     // Manual entry is per-parcel state exactly like the boundary above -- without this reset, a
     // parcel with no manual coordinates of its own would show whatever the previous parcel's
     // farmer-typed points happened to be, with the panel left open to match. The origin is reset
     // with them: it is what tells a typed outline (rows are its truth) from a drawn one.
     const manualSeed = manualSeedOf(target);
-    setManualPoints(manualSeed.rows);
-    setManualEntryOpen(manualSeed.entryOpen);
-    setBoundaryOrigin(manualSeed.origin);
+    patchManual({ points: manualSeed.rows });
+    patchManual({ entryOpen: manualSeed.entryOpen });
+    patchManual({ origin: manualSeed.origin });
     // A pending debounced fly/mark/outline from the parcel being left would otherwise fire after
     // this switch and plant the previous parcel's marker, boundary (and camera) on the new one --
     // the exact boundary-bleed bug class this screen has already been fixed for once. Cancel it,
@@ -936,7 +774,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
     // camera are right away, not only after the farmer retypes something -- `mapInitialCenter`
     // above handles the camera side of that via the map's remount `key`; this is the marker side.
     cancelManualSync();
-    setManualMarkerCoord(manualSeed.markerCoord);
+    patchManual({ markerCoord: manualSeed.markerCoord });
   }
 
   /**
@@ -1144,7 +982,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
             >
               <ChevronLeft size={22} color={colors.brandGreen} />
             </TouchableOpacity>
-            <View style={{ flex: 1 }}>
+            <View style={styles.headerTextCol}>
               <Text style={[styles.headerTitle, { color: colors.textDark }]}>Farm Location</Text>
               <Text style={[styles.headerSubtitle, { color: colors.textSubtle }]}>Step 3 of 5</Text>
             </View>
@@ -1221,7 +1059,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
           >
             <ChevronLeft size={22} color={colors.brandGreen} />
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
+          <View style={styles.headerTextCol}>
             <Text style={[styles.headerTitle, { color: colors.textDark }]}>
               {isEditing ? 'Edit Boundary' : 'Farm Location'}
             </Text>
@@ -1281,85 +1119,20 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
         />
 
         {/* Top Floating Controls or Expanded Search Bar */}
-        {isSearchOpen ? (
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBarRow}>
-              <View style={styles.searchInputWrapper}>
-                <SearchIcon size={18} color={colors.brandGreen} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('farmer.map.searchPlaceholder') || 'Search village, pin code, or taluk...'}
-                  placeholderTextColor={colors.textPlaceholder}
-                  value={searchQuery}
-                  onChangeText={handleSearchChange}
-                  autoFocus={true}
-                  returnKeyType="search"
-                  onSubmitEditing={handleSearchSubmit}
-                />
-                {isSearching && (
-                  <ActivityIndicator size="small" color={colors.brandGreen} style={{ marginRight: 6 }} />
-                )}
-                {searchQuery.length > 0 && !isSearching && (
-                  <TouchableOpacity
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    onPress={() => {
-                      setSearchQuery('');
-                      setSuggestions([]);
-                    }}
-                  >
-                    <CloseIcon size={16} color={colors.textSubtle} />
-                  </TouchableOpacity>
-                )}
-              </View>
-              <TouchableOpacity
-                activeOpacity={0.7}
-                style={styles.searchCancelBtn}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setIsSearchOpen(false);
-                  setSearchQuery('');
-                  setSuggestions([]);
-                }}
-              >
-                <Text style={styles.searchCancelText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Autocomplete Suggestions Dropdown */}
-            {suggestions.length > 0 && (
-              <View style={styles.suggestionsList}>
-                <ScrollView
-                  keyboardShouldPersistTaps="handled"
-                  nestedScrollEnabled={true}
-                  style={{ maxHeight: 220 }}
-                >
-                  {suggestions.map((item, idx) => (
-                    <TouchableOpacity
-                      key={item.id || idx}
-                      style={[
-                        styles.suggestionItem,
-                        idx === suggestions.length - 1 && { borderBottomWidth: 0 },
-                      ]}
-                      onPress={() => handleSelectSuggestion(item)}
-                    >
-                      <View style={styles.suggestionPinWrapper}>
-                        <PinIcon size={15} color={colors.brandGreen} />
-                      </View>
-                      <View style={styles.suggestionTextWrapper}>
-                        <Text style={styles.suggestionTitle} numberOfLines={1}>
-                          {item.text}
-                        </Text>
-                        <Text style={styles.suggestionSubtitle} numberOfLines={1}>
-                          {item.place_name}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-          </View>
+        {search.isOpen ? (
+          <SearchOverlay
+            query={searchQuery}
+            isSearching={isSearching}
+            suggestions={suggestions}
+            onChangeQuery={handleSearchChange}
+            onSubmit={handleSearchSubmit}
+            onClearQuery={() => patchSearch({ query: '', suggestions: [] })}
+            onCancel={() => {
+              Keyboard.dismiss();
+              patchSearch(SEARCH_CLOSED);
+            }}
+            onSelectSuggestion={handleSelectSuggestion}
+          />
         ) : (
           <View style={styles.topMapControls} pointerEvents="box-none">
             <View style={styles.leftMapControls} pointerEvents="box-none">
@@ -1403,7 +1176,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
               <TouchableOpacity
                 activeOpacity={0.8}
                 style={styles.actionPill}
-                onPress={() => setIsSearchOpen(true)}
+                onPress={() => patchSearch({ isOpen: true })}
               >
                 <SearchIcon size={14} color={colors.brandGreen} />
                 <Text style={styles.actionPillText}>Search</Text>
@@ -1421,14 +1194,13 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
                 onPress={handleDrawBoundary}
                 style={[
                   styles.actionPill,
-                  mode === 'draw' && { backgroundColor: colors.brandGreen, borderWidth: 0 },
+                  mode === 'draw' && styles.actionPillActive,
                 ]}
               >
                 <PenIcon size={14} color={mode === 'draw' ? colors.white : colors.brandGreen} />
                 <Text
                   style={[
-                    styles.actionPillText,
-                    mode === 'draw' && { color: colors.white },
+                    mode === 'draw' && styles.actionPillTextActive,
                   ]}
                 >
                   {mode === 'draw' ? t('farmer.map.doneDrawing') : t('farmer.map.drawBoundary')}
@@ -1624,7 +1396,7 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
                   <Text
                     style={[
                       styles.editBtnText,
-                      mode === 'view' && coords.length < 3 && { opacity: 0.5 },
+                      mode === 'view' && coords.length < 3 && styles.editBtnTextDisabled,
                     ]}
                   >
                     <PenIcon size={15} color={colors.brandGreen} />  {t('farmer.map.editBoundary')}
@@ -1662,107 +1434,14 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
             </TouchableOpacity>
 
             {manualEntryOpen ? (
-              <View>
-                {/* Capped and scrollable so a long outline can't push the card up over the whole
-                    map; `nestedScrollEnabled` because this sits inside the screen's own layout on
-                    Android, the same as the place-search suggestions list above. */}
-                <ScrollView
-                  style={styles.manualPointsList}
-                  nestedScrollEnabled={true}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {manualPoints.map((row, index) => {
-                    const issue = manualRowIssue(row);
-                    const latMissing = row.latText.trim() === '';
-                    const lngMissing = row.lngText.trim() === '';
-                    const latHasError =
-                      issue === 'latitudeRange' || (issue === 'incomplete' && latMissing);
-                    const lngHasError =
-                      issue === 'longitudeRange' || (issue === 'incomplete' && lngMissing);
-                    return (
-                      <View key={row.id} style={styles.manualPointBlock}>
-                        <View style={styles.manualPointRow}>
-                          <Text style={styles.manualPointIndex}>{index + 1}</Text>
-                          <View style={styles.fieldCol}>
-                            <TextInput
-                              style={[
-                                styles.fieldInput,
-                                {
-                                  borderColor: colors.borderLight,
-                                  color: colors.textDark,
-                                  backgroundColor: colors.white,
-                                },
-                                latHasError ? styles.inputError : null,
-                              ]}
-                              value={row.latText}
-                              onChangeText={(text) => handleManualPointChange(row.id, 'latText', text)}
-                              keyboardType="numbers-and-punctuation"
-                              placeholder={t('farmer.registration.gps.manualLat')}
-                              placeholderTextColor={colors.textPlaceholder}
-                              accessibilityLabel={t('farmer.registration.gps.manualLat')}
-                            />
-                          </View>
-                          <View style={styles.fieldCol}>
-                            <TextInput
-                              style={[
-                                styles.fieldInput,
-                                {
-                                  borderColor: colors.borderLight,
-                                  color: colors.textDark,
-                                  backgroundColor: colors.white,
-                                },
-                                lngHasError ? styles.inputError : null,
-                              ]}
-                              value={row.lngText}
-                              onChangeText={(text) => handleManualPointChange(row.id, 'lngText', text)}
-                              keyboardType="numbers-and-punctuation"
-                              placeholder={t('farmer.registration.gps.manualLng')}
-                              placeholderTextColor={colors.textPlaceholder}
-                              accessibilityLabel={t('farmer.registration.gps.manualLng')}
-                            />
-                          </View>
-                          {manualPoints.length >= 2 ? (
-                            <TouchableOpacity
-                              activeOpacity={0.7}
-                              style={styles.manualPointRemoveBtn}
-                              onPress={() => handleRemoveManualPoint(row.id)}
-                              accessibilityRole="button"
-                              accessibilityLabel={t('farmer.registration.step3.manualRemovePoint', {
-                                index: index + 1,
-                              })}
-                            >
-                              <CloseIcon size={16} color={colors.textSubtle} />
-                            </TouchableOpacity>
-                          ) : null}
-                        </View>
-                        {issue ? (
-                          <Text style={styles.fieldErrorText}>{t(MANUAL_ROW_ISSUE_KEY[issue])}</Text>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  style={styles.manualAddPointBtn}
-                  onPress={handleAddManualPoint}
-                  accessibilityRole="button"
-                >
-                  <PlusIcon size={14} color={colors.brandGreen} />
-                  <Text style={styles.manualAddPointText}>
-                    {t('farmer.registration.step3.manualAddPoint')}
-                  </Text>
-                </TouchableOpacity>
-
-                {manualShapeError ? (
-                  <Text style={styles.fieldErrorText}>{manualShapeError}</Text>
-                ) : manualShape.kind === 'empty' || manualShape.kind === 'point' ? (
-                  <Text style={styles.manualHintText}>
-                    {t('farmer.registration.step3.manualPointsHint')}
-                  </Text>
-                ) : null}
-              </View>
+              <ManualPointsPanel
+                points={manualPoints}
+                shapeError={manualShapeError}
+                showHint={manualShape.kind === 'empty' || manualShape.kind === 'point'}
+                onChangePoint={handleManualPointChange}
+                onAddPoint={handleAddManualPoint}
+                onRemovePoint={handleRemoveManualPoint}
+              />
             ) : null}
 
             {coordinatesError ? (
@@ -1822,728 +1501,20 @@ export const Step3Location: React.FC<Step3Props> = ({ initialData, onSave, onBac
           Step4Documents' picker (transparent, fade, Android back = dismiss); @tohfa/mobile-ui has
           no shared dialog to reuse. The scrim is deliberately NOT tap-to-dismiss: this holds typed
           input, and a stray tap outside the card should not throw it away. */}
-      <Modal
-        visible={isDetailsModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={handleCancelDetails}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalRoot}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <View style={styles.modalScrim} pointerEvents="none" />
-          <View style={styles.detailsCard}>
-            <Text style={[styles.detailsTitle, { color: colors.textDark }]}>
-              {t('farmer.registration.step3.locationDetailsTitle')}
-            </Text>
-            <Text style={[styles.detailsSubtitle, { color: colors.textSubtle }]}>
-              {t('farmer.registration.step3.locationDetailsSubtitle', {
-                index: activeIndex + 1,
-                count: locations.length,
-              })}
-            </Text>
-
-            <Text style={[styles.fieldLabel, styles.detailsFieldLabel, { color: colors.textBody }]}>
-              {t('farmer.registration.step3.locationNameLabel')}{' '}
-              <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TextInput
-              style={[
-                styles.fieldInput,
-                {
-                  borderColor: colors.borderLight,
-                  color: colors.textDark,
-                  backgroundColor: colors.white,
-                },
-                labelError ? styles.inputError : null,
-              ]}
-              value={draftLabel}
-              onChangeText={setDraftLabel}
-              placeholder={t('farmer.registration.step3.locationNamePlaceholder')}
-              placeholderTextColor={colors.textPlaceholder}
-              autoFocus={true}
-              returnKeyType="next"
-              onSubmitEditing={() => areaInputRef.current?.focus()}
-              testID="step3-location-name-input"
-            />
-            {labelError ? <Text style={styles.fieldErrorText}>{labelError}</Text> : null}
-
-            <Text style={[styles.fieldLabel, styles.detailsFieldLabel, { color: colors.textBody }]}>
-              {t('farmer.registration.step3.areaAcresLabel')}{' '}
-              <Text style={{ color: colors.requiredRed }}>*</Text>
-            </Text>
-            <TextInput
-              ref={areaInputRef}
-              style={[
-                styles.fieldInput,
-                {
-                  borderColor: colors.borderLight,
-                  color: colors.textDark,
-                  backgroundColor: colors.white,
-                },
-                areaError ? styles.inputError : null,
-              ]}
-              value={draftAreaAcresText}
-              onChangeText={setDraftAreaAcresText}
-              keyboardType="decimal-pad"
-              placeholder={t('farmer.registration.step3.areaAcresPlaceholder')}
-              placeholderTextColor={colors.textPlaceholder}
-              testID="step3-location-area-input"
-            />
-            {areaError ? <Text style={styles.fieldErrorText}>{areaError}</Text> : null}
-
-            <View style={styles.detailsActions}>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={[
-                  styles.detailsActionBtn,
-                  styles.backButton,
-                  { borderColor: colors.brandGreen, backgroundColor: colors.white },
-                ]}
-                onPress={handleCancelDetails}
-                testID="step3-location-details-cancel"
-              >
-                <Text style={[styles.footerBtnText, { color: colors.brandGreen }]}>
-                  {t('farmer.common.cancel')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={[
-                  styles.detailsActionBtn,
-                  styles.nextButton,
-                  { backgroundColor: colors.brandGreen },
-                ]}
-                onPress={handleSaveDetails}
-                testID="step3-location-details-save"
-              >
-                <Text style={[styles.footerBtnText, { color: colors.white }]}>
-                  {t('farmer.common.save')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      <DetailsModal
+        visible={details.isOpen}
+        activeIndex={activeIndex}
+        count={locations.length}
+        draftLabel={details.draftLabel}
+        draftAreaAcresText={details.draftAreaAcresText}
+        labelError={labelError}
+        areaError={areaError}
+        areaInputRef={areaInputRef}
+        onChangeLabel={(text) => patchDetails({ draftLabel: text })}
+        onChangeArea={(text) => patchDetails({ draftAreaAcresText: text })}
+        onCancel={handleCancelDetails}
+        onSave={handleSaveDetails}
+      />
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    zIndex: 10,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  backButtonCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontSize: typography.title,
-    fontWeight: '800',
-  },
-  headerSubtitle: {
-    fontSize: typography.bodySmall,
-  },
-  skipText: {
-    fontSize: typography.body,
-    fontWeight: '600',
-  },
-  progressRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 14,
-  },
-  progressSegment: {
-    flex: 1,
-    height: 5,
-    borderRadius: 3,
-  },
-  // Prev/next parcel arrows in the bottom card's `farmCardHeader` row. One touch-target step
-  // shorter than MIN_TOUCH_TARGET, same rationale the old chip strip's pills had: the arrow's
-  // `hitSlop` (spacing.xs every side) makes up the difference without bloating the row. Disabled
-  // at the first/last parcel via `locationSliderArrowBtnDisabled` below rather than hidden, so the
-  // row's width doesn't shift when the farmer reaches either end.
-  locationSliderArrowBtn: {
-    width: MIN_TOUCH_TARGET - spacing.sm,
-    height: MIN_TOUCH_TARGET - spacing.sm,
-    borderRadius: radius.pill,
-    borderWidth: 1.5,
-    borderColor: colors.borderMedium,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationSliderArrowBtnDisabled: {
-    opacity: 0.35,
-  },
-  fieldCol: {
-    flex: 1,
-  },
-  fieldLabel: {
-    fontSize: typography.bodySmall,
-    fontWeight: weights.semibold,
-    marginBottom: spacing.xs,
-  },
-  fieldInput: {
-    width: '100%',
-    height: MIN_TOUCH_TARGET,
-    borderWidth: 1.5,
-    borderRadius: radius.card,
-    paddingHorizontal: spacing.compact,
-    fontSize: typography.body,
-  },
-  inputError: {
-    borderColor: colors.requiredRed,
-    borderWidth: 1.5,
-  },
-  fieldErrorText: {
-    color: colors.requiredRed,
-    fontSize: typography.bodySmall,
-    marginTop: spacing.xs,
-  },
-  mapArea: {
-    flex: 1,
-    position: 'relative',
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.card,
-  },
-  emptyStateText: {
-    fontSize: typography.body,
-    textAlign: 'center',
-  },
-  searchContainer: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
-    zIndex: 50,
-  },
-  searchBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  searchInputWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 21,
-    paddingHorizontal: 14,
-    height: 42,
-    shadowColor: P.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: typography.body,
-    color: P.nearBlack,
-    marginLeft: 8,
-    paddingVertical: 0,
-  },
-  searchCancelBtn: {
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
-    paddingHorizontal: 14,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: P.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  searchCancelText: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: colors.white,
-  },
-  suggestionsList: {
-    marginTop: 8,
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    shadowColor: P.black,
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.06)',
-    overflow: 'hidden',
-  },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.06)',
-  },
-  suggestionPinWrapper: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(46, 125, 50, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  suggestionTextWrapper: {
-    flex: 1,
-  },
-  suggestionTitle: {
-    fontSize: typography.body,
-    fontWeight: '700',
-    color: P.ink,
-    marginBottom: 2,
-  },
-  suggestionSubtitle: {
-    fontSize: typography.bodySmall,
-    color: P.muted,
-  },
-  topMapControls: {
-    position: 'absolute',
-    top: 16,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    zIndex: 10,
-  },
-  coordsBadge: {
-    backgroundColor: 'rgba(15, 23, 42, 0.78)',
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    height: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    shadowColor: P.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  coordsText: {
-    color: colors.white,
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-  },
-  // Left-anchored column: coords badge on top, zoom stepper below it. Kept separate from
-  // `rightControls` (the action-pill column) so the two never compete for the same corner.
-  leftMapControls: {
-    gap: 8,
-    alignItems: 'flex-start',
-  },
-  zoomControl: {
-    backgroundColor: colors.white,
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: P.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  zoomButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomDivider: {
-    height: 1,
-    marginHorizontal: 8,
-    backgroundColor: colors.borderDivider,
-  },
-  rightControls: {
-    gap: 8,
-    alignItems: 'flex-end',
-  },
-  editingBadge: {
-    backgroundColor: P.amber600,
-    paddingHorizontal: 12,
-    borderRadius: 18,
-    height: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    shadowColor: P.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  editingText: {
-    color: P.black,
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-  },
-  actionPill: {
-    backgroundColor: colors.white,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    height: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    shadowColor: P.black,
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  actionPillText: {
-    color: P.nearBlack,
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-  },
-  bottomCardContainer: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    zIndex: 10,
-  },
-  // The bottom card is kept compact (tighter padding/margins, 44dp buttons) so it covers as little
-  // of the map as possible without dropping any of what it shows. Every size here comes from the
-  // design tokens; none of it may go below MIN_TOUCH_TARGET where something is tappable.
-  farmCard: {
-    backgroundColor: colors.white,
-    borderRadius: radius.xl,
-    padding: spacing.md,
-    shadowColor: P.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  // `gap` gives the prev/next arrows (only present with 2+ locations) breathing room against
-  // `farmTitleRow` and the status badge -- both of those size themselves (`flex: 1` / intrinsic),
-  // so without it the arrows would sit flush against the icon and the badge.
-  farmCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  farmTitleRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  // The tappable name + pencil that reopens the location-details popup. It takes the row's spare
-  // width (what `farmName` itself used to do with `flex: 1`) so the status badge stays right-aligned.
-  farmNameButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    minHeight: MIN_TOUCH_TARGET,
-  },
-  farmNameTextCol: {
-    flexShrink: 1,
-  },
-  // Wraps the positioning/error dot with the name so the dot sits inline with the text rather than
-  // above it -- `farmNameTextCol` also stacks `farmAreaText` underneath, so this can't just be
-  // `farmNameButton`'s own row.
-  farmNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  farmName: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '800',
-    color: P.nearBlack,
-  },
-  farmAreaText: {
-    fontSize: typography.caption,
-    fontWeight: weights.semibold,
-    color: P.grey600,
-  },
-  farmIconWrapper: {
-    backgroundColor: colors.brandGreenLight,
-    padding: spacing.sm,
-    borderRadius: 10,
-  },
-  badgeLive: {
-    backgroundColor: colors.brandGreenLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-  },
-  badgeLiveText: {
-    color: colors.brandGreen,
-    fontSize: typography.caption,
-    fontWeight: '700',
-  },
-  badgeEditing: {
-    backgroundColor: P.orange50,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-  },
-  badgeEditingText: {
-    color: P.orange900,
-    fontSize: typography.caption,
-    fontWeight: '700',
-  },
-  badgeManual: {
-    backgroundColor: P.blue50,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-  },
-  badgeManualText: {
-    color: P.blue700,
-    fontSize: typography.caption,
-    fontWeight: '700',
-  },
-  badgeNone: {
-    backgroundColor: P.grey100,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.lg,
-  },
-  badgeNoneText: {
-    color: P.grey600,
-    fontSize: typography.caption,
-    fontWeight: '700',
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  statCol: {
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: typography.caption,
-    color: P.grey600,
-    fontWeight: '700',
-    marginBottom: spacing.xs,
-  },
-  statValue: {
-    fontSize: typography.body,
-    fontWeight: '800',
-    color: P.nearBlack,
-  },
-  statSub: {
-    fontSize: typography.caption,
-    color: P.grey600,
-    marginTop: 2,
-  },
-  editBtn: {
-    borderWidth: 1.5,
-    borderColor: colors.brandGreen,
-    borderRadius: radius.lg,
-    height: MIN_TOUCH_TARGET,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  editBtnText: {
-    color: colors.brandGreen,
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-  },
-  // Edit/Done and Delete side by side; with only Edit/Done present it takes the full width, as
-  // before Delete existed.
-  boundaryActionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  boundaryActionBtn: {
-    flex: 1,
-  },
-  // Destructive twin of `editBtn`: same outline treatment, in the shared error red.
-  deleteBtn: {
-    borderWidth: 1.5,
-    borderColor: colors.requiredRed,
-    borderRadius: radius.lg,
-    height: MIN_TOUCH_TARGET,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteBtnText: {
-    color: colors.requiredRed,
-    fontSize: typography.bodySmall,
-    fontWeight: weights.bold,
-  },
-  manualToggle: {
-    marginTop: spacing.sm,
-    alignSelf: 'center',
-  },
-  manualToggleText: {
-    fontSize: typography.bodySmall,
-    fontWeight: '600',
-    color: colors.brandGreen,
-  },
-  // Three rows' worth (input height plus the gap between rows) before the list scrolls, so a long
-  // typed outline never pushes the card up over the whole map.
-  manualPointsList: {
-    maxHeight: (MIN_TOUCH_TARGET + spacing.sm) * 3,
-    marginTop: spacing.sm,
-  },
-  manualPointBlock: {
-    marginBottom: spacing.sm,
-  },
-  manualPointRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  manualPointIndex: {
-    minWidth: spacing.lg,
-    textAlign: 'center',
-    fontSize: typography.bodySmall,
-    fontWeight: weights.bold,
-    color: P.grey600,
-  },
-  manualPointRemoveBtn: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manualAddPointBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: spacing.xs,
-    minHeight: MIN_TOUCH_TARGET,
-  },
-  manualAddPointText: {
-    fontSize: typography.body,
-    fontWeight: weights.semibold,
-    color: colors.brandGreen,
-  },
-  manualHintText: {
-    fontSize: typography.bodySmall,
-    color: P.grey600,
-  },
-  // The only affordance for the bottom-card swipe gesture -- styled like `statSub`'s small
-  // secondary text, just centred under the card instead of under a stat column.
-  swipeHintText: {
-    fontSize: typography.caption,
-    color: P.grey600,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
-  doneBtn: {
-    backgroundColor: colors.brandGreen,
-    borderRadius: radius.lg,
-    height: MIN_TOUCH_TARGET,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  doneBtnText: {
-    color: colors.white,
-    fontSize: typography.bodySmall,
-    fontWeight: '700',
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 24,
-    borderTopWidth: 1,
-    flexDirection: 'row',
-    gap: 12,
-  },
-  footerBtn: {
-    flex: 1,
-    height: 52,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButton: {
-    borderWidth: 1.5,
-  },
-  nextButton: {
-    borderWidth: 0,
-  },
-  footerBtnText: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '700',
-  },
-  // Location-details popup. The card follows `farmCard` (white, rounded, same shadow) so the popup
-  // reads as part of this screen rather than a system dialog.
-  modalRoot: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  modalScrim: {
-    ...StyleSheet.absoluteFill,
-    // `black` is the token reserved for scrims; dimmed with opacity rather than an rgba literal.
-    backgroundColor: P.black,
-    opacity: 0.5,
-  },
-  detailsCard: {
-    width: '100%',
-    backgroundColor: colors.white,
-    borderRadius: radius.card,
-    padding: spacing.xl,
-    shadowColor: P.black,
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
-  },
-  detailsTitle: {
-    fontSize: typography.bodyLarge,
-    fontWeight: '800',
-  },
-  detailsSubtitle: {
-    fontSize: typography.bodySmall,
-    marginTop: spacing.xs,
-  },
-  detailsFieldLabel: {
-    marginTop: spacing.lg,
-  },
-  detailsActions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  detailsActionBtn: {
-    flex: 1,
-    minHeight: MIN_TOUCH_TARGET,
-    borderRadius: radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

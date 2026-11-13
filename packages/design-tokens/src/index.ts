@@ -18,6 +18,7 @@ export type FontWeightName = keyof typeof rawObj.fontWeight;
 export type SpacingName = keyof typeof rawObj.spacing;
 export type RadiusName = keyof typeof rawObj.radius;
 export type FontStackName = keyof typeof rawObj.fontStack;
+export type FontFamilyName = keyof typeof rawObj.fontFamily;
 export type ShadowName = keyof typeof rawObj.shadow;
 
 export interface ColorToken {
@@ -67,6 +68,8 @@ export interface Tokens {
   readonly radius: Readonly<Record<RadiusName, number>>;
   readonly size: { readonly minTouchTarget: number; readonly adminButtonHeight: number };
   readonly fontStack: Readonly<Record<FontStackName, string>>;
+  /** React Native native family names, one per weight (see `$fontFamilyNote` in tokens.json). */
+  readonly fontFamily: Readonly<Record<FontFamilyName, string>>;
   readonly shadow: Readonly<Record<ShadowName, ShadowToken>>;
 }
 

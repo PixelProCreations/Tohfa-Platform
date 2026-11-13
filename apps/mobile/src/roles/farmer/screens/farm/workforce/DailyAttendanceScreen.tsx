@@ -1,6 +1,21 @@
+import Svg, { Path } from 'react-native-svg';
+
+function ChevronLeft({ size = 20, color = P.twEmerald900 }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Image,
   Modal,
   ScrollView,
@@ -11,8 +26,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Icon, Skeleton, SafeAreaView } from '@tohfa/mobile-ui';
+import { Icon, Skeleton, SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import { authPalette as P, typography } from '../../../theme';
+import { t } from '../../../../../i18n/farmer';
+import { ATTENDANCE_HOURS_MAX_CHARS, hoursErrorMessage } from './attendanceHours';
 import { formatErrorMessage } from '../../../../../shell/api/client';
 import { getFarms } from '../../../api/farms';
 import {
@@ -271,9 +288,8 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
       if (!form || !form.present) continue;
       const trimmed = form.hours.trim();
       if (trimmed === '') continue;
-      const n = Number(trimmed);
-      if (isNaN(n) || n <= 0 || n > 24) {
-        Alert.alert('Check hours', `${w.name}’s hours must be a number between 0 and 24.`);
+      if (hoursErrorMessage(trimmed, t) !== undefined) {
+        appAlert('Check hours', `${w.name}’s hours must be a number between 0 and 24.`, undefined, { tone: 'warning' });
         return;
       }
     }
@@ -283,7 +299,7 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
       await upsertMyFarmAttendance(resolvedFarmId, todayIso(), items);
       onNavigateBack();
     } catch (err) {
-      Alert.alert('Could Not Save Attendance', formatErrorMessage(err, 'Please try again.'));
+      appAlert('Could Not Save Attendance', formatErrorMessage(err, 'Please try again.'), undefined, { tone: 'error' });
     } finally {
       setSaving(false);
     }
@@ -293,7 +309,7 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
     <SafeAreaView style={styles.screen}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onNavigateBack}>
-          <Icon name="arrow_back" size={20} color={P.twEmerald900} />
+          <ChevronLeft size={20} color={P.twEmerald900} />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Daily Attendance</Text>
@@ -397,8 +413,11 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
                             value={form.hours}
                             onChangeText={(v) => updateForm(worker.id, { hours: v.replace(/[^0-9.]/g, '') })}
                             keyboardType="numeric"
-                            maxLength={5}
+                            maxLength={ATTENDANCE_HOURS_MAX_CHARS}
                           />
+                          {hoursErrorMessage(form.hours, t) ? (
+                            <Text style={styles.fieldErrorText}>{hoursErrorMessage(form.hours, t)}</Text>
+                          ) : null}
                         </View>
                       </View>
                     )}
@@ -430,7 +449,14 @@ export function DailyAttendanceScreen({ farmId, onNavigateBack }: DailyAttendanc
       </View>
 
       {/* Activity / Crop picker modal */}
-      <Modal visible={!!picker} transparent animationType="fade" onRequestClose={closePicker}>
+      <Modal
+        visible={!!picker}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={closePicker}
+      >
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closePicker}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{picker?.field === 'crop' ? 'Select Crop' : 'Select Activity'}</Text>
@@ -649,6 +675,10 @@ const styles = StyleSheet.create({
     fontSize: typography.body,
     fontWeight: '600',
     color: P.twGray900,
+  },
+  fieldErrorText: {
+    fontSize: typography.bodySmall,
+    color: P.twRed500,
   },
   infoBanner: {
     flexDirection: 'row',

@@ -8,6 +8,7 @@ import {
   View,
   Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 import { format, fromPaise } from '@tohfa/shared-types';
@@ -30,7 +31,7 @@ function ArrowBackIcon({ size = 20, color = P.white }: { size?: number; color?: 
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -151,6 +152,7 @@ export function FarmDiaryScreen({
   onNavigateToNewEntry,
   onNavigateToCalendar,
 }: FarmDiaryScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
   /** Plot id, or null for "All fields". */
   const [selectedPlotId, setSelectedPlotId] = useState<string | null>(null);
@@ -517,13 +519,13 @@ export function FarmDiaryScreen({
       </TouchableOpacity>
 
       {/* ── Field Filter Modal ── */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={isFieldPickerOpen}
         transparent
         animationType="fade"
         onRequestClose={() => setIsFieldPickerOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
@@ -563,13 +565,13 @@ export function FarmDiaryScreen({
       </Modal>
 
       {/* ── Crop Filter Modal ── */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={isCropPickerOpen}
         transparent
         animationType="fade"
         onRequestClose={() => setIsCropPickerOpen(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={[styles.modalOverlay, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
@@ -609,13 +611,13 @@ export function FarmDiaryScreen({
       </Modal>
 
       {/* ── Dynamic Calendar Modal (Before Calendar Style) ── */}
-      <Modal
+      <Modal statusBarTranslucent navigationBarTranslucent
         visible={isDatePickerOpen}
         transparent
         animationType="fade"
         onRequestClose={() => setIsDatePickerOpen(false)}
       >
-        <View style={styles.calModalOverlay}>
+        <View style={[styles.calModalOverlay, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}

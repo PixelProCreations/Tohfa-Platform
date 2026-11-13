@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
+  ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -18,7 +18,9 @@ import {
   type Certification,
 } from '../../api/farmer';
 import { certificationDisplayName } from './certificationForm';
-import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { resolveCertificateDocument } from './certificateDocument';
+import { NetworkError } from '../../../../shell/api/client';
+import { ErrorState, Skeleton, ScreenStatusBar, SafeAreaView, showDialog, appAlert } from '@tohfa/mobile-ui';
 import { t } from '../../../../i18n/farmer';
 import { authPalette as P, typography } from '../../theme';
 
@@ -162,11 +164,14 @@ function CertCard({
   warningThreshold,
   onEdit,
   onViewDocument,
+  viewState,
 }: {
   item: Certification;
   warningThreshold: number;
   onEdit: (cert: Certification) => void;
-  onViewDocument: (url: string | null) => void;
+  onViewDocument: (cert: Certification) => void;
+  /** BR-142f: 'loading' while this card's signed URL is fetched; 'disabled' while another card's is. */
+  viewState: 'idle' | 'loading' | 'disabled';
 }) {
   const status = displayStatus(item, warningThreshold);
   const active = status === 'active';
@@ -239,8 +244,18 @@ function CertCard({
         </TouchableOpacity>
       )}
       <View style={C.actRow}>
-        <TouchableOpacity style={C.outBtn} activeOpacity={0.75} onPress={() => onViewDocument(item.documentUrl ?? null)}>
-          <Doc />
+        <TouchableOpacity
+          style={[C.outBtn, viewState === 'disabled' && C.outBtnDisabled]}
+          activeOpacity={0.75}
+          onPress={() => onViewDocument(item)}
+          disabled={viewState !== 'idle'}
+          accessibilityRole="button"
+          accessibilityLabel={
+            viewState === 'loading' ? t('farmer.certifications.viewDocument.opening') : t('farmer.common.view')
+          }
+          accessibilityState={{ disabled: viewState !== 'idle', busy: viewState === 'loading' }}
+        >
+          {viewState === 'loading' ? <ActivityIndicator size="small" color={P.twGray700} /> : <Doc />}
           <Text style={C.outTxt}>{t('farmer.common.view')}</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -292,6 +307,7 @@ const C = StyleSheet.create({
     borderWidth: 1.5, borderColor: P.twGray200, backgroundColor: P.twGray50,
   },
   outTxt: { fontSize: typography.body, fontWeight: '600', color: P.twGray700, textAlign: 'center' },
+  outBtnDisabled: { opacity: 0.5 },
   primBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: P.twGreen700,
@@ -310,7 +326,8 @@ interface CertificationsScreenProps {
   onBack?: () => void;
   onNavigateToAddCertification?: () => void;
   onNavigateToEditCertification?: (certification: Certification) => void;
-  onNavigateToViewDocument?: (url: string) => void;
+  /** Opens the certificate's document (route 'CertificateDocument'), with its display name as the title. */
+  onNavigateToViewDocument?: (url: string, title: string) => void;
 }
 
 export function CertificationsScreen({
@@ -378,19 +395,68 @@ export function CertificationsScreen({
     if (onNavigateToEditCertification) {
       onNavigateToEditCertification(cert);
     } else {
-      Alert.alert(t('farmer.certifications.edit.title'), t('farmer.certifications.edit.missingBody'));
+      appAlert(t('farmer.certifications.edit.title'), t('farmer.certifications.edit.missingBody'));
     }
   };
 
-  const handleViewDocument = (url: string | null) => {
-    if (!url) {
-      Alert.alert(t('farmer.certifications.noDocument.title'), t('farmer.certifications.noDocument.body'));
+  // BR-142f: the certificate whose signed read URL is being fetched (its View
+  // button shows a spinner; every View is disabled meanwhile). The request is
+  // aborted if the screen goes away.
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
+  const documentRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => documentRequest.current?.abort(), []);
+
+  const showNoDocument = () =>
+    showDialog({
+      title: t('farmer.certifications.noDocument.title'),
+      message: t('farmer.certifications.noDocument.body'),
+      tone: 'info',
+    });
+
+  const handleViewDocument = async (cert: Certification) => {
+    if (openingDocumentId !== null) return;
+    if (!cert.documentUrl) {
+      showNoDocument();
       return;
     }
-    if (onNavigateToViewDocument) {
-      onNavigateToViewDocument(url);
-    } else {
-      Alert.alert(t('farmer.certifications.viewDocument.title'), url);
+    if (!onNavigateToViewDocument) {
+      showDialog({
+        title: t('farmer.documentViewer.openFailed.title'),
+        message: t('farmer.documentViewer.openFailed.body'),
+        tone: 'error',
+      });
+      return;
+    }
+
+    // `documentUrl` is the permanent storage URL, which is not readable; the
+    // server issues a short-lived signed URL for this one certificate (BR-142).
+    // Neither URL is ever logged or shown to the farmer.
+    const controller = new AbortController();
+    documentRequest.current = controller;
+    setOpeningDocumentId(cert.id);
+    const outcome = await resolveCertificateDocument(cert.id, undefined, controller.signal);
+    if (controller.signal.aborted) return;
+    setOpeningDocumentId(null);
+
+    switch (outcome.kind) {
+      case 'open':
+        onNavigateToViewDocument(outcome.url, certificationDisplayName(cert, t));
+        return;
+      case 'noDocument':
+        showNoDocument();
+        return;
+      case 'failed':
+        showDialog({
+          title: t('farmer.certifications.viewDocument.loadFailed.title'),
+          message:
+            outcome.error instanceof NetworkError
+              ? t('farmer.certifications.viewDocument.loadFailed.offline')
+              : t('farmer.certifications.viewDocument.loadFailed.body'),
+          tone: 'error',
+        });
+        return;
+      case 'cancelled':
+        return;
     }
   };
 
@@ -485,7 +551,10 @@ export function CertificationsScreen({
                 item={item}
                 warningThreshold={warningThreshold}
                 onEdit={handleEdit}
-                onViewDocument={handleViewDocument}
+                onViewDocument={(cert) => void handleViewDocument(cert)}
+                viewState={
+                  openingDocumentId === null ? 'idle' : openingDocumentId === item.id ? 'loading' : 'disabled'
+                }
               />
             ))
           )}

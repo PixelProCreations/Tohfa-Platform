@@ -1,0 +1,127 @@
+import { StyleSheet } from 'react-native';
+import { colors as staticColors, typography, type useTheme } from '../../../theme';
+
+type ThemeColors = ReturnType<typeof useTheme>['colors'];
+
+const INPUT_BOX = {
+  width: '100%',
+  height: 46,
+  borderWidth: 1.5,
+  borderRadius: 12,
+  paddingHorizontal: 14,
+} as const;
+
+/** Themed + static styles for Step 1. Built once per theme in the screen and passed down. */
+export function makeStyles(colors: ThemeColors) {
+  return StyleSheet.create({
+    container: { flex: 1, backgroundColor: colors.bgLight },
+    keyboardContainer: { flex: 1 },
+    scrollArea: { flex: 1 },
+    scrollContent: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 36 },
+    fieldGroup: { marginBottom: 14 },
+    addressGroup: { marginBottom: 24 },
+    label: { fontSize: typography.body, fontWeight: '600', marginBottom: 6, color: colors.textBody },
+    requiredStar: { color: colors.requiredRed },
+    input: {
+      ...INPUT_BOX,
+      fontSize: typography.bodyLarge,
+      borderColor: colors.borderLight,
+      color: colors.textDark,
+      backgroundColor: colors.white,
+    },
+    inputDisabled: { backgroundColor: colors.prefixBg },
+    dobBox: {
+      ...INPUT_BOX,
+      borderColor: colors.borderLight,
+      backgroundColor: colors.white,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingRight: 8,
+    },
+    dobInput: { flex: 1, color: colors.textDark, fontSize: typography.bodyLarge, padding: 0 },
+    rowGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+    gridCol: { flex: 1, position: 'relative' },
+    dropdownSelect: {
+      height: 46,
+      borderWidth: 1.5,
+      borderRadius: 12,
+      paddingHorizontal: 14,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderColor: colors.borderLight,
+      backgroundColor: colors.white,
+    },
+    dropdownText: { fontSize: typography.bodyLarge, color: colors.onSurface },
+    dropdownArrow: { fontSize: typography.body, color: colors.textSubtle },
+    dropdownMenu: {
+      position: 'absolute',
+      top: 72,
+      left: 0,
+      right: 0,
+      borderWidth: 1.5,
+      borderRadius: 12,
+      elevation: 4,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 4,
+      zIndex: 100,
+      backgroundColor: colors.white,
+      borderColor: colors.borderLight,
+    },
+    districtList: { maxHeight: 180 },
+    dropdownOption: {
+      paddingVertical: 10,
+      paddingHorizontal: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.borderSoft,
+    },
+    dropdownOptionText: { fontSize: typography.body, color: colors.onSurface },
+    dropdownOptionTextSelected: { fontWeight: '700', color: colors.brandGreen },
+    mobileRow: { flexDirection: 'row', gap: 8 },
+    countryCodeBox: {
+      width: 65,
+      height: 46,
+      borderWidth: 1.5,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderColor: colors.borderLight,
+      backgroundColor: colors.prefixBg,
+    },
+    countryCodeText: { fontSize: typography.bodyLarge, fontWeight: '600', color: colors.textSubtle },
+    mobileInput: { flex: 1 },
+    aadhaarInput: { letterSpacing: 1 },
+    helperText: { fontSize: typography.caption, marginTop: 5, color: colors.textSubtle },
+    helperVerified: { color: colors.success },
+    helperFlex: { flex: 1 },
+    otpActionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
+    otpActionDisabled: { opacity: 0.5 },
+    otpActionText: { color: colors.brandGreen, fontWeight: '700' },
+    otpBlock: { marginTop: 12 },
+    textareaInput: { minHeight: 64, paddingTop: 12, paddingBottom: 12, lineHeight: 20 },
+    footer: {
+      paddingHorizontal: 24,
+      paddingTop: 12,
+      paddingBottom: 24,
+      borderTopWidth: 1,
+      borderTopColor: colors.borderDivider,
+      backgroundColor: colors.white,
+    },
+    continueButton: {
+      width: '100%',
+      height: 52,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.brandGreen,
+    },
+    continueButtonBusy: { opacity: 0.6 },
+    continueButtonText: { fontSize: typography.bodyLarge, fontWeight: '700', color: colors.white },
+    // Declared after `input` so the error border wins when both are applied.
+    inputError: { borderColor: staticColors.requiredRed, borderWidth: 1.5 },
+    fieldErrorText: { color: staticColors.requiredRed, fontSize: typography.bodySmall, marginTop: 4 },
+  });
+}
+
+export type Step1Styles = ReturnType<typeof makeStyles>;

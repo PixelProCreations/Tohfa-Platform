@@ -56,6 +56,23 @@ const OFFSPRING_MAX = 20;
 /** createProductionLogBody notes (no trim/min server-side; trimmed and omitted when blank here). */
 const PRODUCTION_NOTES_MAX = 2000;
 
+/**
+ * `maxLength` for the form TextInputs, so a farmer cannot type past what the
+ * server accepts. Text limits are the schema's (above); the rest are the widest
+ * value each input shape can hold: an ISO date (10), HH:MM (5), a decimal
+ * (numeric(10,x): 8 integer digits + point + 2 decimals = 11, rounded up), and
+ * the offspring count (OFFSPRING_MAX = 20 -> 2 digits).
+ */
+export const INPUT_MAX_LENGTH = {
+  short: SHORT_MAX,
+  long: LONG_MAX,
+  batch: BATCH_MAX,
+  date: 10,
+  time: 5,
+  decimal: 12,
+  count: String(OFFSPRING_MAX).length,
+} as const;
+
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DECIMAL = /^-?\d+(\.\d+)?$/;

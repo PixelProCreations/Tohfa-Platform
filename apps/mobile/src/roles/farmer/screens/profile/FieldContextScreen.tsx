@@ -1,3 +1,17 @@
+function ChevronLeft({ size = 20, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -267,7 +281,7 @@ export function FieldContextScreen({ farmId, onNavigateBack, onNavigateToZones }
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onNavigateBack} style={styles.backBtn}>
-          <Icon name="arrow_back" size={24} color={colors.brandGreen} />
+          <ChevronLeft size={20} color={colors.brandGreen} />
         </TouchableOpacity>
         <View style={styles.headerTitleBox}>
           <Text style={[styles.headerTitle, { color: colors.textDark }]}>Field Context</Text>

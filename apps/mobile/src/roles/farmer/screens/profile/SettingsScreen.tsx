@@ -1,6 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   Modal,
   ScrollView,
   StyleSheet,
@@ -10,10 +9,14 @@ import {
   View,
 } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
-import { Skeleton, ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
+import { Skeleton, ScreenStatusBar, SafeAreaView, ModalSafeArea, appAlert } from '@tohfa/mobile-ui';
 import { setLocale, t, type Locale } from '../../../../i18n/farmer';
 import { authPalette as P, colors, typography } from '../../theme';
 import { logout } from '../../api/auth';
+import { useFieldValidation } from '../../utils/validation';
+import { PASSWORD_MAX_LENGTH, passwordRules, type PasswordField } from './profileValidation';
+
+const PASSWORD_FIELD_ORDER: readonly PasswordField[] = ['currentPassword', 'newPassword', 'confirmPassword'];
 import { formatErrorMessage } from '../../../../shell/api/client';
 import {
   getMyFarmerProfile,
@@ -34,7 +37,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.4"
         strokeLinecap="round"
@@ -457,9 +460,9 @@ export function SettingsScreen({
       .then((saved) => applyNotifPreference(saved.category, saved.enabled))
       .catch((err: unknown) => {
         applyNotifPreference(category, !enabled);
-        Alert.alert(
+        appAlert(
           t('farmer.profile.settings.notifSaveFailedTitle'),
-          formatErrorMessage(err, t('error.generic')),
+          formatErrorMessage(err, t('error.generic')), undefined, { tone: 'error' },
         );
       });
   };
@@ -468,6 +471,16 @@ export function SettingsScreen({
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
   const [confirmPass, setConfirmPass] = useState('');
+  const passwordRuleSet = useMemo(() => passwordRules(() => newPass), [newPass]);
+  const passwordValues = useMemo(
+    () => ({ currentPassword: currentPass, newPassword: newPass, confirmPassword: confirmPass }),
+    [currentPass, newPass, confirmPass],
+  );
+  const passwordValidation = useFieldValidation<PasswordField>({
+    values: passwordValues,
+    rules: passwordRuleSet,
+    order: PASSWORD_FIELD_ORDER,
+  });
 
   const activeNotifCount = [
     notifWeather,
@@ -501,15 +514,15 @@ export function SettingsScreen({
       .catch((err: unknown) => {
         setSelectedLocale(previous);
         setLocale(previous);
-        Alert.alert(
+        appAlert(
           t('farmer.profile.settings.languageSaveFailedTitle'),
-          formatErrorMessage(err, t('error.generic')),
+          formatErrorMessage(err, t('error.generic')), undefined, { tone: 'error' },
         );
       });
   };
 
   const handleSignOut = () => {
-    Alert.alert(
+    appAlert(
       t('farmer.common.signOut'),
       t('farmer.profile.settings.signOutConfirmMessage'),
       [
@@ -524,12 +537,12 @@ export function SettingsScreen({
             })();
           },
         },
-      ],
+      ], { tone: 'warning' },
     );
   };
 
   const handleClearCache = () => {
-    Alert.alert(
+    appAlert(
       t('farmer.profile.settings.clearCacheAlertTitle'),
       t('farmer.profile.settings.clearCacheAlertMessage'),
       [{ text: t('farmer.common.ok'), onPress: () => setActiveModal(null) }]
@@ -537,21 +550,10 @@ export function SettingsScreen({
   };
 
   const handleChangePassword = () => {
-    if (!currentPass || !newPass || !confirmPass) {
-      Alert.alert(
-        t('farmer.profile.settings.requiredFieldsTitle'),
-        t('farmer.profile.settings.requiredFieldsMessage'),
-      );
-      return;
-    }
-    if (newPass !== confirmPass) {
-      Alert.alert(
-        t('farmer.profile.settings.passwordMismatchTitle'),
-        t('farmer.profile.settings.passwordMismatchMessage'),
-      );
-      return;
-    }
-    Alert.alert(
+    // Inline errors (same rules as the change-password API body); the alerts below are kept for
+    // the same cases so the existing behaviour is a superset.
+    if (!passwordValidation.validateAll().valid) return;
+    appAlert(
       t('farmer.profile.settings.passwordChangeSuccessTitle'),
       t('farmer.profile.settings.passwordChangeSuccessMessage'),
       [
@@ -564,7 +566,7 @@ export function SettingsScreen({
             setActiveModal(null);
           },
         },
-      ],
+      ], { tone: 'success' },
     );
   };
 
@@ -765,6 +767,7 @@ export function SettingsScreen({
             if (onNavigateToChangePassword) {
               onNavigateToChangePassword();
             } else {
+              passwordValidation.reset();
               setActiveModal('password');
             }
           }}
@@ -842,9 +845,11 @@ export function SettingsScreen({
         visible={activeModal === 'notifications'}
         transparent
         animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={() => setActiveModal(null)}
       >
-        <View style={styles.modalOverlay}>
+        <ModalSafeArea edges={['bottom']} style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
             activeOpacity={1}
@@ -983,12 +988,19 @@ export function SettingsScreen({
               />
             </View>
           </View>
-        </View>
+        </ModalSafeArea>
       </Modal>
 
       {/* ── DATA & STORAGE MODAL ── */}
-      <Modal visible={activeModal === 'data'} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal
+        visible={activeModal === 'data'}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <ModalSafeArea edges={['bottom']} style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('farmer.profile.settings.dataModalTitle')}</Text>
@@ -1012,12 +1024,19 @@ export function SettingsScreen({
               <Text style={styles.modalDangerBtnText}>{t('farmer.profile.settings.clearCacheButton')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ModalSafeArea>
       </Modal>
 
       {/* ── CHANGE PASSWORD MODAL ── */}
-      <Modal visible={activeModal === 'password'} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal
+        visible={activeModal === 'password'}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <ModalSafeArea edges={['bottom']} style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('farmer.profile.settings.changePassword')}</Text>
@@ -1037,7 +1056,12 @@ export function SettingsScreen({
               placeholderTextColor={P.twGray400}
               value={currentPass}
               onChangeText={setCurrentPass}
+              onBlur={() => passwordValidation.onBlur('currentPassword')}
+              maxLength={PASSWORD_MAX_LENGTH + 1}
             />
+            {passwordValidation.messageFor('currentPassword') ? (
+              <Text style={styles.modalFieldErrorText}>{passwordValidation.messageFor('currentPassword')}</Text>
+            ) : null}
 
             <Text style={styles.inputLabel}>{t('farmer.profile.settings.newPasswordLabel')}</Text>
             <TextInput
@@ -1047,7 +1071,12 @@ export function SettingsScreen({
               placeholderTextColor={P.twGray400}
               value={newPass}
               onChangeText={setNewPass}
+              onBlur={() => passwordValidation.onBlur('newPassword')}
+              maxLength={PASSWORD_MAX_LENGTH + 1}
             />
+            {passwordValidation.messageFor('newPassword') ? (
+              <Text style={styles.modalFieldErrorText}>{passwordValidation.messageFor('newPassword')}</Text>
+            ) : null}
 
             <Text style={styles.inputLabel}>{t('farmer.profile.settings.confirmNewPasswordLabel')}</Text>
             <TextInput
@@ -1057,7 +1086,12 @@ export function SettingsScreen({
               placeholderTextColor={P.twGray400}
               value={confirmPass}
               onChangeText={setConfirmPass}
+              onBlur={() => passwordValidation.onBlur('confirmPassword')}
+              maxLength={PASSWORD_MAX_LENGTH + 1}
             />
+            {passwordValidation.messageFor('confirmPassword') ? (
+              <Text style={styles.modalFieldErrorText}>{passwordValidation.messageFor('confirmPassword')}</Text>
+            ) : null}
 
             <TouchableOpacity
               style={styles.modalPrimaryBtn}
@@ -1066,12 +1100,19 @@ export function SettingsScreen({
               <Text style={styles.modalPrimaryBtnText}>{t('farmer.profile.settings.updatePasswordButton')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ModalSafeArea>
       </Modal>
 
       {/* ── ABOUT & SUPPORT MODAL ── */}
-      <Modal visible={activeModal === 'support'} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal
+        visible={activeModal === 'support'}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setActiveModal(null)}
+      >
+        <ModalSafeArea edges={['bottom']} style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('farmer.profile.settings.aboutSupport')}</Text>
@@ -1107,7 +1148,7 @@ export function SettingsScreen({
               <Text style={styles.modalPrimaryBtnText}>{t('farmer.common.close')}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ModalSafeArea>
       </Modal>
     </SafeAreaView>
   );
@@ -1553,6 +1594,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 4,
   },
+  modalFieldErrorText: { color: P.red600, fontSize: typography.bodySmall, fontWeight: '600', marginBottom: 8 },
   modalTextInput: {
     backgroundColor: P.tanTint1,
     borderRadius: 12,

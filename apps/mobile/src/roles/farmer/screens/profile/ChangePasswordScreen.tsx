@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -14,6 +13,10 @@ import { ScreenStatusBar, SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { authPalette as P, colors, typography } from '../../theme';
 import { changePassword } from '../../api/auth';
+import { useFieldValidation } from '../../utils/validation';
+import { PASSWORD_MAX_LENGTH, passwordRules, type PasswordField } from './profileValidation';
+
+const PASSWORD_ORDER: readonly PasswordField[] = ['currentPassword', 'newPassword', 'confirmPassword'];
 import { formatErrorMessage } from '../../../../shell/api/client';
 
 // ── SVG Icons ────────────────────────────────────────────────────────────────
@@ -22,7 +25,7 @@ function ArrowBackIcon({ size = 20, color = P.greenDeep1 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -98,19 +101,16 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
 
   const isAtLeast10 = newPassword.length >= 10;
 
+  // Rules mirror the change-password body (newPassword 10..128); `confirm` must equal the new one.
+  const rules = useMemo(() => passwordRules(() => newPassword), [newPassword]);
+  const passwordValues = useMemo(
+    () => ({ currentPassword, newPassword, confirmPassword }),
+    [currentPassword, newPassword, confirmPassword],
+  );
+  const validation = useFieldValidation<PasswordField>({ values: passwordValues, rules, order: PASSWORD_ORDER });
+
   const handleSaveChanges = async () => {
-    if (!currentPassword) {
-      Alert.alert('Required', 'Please enter your current password.');
-      return;
-    }
-    if (newPassword.length < 10) {
-      Alert.alert('Password too short', 'New password must be at least 10 characters long.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Password mismatch', 'New password and confirm password do not match.');
-      return;
-    }
+    if (!validation.validateAll().valid) return;
 
     setErrorMsg(null);
     setSubmitting(true);
@@ -171,6 +171,8 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               style={styles.textInput}
               value={currentPassword}
               onChangeText={setCurrentPassword}
+              onBlur={() => validation.onBlur('currentPassword')}
+              maxLength={PASSWORD_MAX_LENGTH + 1}
               placeholder="Enter current password"
               placeholderTextColor={P.twGray400}
               secureTextEntry={!showCurrent}
@@ -187,6 +189,10 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
             </TouchableOpacity>
           </View>
 
+          {validation.messageFor('currentPassword') ? (
+            <Text style={styles.fieldErrorText}>{validation.messageFor('currentPassword')}</Text>
+          ) : null}
+
           {/* ── Field 2: New password ── */}
           <Text style={styles.fieldLabel}>New password</Text>
           <View style={styles.inputBox}>
@@ -194,6 +200,8 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               style={styles.textInput}
               value={newPassword}
               onChangeText={setNewPassword}
+              onBlur={() => validation.onBlur('newPassword')}
+              maxLength={PASSWORD_MAX_LENGTH + 1}
               placeholder="Enter at least 10 characters"
               placeholderTextColor={P.twGray400}
               secureTextEntry={!showNew}
@@ -209,6 +217,10 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               {showNew ? <EyeIcon size={20} color={P.twGray400} /> : <EyeOffIcon size={20} color={P.twGray400} />}
             </TouchableOpacity>
           </View>
+
+          {validation.messageFor('newPassword') ? (
+            <Text style={styles.fieldErrorText}>{validation.messageFor('newPassword')}</Text>
+          ) : null}
 
           {/* Requirement indicator */}
           <View style={styles.requirementRow}>
@@ -230,6 +242,8 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               style={styles.textInput}
               value={confirmPassword}
               onChangeText={setConfirmPassword}
+              onBlur={() => validation.onBlur('confirmPassword')}
+              maxLength={PASSWORD_MAX_LENGTH + 1}
               placeholder="Re-enter new password"
               placeholderTextColor={P.twGray400}
               secureTextEntry={!showConfirm}
@@ -245,6 +259,9 @@ export function ChangePasswordScreen({ onBack, onSuccess }: ChangePasswordScreen
               {showConfirm ? <EyeIcon size={20} color={P.twGray400} /> : <EyeOffIcon size={20} color={P.twGray400} />}
             </TouchableOpacity>
           </View>
+          {validation.messageFor('confirmPassword') ? (
+            <Text style={styles.fieldErrorText}>{validation.messageFor('confirmPassword')}</Text>
+          ) : null}
         </ScrollView>
 
         {/* ── Bottom Save Button ── */}
@@ -367,6 +384,12 @@ const styles = StyleSheet.create({
     backgroundColor: P.weatherCloudWhite,
     borderTopWidth: 1,
     borderTopColor: P.tanTint1,
+  },
+  fieldErrorText: {
+    fontSize: typography.bodySmall,
+    fontWeight: '600',
+    color: colors.danger,
+    marginTop: 6,
   },
   errorText: {
     fontSize: typography.bodySmall,

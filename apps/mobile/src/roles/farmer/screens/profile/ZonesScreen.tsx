@@ -1,3 +1,17 @@
+function ChevronLeft({ size = 20, color = colors.brandGreen }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M15 18L9 12L15 6"
+        stroke={color}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -8,7 +22,6 @@ import {
   ScrollView,
   Modal,
   TextInput,
-  Alert,
   ActivityIndicator,
   BackHandler,
   useWindowDimensions,
@@ -25,6 +38,8 @@ import {
   type FarmBoundaryMapOverlay,
   ScreenStatusBar,
   SafeAreaView,
+  ModalSafeArea,
+  appAlert,
 } from '@tohfa/mobile-ui';
 import {
   useTheme,
@@ -60,6 +75,15 @@ import { useZoneBoundaryEditor } from './useZoneBoundaryEditor';
 import { ICON_TOOLTIP_LONG_PRESS_MS, useIconTooltip } from './useIconTooltip';
 import { ZoneBoundaryEditorCard } from './ZoneBoundaryEditorCard';
 import { ZoneDetailsModal } from './ZoneDetailsModal';
+import { useFieldValidation } from '../../utils/validation';
+import {
+  ZONE_CROP_NAME_MAX_LENGTH,
+  ZONE_EDIT_RULES,
+  ZONE_NAME_MAX_LENGTH,
+  type ZoneEditField,
+} from './profileValidation';
+
+const ZONE_EDIT_ORDER: readonly ZoneEditField[] = ['name', 'cropName', 'cropDay'];
 
 interface ZonesScreenProps {
   /** The farm to show zones for, threaded from FieldContextScreen via App.tsx's params. */
@@ -207,6 +231,17 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [modalSaving, setModalSaving] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
+  // The edit-details modal's inline errors. A blank name keeps the zone's current one (saved
+  // behaviour), so only the too-long case blocks; crop fields are local-only but still bounded.
+  const editValues = useMemo(
+    () => ({ name: editName, cropName: editCropName, cropDay: editCropDay }),
+    [editName, editCropName, editCropDay],
+  );
+  const editValidation = useFieldValidation<ZoneEditField>({
+    values: editValues,
+    rules: ZONE_EDIT_RULES,
+    order: ZONE_EDIT_ORDER,
+  });
 
   const loadFarms = useCallback(async () => {
     setFarmsLoading(true);
@@ -425,6 +460,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
     setEditCropName(localCrop?.name ?? '');
     setEditCropDay(localCrop?.day ?? '');
     setModalError(null);
+    editValidation.reset();
     setIsEditModalVisible(true);
   };
 
@@ -443,6 +479,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
 
   async function handleSaveEdit() {
     if (!editingZone || !selectedFarmId) return;
+    if (!editValidation.validateAll().valid) return;
     setModalSaving(true);
     setModalError(null);
     try {
@@ -478,7 +515,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
 
   const handleDeleteZone = (zoneId: string) => {
     const target = zones.find((z) => z.id === zoneId);
-    Alert.alert(
+    appAlert(
       t('farmer.zones.deleteConfirmTitle'),
       t('farmer.zones.deleteConfirmBody', { name: target?.name || t('farmer.zones.thisZone') }),
       [
@@ -505,7 +542,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
             })();
           },
         },
-      ],
+      ], { tone: 'warning' },
     );
   };
 
@@ -837,7 +874,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
               accessibilityRole="button"
               accessibilityLabel={t('farmer.common.back')}
             >
-              <Icon name="arrow_back" size={22} color={colors.brandGreen} />
+              <ChevronLeft size={20} color={colors.brandGreen} />
             </TouchableOpacity>
             <View style={styles.headerTitleBox}>
               <Text style={[styles.headerTitle, { color: colors.textDark }]}>{headerTitle}</Text>
@@ -1218,9 +1255,11 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
         visible={isEditModalVisible}
         animationType="fade"
         transparent={true}
+        statusBarTranslucent
+        navigationBarTranslucent
         onRequestClose={() => setIsEditModalVisible(false)}
       >
-        <View style={styles.modalBackdrop}>
+        <ModalSafeArea style={styles.modalBackdrop}>
           <View style={styles.modalScrim} pointerEvents="none" />
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
@@ -1261,9 +1300,14 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
                 style={styles.textInput}
                 value={editName}
                 onChangeText={setEditName}
+                onBlur={() => editValidation.onBlur('name')}
+                maxLength={ZONE_NAME_MAX_LENGTH}
                 placeholder={t('farmer.zones.field.name')}
                 placeholderTextColor={P.twGray400}
               />
+              {editValidation.messageFor('name') ? (
+                <Text style={styles.modalErrorText}>{editValidation.messageFor('name')}</Text>
+              ) : null}
 
               <Text style={styles.inputLabel}>{t('farmer.zones.field.soil')}</Text>
               {renderOptionChips(SOIL_OPTIONS, editSoil, setEditSoil)}
@@ -1282,6 +1326,8 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
                   style={[styles.textInput, styles.cropNameInput]}
                   value={editCropName}
                   onChangeText={setEditCropName}
+                  onBlur={() => editValidation.onBlur('cropName')}
+                  maxLength={ZONE_CROP_NAME_MAX_LENGTH}
                   placeholder={t('farmer.zones.edit.cropNamePlaceholder')}
                   placeholderTextColor={P.twGray400}
                 />
@@ -1289,11 +1335,19 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
                   style={[styles.textInput, styles.cropDayInput]}
                   value={editCropDay}
                   onChangeText={setEditCropDay}
+                  onBlur={() => editValidation.onBlur('cropDay')}
+                  maxLength={4}
                   placeholder={t('farmer.zones.edit.cropDayPlaceholder')}
                   keyboardType="numeric"
                   placeholderTextColor={P.twGray400}
                 />
               </View>
+              {editValidation.messageFor('cropName') ? (
+                <Text style={styles.modalErrorText}>{editValidation.messageFor('cropName')}</Text>
+              ) : null}
+              {editValidation.messageFor('cropDay') ? (
+                <Text style={styles.modalErrorText}>{editValidation.messageFor('cropDay')}</Text>
+              ) : null}
 
               {modalError ? <Text style={styles.modalErrorText}>{modalError}</Text> : null}
             </ScrollView>
@@ -1315,7 +1369,7 @@ export function ZonesScreen({ farmId, onNavigateBack, onSave }: ZonesScreenProps
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </ModalSafeArea>
       </Modal>
     </SafeAreaView>
   );

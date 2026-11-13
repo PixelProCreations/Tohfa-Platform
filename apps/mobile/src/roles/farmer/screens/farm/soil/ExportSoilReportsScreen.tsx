@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
   BackHandler,
   Linking,
   Platform,
@@ -11,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { SafeAreaView, appAlert } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { authPalette as P, typography } from '../../../theme';
 import { getFarms, getPlots } from '../../../api/farms';
@@ -26,7 +25,7 @@ function ArrowBackIcon({ size = 20, color = P.twGreen800 }: { size?: number; col
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M19 12H5M5 12L12 19M5 12L12 5"
+        d="M15 18L9 12L15 6"
         stroke={color}
         strokeWidth="2.2"
         strokeLinecap="round"
@@ -178,7 +177,7 @@ export function ExportSoilReportsScreen({
 
     const checkedIds = includeItems.filter((i) => i.checked).map((i) => i.id);
     if (checkedIds.length === 0) {
-      Alert.alert('Selection Required', 'Please select at least one item to include in the soil report.');
+      appAlert('Selection Required', 'Please select at least one item to include in the soil report.', undefined, { tone: 'warning' });
       return;
     }
 
@@ -196,7 +195,7 @@ export function ExportSoilReportsScreen({
     }
 
     if (!targetFarmId) {
-      Alert.alert('Farm Not Found', 'Could not locate your farm details. Please ensure your farm is registered.');
+      appAlert('Farm Not Found', 'Could not locate your farm details. Please ensure your farm is registered.', undefined, { tone: 'error' });
       return;
     }
 
@@ -217,7 +216,7 @@ export function ExportSoilReportsScreen({
         await Linking.openURL(fullUrl);
       }
 
-      Alert.alert(
+      appAlert(
         'Soil Report Downloaded',
         `${response.fileName} has been generated and queued for download.`,
         [
@@ -229,10 +228,11 @@ export function ExportSoilReportsScreen({
           },
           { text: 'Done', style: 'cancel' },
         ],
-      );
+    { tone: 'success' },
+  );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not generate report.';
-      Alert.alert('Download Error', `Failed to generate PDF: ${message}`);
+      appAlert('Download Error', `Failed to generate PDF: ${message}`, undefined, { tone: 'error' });
     } finally {
       setIsDownloading(false);
     }
