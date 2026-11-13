@@ -31,3 +31,5 @@ export * from './screens/CheckoutScreen';
 export * from './screens/TopupScreen';
 export * from './screens/OrderHistoryScreen';
 export * from './screens/OrderTrackingScreen';
+export * from './screens/CustomerAccountScreen';
+export * from './screens/CustomerProfileScreen';

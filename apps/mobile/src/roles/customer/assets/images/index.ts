@@ -13,3 +13,13 @@ export { default as onboardingSlide2CleanExact } from './onboarding_slide2_clean
 export { default as cauliflower } from './cauliflower.jpg';
 export { default as branchLeavesTopLeft } from './branch_leaves_top_left.png';
 export { default as permissionsHeroCrate } from './permissions_hero_crate.jpg';
+export { default as satelliteMapCoimbatore } from './satellite_map_coimbatore.jpg';
+export { default as accountHeaderBg } from './account_header_bg.png';
+export { default as profileAdsBanner } from './profileimages/ads banner.png';
+export { default as profileOrdersIcon } from './profileimages/image 25.png';
+export { default as profileWalletIcon } from './profileimages/image 25 (1).png';
+export { default as profileWishlistIcon } from './profileimages/image 25 (2).png';
+export { default as profileEmailVerified } from './profileimages/Gemini_Generated_Image_kbkle7kbkle7kbkl 1.png';
+export { default as profileAvatarMale } from './profileimages/image 16.png';
+export { default as profileAvatarFemale } from './profileimages/pngegg (4) 2.png';
+

@@ -13,6 +13,8 @@ import { CheckoutScreen } from './screens/CheckoutScreen';
 import { TopupScreen } from './screens/TopupScreen';
 import { OrderTrackingScreen } from './screens/OrderTrackingScreen';
 import { OrderHistoryScreen } from './screens/OrderHistoryScreen';
+import { CustomerAccountScreen } from './screens/CustomerAccountScreen';
+import { CustomerProfileScreen } from './screens/CustomerProfileScreen';
 import { HomeScreen } from './screens/HomeScreen';
 
 /**
@@ -38,13 +40,17 @@ type ScreenName =
   | 'Checkout'
   | 'Topup'
   | 'OrderTracking'
-  | 'OrderHistory';
+  | 'OrderHistory'
+  | 'CustomerAccount'
+  | 'CustomerProfile';
 
 interface NavigationParams {
   categoryId?: string | undefined;
   productId?: string | undefined;
   shortfall?: string | undefined;
   orderId?: string | undefined;
+  mode?: 'empty' | 'view' | 'edit' | undefined;
+  isNewUser?: boolean | undefined;
 }
 
 interface CustomerStackEntry {
@@ -150,6 +156,22 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'OrderHistory' && (
             <OrderHistoryScreen onNavigate={(s, p) => navigate(s, p)} />
+          )}
+
+          {currentScreen === 'CustomerAccount' && (
+            <CustomerAccountScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+              onSignOut={onSignOut}
+            />
+          )}
+
+          {currentScreen === 'CustomerProfile' && (
+            <CustomerProfileScreen
+              initialMode={navParams.mode || (navParams.isNewUser ? 'empty' : 'view')}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
           )}
         </SafeAreaView>
       </ThemeProvider>
