@@ -40,3 +40,7 @@ export * from './screens/CustomerNotificationsScreen';
 export * from './screens/CustomerAccountSettingsScreen';
 export * from './screens/CustomerPrivacyPolicyScreen';
 export * from './screens/CustomerTermsScreen';
+export * from './screens/ContactSupportScreen';
+export * from './screens/TrackSupportRequestScreen';
+export * from './screens/ReviewFeedbackScreen';
+export * from './screens/ReturnOrderScreen';

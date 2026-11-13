@@ -11,7 +11,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
@@ -134,6 +134,43 @@ const HeadsetSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: n
       strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const StarSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const ReturnsSvg = ({ color = '#1A2E1A', size = 20 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M4 8l8-4 8 4v8l-8 4-8-4V8z"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M15 13l-3 3-3-3"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Path
+      d="M12 9v7"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
     />
   </Svg>
 );
@@ -401,7 +438,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Row 4: Contact Support */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => onNavigate?.('CustomerSupport')}
+            onPress={() => onNavigate?.('ContactSupport')}
             style={styles.menuItem}
             accessibilityLabel="Contact Support"
           >
@@ -416,7 +453,43 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           </TouchableOpacity>
           <View style={styles.divider} />
 
-          {/* Row 5: Help & FAQs */}
+          {/* Row 5: Returns */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('ReturnOrder')}
+            style={styles.menuItem}
+            accessibilityLabel="Returns"
+          >
+            <View style={styles.menuIconBox}>
+              <ReturnsSvg color={customerColors.heading} size={20} />
+            </View>
+            <View style={styles.menuTextColumn}>
+              <Text style={styles.menuItemTitle}>Returns</Text>
+              <Text style={styles.menuItemSubtitle}>Request item returns, track return status</Text>
+            </View>
+            <ChevronRightSvg color="#9CA3AF" size={16} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+
+          {/* Row 6: Review & Feedback */}
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('ReviewFeedback')}
+            style={styles.menuItem}
+            accessibilityLabel="Review & Feedback"
+          >
+            <View style={styles.menuIconBox}>
+              <StarSvg color={customerColors.heading} size={20} />
+            </View>
+            <View style={styles.menuTextColumn}>
+              <Text style={styles.menuItemTitle}>Review & Feedback</Text>
+              <Text style={styles.menuItemSubtitle}>Share your experience and product feedback</Text>
+            </View>
+            <ChevronRightSvg color="#9CA3AF" size={16} />
+          </TouchableOpacity>
+          <View style={styles.divider} />
+
+          {/* Row 6: Help & FAQs */}
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerHelp')}

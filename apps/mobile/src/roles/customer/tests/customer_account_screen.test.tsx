@@ -126,6 +126,8 @@ describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
     expect(json).toContain('Manage language, untis and settings');
     expect(json).toContain('Contact Support');
     expect(json).toContain('Get help for Orders, payments and other issues');
+    expect(json).toContain('Review & Feedback');
+    expect(json).toContain('Share your experience and product feedback');
     expect(json).toContain('Help & FAQs');
     expect(json).toContain('Find answers to common questions');
     expect(json).toContain('Logout');
@@ -249,5 +251,62 @@ describe('CustomerAccountScreen (Screen 73 · My Account)', () => {
       confirmBtn.props.onPress();
     });
     expect(mockSignOut).toHaveBeenCalled();
+  });
+
+  it('navigates to ContactSupport when Contact Support menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const contactSupportItem = tree.root.findByProps({ accessibilityLabel: 'Contact Support' });
+    await act(async () => {
+      contactSupportItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('ContactSupport');
+  });
+
+  it('navigates to ReturnOrder when Returns menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const returnsItem = tree.root.findByProps({ accessibilityLabel: 'Returns' });
+    await act(async () => {
+      returnsItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('ReturnOrder');
+  });
+
+  it('navigates to ReviewFeedback when Review & Feedback menu item is pressed', async () => {
+    let tree!: renderer.ReactTestRenderer;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerAccountScreen
+          onNavigate={mockNavigate}
+          onBack={mockBack}
+          onSignOut={mockSignOut}
+        />
+      );
+    });
+
+    const reviewItem = tree.root.findByProps({ accessibilityLabel: 'Review & Feedback' });
+    await act(async () => {
+      reviewItem.props.onPress();
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('ReviewFeedback');
   });
 });

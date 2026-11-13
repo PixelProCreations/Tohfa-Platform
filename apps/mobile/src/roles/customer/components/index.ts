@@ -11,4 +11,5 @@ export * from './CustomerAlert';
 export * from './CustomerProgressBar';
 export * from './ArrowRightFigmaIcon';
 export * from './CustomerFloatingNav';
+export * from './ReturnSubmittedModal';
 
