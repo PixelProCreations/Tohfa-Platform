@@ -22,7 +22,12 @@ import { CustomerNotificationsScreen } from './screens/CustomerNotificationsScre
 import { CustomerAccountSettingsScreen } from './screens/CustomerAccountSettingsScreen';
 import { CustomerPrivacyPolicyScreen } from './screens/CustomerPrivacyPolicyScreen';
 import { CustomerTermsScreen } from './screens/CustomerTermsScreen';
+import { ContactSupportScreen } from './screens/ContactSupportScreen';
+import { TrackSupportRequestScreen } from './screens/TrackSupportRequestScreen';
+import { ReviewFeedbackScreen } from './screens/ReviewFeedbackScreen';
+import { ReturnOrderScreen } from './screens/ReturnOrderScreen';
 import { HomeScreen } from './screens/HomeScreen';
+import type { RelatedCategory } from './components/contactSupportData';
 
 /**
  * Customer's real post-login screens, mounted by the farmer app's shared
@@ -50,6 +55,10 @@ type ScreenName =
   | 'OrderHistory'
   | 'CustomerAccount'
   | 'CustomerProfile'
+  | 'ContactSupport'
+  | 'TrackSupportRequest'
+  | 'ReviewFeedback'
+  | 'ReturnOrder'
   | 'CustomerWallet'
   | 'CustomerSupport'
   | 'CustomerHelp'
@@ -65,6 +74,12 @@ interface NavigationParams {
   orderId?: string | undefined;
   mode?: 'empty' | 'view' | 'edit' | undefined;
   isNewUser?: boolean | undefined;
+  supportId?: string | undefined;
+  orderNumber?: string | undefined;
+  productName?: string | undefined;
+  issueTypeLabel?: string | undefined;
+  submittedOn?: string | undefined;
+  initialTab?: RelatedCategory | undefined;
 }
 
 interface CustomerStackEntry {
@@ -232,6 +247,40 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'CustomerTerms' && (
             <CustomerTermsScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'ContactSupport' && (
+            <ContactSupportScreen
+              initialTab={navParams.initialTab}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'ReviewFeedback' && (
+            <ReviewFeedbackScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'ReturnOrder' && (
+            <ReturnOrderScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'TrackSupportRequest' && (
+            <TrackSupportRequestScreen
+              supportId={navParams.supportId}
+              orderNumber={navParams.orderNumber}
+              productName={navParams.productName}
+              issueTypeLabel={navParams.issueTypeLabel}
+              submittedOn={navParams.submittedOn}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
             />
