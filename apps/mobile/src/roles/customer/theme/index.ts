@@ -290,6 +290,15 @@ export const customerShadow = {
     elevation: 0,
   },
 
+  /** Level 0.5: Subtle card shadow. */
+  subtle: {
+    shadowColor: customerPrimitives.green900,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+
   /** Level 1: Raised (y: 4, blur: 16, color: #1A2E1A at 8% opacity). Used for floating cards. */
   raised: {
     shadowColor: customerPrimitives.green900,

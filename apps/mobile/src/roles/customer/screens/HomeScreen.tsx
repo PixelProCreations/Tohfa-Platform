@@ -448,7 +448,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     if (tab === 'cart') {
       onNavigate?.('Cart');
     } else if (tab === 'profile') {
-      setShowProfileModal(true);
+      onNavigate?.('CustomerAccount');
     }
   };
 
@@ -581,7 +581,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <View style={styles.bannerTopRow}>
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() => setShowProfileModal(true)}
+                onPress={() => onNavigate?.('CustomerAccount')}
                 style={styles.profileTouchTarget}
                 accessibilityLabel="Open Profile"
               />
@@ -604,19 +604,19 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <View style={styles.categoriesTouchRow}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {}}
+                onPress={() => { }}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Just Arrived"
               />
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {}}
+                onPress={() => { }}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Pesticide Free"
               />
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => {}}
+                onPress={() => { }}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Seasonal Favs"
               />
@@ -677,7 +677,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   <TouchableOpacity
                     key={cat.id}
                     activeOpacity={0.75}
-                    onPress={() => {}}
+                    onPress={() => { }}
                     style={styles.categoryCircleItem}
                   >
                     <View style={styles.categoryCircleOuter}>
@@ -687,9 +687,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                           style={styles.categoryCircleImg}
                           resizeMode="cover"
                         />
-                      ) : (
-                        <Text style={styles.categoryCircleEmoji}>{cat.emoji}</Text>
-                      )}
+                      ) : null}
                     </View>
                     <Text style={styles.categoryCircleLabel}>{cat.label}</Text>
                   </TouchableOpacity>
@@ -1127,7 +1125,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   bannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'space-between',
     paddingTop: Platform.OS === 'android' ? 16 : 8,
     paddingHorizontal: 16,
@@ -1447,7 +1445,7 @@ const styles = StyleSheet.create({
     width: 140,
   },
 
-    // ── 24. FOOTER BRANDING CARD (EXACT 350 x 246 HUG FROM FIGMA) ─────────────
+  // ── 24. FOOTER BRANDING CARD (EXACT 350 x 246 HUG FROM FIGMA) ─────────────
   footerBrandingCard: {
     width: '92%',
     maxWidth: 350,
