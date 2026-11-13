@@ -17,6 +17,7 @@ import type {
   ProduceFilterCropOption,
   ProduceFilterZoneOption,
   ProduceRecordDetailResponse,
+  ProduceRecordStage,
 } from './admin-produce.schema.js';
 
 export interface ListProduceRecordsRepoArgs {

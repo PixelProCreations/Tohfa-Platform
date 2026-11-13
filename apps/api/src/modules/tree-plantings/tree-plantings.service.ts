@@ -1,5 +1,11 @@
 import { changedFields, writeAuditLog } from '../../audit/auditLog.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  optionalIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { getTodayKolkata } from '../certifications/certifications.service.js';
@@ -23,6 +29,8 @@ export interface TreePlantingsServiceDeps {
   repo: TreePlantingsRepo;
   db: Executor;
   runTx: TransactionRunner;
+  /** BR-55h. Defaults to the PostgreSQL store; tests inject an in-memory one. */
+  idempotency?: IdempotencyStore;
 }
 
 function ownFarmerId(scope: ResolvedScope): string {
@@ -69,7 +77,12 @@ function decodeCursor(raw: string): TreePlantingCursor {
 export interface TreePlantingsService {
   listTreePlantings(scope: ResolvedScope, query: ListTreePlantingsQuery): Promise<ListTreePlantingsResponse>;
   getTreePlanting(scope: ResolvedScope, id: string): Promise<TreePlantingResponse>;
-  createTreePlanting(scope: ResolvedScope, body: CreateTreePlantingBody): Promise<TreePlantingResponse>;
+  /** BR-55h: with an `idempotencyKey`, a replay returns the original planting and writes nothing. */
+  createTreePlanting(
+    scope: ResolvedScope,
+    body: CreateTreePlantingBody,
+    idempotencyKey?: string,
+  ): Promise<TreePlantingResponse>;
   updateTreePlanting(scope: ResolvedScope, id: string, body: UpdateTreePlantingBody): Promise<TreePlantingResponse>;
   deleteTreePlanting(scope: ResolvedScope, id: string): Promise<void>;
 }
@@ -80,6 +93,7 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
   runTx: withTransaction,
 }): TreePlantingsService {
   const { repo, db, runTx } = deps;
+  const idempotency = deps.idempotency ?? idempotencyStore;
 
   /**
    * BR-36: the farm must be the caller's, and the plot must be on one of the
@@ -124,13 +138,25 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
       return record;
     },
 
-    async createTreePlanting(scope, body) {
+    async createTreePlanting(scope, body, idempotencyKey) {
       const farmerId = ownFarmerId(scope);
+      const key = optionalIdempotencyKey(idempotencyKey);
 
       // BR-55b
       assertNotInFuture(body.plantedOn);
 
       return runTx(async (tx) => {
+        // BR-55h: claim the key in this transaction before the write (see http/idempotency.ts).
+        const idem = key === undefined
+          ? undefined
+          : await beginIdempotent<TreePlantingResponse>(idempotency, tx, {
+              actorUserId: scope.userId,
+              key,
+              operation: 'tree_planting.create',
+              request: body,
+            });
+        if (idem?.replay === true) return idem.response;
+
         await repo.lockFarmer(tx, farmerId);
 
         await assertFarmAndPlotAreOwn(tx, farmerId, body.farmId ?? null, body.plotId ?? null);
@@ -147,6 +173,7 @@ export function createTreePlantingsService(deps: TreePlantingsServiceDeps = {
           after: created,
         });
 
+        if (idem !== undefined && idem.replay === false) await idem.complete(created);
         return created;
       });
     },

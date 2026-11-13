@@ -99,9 +99,9 @@ function TraceabilityIdCardIcon({ size = 18, color = P.twBlue700 }: { size?: num
 // ── Types ────────────────────────────────────────────────────────────────────
 
 export interface SaleTransferCullScreenProps {
-  animalId?: string;
-  animalName?: string;
-  animalCode?: string;
+  animalId?: string | undefined;
+  animalName?: string | undefined;
+  animalCode?: string | undefined;
   onBack?: () => void;
   onSuccess?: () => void;
 }
@@ -145,9 +145,9 @@ function eventTypeToApi(v: EventType): LifecycleEventType {
 }
 
 export function SaleTransferCullScreen({
-  animalId = 'a1',
-  animalName = 'Lakshmi',
-  animalCode = 'C-014',
+  animalId,
+  animalName = '',
+  animalCode = '',
   onBack,
   onSuccess,
 }: SaleTransferCullScreenProps): React.JSX.Element {
@@ -164,9 +164,12 @@ export function SaleTransferCullScreen({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const realAnimalId = animalId?.trim() ?? '';
+  const hasAnimal = realAnimalId.length > 0;
 
   const handleSubmit = async () => {
-    if (isSubmitting) return;
+    // A terminal event must never be recorded without a real animal id.
+    if (isSubmitting || !hasAnimal) return;
     setSubmitError('');
     setFieldErrors({});
 
@@ -196,16 +199,14 @@ export function SaleTransferCullScreen({
 
     setIsSubmitting(true);
     try {
-      await recordLifecycleEvent(animalId, body);
+      await recordLifecycleEvent(realAnimalId, body);
 
-      const actionName =
-        eventType === 'sale' ? 'Sale recorded' : eventType === 'transfer' ? 'Transfer recorded' : 'Cull recorded';
       Alert.alert(
-        actionName,
-        `Terminal event successfully saved for ${animalName} (${animalCode}). Animal is archived for organic audit trails.`,
+        t(`farmer.livestock.saleTransferCull.savedTitle.${eventType}` as const),
+        t('farmer.livestock.saleTransferCull.savedBody', { name: animalName, code: animalCode }),
         [
           {
-            text: 'OK',
+            text: t('farmer.livestock.saleTransferCull.ok'),
             onPress: () => {
               if (onSuccess) onSuccess();
               else if (onBack) onBack();
@@ -224,6 +225,30 @@ export function SaleTransferCullScreen({
       setIsSubmitting(false);
     }
   };
+
+  if (!hasAnimal) {
+    // No route param -> error state, never a stand-in animal.
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <ScreenStatusBar barStyle="dark-content" backgroundColor={P.white} />
+        <View style={styles.scrollContent} testID="saleTransferCull.error">
+          <View style={styles.errorBanner} accessibilityLiveRegion="polite">
+            <Text style={styles.errorBannerText}>{t('farmer.livestock.saleTransferCull.missingAnimal')}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+            testID="saleTransferCull.errorBack"
+            accessibilityRole="button"
+            accessibilityLabel={t('farmer.livestock.saleTransferCull.back')}
+          >
+            <ArrowBackIcon size={20} color={P.deepGreen} />
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -247,7 +272,7 @@ export function SaleTransferCullScreen({
           <View style={styles.headerTitles}>
             <Text style={styles.headerTitle}>Sale / Transfer / Cull</Text>
             <Text style={styles.headerSubtitle}>
-              {animalName} · {animalCode}
+              {[animalName, animalCode].filter(Boolean).join(' · ')}
             </Text>
           </View>
         </View>
@@ -436,7 +461,7 @@ export function SaleTransferCullScreen({
             </View>
 
             {submitError ? (
-              <View style={styles.errorBanner} accessibilityLiveRegion="polite">
+              <View style={styles.errorBanner} accessibilityLiveRegion="polite" testID="saleTransferCull.submitError">
                 <Text style={styles.errorBannerText}>{submitError}</Text>
               </View>
             ) : null}
@@ -448,6 +473,7 @@ export function SaleTransferCullScreen({
           <TouchableOpacity
             style={[styles.recordSaleButton, isSubmitting && styles.recordSaleButtonDisabled]}
             onPress={() => void handleSubmit()}
+            testID="saleTransferCull.submit"
             activeOpacity={0.88}
             disabled={isSubmitting}
             accessibilityRole="button"

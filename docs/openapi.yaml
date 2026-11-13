@@ -155,10 +155,16 @@ tags:
   - name: Livestock
     description: |
       A farmer's own animals (`livestock_animals`), daily produce logging across
-      the fixed 8-product dairy/poultry catalog (`livestock_production_logs`),
+      the fixed 11-product dairy/poultry/by-product catalog (`livestock_production_logs`),
       and lifecycle events recording an animal leaving the herd
       (`livestock_lifecycle_events`). An animal can exit the herd at most once
-      (BR-47). Read-only admin visibility into any farmer's herd, for
+      (BR-47). Per-animal records (health, breeding, feed plans, feed logs,
+      housing, hygiene) are farmer-entered, owner-scoped and farm-side only
+      (BR-137); a treatment withdrawal window raises the animal's
+      `withdrawalUntil` (BR-138), breeding records exist only for FEMALE
+      animals (BR-140), and produce logged from an animal under withdrawal is
+      stored restricted from sale (BR-139). No reminder or schedule is generated
+      from any recorded date (BR-38). Read-only admin visibility into any farmer's herd, for
       organic-certification audit purposes.
   - name: Soil Management
     description: |
@@ -6968,6 +6974,51 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/crop-inputs:
+    get:
+      tags: [Crops]
+      operationId: listMyFarmCropInputs
+      summary: List inputs applied across all own crops
+      description: |
+        Returns the caller farmer's own input applications across every crop they own, including
+        HARVESTED and FAILED crops, newest `appliedOn` first (ties broken by `createdAt`, then `id`,
+        descending, so the cursor is stable across pages) (BR-56h). Each item is a `CropInput` plus
+        the `cropName` and `plotName` it was applied to. The farmer always comes from the token: a
+        `farmerId` parameter is rejected (422), and a farmer with no inputs gets an empty page, never
+        a 403 or 404. Inputs on soft-deleted crops, plots or farms are excluded, as on the per-crop routes.
+      x-permission: farmer.crop_input.manage_own
+      x-business-rules: [BR-56, BR-36]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: inputType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
+        - name: from
+          in: query
+          required: false
+          description: Earliest `appliedOn` to include (inclusive). A real calendar date; must be on or before `to` (422 otherwise).
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: false
+          description: Latest `appliedOn` to include (inclusive). A real calendar date.
+          schema: { type: string, format: date }
+      responses:
+        '200':
+          description: Paginated list of the farmer's crop inputs across all own crops.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmCropInputsListResponse'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /farmers/me/crops/{farmCropId}/inputs:
     get:
       tags: [Crops]
@@ -7000,7 +7051,10 @@ paths:
       operationId: createMyCropInput
       summary: Record an input application
       description: |
-        Logs a fertilizer, manure, pesticide or bio-input application for an own crop (BR-56).
+        Logs a fertilizer, manure, pesticide, bio-input or fertigation application for an own crop
+        (BR-56), with optional purpose / target pest / applied-by (BR-56k). An optional
+        `Idempotency-Key` makes a retry safe: a replay returns the original 201 body and creates no
+        second row; the same key with a different body or crop is 409 `IDEMPOTENCY_KEY_REUSED` (BR-56i).
       x-permission: farmer.crop_input.manage_own
       x-business-rules: [BR-56, BR-36, BR-35]
       parameters:
@@ -7008,6 +7062,7 @@ paths:
           in: path
           required: true
           schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/OptionalIdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -7016,7 +7071,7 @@ paths:
               $ref: '#/components/schemas/CreateCropInputRequest'
       responses:
         '201':
-          description: Created crop input record.
+          description: Created crop input record (or, on an Idempotency-Key replay, the original one).
           content:
             application/json:
               schema:
@@ -7024,6 +7079,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -8872,8 +8928,13 @@ paths:
         Creates a new tree planting record. Validates that treeCount > 0 and that plantedOn is a real
         calendar date no later than today in Asia/Kolkata (BR-55). `farmId` must be one of the caller's
         farms and `plotId` a plot of the caller's, on `farmId` when both are sent; otherwise 404.
+        An optional `Idempotency-Key` makes a retry safe: a replay returns the original 201 body and
+        creates no second planting; the same key with a different body is 409
+        `IDEMPOTENCY_KEY_REUSED` (BR-55h).
       x-permission: farmer.tree_planting.manage_own
       x-business-rules: [BR-55, BR-36, BR-35]
+      parameters:
+        - $ref: '#/components/parameters/OptionalIdempotencyKeyHeader'
       requestBody:
         required: true
         content:
@@ -8882,7 +8943,7 @@ paths:
               $ref: '#/components/schemas/CreateTreePlantingRequest'
       responses:
         '201':
-          description: Created tree planting.
+          description: Created tree planting (or, on an Idempotency-Key replay, the original one).
           content:
             application/json:
               schema:
@@ -8890,6 +8951,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -9363,8 +9425,16 @@ paths:
         collection (`animalId` omitted, `productType: EGGS`). `unit` must
         match `productType`'s one fixed unit (e.g. `MILK` is always
         `LITERS`) or the request is 422. An `animalId` belonging to another
-        farmer returns 404.
+        farmer returns 404. When `animalId` names an animal whose
+        `withdrawalUntil` is on or after `loggedOn` (default today), the row is
+        stored with `restrictedFromSale: true` regardless of the request value
+        (BR-139). The comparison uses the one animal-level `withdrawalUntil`
+        for every `productType`, so a meat-only withdrawal also restricts
+        milk (BR-139e). The request is never rejected for being under
+        withdrawal; the 201 response's `restrictedFromSale` says so.
+        `fatPercent` is only accepted for `MILK` (422 otherwise).
       x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-139]
       requestBody:
         required: true
         content:
@@ -9381,6 +9451,418 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /farmers/me/livestock/animals/{animalId}/health-records:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockHealthRecords
+      summary: Health history of an own animal
+      description: |
+        Lists the animal's `livestock_health_records` (vaccination, deworming, checkup, treatment), newest `recordDate` first, optionally filtered by `recordType`.
+        Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-137, BR-138]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: recordType
+          in: query
+          schema: { $ref: '#/components/schemas/LivestockHealthRecordType' }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged health records, newest first. An animal that is not the caller's, does not exist or is soft-deleted yields an empty page, never 403 or 404 (BR-137b).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LivestockHealthRecord' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockHealthRecord
+      summary: Record a vaccination, deworming, checkup or treatment
+      description: |
+        Creates a `livestock_health_records` row. The body is a discriminated union on `recordType` (`VACCINATION`, `DEWORMING`, `CHECKUP`, `TREATMENT`); each variant is strict, so fields of another variant (for example withdrawal fields on a vaccination) are rejected with 422. A `TREATMENT` with `milkWithdrawal` and/or `meatWithdrawal` also raises the animal's `withdrawalUntil` to the latest supplied `endDate`, in the same transaction; it never shortens an existing later date (BR-138). `nextDueDate` and `followUpDate` are stored values only; nothing is scheduled or notified (BR-38).
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
+      x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-137, BR-138]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivestockHealthRecordCreateRequest' }
+      responses:
+        '201':
+          description: Health record created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivestockHealthRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /farmers/me/livestock/animals/{animalId}/breeding-records:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockBreedingRecords
+      summary: Breeding history of an own animal
+      description: |
+        Lists the animal's `livestock_breeding_records` (heat, insemination, pregnancy check, calving), newest `recordDate` first, optionally filtered by `recordType`.
+        Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-137, BR-140]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: recordType
+          in: query
+          schema: { $ref: '#/components/schemas/LivestockBreedingRecordType' }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged breeding records, newest first. An animal that is not the caller's, does not exist or is soft-deleted yields an empty page, never 403 or 404 (BR-137b).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LivestockBreedingRecord' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockBreedingRecord
+      summary: Record a heat, insemination, pregnancy check or calving
+      description: |
+        Creates a `livestock_breeding_records` row. The body is a discriminated union on `recordType` (`HEAT`, `INSEMINATION`, `PREGNANCY_CHECK`, `CALVING`). Breeding records exist only for `FEMALE` animals: a `MALE` animal is 422 `VALIDATION_FAILED` (BR-140); ownership is checked first, so a foreign animal is 404. `expectedDeliveryDate` and `nextCheckDate` are stored values only; nothing is scheduled or notified (BR-38).
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
+      x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-137, BR-140]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivestockBreedingRecordCreateRequest' }
+      responses:
+        '201':
+          description: Breeding record created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivestockBreedingRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /farmers/me/livestock/animals/{animalId}/feed-plans:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockFeedPlans
+      summary: Feed plans of an own animal
+      description: |
+        Lists the animal's `livestock_feed_plans`, newest `effectiveFrom` first; the first row is the current plan (the "Feed reference" card).
+        Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged feed plans, newest first. An animal that is not the caller's, does not exist or is soft-deleted yields an empty page, never 403 or 404 (BR-137b).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LivestockFeedPlan' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockFeedPlan
+      summary: Record a feed plan
+      description: |
+        Creates a `livestock_feed_plans` row; it is the animal's current plan while its `effectiveFrom` is the newest. Earlier plans are kept as history.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
+      x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivestockFeedPlanCreateRequest' }
+      responses:
+        '201':
+          description: Feed plan created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivestockFeedPlan' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /farmers/me/livestock/animals/{animalId}/feed-logs:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockFeedLogs
+      summary: Daily feed log of an own animal
+      description: |
+        Lists the animal's `livestock_feed_logs` ("Daily feed log"), newest `fedOn` first, optionally within a `fedOn` date range.
+        Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: dateFrom
+          in: query
+          description: Inclusive lower bound on `fedOn`.
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          description: Inclusive upper bound on `fedOn`.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged feed logs, newest first. An animal that is not the caller's, does not exist or is soft-deleted yields an empty page, never 403 or 404 (BR-137b).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LivestockFeedLog' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockFeedLog
+      summary: Log a feeding
+      description: |
+        Creates a `livestock_feed_logs` row. `fedOn` defaults to today.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16).
+      x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivestockFeedLogCreateRequest' }
+      responses:
+        '201':
+          description: Feed log created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivestockFeedLog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /farmers/me/livestock/animals/{animalId}/housing-records:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockHousingRecords
+      summary: Housing history of an own animal
+      description: |
+        Lists the animal's `livestock_housing_records`, newest `startDate` first; the first row is the current housing.
+        Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
+        Indoor space standard (BR-141): `spaceStandard.minIndoorSqFtPerAnimal` is `system_config.livestock_min_indoor_space_sqft_per_animal`, read on every call (also for an empty or foreign page). Each item's `meetsIndoorSpaceStandard` is true when its `indoorSpacePerAnimal`, converted exactly to square feet (1 sq.ft = 0.09290304 sq.m, 1 acre = 43,560 sq.ft), is at least that value; exactly equal meets. A missing or unusable standard (not a JSON number > 0 with at most two decimals) is not an error: the records are returned normally with `spaceStandard: null` and `meetsIndoorSpaceStandard: null` on every item (no verdict), never a default; no standard is seeded until the owner confirms one.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-137, BR-141]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged housing records, newest first. An animal that is not the caller's, does not exist or is soft-deleted yields an empty page, never 403 or 404 (BR-137b).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page, spaceStandard]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LivestockHousingRecordListItem' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+                  spaceStandard:
+                    oneOf:
+                      - { $ref: '#/components/schemas/LivestockHousingSpaceStandard' }
+                      - { type: 'null' }
+                    description: Null while the standard is not configured; every item's `meetsIndoorSpaceStandard` is then null.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockHousingRecord
+      summary: Record a housing assignment
+      description: |
+        Creates a `livestock_housing_records` row. Space values are stored as entered and never rejected for being below the indoor space standard; the comparison (BR-141) is made on the GET list only, so this response carries no `meetsIndoorSpaceStandard`.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16). `attachmentUploadId`, when given, must reference a live upload owned by the caller and signed with purpose `FARMER_DOCUMENT`, else 422 (BR-137c, BR-137i).
+      x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivestockHousingRecordCreateRequest' }
+      responses:
+        '201':
+          description: Housing record created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivestockHousingRecord' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+  /farmers/me/livestock/animals/{animalId}/hygiene-logs:
+    get:
+      tags: [Livestock]
+      operationId: listMyLivestockHygieneLogs
+      summary: Hygiene log of an own animal
+      description: |
+        Lists the animal's `livestock_hygiene_logs`, newest `performedOn` first, optionally within a `performedOn` date range.
+        Owner-scoped (BR-137): an `animalId` that is not the caller's own returns an empty page, not 403 or 404 (cross-scope reads leak nothing). Soft-deleted rows are excluded. Cursor-paginated, `limit` 1-100 (default 20); a malformed `cursor` is 422.
+      x-permission: farmer.livestock.view_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: dateFrom
+          in: query
+          description: Inclusive lower bound on `performedOn`.
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          description: Inclusive upper bound on `performedOn`.
+          schema: { type: string, format: date }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged hygiene logs, newest first. An animal that is not the caller's, does not exist or is soft-deleted yields an empty page, never 403 or 404 (BR-137b).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/LivestockHygieneLog' }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Livestock]
+      operationId: createMyLivestockHygieneLog
+      summary: Log a hygiene activity
+      description: |
+        Creates a `livestock_hygiene_logs` row. `performedOn` defaults to today.
+        Owner-scoped (BR-137): the animal must belong to one of the caller's own farms and be live. A foreign, nonexistent or soft-deleted `animalId` returns 404 and writes nothing. Records may be added to an animal of any lifecycle status (back-filling history after a sale is legitimate). Everything is farmer-entered: no reminder or schedule is generated from any date (BR-38). Farm-side only, never in a customer response (BR-16).
+      x-permission: farmer.livestock.create_own
+      x-business-rules: [BR-137]
+      parameters:
+        - name: animalId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LivestockHygieneLogCreateRequest' }
+      responses:
+        '201':
+          description: Hygiene log created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LivestockHygieneLog' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
   /admin/farmers/{farmerId}/livestock/animals:
     get:
       tags: [Livestock]
@@ -16378,6 +16860,19 @@ components:
         with an identical body returns the original response; replaying it with a
         different body returns 409 `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours.
       schema: { type: string, format: uuid }
+    OptionalIdempotencyKeyHeader:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: |
+        Optional, for non-money farmer record writes (BR-55h, BR-56i). Absent, empty or
+        whitespace-only: the request runs as a plain create (each call creates a row). Present:
+        same contract as `IdempotencyKeyHeader` - replaying the key with an identical request
+        returns the original 201 body and writes no second row or audit entry; replaying it with a
+        different request is 409 `IDEMPOTENCY_KEY_REUSED`; a key over 255 characters is 422
+        `VALIDATION_FAILED`. A refused attempt (any 4xx/5xx) is not remembered. Keys are scoped to
+        the acting user and retained for `idempotency.retention_hours` (default 24).
+      schema: { type: string, maxLength: 255 }
 
     CustomerIdPathParam:
       name: customerId
@@ -18032,7 +18527,7 @@ components:
         farmCropId: { type: string, format: uuid }
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, maxLength: 200 }
         appliedOn:
           type: string
@@ -18051,6 +18546,18 @@ components:
             - $ref: '#/components/schemas/Money'
             - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
+        purpose:
+          type: [string, 'null']
+          maxLength: 100
+          description: Why the input was applied (BR-56k). Free text; the farmer app sends a stable option code (e.g. `PEST_CONTROL`) or the farmer's own words.
+        targetPest:
+          type: [string, 'null']
+          maxLength: 200
+          description: Pest or disease targeted (BR-56k). Free text; the app sends a stable option code or the farmer's own words.
+        appliedBy:
+          type: [string, 'null']
+          maxLength: 200
+          description: Who applied it (BR-56k). Free text by owner default; not a worker reference.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
 
@@ -18073,7 +18580,7 @@ components:
       properties:
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
         appliedOn:
           type: string
@@ -18093,13 +18600,16 @@ components:
         applicationMethod: { type: string, maxLength: 100 }
         costInr: { $ref: '#/components/schemas/CropInputCost' }
         notes: { type: string, maxLength: 2000 }
+        purpose: { type: string, minLength: 1, maxLength: 100, description: 'BR-56k. Trimmed; free text or a stable option code.' }
+        targetPest: { type: string, minLength: 1, maxLength: 200, description: 'BR-56k. Trimmed; free text or a stable option code.' }
+        appliedBy: { type: string, minLength: 1, maxLength: 200, description: 'BR-56k. Trimmed free text (who applied it).' }
 
     UpdateCropInputRequest:
       type: object
       properties:
         inputType:
           type: string
-          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, OTHER]
+          enum: [FERTILIZER, MANURE, BIO_INPUT, PESTICIDE, FERTIGATION, OTHER]
         inputName: { type: string, minLength: 1, maxLength: 200 }
         appliedOn:
           type: string
@@ -18118,6 +18628,9 @@ components:
             - $ref: '#/components/schemas/CropInputCost'
             - type: 'null'
         notes: { type: [string, 'null'], maxLength: 2000 }
+        purpose: { type: [string, 'null'], minLength: 1, maxLength: 100, description: 'BR-56k. null clears it.' }
+        targetPest: { type: [string, 'null'], minLength: 1, maxLength: 200, description: 'BR-56k. null clears it.' }
+        appliedBy: { type: [string, 'null'], minLength: 1, maxLength: 200, description: 'BR-56k. null clears it.' }
 
     CropInputsListResponse:
       type: object
@@ -18130,6 +18643,31 @@ components:
         page:
           type: object
           required: [hasMore]
+          properties:
+            nextCursor: { type: [string, 'null'] }
+            hasMore: { type: boolean }
+
+    FarmCropInput:
+      description: A `CropInput` plus the crop and plot it was applied to (BR-56h). The farmer's own data only.
+      allOf:
+        - $ref: '#/components/schemas/CropInput'
+        - type: object
+          required: [cropName, plotName]
+          properties:
+            cropName: { type: string }
+            plotName: { type: string }
+
+    FarmCropInputsListResponse:
+      type: object
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/FarmCropInput'
+        page:
+          type: object
+          required: [nextCursor, hasMore]
           properties:
             nextCursor: { type: [string, 'null'] }
             hasMore: { type: boolean }
@@ -21097,11 +21635,11 @@ components:
 
     DairyProductType:
       type: string
-      enum: [MILK, CURD, PANEER, BUTTER, GHEE, BUTTERMILK, CHEESE, EGGS]
+      enum: [MILK, CURD, PANEER, BUTTER, GHEE, BUTTERMILK, CHEESE, EGGS, MEAT, WOOL, MANURE]
       description: |
-        The fixed 8-product dairy/poultry catalog. Each value logs in exactly
-        one ProductionUnit: MILK/GHEE/BUTTERMILK in LITERS, CURD/PANEER/
-        BUTTER/CHEESE in KG, EGGS as a COUNT.
+        The fixed 11-product dairy/poultry/by-product catalog. Each value logs
+        in exactly one ProductionUnit: MILK/GHEE/BUTTERMILK in LITERS, CURD/
+        PANEER/BUTTER/CHEESE/MEAT/WOOL/MANURE in KG, EGGS as a COUNT.
 
     ProductionUnit:
       type: string
@@ -21223,7 +21761,7 @@ components:
     ProductionLog:
       type: object
       description: A `livestock_production_logs` row.
-      required: [id, animalId, productType, quantity, unit, loggedOn, batchInfo, sessions, notes, createdAt, updatedAt]
+      required: [id, animalId, productType, quantity, unit, loggedOn, batchInfo, sessions, session, qualityGrade, fatPercent, restrictedFromSale, notes, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         animalId:
@@ -21239,6 +21777,20 @@ components:
           type: [integer, 'null']
           exclusiveMinimum: 0
           description: Number of milking sessions that day. Only meaningful for MILK.
+        session:
+          type: [string, 'null']
+          enum: [MORNING, AFTERNOON, EVENING, NIGHT, null]
+          description: Time-of-day session the entry was logged for, when the farmer said.
+        qualityGrade: { type: [string, 'null'], maxLength: 60 }
+        fatPercent:
+          type: [number, 'null']
+          minimum: 0
+          maximum: 100
+          description: Milk fat percentage. Only ever set on MILK entries.
+        restrictedFromSale:
+          type: boolean
+          description: |
+            True when the produce must not be sold as organic: the farmer marked it so, or the animal was under a withdrawal window on `loggedOn` (BR-139).
         notes: { type: [string, 'null'], maxLength: 2000 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
@@ -21248,7 +21800,11 @@ components:
       description: |
         Body of `POST /farmers/me/livestock/production-logs`. `unit` must
         match `productType`'s one fixed unit (see `DairyProductType`'s
-        description) or the request is 422.
+        description) or the request is 422. `fatPercent` is only accepted for
+        `MILK` (422 otherwise). When `animalId` names an animal whose
+        `withdrawalUntil` is on or after `loggedOn` (default today), the entry
+        is stored with `restrictedFromSale: true` whatever the request says; a
+        client `false` cannot override it (BR-139).
       required: [productType, quantity, unit]
       properties:
         animalId: { type: string, format: uuid }
@@ -21258,7 +21814,796 @@ components:
         loggedOn: { type: string, format: date }
         batchInfo: { type: string, minLength: 1, maxLength: 500 }
         sessions: { type: integer, exclusiveMinimum: 0 }
+        session: { type: string, enum: [MORNING, AFTERNOON, EVENING, NIGHT] }
+        qualityGrade: { type: string, minLength: 1, maxLength: 60 }
+        fatPercent: { type: number, minimum: 0, maximum: 100, description: Only allowed when `productType` is `MILK`. }
+        restrictedFromSale: { type: boolean, default: false, description: 'Forced to true when the animal is under a withdrawal window (BR-139).' }
         notes: { type: string, maxLength: 2000 }
+      additionalProperties: false
+    LivestockHealthRecordType:
+      type: string
+      enum: [VACCINATION, DEWORMING, CHECKUP, TREATMENT]
+    LivestockBreedingRecordType:
+      type: string
+      enum: [HEAT, INSEMINATION, PREGNANCY_CHECK, CALVING]
+    LivestockHealthRecordVaccinationCreateRequest:
+      type: object
+      description: |
+        A vaccination. `nextDueDate`, when given, must be on or after `recordDate`.
+        Body variant of `POST .../health-records` where `recordType` is `VACCINATION`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, vaccineName]
+      properties:
+        recordType: { type: string, enum: [VACCINATION] }
+        recordDate: { type: string, format: date }
+        vaccineName: { type: string, minLength: 1, maxLength: 160 }
+        veterinarian: { type: string, minLength: 1, maxLength: 160 }
+        dose:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [ML, MG, TABLET, DOSE, G] }
+          additionalProperties: false
+        route: { type: string, enum: [INJECTION_IM, INJECTION_SC, ORAL, NASAL] }
+        batchNumber: { type: string, minLength: 1, maxLength: 80 }
+        nextDueDate: { type: string, format: date }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockHealthRecordDewormingCreateRequest:
+      type: object
+      description: |
+        A deworming. `nextDueDate`, when given, must be on or after `recordDate`.
+        Body variant of `POST .../health-records` where `recordType` is `DEWORMING`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, productName]
+      properties:
+        recordType: { type: string, enum: [DEWORMING] }
+        recordDate: { type: string, format: date }
+        productName: { type: string, minLength: 1, maxLength: 160 }
+        activeIngredient: { type: string, minLength: 1, maxLength: 160 }
+        targetParasite: { type: string, enum: [INTERNAL_WORMS, EXTERNAL_PARASITES, LIVER_FLUKES, TAPEWORMS, ROUNDWORMS, TICKS_AND_LICE] }
+        dose:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [ML, MG, TABLET, DOSE, G] }
+          additionalProperties: false
+        route: { type: string, enum: [ORAL, INJECTION_IM, INJECTION_SC, TOPICAL, POUR_ON, DRENCH] }
+        animalWeight:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [KG, LB] }
+          additionalProperties: false
+        batchNumber: { type: string, minLength: 1, maxLength: 80 }
+        expiryDate: { type: string, format: date }
+        administeredBy: { type: string, minLength: 1, maxLength: 160 }
+        nextDueDate: { type: string, format: date }
+        observedReaction: { type: string, enum: [NONE, MILD_SWELLING, LETHARGY, SALIVATION, ALLERGIC_REACTION] }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockHealthRecordCheckupCreateRequest:
+      type: object
+      description: |
+        A checkup. `followUpDate` is required when `followUpRequired` is `true` and forbidden when it is `false`; when given it must be on or after `recordDate`.
+        Body variant of `POST .../health-records` where `recordType` is `CHECKUP`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, checkupType, veterinarian, clinic]
+      properties:
+        recordType: { type: string, enum: [CHECKUP] }
+        recordDate: { type: string, format: date }
+        checkupType: { type: string, enum: [ROUTINE, EMERGENCY, PRE_BREEDING, POST_CALVING, FOLLOW_UP] }
+        checkupTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        veterinarian: { type: string, minLength: 1, maxLength: 160 }
+        clinic: { type: string, minLength: 1, maxLength: 160 }
+        bodyTemperature:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [C, F] }
+          additionalProperties: false
+        bodyWeight:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [KG, LB] }
+          additionalProperties: false
+        healthStatus: { type: string, enum: [NORMAL, MILD_ILLNESS, MODERATE_ILLNESS, SEVERE, CRITICAL] }
+        appetite: { type: string, enum: [NORMAL, REDUCED, VERY_LOW, NONE] }
+        activityLevel: { type: string, minLength: 1, maxLength: 160 }
+        symptoms: { type: string, minLength: 1, maxLength: 2000 }
+        findings: { type: string, minLength: 1, maxLength: 2000 }
+        diagnosis: { type: string, minLength: 1, maxLength: 2000 }
+        treatmentRequired: { type: boolean }
+        followUpRequired: { type: boolean }
+        followUpDate: { type: string, format: date }
+        recommendedActions: { type: string, minLength: 1, maxLength: 2000 }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockHealthRecordTreatmentCreateRequest:
+      type: object
+      description: |
+        A treatment. `medicationEndDate` must be on or after `medicationStartDate`; a withdrawal `endDate` must be on or after its `startDate` and on or after `recordDate`. A withdrawal window extends the animal's `withdrawalUntil` (BR-138).
+        Body variant of `POST .../health-records` where `recordType` is `TREATMENT`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, condition, description]
+      properties:
+        recordType: { type: string, enum: [TREATMENT] }
+        recordDate: { type: string, format: date }
+        treatmentType: { type: string, enum: [MEDICATION, SURGICAL, THERAPY, FIRST_AID, SUPPORTIVE, OTHER] }
+        condition: { type: string, minLength: 1, maxLength: 160 }
+        symptoms: { type: string, minLength: 1, maxLength: 2000 }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+        medicineName: { type: string, minLength: 1, maxLength: 160 }
+        dosage:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [GRAM, MG, ML, TABLET, DROP] }
+          additionalProperties: false
+        route: { type: string, enum: [TOPICAL, ORAL, INJECTION_IM, INJECTION_SC, INTRA_MAMMARY, EYE_DROPS] }
+        frequency: { type: string, enum: [ONCE_DAILY, TWICE_DAILY, THRICE_DAILY, EVERY_6_HOURS, EVERY_8_HOURS, EVERY_12_HOURS, AS_NEEDED] }
+        medicationStartDate: { type: string, format: date }
+        medicationEndDate: { type: string, format: date }
+        milkWithdrawal:
+          type: object
+          required: [startDate, endDate]
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+            reason: { type: string, minLength: 1, maxLength: 500 }
+          additionalProperties: false
+        meatWithdrawal:
+          type: object
+          required: [endDate]
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+            reason: { type: string, minLength: 1, maxLength: 500 }
+          additionalProperties: false
+        prescribedBy: { type: string, minLength: 1, maxLength: 160 }
+        administeredBy: { type: string, minLength: 1, maxLength: 160 }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockHealthRecordCreateRequest:
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/health-records`: one of 4 variants, chosen by `recordType`.
+      oneOf:
+        - $ref: '#/components/schemas/LivestockHealthRecordVaccinationCreateRequest'
+        - $ref: '#/components/schemas/LivestockHealthRecordDewormingCreateRequest'
+        - $ref: '#/components/schemas/LivestockHealthRecordCheckupCreateRequest'
+        - $ref: '#/components/schemas/LivestockHealthRecordTreatmentCreateRequest'
+      discriminator:
+        propertyName: recordType
+        mapping:
+          VACCINATION: '#/components/schemas/LivestockHealthRecordVaccinationCreateRequest'
+          DEWORMING: '#/components/schemas/LivestockHealthRecordDewormingCreateRequest'
+          CHECKUP: '#/components/schemas/LivestockHealthRecordCheckupCreateRequest'
+          TREATMENT: '#/components/schemas/LivestockHealthRecordTreatmentCreateRequest'
+    LivestockHealthRecordVaccination:
+      type: object
+      description: |
+        The `VACCINATION` variant of a health record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, vaccineName, veterinarian, dose, route, batchNumber, nextDueDate, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [VACCINATION] }
+        recordDate: { type: string, format: date }
+        vaccineName: { type: string, maxLength: 160 }
+        veterinarian: { type: [string, 'null'], maxLength: 160 }
+        dose:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [ML, MG, TABLET, DOSE, G] }
+          additionalProperties: false
+        route: { type: [string, 'null'], enum: [INJECTION_IM, INJECTION_SC, ORAL, NASAL, null] }
+        batchNumber: { type: [string, 'null'], maxLength: 80 }
+        nextDueDate: { type: [string, 'null'], format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockHealthRecordDeworming:
+      type: object
+      description: |
+        The `DEWORMING` variant of a health record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, productName, activeIngredient, targetParasite, dose, route, animalWeight, batchNumber, expiryDate, administeredBy, nextDueDate, observedReaction, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [DEWORMING] }
+        recordDate: { type: string, format: date }
+        productName: { type: string, maxLength: 160 }
+        activeIngredient: { type: [string, 'null'], maxLength: 160 }
+        targetParasite: { type: [string, 'null'], enum: [INTERNAL_WORMS, EXTERNAL_PARASITES, LIVER_FLUKES, TAPEWORMS, ROUNDWORMS, TICKS_AND_LICE, null] }
+        dose:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [ML, MG, TABLET, DOSE, G] }
+          additionalProperties: false
+        route: { type: [string, 'null'], enum: [ORAL, INJECTION_IM, INJECTION_SC, TOPICAL, POUR_ON, DRENCH, null] }
+        animalWeight:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [KG, LB] }
+          additionalProperties: false
+        batchNumber: { type: [string, 'null'], maxLength: 80 }
+        expiryDate: { type: [string, 'null'], format: date }
+        administeredBy: { type: [string, 'null'], maxLength: 160 }
+        nextDueDate: { type: [string, 'null'], format: date }
+        observedReaction: { type: [string, 'null'], enum: [NONE, MILD_SWELLING, LETHARGY, SALIVATION, ALLERGIC_REACTION, null] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockHealthRecordCheckup:
+      type: object
+      description: |
+        The `CHECKUP` variant of a health record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, checkupType, checkupTime, veterinarian, clinic, bodyTemperature, bodyWeight, healthStatus, appetite, activityLevel, symptoms, findings, diagnosis, treatmentRequired, followUpRequired, followUpDate, recommendedActions, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [CHECKUP] }
+        recordDate: { type: string, format: date }
+        checkupType: { type: string, enum: [ROUTINE, EMERGENCY, PRE_BREEDING, POST_CALVING, FOLLOW_UP] }
+        checkupTime: { type: [string, 'null'], pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        veterinarian: { type: string, maxLength: 160 }
+        clinic: { type: string, maxLength: 160 }
+        bodyTemperature:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [C, F] }
+          additionalProperties: false
+        bodyWeight:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [KG, LB] }
+          additionalProperties: false
+        healthStatus: { type: [string, 'null'], enum: [NORMAL, MILD_ILLNESS, MODERATE_ILLNESS, SEVERE, CRITICAL, null] }
+        appetite: { type: [string, 'null'], enum: [NORMAL, REDUCED, VERY_LOW, NONE, null] }
+        activityLevel: { type: [string, 'null'], maxLength: 160 }
+        symptoms: { type: [string, 'null'], maxLength: 2000 }
+        findings: { type: [string, 'null'], maxLength: 2000 }
+        diagnosis: { type: [string, 'null'], maxLength: 2000 }
+        treatmentRequired: { type: [boolean, 'null'] }
+        followUpRequired: { type: [boolean, 'null'] }
+        followUpDate: { type: [string, 'null'], format: date }
+        recommendedActions: { type: [string, 'null'], maxLength: 2000 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockHealthRecordTreatment:
+      type: object
+      description: |
+        The `TREATMENT` variant of a health record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, treatmentType, condition, symptoms, description, medicineName, dosage, route, frequency, medicationStartDate, medicationEndDate, milkWithdrawal, meatWithdrawal, prescribedBy, administeredBy, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [TREATMENT] }
+        recordDate: { type: string, format: date }
+        treatmentType: { type: [string, 'null'], enum: [MEDICATION, SURGICAL, THERAPY, FIRST_AID, SUPPORTIVE, OTHER, null] }
+        condition: { type: string, maxLength: 160 }
+        symptoms: { type: [string, 'null'], maxLength: 2000 }
+        description: { type: string, maxLength: 2000 }
+        medicineName: { type: [string, 'null'], maxLength: 160 }
+        dosage:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [GRAM, MG, ML, TABLET, DROP] }
+          additionalProperties: false
+        route: { type: [string, 'null'], enum: [TOPICAL, ORAL, INJECTION_IM, INJECTION_SC, INTRA_MAMMARY, EYE_DROPS, null] }
+        frequency: { type: [string, 'null'], enum: [ONCE_DAILY, TWICE_DAILY, THRICE_DAILY, EVERY_6_HOURS, EVERY_8_HOURS, EVERY_12_HOURS, AS_NEEDED, null] }
+        medicationStartDate: { type: [string, 'null'], format: date }
+        medicationEndDate: { type: [string, 'null'], format: date }
+        milkWithdrawal:
+          type: [object, 'null']
+          required: [startDate, endDate, reason]
+          properties:
+            startDate: { type: string, format: date }
+            endDate: { type: string, format: date }
+            reason: { type: [string, 'null'], maxLength: 500 }
+          additionalProperties: false
+        meatWithdrawal:
+          type: [object, 'null']
+          required: [startDate, endDate, reason]
+          properties:
+            startDate: { type: [string, 'null'], format: date }
+            endDate: { type: string, format: date }
+            reason: { type: [string, 'null'], maxLength: 500 }
+          additionalProperties: false
+        prescribedBy: { type: [string, 'null'], maxLength: 160 }
+        administeredBy: { type: [string, 'null'], maxLength: 160 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockHealthRecord:
+      description: A health record row, discriminated on `recordType`.
+      oneOf:
+        - $ref: '#/components/schemas/LivestockHealthRecordVaccination'
+        - $ref: '#/components/schemas/LivestockHealthRecordDeworming'
+        - $ref: '#/components/schemas/LivestockHealthRecordCheckup'
+        - $ref: '#/components/schemas/LivestockHealthRecordTreatment'
+      discriminator:
+        propertyName: recordType
+        mapping:
+          VACCINATION: '#/components/schemas/LivestockHealthRecordVaccination'
+          DEWORMING: '#/components/schemas/LivestockHealthRecordDeworming'
+          CHECKUP: '#/components/schemas/LivestockHealthRecordCheckup'
+          TREATMENT: '#/components/schemas/LivestockHealthRecordTreatment'
+    LivestockBreedingRecordHeatCreateRequest:
+      type: object
+      description: |
+        A heat observation / service plan.
+        Body variant of `POST .../breeding-records` where `recordType` is `HEAT`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, breedingMethod, sire]
+      properties:
+        recordType: { type: string, enum: [HEAT] }
+        recordDate: { type: string, format: date }
+        breedingMethod: { type: string, enum: [ARTIFICIAL_INSEMINATION, NATURAL_SERVICE, EMBRYO_TRANSFER] }
+        sire: { type: string, minLength: 1, maxLength: 160 }
+        semenStrawRef: { type: string, minLength: 1, maxLength: 160 }
+        technician: { type: string, minLength: 1, maxLength: 160 }
+        heatSigns: { type: string, minLength: 1, maxLength: 2000 }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockBreedingRecordInseminationCreateRequest:
+      type: object
+      description: |
+        An insemination.
+        Body variant of `POST .../breeding-records` where `recordType` is `INSEMINATION`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, inseminationType]
+      properties:
+        recordType: { type: string, enum: [INSEMINATION] }
+        recordDate: { type: string, format: date }
+        inseminationType: { type: string, enum: [ARTIFICIAL, NATURAL] }
+        inseminationTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        sire: { type: string, minLength: 1, maxLength: 160 }
+        semenStrawRef: { type: string, minLength: 1, maxLength: 160 }
+        location: { type: string, minLength: 1, maxLength: 160 }
+        technician: { type: string, minLength: 1, maxLength: 160 }
+        heatSigns: { type: string, minLength: 1, maxLength: 2000 }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockBreedingRecordPregnancyCheckCreateRequest:
+      type: object
+      description: |
+        A pregnancy check. `expectedDeliveryDate` and `nextCheckDate` must be on or after `recordDate`. `nextCheckDate` is a stored value only: nothing is scheduled or notified (BR-38).
+        Body variant of `POST .../breeding-records` where `recordType` is `PREGNANCY_CHECK`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, checkType, result, examinationMethod, nextCheckDate]
+      properties:
+        recordType: { type: string, enum: [PREGNANCY_CHECK] }
+        recordDate: { type: string, format: date }
+        checkType: { type: string, enum: [ROUTINE, CONFIRMATION] }
+        result: { type: string, enum: [POSITIVE, NEGATIVE, INCONCLUSIVE] }
+        examinationMethod: { type: string, enum: [ULTRASOUND, RECTAL_PALPATION, BLOOD_TEST, MILK_PROGESTERONE] }
+        location: { type: string, minLength: 1, maxLength: 160 }
+        gestationAge:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: integer, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [MONTHS, WEEKS, DAYS] }
+          additionalProperties: false
+        expectedDeliveryDate: { type: string, format: date }
+        nextCheckDate: { type: string, format: date }
+        findings: { type: string, minLength: 1, maxLength: 2000 }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockBreedingRecordCalvingCreateRequest:
+      type: object
+      description: |
+        A calving.
+        Body variant of `POST .../breeding-records` where `recordType` is `CALVING`.
+        Unknown keys (including another variant's fields) are rejected with 422.
+      required: [recordType, recordDate, outcome]
+      properties:
+        recordType: { type: string, enum: [CALVING] }
+        recordDate: { type: string, format: date }
+        outcome: { type: string, enum: [LIVE_BIRTH, STILLBIRTH, OTHER] }
+        calvingTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour. Optional.' }
+        offspringCount: { type: integer, minimum: 0, maximum: 20, default: 1 }
+        deliveryType: { type: string, enum: [NORMAL, ASSISTED, CAESAREAN] }
+        offspringName: { type: string, minLength: 1, maxLength: 160 }
+        offspringGender: { type: string, enum: [FEMALE, MALE] }
+        birthWeight:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [KG, LB] }
+          additionalProperties: false
+        findings: { type: string, minLength: 1, maxLength: 2000 }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockBreedingRecordCreateRequest:
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/breeding-records`: one of 4 variants, chosen by `recordType`.
+      oneOf:
+        - $ref: '#/components/schemas/LivestockBreedingRecordHeatCreateRequest'
+        - $ref: '#/components/schemas/LivestockBreedingRecordInseminationCreateRequest'
+        - $ref: '#/components/schemas/LivestockBreedingRecordPregnancyCheckCreateRequest'
+        - $ref: '#/components/schemas/LivestockBreedingRecordCalvingCreateRequest'
+      discriminator:
+        propertyName: recordType
+        mapping:
+          HEAT: '#/components/schemas/LivestockBreedingRecordHeatCreateRequest'
+          INSEMINATION: '#/components/schemas/LivestockBreedingRecordInseminationCreateRequest'
+          PREGNANCY_CHECK: '#/components/schemas/LivestockBreedingRecordPregnancyCheckCreateRequest'
+          CALVING: '#/components/schemas/LivestockBreedingRecordCalvingCreateRequest'
+    LivestockBreedingRecordHeat:
+      type: object
+      description: |
+        The `HEAT` variant of a breeding record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, breedingMethod, sire, semenStrawRef, technician, heatSigns, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [HEAT] }
+        recordDate: { type: string, format: date }
+        breedingMethod: { type: string, enum: [ARTIFICIAL_INSEMINATION, NATURAL_SERVICE, EMBRYO_TRANSFER] }
+        sire: { type: string, maxLength: 160 }
+        semenStrawRef: { type: [string, 'null'], maxLength: 160 }
+        technician: { type: [string, 'null'], maxLength: 160 }
+        heatSigns: { type: [string, 'null'], maxLength: 2000 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockBreedingRecordInsemination:
+      type: object
+      description: |
+        The `INSEMINATION` variant of a breeding record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, inseminationType, inseminationTime, sire, semenStrawRef, location, technician, heatSigns, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [INSEMINATION] }
+        recordDate: { type: string, format: date }
+        inseminationType: { type: string, enum: [ARTIFICIAL, NATURAL] }
+        inseminationTime: { type: [string, 'null'], pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        sire: { type: [string, 'null'], maxLength: 160 }
+        semenStrawRef: { type: [string, 'null'], maxLength: 160 }
+        location: { type: [string, 'null'], maxLength: 160 }
+        technician: { type: [string, 'null'], maxLength: 160 }
+        heatSigns: { type: [string, 'null'], maxLength: 2000 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockBreedingRecordPregnancyCheck:
+      type: object
+      description: |
+        The `PREGNANCY_CHECK` variant of a breeding record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, checkType, result, examinationMethod, location, gestationAge, expectedDeliveryDate, nextCheckDate, findings, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [PREGNANCY_CHECK] }
+        recordDate: { type: string, format: date }
+        checkType: { type: string, enum: [ROUTINE, CONFIRMATION] }
+        result: { type: string, enum: [POSITIVE, NEGATIVE, INCONCLUSIVE] }
+        examinationMethod: { type: string, enum: [ULTRASOUND, RECTAL_PALPATION, BLOOD_TEST, MILK_PROGESTERONE] }
+        location: { type: [string, 'null'], maxLength: 160 }
+        gestationAge:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: integer, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [MONTHS, WEEKS, DAYS] }
+          additionalProperties: false
+        expectedDeliveryDate: { type: [string, 'null'], format: date }
+        nextCheckDate: { type: string, format: date }
+        findings: { type: [string, 'null'], maxLength: 2000 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockBreedingRecordCalving:
+      type: object
+      description: |
+        The `CALVING` variant of a breeding record row. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: the internal `farm_id` is never exposed (BR-137).
+      required: [id, animalId, recordType, recordDate, outcome, calvingTime, offspringCount, deliveryType, offspringName, offspringGender, birthWeight, findings, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        recordType: { type: string, enum: [CALVING] }
+        recordDate: { type: string, format: date }
+        outcome: { type: string, enum: [LIVE_BIRTH, STILLBIRTH, OTHER] }
+        calvingTime: { type: [string, 'null'], pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour; null when not recorded.' }
+        offspringCount: { type: [integer, 'null'], minimum: 0, maximum: 20 }
+        deliveryType: { type: [string, 'null'], enum: [NORMAL, ASSISTED, CAESAREAN, null] }
+        offspringName: { type: [string, 'null'], maxLength: 160 }
+        offspringGender: { type: [string, 'null'], enum: [FEMALE, MALE, null] }
+        birthWeight:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [KG, LB] }
+          additionalProperties: false
+        findings: { type: [string, 'null'], maxLength: 2000 }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockBreedingRecord:
+      description: A breeding record row, discriminated on `recordType`.
+      oneOf:
+        - $ref: '#/components/schemas/LivestockBreedingRecordHeat'
+        - $ref: '#/components/schemas/LivestockBreedingRecordInsemination'
+        - $ref: '#/components/schemas/LivestockBreedingRecordPregnancyCheck'
+        - $ref: '#/components/schemas/LivestockBreedingRecordCalving'
+      discriminator:
+        propertyName: recordType
+        mapping:
+          HEAT: '#/components/schemas/LivestockBreedingRecordHeat'
+          INSEMINATION: '#/components/schemas/LivestockBreedingRecordInsemination'
+          PREGNANCY_CHECK: '#/components/schemas/LivestockBreedingRecordPregnancyCheck'
+          CALVING: '#/components/schemas/LivestockBreedingRecordCalving'
+    LivestockFeedPlanCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/feed-plans`. `effectiveFrom` defaults to today. A `grazingDuration` in `HOURS_PER_DAY` must be at most 24.
+      required: [feedType, waterSource]
+      properties:
+        effectiveFrom: { type: string, format: date }
+        planName: { type: string, minLength: 1, maxLength: 160 }
+        feedType: { type: string, enum: [GREEN_FODDER, DRY_FODDER, CONCENTRATE_MIX, SILAGE, MINERAL_MIXTURE, PASTURE_GRAZING] }
+        source: { type: string, minLength: 1, maxLength: 160 }
+        grazingDuration:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0, maximum: 168 }
+            unit: { type: string, enum: [HOURS_PER_DAY, HOURS_PER_WEEK] }
+          additionalProperties: false
+        waterSource: { type: string, enum: [BOREWELL, WELL, CANAL, PIPED_WATER, POND_RIVER, RAINWATER_STORAGE] }
+        startTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        endTime: { type: string, pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        items:
+          type: array
+          maxItems: 20
+          default: []
+          items:
+            type: object
+            required: [name, amount, unit]
+            properties:
+              name: { type: string, minLength: 1, maxLength: 160 }
+              amount: { type: number, exclusiveMinimum: 0 }
+              unit: { type: string, enum: [KG_PER_DAY, G_PER_DAY, BUNDLES_PER_DAY] }
+            additionalProperties: false
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockFeedPlan:
+      type: object
+      description: |
+        A `livestock_feed_plans` row. The newest plan (by `effectiveFrom`, then `createdAt`) is the animal's current one. Every key is always present; optional fields that were not supplied are `null`. Allow-list response: `farm_id` is never exposed (BR-137).
+      required: [id, animalId, effectiveFrom, planName, feedType, source, grazingDuration, waterSource, startTime, endTime, items, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        effectiveFrom: { type: string, format: date }
+        planName: { type: [string, 'null'], maxLength: 160 }
+        feedType: { type: string, enum: [GREEN_FODDER, DRY_FODDER, CONCENTRATE_MIX, SILAGE, MINERAL_MIXTURE, PASTURE_GRAZING] }
+        source: { type: [string, 'null'], maxLength: 160 }
+        grazingDuration:
+          type: [object, 'null']
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0, maximum: 168 }
+            unit: { type: string, enum: [HOURS_PER_DAY, HOURS_PER_WEEK] }
+          additionalProperties: false
+        waterSource: { type: string, enum: [BOREWELL, WELL, CANAL, PIPED_WATER, POND_RIVER, RAINWATER_STORAGE] }
+        startTime: { type: [string, 'null'], pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        endTime: { type: [string, 'null'], pattern: '^([01]\d|2[0-3]):[0-5]\d$', description: 'HH:MM, 24-hour.' }
+        items:
+          type: array
+          maxItems: 20
+          items:
+            type: object
+            required: [name, amount, unit]
+            properties:
+              name: { type: string, minLength: 1, maxLength: 160 }
+              amount: { type: number, exclusiveMinimum: 0 }
+              unit: { type: string, enum: [KG_PER_DAY, G_PER_DAY, BUNDLES_PER_DAY] }
+            additionalProperties: false
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockFeedLogCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/feed-logs`. `fedOn` defaults to today.
+      required: [feedType, quantity, unit]
+      properties:
+        fedOn: { type: string, format: date }
+        feedType: { type: string, enum: [GREEN_FODDER, DRY_FODDER, CONCENTRATE_MIX, SILAGE, MINERAL_MIXTURE, PASTURE_GRAZING] }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit: { type: string, enum: [KG, G, BUNDLES] }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+      additionalProperties: false
+    LivestockFeedLog:
+      type: object
+      description: |
+        A `livestock_feed_logs` row ("Daily feed log"). Allow-list response: `farm_id` is never exposed (BR-137).
+      required: [id, animalId, fedOn, feedType, quantity, unit, notes, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        fedOn: { type: string, format: date }
+        feedType: { type: string, enum: [GREEN_FODDER, DRY_FODDER, CONCENTRATE_MIX, SILAGE, MINERAL_MIXTURE, PASTURE_GRAZING] }
+        quantity: { type: number, exclusiveMinimum: 0 }
+        unit: { type: string, enum: [KG, G, BUNDLES] }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockHousingRecordCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/housing-records`. Space values are stored as entered: a value below the indoor space standard is still accepted (BR-141 compares it on the GET list, it never rejects a write).
+      required: [housingType, housingName, indoorSpacePerAnimal, outdoorSpace, startDate]
+      properties:
+        housingType: { type: string, enum: [BARN, OPEN_SHED, PASTURE_FREE_RANGE, COOP_PEN, STALL] }
+        housingName: { type: string, minLength: 1, maxLength: 160 }
+        location: { type: string, minLength: 1, maxLength: 160 }
+        indoorSpacePerAnimal:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [SQ_FT, SQ_M, ACRES] }
+          additionalProperties: false
+        outdoorSpace:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, minimum: 0 }
+            unit: { type: string, enum: [SQ_FT, SQ_M, ACRES] }
+          additionalProperties: false
+        startDate: { type: string, format: date }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+        attachmentUploadId: { type: string, format: uuid }
+      additionalProperties: false
+    LivestockHousingRecord:
+      type: object
+      description: |
+        A `livestock_housing_records` row. The newest `startDate` is the animal's current housing. Allow-list response: `farm_id` is never exposed (BR-137).
+      required: [id, animalId, housingType, housingName, location, indoorSpacePerAnimal, outdoorSpace, startDate, notes, attachmentUploadId, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        housingType: { type: string, enum: [BARN, OPEN_SHED, PASTURE_FREE_RANGE, COOP_PEN, STALL] }
+        housingName: { type: string, maxLength: 160 }
+        location: { type: [string, 'null'], maxLength: 160 }
+        indoorSpacePerAnimal:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [SQ_FT, SQ_M, ACRES] }
+          additionalProperties: false
+        outdoorSpace:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, minimum: 0 }
+            unit: { type: string, enum: [SQ_FT, SQ_M, ACRES] }
+          additionalProperties: false
+        startDate: { type: string, format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+      additionalProperties: false
+    LivestockHousingRecordListItem:
+      type: object
+      description: |
+        A housing record as listed by `GET .../housing-records`: every `LivestockHousingRecord` key plus `meetsIndoorSpaceStandard` (BR-141), true when `indoorSpacePerAnimal` converted exactly to square feet is at least the list's `spaceStandard.minIndoorSqFtPerAnimal`.
+      required: [id, animalId, housingType, housingName, location, indoorSpacePerAnimal, outdoorSpace, startDate, notes, attachmentUploadId, createdAt, updatedAt, meetsIndoorSpaceStandard]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        housingType: { type: string, enum: [BARN, OPEN_SHED, PASTURE_FREE_RANGE, COOP_PEN, STALL] }
+        housingName: { type: string, maxLength: 160 }
+        location: { type: [string, 'null'], maxLength: 160 }
+        indoorSpacePerAnimal:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, exclusiveMinimum: 0 }
+            unit: { type: string, enum: [SQ_FT, SQ_M, ACRES] }
+          additionalProperties: false
+        outdoorSpace:
+          type: object
+          required: [value, unit]
+          properties:
+            value: { type: number, minimum: 0 }
+            unit: { type: string, enum: [SQ_FT, SQ_M, ACRES] }
+          additionalProperties: false
+        startDate: { type: string, format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        attachmentUploadId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+        meetsIndoorSpaceStandard: { type: [boolean, 'null'], description: 'BR-141: indoor space per animal (exact sq.ft conversion) >= spaceStandard.minIndoorSqFtPerAnimal; equality meets. Null (no verdict) while the standard is not configured.' }
+      additionalProperties: false
+    LivestockHousingSpaceStandard:
+      type: object
+      description: |
+        The indoor space standard the list's verdicts were computed against (BR-141): `system_config.livestock_min_indoor_space_sqft_per_animal`, one value for every species. No value is seeded; until the owner configures one the list carries `spaceStandard: null`.
+      required: [minIndoorSqFtPerAnimal]
+      properties:
+        minIndoorSqFtPerAnimal: { type: number, exclusiveMinimum: 0, description: 'Square feet per animal, at most two decimals.' }
+      additionalProperties: false
+    LivestockHygieneLogCreateRequest:
+      type: object
+      description: |
+        Body of `POST /farmers/me/livestock/animals/{animalId}/hygiene-logs`. `performedOn` defaults to today.
+      required: [activity]
+      properties:
+        activity: { type: string, minLength: 1, maxLength: 160 }
+        performedOn: { type: string, format: date }
+        notes: { type: string, minLength: 1, maxLength: 2000 }
+      additionalProperties: false
+    LivestockHygieneLog:
+      type: object
+      description: |
+        A `livestock_hygiene_logs` row. Allow-list response: `farm_id` is never exposed (BR-137).
+      required: [id, animalId, activity, performedOn, notes, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        animalId: { type: string, format: uuid }
+        activity: { type: string, maxLength: 160 }
+        performedOn: { type: string, format: date }
+        notes: { type: [string, 'null'], maxLength: 2000 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
       additionalProperties: false
 
     FairPrice:
