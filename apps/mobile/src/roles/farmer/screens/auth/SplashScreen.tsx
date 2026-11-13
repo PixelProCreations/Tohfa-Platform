@@ -19,14 +19,7 @@ import splashTeaGarden from '../../assets/splash-bg.jpg';
 
 interface SplashScreenProps {
   onNavigate: (
-    screen:
-      | 'Welcome'
-      | 'CreatePassword'
-      | 'ApplicationStatus'
-      | 'MainTabs'
-      | 'AdminMain'
-      | 'CustomerMain'
-      | 'Unsupported',
+    screen: 'Welcome' | 'RoleSelection' | 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported',
     params?: Record<string, string | number | undefined>,
   ) => void;
 }
@@ -74,21 +67,21 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
         const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
         const token = await Promise.race([getAccessToken(), timeoutPromise]);
         if (!token) {
-          if (active) onNavigate('Welcome');
+          if (active) onNavigate('RoleSelection');
           return;
         }
 
         const me = await Promise.race([fetchMe(), timeoutPromise]);
         if (!active) return;
         if (!me) {
-          onNavigate('Welcome');
+          onNavigate('RoleSelection');
           return;
         }
 
         const route = resolveRouteAfterAuth(me);
         onNavigate(route.name, route.params);
       } catch {
-        if (active) onNavigate('Welcome');
+        if (active) onNavigate('RoleSelection');
       }
     }
 

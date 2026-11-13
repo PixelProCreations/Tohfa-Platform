@@ -27,6 +27,17 @@ import { ResetPasswordScreen } from './screens/auth/ResetPasswordScreen';
 import { PasswordChangedSuccessScreen } from './screens/auth/PasswordChangedSuccessScreen';
 import { CreatePasswordScreen } from './screens/auth/CreatePasswordScreen';
 import { RoleSelectionScreen } from './screens/auth/RoleSelectionScreen';
+import {
+  CustomerWelcomeScreen,
+  CustomerLoginScreen,
+  CustomerOtpScreen,
+  CustomerProfileNameScreen,
+  CustomerProfileAgeGenderScreen,
+  CustomerProfileHarvestPreferencesScreen,
+  CustomerPermissionsScreen,
+  CustomerAddAddressScreen,
+  CustomerLoadingMarketScreen,
+} from '../customer';
 import { HomeIcon } from './assets/icons/AssetIcons';
 import { SplashScreen } from './screens/auth/SplashScreen';
 import { WelcomeScreen } from './screens/auth/WelcomeScreen';
@@ -271,6 +282,15 @@ export type ScreenName =
   | 'Welcome'
   | 'Login'
   | 'RoleSelection'
+  | 'CustomerWelcome'
+  | 'CustomerLogin'
+  | 'CustomerOtp'
+  | 'CustomerProfileName'
+  | 'CustomerProfileAgeGender'
+  | 'CustomerProfilePreferences'
+  | 'CustomerPermissions'
+  | 'CustomerAddAddress'
+  | 'CustomerLoadingMarket'
   | 'Register'
   | 'Otp'
   | 'ForgotPassword'
@@ -1213,6 +1233,7 @@ export default function App(): React.JSX.Element {
 
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
+  const isCustomerScreen = screen.startsWith('Customer');
 
   // The admin shell AdminMain renders, from the role the server returned at
   // sign-in. null (unknown or missing) renders no admin shell: AdminMain falls
@@ -1227,12 +1248,19 @@ export default function App(): React.JSX.Element {
     <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
     <View style={[styles.screen, isAuthLanding && styles.screenSplash]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar
+        hidden={isCustomerScreen}
+        translucent={true}
+        backgroundColor={isCustomerScreen ? 'transparent' : undefined}
+        barStyle={isCustomerScreen ? 'dark-content' : 'light-content'}
+      />
       {/* Android draws edge-to-edge since RN 0.88: reserve the status bar's
           height here, in the colour the current screen's ScreenStatusBar asks
           for. The default is the colour this root gave the status bar before
           0.88. See packages/mobile-ui/src/SystemBars.tsx. */}
-      <StatusBarInset defaultColor={isAuthLanding ? SPLASH_DARK : colors.primaryPressed} />
+      {!isCustomerScreen && (
+        <StatusBarInset defaultColor={isAuthLanding ? SPLASH_DARK : colors.primaryPressed} />
+      )}
 
       <TohfaToast toast={toast} onDismiss={() => setToast(null)} />
 
@@ -1244,7 +1272,31 @@ export default function App(): React.JSX.Element {
         ) : screen === 'Login' ? (
           <LoginScreen onNavigate={(s, p) => navigate(s, p)} />
         ) : screen === 'RoleSelection' ? (
-          <RoleSelectionScreen onNavigate={(s) => navigate(s)} />
+          <RoleSelectionScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerWelcome' ? (
+          <CustomerWelcomeScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerLogin' ? (
+          <CustomerLoginScreen onNavigate={(s, p) => navigate(s as ScreenName, p)} />
+        ) : screen === 'CustomerOtp' ? (
+          <CustomerOtpScreen
+            mobile={String(params['mobile'] ?? '9090202033')}
+            onNavigate={(s, p) => navigate(s as ScreenName, p)}
+          />
+        ) : screen === 'CustomerProfileName' ? (
+          <CustomerProfileNameScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerProfileAgeGender' ? (
+          <CustomerProfileAgeGenderScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerProfilePreferences' ? (
+          <CustomerProfileHarvestPreferencesScreen onNavigate={(s) => navigate(s as ScreenName)} />
+        ) : screen === 'CustomerPermissions' ? (
+          <CustomerPermissionsScreen onNavigate={(s, p) => navigate(s as ScreenName, p)} />
+        ) : screen === 'CustomerAddAddress' ? (
+          <CustomerAddAddressScreen
+            initialSource={params['addressSource'] as 'current' | 'manual' | undefined}
+            onNavigate={(s) => navigate(s as ScreenName)}
+          />
+        ) : screen === 'CustomerLoadingMarket' ? (
+          <CustomerLoadingMarketScreen onNavigate={(s) => navigate(s as ScreenName)} />
         ) : screen === 'Register' ? (
           <RegistrationFlowScreen onNavigate={(s, p) => navigate(s, p)} />
         ) : screen === 'Otp' ? (

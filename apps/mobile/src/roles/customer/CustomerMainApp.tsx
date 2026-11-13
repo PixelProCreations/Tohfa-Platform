@@ -116,7 +116,9 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
         <SafeAreaView style={[styles.root, { backgroundColor: theme.colors.surface }]}>
           <ScreenStatusBar barStyle="light-content" backgroundColor={theme.colors.primary} />
 
-          {currentScreen === 'Home' && <HomeScreen />}
+          {currentScreen === 'Home' && (
+            <HomeScreen onNavigate={(s, p) => navigate(s, p)} />
+          )}
           {currentScreen === 'Categories' && <CategoriesScreen />}
 
           {currentScreen === 'ProductGrid' && navParams.categoryId && (

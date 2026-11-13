@@ -75,6 +75,7 @@ export function authFailureTarget(screen: string): 'Login' | 'Welcome' {
 export function resetsHistoryOn(screen: string): boolean {
   return (
     screen === 'Splash' ||
+    screen === 'RoleSelection' ||
     screen === 'Welcome' ||
     screen === 'MainTabs' ||
     screen === 'AdminMain' ||
@@ -87,18 +88,16 @@ export function resetsHistoryOn(screen: string): boolean {
 
 const AUTH_SCREENS: readonly string[] = [
   'Login',
-  'RoleSelection',
   'Register',
   'Otp',
   'ForgotPassword',
   'ResetPassword',
   'PasswordChangedSuccess',
   'ApplicationStatus',
+  'CustomerWelcome',
 ];
 
-// CreatePassword is a root (BR-142): with an empty stack Android back leaves the
-// app instead of falling through to MainTabs, which would skip the screen.
-const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', 'CreatePassword', ...ADMIN_DASHBOARDS];
+const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', 'RoleSelection', ...ADMIN_DASHBOARDS];
 
 /**
  * Where back goes when the history stack is empty, or null to stay put. A

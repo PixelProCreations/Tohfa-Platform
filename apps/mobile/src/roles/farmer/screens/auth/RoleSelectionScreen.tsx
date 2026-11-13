@@ -5,7 +5,7 @@ import customerCardImage from '../../assets/customer.jpg';
 import farmerCardImage from '../../assets/farmer.jpg';
 
 interface RoleSelectionProps {
-  onNavigate: (screen: 'Login' | 'Register') => void;
+  onNavigate: (screen: 'Login' | 'Register' | 'Welcome' | 'CustomerWelcome') => void;
 }
 
 export const RoleSelectionScreen: React.FC<RoleSelectionProps> = ({ onNavigate }) => {
@@ -55,9 +55,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionProps> = ({ onNavigate }
         <TouchableOpacity
           activeOpacity={0.8}
           style={[styles.card, { borderColor: colors.borderMedium, backgroundColor: colors.white }]}
-          onPress={() => {
-            // No action for Customer in Farmer App for now
-          }}
+          onPress={() => onNavigate('CustomerWelcome')}
         >
           <Image
             source={customerCardImage}
@@ -79,7 +77,7 @@ export const RoleSelectionScreen: React.FC<RoleSelectionProps> = ({ onNavigate }
             { borderColor: colors.brandGreen, backgroundColor: colors.white },
             styles.activeCardShadow
           ]}
-          onPress={() => onNavigate('Register')}
+          onPress={() => onNavigate('Login')}
         >
           <Image
             source={farmerCardImage}

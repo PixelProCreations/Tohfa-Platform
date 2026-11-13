@@ -79,6 +79,7 @@ interface LoginScreenProps {
   onNavigate: (
     screen:
       | 'Welcome'
+      | 'RoleSelection'
       | 'Otp'
       | 'CreatePassword'
       | 'ForgotPassword'
@@ -86,7 +87,6 @@ interface LoginScreenProps {
       | 'MainTabs'
       | 'AdminMain'
       | 'CustomerMain'
-      | 'AdminMain'
       | 'Unsupported'
       | 'Register',
     params?: Record<string, string | number | undefined>,
@@ -305,7 +305,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
           accessibilityRole="button"
           activeOpacity={0.7}
           style={styles.backButton}
-          onPress={() => onNavigate('Welcome')}
+          onPress={() => onNavigate('RoleSelection')}
         >
           <BackButtonIcon size={20} />
         </TouchableOpacity>
