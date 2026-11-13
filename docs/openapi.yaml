@@ -83,6 +83,7 @@ info:
     | BR-40 | Soil parameter classification bands are server-configured, not client-literal |
     | BR-48 | Certificate entry is strictly validated; a lapsed certificate may be recorded only within `cert_expiry_max_past_days` |
     | BR-61 | A return is approved only after inspection, and refunded at most once |
+    | BR-142 | Admin produce control calendar and crop records (read-only) |
 
     ## Conventions
 
@@ -260,6 +261,8 @@ tags:
     description: Farmer settlement with dual approval, and invoice retrieval.
   - name: Platform
     description: Notifications, audit log, health probes, upload signing.
+  - name: Produce Control
+    description: Produce Control Calendar, crop records, and planting event tracking (BR-142).
 
 paths:
   /auth/register/customer:
@@ -8743,6 +8746,206 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/produce/records:
+    get:
+      tags: [Produce Control]
+      operationId: listProduceRecords
+      summary: List crop planting records for the Produce Control Calendar
+      description: |
+        Returns a paginated list of crop planting records visible to the caller's scope (BR-142).
+        Includes farmer, farm, zone, plot, crop, planted/harvest dates, and yields.
+      x-permission: produce.calendar.view_consolidated
+      x-business-rules: [BR-142]
+      parameters:
+        - name: farmerId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Filter by farmer UUID.
+        - name: zoneId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Filter by zone UUID.
+        - name: cropId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Filter by crop master UUID.
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 100 }
+          description: Case-insensitive substring search on crop name or botanical name.
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+          description: One or more comma-separated crop statuses (PLANNED, GROWING, HARVESTED, FAILED).
+        - name: includeTotal
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: When true, includes the total matching record count in page.total.
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated crop planting records.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProduceRecordsListResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/produce/records/{id}:
+    get:
+      tags: [Produce Control]
+      operationId: getProduceRecord
+      summary: Get crop planting record detail
+      description: |
+        Returns full details of a single crop planting record including plot characteristics,
+        recorded growth stages, and related diary and input counts (BR-142).
+        Does not auto-initialize growth stages. Missing, soft-deleted, or out-of-scope records return 404.
+      x-permission: produce.calendar.view_consolidated
+      x-business-rules: [BR-142]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          description: Crop record UUID.
+      responses:
+        '200':
+          description: Detailed crop record.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProduceRecordDetailResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/produce/calendar:
+    get:
+      tags: [Produce Control]
+      operationId: getProduceCalendar
+      summary: Get produce calendar month grid markers
+      description: |
+        Returns day-by-day counts of recorded events (plantings, completed growth stages, actual harvests)
+        for the given month (BR-142). Expected harvests are forecasts and are never counted.
+      x-permission: produce.calendar.view_consolidated
+      x-business-rules: [BR-142]
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$', example: '2026-11' }
+          description: Calendar month in YYYY-MM format.
+        - name: farmerId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: zoneId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: cropId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Month calendar marker counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProduceCalendarResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/produce/calendar/events:
+    get:
+      tags: [Produce Control]
+      operationId: listProduceCalendarEvents
+      summary: List recorded produce events on a selected date
+      description: |
+        Returns paginated list of recorded produce events (PLANTING, GROWTH_STAGE, HARVEST)
+        for a specific date (BR-142). Stable sort by eventType, then record id.
+      x-permission: produce.calendar.view_consolidated
+      x-business-rules: [BR-142]
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date, example: '2026-11-10' }
+          description: Selected date in YYYY-MM-DD format.
+        - name: farmerId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: zoneId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: cropId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: status
+          in: query
+          required: false
+          schema: { type: string }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paginated recorded produce events for the date.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProduceCalendarEventsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/produce/filter-options:
+    get:
+      tags: [Produce Control]
+      operationId: getProduceFilterOptions
+      summary: Get scoped filter options for zones and crops
+      description: |
+        Returns the active zones visible to the caller (all for Super/Tohfa/Main Admin,
+        assigned zones for Farmer Admin, warehouse zones for Sub Warehouse Admin)
+        and active crop types for populating filter dropdowns (BR-142).
+      x-permission: produce.calendar.view_consolidated
+      x-business-rules: [BR-142]
+      responses:
+        '200':
+          description: Zone and crop options.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProduceFilterOptionsResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /farmers/me/tree-plantings:
@@ -17591,6 +17794,10 @@ components:
           type: [string, 'null']
           description: Pass back as `cursor` to fetch the next page; null on the last page.
         hasMore: { type: boolean }
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of records matching the query when includeTotal=true.
 
     SignUploadRequest:
       type: object
@@ -20851,6 +21058,312 @@ components:
     ExpectedGrade:
       type: string
       enum: [GRADE_A, GRADE_B, GRADE_C]
+
+    ProduceCropSummary:
+      type: object
+      description: Crop taxonomy reference for produce calendar records.
+      required: [id, name, botanicalName]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        botanicalName: { type: [string, 'null'] }
+
+    ProduceFarmerSummary:
+      type: object
+      description: Farmer identity reference for produce calendar records.
+      required: [id, tohfaFarmerId, name]
+      properties:
+        id: { type: string, format: uuid }
+        tohfaFarmerId: { type: string }
+        name: { type: string }
+
+    ProduceFarmSummary:
+      type: object
+      description: Farm reference for produce calendar records.
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    ProduceZoneSummary:
+      type: object
+      description: Geographic zone reference for produce calendar records.
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    ProducePlotSummary:
+      type: object
+      description: Plot reference for produce calendar records.
+      required: [id, name, areaAcres]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        areaAcres: { type: [number, 'null'] }
+
+    CropRecordSummary:
+      type: object
+      description: Summary of a crop planting record for produce calendar lists (BR-142).
+      required:
+        - id
+        - crop
+        - variety
+        - farmer
+        - farm
+        - zone
+        - plot
+        - status
+        - plantedOn
+        - expectedHarvestOn
+        - actualHarvestOn
+        - expectedYieldKg
+        - actualYieldKg
+        - createdAt
+        - updatedAt
+      properties:
+        id: { type: string, format: uuid }
+        crop: { $ref: '#/components/schemas/ProduceCropSummary' }
+        variety: { type: [string, 'null'] }
+        farmer: { $ref: '#/components/schemas/ProduceFarmerSummary' }
+        farm: { $ref: '#/components/schemas/ProduceFarmSummary' }
+        zone:
+          anyOf:
+            - $ref: '#/components/schemas/ProduceZoneSummary'
+            - type: 'null'
+        plot: { $ref: '#/components/schemas/ProducePlotSummary' }
+        status:
+          type: string
+          enum: [PLANNED, GROWING, HARVESTED, FAILED]
+        plantedOn: { type: [string, 'null'], format: date }
+        expectedHarvestOn: { type: [string, 'null'], format: date }
+        actualHarvestOn: { type: [string, 'null'], format: date }
+        expectedYieldKg: { type: [number, 'null'] }
+        actualYieldKg: { type: [number, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    ProduceRecordsListResponse:
+      type: object
+      description: Paginated response for produce records (BR-142).
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CropRecordSummary' }
+        page: { $ref: '#/components/schemas/PageMeta' }
+
+    ProduceRecordStage:
+      type: object
+      description: Recorded growth stage milestone (BR-142).
+      required: [id, stageCode, stageName, sequence, status, targetDate, completedOn]
+      properties:
+        id: { type: string, format: uuid }
+        stageCode: { type: string }
+        stageName: { type: string }
+        sequence: { type: integer }
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, SKIPPED]
+        targetDate: { type: [string, 'null'], format: date }
+        completedOn: { type: [string, 'null'], format: date }
+
+    ProduceRecordRelatedCounts:
+      type: object
+      description: Counts of related diary entries and inputs (BR-142).
+      required: [diaryEntryCount, inputLogCount]
+      properties:
+        diaryEntryCount: { type: integer, minimum: 0 }
+        inputLogCount: { type: integer, minimum: 0 }
+
+    ProduceRecordDetailPlot:
+      type: object
+      description: Detailed plot characteristics for crop record detail (BR-142).
+      required: [id, name, areaAcres, soilType, irrigationType, sunExposure]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        areaAcres: { type: [number, 'null'] }
+        soilType: { type: [string, 'null'] }
+        irrigationType: { type: [string, 'null'] }
+        sunExposure: { type: [string, 'null'] }
+
+    ProduceRecordDetailResponse:
+      type: object
+      description: Detailed crop record response (BR-142).
+      required:
+        - id
+        - crop
+        - variety
+        - farmer
+        - farm
+        - zone
+        - plot
+        - status
+        - plantedOn
+        - expectedHarvestOn
+        - actualHarvestOn
+        - expectedYieldKg
+        - actualYieldKg
+        - createdAt
+        - updatedAt
+        - stages
+        - related
+      properties:
+        id: { type: string, format: uuid }
+        crop: { $ref: '#/components/schemas/ProduceCropSummary' }
+        variety: { type: [string, 'null'] }
+        farmer: { $ref: '#/components/schemas/ProduceFarmerSummary' }
+        farm: { $ref: '#/components/schemas/ProduceFarmSummary' }
+        zone:
+          anyOf:
+            - $ref: '#/components/schemas/ProduceZoneSummary'
+            - type: 'null'
+        plot: { $ref: '#/components/schemas/ProduceRecordDetailPlot' }
+        status:
+          type: string
+          enum: [PLANNED, GROWING, HARVESTED, FAILED]
+        plantedOn: { type: [string, 'null'], format: date }
+        expectedHarvestOn: { type: [string, 'null'], format: date }
+        actualHarvestOn: { type: [string, 'null'], format: date }
+        expectedYieldKg: { type: [number, 'null'] }
+        actualYieldKg: { type: [number, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+        stages:
+          type: array
+          items: { $ref: '#/components/schemas/ProduceRecordStage' }
+        related: { $ref: '#/components/schemas/ProduceRecordRelatedCounts' }
+
+    ProduceCalendarDay:
+      type: object
+      description: Recorded produce events for a single day of the month (BR-142).
+      required: [date, planting, growthStage, harvest]
+      properties:
+        date: { type: string, format: date }
+        planting: { type: integer, minimum: 0 }
+        growthStage: { type: integer, minimum: 0 }
+        harvest: { type: integer, minimum: 0 }
+
+    ProduceCalendarResponse:
+      type: object
+      description: Month calendar marker response (BR-142).
+      required: [month, days]
+      properties:
+        month: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
+        days:
+          type: array
+          items: { $ref: '#/components/schemas/ProduceCalendarDay' }
+
+    ProduceEventStage:
+      type: object
+      description: Growth stage reference for a calendar event.
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
+
+    ProduceEventCrop:
+      type: object
+      description: Crop reference for a calendar event.
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    ProduceEventFarmer:
+      type: object
+      description: Farmer reference for a calendar event.
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    ProduceEventZone:
+      type: object
+      description: Zone reference for a calendar event.
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    ProduceEventPlot:
+      type: object
+      description: Plot reference for a calendar event.
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    ProduceEventRecord:
+      type: object
+      description: Record reference for a calendar event.
+      required: [id, crop, farmer, zone, plot]
+      properties:
+        id: { type: string, format: uuid }
+        crop: { $ref: '#/components/schemas/ProduceEventCrop' }
+        farmer: { $ref: '#/components/schemas/ProduceEventFarmer' }
+        zone:
+          anyOf:
+            - $ref: '#/components/schemas/ProduceEventZone'
+            - type: 'null'
+        plot: { $ref: '#/components/schemas/ProduceEventPlot' }
+
+    ProduceCalendarEventItem:
+      type: object
+      description: One recorded produce event on a specific date (BR-142).
+      required: [eventType, date, stage, record]
+      properties:
+        eventType:
+          type: string
+          enum: [PLANTING, GROWTH_STAGE, HARVEST]
+        date: { type: string, format: date }
+        stage:
+          anyOf:
+            - $ref: '#/components/schemas/ProduceEventStage'
+            - type: 'null'
+        record: { $ref: '#/components/schemas/ProduceEventRecord' }
+
+    ProduceCalendarEventsResponse:
+      type: object
+      description: Paginated list of recorded produce events for a date (BR-142).
+      required: [items, page]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/ProduceCalendarEventItem' }
+        page: { $ref: '#/components/schemas/PageMeta' }
+
+    ProduceFilterZoneOption:
+      type: object
+      description: Zone option for produce filter dropdowns (BR-142).
+      required: [id, code, name]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+
+    ProduceFilterCropOption:
+      type: object
+      description: Crop option for produce filter dropdowns (BR-142).
+      required: [id, name, botanicalName]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        botanicalName: { type: [string, 'null'] }
+
+    ProduceFilterOptionsResponse:
+      type: object
+      description: Filter options for Produce Control Calendar (BR-142).
+      required: [zones, crops]
+      properties:
+        zones:
+          type: array
+          items: { $ref: '#/components/schemas/ProduceFilterZoneOption' }
+        crops:
+          type: array
+          items: { $ref: '#/components/schemas/ProduceFilterCropOption' }
 
     CropMaster:
       type: object
