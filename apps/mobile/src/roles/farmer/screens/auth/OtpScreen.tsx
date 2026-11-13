@@ -14,7 +14,14 @@ import { SafeAreaView } from '@tohfa/mobile-ui';
 import type { TextInputInstance } from 'react-native';
 import { authPalette as themeAuthPalette, typography } from '../../theme';
 import { BackButtonIcon, LockIcon } from '../../assets/icons/AssetIcons';
-import { verifyOtp, requestOtp, renderOtpState, resolveRouteAfterAuth, fetchMe } from '../../api/auth';
+import {
+  verifyOtp,
+  requestOtp,
+  renderOtpState,
+  resolveRouteAfterAuth,
+  fetchMe,
+  isOtpVerifiedNoAccount,
+} from '../../api/auth';
 import { ApiError, formatErrorMessage } from '../../../../shell/api/client';
 import { t } from '../../../../i18n/farmer';
 
@@ -52,7 +59,15 @@ interface OtpScreenProps {
    */
   mockCode?: string | undefined;
   onNavigate: (
-    screen: 'ApplicationStatus' | 'MainTabs' | 'AdminMain' | 'CustomerMain' | 'Unsupported' | 'Login' | 'ResetPassword',
+    screen:
+      | 'CreatePassword'
+      | 'ApplicationStatus'
+      | 'MainTabs'
+      | 'AdminMain'
+      | 'CustomerMain'
+      | 'Unsupported'
+      | 'Login'
+      | 'ResetPassword',
     params?: Record<string, string | number | undefined>
   ) => void;
 }
@@ -123,12 +138,23 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
       // brand-new OAuth-created account into the farmer registration wizard
       // was left unimplemented rather than guessed. Every verify outcome,
       // linked or not, proceeds through the same existing post-login route.
-      await verifyOtp({
+      const verified = await verifyOtp({
         challengeId: activeChallengeId,
         code,
         ...(linkToken !== undefined ? { linkToken } : {}),
       });
 
+      // A correct code for a number with no account mints no tokens (the
+      // server answers `{ verified, mobile, purpose }`, see openapi
+      // OtpVerifiedNoAccount). Calling /auth/me now would only 401 into the
+      // refresh path and bounce to Welcome with no explanation (BR-142).
+      if (isOtpVerifiedNoAccount(verified)) {
+        setErrorMsg(t('farmer.auth.otp.noAccount'));
+        return;
+      }
+
+      // BR-142: an account with no password yet is routed to Create Password
+      // by resolveRouteAfterAuth (it reads `hasPassword` from /auth/me).
       const me = await fetchMe();
       const route = resolveRouteAfterAuth(me);
       onNavigate(route.name, route.params);
@@ -141,7 +167,7 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({
           setAttemptsRemaining(0);
         }
       }
-      setErrorMsg(formatErrorMessage(err, 'Verification failed. Please check the code and try again.'));
+      setErrorMsg(formatErrorMessage(err, t('error.generic')));
     } finally {
       setLoading(false);
     }

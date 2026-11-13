@@ -78,7 +78,10 @@ export function resetsHistoryOn(screen: string): boolean {
     screen === 'Welcome' ||
     screen === 'MainTabs' ||
     screen === 'AdminMain' ||
-    screen === 'Login'
+    screen === 'Login' ||
+    // BR-142: reached right after a sign-in; nothing behind it may be popped
+    // back into, or the user would skip creating their first password.
+    screen === 'CreatePassword'
   );
 }
 
@@ -93,7 +96,9 @@ const AUTH_SCREENS: readonly string[] = [
   'ApplicationStatus',
 ];
 
-const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', ...ADMIN_DASHBOARDS];
+// CreatePassword is a root (BR-142): with an empty stack Android back leaves the
+// app instead of falling through to MainTabs, which would skip the screen.
+const ROOT_SCREENS: readonly string[] = ['MainTabs', 'Splash', 'Welcome', 'CreatePassword', ...ADMIN_DASHBOARDS];
 
 /**
  * Where back goes when the history stack is empty, or null to stay put. A

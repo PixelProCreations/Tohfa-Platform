@@ -352,9 +352,15 @@ paths:
         account; a brand-new number gets the account created (straight to ACTIVE) and then
         linked. The response then also carries `oauthProfile` so the client can prefill Step 1
         of registration.
+
+        A correct code for a mobile number with no account (and no `linkToken`) mints no tokens
+        and creates no account: the 200 body is `OtpVerifiedNoAccount` (`verified`, `mobile`,
+        `purpose`). The mobile app tells the user no account uses this number (BR-142). An
+        account that signs in here and has no password yet is sent to Create Password by the
+        client, which reads `hasPassword` from `GET /auth/me` (BR-142).
       security: []
       x-permission: public
-      x-business-rules: [BR-32, BR-39]
+      x-business-rules: [BR-32, BR-39, BR-142]
       requestBody:
         required: true
         content:
@@ -368,7 +374,10 @@ paths:
           description: OTP accepted.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/OtpVerifyResponse' }
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/OtpVerifyResponse'
+                  - $ref: '#/components/schemas/OtpVerifiedNoAccount'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -384,9 +393,14 @@ paths:
         An account may hold multiple admin roles. When more than one role is active the
         response sets `requiresRoleSelection` and lists `availableRoles`; the client shows
         the multi-role selector and repeats the call with `roleCode`.
+
+        An unknown mobile, a wrong password and an account that has no password yet all answer
+        the same 401 `UNAUTHENTICATED`, so the response never reveals that an account exists or
+        has no password. An account with no password signs in by OTP and then sets one with
+        `POST /auth/me/set-password` (BR-142).
       security: []
       x-permission: public
-      x-business-rules: []
+      x-business-rules: [BR-142]
       requestBody:
         required: true
         content:
@@ -552,6 +566,43 @@ paths:
         '204': { description: Password changed; all sessions for this account are revoked. }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /auth/me/set-password:
+    post:
+      tags: [Auth]
+      operationId: setOwnFirstPassword
+      summary: Set the first password of an account that has none
+      description: |
+        BR-142. An account created without a password (a first-time user who signed in by OTP, an
+        admin-created account, an OAuth-created account) sets its first password here; `GET
+        /auth/me` reports `hasPassword: false` until it does. Allowed only while no password is
+        set: otherwise 409 `PASSWORD_ALREADY_SET` and nothing is written (use
+        `/auth/me/change-password` or `/auth/reset-password`). The write is conditional on the
+        password still being unset, so concurrent requests set it once. No session is revoked.
+        One `audit_log` row (`auth.password.set_initial`, no password material) is written in the
+        same transaction. The user id comes from the token only.
+      x-permission: auth.password.change_own
+      x-business-rules: [BR-142]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newPassword]
+              properties:
+                newPassword: { type: string, minLength: 10, maxLength: 128 }
+            example:
+              newPassword: 'C0rrect-Horse-9'
+      responses:
+        '204': { description: Password set. The current session stays valid. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -17671,6 +17722,7 @@ components:
         * `SALE_STOCK_CHANGED` — stock or the LIVE_MARKET allocation fell below a sale line quantity since the quote (BR-89, BR-95). HTTP 409.
         * `WALKIN_WALLET_NOT_ALLOWED` — a walk-in sale (no customer record) cannot be paid by WALLET (BR-86). HTTP 422.
         * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
+        * `PASSWORD_ALREADY_SET` — `POST /auth/me/set-password` only sets a first password and this account already has one (BR-142). HTTP 409.
         * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
         * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
@@ -17957,6 +18009,18 @@ components:
           properties:
             oauthProfile: { $ref: '#/components/schemas/OAuthProfile' }
 
+    OtpVerifiedNoAccount:
+      type: object
+      description: |
+        `POST /auth/otp/verify` for a correct code on a mobile number with no account and no
+        `linkToken`: the number is verified, but no account is created and no tokens are issued
+        (BR-142, documents existing behaviour).
+      required: [verified, mobile, purpose]
+      properties:
+        verified: { type: boolean, enum: [true] }
+        mobile: { $ref: '#/components/schemas/Mobile' }
+        purpose: { type: string, enum: [REGISTRATION, LOGIN, PASSWORD_RESET, MOBILE_CHANGE, DELIVERY, PICKUP] }
+
     LoginRequest:
       type: object
       required: [mobile, password]
@@ -18009,6 +18073,12 @@ components:
         status: { type: string, enum: [PENDING, ACTIVE, DISABLED], description: Account status (BR-67 additive field). }
         createdAt: { type: string, format: date-time, description: When the account was created (BR-67 additive field). }
         lastLoginAt: { type: [string, 'null'], format: date-time, description: Last successful login; null when the user has never logged in (BR-67 additive field). }
+        hasPassword:
+          type: boolean
+          description: |
+            BR-142 additive field, present on `GET` and `PATCH /auth/me`: true when the account has a
+            password set. An account that signed in by OTP and has none is sent to Create Password and
+            sets one with `POST /auth/me/set-password`. Derived from the stored hash, which is never returned.
         roles: { type: array, items: { $ref: '#/components/schemas/RoleAssignment' } }
         permissions:
           type: array
