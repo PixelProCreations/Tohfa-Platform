@@ -1,5 +1,5 @@
-// Complete products index with all extracted images
-// ── Category circle images (Fresh Finds for You) ──────────────────────
+// Complete products index with clean category-based organization
+// ── Category circle images (Fresh Finds for You - High Res Transparent Figma Cutouts) ──
 import catVegetables from './cat_vegetables.png';
 import catFruit from './cat_fruit.png';
 import catDairy from './cat_dairy.png';
@@ -45,193 +45,183 @@ import badgeFlowers from './badge_flowers.png';
 // ── Universal Coming Soon Card ──────────────────────────────────────
 import cardComingSoon from './card_coming_soon.png';
 
-// ── For You ─────────────────────────────────────────────────────────
-import foryouWatermelon from './foryou_watermelon.png';
-import foryouStrawberries from './foryou_strawberries.png';
-import foryouTomatoes from './foryou_tomatoes.png';
-import foryouMango from './foryou_mango.png';
-import foryouBrinjal from './foryou_brinjal.png';
-import foryouLettuce from './foryou_lettuce.png';
-import foryouKiwi from './foryou_kiwi.png';
-import foryouBroccoli from './foryou_broccoli.png';
-import foryouCarrot from './foryou_carrot.png';
-import foryouSweetCorn from './foryou_sweet_corn.png';
+// ── Category Folders: Uploaded transparent PNG cutouts ──────────────
+// Exotics
+import exoticBabycorn from './exotics-images/baby_corn.png';
+import exoticCabbagePurple from './exotics-images/cabbage_purple.png';
+import exoticCelery from './exotics-images/celery.png';
+import exoticCherryTomato from './exotics-images/cherry_tomato.png';
+import exoticChilliThai from './exotics-images/chilli_thai_red.png';
+import exoticGingerThai from './exotics-images/ginger_thai.png';
+import exoticRosemary from './exotics-images/rosemary.png';
 
-// ── Vegetables ──────────────────────────────────────────────────────
-import vegPotato from './veg_potato.png';
-import vegCarrot from './veg_carrot.png';
-import vegBeetroot from './veg_beetroot.png';
-import vegBroccoli from './veg_broccoli.png';
-import vegCauliflower from './veg_cauliflower.png';
-import vegPumpkin from './veg_pumpkin.png';
+// Combos
+import comboAbc from './combos-images/combo_abc.png';
+import comboBainganBharta from './combos-images/combo_baingan_bharta.png';
+import comboBeatHeat from './combos-images/combo_beat_heat.png';
+import comboOil from './combos-images/combo_oil.png';
+import comboFlour from './combos-images/combo_flour.png';
 
-// ── Fruit ───────────────────────────────────────────────────────────
-import fruitApple from './fruit_apple.png';
-import fruitOrange from './fruit_orange.png';
-import fruitBanana from './fruit_banana.png';
-import fruitPomegranate from './fruit_pomegranate.png';
-import fruitGrapes from './fruit_grapes.png';
+// Breads
+import breadMilk from './breads-images/bread_milk.png';
+import breadMultigrain from './breads-images/bread_multigrain.png';
+import breadSandwich from './breads-images/bread_sandwich.png';
+import breadSourdough from './breads-images/bread_sourdough.png';
 
-// ── Dry Fruits ──────────────────────────────────────────────────────
-import dryfruitFig from './dryfruit_fig.png';
-import dryfruitRaisinBold from './dryfruit_raisin_bold.png';
-import dryfruitRaisinMunakka from './dryfruit_raisin_munakka.png';
-import dryfruitCashew from './dryfruit_cashew.png';
-import dryfruitPistachio from './dryfruit_pistachio.png';
-import dryfruitWalnut from './dryfruit_walnut.png';
-import dryfruitAlmond from './dryfruit_almond.png';
+// Flour
+import flourWheat from './flour-images/flour_wheat.png';
+import flourRagi from './flour-images/flour_ragi.png';
+import flourRice from './flour-images/flour_rice.png';
+import flourMaize from './flour-images/flour_maize.png';
+import flourFoxtail from './flour-images/flour_foxtail.png';
 
-// ── Dairy ───────────────────────────────────────────────────────────
-import dairyMilk from './dairy_milk.png';
-import dairyEggs from './dairy_eggs.png';
-import dairyCurd from './dairy_curd.png';
-import dairyButtermilk from './dairy_buttermilk.png';
-import dairyButter from './dairy_butter.png';
-import dairyGhee from './dairy_ghee.png';
-import dairyPaneer from './dairy_paneer.png';
-import dairyCheese from './dairy_cheese.png';
-import dairyFreshCream from './dairy_fresh_cream.png';
+// Juices
+import juiceAbc from './juices-images/juice_abc.png';
+import juiceCoconutWater from './juices-images/juice_coconut_water.png';
+import juicePam from './juices-images/juice_pam.png';
+import juicePineapple from './juices-images/juice_pineapple.png';
+import juiceWatermelon from './juices-images/juice_watermelon.png';
 
-// ── Grains ──────────────────────────────────────────────────────────
-import grainRawRice from './grain_raw_rice.png';
-import grainBrownRice from './grain_brown_rice.png';
-import grainWheat from './grain_wheat.png';
-import grainRagi from './grain_ragi.png';
-import grainLittleMillet from './grain_little_millet.png';
-import grainFoxtailMillet from './grain_foxtail_millet.png';
-import grainBarnyardMillet from './grain_barnyard_millet.png';
-import grainKodoMillet from './grain_kodo_millet.png';
-import grainPearlMillet from './grain_pearl_millet.png';
-import grainSorghum from './grain_sorghum.png';
-import grainMaize from './grain_maize.png';
-import grainOats from './grain_oats.png';
+// Kitchen Pastes & Gravies
+import kitchenGarlicPaste from './kitchen-images/kitchen_garlic_paste.png';
+import kitchenGingerPaste from './kitchen-images/kitchen_ginger_paste.png';
+import kitchenGingerGarlicPaste from './kitchen-images/kitchen_ginger_garlic_paste.png';
+import kitchenOnionTomatoGravy from './kitchen-images/kitchen_onion_tomato_gravy.png';
+import kitchenTomatoGravy from './kitchen-images/kitchen_tomato_gravy.png';
+import kitchenTomatoPuree from './kitchen-images/kitchen_tomato_puree.png';
+import kitchenOnionTomatoMasala from './kitchen-images/kitchen_onion_tomato_masala.png';
 
-// ── Fresh Combos ────────────────────────────────────────────────────
-import comboAbc from './combo_abc.png';
-import comboBainganBharta from './combo_baingan_bharta.png';
-import comboBeatHeat from './combo_beat_heat.png';
-import comboOil from './combo_oil.png';
-import comboFlour from './combo_flour.png';
+// Soaked
+import soakedFig from './soaked-images/soaked_fig.png';
+import soakedMunakka from './soaked-images/soaked_munakka.png';
+import soakedBlackChana from './soaked-images/soaked_black_chana.png';
+import soakedWalnuts from './soaked-images/soaked_walnuts.png';
+import soakedJeera from './soaked-images/soaked_jeera.png';
 
-// ── Spreads ─────────────────────────────────────────────────────────
-import spreadBasilPesto from './spread_basil_pesto.png';
-import spreadBeetrootHummus from './spread_beetroot_hummus.png';
-import spreadChilliMango from './spread_chilli_mango.png';
-import spreadGarlicHummus from './spread_garlic_hummus.png';
-import spreadGuacamole from './spread_guacamole.png';
-import spreadHoneyMustard from './spread_honey_mustard.png';
-import spreadThaiDressing from './spread_thai_dressing.png';
-import spreadVinaigrette from './spread_vinaigrette.png';
+// Spreads
+import spreadBasilPesto from './spreads-images/spread_basil_pesto.png';
+import spreadBeetrootHummus from './spreads-images/spread_beetroot_hummus.png';
+import spreadChilliMango from './spreads-images/spread_chilli_mango.png';
+import spreadGarlicHummus from './spreads-images/spread_garlic_hummus.png';
+import spreadGuacamole from './spreads-images/spread_guacamole.png';
+import spreadHoneyMustard from './spreads-images/spread_honey_mustard.png';
+import spreadThaiDressing from './spreads-images/spread_thai_dressing.png';
+import spreadVinaigrette from './spreads-images/spread_vinaigrette.png';
 
-// ── Spices ──────────────────────────────────────────────────────────
-import spiceBlackPepper from './spice_black_pepper.png';
-import spiceCardamom from './spice_cardamom.png';
-import spiceCloves from './spice_cloves.png';
-import spiceCinnamon from './spice_cinnamon.png';
-import spiceTurmeric from './spice_turmeric.png';
-import spiceGingerFresh from './spice_ginger_fresh.png';
-import spiceDryGinger from './spice_dry_ginger.png';
-import spiceDryRedChilli from './spice_dry_red_chilli.png';
-import spiceCorianderSeeds from './spice_coriander_seeds.png';
-import spiceCumin from './spice_cumin.png';
-import spiceMustardSeeds from './spice_mustard_seeds.png';
+// Tea & Coffee
+import teaNilgiriGreen from './teacoffee-images/tea_nilgiri_green.png';
+import teaNilgiriBlack from './teacoffee-images/tea_nilgiri_black.png';
+import teaOrthodox from './teacoffee-images/tea_orthodox.png';
+import coffeeArabicaBeans from './teacoffee-images/coffee_arabica_beans.png';
+import coffeeRobustaBeans from './teacoffee-images/coffee_robusta_beans.png';
+import coffeeOrganicBeans from './teacoffee-images/coffee_organic_beans.png';
+import coffeeInstant from './teacoffee-images/coffee_instant.png';
+import teaMasalaBlend from './teacoffee-images/tea_masala_blend.png';
+import teaGreenPowder from './teacoffee-images/tea_green_powder.png';
 
-// ── Soaked ──────────────────────────────────────────────────────────
-import soakedFig from './soaked_fig.png';
-import soakedMunakka from './soaked_munakka.png';
-import soakedBlackChana from './soaked_black_chana.png';
-import soakedWalnuts from './soaked_walnuts.png';
-import soakedJeera from './soaked_jeera.png';
+// Flowers
+import flowerRose from './flowers-images/flower_rose.png';
+import flowerJasmine from './flowers-images/flower_jasmine.png';
+import flowerMarigold from './flowers-images/flower_marigold.png';
+import flowerChrysanthemum from './flowers-images/flower_chrysanthemum.png';
+import flowerCarnation from './flowers-images/flower_carnation.png';
+import flowerGerbera from './flowers-images/flower_gerbera.png';
+import flowerAster from './flowers-images/flower_aster.png';
+import flowerSeasonal from './flowers-images/flower_seasonal.png';
 
-// ── Breads ──────────────────────────────────────────────────────────
-import breadMilk from './bread_milk.png';
-import breadMultigrain from './bread_multigrain.png';
-import breadSandwich from './bread_sandwich.png';
-import breadSourdough from './bread_sourdough.png';
+// Oils
+import oilGroundnut from './oils-images/oil_groundnut.png';
+import oilCoconut from './oils-images/oil_coconut.png';
+import oilSesame from './oils-images/oil_sesame.png';
+import oilSunflower from './oils-images/oil_sunflower.png';
+import oilMustard from './oils-images/oil_mustard.png';
 
-// ── Flour ───────────────────────────────────────────────────────────
-import flourWheat from './flour_wheat.png';
-import flourRagi from './flour_ragi.png';
-import flourRice from './flour_rice.png';
-import flourMaize from './flour_maize.png';
-import flourFoxtail from './flour_foxtail.png';
+// Vegetables
+import vegPotato from './vegetables-images/veg_potato.png';
+import vegCarrot from './vegetables-images/veg_carrot.png';
+import vegBeetroot from './vegetables-images/veg_beetroot.png';
+import vegBroccoli from './vegetables-images/veg_broccoli.png';
+import vegCauliflower from './vegetables-images/veg_cauliflower.png';
+import vegPumpkin from './vegetables-images/veg_pumpkin.png';
 
-// ── Rare & Exotic ───────────────────────────────────────────────────
-import exoticBabycorn from './exotic_babycorn.png';
-import exoticCabbagePurple from './exotic_cabbage_purple.png';
-import exoticCelery from './exotic_celery.png';
-import exoticCherryTomato from './exotic_cherry_tomato.png';
-import exoticChilliThai from './exotic_chilli_thai.png';
-import exoticGingerThai from './exotic_ginger_thai.png';
-import exoticRosemary from './exotic_rosemary.png';
+// Fruits
+import fruitApple from './fruits-images/fruit_apple.png';
+import fruitOrange from './fruits-images/fruit_orange.png';
+import fruitBanana from './fruits-images/fruit_banana.png';
+import fruitPomegranate from './fruits-images/fruit_pomegranate.png';
+import fruitGrapes from './fruits-images/fruit_grapes.png';
+import fruitMango from './fruits-images/mango.png';
 
-// ── Sweet Nature ────────────────────────────────────────────────────
-import sweetHoney from './sweet_honey.png';
-import sweetForestHoney from './sweet_forest_honey.png';
-import sweetPalmJaggery from './sweet_palm_jaggery.png';
-import sweetCountryJaggery from './sweet_country_jaggery.png';
-import sweetCaneJaggery from './sweet_cane_jaggery.png';
+// Dry Fruits
+import dryfruitFig from './dryfruits-images/dryfruit_fig.png';
+import dryfruitRaisinBold from './dryfruits-images/dryfruit_raisin_bold.png';
+import dryfruitRaisinMunakka from './dryfruits-images/dryfruit_raisin_munakka.png';
+import dryfruitCashew from './dryfruits-images/dryfruit_cashew.png';
+import dryfruitPistachio from './dryfruits-images/dryfruit_pistachio.png';
+import dryfruitAlmond from './dryfruits-images/dryfruit_almond.png';
 
-// ── Herbs & Greens ──────────────────────────────────────────────────
-import herbThyme from './herb_thyme.png';
-import herbCoriander from './herb_coriander.png';
-import herbMint from './herb_mint.png';
-import herbSpringOnion from './herb_spring_onion.png';
-import herbSpinach from './herb_spinach.png';
-import herbLettuce from './herb_lettuce.png';
-import herbCelery from './herb_celery.png';
-import herbParsley from './herb_parsley.png';
-import herbAmaranth from './herb_amaranth.png';
-import herbKale from './herb_kale.png';
-import herbRosemary from './herb_rosemary.png';
+// Dairy
+import dairyMilk from './dairy-images/dairy_milk.png';
+import dairyEggs from './dairy-images/dairy_eggs.png';
+import dairyCurd from './dairy-images/dairy_curd.png';
+import dairyButtermilk from './dairy-images/dairy_buttermilk.png';
+import dairyButter from './dairy-images/dairy_butter.png';
+import dairyGhee from './dairy-images/dairy_ghee.png';
+import dairyPaneer from './dairy-images/dairy_paneer.png';
+import dairyCheese from './dairy-images/dairy_cheese.png';
+import dairyFreshCream from './dairy-images/dairy_fresh_cream.png';
 
-// ── Everyday Kitchen ────────────────────────────────────────────────
-import kitchenGarlicPaste from './kitchen_garlic_paste.png';
-import kitchenGingerGarlicPaste from './kitchen_ginger_garlic_paste.png';
-import kitchenGingerPaste from './kitchen_ginger_paste.png';
-import kitchenOnionTomatoGravy from './kitchen_onion_tomato_gravy.png';
-import kitchenTomatoGravy from './kitchen_tomato_gravy.png';
-import kitchenTomatoPuree from './kitchen_tomato_puree.png';
-import kitchenOnionTomatoMasala from './kitchen_onion_tomato_masala.png';
+// Grains
+import grainRawRice from './grains-images/grain_raw_rice.png';
+import grainBrownRice from './grains-images/grain_brown_rice.png';
+import grainWheat from './grains-images/grain_wheat.png';
+import grainRagi from './grains-images/grain_ragi.png';
+import grainLittleMillet from './grains-images/grain_little_millet.png';
+import grainFoxtailMillet from './grains-images/grain_foxtail_millet.png';
+import grainBarnyardMillet from './grains-images/grain_barnyard_millet.png';
+import grainKodoMillet from './grains-images/grain_kodo_millet.png';
+import grainPearlMillet from './grains-images/grain_pearl_millet.png';
+import grainSorghum from './grains-images/grain_sorghum.png';
+import grainMaize from './grains-images/grain_maize.png';
+import grainOats from './grains-images/grain_oats.png';
 
-// ── Tea & Coffee ────────────────────────────────────────────────────
-import teaNilgiriGreen from './tea_nilgiri_green.png';
-import teaNilgiriBlack from './tea_nilgiri_black.png';
-import teaOrthodox from './tea_orthodox.png';
-import coffeeArabicaBeans from './coffee_arabica_beans.png';
-import coffeeRobustaBeans from './coffee_robusta_beans.png';
-import coffeeOrganicBeans from './coffee_organic_beans.png';
-import coffeeInstant from './coffee_instant.png';
-import teaMasalaBlend from './tea_masala_blend.png';
-import teaGreenPowder from './tea_green_powder.png';
-import teaGreen from './tea_green.png';
-import teaBlack from './tea_black.png';
-import coffeeFilter from './coffee_filter.png';
+// Spices
+import spiceBlackPepper from './spices-images/spice_black_pepper.png';
+import spiceCardamom from './spices-images/spice_cardamom.png';
+import spiceCloves from './spices-images/spice_cloves.png';
+import spiceCinnamon from './spices-images/spice_cinnamon.png';
+import spiceTurmeric from './spices-images/spice_turmeric.png';
+import spiceGingerFresh from './spices-images/spice_ginger_fresh.png';
+import spiceDryGinger from './spices-images/spice_dry_ginger.png';
+import spiceDryRedChilli from './spices-images/spice_dry_red_chilli.png';
+import spiceCorianderSeeds from './spices-images/spice_coriander_seeds.png';
+import spiceCumin from './spices-images/spice_cumin.png';
+import spiceMustardSeeds from './spices-images/spice_mustard_seeds.png';
 
-// ── Fresh Juices ────────────────────────────────────────────────────
-import juiceAbc from './juice_abc.png';
-import juiceCoconutWater from './juice_coconut_water.png';
-import juicePam from './juice_pam.png';
-import juicePineapple from './juice_pineapple.png';
-import juiceWatermelon from './juice_watermelon.png';
-import juiceOrange from './juice_orange.png';
+// Herbs & Greens
+import herbThyme from './herbs-images/herb_thyme.png';
+import herbCoriander from './herbs-images/herb_coriander.png';
+import herbMint from './herbs-images/herb_mint.png';
+import herbSpringOnion from './herbs-images/herb_spring_onion.png';
+import herbSpinach from './herbs-images/herb_spinach.png';
+import herbLettuce from './herbs-images/herb_lettuce.png';
+import herbCelery from './herbs-images/herb_celery.png';
+import herbParsley from './herbs-images/herb_parsley.png';
+import herbAmaranth from './herbs-images/herb_amaranth.png';
+import herbKale from './herbs-images/herb_kale.png';
+import herbRosemary from './herbs-images/herb_rosemary.png';
 
-// ── Nature's Oils ───────────────────────────────────────────────────
-import oilGroundnut from './oil_groundnut.png';
-import oilCoconut from './oil_coconut.png';
-import oilSesame from './oil_sesame.png';
-import oilSunflower from './oil_sunflower.png';
-import oilMustard from './oil_mustard.png';
+// Sweet Nature
+import sweetHoney from './sweetnature-images/sweet_honey.png';
+import sweetForestHoney from './sweetnature-images/sweet_forest_honey.png';
+import sweetPalmJaggery from './sweetnature-images/sweet_palm_jaggery.png';
+import sweetCountryJaggery from './sweetnature-images/sweet_country_jaggery.png';
+import sweetCaneJaggery from './sweetnature-images/sweet_cane_jaggery.png';
 
-// ── Flowers ─────────────────────────────────────────────────────────
-import flowerRose from './flower_rose.png';
-import flowerJasmine from './flower_jasmine.png';
-import flowerMarigold from './flower_marigold.png';
-import flowerChrysanthemum from './flower_chrysanthemum.png';
-import flowerCarnation from './flower_carnation.png';
-import flowerGerbera from './flower_gerbera.png';
-import flowerAster from './flower_aster.png';
-import flowerSeasonal from './flower_seasonal.png';
+// For You
+import foryouWatermelon from './fruits-images/foryou_watermelon.png';
+import foryouStrawberries from './fruits-images/foryou_strawberries.png';
+import foryouLettuce from './herbs-images/foryou_lettuce.png';
 
 export const CategoryImages = {
   vegetables: catVegetables,
@@ -239,6 +229,9 @@ export const CategoryImages = {
   dairy: catDairy,
   grains: catGrains,
   dryFruits: catDryFruits,
+  teaCoffee: catTeaCoffee,
+  spreads: catSpreads,
+  bakery: catBakery,
   freshCombos: catFreshCombos,
   breads: catBreads,
   freshJuices: catFreshJuices,
@@ -249,11 +242,8 @@ export const CategoryImages = {
   herbsGreens: catHerbsGreens,
   spices: catSpices,
   soaked: catSoaked,
-  teaCoffee: catTeaCoffee,
-  spreads: catSpreads,
   flowers: catFlowers,
   naturesOils: catNaturesOils,
-  bakery: catBakery,
 };
 
 export const SectionBadges = {
@@ -278,19 +268,31 @@ export const SectionBadges = {
   flowers: badgeFlowers,
 };
 
-export const ProductImages = {
+// Typed product image registry mapping to uploaded transparent cutouts
+export const ProductImages: Record<string, any> = {
+  // Coming soon card
   cardComingSoon,
-  // For you
+
+  // For You Section
   foryouWatermelon,
-  foryouStrawberries,
-  foryouTomatoes,
-  foryouMango,
-  foryouBrinjal,
   foryouLettuce,
-  foryouKiwi,
-  foryouBroccoli,
-  foryouCarrot,
-  foryouSweetCorn,
+  foryouStrawberries,
+  foryouTomatoes: exoticCherryTomato,
+  foryouMango: fruitMango,
+  foryouBrinjal: comboBainganBharta,
+  foryouSweetCorn: exoticBabycorn,
+  foryouKiwi: fruitApple,
+  foryouBroccoli: vegBroccoli,
+  foryouCarrot: vegCarrot,
+
+  // Fruits
+  fruitApple,
+  fruitOrange,
+  fruitBanana,
+  fruitPomegranate,
+  fruitGrapes,
+  fruitMango,
+
   // Vegetables
   vegPotato,
   vegCarrot,
@@ -298,20 +300,16 @@ export const ProductImages = {
   vegBroccoli,
   vegCauliflower,
   vegPumpkin,
-  // Fruit
-  fruitApple,
-  fruitOrange,
-  fruitBanana,
-  fruitPomegranate,
-  fruitGrapes,
-  // Dry fruits
+
+  // Dry Fruits
   dryfruitFig,
   dryfruitRaisinBold,
   dryfruitRaisinMunakka,
   dryfruitCashew,
   dryfruitPistachio,
-  dryfruitWalnut,
   dryfruitAlmond,
+  dryfruitWalnut: soakedWalnuts,
+
   // Dairy
   dairyMilk,
   dairyEggs,
@@ -322,6 +320,7 @@ export const ProductImages = {
   dairyPaneer,
   dairyCheese,
   dairyFreshCream,
+
   // Grains
   grainRawRice,
   grainBrownRice,
@@ -335,12 +334,14 @@ export const ProductImages = {
   grainSorghum,
   grainMaize,
   grainOats,
-  // Fresh Combos
+
+  // Combos
   comboAbc,
   comboBainganBharta,
   comboBeatHeat,
   comboOil,
   comboFlour,
+
   // Spreads
   spreadBasilPesto,
   spreadBeetrootHummus,
@@ -350,6 +351,7 @@ export const ProductImages = {
   spreadHoneyMustard,
   spreadThaiDressing,
   spreadVinaigrette,
+
   // Spices
   spiceBlackPepper,
   spiceCardamom,
@@ -362,23 +364,27 @@ export const ProductImages = {
   spiceCorianderSeeds,
   spiceCumin,
   spiceMustardSeeds,
+
   // Soaked
   soakedFig,
   soakedMunakka,
   soakedBlackChana,
   soakedWalnuts,
   soakedJeera,
+
   // Breads
   breadMilk,
   breadMultigrain,
   breadSandwich,
   breadSourdough,
+
   // Flour
   flourWheat,
   flourRagi,
   flourRice,
   flourMaize,
   flourFoxtail,
+
   // Exotics
   exoticBabycorn,
   exoticCabbagePurple,
@@ -387,12 +393,14 @@ export const ProductImages = {
   exoticChilliThai,
   exoticGingerThai,
   exoticRosemary,
+
   // Sweet Nature
   sweetHoney,
   sweetForestHoney,
   sweetPalmJaggery,
   sweetCountryJaggery,
   sweetCaneJaggery,
+
   // Herbs & Greens
   herbThyme,
   herbCoriander,
@@ -405,6 +413,7 @@ export const ProductImages = {
   herbAmaranth,
   herbKale,
   herbRosemary,
+
   // Everyday Kitchen
   kitchenGarlicPaste,
   kitchenGingerGarlicPaste,
@@ -413,6 +422,7 @@ export const ProductImages = {
   kitchenTomatoGravy,
   kitchenTomatoPuree,
   kitchenOnionTomatoMasala,
+
   // Tea & Coffee
   teaNilgiriGreen,
   teaNilgiriBlack,
@@ -423,22 +433,21 @@ export const ProductImages = {
   coffeeInstant,
   teaMasalaBlend,
   teaGreenPowder,
-  teaGreen,
-  teaBlack,
-  coffeeFilter,
+
   // Fresh Juices
   juiceAbc,
   juiceCoconutWater,
   juicePam,
   juicePineapple,
   juiceWatermelon,
-  juiceOrange,
+
   // Oils
   oilGroundnut,
   oilCoconut,
   oilSesame,
   oilSunflower,
   oilMustard,
+
   // Flowers
   flowerRose,
   flowerJasmine,

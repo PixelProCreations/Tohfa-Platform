@@ -11,7 +11,7 @@ import {
   Platform,
   Modal,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
@@ -360,7 +360,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* 3. Wishlist Card */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('Categories')}
+            onPress={() => onNavigate?.('Wishlist')}
             style={styles.summaryCard}
             accessibilityLabel="Wishlist"
           >

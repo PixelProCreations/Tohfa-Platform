@@ -28,6 +28,7 @@ import { ReviewFeedbackScreen } from './screens/ReviewFeedbackScreen';
 import { ReturnOrderScreen } from './screens/ReturnOrderScreen';
 import { HomeScreen } from './screens/HomeScreen';
 import type { RelatedCategory } from './components/contactSupportData';
+import { WishlistScreen } from './screens/WishlistScreen';
 
 /**
  * Customer's real post-login screens, mounted by the farmer app's shared
@@ -49,6 +50,7 @@ type ScreenName =
   | 'ProductDetail'
   | 'Search'
   | 'Cart'
+  | 'Wishlist'
   | 'Checkout'
   | 'Topup'
   | 'OrderTracking'
@@ -165,10 +167,16 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
             <ProductDetailScreen productId={navParams.productId || ''} />
           )}
 
-          {currentScreen === 'Search' && <SearchScreen />}
+          {currentScreen === 'Search' && (
+            <SearchScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
+          )}
 
           {currentScreen === 'Cart' && (
-            <CartScreen onNavigate={(s, p) => navigate(s, p)} />
+            <CartScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
+          )}
+
+          {currentScreen === 'Wishlist' && (
+            <WishlistScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
           )}
 
           {currentScreen === 'Checkout' && (

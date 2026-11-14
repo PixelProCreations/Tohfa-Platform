@@ -20,6 +20,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { CustomerDeliveryAddressModal, AddressData } from '../components';
 import satelliteMapCoimbatore from '../assets/images/satellite_map_coimbatore.jpg';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -125,11 +126,18 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
     outputRange: ['0deg', '360deg'],
   });
 
+  const [showAddressModal, setShowAddressModal] = useState(false);
+
   const handleUseCurrentLocation = () => {
     setIsFetchingLocation(true);
   };
 
   const handleAddAddressDetails = () => {
+    setShowAddressModal(true);
+  };
+
+  const handleSaveAddress = (_address: AddressData) => {
+    setShowAddressModal(false);
     onNavigate('CustomerLoadingMarket');
   };
 
@@ -254,6 +262,14 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           </View>
         </View>
       </Modal>
+
+      {/* ── ADD ADDRESS FORM POPUP MODAL ──────────────────────────────────── */}
+      <CustomerDeliveryAddressModal
+        visible={showAddressModal}
+        initialStep="addAddress"
+        onClose={() => setShowAddressModal(false)}
+        onSaveAddress={handleSaveAddress}
+      />
     </View>
   );
 };

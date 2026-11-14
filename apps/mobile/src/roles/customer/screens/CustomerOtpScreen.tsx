@@ -171,9 +171,6 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
         </View>
       </KeyboardAvoidingView>
 
-      {/* Bottom Home Indicator */}
-      <View style={styles.homeIndicator} />
-
       {/* ── PHONE NUMBER VERIFIED POPUP MODAL (FIGMA PARITY) ────────────────── */}
       <Modal visible={showVerifiedModal} transparent={true} animationType="fade">
         <View style={styles.modalBackdrop}>

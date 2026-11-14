@@ -121,9 +121,6 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      {/* Bottom Home Indicator */}
-      <View style={styles.homeIndicator} />
     </View>
   );
 };

@@ -17,7 +17,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
+import { ArrowRightFigmaIcon, CustomerDeliveryAddressModal, AddressData } from '../components';
 import permissionsHeroCrate from '../assets/images/permissions_hero_crate.jpg';
 
 interface CustomerPermissionsScreenProps {
@@ -150,7 +150,7 @@ const DarkPinSvg = () => (
 );
 
 export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps> = ({ onNavigate }) => {
-  const [modalStep, setModalStep] = useState<'none' | 'notification' | 'location' | 'delivery'>('none');
+  const [modalStep, setModalStep] = useState<'none' | 'notification' | 'location' | 'delivery' | 'addAddress'>('none');
   const [locationType, setLocationType] = useState<'precise' | 'approximate'>('precise');
 
   const handleNext = () => {
@@ -172,6 +172,11 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
   const handleDeliveryChoice = (source: 'current' | 'manual' = 'manual') => {
     setModalStep('none');
     onNavigate('CustomerAddAddress', { addressSource: source });
+  };
+
+  const handleSaveAddress = (_address: AddressData) => {
+    setModalStep('none');
+    onNavigate('CustomerAddAddress');
   };
 
   return (
@@ -367,59 +372,15 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
         </View>
       </Modal>
 
-      {/* ── MODAL 3: WHERE SHOULD WE DELIVER (300 x 216 Hug) ─────────────── */}
-      <Modal visible={modalStep === 'delivery'} transparent={true} animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.deliverySheetCard}>
-            {/* Top Right Floating Close Button */}
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => handleDeliveryChoice('manual')}
-              style={styles.sheetCloseBtn}
-            >
-              <Text style={styles.sheetCloseText}>✕</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.deliverySheetTitle}>Where should we deliver?</Text>
-            <Text style={styles.deliverySheetSubtitle}>
-              Choose your location to discover fresh produce available near you.
-            </Text>
-
-            {/* Option 1: Use my current location (Green Tinted) */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => handleDeliveryChoice('current')}
-              style={styles.currentLocationCard}
-            >
-              <View style={styles.locationPinCircleGreen}>
-                <DarkPinSvg />
-              </View>
-              <View style={styles.deliveryTextWrap}>
-                <Text style={styles.deliveryOptionTitle}>Use my current location</Text>
-                <Text style={styles.deliveryOptionDesc}>
-                  Find nearby products and check delivery availability for your area.
-                </Text>
-              </View>
-              <Text style={styles.chevronIcon}>›</Text>
-            </TouchableOpacity>
-
-            {/* Option 2: Select location manually (White Bordered) */}
-            <TouchableOpacity
-              activeOpacity={0.85}
-              onPress={() => handleDeliveryChoice('manual')}
-              style={styles.manualLocationCard}
-            >
-              <View style={styles.locationPinCircleWhite}>
-                <DarkPinSvg />
-              </View>
-              <View style={styles.deliveryTextWrap}>
-                <Text style={styles.deliveryOptionTitle}>Select location manually</Text>
-              </View>
-              <Text style={styles.chevronIcon}>›</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      {/* ── MODAL 3 & 4: WHERE SHOULD WE DELIVER / ADD ADDRESS MODALS ── */}
+      <CustomerDeliveryAddressModal
+        visible={modalStep === 'delivery' || modalStep === 'addAddress'}
+        initialStep={modalStep === 'addAddress' ? 'addAddress' : 'delivery'}
+        onClose={() => setModalStep('none')}
+        onUseCurrentLocation={() => handleDeliveryChoice('current')}
+        onSelectManualLocation={() => handleDeliveryChoice('manual')}
+        onSaveAddress={handleSaveAddress}
+      />
     </View>
   );
 };
