@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../../shell/api/client';
+import { api, getAccessToken } from '../../../shell/api/client';
 
 export type CartItemInput = {
   productId: string;
@@ -31,9 +31,17 @@ export const useCart = () => {
   return useQuery({
     queryKey: ['cart'],
     queryFn: async () => {
-      const data = await api.get<CartResponse>('/cart');
-      return data;
+      const token = getAccessToken();
+      if (!token) return null;
+      try {
+        const data = await api.get<CartResponse>('/cart');
+        return data;
+      } catch {
+        return null;
+      }
     },
+    enabled: !!getAccessToken(),
+    retry: false,
   });
 };
 

@@ -205,9 +205,6 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
               />
             </View>
           )}
-
-          {/* Home indicator pill at bottom */}
-          <View style={styles.homeIndicator} />
         </Animated.View>
       )}
     </View>

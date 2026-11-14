@@ -20,10 +20,11 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { CustomerFloatingNav, CustomerActiveTab } from '../components/CustomerFloatingNav';
+import { CustomerFloatingNav, CustomerActiveTab, CustomerDeliveryAddressModal, AddressData } from '../components';
 import dashboardBannerHarvest from '../assets/images/dashboard_banner_harvest.png';
 import bannerFarmFreshVegetables from '../assets/images/banner_farm_fresh_vegetables.png';
 import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
+import flyingDeliveryBag from '../assets/images/flying_delivery_bag.png';
 import { CategoryImages, ProductImages, SectionBadges } from '../assets/images/products';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -120,6 +121,36 @@ const HeartSvg = ({ filled = false }: { filled?: boolean }) => (
   </Svg>
 );
 
+const TopBarAvatarSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Circle cx={12} cy={8} r={4} stroke={color} strokeWidth={1.8} />
+    <Path d="M4 20c0-4 4-6 8-6s8 2 8 6" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+  </Svg>
+);
+
+const TopBarWalletSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"
+      stroke={color}
+      strokeWidth={1.8}
+    />
+    <Path d="M16 3H4a2 2 0 00-2 2v2h18V5a2 2 0 00-2-2z" stroke={color} strokeWidth={1.8} />
+    <Circle cx={16.5} cy={13.5} r={1.5} fill={color} />
+  </Svg>
+);
+
+const TopBarHeartSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+      stroke={color}
+      strokeWidth={1.8}
+      fill="none"
+    />
+  </Svg>
+);
+
 // Flying Grocery Bag with Wings SVG (Section 2)
 const FlyingBagWithWingsSvg = () => (
   <Svg width={74} height={64} viewBox="0 0 80 70" fill="none">
@@ -171,6 +202,7 @@ interface ProductCardData {
   rating: number;
   emoji: string;
   image?: any;
+  status?: 'normal' | 'comingTomorrow' | 'unsalable';
 }
 
 // ── FULL PRODUCT CATALOG BY SECTION (EXACT FIGMA EXTRACTED IMAGES) ──────────
@@ -189,7 +221,7 @@ const FOR_YOU_ITEMS: ProductCardData[] = [
 ];
 
 const VEGETABLE_ITEMS: ProductCardData[] = [
-  { id: 'veg1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🥔', image: ProductImages.vegPotato },
+  { id: 'veg1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥔', image: ProductImages.vegPotato, status: 'comingTomorrow' },
   { id: 'veg2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥕', image: ProductImages.vegCarrot },
   { id: 'veg3', name: 'Beetroot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.vegBeetroot },
   { id: 'veg4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🥦', image: ProductImages.vegBroccoli },
@@ -198,7 +230,7 @@ const VEGETABLE_ITEMS: ProductCardData[] = [
 ];
 
 const FRUIT_ITEMS: ProductCardData[] = [
-  { id: 'fr1', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍎', image: ProductImages.fruitApple },
+  { id: 'fr1', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍎', image: ProductImages.fruitApple, status: 'unsalable' },
   { id: 'fr2', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍊', image: ProductImages.fruitOrange },
   { id: 'fr3', name: 'Banana Robusta', price: 60, originalPrice: 86, unit: 'dozen', rating: 4.8, emoji: '🍌', image: ProductImages.fruitBanana },
   { id: 'fr4', name: 'Pomegranate', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🍎', image: ProductImages.fruitPomegranate },
@@ -276,7 +308,7 @@ const SPICES_ITEMS: ProductCardData[] = [
 ];
 
 const SOAKED_ITEMS: ProductCardData[] = [
-  { id: 'so1', name: 'Soaked afghan Figs', price: 60, originalPrice: 86, unit: 'portion', rating: 4.5, emoji: '🥄', image: ProductImages.soakedFig },
+  { id: 'so1', name: 'Soaked afghan Figs', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedFig },
   { id: 'so2', name: 'Soaked Afghan Munakka', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedMunakka },
   { id: 'so3', name: 'Soaked Black Chana', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedBlackChana },
   { id: 'so4', name: 'Soaked Walnuts', price: 60, originalPrice: 86, unit: 'portion', rating: 4.7, emoji: '🥄', image: ProductImages.soakedWalnuts },
@@ -332,8 +364,8 @@ const HERBS_GREENS_ITEMS: ProductCardData[] = [
 
 const EVERYDAY_KITCHEN_ITEMS: ProductCardData[] = [
   { id: 'ek1', name: 'Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGarlicPaste },
-  { id: 'ek2', name: 'Ginger Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerPaste },
-  { id: 'ek3', name: 'Ginger & Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerGarlicPaste },
+  { id: 'ek2', name: 'Ginger & Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerGarlicPaste },
+  { id: 'ek3', name: 'Ginger Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerPaste },
   { id: 'ek4', name: 'Onion Tomato Gravy', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🥫', image: ProductImages.kitchenOnionTomatoGravy },
   { id: 'ek5', name: 'Tomato Gravy', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenTomatoGravy },
   { id: 'ek6', name: 'Tomato Puree', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenTomatoPuree },
@@ -361,7 +393,7 @@ const FRESH_JUICES_ITEMS: ProductCardData[] = [
 ];
 
 const NATURES_OILS_ITEMS: ProductCardData[] = [
-  { id: 'no1', name: 'Groundnut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🫒', image: ProductImages.oilGroundnut },
+  { id: 'no1', name: 'Cold-Pressed Groundnut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🫒', image: ProductImages.oilGroundnut },
   { id: 'no2', name: 'Coconut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🥥', image: ProductImages.oilCoconut },
   { id: 'no3', name: 'Sesame Gingelly Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.7, emoji: '🫒', image: ProductImages.oilSesame },
   { id: 'no4', name: 'Pure Sunflower Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🌻', image: ProductImages.oilSunflower },
@@ -379,25 +411,32 @@ const FLOWERS_ITEMS: ProductCardData[] = [
   { id: 'flw8', name: 'Seasonal Blossom', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '💐', image: ProductImages.flowerSeasonal },
 ];
 
-const CATEGORY_CIRCLES = [
-  { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables },
-  { id: 'c2', label: 'Fruit', image: CategoryImages.fruit },
-  { id: 'c3', label: 'Dairy', image: CategoryImages.dairy },
-  { id: 'c4', label: 'Grains', image: CategoryImages.grains },
-  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits },
-  { id: 'c6', label: 'Fresh Combos', image: CategoryImages.freshCombos },
-  { id: 'c7', label: 'Breads', image: CategoryImages.breads },
-  { id: 'c8', label: 'Fresh Juices', image: CategoryImages.freshJuices },
-  { id: 'c9', label: 'Everyday Kitchen', image: CategoryImages.everydayKitchen },
-  { id: 'c10', label: 'Rare & Exotic', image: CategoryImages.rareExotic },
-  { id: 'c11', label: 'Flour', image: CategoryImages.flour },
-  { id: 'c12', label: 'Sweet Nature', image: CategoryImages.sweetNature },
-  { id: 'c13', label: 'Herbs & Greens', image: CategoryImages.herbsGreens },
-  { id: 'c14', label: 'Spices', image: CategoryImages.spices },
-  { id: 'c15', label: 'Soaked', image: CategoryImages.soaked },
-  { id: 'c16', label: 'Tea & Coffee', image: CategoryImages.teaCoffee },
-  { id: 'c17', label: 'Spreads', image: CategoryImages.spreads },
-  { id: 'c18', label: 'Flowers', image: CategoryImages.flowers },
+interface CategoryCircleItem {
+  id: string;
+  label: string;
+  image?: any;
+  emoji?: string;
+}
+
+const CATEGORY_CIRCLES: CategoryCircleItem[] = [
+  { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables, emoji: '🥦' },
+  { id: 'c2', label: 'Fruit', image: CategoryImages.fruit, emoji: '🍎' },
+  { id: 'c3', label: 'Dairy', image: CategoryImages.dairy, emoji: '🥛' },
+  { id: 'c4', label: 'Grains', image: CategoryImages.grains, emoji: '🌾' },
+  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits, emoji: '🥜' },
+  { id: 'c6', label: 'Fresh Combos', image: CategoryImages.freshCombos, emoji: '🥗' },
+  { id: 'c7', label: 'Breads', image: CategoryImages.breads, emoji: '🍞' },
+  { id: 'c8', label: 'Fresh Juices', image: CategoryImages.freshJuices, emoji: '🧃' },
+  { id: 'c9', label: 'Everyday Kitchen', image: CategoryImages.everydayKitchen, emoji: '🥣' },
+  { id: 'c10', label: 'Rare & Exotic', image: CategoryImages.rareExotic, emoji: '🌽' },
+  { id: 'c11', label: 'Flour', image: CategoryImages.flour, emoji: '🥡' },
+  { id: 'c12', label: 'Sweet Nature', image: CategoryImages.sweetNature, emoji: '🍯' },
+  { id: 'c13', label: 'Herbs & Greens', image: CategoryImages.herbsGreens, emoji: '🌿' },
+  { id: 'c14', label: 'Spices', image: CategoryImages.spices, emoji: '🧂' },
+  { id: 'c15', label: 'Soaked', image: CategoryImages.soaked, emoji: '🥄' },
+  { id: 'c16', label: 'Tea & Coffee', image: CategoryImages.teaCoffee, emoji: '☕' },
+  { id: 'c17', label: 'Spreads', image: CategoryImages.spreads, emoji: '🥣' },
+  { id: 'c18', label: 'Flowers', image: CategoryImages.flowers, emoji: '🌸' },
 ];
 
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
@@ -408,8 +447,23 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [apartmentName, setApartmentName] = useState('');
+  const [showDoorstepModal, setShowDoorstepModal] = useState(false);
+  const [hasRequestedArea, setHasRequestedArea] = useState(false);
+  const [doorstepArea, setDoorstepArea] = useState('');
+  const [doorstepCity, setDoorstepCity] = useState('');
+  const [currentDeliveryAddress, setCurrentDeliveryAddress] = useState('110, Rajeshwari Nagar, Coimbatore');
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [deliveryModalStep, setDeliveryModalStep] = useState<'delivery' | 'addAddress'>('delivery');
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const handleSaveAddress = (addr: AddressData) => {
+    const full = [addr.flat, addr.locality, addr.city, addr.pincode].filter(Boolean).join(', ');
+    if (full) {
+      setCurrentDeliveryAddress(full);
+    }
+    setShowDeliveryModal(false);
+  };
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -449,6 +503,8 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       onNavigate?.('Cart');
     } else if (tab === 'profile') {
       onNavigate?.('CustomerAccount');
+    } else if (tab === 'search') {
+      onNavigate?.('Search');
     }
   };
 
@@ -465,14 +521,24 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   // Reusable Product Card Component matching exact Figma dimensions (width 142, height 168, title below)
   const renderProductCard = (item: ProductCardData) => {
     const isFav = favorites.includes(item.id);
+    const isComingTomorrow = item.status === 'comingTomorrow';
+    const isUnsalable = item.status === 'unsalable';
+
     return (
       <View key={item.id} style={styles.productCardContainer}>
-        <View style={[styles.productCard, customerShadow.subtle]}>
+        <View
+          style={[
+            styles.productCard,
+            customerShadow.subtle,
+            isComingTomorrow && styles.cardComingTomorrow,
+            isUnsalable && styles.cardUnsalable,
+          ]}
+        >
           {/* Top Card Row: Star Rating on Left, Heart on Right */}
           <View style={styles.cardHeaderRow}>
             <View style={styles.ratingBadge}>
-              <Text style={styles.starIcon}>★ </Text>
-              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+              <Text style={[styles.starIcon, isUnsalable && { color: '#6B7280' }]}>★ </Text>
+              <Text style={[styles.ratingText, isUnsalable && { color: '#6B7280' }]}>{item.rating.toFixed(1)}</Text>
             </View>
             <TouchableOpacity
               activeOpacity={0.7}
@@ -487,25 +553,42 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           {/* Center Product Graphic (Real extracted clean Figma photo) */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={handleAddToCart}
+            onPress={isUnsalable ? undefined : handleAddToCart}
             style={styles.cardImageCenter}
           >
             {item.image ? (
               <Image
                 source={item.image}
-                style={styles.productCardImage}
+                style={[
+                  styles.productCardImage,
+                  isUnsalable && { opacity: 0.6 }
+                ]}
                 resizeMode="contain"
               />
             ) : (
               <Text style={styles.productEmoji}>{item.emoji}</Text>
             )}
+
+            {/* Coming Tomorrow Badge (Exact Figma spec - Image 1) */}
+            {isComingTomorrow && (
+              <View style={styles.badgeComingTomorrow}>
+                <Text style={styles.badgeComingTomorrowText}>Coming tomorrow</Text>
+              </View>
+            )}
+
+            {/* Item Unsalable Badge (Exact Figma spec - Image 1) */}
+            {isUnsalable && (
+              <View style={styles.badgeUnsalable}>
+                <Text style={styles.badgeUnsalableText}>Item unsalable</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           {/* Bottom Pricing & Unit */}
           <View style={styles.cardPriceRow}>
-            <Text style={styles.priceBold}>₹ {item.price}</Text>
-            <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
-            <Text style={styles.unitText}>{item.unit}</Text>
+            <Text style={[styles.priceBold, isUnsalable && { color: '#4B5563' }]}>₹ {item.price}</Text>
+            <Text style={[styles.priceStrikethrough, isUnsalable && { color: '#6B7280' }]}>₹ {item.originalPrice}</Text>
+            <Text style={[styles.unitText, isUnsalable && { color: '#4B5563' }]}>{item.unit}</Text>
           </View>
         </View>
 
@@ -560,14 +643,73 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     </View>
   );
 
+  const stickyHeaderOpacity = scrollY.interpolate({
+    inputRange: [30, 80],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.container}>
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="light-content" />
 
-      <ScrollView
+      {/* ── STICKY COMPACT TOP NAVBAR (SHOWN ONLY WHEN SCROLLED DOWN - EXACT FIGMA SCREEN 25) ── */}
+      <Animated.View
+        style={[
+          styles.stickyHeaderContainer,
+          { opacity: stickyHeaderOpacity },
+        ]}
+        pointerEvents="box-none"
+      >
+        <View style={styles.stickyHeaderTopRow}>
+          {/* User profile avatar and location */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => onNavigate?.('CustomerAccount')}
+            style={styles.stickyProfileBtn}
+            accessibilityLabel="Open Profile"
+          >
+            <View style={styles.stickyAvatarCircle}>
+              <TopBarAvatarSvg color="#FFFFFF" size={18} />
+            </View>
+            <View style={styles.stickyProfileTexts}>
+              <Text style={styles.stickyUserName}>Hi, Meena</Text>
+              <Text style={styles.stickyUserLocation}>110, Coimbatore</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Right action circular buttons: Wallet & Wishlist */}
+          <View style={styles.stickyRightActions}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setShowWalletModal(true)}
+              style={styles.stickyCircleBtn}
+              accessibilityLabel="Wallet"
+            >
+              <TopBarWalletSvg color="#FFFFFF" size={18} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => onNavigate?.('Wishlist')}
+              style={styles.stickyCircleBtn}
+              accessibilityLabel="Wishlist"
+            >
+              <TopBarHeartSvg color="#FFFFFF" size={18} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Animated.View>
+
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
         {/* ── 1. TOP HEADER BANNER (390 x 290 HUG - EXACT FIGMA IMAGE 1) ─────── */}
         <View style={styles.bannerContainer}>
@@ -594,9 +736,9 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 />
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => onNavigate?.('Cart')}
+                  onPress={() => onNavigate?.('Wishlist')}
                   style={styles.circleTouchTarget}
-                  accessibilityLabel="Favorites"
+                  accessibilityLabel="Wishlist"
                 />
               </View>
             </View>
@@ -645,23 +787,43 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         {/* ── 3. FULL SCROLLABLE DASHBOARD SECTIONS (FIGMA EXACT FLOW) ──────── */}
         {!isLoadingBuffer && (
           <View style={styles.catalogSectionsWrap}>
-            {/* ── SECTION 2: WE'RE NOT IN YOUR AREA YET CARD ────────────────── */}
+            {/* ── SECTION 2: WE'RE NOT IN YOUR AREA YET CARD (FIGMA EXACT) ───── */}
             <View style={[styles.areaRequestCard, customerShadow.subtle]}>
               <View style={styles.areaRequestLeft}>
                 <Text style={styles.areaRequestTitle}>We're not in your area yet</Text>
                 <Text style={styles.areaRequestSubtitle}>
-                  Request your apartment and we'll let you know when we launch nearby.
+                  Request your apartment and we'll let you know when we lanuch nearby.
                 </Text>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => setShowRequestModal(true)}
-                  style={styles.requestNowButton}
-                >
-                  <Text style={styles.requestNowText}>Request now</Text>
-                </TouchableOpacity>
+                {hasRequestedArea ? (
+                  <View style={styles.requestDoneButton}>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Circle cx={12} cy={12} r={10} fill="#FFFFFF" />
+                      <Path
+                        d="M8 12.5l2.5 2.5 5.5-5.5"
+                        stroke="#00C853"
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                    <Text style={styles.requestDoneText}>We've got your request</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => setShowDoorstepModal(true)}
+                    style={styles.requestNowButton}
+                  >
+                    <Text style={styles.requestNowText}>Request now</Text>
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.areaRequestRight}>
-                <FlyingBagWithWingsSvg />
+                <Image
+                  source={flyingDeliveryBag}
+                  style={styles.areaRequestBagImage}
+                  resizeMode="contain"
+                />
               </View>
             </View>
 
@@ -705,7 +867,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             </View>
 
             {/* ── SECTION 5: "FOR YOU" CAROUSEL (390 x 210 HUG) ─────────────── */}
-            <View style={styles.sectionWrap}>
+            <View style={[styles.sectionWrap, styles.forYouSectionWrap]}>
               {renderSectionHeader('For you')}
               <ScrollView
                 horizontal
@@ -983,7 +1145,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
         {/* Extra bottom padding to ensure floating nav doesn't overlap content */}
         <View style={{ height: 120 }} />
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* ── FLOATING DYNAMIC NAVIGATION (EXACT FIGMA SPEC: 60 Hug x 246) ───── */}
       <CustomerFloatingNav
@@ -1005,7 +1167,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <View style={styles.profileHeaderText}>
                 <Text style={styles.profileName}>Meena</Text>
                 <Text style={styles.profilePhone}>+91 9090202033</Text>
-                <Text style={styles.profileAddress}>110, Rajeshwari Nagar, Coimbatore</Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setShowProfileModal(false);
+                    setDeliveryModalStep('delivery');
+                    setShowDeliveryModal(true);
+                  }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                >
+                  <Text style={styles.profileAddress}>{currentDeliveryAddress}</Text>
+                  <Text style={{ fontSize: 11, color: '#2E7D32' }}>✎</Text>
+                </TouchableOpacity>
               </View>
               <TouchableOpacity
                 onPress={() => setShowProfileModal(false)}
@@ -1069,31 +1242,83 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
         </View>
       </Modal>
 
-      {/* ── REQUEST APARTMENT MODAL ────────────────────────────────────────── */}
-      <Modal visible={showRequestModal} transparent={true} animationType="fade">
-        <View style={styles.modalBackdrop}>
-          <View style={styles.requestCard}>
-            <Text style={styles.requestTitle}>Request Your Area</Text>
-            <Text style={styles.requestDesc}>
-              Tell us your building or gated community name in Coimbatore. We prioritize launches based on demand!
+      {/* ── TELL US YOUR DOORSTEP MODAL (EXACT FIGMA SPEC: 300 x 242 HUG - IMAGE 1) ── */}
+      <Modal visible={showDoorstepModal} transparent={true} animationType="fade">
+        <View style={styles.doorstepModalBackdrop}>
+          <View style={styles.doorstepModalCard}>
+            {/* Top Right Circular Close Button (overlapping corner) */}
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => setShowDoorstepModal(false)}
+              style={styles.doorstepCloseBtn}
+              accessibilityLabel="Close"
+            >
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke="#2563EB"
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+
+            {/* Title in handwritten/comic editorial font */}
+            <Text style={styles.doorstepTitle}>Tell us your doorstep</Text>
+
+            {/* Subtitle */}
+            <Text style={styles.doorstepSubtitle}>
+              We're growing our delivery network. Tell us where you'd like to receive fresh farm produce.
             </Text>
+
+            {/* Input 1: Area / Locality */}
             <TextInput
-              style={styles.requestInput}
-              placeholder="e.g. Green Meadows, RS Puram"
+              style={styles.doorstepUnderlineInput}
+              placeholder="Area / Locality"
               placeholderTextColor="#9CA3AF"
-              value={apartmentName}
-              onChangeText={setApartmentName}
+              value={doorstepArea}
+              onChangeText={setDoorstepArea}
             />
+
+            {/* Input 2: City */}
+            <TextInput
+              style={[styles.doorstepUnderlineInput, { marginBottom: 20 }]}
+              placeholder="City"
+              placeholderTextColor="#9CA3AF"
+              value={doorstepCity}
+              onChangeText={setDoorstepCity}
+            />
+
+            {/* Submit Button */}
             <TouchableOpacity
               activeOpacity={0.85}
-              onPress={() => setShowRequestModal(false)}
-              style={styles.requestSubmitBtn}
+              onPress={() => {
+                setShowDoorstepModal(false);
+                setHasRequestedArea(true);
+              }}
+              style={styles.doorstepSubmitBtn}
             >
-              <Text style={styles.requestSubmitText}>Submit Request</Text>
+              <Text style={styles.doorstepSubmitText}>Submit</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
+      {/* ── DELIVERY ADDRESS FLOW (WHERE SHOULD WE DELIVER & ADD ADDRESS POPUP) ── */}
+      <CustomerDeliveryAddressModal
+        visible={showDeliveryModal}
+        initialStep={deliveryModalStep}
+        onClose={() => setShowDeliveryModal(false)}
+        onSaveAddress={handleSaveAddress}
+        onUseCurrentLocation={() => {
+          setCurrentDeliveryAddress('110, Rajeshwari Nagar, Coimbatore');
+          setShowDeliveryModal(false);
+        }}
+        onSelectManualLocation={() => {
+          setDeliveryModalStep('addAddress');
+        }}
+      />
     </View>
   );
 }
@@ -1108,6 +1333,79 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 110,
+  },
+
+  // ── STICKY COMPACT TOP NAVBAR (EXACT FIGMA SPEC: SCREEN 25) ─────────────
+  stickyHeaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'android' ? 96 : 94,
+    backgroundColor: '#131B14',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: 'hidden',
+    zIndex: 90,
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    paddingTop: Platform.OS === 'android' ? 24 : 34,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+  },
+  stickyHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 48,
+  },
+  stickyProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stickyAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  stickyProfileTexts: {
+    justifyContent: 'center',
+  },
+  stickyUserName: {
+    fontFamily: customerFonts.bold,
+    fontSize: 15,
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
+  },
+  stickyUserLocation: {
+    fontFamily: customerFonts.regular,
+    fontSize: 11,
+    color: '#A3B899',
+    marginTop: 1,
+  },
+  stickyRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  stickyCircleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.2,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── 1. TOP BANNER (390 x 290 HUG - FIGMA IMAGE 1) ─────────────────────────
@@ -1125,7 +1423,11 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   bannerOverlay: {
-    ...StyleSheet.absoluteFill,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     justifyContent: 'space-between',
     paddingTop: Platform.OS === 'android' ? 16 : 8,
     paddingHorizontal: 16,
@@ -1213,18 +1515,20 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
 
-  // Section 2: "We're not in your area yet" Card
+  // Section 2: "We're not in your area yet" Card (Exact Figma Spec)
   areaRequestCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    padding: 18,
+    marginTop: 14,
+    marginBottom: 20,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#F3F4F6',
-    marginBottom: 20,
   },
   areaRequestLeft: {
     flex: 1,
@@ -1245,7 +1549,7 @@ const styles = StyleSheet.create({
   },
   requestNowButton: {
     alignSelf: 'flex-start',
-    backgroundColor: '#164E2E',
+    backgroundColor: '#1E3D29',
     paddingHorizontal: 18,
     paddingVertical: 8,
     borderRadius: 20,
@@ -1255,14 +1559,39 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
   },
+  requestDoneButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    backgroundColor: '#00C853',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  requestDoneText: {
+    fontFamily: customerFonts.bold,
+    fontSize: 12,
+    color: '#FFFFFF',
+  },
   areaRequestRight: {
-    width: 80,
+    width: 94,
+    height: 88,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  areaRequestBagImage: {
+    width: 90,
+    height: 84,
   },
 
   // Section 3: "Fresh Finds for You" Category Circles
   sectionWrap: {
+    marginBottom: 24,
+  },
+  forYouSectionWrap: {
+    backgroundColor: '#FFFBF2',
+    paddingVertical: 14,
     marginBottom: 24,
   },
   sectionHeaderWrap: {
@@ -1272,7 +1601,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
     marginBottom: 12,
-    minHeight: 38,
+    minHeight: 44,
   },
   sectionEditorialTitle: {
     fontFamily: customerFonts.editorial,
@@ -1282,18 +1611,18 @@ const styles = StyleSheet.create({
   },
   floatingDecoBadge: {
     position: 'absolute',
-    top: -6,
+    top: -20,
     zIndex: 2,
   },
   floatLeft: {
-    left: 16,
+    left: 4,
   },
   floatRight: {
-    right: 16,
+    right: 4,
   },
   floatingDecoImage: {
-    width: 44,
-    height: 44,
+    width: 82,
+    height: 86,
   },
   categoryCirclesRow: {
     paddingHorizontal: 16,
@@ -1304,9 +1633,9 @@ const styles = StyleSheet.create({
     width: 72,
   },
   categoryCircleOuter: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -1321,15 +1650,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   categoryCircleImg: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
   },
   categoryCircleEmoji: {
     fontSize: 32,
   },
   categoryCircleLabel: {
-    fontFamily: customerFonts.semibold,
+    fontFamily: customerFonts.regular,
     fontSize: 12,
     color: '#374151',
     textAlign: 'center',
@@ -1361,7 +1690,7 @@ const styles = StyleSheet.create({
     width: 142,
     height: 168,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 10,
     borderWidth: 1,
     borderColor: '#F3F4F6',
@@ -1372,14 +1701,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
+  cardComingTomorrow: {
+    backgroundColor: '#A8C4A7',
+    borderColor: '#97B896',
+  },
+  cardUnsalable: {
+    backgroundColor: '#D1D5DB',
+    borderColor: '#CBD5E1',
+  },
+  badgeComingTomorrow: {
+    position: 'absolute',
+    backgroundColor: '#2D6A4F',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    alignSelf: 'center',
+    zIndex: 5,
+  },
+  badgeComingTomorrowText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: customerFonts.regular,
+  },
+  badgeUnsalable: {
+    position: 'absolute',
+    backgroundColor: 'rgba(75, 85, 99, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    alignSelf: 'center',
+    zIndex: 5,
+  },
+  badgeUnsalableText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontFamily: customerFonts.regular,
+  },
   comingSoonCard: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#F9FAFB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   comingSoonImage: {
-    width: 110,
-    height: 124,
+    width: 114,
+    height: 128,
   },
   cardHeaderRow: {
     flexDirection: 'row',
@@ -1389,10 +1754,11 @@ const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
   },
   starIcon: {
-    fontSize: 10,
+    fontSize: 11,
+    color: '#F59E0B',
   },
   ratingText: {
     fontFamily: customerFonts.bold,
@@ -1403,13 +1769,13 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   cardImageCenter: {
-    height: 78,
+    height: 82,
     alignItems: 'center',
     justifyContent: 'center',
   },
   productCardImage: {
-    width: 96,
-    height: 72,
+    width: 104,
+    height: 80,
   },
   productEmoji: {
     fontSize: 48,
@@ -1417,12 +1783,13 @@ const styles = StyleSheet.create({
   cardPriceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
+    justifyContent: 'flex-start',
   },
   priceBold: {
     fontFamily: customerFonts.bold,
-    fontSize: 14,
+    fontSize: 13,
     color: '#111827',
-    marginRight: 4,
+    marginRight: 6,
   },
   priceStrikethrough: {
     fontFamily: customerFonts.regular,
@@ -1437,9 +1804,9 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   cardProductName: {
-    fontFamily: customerFonts.semibold,
+    fontFamily: customerFonts.regular,
     fontSize: 12,
-    color: '#1F2937',
+    color: '#374151',
     marginTop: 6,
     textAlign: 'center',
     width: 140,
@@ -1458,6 +1825,7 @@ const styles = StyleSheet.create({
     padding: 24,
     marginTop: 20,
     marginBottom: 20,
+    justifyContent: 'space-between',
     elevation: 2,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -1467,7 +1835,7 @@ const styles = StyleSheet.create({
   footerLogoRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   footerLogoImage: {
     width: 125,
@@ -1486,7 +1854,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 23,
     color: '#4B5563',
-    marginTop: 10,
     textAlign: 'left',
   },
 
@@ -1630,46 +1997,83 @@ const styles = StyleSheet.create({
     fontFamily: customerFonts.bold,
     fontSize: 14,
   },
-  requestCard: {
+  // ── TELL US YOUR DOORSTEP MODAL (EXACT FIGMA SPEC: 300 x 242 HUG - IMAGE 1)
+  doorstepModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  doorstepModalCard: {
+    width: 300,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    marginHorizontal: 24,
-    marginBottom: 180,
-    padding: 22,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 22,
+    position: 'relative',
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
   },
-  requestTitle: {
+  doorstepCloseBtn: {
+    position: 'absolute',
+    top: -12,
+    right: -12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+  doorstepTitle: {
     fontFamily: customerFonts.editorial,
-    fontSize: 22,
+    fontSize: 20,
     color: '#1F2937',
+    textAlign: 'center',
     marginBottom: 6,
   },
-  requestDesc: {
+  doorstepSubtitle: {
     fontFamily: customerFonts.regular,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 11,
+    lineHeight: 16,
     color: '#6B7280',
+    textAlign: 'center',
     marginBottom: 16,
+    paddingHorizontal: 6,
   },
-  requestInput: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontFamily: customerFonts.regular,
+  doorstepUnderlineInput: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingVertical: 6,
+    fontSize: 13,
     color: '#1F2937',
-    marginBottom: 16,
+    fontFamily: customerFonts.regular,
+    marginBottom: 10,
   },
-  requestSubmitBtn: {
-    backgroundColor: customerColors.brand,
-    paddingVertical: 12,
-    borderRadius: 12,
+  doorstepSubmitBtn: {
+    height: 44,
+    backgroundColor: '#2D6A4F',
+    borderRadius: 22,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  requestSubmitText: {
-    color: '#FFFFFF',
+  doorstepSubmitText: {
     fontFamily: customerFonts.bold,
     fontSize: 14,
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 });

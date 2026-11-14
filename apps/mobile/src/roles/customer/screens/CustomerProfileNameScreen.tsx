@@ -101,8 +101,6 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-
-      <View style={styles.homeIndicator} />
     </View>
   );
 };

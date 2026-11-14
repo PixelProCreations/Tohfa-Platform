@@ -290,7 +290,7 @@ export const customerShadow = {
     elevation: 0,
   },
 
-  /** Level 0.5: Subtle card shadow. */
+  /** Level 0.5: Subtle card elevation */
   subtle: {
     shadowColor: customerPrimitives.green900,
     shadowOffset: { width: 0, height: 2 },

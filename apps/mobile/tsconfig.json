@@ -23,6 +23,10 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
 
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
     "types": ["react"],
     "baseUrl": ".",
     "paths": {
@@ -34,6 +38,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "src/**/*.d.ts",
     "index.js"
   ],
   "exclude": ["node_modules", "android", "ios"]
