@@ -38,7 +38,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Top Header: 3-Segment Progress Bar + Skip */}
       <View style={styles.headerRow}>
@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: customerSpacing[24],
-    paddingTop: 48,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 16,
     gap: 16,
   },

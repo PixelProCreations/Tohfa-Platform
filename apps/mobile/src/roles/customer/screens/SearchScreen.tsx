@@ -9,6 +9,7 @@ import {
   TextInput,
   StatusBar,
   Dimensions,
+  Platform,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { customerColors, customerFonts, customerShadow } from '../theme';
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   resultsScrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 24,
     paddingBottom: 110,
   },
   resultsTitle: {
@@ -426,7 +427,7 @@ const styles = StyleSheet.create({
   // ── 2. RECENT SEARCHES ────────────────────────────────────────────────────
   recentWrap: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 24,
   },
   recentTitle: {
     fontFamily: customerFonts.editorial,
@@ -472,7 +473,7 @@ const styles = StyleSheet.create({
 
   // ── 3. INITIAL SEARCH (FRESH FINDS FOR YOU) ───────────────────────────────
   initialWrap: {
-    paddingTop: 24,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 24,
   },
   freshFindsTitle: {
     fontFamily: customerFonts.editorial,

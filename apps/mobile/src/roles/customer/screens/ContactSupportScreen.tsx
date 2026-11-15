@@ -9,6 +9,8 @@ import {
   Image,
   Modal,
   Alert,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import { customerColors } from '../theme';
@@ -416,7 +418,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 18,
     paddingBottom: 48,
   },
 

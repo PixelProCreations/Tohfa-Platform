@@ -223,6 +223,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
       <View style={styles.headerRow}>
         <View style={styles.headerLeftGroup}>

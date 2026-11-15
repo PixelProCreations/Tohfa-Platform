@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import { useCart } from '../api/cart';
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 16,
     gap: 16,
     borderBottomWidth: 1,

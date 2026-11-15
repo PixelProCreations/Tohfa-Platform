@@ -76,7 +76,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
   return (
     <View style={styles.container}>
       {/* Hide status bar symbols across customer onboarding flow */}
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── SCREEN 1: CUSTOMER SPLASH ────────────────────────────────────────── */}
       {isSplash && (

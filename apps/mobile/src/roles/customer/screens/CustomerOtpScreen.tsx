@@ -92,7 +92,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="dark-content" />
 
       {/* Decorative leaf branch top-left */}
       <Image

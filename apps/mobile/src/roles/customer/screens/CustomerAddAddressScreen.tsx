@@ -143,7 +143,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
 
   return (
     <View style={styles.container}>
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── TOP HEADER BAR: ← Add Address ──────────────────────────────────── */}
       <View style={styles.headerBar}>
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: customerSpacing[20],
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 14,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,

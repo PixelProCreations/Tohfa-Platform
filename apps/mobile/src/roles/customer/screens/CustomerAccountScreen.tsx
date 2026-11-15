@@ -579,11 +579,11 @@ const styles = StyleSheet.create({
   // ── BANNER STYLES ──────────────────────────────────────────────────────────
   bannerWrapper: {
     width: '100%',
-    height: 230,
+    height: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 195 : 230,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     overflow: 'hidden',
-    paddingTop: Platform.OS === 'android' ? 36 : 14,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 14,
     paddingHorizontal: customerSpacing.base,
     paddingBottom: customerSpacing.base,
     justifyContent: 'space-between',

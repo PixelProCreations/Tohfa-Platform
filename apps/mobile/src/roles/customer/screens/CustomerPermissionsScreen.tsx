@@ -182,7 +182,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
   return (
     <View style={styles.container}>
       {/* Edge-to-edge pure white, status bar hidden */}
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── TOP BAR: (X) ON LEFT, SKIP ON RIGHT ───────────────────────────── */}
       <View style={styles.topBar}>
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: customerSpacing[24],
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 8,
     zIndex: 10,
   },

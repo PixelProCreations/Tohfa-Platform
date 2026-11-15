@@ -10,6 +10,7 @@ import {
   Modal,
   Alert,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from '@tohfa/mobile-ui';
 import Svg, { Path, Rect } from 'react-native-svg';
@@ -416,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',

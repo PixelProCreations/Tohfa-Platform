@@ -1352,7 +1352,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
-    paddingTop: Platform.OS === 'android' ? 24 : 34,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 34,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
@@ -1411,7 +1411,7 @@ const styles = StyleSheet.create({
   // ── 1. TOP BANNER (390 x 290 HUG - FIGMA IMAGE 1) ─────────────────────────
   bannerContainer: {
     width: '100%',
-    height: 290,
+    height: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 265 : 290,
     position: 'relative',
     backgroundColor: '#0F172A',
     borderBottomLeftRadius: 28,
@@ -1429,7 +1429,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'android' ? 16 : 8,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 8 : 8,
     paddingHorizontal: 16,
     paddingBottom: 18,
   },

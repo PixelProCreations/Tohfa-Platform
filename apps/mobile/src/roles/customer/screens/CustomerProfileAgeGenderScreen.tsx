@@ -45,7 +45,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
   return (
     <View style={styles.container}>
       {/* Hide status bar symbols, edge-to-edge pure white */}
-      <StatusBar hidden={true} />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── TOP HEADER: 3-SEGMENT PROGRESS (Green / Green / Grey) + SKIP ── */}
       <View style={styles.headerRow}>
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: customerSpacing[24],
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 16,
   },
   progressSegmentsWrap: {

@@ -9,6 +9,7 @@ import {
   TextInput,
   StatusBar,
   Dimensions,
+  Platform,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { customerColors, customerFonts, customerShadow } from '../theme';
@@ -229,7 +230,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
     paddingBottom: 12,
     gap: 16,
   },

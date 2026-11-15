@@ -1249,7 +1249,7 @@ export default function App(): React.JSX.Element {
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
     <View style={[styles.screen, isAuthLanding && styles.screenSplash]}>
       <StatusBar
-        hidden={isCustomerScreen}
+        hidden={false}
         barStyle={isCustomerScreen ? 'dark-content' : 'light-content'}
       />
       {/* Android draws edge-to-edge since RN 0.88: reserve the status bar's
