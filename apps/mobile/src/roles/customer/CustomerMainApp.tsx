@@ -10,6 +10,9 @@ import { ProductDetailScreen } from './screens/ProductDetailScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { CartScreen } from './screens/CartScreen';
 import { CheckoutScreen } from './screens/CheckoutScreen';
+import { ChooseBankScreen } from './screens/ChooseBankScreen';
+import { CustomerAddAddressScreen } from './screens/CustomerAddAddressScreen';
+import { CustomerLoadingMarketScreen } from './screens/CustomerLoadingMarketScreen';
 import { TopupScreen } from './screens/TopupScreen';
 import { OrderTrackingScreen } from './screens/OrderTrackingScreen';
 import { OrderHistoryScreen } from './screens/OrderHistoryScreen';
@@ -52,6 +55,9 @@ type ScreenName =
   | 'Cart'
   | 'Wishlist'
   | 'Checkout'
+  | 'ChooseBank'
+  | 'CustomerAddAddress'
+  | 'CustomerLoadingMarket'
   | 'Topup'
   | 'OrderTracking'
   | 'OrderHistory'
@@ -72,6 +78,7 @@ type ScreenName =
 interface NavigationParams {
   categoryId?: string | undefined;
   productId?: string | undefined;
+  product?: any;
   shortfall?: string | undefined;
   orderId?: string | undefined;
   mode?: 'empty' | 'view' | 'edit' | undefined;
@@ -82,6 +89,13 @@ interface NavigationParams {
   issueTypeLabel?: string | undefined;
   submittedOn?: string | undefined;
   initialTab?: RelatedCategory | undefined;
+  selectedBank?: string | null | undefined;
+  addressSource?: string | undefined;
+  paymentMethod?: string | undefined;
+  autoProceed?: boolean | undefined;
+  total?: number | undefined;
+  itemsCount?: number | undefined;
+  [key: string]: any;
 }
 
 interface CustomerStackEntry {
@@ -102,17 +116,18 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
         onSignOut();
         return;
       }
-      if (screen === currentScreen) {
+      const targetScreen = (screen === 'CustomerMain' ? 'Home' : screen) as ScreenName;
+      if (targetScreen === currentScreen) {
         if (params) setNavParams(params);
         return;
       }
-      if (screen === 'Home') {
+      if (targetScreen === 'Home') {
         setHistory([]);
       } else {
         setHistory((prev) => [...prev, { screen: currentScreen, params: navParams }]);
       }
       if (params) setNavParams(params);
-      setCurrentScreen(screen as ScreenName);
+      setCurrentScreen(targetScreen);
     },
     [currentScreen, navParams, onSignOut],
   );
@@ -164,7 +179,12 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           {currentScreen === 'ProductGrid' && !navParams.categoryId && <ProductGridScreen />}
 
           {currentScreen === 'ProductDetail' && (
-            <ProductDetailScreen productId={navParams.productId || ''} />
+            <ProductDetailScreen
+              productId={navParams.productId || ''}
+              product={navParams.product}
+              onGoBack={goBack}
+              onNavigate={(s, p) => navigate(s, p)}
+            />
           )}
 
           {currentScreen === 'Search' && (
@@ -172,7 +192,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'Cart' && (
-            <CartScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
+            <CartScreen onNavigate={(s, p) => navigate(s, p)} onGoBack={goBack} />
           )}
 
           {currentScreen === 'Wishlist' && (
@@ -180,7 +200,48 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'Checkout' && (
-            <CheckoutScreen onNavigate={(s, p) => navigate(s, p)} />
+            <CheckoutScreen onNavigate={(s, p) => navigate(s, p)} onGoBack={goBack} params={navParams} />
+          )}
+
+          {currentScreen === 'ChooseBank' && (
+            <ChooseBankScreen
+              selectedBank={(navParams.selectedBank as string) || null}
+              onSelectBank={(bankName) => {
+                navigate('Checkout', { ...navParams, selectedBank: bankName, paymentMethod: 'netbanking' });
+              }}
+              onProceed={(bankName) => {
+                navigate('Checkout', {
+                  ...navParams,
+                  selectedBank: bankName,
+                  paymentMethod: 'netbanking',
+                  autoProceed: true,
+                });
+              }}
+              onBack={goBack}
+            />
+          )}
+
+          {currentScreen === 'CustomerAddAddress' && (
+            <CustomerAddAddressScreen
+              initialSource={(navParams.addressSource as 'current' | 'manual') || 'current'}
+              onNavigate={(screen) => {
+                if (screen === 'CustomerLoadingMarket') {
+                  navigate('CustomerLoadingMarket');
+                } else if (screen === 'CustomerMain' || screen === 'CustomerPermissions') {
+                  navigate('Home');
+                } else {
+                  goBack();
+                }
+              }}
+            />
+          )}
+
+          {currentScreen === 'CustomerLoadingMarket' && (
+            <CustomerLoadingMarketScreen
+              onNavigate={() => {
+                navigate('Home');
+              }}
+            />
           )}
 
           {currentScreen === 'Topup' && (
@@ -188,7 +249,12 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'OrderTracking' && (
-            <OrderTrackingScreen orderId={navParams.orderId} onNavigate={(s, p) => navigate(s, p)} />
+            <OrderTrackingScreen
+              orderId={navParams.orderId}
+              order={navParams.order}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
           )}
 
           {currentScreen === 'OrderHistory' && (

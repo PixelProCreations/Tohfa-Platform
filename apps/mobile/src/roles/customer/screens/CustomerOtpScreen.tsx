@@ -41,7 +41,7 @@ const GreenFloatingLeaf = () => (
 
 interface CustomerOtpScreenProps {
   mobile?: string;
-  onNavigate: (screen: 'CustomerProfileName' | 'CustomerLogin', params?: { mobile?: string }) => void;
+  onNavigate: (screen: 'CustomerProfileName' | 'CustomerLogin' | 'CustomerMain' | string, params?: { mobile?: string }) => void;
 }
 
 export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
@@ -81,13 +81,13 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
   };
 
   const handleNext = () => {
-    // Show the "Phone number Verified!" dialog matching Figma design
-    setShowVerifiedModal(true);
+    // Navigate directly to CustomerMain post-verification to enter the customer store flow
+    onNavigate('CustomerMain', { mobile });
   };
 
   const handleContinue = () => {
     setShowVerifiedModal(false);
-    onNavigate('CustomerProfileName', { mobile });
+    onNavigate('CustomerMain', { mobile });
   };
 
   return (

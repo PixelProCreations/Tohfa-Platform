@@ -19,7 +19,7 @@ const baseOptions: RedisOptions = {
   lazyConnect: config.isTest,
   enableReadyCheck: true,
   connectTimeout: 5_000,
-  retryStrategy: (attempt: number) => Math.min(attempt * 200, 5_000),
+  retryStrategy: (attempt: number) => Math.min(attempt * 1000, 10_000),
 };
 
 export const redis = new Redis(config.REDIS_URL, {
@@ -33,12 +33,32 @@ export const queueRedis = new Redis(config.REDIS_URL, {
   maxRetriesPerRequest: null,
 });
 
+const lastLoggedError = new Map<string, number>();
+
 for (const [name, client] of [
   ['redis', redis],
   ['queueRedis', queueRedis],
 ] as const) {
   client.on('error', (error: Error) => {
-    logger.error({ err: error, client: name }, 'redis client error');
+    const now = Date.now();
+    const last = lastLoggedError.get(name) || 0;
+    // In development, avoid flooding the terminal with endless ECONNREFUSED logs
+    if (now - last > 60_000) {
+      lastLoggedError.set(name, now);
+      if (!config.isProduction && !config.isTest) {
+        logger.warn(
+          { client: name, url: config.REDIS_URL },
+          `Redis is not reachable at ${config.REDIS_URL} (${error.message || 'ECONNREFUSED'}). Rate limiting and token invalidation fail open; background queues are paused.`,
+        );
+      } else {
+        logger.error({ err: error, client: name }, 'redis client error');
+      }
+    }
+  });
+
+  client.on('connect', () => {
+    logger.info({ client: name }, 'Redis connected successfully');
+    lastLoggedError.delete(name);
   });
 }
 

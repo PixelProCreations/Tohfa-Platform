@@ -439,11 +439,24 @@ const CATEGORY_CIRCLES: CategoryCircleItem[] = [
   { id: 'c18', label: 'Flowers', image: CategoryImages.flowers, emoji: '🌸' },
 ];
 
+import {
+  ProductDetailsModal,
+  RatingsReviewsModal,
+  FullProductDetailsModal,
+  CartToast,
+  ModalCloseCrossSvg,
+  type ProductModalData,
+  type VarietyItem,
+} from './ProductModals';
+import { orderStore } from '../state/orderState';
+
 export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [isLoadingBuffer, setIsLoadingBuffer] = useState(true);
   const [activeTab, setActiveTab] = useState<CustomerActiveTab>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [cartCount, setCartCount] = useState(2);
+  const [cartTotal, setCartTotal] = useState(312.0);
+  const [showToast, setShowToast] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -464,9 +477,22 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     }
     setShowDeliveryModal(false);
   };
+  const [selectedProductForModal, setSelectedProductForModal] = useState<ProductModalData | null>(null);
+  const [selectedProductForReviews, setSelectedProductForReviews] = useState<ProductModalData | null>(null);
+  const [fullDetailProduct, setFullDetailProduct] = useState<{
+    variety: VarietyItem;
+    parent: ProductModalData;
+  } | null>(null);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim = useRef(new Animated.Value(1)).current;
+  const [, setOrderStoreTick] = useState(0);
+
+  useEffect(() => {
+    return orderStore.subscribe(() => {
+      setOrderStoreTick(t => t + 1);
+    });
+  }, []);
 
   useEffect(() => {
     Animated.loop(
@@ -524,22 +550,30 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     const isComingTomorrow = item.status === 'comingTomorrow';
     const isUnsalable = item.status === 'unsalable';
 
+    const isOrdered = orderStore.isOrdered(item.name);
     return (
       <View key={item.id} style={styles.productCardContainer}>
-        <View
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setSelectedProductForModal(item)}
           style={[
             styles.productCard,
             customerShadow.subtle,
+            isOrdered && styles.productCardOrdered,
             isComingTomorrow && styles.cardComingTomorrow,
             isUnsalable && styles.cardUnsalable,
           ]}
         >
           {/* Top Card Row: Star Rating on Left, Heart on Right */}
           <View style={styles.cardHeaderRow}>
-            <View style={styles.ratingBadge}>
-              <Text style={[styles.starIcon, isUnsalable && { color: '#6B7280' }]}>★ </Text>
-              <Text style={[styles.ratingText, isUnsalable && { color: '#6B7280' }]}>{item.rating.toFixed(1)}</Text>
-            </View>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => setSelectedProductForReviews(item)}
+              style={styles.ratingBadge}
+            >
+              <Text style={styles.starIcon}>★ </Text>
+              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => toggleFavorite(item.id)}
@@ -551,11 +585,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           </View>
 
           {/* Center Product Graphic (Real extracted clean Figma photo) */}
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={isUnsalable ? undefined : handleAddToCart}
-            style={styles.cardImageCenter}
-          >
+          <View style={styles.cardImageCenter}>
             {item.image ? (
               <Image
                 source={item.image}
@@ -569,20 +599,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <Text style={styles.productEmoji}>{item.emoji}</Text>
             )}
 
-            {/* Coming Tomorrow Badge (Exact Figma spec - Image 1) */}
-            {isComingTomorrow && (
-              <View style={styles.badgeComingTomorrow}>
-                <Text style={styles.badgeComingTomorrowText}>Coming tomorrow</Text>
+            {/* Exact "Coming tomorrow" Badge over product image (Matching User Image 4) */}
+            {isOrdered && (
+              <View style={styles.comingTomorrowBadge}>
+                <Text style={styles.comingTomorrowText}>Coming tomorrow</Text>
               </View>
             )}
-
-            {/* Item Unsalable Badge (Exact Figma spec - Image 1) */}
-            {isUnsalable && (
-              <View style={styles.badgeUnsalable}>
-                <Text style={styles.badgeUnsalableText}>Item unsalable</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          </View>
 
           {/* Bottom Pricing & Unit */}
           <View style={styles.cardPriceRow}>
@@ -590,12 +613,17 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <Text style={[styles.priceStrikethrough, isUnsalable && { color: '#6B7280' }]}>₹ {item.originalPrice}</Text>
             <Text style={[styles.unitText, isUnsalable && { color: '#4B5563' }]}>{item.unit}</Text>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Product Name placed OUTSIDE below the card */}
-        <Text style={styles.cardProductName} numberOfLines={1}>
-          {item.name}
-        </Text>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setSelectedProductForModal(item)}
+        >
+          <Text style={styles.cardProductName} numberOfLines={1}>
+            {item.name}
+          </Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -1160,6 +1188,14 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       <Modal visible={showProfileModal} transparent={true} animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.profileCard}>
+            <TouchableOpacity
+              style={styles.floatingModalCloseBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowProfileModal(false)}
+              accessibilityLabel="Close"
+            >
+              <ModalCloseCrossSvg size={13} color="#1F2937" />
+            </TouchableOpacity>
             <View style={styles.profileHeader}>
               <View style={styles.profileAvatarLarge}>
                 <Text style={styles.profileAvatarText}>M</Text>
@@ -1167,18 +1203,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <View style={styles.profileHeaderText}>
                 <Text style={styles.profileName}>Meena</Text>
                 <Text style={styles.profilePhone}>+91 9090202033</Text>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setShowProfileModal(false);
-                    setDeliveryModalStep('delivery');
-                    setShowDeliveryModal(true);
-                  }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-                >
-                  <Text style={styles.profileAddress}>{currentDeliveryAddress}</Text>
-                  <Text style={{ fontSize: 11, color: '#2E7D32' }}>✎</Text>
-                </TouchableOpacity>
+                <Text style={styles.profileAddress}>110, Rajeshwari Nagar, Coimbatore</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setShowProfileModal(false)}
@@ -1228,6 +1253,14 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       <Modal visible={showWalletModal} transparent={true} animationType="fade">
         <View style={styles.modalBackdrop}>
           <View style={styles.walletCard}>
+            <TouchableOpacity
+              style={styles.floatingModalCloseBtn}
+              activeOpacity={0.8}
+              onPress={() => setShowWalletModal(false)}
+              accessibilityLabel="Close"
+            >
+              <ModalCloseCrossSvg size={13} color="#1F2937" />
+            </TouchableOpacity>
             <Text style={styles.walletTitle}>TOHFA Fresh Wallet</Text>
             <Text style={styles.walletBalance}>₹1,250.00</Text>
             <Text style={styles.walletSubtitle}>Available balance for 1-click organic checkout</Text>
@@ -1304,6 +1337,78 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           </View>
         </View>
       </Modal>
+
+      {/* ── PRODUCT DETAILS MODAL (Varieties / Simple Stepper Modal) ──────── */}
+      <ProductDetailsModal
+        visible={!!selectedProductForModal}
+        product={selectedProductForModal}
+        onClose={() => setSelectedProductForModal(null)}
+        onSelectVarietyProduct={(variety, parent) => {
+          setSelectedProductForModal(null);
+          onNavigate?.('ProductDetail', {
+            productId: variety?.id || parent?.id || 'prod_1',
+            product: {
+              ...parent,
+              ...variety,
+              id: variety?.id || parent?.id,
+              name: variety?.name
+                ? (parent?.name?.toLowerCase().includes('apple') ? 'Royal gala Applie' : variety.name)
+                : parent?.name,
+              price: variety?.price || parent?.price,
+              image: variety?.image || parent?.image,
+            },
+          });
+        }}
+        onAddToCart={(_item, qty, priceTotal) => {
+          setCartCount(prev => prev + (qty || 1));
+          if (priceTotal) {
+            setCartTotal(prev => prev + priceTotal);
+          }
+          setShowToast(true);
+        }}
+      />
+
+      {/* ── FULL PRODUCT DETAILS MODAL (Screen 3 & 4 with info & reviews) ──── */}
+      <FullProductDetailsModal
+        visible={!!fullDetailProduct}
+        product={fullDetailProduct?.variety || null}
+        parentProduct={fullDetailProduct?.parent || null}
+        onClose={() => setFullDetailProduct(null)}
+        onAddToCart={(_item, qty) => {
+          setCartCount(prev => prev + (qty || 1));
+          setShowToast(true);
+        }}
+        onBuyNow={(_item, qty) => {
+          setFullDetailProduct(null);
+          onNavigate?.('Checkout', { total: _item?.price || 120, itemsCount: qty || 1 });
+        }}
+        onOpenCart={() => {
+          setFullDetailProduct(null);
+          onNavigate?.('Cart');
+        }}
+      />
+
+      {/* ── RATINGS & REVIEWS MODAL (Reviews popup from card star badge) ─────── */}
+      <RatingsReviewsModal
+        visible={!!selectedProductForReviews}
+        product={selectedProductForReviews}
+        onClose={() => setSelectedProductForReviews(null)}
+        onWriteReview={() => {
+          setSelectedProductForReviews(null);
+          onNavigate?.('ReviewFeedback');
+        }}
+      />
+
+      {/* ── FLOATING CART TOAST (Screen 5) ─────────────────────────────────── */}
+      <CartToast
+        visible={showToast}
+        itemCount={cartCount}
+        totalPrice={cartTotal}
+        onViewCart={() => {
+          setShowToast(false);
+          onNavigate?.('Cart');
+        }}
+      />
 
       {/* ── DELIVERY ADDRESS FLOW (WHERE SHOULD WE DELIVER & ADD ADDRESS POPUP) ── */}
       <CustomerDeliveryAddressModal
@@ -1429,7 +1534,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     justifyContent: 'space-between',
-    paddingTop: Platform.OS === 'android' ? 16 : 8,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 28) + 8 : 8,
     paddingHorizontal: 16,
     paddingBottom: 18,
   },
@@ -1701,6 +1806,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
+  // Green shaded background for ordered products (Exact Image 4)
+  productCardOrdered: {
+    backgroundColor: '#A8D5BA',
+    borderColor: '#7CB992',
+  },
+  comingTomorrowBadge: {
+    position: 'absolute',
+    zIndex: 10,
+    backgroundColor: '#1E7E34',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  comingTomorrowText: {
+    color: '#FFFFFF',
+    fontSize: 10.5,
+    fontWeight: '700',
+    fontFamily: customerFonts.bold,
+  },
   cardComingTomorrow: {
     backgroundColor: '#A8C4A7',
     borderColor: '#97B896',
@@ -1868,6 +1999,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
+    position: 'relative',
+    overflow: 'visible',
   },
   profileHeader: {
     flexDirection: 'row',
@@ -1959,6 +2092,25 @@ const styles = StyleSheet.create({
   profileSignOutBtn: {
     backgroundColor: '#FEE2E2',
   },
+  floatingModalCloseBtn: {
+    position: 'absolute',
+    top: -14,
+    right: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 20,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+  },
   walletCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -1966,6 +2118,8 @@ const styles = StyleSheet.create({
     marginBottom: 200,
     padding: 24,
     alignItems: 'center',
+    position: 'relative',
+    overflow: 'visible',
   },
   walletTitle: {
     fontFamily: customerFonts.editorial,
