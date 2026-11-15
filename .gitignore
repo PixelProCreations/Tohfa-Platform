@@ -35,6 +35,7 @@ apps/*/android/app/src/main/res/values/strings.xml
 apps/*/ios/build/
 apps/*/ios/Pods/
 *.keystore
+*.bundle
 
 
 
