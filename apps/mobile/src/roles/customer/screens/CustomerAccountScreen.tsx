@@ -453,43 +453,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           </TouchableOpacity>
           <View style={styles.divider} />
 
-          {/* Row 5: Returns */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('ReturnOrder')}
-            style={styles.menuItem}
-            accessibilityLabel="Returns"
-          >
-            <View style={styles.menuIconBox}>
-              <ReturnsSvg color={customerColors.heading} size={20} />
-            </View>
-            <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Returns</Text>
-              <Text style={styles.menuItemSubtitle}>Request item returns, track return status</Text>
-            </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-
-          {/* Row 6: Review & Feedback */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('ReviewFeedback')}
-            style={styles.menuItem}
-            accessibilityLabel="Review & Feedback"
-          >
-            <View style={styles.menuIconBox}>
-              <StarSvg color={customerColors.heading} size={20} />
-            </View>
-            <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Review & Feedback</Text>
-              <Text style={styles.menuItemSubtitle}>Share your experience and product feedback</Text>
-            </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
-
-          {/* Row 6: Help & FAQs */}
+          {/* Row 5: Help & FAQs */}
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerHelp')}
@@ -532,26 +496,10 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             style={styles.footerLogo}
             resizeMode="contain"
           />
-          <Text style={styles.footerCopyright}>
-            © 2026 TOHFA Market. All rights reserved. App Version 1.0.0
-          </Text>
         </View>
 
-        {/* Bottom spacing for floating button */}
-        <View style={{ height: 80 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
-
-      {/* ── FLOATING ACTIVE PROFILE BUTTON (EXACT FIGMA SPEC) ────────────────── */}
-      <View style={styles.floatingButtonWrap} pointerEvents="box-none">
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => onNavigate?.('CustomerProfile')}
-          style={[styles.floatingProfileButton, customerShadow.raised]}
-          accessibilityLabel="Active Profile"
-        >
-          <ProfileBadgeSvg color="#FFFFFF" size={26} />
-        </TouchableOpacity>
-      </View>
 
       {/* ── LOGOUT CONFIRMATION MODAL (EXACT FIGMA SPEC) ────────────────────── */}
       <Modal
