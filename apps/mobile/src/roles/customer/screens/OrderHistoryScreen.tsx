@@ -173,7 +173,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
             <TouchableOpacity
               key={item.id}
               activeOpacity={0.7}
-              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber })}
+              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber, order: item })}
               style={styles.orderRow}
               accessibilityLabel={item.title}
             >
@@ -200,7 +200,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
             <TouchableOpacity
               key={item.id}
               activeOpacity={0.7}
-              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber })}
+              onPress={() => onNavigate?.('OrderTracking', { orderId: item.orderNumber, order: item })}
               style={styles.orderRow}
               accessibilityLabel={item.title}
             >

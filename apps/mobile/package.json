@@ -33,6 +33,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@parcel/watcher": "^2.6.0",
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native-community/cli-platform-ios": "20.2.0",

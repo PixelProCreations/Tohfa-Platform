@@ -28,6 +28,7 @@ export * from './screens/ProductDetailScreen';
 export * from './screens/SearchScreen';
 export * from './screens/CartScreen';
 export * from './screens/CheckoutScreen';
+export * from './screens/ChooseBankScreen';
 export * from './screens/TopupScreen';
 export * from './screens/OrderHistoryScreen';
 export * from './screens/OrderTrackingScreen';

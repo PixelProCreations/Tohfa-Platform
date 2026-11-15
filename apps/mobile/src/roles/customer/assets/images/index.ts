@@ -23,4 +23,6 @@ export { default as profileWishlistIcon } from './profileimages/image 25 (2).png
 export { default as profileEmailVerified } from './profileimages/Gemini_Generated_Image_kbkle7kbkle7kbkl 1.png';
 export { default as profileAvatarMale } from './profileimages/image 16.png';
 export { default as profileAvatarFemale } from './profileimages/pngegg (4) 2.png';
+export { default as divQrCode } from './profileimages/div (1).png';
+export { default as pickupQrCode } from './pickup_qr_code.png';
 
