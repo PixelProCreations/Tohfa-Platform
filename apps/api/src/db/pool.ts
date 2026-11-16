@@ -21,13 +21,40 @@ const { Pool, types } = pg;
 types.setTypeParser(1700, (value: string) => value); // NUMERIC / DECIMAL
 types.setTypeParser(20, (value: string) => value); // BIGINT — may exceed 2^53
 
-export const pool = new Pool(
-  buildPoolConfig({
-    databaseUrl: config.DATABASE_URL,
-    ssl: parseDatabaseSsl(config.DATABASE_SSL),
-    max: config.isTest ? 25 : 10,
-  }),
-);
+/**
+ * ONE pool per process, even across module resets.
+ *
+ * WHY the globalThis cache: vitest runs the whole API suite in a single fork
+ * (`poolOptions.forks.singleFork`) and calls `resetModules()` between test
+ * files. A bare `new Pool(...)` at module scope therefore re-ran once per test
+ * file — 143 pools, each holding connections nothing ever closed. Connections
+ * climbed 6 -> 20 -> 40 -> 68 -> 104 across a run and Postgres (max_connections
+ * 100) began refusing with "sorry, too many clients already", which surfaced as
+ * unrelated tests failing in a different file every run. Caching on globalThis
+ * survives the module reset, so the suite uses one pool exactly as production
+ * does.
+ */
+const POOL_KEY = Symbol.for('tohfa.db.pool');
+type PoolGlobal = typeof globalThis & { [POOL_KEY]?: pg.Pool };
+
+function createPool(): pg.Pool {
+  return new Pool(
+    buildPoolConfig({
+      databaseUrl: config.DATABASE_URL,
+      ssl: parseDatabaseSsl(config.DATABASE_SSL),
+      max: config.isTest ? 25 : 10,
+    }),
+  );
+}
+
+export const pool: pg.Pool = ((): pg.Pool => {
+  const g = globalThis as PoolGlobal;
+  const existing = g[POOL_KEY];
+  if (existing) return existing;
+  const created = createPool();
+  g[POOL_KEY] = created;
+  return created;
+})();
 
 pool.on('error', (error: Error) => {
   logger.error({ err: error }, 'idle postgres client errored');
