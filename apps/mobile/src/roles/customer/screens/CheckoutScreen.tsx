@@ -15,22 +15,15 @@ import {
   Dimensions,
   Easing,
 } from 'react-native';
-import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
+import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { ProductImages } from '../assets/images/products';
 import { tohfaMarketLogo, pickupQrCode, divQrCode } from '../assets/images';
 import { orderStore } from '../state/orderState';
 import { ModalCloseCrossSvg } from './ProductModals';
 import {
-  customerColors,
   customerFonts,
-  customerSpacing,
-  customerRadius,
-  customerShadow,
-  customerPrimitives,
-  customerType,
 } from '../theme';
 import {
-  ChooseBankScreen,
   SbiLogo,
   HdfcLogo,
   IciciLogo,
@@ -201,66 +194,6 @@ const ConfettiOverlay = () => (
   </View>
 );
 
-// ── VECTOR QR CODE COMPONENT ────────────────────────────────────────────────
-
-const SvgQrCode = ({ size = 200 }: { size?: number }) => {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 200 200" fill="none">
-      <Rect width="200" height="200" fill="#FFFFFF" rx="8" />
-
-      {/* Top Left Finder Pattern */}
-      <Rect x="15" y="15" width="55" height="55" rx="6" fill="#1F2937" />
-      <Rect x="23" y="23" width="39" height="39" rx="4" fill="#FFFFFF" />
-      <Rect x="31" y="31" width="23" height="23" rx="3" fill="#1F2937" />
-
-      {/* Top Right Finder Pattern */}
-      <Rect x="130" y="15" width="55" height="55" rx="6" fill="#1F2937" />
-      <Rect x="138" y="23" width="39" height="39" rx="4" fill="#FFFFFF" />
-      <Rect x="146" y="31" width="23" height="23" rx="3" fill="#1F2937" />
-
-      {/* Bottom Left Finder Pattern */}
-      <Rect x="15" y="130" width="55" height="55" rx="6" fill="#1F2937" />
-      <Rect x="23" y="138" width="39" height="39" rx="4" fill="#FFFFFF" />
-      <Rect x="31" y="146" width="23" height="23" rx="3" fill="#1F2937" />
-
-      {/* Data modules */}
-      <Rect x="85" y="20" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="105" y="20" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="95" y="38" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="78" y="52" width="14" height="14" rx="2" fill="#1F2937" />
-      <Rect x="105" y="52" width="12" height="12" rx="2" fill="#1F2937" />
-
-      {/* Middle section */}
-      <Rect x="20" y="85" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="38" y="85" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="56" y="85" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="78" y="75" width="14" height="24" rx="2" fill="#1F2937" />
-      <Rect x="100" y="80" width="18" height="18" rx="2" fill="#1F2937" />
-      <Rect x="130" y="85" width="14" height="14" rx="2" fill="#1F2937" />
-      <Rect x="155" y="85" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="175" y="85" width="12" height="12" rx="2" fill="#1F2937" />
-
-      <Rect x="20" y="105" width="20" height="12" rx="2" fill="#1F2937" />
-      <Rect x="50" y="105" width="12" height="12" rx="2" fill="#1F2937" />
-      <Rect x="72" y="105" width="20" height="20" rx="2" fill="#1F2937" />
-      <Rect x="102" y="105" width="15" height="15" rx="2" fill="#1F2937" />
-      <Rect x="125" y="105" width="20" height="12" rx="2" fill="#1F2937" />
-      <Rect x="155" y="105" width="30" height="12" rx="2" fill="#1F2937" />
-
-      {/* Bottom Right section */}
-      <Rect x="85" y="135" width="14" height="14" rx="2" fill="#1F2937" />
-      <Rect x="108" y="130" width="20" height="20" rx="2" fill="#1F2937" />
-      <Rect x="138" y="135" width="14" height="14" rx="2" fill="#1F2937" />
-      <Rect x="160" y="130" width="25" height="25" rx="3" fill="#1F2937" />
-
-      <Rect x="85" y="160" width="22" height="22" rx="3" fill="#1F2937" />
-      <Rect x="115" y="165" width="15" height="15" rx="2" fill="#1F2937" />
-      <Rect x="140" y="160" width="20" height="20" rx="2" fill="#1F2937" />
-      <Rect x="170" y="165" width="15" height="15" rx="2" fill="#1F2937" />
-    </Svg>
-  );
-};
-
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
 
 const BackArrowSvg = () => (
@@ -378,13 +311,6 @@ const EyeHideSvg = () => (
   </Svg>
 );
 
-const SearchMagnifierSvg = () => (
-  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-    <Circle cx="11" cy="11" r="8" stroke="#9CA3AF" strokeWidth={2} />
-    <Path d="M21 21l-4.35-4.35" stroke="#9CA3AF" strokeWidth={2} strokeLinecap="round" />
-  </Svg>
-);
-
 // ── UPI APP BADGES ──────────────────────────────────────────────────────────
 
 const OtherUpiIcon = () => (
@@ -423,15 +349,6 @@ const PaytmIcon = () => (
 
 // ── POPULAR & ALL INDIAN BANKS ──────────────────────────────────────────────
 
-interface BankInfo {
-  id: string;
-  name: string;
-  shortName: string;
-  bgColor: string;
-  textColor: string;
-  badgeText: string;
-}
-
 interface PopularBank {
   id: string;
   name: string;
@@ -444,29 +361,6 @@ const POPULAR_BANKS: PopularBank[] = [
   { id: 'hdfc', name: 'HDFC Bank', shortName: 'HDFC', renderLogo: s => <HdfcLogo size={s} /> },
   { id: 'icici', name: 'ICICI Netbanking', shortName: 'ICICI', renderLogo: s => <IciciLogo size={s} /> },
   { id: 'yes', name: 'YES Bank', shortName: 'YES Bank', renderLogo: s => <YesBankLogo size={s} /> },
-];
-
-const ALL_INDIAN_BANKS: BankInfo[] = [
-  { id: 'sbi', name: 'State Bank of India', shortName: 'SBI', bgColor: '#0084CA', textColor: '#FFFFFF', badgeText: 'SBI' },
-  { id: 'hdfc', name: 'HDFC Bank', shortName: 'HDFC', bgColor: '#004C8F', textColor: '#FFFFFF', badgeText: 'HDFC' },
-  { id: 'icici', name: 'ICICI Netbanking', shortName: 'ICICI', bgColor: '#F37021', textColor: '#FFFFFF', badgeText: 'ICICI' },
-  { id: 'axis', name: 'Axis Bank', shortName: 'Axis', bgColor: '#97144D', textColor: '#FFFFFF', badgeText: 'AXIS' },
-  { id: 'au', name: 'AU Small Finance Bank', shortName: 'AU Bank', bgColor: '#E65100', textColor: '#FFFFFF', badgeText: 'AU' },
-  { id: 'airtel', name: 'Airtel Payments Bank', shortName: 'Airtel', bgColor: '#E53935', textColor: '#FFFFFF', badgeText: 'AIR' },
-  { id: 'allahabad', name: 'Allahabad Bank', shortName: 'Allahabad', bgColor: '#0288D1', textColor: '#FFFFFF', badgeText: 'ALH' },
-  { id: 'andhra', name: 'Andhra Bank', shortName: 'Andhra', bgColor: '#1E88E5', textColor: '#FFFFFF', badgeText: 'AND' },
-  { id: 'bandhan', name: 'Bandhan Bank', shortName: 'Bandhan', bgColor: '#C2185B', textColor: '#FFFFFF', badgeText: 'BDN' },
-  { id: 'bob', name: 'Bank of Baroda', shortName: 'BOB', bgColor: '#F26522', textColor: '#FFFFFF', badgeText: 'BOB' },
-  { id: 'boi', name: 'Bank of India', shortName: 'BOI', bgColor: '#E65100', textColor: '#FFFFFF', badgeText: 'BOI' },
-  { id: 'canara', name: 'Canara Bank', shortName: 'Canara', bgColor: '#00A3E0', textColor: '#FFFFFF', badgeText: 'CAN' },
-  { id: 'central', name: 'Central Bank of India', shortName: 'Central Bank', bgColor: '#D32F2F', textColor: '#FFFFFF', badgeText: 'CBI' },
-  { id: 'federal', name: 'Federal Bank', shortName: 'Federal', bgColor: '#0D47A1', textColor: '#FFFFFF', badgeText: 'FED' },
-  { id: 'idbi', name: 'IDBI Bank', shortName: 'IDBI', bgColor: '#007A3D', textColor: '#FFFFFF', badgeText: 'IDBI' },
-  { id: 'idfc', name: 'IDFC Bank', shortName: 'IDFC', bgColor: '#880E4F', textColor: '#FFFFFF', badgeText: 'IDFC' },
-  { id: 'indusind', name: 'IndusInd Bank', shortName: 'IndusInd', bgColor: '#8B0000', textColor: '#FFFFFF', badgeText: 'INB' },
-  { id: 'kotak', name: 'Kotak Mahindra Bank', shortName: 'Kotak', bgColor: '#ED1B24', textColor: '#FFFFFF', badgeText: 'KM' },
-  { id: 'pnb', name: 'Punjab National Bank', shortName: 'PNB', bgColor: '#A20000', textColor: '#FFFFFF', badgeText: 'PNB' },
-  { id: 'union', name: 'Union Bank of India', shortName: 'UBI', bgColor: '#005A9C', textColor: '#FFFFFF', badgeText: 'UBI' },
 ];
 
 // ── TYPES ───────────────────────────────────────────────────────────────────
@@ -497,7 +391,6 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   const [selectedBank, setSelectedBank] = useState<string | null>(
     (params?.selectedBank as string) || null
   );
-  const [bankSearch, setBankSearch] = useState('');
 
   useEffect(() => {
     if (params?.selectedBank) {
@@ -523,15 +416,6 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({
   // Address and total passed from CartScreen
   const total = typeof params?.total === 'number' ? params.total : 465.0;
   const itemsCount = typeof params?.itemsCount === 'number' ? params.itemsCount : 3;
-
-  // Filtered banks for Search in Image 5
-  const filteredBanks = useMemo(() => {
-    if (!bankSearch.trim()) return ALL_INDIAN_BANKS;
-    const q = bankSearch.toLowerCase();
-    return ALL_INDIAN_BANKS.filter(
-      b => b.name.toLowerCase().includes(q) || b.shortName.toLowerCase().includes(q)
-    );
-  }, [bankSearch]);
 
   // ── ENABLE "PROCEED TO PAY" LOGIC ─────────────────────────────────────────
   const isPaymentReady = useMemo(() => {

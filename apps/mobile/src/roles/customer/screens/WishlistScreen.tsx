@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
+  Platform,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { customerColors, customerFonts, customerShadow } from '../theme';
+import { customerFonts, customerShadow } from '../theme';
 import { ProductImages } from '../assets/images/products';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -80,8 +82,13 @@ const DEFAULT_WISHLIST_ITEMS: WishlistItem[] = [
 ];
 
 export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [items, setItems] = useState<WishlistItem[]>(DEFAULT_WISHLIST_ITEMS);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const handleBack = () => {
     if (onBack) {
@@ -104,7 +111,7 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
       <StatusBar barStyle="dark-content" />
 
       {/* ── TOP HEADER (EXACT FIGMA SPEC: IMAGE 5) ─────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={handleBack}

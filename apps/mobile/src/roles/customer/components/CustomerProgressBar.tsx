@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, Text, ViewStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, Text, type ViewStyle, type StyleProp } from 'react-native';
 import { customerColors, customerType, customerSpacing } from '../theme';
 
 export interface CustomerProgressBarProps {

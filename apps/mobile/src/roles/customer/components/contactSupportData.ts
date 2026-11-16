@@ -18,7 +18,6 @@ import {
   GearSvg,
   ShieldCheckSvg,
   InfoCircleSvg,
-  StarTabSvg,
 } from './ContactSupportIcons';
 
 export type RelatedCategory = 'order' | 'product' | 'review' | 'other';
@@ -53,7 +52,6 @@ export interface IssueTypeItem {
 export const RELATED_TABS: { id: RelatedCategory; label: string; icon: React.FC<{ color?: string; size?: number }> }[] = [
   { id: 'order', label: 'My Order', icon: BoxSvg },
   { id: 'product', label: 'Product', icon: CartSvg },
-  { id: 'review', label: 'Review', icon: StarTabSvg },
   { id: 'other', label: 'Other', icon: GridSvg },
 ];
 

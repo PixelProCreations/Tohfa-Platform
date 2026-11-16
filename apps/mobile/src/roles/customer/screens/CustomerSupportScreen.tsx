@@ -8,7 +8,8 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
@@ -68,7 +69,12 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
   onNavigate,
   onBack,
 }) => {
+  const insets = useSafeAreaInsets();
   const [selectedTab, setSelectedTab] = useState<'All' | 'Open' | 'In Review' | 'Resolved'>('Open');
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const filterTabs: Array<{ id: 'All' | 'Open' | 'In Review' | 'Resolved'; label: string }> = [
     { id: 'All', label: 'All (5)' },
@@ -130,7 +136,7 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
       <StatusBar barStyle="dark-content" />
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
           <TouchableOpacity
             activeOpacity={0.7}

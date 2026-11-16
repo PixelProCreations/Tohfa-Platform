@@ -12,6 +12,16 @@ vi.mock('react-native', () => ({
   Text: 'Text',
   TouchableOpacity: 'TouchableOpacity',
   View: 'View',
+  Platform: {
+    OS: 'android',
+    select: (obj: Record<string, unknown>) => obj['android'] ?? obj['default'],
+  },
+  StatusBar: 'StatusBar',
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
 }));
 
 vi.mock('@tohfa/mobile-ui', () => ({

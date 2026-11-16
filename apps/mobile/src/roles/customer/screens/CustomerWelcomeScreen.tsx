@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Image,
   TouchableOpacity,
-  Dimensions,
   Animated,
   StatusBar,
   BackHandler,
@@ -14,8 +13,6 @@ import customerSplashClean from '../assets/images/customer_splash_clean.png';
 import customerWelcomeSlide1Full from '../assets/images/customer_welcome_slide1_full.png';
 import onboardingSlide1CleanExact from '../assets/images/onboarding_slide1_clean_exact.png';
 import onboardingSlide2CleanExact from '../assets/images/onboarding_slide2_clean_exact.png';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface CustomerWelcomeScreenProps {
   onNavigate: (screen: 'RoleSelection' | 'Login' | 'CustomerLogin') => void;
@@ -84,7 +81,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
           <Image
             source={customerSplashClean}
             style={styles.splashImageFull}
-            resizeMode="contain"
+            resizeMode="cover"
           />
         </Animated.View>
       )}
@@ -94,11 +91,11 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
         <Animated.View style={[styles.onboardingContainer, { opacity: contentFade }]}>
           {/* ── SLIDE 0: SCREEN 2 · WELCOME SCREEN ─────────────────────────── */}
           {currentSlide === 0 && (
-            <View style={styles.slideFull}>
+            <View style={styles.slideFullWhite}>
               <Image
                 source={customerWelcomeSlide1Full}
                 style={styles.slide0ExactImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               {/* Pagination dots (pointerEvents="box-none" so it never blocks button) */}
               <View style={styles.slide0DotsRow} pointerEvents="box-none">
@@ -132,11 +129,11 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
 
           {/* ── SLIDE 1: SCREEN 3 · ONBOARDING 1 (SAFE, ORGANIC AND TRUSTED) ── */}
           {currentSlide === 1 && (
-            <View style={styles.slideFull}>
+            <View style={styles.slideFullIvory}>
               <Image
                 source={onboardingSlide1CleanExact}
                 style={styles.slide0ExactImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               {/* Pagination dots (pointerEvents="box-none") */}
               <View style={styles.slide0DotsRow} pointerEvents="box-none">
@@ -170,11 +167,11 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
 
           {/* ── SLIDE 2: SCREEN 4 · ONBOARDING 2 (ORDER, WE SOURCE, WE DELIVER) ─ */}
           {currentSlide === 2 && (
-            <View style={styles.slideFull}>
+            <View style={styles.slideFullIvory}>
               <Image
                 source={onboardingSlide2CleanExact}
                 style={styles.slide0ExactImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               {/* Pagination dots */}
               <View style={styles.slide2DotsRow} pointerEvents="box-none">
@@ -240,10 +237,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'space-between',
   },
-  slideFull: {
+  slideFullWhite: {
     flex: 1,
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
+    position: 'relative',
+  },
+  slideFullIvory: {
+    flex: 1,
+    justifyContent: 'space-between',
+    backgroundColor: '#F4F5F0',
     position: 'relative',
   },
   slide0ExactImage: {
@@ -253,15 +256,15 @@ const styles = StyleSheet.create({
   slide0NextButton: {
     position: 'absolute',
     right: 0,
-    bottom: 0,
-    width: 140,
+    bottom: 24,
+    width: 150,
     height: 180,
     zIndex: 999,
   },
   slide0DotsRow: {
     position: 'absolute',
     alignSelf: 'center',
-    bottom: 36,
+    bottom: 48,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,
@@ -273,16 +276,16 @@ const styles = StyleSheet.create({
   },
   slide2GetStartedTouch: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 24,
     left: 0,
     right: 0,
-    height: 150,
+    height: 140,
     zIndex: 999,
   },
   slide2DotsRow: {
     position: 'absolute',
     alignSelf: 'center',
-    bottom: 110,
+    bottom: 128,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,

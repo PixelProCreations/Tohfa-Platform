@@ -14,6 +14,7 @@ vi.mock('react-native', () => ({
   StyleSheet: {
     create: (s: Record<string, unknown>) => s,
     hairlineWidth: 1,
+    absoluteFill: {},
     absoluteFillObject: {},
   },
   Text: 'Text',
@@ -22,6 +23,11 @@ vi.mock('react-native', () => ({
   View: 'View',
   StatusBar: 'StatusBar',
   Modal: (props: any) => (props.visible ? React.createElement('Modal', props, props.children) : null),
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
 }));
 
 vi.mock('react-native-svg', () => ({

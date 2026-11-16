@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Dimensions,
   Platform,
   StatusBar,
 } from 'react-native';
@@ -16,11 +15,6 @@ import { ProductImages } from '../assets/images/products';
 import {
   customerColors,
   customerFonts,
-  customerSpacing,
-  customerRadius,
-  customerShadow,
-  customerPrimitives,
-  customerType,
 } from '../theme';
 
 export interface VarietyItem {

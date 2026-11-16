@@ -1,5 +1,6 @@
 import React from 'react';
-import { CustomerWalletScreen, CustomerWalletScreenProps } from './CustomerWalletScreen';
+import { CustomerWalletScreen } from './CustomerWalletScreen';
+import type { CustomerWalletScreenProps } from './CustomerWalletScreen';
 
 export interface TopupScreenProps extends CustomerWalletScreenProps {
   shortfall?: string | undefined;

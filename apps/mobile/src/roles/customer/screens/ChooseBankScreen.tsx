@@ -7,19 +7,12 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
-  Dimensions,
   Platform,
 } from 'react-native';
-import Svg, { Path, Circle, Rect, G, Polygon } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Polygon } from 'react-native-svg';
 import {
-  customerColors,
   customerFonts,
-  customerSpacing,
-  customerRadius,
-  customerShadow,
 } from '../theme';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EXACT AUTHENTIC BANK SVG LOGOS (Matching user uploaded references)

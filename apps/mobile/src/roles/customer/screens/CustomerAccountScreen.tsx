@@ -5,20 +5,14 @@ import {
   StyleSheet,
   ScrollView,
   Image,
-  ImageBackground,
   TouchableOpacity,
   StatusBar,
   Platform,
   Modal,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import {
-  customerColors,
-  customerFonts,
-  customerRadius,
-  customerShadow,
-  customerSpacing,
-} from '../theme';
+import { customerFonts } from '../theme';
 import {
   tohfaMarketLogo,
   profileAdsBanner,
@@ -35,6 +29,7 @@ export interface CustomerAccountScreenProps {
   activeOrdersCount?: string;
   wishlistCount?: string;
   isNewUser?: boolean;
+  showReturnsAndReviews?: boolean;
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
   onSignOut?: () => void;
@@ -262,12 +257,18 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
   activeOrdersCount = 'No active Orders',
   wishlistCount = '3 items',
   isNewUser = false,
+  showReturnsAndReviews = false,
   onNavigate,
   onBack,
   onSignOut,
   onViewProfile,
 }) => {
+  const insets = useSafeAreaInsets();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const bannerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 8 : 36) : 16);
+  const bannerHeight = Math.round(225 + (insets.top > 0 ? insets.top : (Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) : 0)));
 
   return (
     <View style={styles.safeArea}>
@@ -279,12 +280,12 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
         showsVerticalScrollIndicator={false}
       >
         {/* ── TOP BANNER SECTION WITH SCENIC BACKGROUND ────────────────────────── */}
-        <ImageBackground
-          source={profileAdsBanner}
-          style={styles.bannerWrapper}
-          imageStyle={styles.bannerImageStyle}
-          resizeMode="cover"
-        >
+        <View style={[styles.bannerWrapper, { height: bannerHeight, paddingTop: bannerTopPadding }]}>
+          <Image
+            source={profileAdsBanner}
+            style={styles.bannerBackgroundImage}
+            resizeMode="cover"
+          />
           {/* Back Button */}
           <TouchableOpacity
             activeOpacity={0.7}
@@ -292,7 +293,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             style={styles.backButton}
             accessibilityLabel="Back"
           >
-            <BackArrowSvg color="#1A2E1A" size={18} />
+            <BackArrowSvg color="#1A1A1A" size={18} />
           </TouchableOpacity>
 
           {/* Profile Info */}
@@ -314,10 +315,10 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
               accessibilityLabel="View profile"
             >
               <Text style={styles.viewProfileText}>View profile</Text>
-              <ChevronRightSvg color="#1A2E1A" size={13} />
+              <ChevronRightSvg color="#4B5563" size={13} />
             </TouchableOpacity>
           </View>
-        </ImageBackground>
+        </View>
 
         {/* ── 3 SUMMARY CARDS ROW (Orders, Wallet, Wishlist) ───────────────────── */}
         <View style={styles.cardsRow}>
@@ -342,7 +343,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* 2. Wallet Card */}
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={() => onNavigate?.('Topup')}
+            onPress={() => onNavigate?.('CustomerWallet')}
             style={styles.summaryCard}
             accessibilityLabel="Wallet"
           >
@@ -376,7 +377,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* ── MENU LIST SECTION (6 Rows) ───────────────────────────────────────── */}
+        {/* ── MENU LIST SECTION (6 Rows matching Image 2) ───────────────────────── */}
         <View style={styles.menuContainer}>
           {/* Row 1: My Orders */}
           <TouchableOpacity
@@ -386,7 +387,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel="My Orders"
           >
             <View style={styles.menuIconBox}>
-              <PackageSvg color={customerColors.heading} size={20} />
+              <PackageSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>My Orders</Text>
@@ -399,12 +400,12 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Row 2: My Wallet */}
           <TouchableOpacity
             activeOpacity={0.7}
-            onPress={() => onNavigate?.('Topup')}
+            onPress={() => onNavigate?.('CustomerWallet')}
             style={styles.menuItem}
             accessibilityLabel="My Wallet"
           >
             <View style={styles.menuIconBox}>
-              <WalletSvg color={customerColors.heading} size={20} />
+              <WalletSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>My Wallet</Text>
@@ -425,7 +426,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel="Account settings"
           >
             <View style={styles.menuIconBox}>
-              <SettingsSvg color={customerColors.heading} size={20} />
+              <SettingsSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>Account settings</Text>
@@ -443,7 +444,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel="Contact Support"
           >
             <View style={styles.menuIconBox}>
-              <HeadsetSvg color={customerColors.heading} size={20} />
+              <HeadsetSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>Contact Support</Text>
@@ -453,43 +454,46 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           </TouchableOpacity>
           <View style={styles.divider} />
 
-          {/* Row 5: Returns */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('ReturnOrder')}
-            style={styles.menuItem}
-            accessibilityLabel="Returns"
-          >
-            <View style={styles.menuIconBox}>
-              <ReturnsSvg color={customerColors.heading} size={20} />
-            </View>
-            <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Returns</Text>
-              <Text style={styles.menuItemSubtitle}>Request item returns, track return status</Text>
-            </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
+          {/* Optional Rows: Returns & Review & Feedback (if showReturnsAndReviews is true) */}
+          {showReturnsAndReviews && (
+            <>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => onNavigate?.('ReturnOrder')}
+                style={styles.menuItem}
+                accessibilityLabel="Returns"
+              >
+                <View style={styles.menuIconBox}>
+                  <ReturnsSvg color="#1A1A1A" size={20} />
+                </View>
+                <View style={styles.menuTextColumn}>
+                  <Text style={styles.menuItemTitle}>Returns</Text>
+                  <Text style={styles.menuItemSubtitle}>Request item returns, track return status</Text>
+                </View>
+                <ChevronRightSvg color="#9CA3AF" size={16} />
+              </TouchableOpacity>
+              <View style={styles.divider} />
 
-          {/* Row 6: Review & Feedback */}
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => onNavigate?.('ReviewFeedback')}
-            style={styles.menuItem}
-            accessibilityLabel="Review & Feedback"
-          >
-            <View style={styles.menuIconBox}>
-              <StarSvg color={customerColors.heading} size={20} />
-            </View>
-            <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Review & Feedback</Text>
-              <Text style={styles.menuItemSubtitle}>Share your experience and product feedback</Text>
-            </View>
-            <ChevronRightSvg color="#9CA3AF" size={16} />
-          </TouchableOpacity>
-          <View style={styles.divider} />
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => onNavigate?.('ReviewFeedback')}
+                style={styles.menuItem}
+                accessibilityLabel="Review & Feedback"
+              >
+                <View style={styles.menuIconBox}>
+                  <StarSvg color="#1A1A1A" size={20} />
+                </View>
+                <View style={styles.menuTextColumn}>
+                  <Text style={styles.menuItemTitle}>Review & Feedback</Text>
+                  <Text style={styles.menuItemSubtitle}>Share your experience and product feedback</Text>
+                </View>
+                <ChevronRightSvg color="#9CA3AF" size={16} />
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </>
+          )}
 
-          {/* Row 6: Help & FAQs */}
+          {/* Row 5: Help & FAQs */}
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerHelp')}
@@ -497,7 +501,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel="Help & FAQs"
           >
             <View style={styles.menuIconBox}>
-              <HelpSvg color={customerColors.heading} size={20} />
+              <HelpSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={styles.menuItemTitle}>Help & FAQs</Text>
@@ -515,7 +519,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             accessibilityLabel="Logout"
           >
             <View style={[styles.menuIconBox, styles.logoutIconBox]}>
-              <LogoutSvg color={customerColors.error} size={20} />
+              <LogoutSvg color="#DC2626" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
               <Text style={[styles.menuItemTitle, styles.logoutText]}>Logout</Text>
@@ -541,13 +545,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* ── FLOATING ACTIVE PROFILE BUTTON (EXACT FIGMA SPEC) ────────────────── */}
+      {/* ── FLOATING PROFILE BUTTON (EXACT FIGMA SPEC) ──────────────────────── */}
       <View style={styles.floatingButtonWrap} pointerEvents="box-none">
         <TouchableOpacity
           activeOpacity={0.85}
-          onPress={() => onNavigate?.('CustomerProfile')}
-          style={[styles.floatingProfileButton, customerShadow.raised]}
-          accessibilityLabel="Active Profile"
+          onPress={onViewProfile || (() => onNavigate?.('CustomerProfile'))}
+          style={styles.floatingProfileButton}
+          accessibilityLabel="Profile shortcut"
         >
           <ProfileBadgeSvg color="#FFFFFF" size={26} />
         </TouchableOpacity>
@@ -561,7 +565,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
         onRequestClose={() => setShowLogoutModal(false)}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.logoutModalCard, customerShadow.raised]}>
+          <View style={styles.logoutModalCard}>
             {/* Top Right Close Button */}
             <TouchableOpacity
               activeOpacity={0.7}
@@ -618,62 +622,70 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: customerColors.canvas,
+    backgroundColor: '#FFFFFF',
   },
   container: {
     flex: 1,
-    backgroundColor: customerColors.canvas,
+    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
 
   // ── BANNER STYLES ──────────────────────────────────────────────────────────
   bannerWrapper: {
     width: '100%',
-    height: 230,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     overflow: 'hidden',
-    paddingTop: Platform.OS === 'android' ? 36 : 14,
-    paddingHorizontal: customerSpacing.base,
-    paddingBottom: customerSpacing.base,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     justifyContent: 'space-between',
-    backgroundColor: '#EDF5EB',
+    backgroundColor: '#EBF8E7',
+    position: 'relative',
   },
-  bannerImageStyle: {
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+  bannerBackgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
   },
   backButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
+  // ── HEADER & PROFILE STYLES ───────────────────────────────────────────────
   profileInfoContainer: {
     maxWidth: '65%',
-    marginTop: customerSpacing.xs,
+    marginBottom: 4,
   },
   userNameText: {
-    fontSize: 26,
-    color: '#1A2E1A',
-    fontFamily: customerFonts.editorial,
+    fontFamily: customerFonts.bold,
+    fontWeight: '700',
+    fontSize: 24,
+    color: '#111827',
+    letterSpacing: -0.2,
+    lineHeight: 30,
   },
   userPhoneText: {
     fontSize: 13,
-    color: '#1A2E1A',
-    fontFamily: customerFonts.regular,
+    fontWeight: '600',
+    color: '#1A1A1A',
     marginTop: 4,
   },
   userEmailText: {
-    fontSize: 13,
-    color: '#1A2E1A',
-    fontFamily: customerFonts.regular,
+    fontSize: 12.5,
+    fontWeight: '400',
+    color: '#4B5563',
     marginTop: 2,
   },
   viewProfileRow: {
@@ -683,24 +695,24 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   viewProfileText: {
-    fontSize: 11,
-    color: '#1A2E1A',
-    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
   },
 
   // ── 3 SUMMARY CARDS ROW ────────────────────────────────────────────────────
   cardsRow: {
     flexDirection: 'row',
-    paddingHorizontal: customerSpacing.base,
-    marginTop: customerSpacing.base,
-    gap: customerSpacing.sm,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    gap: 10,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: customerColors.selected, // #E9F7E9 soft green
-    borderRadius: customerRadius.sm, // 12
+    backgroundColor: '#EDF7ED',
+    borderRadius: 14,
     paddingVertical: 14,
-    paddingHorizontal: customerSpacing.xs,
+    paddingHorizontal: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -710,100 +722,96 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   summaryCardSubtitle: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '500',
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    color: '#4B5563',
     textAlign: 'center',
   },
   walletBalanceSubtitle: {
-    color: customerColors.brand,
+    color: '#15803D',
     fontWeight: '700',
+    fontSize: 12,
   },
   summaryCardTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    color: customerColors.heading,
-    fontFamily: customerFonts.bold,
-    marginTop: 2,
+    color: '#1A1A1A',
+    marginTop: 3,
     textAlign: 'center',
   },
 
   // ── MENU LIST SECTION ──────────────────────────────────────────────────────
   menuContainer: {
-    marginTop: customerSpacing.md,
-    paddingHorizontal: customerSpacing.base,
+    marginTop: 14,
+    paddingHorizontal: 16,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   menuIconBox: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
     borderRadius: 10,
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   logoutIconBox: {
-    backgroundColor: customerColors.status.danger.bg, // #FEE4E2
+    backgroundColor: '#FEE2E2',
   },
   menuTextColumn: {
     flex: 1,
   },
   menuItemTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    color: customerColors.body,
-    fontFamily: customerFonts.semibold,
+    fontWeight: '700',
+    color: '#1A1A1A',
   },
   logoutText: {
-    color: customerColors.error,
+    color: '#DC2626',
   },
   menuItemSubtitle: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '400',
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    color: '#5F5E5A',
     marginTop: 2,
   },
   walletPill: {
-    backgroundColor: customerColors.selected,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: customerRadius.pill,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 12,
     marginRight: 8,
   },
   walletPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: customerColors.brand,
-    fontFamily: customerFonts.semibold,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#15803D',
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: customerColors.divider,
-    marginLeft: 50,
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 54,
   },
 
   // ── FOOTER BRANDING ────────────────────────────────────────────────────────
   footerContainer: {
-    marginTop: customerSpacing.xl,
+    marginTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: customerSpacing.base,
+    paddingVertical: 12,
   },
   footerLogo: {
-    width: 90,
-    height: 36,
+    width: 100,
+    height: 40,
   },
   footerCopyright: {
-    fontSize: 10,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 10.5,
+    fontWeight: '400',
+    color: '#6B7280',
     marginTop: 6,
     textAlign: 'center',
   },
@@ -818,9 +826,14 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: customerColors.brand,
+    backgroundColor: '#1E6B35',
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
   },
 
   // ── LOGOUT MODAL STYLES ────────────────────────────────────────────────────
@@ -840,6 +853,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     alignItems: 'center',
     position: 'relative',
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   modalCloseButton: {
     position: 'absolute',
@@ -857,16 +875,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoutModalTitle: {
-    fontSize: 24,
-    fontFamily: customerFonts.editorial,
-    color: '#1A2E1A',
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
     marginBottom: 8,
     textAlign: 'center',
   },
   logoutModalSubtitle: {
-    fontSize: 12.5,
-    fontFamily: customerFonts.regular,
-    color: '#4B5563',
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#5F5E5A',
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 22,
@@ -881,9 +899,9 @@ const styles = StyleSheet.create({
   cancelModalButton: {
     flex: 1,
     height: 42,
-    borderRadius: customerRadius.pill,
+    borderRadius: 24,
     borderWidth: 1.2,
-    borderColor: '#2E7D32',
+    borderColor: '#1E6B35',
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
@@ -891,14 +909,13 @@ const styles = StyleSheet.create({
   cancelModalButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2E7D32',
-    fontFamily: customerFonts.semibold,
+    color: '#1E6B35',
   },
   confirmLogoutButton: {
     flex: 1,
     height: 42,
-    borderRadius: customerRadius.pill,
-    backgroundColor: '#E04F4F',
+    borderRadius: 24,
+    backgroundColor: '#DC2626',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -906,6 +923,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: customerFonts.semibold,
   },
 });

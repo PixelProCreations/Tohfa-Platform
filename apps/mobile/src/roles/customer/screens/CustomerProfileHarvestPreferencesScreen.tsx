@@ -18,7 +18,7 @@ import {
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 interface CustomerProfileHarvestPreferencesScreenProps {
-  onNavigate: (screen: 'CustomerPermissions' | 'CustomerMain') => void;
+  onNavigate: (screen: 'CustomerPermissions' | 'CustomerLoadingMarket' | 'CustomerMain') => void;
 }
 
 // ── SVG ICONS MATCHING FIGMA SPEC ───────────────────────────────────────────
@@ -258,7 +258,7 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
   };
 
   const handleSkip = () => {
-    onNavigate('CustomerPermissions');
+    onNavigate('CustomerLoadingMarket');
   };
 
   const renderItem = (

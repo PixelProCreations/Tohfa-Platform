@@ -10,8 +10,14 @@ import {
   Modal,
   Alert,
   Platform,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  customerColors,
+  customerFonts,
+  customerSpacing,
+} from '../theme';
 import Svg, { Path, Rect } from 'react-native-svg';
 import {
   BackArrowSvg,
@@ -69,6 +75,7 @@ export function ReturnOrderScreen({
   onBack,
   initialOrderId = 'ord_1',
 }: ReturnOrderScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [selectedOrderId, setSelectedOrderId] = useState<string>(initialOrderId);
   const [showOrderPicker, setShowOrderPicker] = useState<boolean>(false);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(['prod_1']);
@@ -81,6 +88,10 @@ export function ReturnOrderScreen({
   const [description, setDescription] = useState<string>('');
   const [photos, setPhotos] = useState<number[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const fallbackOrder: OrderOption = {
     id: 'ord_1',
@@ -136,19 +147,22 @@ export function ReturnOrderScreen({
     fallbackProduct;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          activeOpacity={0.7}
-          onPress={onBack}
-          style={styles.backButton}
-          accessibilityLabel="Back"
-        >
-          <BackArrowSvg />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Return Order</Text>
-        <View style={styles.headerRightSpacer} />
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={onBack}
+            style={styles.circleIconButton}
+            accessibilityLabel="Back"
+          >
+            <BackArrowSvg color={customerColors.heading} size={18} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Return Order</Text>
+        </View>
       </View>
 
       <ScrollView
@@ -402,33 +416,41 @@ export function ReturnOrderScreen({
           onNavigate?.('Home');
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  header: {
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    paddingHorizontal: customerSpacing.base,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
   },
-  backButton: {
-    padding: 2,
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1A2E1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A2E1A',
-    letterSpacing: -0.2,
+    fontSize: 22,
+    fontFamily: customerFonts.editorial,
+    color: customerColors.heading,
   },
   headerRightSpacer: {
     width: 36,

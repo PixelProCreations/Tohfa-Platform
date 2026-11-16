@@ -20,6 +20,7 @@ import {
 } from '../theme';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 import branchLeavesTopLeft from '../assets/images/branch_leaves_top_left.png';
+import { profileEmailVerified } from '../assets/images';
 
 const GreenFloatingLeaf = () => (
   <View style={styles.floatingLeafBottomRight} pointerEvents="none">
@@ -71,6 +72,10 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
     // Auto advance focus to next input slot
     if (cleanText && index < 3) {
       inputRefs.current[index + 1]?.focus();
+    } else if (cleanText && index === 3) {
+      setTimeout(() => {
+        setShowVerifiedModal(true);
+      }, 300);
     }
   };
 
@@ -81,13 +86,14 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
   };
 
   const handleNext = () => {
-    // Navigate directly to CustomerMain post-verification to enter the customer store flow
-    onNavigate('CustomerMain', { mobile });
+    // Show Screen 7: Phone number Verified popup modal
+    setShowVerifiedModal(true);
   };
 
   const handleContinue = () => {
     setShowVerifiedModal(false);
-    onNavigate('CustomerMain', { mobile });
+    // Proceed to Screen 8 & 9: Personal details ("What should we call you?")
+    onNavigate('CustomerProfileName', { mobile });
   };
 
   return (
@@ -186,13 +192,11 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
 
             {/* Verified Envelope Graphic */}
             <View style={styles.verifiedGraphicWrap}>
-              <View style={styles.envelopeBackdrop}>
-                <View style={styles.letterSheet} />
-                <View style={styles.envelopeFlap} />
-                <View style={styles.checkmarkBadge}>
-                  <Text style={styles.checkmarkIcon}>✓</Text>
-                </View>
-              </View>
+              <Image
+                source={profileEmailVerified}
+                style={styles.verifiedEnvelopeImage}
+                resizeMode="contain"
+              />
             </View>
 
             {/* Headline & Subtitle */}
@@ -365,8 +369,8 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: -12,
+    right: -12,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -375,20 +379,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
     zIndex: 10,
   },
   modalCloseText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '700',
+    lineHeight: 15,
   },
   verifiedGraphicWrap: {
-    width: 90,
-    height: 75,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
     marginBottom: 16,
+  },
+  verifiedEnvelopeImage: {
+    width: 84,
+    height: 74,
   },
   envelopeBackdrop: {
     width: 80,

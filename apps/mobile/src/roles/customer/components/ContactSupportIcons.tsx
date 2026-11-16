@@ -1,15 +1,20 @@
 import React from 'react';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 
-export const BackArrowSvg = () => (
-  <Svg width={36} height={36} viewBox="0 0 36 36" fill="none">
-    <Circle cx={18} cy={18} r={17} stroke="#1A2E1A" strokeWidth={1.5} />
-    <Path d="M20 12l-6 6 6 6" stroke="#1A2E1A" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+export const BackArrowSvg: React.FC<{ color?: string; size?: number }> = ({ color = '#1A2E1A', size = 18 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M19 12H5M5 12L12 19M5 12L12 5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
   </Svg>
 );
 
-export const SupportAgentSvg = () => (
-  <Svg width={58} height={58} viewBox="0 0 64 64" fill="none">
+export const SupportAgentSvg: React.FC<{ size?: number }> = ({ size = 68 }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
     <Circle cx={32} cy={32} r={30} fill="#FDE68A" />
     <Path d="M20 54c0-6.627 5.373-12 12-12s12 5.373 12 12" fill="#D97706" />
     <Circle cx={32} cy={27} r={10} fill="#FCD34D" />
@@ -304,7 +309,7 @@ export const CheckboxSvg = ({
   </Svg>
 );
 
-export const ProduceCrateSvg = ({ size = 58 }: { size?: number }) => (
+export const ProduceCrateSvg: React.FC<{ size?: number }> = ({ size = 58 }) => (
   <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
     <Circle cx={24} cy={26} r={10} fill="#EF4444" />
     <Circle cx={20} cy={24} r={3} fill="#F87171" opacity={0.6} />

@@ -8,6 +8,7 @@ vi.mock('react-native', () => ({
   Modal: 'Modal',
   Platform: { OS: 'ios', select: vi.fn((obj: Record<string, unknown>) => obj.ios || obj.default) },
   ScrollView: 'ScrollView',
+  StatusBar: 'StatusBar',
   StyleSheet: {
     create: (s: Record<string, unknown>) => s,
   },
@@ -19,6 +20,11 @@ vi.mock('react-native', () => ({
 
 vi.mock('@tohfa/mobile-ui', () => ({
   SafeAreaView: 'SafeAreaView',
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
 }));
 
 vi.mock('react-native-svg', () => ({

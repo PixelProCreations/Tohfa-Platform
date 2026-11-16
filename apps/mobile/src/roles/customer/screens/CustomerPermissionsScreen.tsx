@@ -10,19 +10,20 @@ import {
   StatusBar,
   ScrollView,
 } from 'react-native';
-import Svg, { Path, Circle, Line } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { ArrowRightFigmaIcon, CustomerDeliveryAddressModal, AddressData } from '../components';
-import permissionsHeroCrate from '../assets/images/permissions_hero_crate.jpg';
+import type { AddressData } from '../components';
+import { ArrowRightFigmaIcon, CustomerDeliveryAddressModal } from '../components';
+const permissionsHeroCrate = require('../assets/images/permissions_hero_crate.jpg');
 
 interface CustomerPermissionsScreenProps {
   onNavigate: (
-    screen: 'CustomerAddAddress' | 'CustomerMain',
+    screen: 'CustomerAddAddress' | 'CustomerLoadingMarket' | 'CustomerMain',
     params?: { addressSource?: 'current' | 'manual' }
   ) => void;
 }
@@ -136,19 +137,6 @@ const ApproximateMapGraphic = ({ isSelected }: { isSelected: boolean }) => (
   </View>
 );
 
-const DarkPinSvg = () => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7z"
-      stroke="#1F2937"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Circle cx={12} cy={9} r={2.5} stroke="#1F2937" strokeWidth={1.8} />
-  </Svg>
-);
-
 export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps> = ({ onNavigate }) => {
   const [modalStep, setModalStep] = useState<'none' | 'notification' | 'location' | 'delivery' | 'addAddress'>('none');
   const [locationType, setLocationType] = useState<'precise' | 'approximate'>('precise');
@@ -158,7 +146,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
   };
 
   const handleSkip = () => {
-    onNavigate('CustomerMain');
+    onNavigate('CustomerLoadingMarket');
   };
 
   const handleNotificationChoice = () => {
@@ -176,7 +164,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
 
   const handleSaveAddress = (_address: AddressData) => {
     setModalStep('none');
-    onNavigate('CustomerAddAddress');
+    onNavigate('CustomerLoadingMarket');
   };
 
   return (

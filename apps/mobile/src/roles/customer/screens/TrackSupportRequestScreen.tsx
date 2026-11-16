@@ -6,8 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  Platform,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  customerColors,
+  customerFonts,
+  customerSpacing,
+} from '../theme';
 import {
   BackArrowSvg,
   TicketSvg,
@@ -36,7 +43,12 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
   onBack,
   onNavigate,
 }) => {
+  const insets = useSafeAreaInsets();
   const [isCancelled, setIsCancelled] = useState(false);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const handleCancelRequest = () => {
     Alert.alert(
@@ -68,25 +80,29 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── HEADER ────────────────────────────────────────────────────────── */}
-        <View style={styles.headerRow}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <View style={styles.headerLeftGroup}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.circleIconButton}
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowSvg />
+            <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Track request</Text>
         </View>
+      </View>
 
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ── SUPPORT ID CARD ───────────────────────────────────────────────── */}
         <View style={styles.supportIdCard}>
           <View style={styles.supportIdLeft}>
@@ -219,23 +235,23 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
 // ── STYLES ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  container: {
+  scrollContainer: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingHorizontal: customerSpacing.base,
+    paddingTop: 12,
     paddingBottom: 48,
   },
 
@@ -243,17 +259,29 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 20,
-    marginTop: 10,
+    paddingHorizontal: customerSpacing.base,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
   },
-  backButton: {
-    padding: 2,
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1A2E1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1A2E1A',
+    fontFamily: customerFonts.editorial,
+    color: customerColors.heading,
   },
 
   /* Support ID Card */

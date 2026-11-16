@@ -12,11 +12,10 @@ import {
   Share,
   Alert,
 } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
-  customerRadius,
   customerShadow,
   customerSpacing,
 } from '../theme';
@@ -2114,26 +2113,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 10,
     gap: 8,
-  },
-  infoIconCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.2,
-    borderColor: '#2E7D32',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infoIconText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2E7D32',
-  },
-  invoiceInfoText: {
-    fontSize: 11,
-    color: '#4B5563',
-    flex: 1,
-    lineHeight: 15,
   },
   infoIconCircle: {
     width: 20,

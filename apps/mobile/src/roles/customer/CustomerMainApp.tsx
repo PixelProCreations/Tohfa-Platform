@@ -19,6 +19,7 @@ import { OrderHistoryScreen } from './screens/OrderHistoryScreen';
 import { CustomerAccountScreen } from './screens/CustomerAccountScreen';
 import { CustomerProfileScreen } from './screens/CustomerProfileScreen';
 import { CustomerWalletScreen } from './screens/CustomerWalletScreen';
+import { CustomerSendMoneyScreen } from './screens/CustomerSendMoneyScreen';
 import { CustomerSupportScreen } from './screens/CustomerSupportScreen';
 import { CustomerHelpScreen } from './screens/CustomerHelpScreen';
 import { CustomerNotificationsScreen } from './screens/CustomerNotificationsScreen';
@@ -68,6 +69,8 @@ type ScreenName =
   | 'ReviewFeedback'
   | 'ReturnOrder'
   | 'CustomerWallet'
+  | 'CustomerSendMoney'
+  | 'SendMoney'
   | 'CustomerSupport'
   | 'CustomerHelp'
   | 'CustomerNotifications'
@@ -109,6 +112,7 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('Home');
   const [navParams, setNavParams] = useState<NavigationParams>({});
   const [history, setHistory] = useState<CustomerStackEntry[]>([]);
+  const [walletBalance, setWalletBalance] = useState<number>(1250);
 
   const navigate = useCallback(
     (screen: string, params?: NavigationParams) => {
@@ -123,6 +127,8 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
       }
       if (targetScreen === 'Home') {
         setHistory([]);
+      } else if (targetScreen === 'CustomerAccount') {
+        setHistory([{ screen: 'Home', params: {} }]);
       } else {
         setHistory((prev) => [...prev, { screen: currentScreen, params: navParams }]);
       }
@@ -133,6 +139,12 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
   );
 
   const goBack = useCallback(() => {
+    if (currentScreen === 'CustomerAccount') {
+      setHistory([]);
+      setCurrentScreen('Home');
+      setNavParams({});
+      return;
+    }
     if (history.length > 0) {
       setHistory((prev) => {
         const nextHistory = [...prev];
@@ -245,7 +257,11 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'Topup' && (
-            <TopupScreen shortfall={navParams.shortfall} onNavigate={(s, p) => navigate(s, p)} />
+            <TopupScreen
+              shortfall={navParams.shortfall}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
           )}
 
           {currentScreen === 'OrderTracking' && (
@@ -258,13 +274,21 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'OrderHistory' && (
-            <OrderHistoryScreen onNavigate={(s, p) => navigate(s, p)} />
+            <OrderHistoryScreen
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
           )}
 
           {currentScreen === 'CustomerAccount' && (
             <CustomerAccountScreen
+              walletBalance={`₹ ${walletBalance.toLocaleString('en-IN')}`}
               onNavigate={(s, p) => navigate(s, p)}
-              onBack={goBack}
+              onBack={() => {
+                setHistory([]);
+                setCurrentScreen('Home');
+                setNavParams({});
+              }}
               onSignOut={onSignOut}
             />
           )}
@@ -279,8 +303,19 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
 
           {currentScreen === 'CustomerWallet' && (
             <CustomerWalletScreen
+              initialBalance={walletBalance}
               onNavigate={(s, p) => navigate(s, p)}
               onBack={goBack}
+              onBalanceChange={setWalletBalance}
+            />
+          )}
+
+          {(currentScreen === 'CustomerSendMoney' || currentScreen === 'SendMoney') && (
+            <CustomerSendMoneyScreen
+              walletBalance={walletBalance}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+              onSendSuccess={(amt) => setWalletBalance((prev) => Math.max(0, prev - amt))}
             />
           )}
 

@@ -10,6 +10,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
@@ -64,7 +65,12 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
   onNavigate,
   onBack,
 }) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const group1Orders = [
     {
@@ -132,7 +138,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
       <StatusBar barStyle="dark-content" />
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
           <TouchableOpacity
             activeOpacity={0.7}

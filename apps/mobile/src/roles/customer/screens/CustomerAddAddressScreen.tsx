@@ -10,7 +10,6 @@ import {
   Easing,
   StatusBar,
   Modal,
-  Dimensions,
   Platform,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
@@ -20,10 +19,8 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { CustomerDeliveryAddressModal, AddressData } from '../components';
+import { CustomerDeliveryAddressModal, type AddressData } from '../components';
 import satelliteMapCoimbatore from '../assets/images/satellite_map_coimbatore.jpg';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface CustomerAddAddressScreenProps {
   initialSource?: 'current' | 'manual' | undefined;

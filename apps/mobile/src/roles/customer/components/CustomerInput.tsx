@@ -4,9 +4,9 @@ import {
   TextInput,
   Text,
   StyleSheet,
-  ViewStyle,
-  StyleProp,
-  TextInputProps,
+  type ViewStyle,
+  type StyleProp,
+  type TextInputProps,
 } from 'react-native';
 import {
   customerColors,

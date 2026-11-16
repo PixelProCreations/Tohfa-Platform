@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,26 +11,26 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
-import {
-  customerColors,
-  customerFonts,
-  customerRadius,
-  customerShadow,
-  customerSpacing,
-} from '../theme';
+import { customerFonts } from '../theme';
 import {
   walletPouchCard,
   profileEmailVerified,
 } from '../assets/images';
+import { CustomerSendMoneyScreen } from './CustomerSendMoneyScreen';
 
 export interface CustomerWalletScreenProps {
   initialBalance?: number;
+  initialMode?: 'main' | 'add_money' | 'send_money';
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
+  onBalanceChange?: (newBalance: number) => void;
 }
 
-const BackArrowSvg = ({ color = '#1A2E1A', size = 18 }: { color?: string; size?: number }) => (
+// ── SVG ICONS ─────────────────────────────────────────────────────────────────
+
+const BackArrowSvg = ({ color = '#1A1A1A', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M19 12H5M5 12L12 19M5 12L12 5"
@@ -58,7 +58,7 @@ const WalletIconSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?
   </Svg>
 );
 
-const CartIconSvg = ({ color = '#EF4444', size = 18 }: { color?: string; size?: number }) => (
+const CartIconSvg = ({ color = '#DC2626', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Circle cx={9} cy={21} r={1} fill={color} />
     <Circle cx={20} cy={21} r={1} fill={color} />
@@ -72,7 +72,7 @@ const CartIconSvg = ({ color = '#EF4444', size = 18 }: { color?: string; size?: 
   </Svg>
 );
 
-const RefundIconSvg = ({ color = '#3B82F6', size = 18 }: { color?: string; size?: number }) => (
+const RefundIconSvg = ({ color = '#2563EB', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path
       d="M1 4v6h6M23 20v-6h-6"
@@ -91,7 +91,7 @@ const RefundIconSvg = ({ color = '#3B82F6', size = 18 }: { color?: string; size?
   </Svg>
 );
 
-const FilterSvg = ({ color = '#2E7D32', size = 14 }: { color?: string; size?: number }) => (
+const FilterSvg = ({ color = '#2E7D32', size = 13 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6" stroke={color} strokeWidth={2} strokeLinecap="round" />
   </Svg>
@@ -100,6 +100,24 @@ const FilterSvg = ({ color = '#2E7D32', size = 14 }: { color?: string; size?: nu
 const CloseSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Path d="M18 6L6 18M6 6l12 12" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const SendPaperPlaneSvg = ({ color = '#2E7D32', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M22 2L11 13M22 2L15 22L11 13M11 13L2 9L22 2"
+      stroke={color}
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const PlusSvg = ({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path d="M12 5V19M5 12H19" stroke={color} strokeWidth={2} strokeLinecap="round" />
   </Svg>
 );
 
@@ -112,32 +130,58 @@ const UpiSvg = ({ size = 22 }: { size?: number }) => (
 
 const CardSvg = ({ size = 22 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Rect x={2} y={5} width={20} height={14} rx={2} stroke="#1A2E1A" strokeWidth={1.8} />
-    <Path d="M2 10h20" stroke="#1A2E1A" strokeWidth={1.8} />
-    <Rect x={6} y={14} width={4} height={2} rx={0.5} fill="#1A2E1A" />
+    <Rect x={2} y={5} width={20} height={14} rx={2} stroke="#1A1A1A" strokeWidth={1.8} />
+    <Path d="M2 10h20" stroke="#1A1A1A" strokeWidth={1.8} />
+    <Rect x={6} y={14} width={4} height={2} rx={0.5} fill="#1A1A1A" />
   </Svg>
 );
 
 const BankSvg = ({ size = 22 }: { size?: number }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path d="M3 21h18M3 10h18M5 10v7M9 10v7M15 10v7M19 10v7M12 3l9 5H3l9-5z" stroke="#1A2E1A" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+    <Path d="M3 21h18M3 10h18M5 10v7M9 10v7M15 10v7M19 10v7M12 3l9 5H3l9-5z" stroke="#1A1A1A" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+  </Svg>
+);
+
+const TinyTohfaLeafSvg = () => (
+  <Svg width={20} height={14} viewBox="0 0 24 16" fill="none">
+    <Path
+      d="M12 1C6 1 2 5 2 11c0 3 3 5 7 5 5 0 13-5 13-15-4 0-8 0-10 0z"
+      fill="#4CAF50"
+    />
+    <Path
+      d="M12 1c2 4 6 7 10 8"
+      stroke="#2E7D32"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+    />
   </Svg>
 );
 
 export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
   initialBalance = 1250,
+  initialMode = 'main',
   onNavigate,
   onBack,
+  onBalanceChange,
 }) => {
+  const insets = useSafeAreaInsets();
   const [balance, setBalance] = useState<number>(initialBalance);
-  const [viewMode, setViewMode] = useState<'main' | 'add_money'>('main');
+
+  useEffect(() => {
+    setBalance(initialBalance);
+  }, [initialBalance]);
+
+  const [viewMode, setViewMode] = useState<'main' | 'add_money' | 'send_money'>(initialMode);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
   const [amountInput, setAmountInput] = useState<string>('');
   const [selectedMethod, setSelectedMethod] = useState<'upi' | 'card' | 'netbanking'>('upi');
   const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
   const [lastAddedAmount, setLastAddedAmount] = useState<number>(0);
 
   const quickAmounts = [500, 1000, 2000, 5000];
-
   const parsedAmount = parseInt(amountInput, 10) || 0;
 
   const handleSelectQuickAmount = (val: number) => {
@@ -147,7 +191,11 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
   const handleConfirmAddMoney = () => {
     if (parsedAmount <= 0) return;
     setLastAddedAmount(parsedAmount);
-    setBalance(prev => prev + parsedAmount);
+    setBalance((prev) => {
+      const updated = prev + parsedAmount;
+      onBalanceChange?.(updated);
+      return updated;
+    });
     setShowSuccessModal(true);
   };
 
@@ -157,26 +205,45 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
     setAmountInput('');
   };
 
+  if (viewMode === 'send_money') {
+    return (
+      <CustomerSendMoneyScreen
+        walletBalance={balance}
+        onBack={() => {
+          if (initialMode === 'send_money' && onBack) {
+            onBack();
+          } else {
+            setViewMode('main');
+          }
+        }}
+        onNavigate={onNavigate}
+        onSendSuccess={(amt) => setBalance((prev) => Math.max(0, prev - amt))}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() => {
               if (viewMode === 'add_money') {
                 setViewMode('main');
+              } else if (onBack) {
+                onBack();
               } else {
-                onBack ? onBack() : onNavigate?.('CustomerAccount');
+                onNavigate?.('CustomerAccount');
               }
             }}
             style={styles.circleIconButton}
             accessibilityLabel="Back"
           >
-            <BackArrowSvg color={customerColors.heading} size={18} />
+            <BackArrowSvg color="#1A1A1A" size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>My wallet</Text>
         </View>
@@ -187,14 +254,15 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── TOP WALLET POUCH CARD WITH CASH ─────────────────────────────────── */}
+        {/* ── TOP WALLET POUCH CARD WITH CASH (Matching Image 2) ─────────────────── */}
         <View style={styles.walletCardWrap}>
           <Image
             source={walletPouchCard}
             style={styles.walletCardImage}
             resizeMode="contain"
           />
-          <View style={styles.walletCardOverlay} pointerEvents="box-none">
+          <View style={styles.walletBalanceOverlay}>
+            <TinyTohfaLeafSvg />
             <Text style={styles.walletBalanceLabel}>Wallet Balance</Text>
             <Text style={styles.walletBalanceValue}>
               ₹ {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -202,35 +270,55 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
           </View>
         </View>
 
-        <Text style={styles.walletSubtitle}>
-          Use your wallet balance for faster and smarter payments.
+        {/* Wallet ID Subtitle (Matching Image 2) */}
+        <Text style={styles.walletIdText}>
+          Wallet ID: <Text style={styles.walletIdBold}>TOHFA123456789</Text>
         </Text>
 
-        {/* ── VIEW 1: MAIN WALLET VIEW (Screen 70) ────────────────────────────── */}
+        {/* ── VIEW 1: MAIN WALLET VIEW (Screen 81 in Image 2) ─────────────────── */}
         {viewMode === 'main' ? (
           <>
-            {/* + Add Money Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setViewMode('add_money')}
-              style={styles.addMoneyMainBtn}
-              accessibilityLabel="Add Money"
-            >
-              <Text style={styles.addMoneyMainBtnText}>+ Add Money</Text>
-            </TouchableOpacity>
+            {/* Action Buttons (Matching Image 2) */}
+            <View style={styles.actionButtonsWrap}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (onNavigate) {
+                    onNavigate('CustomerSendMoney');
+                  } else {
+                    setViewMode('send_money');
+                  }
+                }}
+                style={styles.sendMoneyBtn}
+                accessibilityLabel="Send Money"
+              >
+                <SendPaperPlaneSvg color="#2E7D32" size={18} />
+                <Text style={styles.sendMoneyBtnText}>Send Money</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setViewMode('add_money')}
+                style={styles.addMoneyMainBtn}
+                accessibilityLabel="Add Money"
+              >
+                <PlusSvg color="#FFFFFF" size={16} />
+                <Text style={styles.addMoneyMainBtnText}>Add Money</Text>
+              </TouchableOpacity>
+            </View>
 
             {/* Recent Transactions Section Header with Filter */}
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Recent Transactions</Text>
-              <TouchableOpacity style={styles.filterPill} activeOpacity={0.7}>
-                <FilterSvg size={13} color={customerColors.brand} />
+              <TouchableOpacity style={styles.filterPill} activeOpacity={0.7} accessibilityLabel="Filter">
+                <FilterSvg size={13} color="#2E7D32" />
                 <Text style={styles.filterPillText}>Filter</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Transactions List */}
+            {/* Transactions List (Matching Image 2) */}
             <View style={styles.transactionsList}>
-              {/* Row 1 */}
+              {/* Row 1: Added to Wallet */}
               <View style={styles.txRow}>
                 <View style={[styles.txIconBox, { backgroundColor: '#EDF8EE' }]}>
                   <WalletIconSvg color="#2E7D32" size={18} />
@@ -240,7 +328,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                   <Text style={styles.txDate}>12 Nov 2026, 10:24 Am</Text>
                 </View>
                 <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: customerColors.body }]}>+ ₹ 1,000.00</Text>
+                  <Text style={[styles.txAmount, { color: '#1A1A1A' }]}>+ ₹ 1,000.00</Text>
                   <View style={styles.successPill}>
                     <Text style={styles.successPillText}>Success</Text>
                   </View>
@@ -248,9 +336,9 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
               <View style={styles.divider} />
 
-              {/* Row 2 */}
+              {/* Row 2: Order Payment */}
               <View style={styles.txRow}>
-                <View style={[styles.txIconBox, { backgroundColor: '#FEE4E2' }]}>
+                <View style={[styles.txIconBox, { backgroundColor: '#FFEBEE' }]}>
                   <CartIconSvg color="#DC2626" size={18} />
                 </View>
                 <View style={styles.txDetailsCol}>
@@ -267,9 +355,9 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
               <View style={styles.divider} />
 
-              {/* Row 3 */}
+              {/* Row 3: Order Refund */}
               <View style={styles.txRow}>
-                <View style={[styles.txIconBox, { backgroundColor: '#EFF6FF' }]}>
+                <View style={[styles.txIconBox, { backgroundColor: '#E3F2FD' }]}>
                   <RefundIconSvg color="#2563EB" size={18} />
                 </View>
                 <View style={styles.txDetailsCol}>
@@ -278,7 +366,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                   <Text style={styles.txDate}>10 Nov 2026, 10:24 Am</Text>
                 </View>
                 <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: customerColors.body }]}>+ ₹ 390.00</Text>
+                  <Text style={[styles.txAmount, { color: '#1A1A1A' }]}>+ ₹ 390.00</Text>
                   <View style={styles.successPill}>
                     <Text style={styles.successPillText}>Success</Text>
                   </View>
@@ -286,7 +374,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
               <View style={styles.divider} />
 
-              {/* Row 4 */}
+              {/* Row 4: Added to Wallet */}
               <View style={styles.txRow}>
                 <View style={[styles.txIconBox, { backgroundColor: '#EDF8EE' }]}>
                   <WalletIconSvg color="#2E7D32" size={18} />
@@ -296,7 +384,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                   <Text style={styles.txDate}>10 Nov 2026, 10:24 Am</Text>
                 </View>
                 <View style={styles.txRightCol}>
-                  <Text style={[styles.txAmount, { color: customerColors.body }]}>+ ₹ 500.00</Text>
+                  <Text style={[styles.txAmount, { color: '#1A1A1A' }]}>+ ₹ 500.00</Text>
                   <View style={styles.successPill}>
                     <Text style={styles.successPillText}>Success</Text>
                   </View>
@@ -305,9 +393,8 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
             </View>
           </>
         ) : (
-          /* ── VIEW 2: ADD MONEY VIEW (Screen 71 & 72) ────────────────────────── */
+          /* ── VIEW 2: ADD MONEY VIEW ─────────────────────────────────────────── */
           <View style={styles.addMoneyForm}>
-            {/* Enter Amount */}
             <Text style={styles.inputLabel}>Enter Amount</Text>
             <View style={styles.amountInputRow}>
               <Text style={styles.currencySymbol}>₹</Text>
@@ -352,7 +439,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
             {/* Choose Payment Method */}
             <Text style={[styles.inputLabel, { marginTop: 24 }]}>Choose Payment Method</Text>
 
-            {/* UPI Option */}
+            {/* UPI */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('upi')}
@@ -370,7 +457,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Debit / Credit Card Option */}
+            {/* Debit / Credit Card */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('card')}
@@ -388,7 +475,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               </View>
             </TouchableOpacity>
 
-            {/* Net Banking Option */}
+            {/* Net Banking */}
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('netbanking')}
@@ -440,7 +527,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         onRequestClose={handleModalClose}
       >
         <View style={styles.modalBackdrop}>
-          <View style={[styles.successModalCard, customerShadow.overlay]}>
+          <View style={styles.successModalCard}>
             {/* Close X */}
             <TouchableOpacity
               activeOpacity={0.7}
@@ -504,10 +591,12 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: customerSpacing.base,
+    paddingHorizontal: 16,
     paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 24) + 12 : 16,
-    paddingBottom: 10,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   headerLeftGroup: {
     flexDirection: 'row',
@@ -519,112 +608,145 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#1A2E1A',
+    borderColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    color: '#1A2E1A',
     fontFamily: customerFonts.editorial,
+    color: '#1A1A1A',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: customerSpacing.base,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   walletCardWrap: {
     width: '100%',
-    height: 180,
-    marginTop: 6,
+    height: 215,
+    marginTop: 8,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   walletCardImage: {
-    width: '95%',
+    width: '100%',
     height: '100%',
   },
-  walletCardOverlay: {
+  srOnly: {
     position: 'absolute',
-    top: 55,
+    width: 1,
+    height: 1,
+    opacity: 0,
+    overflow: 'hidden',
+  },
+  walletBalanceOverlay: {
+    position: 'absolute',
+    top: 92,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   walletBalanceLabel: {
     fontSize: 12,
-    color: '#555555',
-    fontFamily: customerFonts.regular,
+    color: '#4B5563',
+    fontWeight: '500',
   },
   walletBalanceValue: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '700',
-    color: '#1A2E1A',
-    fontFamily: customerFonts.bold,
-    marginTop: 4,
+    color: '#1A1A1A',
+    marginTop: 2,
   },
-  walletSubtitle: {
-    fontSize: 11,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+  walletIdText: {
+    fontSize: 13,
+    color: '#6B7280',
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 16,
   },
-  addMoneyMainBtn: {
-    backgroundColor: customerColors.brand,
-    borderRadius: customerRadius.pill,
-    paddingVertical: 14,
+  walletIdBold: {
+    fontWeight: '700',
+    color: '#1A1A1A',
+  },
+  actionButtonsWrap: {
+    width: '100%',
+    gap: 10,
+    marginBottom: 8,
+  },
+  sendMoneyBtn: {
+    height: 46,
+    borderRadius: 24,
+    borderWidth: 1.2,
+    borderColor: '#2E7D32',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
+  },
+  sendMoneyBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2E7D32',
+  },
+  addMoneyMainBtn: {
+    height: 46,
+    backgroundColor: '#2E7D32',
+    borderRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   addMoneyMainBtnText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: customerFonts.semibold,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 24,
+    marginTop: 20,
     marginBottom: 14,
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#1A2E1A',
     fontFamily: customerFonts.editorial,
+    color: '#1A1A1A',
   },
   filterPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#EDF8EE',
+    backgroundColor: '#E8F5E9',
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: customerRadius.pill,
+    borderRadius: 6,
   },
   filterPillText: {
     fontSize: 11,
-    color: customerColors.brand,
-    fontFamily: customerFonts.regular,
+    fontWeight: '600',
+    color: '#2E7D32',
   },
   transactionsList: {
-    gap: 10,
+    gap: 6,
   },
   txRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     gap: 12,
   },
   txIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -632,77 +754,73 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   txTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: customerColors.body,
-    fontFamily: customerFonts.semibold,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A1A1A',
   },
   txOrderRef: {
-    fontSize: 10,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 11,
+    color: '#6B7280',
     marginTop: 1,
   },
   txDate: {
-    fontSize: 10,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 11,
+    color: '#6B7280',
     marginTop: 1,
   },
   txRightCol: {
     alignItems: 'flex-end',
-    gap: 3,
+    gap: 4,
   },
   txAmount: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
-    fontFamily: customerFonts.bold,
   },
   successPill: {
-    backgroundColor: '#EDF8EE',
+    backgroundColor: '#DCFCE7',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: customerRadius.pill,
+    borderRadius: 10,
   },
   successPillText: {
     fontSize: 10,
-    color: customerColors.brand,
-    fontFamily: customerFonts.regular,
+    fontWeight: '600',
+    color: '#15803D',
   },
   divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: '#F0F0F0',
-    marginLeft: 50,
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 52,
   },
 
   // ── ADD MONEY FORM STYLES ──────────────────────────────────────────────────
   addMoneyForm: {
-    marginTop: 4,
+    marginTop: 8,
   },
   inputLabel: {
     fontSize: 13,
-    color: customerColors.body,
-    fontFamily: customerFonts.regular,
+    fontWeight: '600',
+    color: '#1A1A1A',
     marginBottom: 8,
   },
   amountInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth * 1.5,
-    borderBottomColor: '#D1D5DB',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#1A1A1A',
     paddingVertical: 6,
   },
   currencySymbol: {
-    fontSize: 18,
-    color: customerColors.body,
-    fontFamily: customerFonts.regular,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
     marginRight: 8,
   },
   amountInput: {
     flex: 1,
-    fontSize: 18,
-    color: customerColors.body,
-    fontFamily: customerFonts.semibold,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1A1A1A',
     paddingVertical: 0,
   },
   quickSelectRow: {
@@ -714,35 +832,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
-    borderRadius: customerRadius.pill,
+    borderRadius: 20,
     paddingVertical: 8,
     alignItems: 'center',
   },
   quickAmountPillSelected: {
-    borderColor: customerColors.brand,
-    backgroundColor: '#E9F7E9',
+    borderColor: '#2E7D32',
+    backgroundColor: '#E8F5E9',
   },
   quickAmountText: {
     fontSize: 12,
-    color: customerColors.body,
-    fontFamily: customerFonts.regular,
+    fontWeight: '500',
+    color: '#1A1A1A',
   },
   quickAmountTextSelected: {
-    color: customerColors.brand,
+    color: '#2E7D32',
     fontWeight: '700',
-    fontFamily: customerFonts.bold,
   },
   paymentMethodRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#F0F0F0',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
     gap: 12,
   },
   methodIconBox: {
-    width: 36,
-    height: 36,
+    width: 38,
+    height: 38,
     borderRadius: 8,
     backgroundColor: '#F9FAFB',
     justifyContent: 'center',
@@ -752,52 +869,49 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   methodTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
-    color: customerColors.body,
-    fontFamily: customerFonts.semibold,
+    color: '#1A1A1A',
   },
   methodSubtitle: {
-    fontSize: 10,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 11,
+    color: '#6B7280',
     marginTop: 2,
   },
   radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#D1D5DB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   radioCircleActive: {
-    borderColor: customerColors.brand,
+    borderColor: '#2E7D32',
   },
   radioDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: customerColors.brand,
+    backgroundColor: '#2E7D32',
   },
   addMoneySubmitBtn: {
-    borderRadius: customerRadius.pill,
+    borderRadius: 24,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 28,
   },
   addMoneySubmitBtnActive: {
-    backgroundColor: customerColors.brand,
+    backgroundColor: '#2E7D32',
   },
   addMoneySubmitBtnDisabled: {
     backgroundColor: '#E5E7EB',
   },
   addMoneySubmitBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    fontFamily: customerFonts.semibold,
   },
   addMoneySubmitBtnTextActive: {
     color: '#FFFFFF',
@@ -821,6 +935,11 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     position: 'relative',
+    elevation: 8,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
   modalCloseBtn: {
     position: 'absolute',
@@ -835,14 +954,13 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    color: '#1A2E1A',
-    fontFamily: customerFonts.editorial,
+    fontWeight: '700',
+    color: '#1A1A1A',
     textAlign: 'center',
   },
   modalSubtitle: {
-    fontSize: 11,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#6B7280',
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 18,
@@ -861,30 +979,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricLabel: {
-    fontSize: 9,
-    color: customerColors.muted,
-    fontFamily: customerFonts.regular,
+    fontSize: 10,
+    color: '#6B7280',
   },
   metricValue: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#1A2E1A',
-    fontFamily: customerFonts.bold,
+    color: '#1A1A1A',
     marginTop: 3,
   },
   viewWalletBtn: {
     width: '100%',
-    backgroundColor: customerColors.brand,
-    borderRadius: customerRadius.pill,
+    backgroundColor: '#2E7D32',
+    borderRadius: 24,
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   viewWalletBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
-    fontFamily: customerFonts.semibold,
   },
 });
-

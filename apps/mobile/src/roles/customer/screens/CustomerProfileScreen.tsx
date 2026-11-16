@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
@@ -21,10 +22,10 @@ import {
 } from '../theme';
 import {
   branchLeavesTopLeft,
-  profileEmailVerified,
   profileAvatarMale,
   profileAvatarFemale,
   satelliteMapCoimbatore,
+  profileEmailVerified,
 } from '../assets/images';
 
 export type ProfileScreenMode = 'empty' | 'view' | 'edit';
@@ -128,31 +129,6 @@ const CloseSvg = ({ color = '#6B7280', size = 18 }: { color?: string; size?: num
   </Svg>
 );
 
-const SuccessMailSvg = ({ size = 64 }: { size?: number }) => (
-  <Svg width={size} height={size} viewBox="0 0 64 64" fill="none">
-    <Circle cx={32} cy={32} r={28} fill="#E8F5E9" />
-    <Path
-      d="M16 24a4 4 0 014-4h24a4 4 0 014 4v16a4 4 0 01-4 4H20a4 4 0 01-4-4V24z"
-      fill="#4CAF50"
-    />
-    <Path
-      d="M16 24l16 12 16-12"
-      stroke="#FFFFFF"
-      strokeWidth={2.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Circle cx={32} cy={32} r={10} fill="#2E7D32" />
-    <Path
-      d="M29 32l2 2 4-4"
-      stroke="#FFFFFF"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
 /**
  * Customer Profile Management Component
  * Supports:
@@ -169,7 +145,12 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   onBack,
   onSave,
 }) => {
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<ProfileScreenMode>(initialMode);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   // Form State
   const [formData, setFormData] = useState<CustomerProfileData>({
@@ -199,8 +180,10 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   const handleHeaderBack = () => {
     if (mode === 'edit' && initialMode !== 'edit') {
       setMode('view');
+    } else if (onBack) {
+      onBack();
     } else {
-      onBack ? onBack() : onNavigate?.('CustomerAccount');
+      onNavigate?.('CustomerAccount');
     }
   };
 
@@ -224,7 +207,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
   return (
     <View style={styles.container}>
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
           {/* Back Button */}
           <TouchableOpacity
@@ -690,12 +673,17 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowEmailVerifiedSuccess(false)}
+              accessibilityLabel="Close"
             >
-              <CloseSvg size={18} />
+              <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
 
             <View style={styles.successGraphicWrap}>
-              <SuccessMailSvg size={68} />
+              <Image
+                source={profileEmailVerified}
+                style={styles.verifiedEnvelopeImage}
+                resizeMode="contain"
+              />
             </View>
 
             <Text style={styles.successTitle}>Email Verified!</Text>
@@ -1016,10 +1004,32 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: {
     position: 'absolute',
-    top: 14,
-    right: 14,
-    padding: 4,
+    top: -12,
+    right: -12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 4,
     zIndex: 10,
+  },
+  modalCloseText: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '700',
+    lineHeight: 15,
+  },
+  verifiedEnvelopeImage: {
+    width: 84,
+    height: 74,
   },
   otpLeavesTop: {
     width: 50,

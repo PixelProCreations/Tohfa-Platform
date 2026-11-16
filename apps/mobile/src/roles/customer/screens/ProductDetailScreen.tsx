@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Dimensions,
   StatusBar,
   Share,
   Platform,
@@ -14,13 +13,7 @@ import {
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ProductImages } from '../assets/images/products';
 import {
-  customerColors,
   customerFonts,
-  customerSpacing,
-  customerRadius,
-  customerShadow,
-  customerPrimitives,
-  customerType,
 } from '../theme';
 
 interface ProductDetailScreenProps {

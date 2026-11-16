@@ -8,6 +8,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import {
   customerFonts,
@@ -35,12 +36,17 @@ export const CustomerTermsScreen: React.FC<CustomerTermsScreenProps> = ({
   onNavigate,
   onBack,
 }) => {
+  const insets = useSafeAreaInsets();
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
       {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
           <TouchableOpacity
             activeOpacity={0.7}

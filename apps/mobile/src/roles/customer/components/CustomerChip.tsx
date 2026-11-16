@@ -1,6 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, StyleProp } from 'react-native';
-import { customerColors, customerType, customerRadius, customerSpacing } from '../theme';
+import { TouchableOpacity, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native';
+import { customerColors, customerType, customerRadius } from '../theme';
 
 export interface CustomerChipProps {
   label: string;

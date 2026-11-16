@@ -147,11 +147,29 @@ export interface CustomerTypeStyle {
   letterSpacing?: number;
 }
 
+import { Platform } from 'react-native';
+
 export const customerFonts = {
-  editorial: 'ArchitectsDaughter-Regular',
-  regular: 'Manrope-Regular',
-  semibold: 'Manrope-SemiBold',
-  bold: 'Manrope-Bold',
+  editorial: Platform.select({
+    ios: 'ArchitectsDaughter-Regular',
+    android: 'ArchitectsDaughter-Regular',
+    default: 'ArchitectsDaughter-Regular',
+  }) as string,
+  regular: Platform.select({
+    ios: 'System',
+    android: 'sans-serif',
+    default: 'sans-serif',
+  }) as string,
+  semibold: Platform.select({
+    ios: 'System',
+    android: 'sans-serif-medium',
+    default: 'sans-serif-medium',
+  }) as string,
+  bold: Platform.select({
+    ios: 'System',
+    android: 'sans-serif',
+    default: 'sans-serif',
+  }) as string,
 } as const;
 
 /**

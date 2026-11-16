@@ -23,7 +23,13 @@ vi.mock('react-native', () => ({
   TouchableOpacity: 'TouchableOpacity',
   View: 'View',
   StatusBar: 'StatusBar',
+  Dimensions: { get: vi.fn(() => ({ width: 390, height: 844 })) },
   Modal: (props: any) => (props.visible ? React.createElement('Modal', props, props.children) : null),
+}));
+
+vi.mock('react-native-safe-area-context', () => ({
+  SafeAreaView: 'SafeAreaView',
+  useSafeAreaInsets: () => ({ top: 48, bottom: 24, left: 0, right: 0 }),
 }));
 
 vi.mock('react-native-svg', () => ({
@@ -60,12 +66,14 @@ vi.mock('../assets/images/products', () => ({
 
 import { OrderHistoryScreen } from '../screens/OrderHistoryScreen';
 import { CustomerWalletScreen } from '../screens/CustomerWalletScreen';
+import { CustomerSendMoneyScreen } from '../screens/CustomerSendMoneyScreen';
 import { CustomerSupportScreen } from '../screens/CustomerSupportScreen';
 import { CustomerHelpScreen } from '../screens/CustomerHelpScreen';
 import { CustomerNotificationsScreen } from '../screens/CustomerNotificationsScreen';
 import { CustomerAccountSettingsScreen } from '../screens/CustomerAccountSettingsScreen';
 import { CustomerPrivacyPolicyScreen } from '../screens/CustomerPrivacyPolicyScreen';
 import { CustomerTermsScreen } from '../screens/CustomerTermsScreen';
+import { SearchScreen } from '../screens/SearchScreen';
 
 describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', () => {
   const mockNavigate = vi.fn();
@@ -106,7 +114,7 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     expect(json).toContain('My wallet');
     expect(json).toContain('Wallet Balance');
     expect(json).toContain('1,250.00');
-    expect(json).toContain('+ Add Money');
+    expect(json).toContain('Add Money');
     expect(json).toContain('Recent Transactions');
     expect(json).toContain('Added to Wallet');
     expect(json).toContain('Order Payment');
@@ -134,6 +142,40 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     expect(json).toContain('UPI');
     expect(json).toContain('Debit / Credit Card');
     expect(json).toContain('Net Banking');
+  });
+
+  it('CustomerWalletScreen navigates to Send Money when Send Money button is pressed', async () => {
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerWalletScreen initialBalance={1250} onNavigate={mockNavigate} onBack={mockBack} />
+      );
+    });
+
+    const sendMoneyBtn = tree.root.findByProps({ accessibilityLabel: 'Send Money' });
+    await act(async () => {
+      sendMoneyBtn.props.onPress();
+    });
+
+    expect(mockNavigate).toHaveBeenCalledWith('CustomerSendMoney');
+  });
+
+  it('renders CustomerSendMoneyScreen with From balance, recipient input, and amount', async () => {
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <CustomerSendMoneyScreen walletBalance={1250} onBack={mockBack} onNavigate={mockNavigate} />
+      );
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Send Money');
+    expect(json).toContain('TOHFA Wallet');
+    expect(json).toContain('1,250.00');
+    expect(json).toContain('Mobile Number');
+    expect(json).toContain('Wallet ID');
+    expect(json).toContain('Ramesh Kumar');
+    expect(json).toContain('Amount');
   });
 
   it('renders CustomerSupportScreen with filter tabs and tickets', async () => {
@@ -291,6 +333,52 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     expect(json).toContain('2. Eligibility and Account Registration');
     expect(json).toContain('3. Account Information');
     expect(json).toContain('4. Products and Availability');
+  });
+
+  it('renders SearchScreen with Back button, Fresh Finds header, categories, and handles back press', async () => {
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <SearchScreen onNavigate={mockNavigate} onBack={mockBack} />
+      );
+    });
+
+    const root = tree.root;
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Fresh Finds for You');
+    expect(json).toContain('Vegetables');
+    expect(json).toContain('Fruit');
+    expect(json).toContain('Recent searches');
+
+    // Find and press the back button
+    const backBtn = root.findByProps({ accessibilityLabel: 'Go back' });
+    expect(backBtn).toBeDefined();
+    await act(async () => {
+      backBtn.props.onPress();
+    });
+    expect(mockBack).toHaveBeenCalled();
+  });
+
+  it('SearchScreen filters products when typing into search input', async () => {
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <SearchScreen onNavigate={mockNavigate} onBack={mockBack} />
+      );
+    });
+
+    const root = tree.root;
+    const textInput = root.findByType('TextInput');
+    expect(textInput).toBeDefined();
+
+    // Type "Tomato" into search
+    await act(async () => {
+      textInput.props.onChangeText('Tomato');
+    });
+
+    const json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Tomato');
+    expect(json).toContain('Red Tomato');
   });
 });
 

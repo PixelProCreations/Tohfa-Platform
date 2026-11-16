@@ -8,10 +8,12 @@ import {
   TouchableOpacity,
   TextInput,
   StatusBar,
+  Platform,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
-import { customerColors, customerFonts, customerShadow } from '../theme';
+import { customerFonts, customerShadow } from '../theme';
 import { CategoryImages, ProductImages } from '../assets/images/products';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -31,6 +33,19 @@ interface SearchProduct {
   image: any;
   category: string;
 }
+
+// ── BACK ARROW SVG ──────────────────────────────────────────────────────────
+const BackArrowSvg = ({ color = '#111827', size = 18 }: { color?: string; size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M19 12H5M5 12L12 19M5 12L12 5"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
 
 // ── COMPREHENSIVE SEARCH CATALOG MATCHING FIGMA SPEC ────────────────────────
 const ALL_SEARCH_PRODUCTS: SearchProduct[] = [
@@ -59,28 +74,49 @@ const ALL_SEARCH_PRODUCTS: SearchProduct[] = [
   { id: 'g1', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.grainBrownRice, category: 'Grains' },
 ];
 
-// ── RECENT SEARCHES (EXACT FIGMA SPEC: IMAGE 2 - RIGHT) ─────────────────────
+// ── RECENT SEARCHES (EXACT FIGMA SPEC) ───────────────────────────────────────
 const INITIAL_RECENT_SEARCHES = [
   { id: 'r1', name: 'Royal Gala', subtitle: 'Sweet & mellow', image: ProductImages.fruitApple },
-  { id: 'r2', name: 'Red Tomato', subtitle: 'Fresh', image: ProductImages.foryouTomatoes },
-  { id: 'r3', name: 'Yellow Cherry Tomato', subtitle: 'Fresh', image: ProductImages.exoticCherryTomato },
+  { id: 'r2', name: 'Red Tomato', subtitle: 'Fresh & juicy', image: ProductImages.foryouTomatoes },
+  { id: 'r3', name: 'Yellow Cherry Tomato', subtitle: 'Farm fresh', image: ProductImages.exoticCherryTomato },
+  { id: 'r4', name: 'Watermelon', subtitle: 'Crisp & sweet', image: ProductImages.foryouWatermelon },
 ];
 
-// ── CATEGORIES FOR SEARCH TOP ROW (EXACT FIGMA SPEC: IMAGE 2 - LEFT) ────────
+// ── TRENDING PICKS FOR EMPTY STATE ──────────────────────────────────────────
+const TRENDING_PRODUCTS: SearchProduct[] = [
+  ALL_SEARCH_PRODUCTS[0]!, // Red Tomato
+  ALL_SEARCH_PRODUCTS[5]!, // Royal Gala
+  ALL_SEARCH_PRODUCTS[10]!, // Potato
+  ALL_SEARCH_PRODUCTS[11]!, // Fresh Carrot
+  ALL_SEARCH_PRODUCTS[12]!, // Green Curly Lettuce
+  ALL_SEARCH_PRODUCTS[13]!, // Broccoli
+];
+
+// ── CATEGORIES FOR SEARCH TOP ROW ───────────────────────────────────────────
 const SEARCH_CATEGORIES = [
   { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables },
   { id: 'c2', label: 'Fruit', image: CategoryImages.fruit },
   { id: 'c3', label: 'Dairy', image: CategoryImages.dairy },
   { id: 'c4', label: 'Grains', image: CategoryImages.grains },
-  { id: 'c5', label: 'Tea', image: CategoryImages.teaCoffee },
+  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits },
+  { id: 'c6', label: 'Tea & Coffee', image: CategoryImages.teaCoffee },
+  { id: 'c7', label: 'Bakery', image: CategoryImages.bakery },
 ];
 
 export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
+  const insets = useSafeAreaInsets();
   const [query, setQuery] = useState('');
-  const [isFocused, setIsFocused] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
 
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
+
   const handleBack = () => {
+    if (query.trim().length > 0) {
+      setQuery('');
+      return;
+    }
     if (onBack) {
       onBack();
     } else {
@@ -104,20 +140,32 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* ── TOP HEADER ROW WITH BACK BUTTON (SAFELY BELOW CAMERA NOTCH) ────── */}
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={handleBack}
+          style={styles.backButton}
+          accessibilityLabel="Go back"
+        >
+          <BackArrowSvg color="#111827" size={18} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {query.trim().length > 0 ? query : 'Fresh Finds for You'}
+        </Text>
+      </View>
 
       {/* ── MAIN CONTENT AREA ──────────────────────────────────────────────── */}
       <View style={styles.contentWrap}>
         {query.trim().length > 0 ? (
-          /* ── 1. ACTIVE SEARCH RESULTS (EXACT FIGMA SPEC: IMAGE 3) ────────── */
+          /* ── 1. ACTIVE SEARCH RESULTS ────────────────────────────────────── */
           <ScrollView
             style={styles.resultsScroll}
             contentContainerStyle={styles.resultsScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Header: Title of Search Query in Editorial Font */}
-            <Text style={styles.resultsTitle}>{query}</Text>
-
             {searchResults.length === 0 ? (
               <View style={styles.noResultsWrap}>
                 <Text style={styles.noResultsText}>No products found for "{query}"</Text>
@@ -128,7 +176,12 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
                 {searchResults.map(item => {
                   const isFav = favorites.includes(item.id);
                   return (
-                    <View key={item.id} style={styles.cardCol}>
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      onPress={() => onNavigate?.('ProductDetail', { productId: item.id, product: item })}
+                      style={styles.cardCol}
+                    >
                       <View style={[styles.productCard, customerShadow.subtle]}>
                         {/* Top: Star Rating on Left, Heart on Right */}
                         <View style={styles.cardHeaderRow}>
@@ -140,6 +193,7 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
                             activeOpacity={0.7}
                             onPress={() => toggleFavorite(item.id)}
                             style={styles.heartButton}
+                            accessibilityLabel={`Favorite ${item.name}`}
                           >
                             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                               <Path
@@ -175,73 +229,138 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
                       <Text style={styles.cardProductName} numberOfLines={1}>
                         {item.name}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
             )}
           </ScrollView>
-        ) : isFocused ? (
-          /* ── 2. RECENT SEARCHES STATE (EXACT FIGMA SPEC: IMAGE 2 - RIGHT) ─── */
-          <View style={styles.recentWrap}>
-            <Text style={styles.recentTitle}>Recent search</Text>
-            <View style={styles.recentList}>
-              {INITIAL_RECENT_SEARCHES.map(item => (
-                <TouchableOpacity
-                  key={item.id}
-                  activeOpacity={0.7}
-                  onPress={() => setQuery(item.name)}
-                  style={styles.recentItemRow}
-                >
-                  <View style={styles.recentThumbWrap}>
-                    <Image source={item.image} style={styles.recentThumbImage} resizeMode="contain" />
-                  </View>
-                  <View style={styles.recentTextCol}>
-                    <Text style={styles.recentItemName}>{item.name}</Text>
-                    <Text style={styles.recentItemSub}>{item.subtitle}</Text>
-                  </View>
-                  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M7 17L17 7M17 7H7M17 7V17"
-                      stroke="#9CA3AF"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
         ) : (
-          /* ── 3. INITIAL SEARCH STATE (EXACT FIGMA SPEC: IMAGE 2 - LEFT) ───── */
-          <View style={styles.initialWrap}>
-            <Text style={styles.freshFindsTitle}>Fresh Finds for You</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoryCirclesRow}
-            >
-              {SEARCH_CATEGORIES.map(cat => (
-                <TouchableOpacity
-                  key={cat.id}
-                  activeOpacity={0.75}
-                  onPress={() => setQuery(cat.label)}
-                  style={styles.categoryCircleItem}
-                >
-                  <View style={styles.categoryCircleOuter}>
-                    <Image source={cat.image} style={styles.categoryCircleImg} resizeMode="cover" />
-                  </View>
-                  <Text style={styles.categoryCircleLabel}>{cat.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
+          /* ── 2. INITIAL STATE WITH RICH CONTENT ──────────────────────────── */
+          <ScrollView
+            style={styles.resultsScroll}
+            contentContainerStyle={styles.initialScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Category Circles Row */}
+            <View style={styles.categoriesSection}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.categoryCirclesRow}
+              >
+                {SEARCH_CATEGORIES.map(cat => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    activeOpacity={0.75}
+                    onPress={() => setQuery(cat.label)}
+                    style={styles.categoryCircleItem}
+                  >
+                    <View style={styles.categoryCircleOuter}>
+                      <Image source={cat.image} style={styles.categoryCircleImg} resizeMode="cover" />
+                    </View>
+                    <Text style={styles.categoryCircleLabel} numberOfLines={1}>{cat.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            {/* Recent Searches */}
+            <View style={styles.recentWrap}>
+              <Text style={styles.recentTitle}>Recent searches</Text>
+              <View style={styles.recentList}>
+                {INITIAL_RECENT_SEARCHES.map(item => (
+                  <TouchableOpacity
+                    key={item.id}
+                    activeOpacity={0.7}
+                    onPress={() => setQuery(item.name)}
+                    style={styles.recentItemRow}
+                  >
+                    <View style={styles.recentThumbWrap}>
+                      <Image source={item.image} style={styles.recentThumbImage} resizeMode="contain" />
+                    </View>
+                    <View style={styles.recentTextCol}>
+                      <Text style={styles.recentItemName}>{item.name}</Text>
+                      <Text style={styles.recentItemSub}>{item.subtitle}</Text>
+                    </View>
+                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M7 17L17 7M17 7H7M17 7V17"
+                        stroke="#9CA3AF"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Trending Produce */}
+            <View style={styles.trendingSection}>
+              <Text style={styles.trendingTitle}>Trending Produce</Text>
+              <View style={styles.gridWrap}>
+                {TRENDING_PRODUCTS.map(item => {
+                  const isFav = favorites.includes(item.id);
+                  return (
+                    <TouchableOpacity
+                      key={item.id}
+                      activeOpacity={0.85}
+                      onPress={() => onNavigate?.('ProductDetail', { productId: item.id, product: item })}
+                      style={styles.cardCol}
+                    >
+                      <View style={[styles.productCard, customerShadow.subtle]}>
+                        <View style={styles.cardHeaderRow}>
+                          <View style={styles.ratingBadge}>
+                            <Text style={styles.starIcon}>★ </Text>
+                            <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+                          </View>
+                          <TouchableOpacity
+                            activeOpacity={0.7}
+                            onPress={() => toggleFavorite(item.id)}
+                            style={styles.heartButton}
+                            accessibilityLabel={`Favorite ${item.name}`}
+                          >
+                            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                              <Path
+                                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                                fill={isFav ? '#EF4444' : 'none'}
+                                stroke={isFav ? '#EF4444' : '#9CA3AF'}
+                                strokeWidth={1.5}
+                              />
+                            </Svg>
+                          </TouchableOpacity>
+                        </View>
+                        <View style={styles.cardImageCenter}>
+                          {item.image ? (
+                            <Image
+                              source={item.image}
+                              style={styles.productCardImage}
+                              resizeMode="contain"
+                            />
+                          ) : null}
+                        </View>
+                        <View style={styles.cardPriceRow}>
+                          <Text style={styles.priceBold}>₹ {item.price}</Text>
+                          <Text style={styles.priceStrikethrough}>₹ {item.originalPrice}</Text>
+                          <Text style={styles.unitText}>{item.unit}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.cardProductName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </ScrollView>
         )}
       </View>
 
-      {/* ── FLOATING BOTTOM SEARCH BAR (EXACT FIGMA SPEC: IMAGES 2 & 3) ──────── */}
-      <View style={styles.bottomBarWrap}>
+      {/* ── FLOATING BOTTOM SEARCH BAR ─────────────────────────────────────── */}
+      <View style={[styles.bottomBarWrap, { bottom: Math.max(insets.bottom, 16) }]}>
         <View style={styles.searchInputPill}>
           <TextInput
             style={styles.searchInput}
@@ -249,10 +368,14 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
             placeholderTextColor="#9CA3AF"
             value={query}
             onChangeText={setQuery}
-            onFocus={() => setIsFocused(true)}
+            returnKeyType="search"
           />
           {query.length > 0 && (
-            <TouchableOpacity onPress={() => setQuery('')} style={styles.clearBtn}>
+            <TouchableOpacity
+              onPress={() => setQuery('')}
+              style={styles.clearBtn}
+              accessibilityLabel="Clear search"
+            >
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Circle cx={12} cy={12} r={10} fill="#9CA3AF" />
                 <Path d="M8 8l8 8M16 8l-8 8" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
@@ -262,36 +385,16 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
         </View>
 
         {/* Right Green Circular Action Button */}
-        {query.length > 0 ? (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={handleBack}
-            style={styles.greenCircleBtn}
-            accessibilityLabel="Close Search"
-          >
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M18 6L6 18M6 6l12 12"
-                stroke="#FFFFFF"
-                strokeWidth={2.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </Svg>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setIsFocused(true)}
-            style={styles.greenCircleBtn}
-            accessibilityLabel="Search"
-          >
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Circle cx={11} cy={11} r={7} stroke="#FFFFFF" strokeWidth={2} />
-              <Path d="M21 21l-4.35-4.35" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
-            </Svg>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.greenCircleBtn}
+          accessibilityLabel="Search"
+        >
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Circle cx={11} cy={11} r={7} stroke="#FFFFFF" strokeWidth={2} />
+            <Path d="M21 21l-4.35-4.35" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
+          </Svg>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -301,6 +404,37 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#FFFFFF',
+    gap: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+  },
+  headerTitle: {
+    fontFamily: customerFonts.editorial,
+    fontSize: 22,
+    color: '#111827',
+    flex: 1,
   },
   contentWrap: {
     flex: 1,
@@ -312,15 +446,15 @@ const styles = StyleSheet.create({
   },
   resultsScrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 110,
   },
-  resultsTitle: {
-    fontFamily: customerFonts.editorial,
-    fontSize: 26,
-    color: '#1F2937',
-    marginBottom: 20,
-    paddingLeft: 4,
+  initialScrollContent: {
+    paddingBottom: 110,
+  },
+  categoriesSection: {
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   gridWrap: {
     flexDirection: 'row',
@@ -426,16 +560,16 @@ const styles = StyleSheet.create({
   // ── 2. RECENT SEARCHES ────────────────────────────────────────────────────
   recentWrap: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
   },
   recentTitle: {
     fontFamily: customerFonts.editorial,
-    fontSize: 24,
+    fontSize: 20,
     color: '#1F2937',
-    marginBottom: 20,
+    marginBottom: 14,
   },
   recentList: {
-    gap: 16,
+    gap: 12,
   },
   recentItemRow: {
     flexDirection: 'row',
@@ -470,17 +604,20 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
 
-  // ── 3. INITIAL SEARCH (FRESH FINDS FOR YOU) ───────────────────────────────
-  initialWrap: {
+  // ── 3. TRENDING SECTION ───────────────────────────────────────────────────
+  trendingSection: {
+    paddingHorizontal: 16,
     paddingTop: 24,
   },
-  freshFindsTitle: {
+  trendingTitle: {
     fontFamily: customerFonts.editorial,
-    fontSize: 24,
+    fontSize: 20,
     color: '#1F2937',
-    paddingHorizontal: 20,
-    marginBottom: 18,
+    marginBottom: 16,
+    paddingLeft: 4,
   },
+
+  // ── 4. CATEGORIES ─────────────────────────────────────────────────────────
   categoryCirclesRow: {
     paddingHorizontal: 16,
     gap: 14,
@@ -519,7 +656,6 @@ const styles = StyleSheet.create({
   // ── BOTTOM BAR ────────────────────────────────────────────────────────────
   bottomBarWrap: {
     position: 'absolute',
-    bottom: 24,
     left: 16,
     right: 16,
     flexDirection: 'row',

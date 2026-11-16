@@ -8,8 +8,15 @@ import {
   TextInput,
   Image,
   Modal,
+  Platform,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  customerColors,
+  customerFonts,
+  customerSpacing,
+} from '../theme';
 import {
   BackArrowSvg,
   ProduceCrateSvg,
@@ -35,6 +42,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
   onBack,
   onNavigate,
 }) => {
+  const insets = useSafeAreaInsets();
   const [selectedOrder, setSelectedOrder] = useState<OrderOption>(SAMPLE_ORDERS[0]!);
   const [showOrderPicker, setShowOrderPicker] = useState<boolean>(false);
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>(SAMPLE_REVIEW_ITEMS);
@@ -43,6 +51,10 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
   const [reviewText, setReviewText] = useState<string>('');
   const [selectedAspects, setSelectedAspects] = useState<string[]>([]);
   const [isSuccessModalVisible, setIsSuccessModalVisible] = useState<boolean>(false);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const toggleAspect = (aspectId: string) => {
     setSelectedAspects((prev) =>
@@ -56,10 +68,10 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
       prev.map((item) =>
         item.id === itemId
           ? {
-              ...item,
-              rating,
-              statusLabel: rating >= 4 ? 'Excellent' : rating >= 3 ? 'Good' : 'Average',
-            }
+            ...item,
+            rating,
+            statusLabel: rating >= 4 ? 'Excellent' : rating >= 3 ? 'Good' : 'Average',
+          }
           : item,
       ),
     );
@@ -69,25 +81,29 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
   const activeProductName = activeProduct?.name ?? 'Royal Gala';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── HEADER ────────────────────────────────────────────────────────── */}
-        <View style={styles.headerRow}>
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <View style={styles.headerLeftGroup}>
           <TouchableOpacity
-            style={styles.backButton}
+            style={styles.circleIconButton}
             onPress={onBack}
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <BackArrowSvg />
+            <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Review & Feedback</Text>
         </View>
+      </View>
 
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ── BANNER CARD ───────────────────────────────────────────────────── */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerTextColumn}>
@@ -97,7 +113,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
             </Text>
           </View>
           <View style={styles.bannerIllustration}>
-            <ProduceCrateSvg size={58} />
+            <ProduceCrateSvg size={68} />
           </View>
         </View>
 
@@ -288,23 +304,23 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({
           onNavigate?.('Home');
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 // ── STYLES ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  container: {
+  scrollContainer: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingHorizontal: customerSpacing.base,
+    paddingTop: 12,
     paddingBottom: 48,
   },
 
@@ -312,17 +328,29 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 20,
-    marginTop: 10,
+    paddingHorizontal: customerSpacing.base,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
   },
-  backButton: {
-    padding: 2,
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1A2E1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1A2E1A',
+    fontFamily: customerFonts.editorial,
+    color: customerColors.heading,
   },
 
   /* Banner Card */

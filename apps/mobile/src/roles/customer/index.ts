@@ -45,3 +45,4 @@ export * from './screens/ContactSupportScreen';
 export * from './screens/TrackSupportRequestScreen';
 export * from './screens/ReviewFeedbackScreen';
 export * from './screens/ReturnOrderScreen';
+export * from './screens/CustomerSendMoneyScreen';

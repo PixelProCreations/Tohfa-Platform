@@ -12,7 +12,7 @@ import {
   customerColors,
   customerFonts,
 } from '../theme';
-import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
+const tohfaMarketLogo = require('../assets/images/tohfa_market_logo.png');
 
 interface CustomerLoadingMarketScreenProps {
   onNavigate: (screen: 'CustomerMain') => void;

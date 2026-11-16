@@ -18,7 +18,7 @@ import {
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 interface CustomerProfileNameScreenProps {
-  onNavigate: (screen: 'CustomerProfileAgeGender' | 'CustomerMain' | 'CustomerLogin') => void;
+  onNavigate: (screen: 'CustomerProfileAgeGender' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerLogin') => void;
 }
 
 export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps> = ({ onNavigate }) => {
@@ -33,7 +33,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
   };
 
   const handleSkip = () => {
-    onNavigate('CustomerProfileAgeGender');
+    onNavigate('CustomerLoadingMarket');
   };
 
   return (

@@ -19,7 +19,7 @@ import {
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 interface CustomerProfileAgeGenderScreenProps {
-  onNavigate: (screen: 'CustomerProfilePreferences' | 'CustomerMain' | 'CustomerProfileName') => void;
+  onNavigate: (screen: 'CustomerProfilePreferences' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerProfileName') => void;
 }
 
 export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderScreenProps> = ({ onNavigate }) => {
@@ -37,10 +37,8 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
   };
 
   const handleSkip = () => {
-    onNavigate('CustomerProfilePreferences');
+    onNavigate('CustomerLoadingMarket');
   };
-
-  const isFormFilled = age.trim().length > 0 || selectedGender !== null;
 
   return (
     <View style={styles.container}>

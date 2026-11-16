@@ -7,7 +7,6 @@ import {
   Image,
   TouchableOpacity,
   Animated,
-  Dimensions,
   StatusBar,
   Modal,
   TextInput,
@@ -18,16 +17,13 @@ import {
   customerColors,
   customerFonts,
   customerShadow,
-  customerSpacing,
 } from '../theme';
-import { CustomerFloatingNav, CustomerActiveTab, CustomerDeliveryAddressModal, AddressData } from '../components';
+import { CustomerFloatingNav, type CustomerActiveTab, CustomerDeliveryAddressModal, type AddressData } from '../components';
 import dashboardBannerHarvest from '../assets/images/dashboard_banner_harvest.png';
 import bannerFarmFreshVegetables from '../assets/images/banner_farm_fresh_vegetables.png';
 import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
 import flyingDeliveryBag from '../assets/images/flying_delivery_bag.png';
 import { CategoryImages, ProductImages, SectionBadges } from '../assets/images/products';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface HomeScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
@@ -151,46 +147,6 @@ const TopBarHeartSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size
   </Svg>
 );
 
-// Flying Grocery Bag with Wings SVG (Section 2)
-const FlyingBagWithWingsSvg = () => (
-  <Svg width={74} height={64} viewBox="0 0 80 70" fill="none">
-    <Path
-      d="M14 26C8 18 12 8 26 10C24 16 22 22 18 28"
-      stroke="#D4A373"
-      strokeWidth={2}
-      fill="#FAEDCD"
-      strokeLinecap="round"
-    />
-    <Path
-      d="M66 26C72 18 68 8 54 10C56 16 58 22 62 28"
-      stroke="#D4A373"
-      strokeWidth={2}
-      fill="#FAEDCD"
-      strokeLinecap="round"
-    />
-    <Path
-      d="M18 54C16 50 20 46 25 46C27 42 33 42 36 45C39 43 45 44 46 48C50 48 53 52 50 56C48 58 22 58 18 54Z"
-      fill="#E0F2FE"
-      opacity={0.8}
-    />
-    <Path
-      d="M26 24L28 52C28 54 30 56 32 56H48C50 56 52 54 52 52L54 24H26Z"
-      fill="#D4A373"
-      stroke="#BC6C25"
-      strokeWidth={1.5}
-    />
-    <Path
-      d="M34 24V18C34 16 36 14 40 14C44 14 46 16 46 18V24"
-      stroke="#BC6C25"
-      strokeWidth={2}
-      strokeLinecap="round"
-    />
-    <Path
-      d="M36 40C38 34 44 32 44 32C44 32 44 38 40 42C38 44 36 42 36 40Z"
-      fill="#2E7D32"
-    />
-  </Svg>
-);
 
 // Product Card interface
 interface ProductCardData {
@@ -538,10 +494,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     setFavorites(prev =>
       prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
     );
-  };
-
-  const handleAddToCart = () => {
-    setCartCount(prev => prev + 1);
   };
 
   // Reusable Product Card Component matching exact Figma dimensions (width 142, height 168, title below)
@@ -1203,7 +1155,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <View style={styles.profileHeaderText}>
                 <Text style={styles.profileName}>Meena</Text>
                 <Text style={styles.profilePhone}>+91 9090202033</Text>
-                <Text style={styles.profileAddress}>110, Rajeshwari Nagar, Coimbatore</Text>
+                <Text style={styles.profileAddress}>{currentDeliveryAddress}</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setShowProfileModal(false)}

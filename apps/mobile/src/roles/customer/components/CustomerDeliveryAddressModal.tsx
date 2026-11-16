@@ -13,10 +13,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
-  customerColors,
   customerFonts,
-  customerShadow,
-  customerSpacing,
 } from '../theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -56,17 +53,6 @@ const PinIcon = ({ color = '#1F2937' }: { color?: string }) => (
   </Svg>
 );
 
-const PlusIcon = ({ color = '#1F2937' }: { color?: string }) => (
-  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M12 5v14M5 12h14"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
 
 const ChevronRightIcon = () => (
   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -112,7 +98,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
   onUseCurrentLocation,
   onSelectManualLocation,
 }) => {
-  const [step, setStep] = useState<'delivery' | 'addAddress'>(initialStep);
+  const [step, setStep] = useState<'delivery' | 'addAddress'>(initialStep ?? 'delivery');
 
   // Form states matching Figma exact fields
   const [pincode, setPincode] = useState('');

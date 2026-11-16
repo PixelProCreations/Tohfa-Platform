@@ -9,9 +9,15 @@ import {
   Image,
   Modal,
   Alert,
+  Platform,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from '@tohfa/mobile-ui';
-import { customerColors } from '../theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  customerColors,
+  customerFonts,
+  customerSpacing,
+} from '../theme';
 import { ProductImages } from '../assets/images/products';
 import { SupportSubmittedModal } from '../components/SupportSubmittedModal';
 import { ReviewSubmittedModal } from '../components/ReviewSubmittedModal';
@@ -56,7 +62,8 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   onNavigate,
   initialTab = 'order',
 }) => {
-  const [relatedTo, setRelatedTo] = useState<RelatedCategory>(initialTab);
+  const insets = useSafeAreaInsets();
+  const [relatedTo, setRelatedTo] = useState<RelatedCategory>(initialTab ?? 'order');
   const [selectedOrder, setSelectedOrder] = useState<OrderOption>(SAMPLE_ORDERS[0]!);
   const [showOrderPicker, setShowOrderPicker] = useState<boolean>(false);
   const [selectedProductId, setSelectedProductId] = useState<string>(SAMPLE_PRODUCTS[0]!.id);
@@ -69,6 +76,10 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   const [activeReviewProductId, setActiveReviewProductId] = useState<string>('prod_1');
   const [overallRating, setOverallRating] = useState<number>(0);
   const [selectedAspects, setSelectedAspects] = useState<string[]>([]);
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const handleAddPhoto = () => {
     if (photos.length >= 5) {
@@ -99,8 +110,8 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
     relatedTo === 'product'
       ? PRODUCT_ISSUE_TYPES
       : relatedTo === 'other'
-      ? OTHER_ISSUE_TYPES
-      : ORDER_ISSUE_TYPES;
+        ? OTHER_ISSUE_TYPES
+        : ORDER_ISSUE_TYPES;
 
   let ctaButtonText = 'Send to Support';
   if (relatedTo === 'product' || relatedTo === 'other') {
@@ -129,22 +140,31 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   const selectedProductName = `${selectedProduct?.name ?? 'Royal Gala'} ${selectedProduct?.weight ?? '(1 kg)'}`;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── HEADER ────────────────────────────────────────────────────────── */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Go back">
-            <BackArrowSvg />
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
+        <View style={styles.headerLeftGroup}>
+          <TouchableOpacity
+            style={styles.circleIconButton}
+            onPress={onBack}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
+          >
+            <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
             {relatedTo === 'review' ? 'Review & Feedback' : 'Contact Support'}
           </Text>
         </View>
+      </View>
 
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+      >
         {/* ── BANNER CARD ───────────────────────────────────────────────────── */}
         <View style={styles.bannerCard}>
           <View style={styles.bannerTextColumn}>
@@ -152,7 +172,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             <Text style={styles.bannerSubtitle}>{bannerSubtitle}</Text>
           </View>
           <View style={styles.bannerIllustration}>
-            {relatedTo === 'review' ? <ProduceCrateSvg size={58} /> : <SupportAgentSvg />}
+            {relatedTo === 'review' ? <ProduceCrateSvg size={68} /> : <SupportAgentSvg size={68} />}
           </View>
         </View>
 
@@ -400,23 +420,23 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
           onNavigate?.('Home');
         }}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
 // ── STYLES ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  container: {
+  scrollContainer: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingHorizontal: customerSpacing.base,
+    paddingTop: 12,
     paddingBottom: 48,
   },
 
@@ -424,17 +444,29 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    marginBottom: 20,
-    marginTop: 10,
+    paddingHorizontal: customerSpacing.base,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
   },
-  backButton: {
-    padding: 2,
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  circleIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#1A2E1A',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1A2E1A',
+    fontFamily: customerFonts.editorial,
+    color: customerColors.heading,
   },
 
   /* Banner */
@@ -442,30 +474,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F8EE',
     borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 18,
+    paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 20,
+    marginTop: 4,
   },
   bannerTextColumn: {
     flex: 1,
     paddingRight: 12,
   },
   bannerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A2E1A',
+    fontSize: 20,
+    fontFamily: customerFonts.editorial,
+    color: customerColors.heading,
+    lineHeight: 24,
   },
   bannerSubtitle: {
     fontSize: 13,
-    color: '#4B5563',
+    fontFamily: customerFonts.regular,
+    color: customerColors.muted,
     marginTop: 4,
     lineHeight: 18,
   },
   bannerIllustration: {
-    width: 60,
-    height: 60,
+    width: 68,
+    height: 68,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -473,22 +508,22 @@ const styles = StyleSheet.create({
   /* Section Title */
   sectionTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    fontFamily: customerFonts.bold,
+    color: customerColors.heading,
     marginBottom: 10,
-    marginTop: 6,
+    marginTop: 14,
   },
 
   /* Related to tabs */
   relatedRow: {
     flexDirection: 'row',
     gap: 10,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   relatedTab: {
     flex: 1,
-    height: 50,
-    borderRadius: 10,
+    height: 48,
+    borderRadius: 12,
     borderWidth: 1.2,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
@@ -498,17 +533,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   relatedTabSelected: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#F0F8EE',
+    borderColor: customerColors.primary,
+    backgroundColor: customerColors.selected,
   },
   relatedTabText: {
-    fontSize: 13.5,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontSize: 13,
+    fontFamily: customerFonts.semibold,
+    color: customerColors.muted,
   },
   relatedTabTextSelected: {
-    color: '#2E7D32',
-    fontWeight: '700',
+    color: customerColors.primary,
+    fontFamily: customerFonts.bold,
   },
 
   /* Select Order Card */
@@ -521,7 +556,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 20,
   },
   orderIconBadge: {
     width: 38,
@@ -537,19 +572,20 @@ const styles = StyleSheet.create({
   },
   orderNumber: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
+    fontFamily: customerFonts.bold,
+    color: customerColors.heading,
   },
   orderSubtitle: {
     fontSize: 12.5,
-    color: '#6B7280',
+    fontFamily: customerFonts.regular,
+    color: customerColors.muted,
     marginTop: 2,
   },
 
   /* Select Product */
   productListContainer: {
     gap: 10,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   productCard: {
     borderWidth: 1.2,
@@ -562,23 +598,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productCardSelected: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#F0F8EE',
+    borderColor: customerColors.primary,
+    backgroundColor: customerColors.selected,
   },
   productThumb: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     marginRight: 12,
   },
   productName: {
     flex: 1,
     fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
+    fontFamily: customerFonts.semibold,
+    color: customerColors.heading,
   },
   productWeight: {
-    fontWeight: '400',
-    color: '#374151',
+    fontFamily: customerFonts.regular,
+    color: customerColors.muted,
   },
   radioWrapper: {
     marginLeft: 8,
@@ -589,7 +625,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   issueCard: {
     width: '48.2%',
@@ -604,8 +640,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   issueCardSelected: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#F0F8EE',
+    borderColor: customerColors.primary,
+    backgroundColor: customerColors.selected,
   },
   issueCardLeft: {
     flexDirection: 'row',
@@ -620,18 +656,19 @@ const styles = StyleSheet.create({
   },
   issueCardLabel: {
     fontSize: 12.5,
-    fontWeight: '500',
-    color: '#4B5563',
+    fontFamily: customerFonts.semibold,
+    color: customerColors.muted,
     flexShrink: 1,
   },
   issueCardSublabel: {
     fontSize: 9.5,
-    color: '#6B7280',
+    fontFamily: customerFonts.regular,
+    color: customerColors.muted,
     marginTop: 1,
   },
   issueCardLabelSelected: {
-    color: '#2E7D32',
-    fontWeight: '700',
+    color: customerColors.primary,
+    fontFamily: customerFonts.bold,
   },
 
   /* Tell us more */
@@ -639,11 +676,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     paddingBottom: 8,
-    marginBottom: 22,
+    marginBottom: 20,
   },
   textInput: {
     fontSize: 14,
-    color: '#111827',
+    fontFamily: customerFonts.regular,
+    color: customerColors.body,
     minHeight: 46,
     paddingTop: 8,
     paddingBottom: 4,
@@ -652,8 +690,8 @@ const styles = StyleSheet.create({
   charCounter: {
     alignSelf: 'flex-end',
     fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '600',
+    fontFamily: customerFonts.semibold,
+    color: customerColors.muted,
     marginTop: 4,
   },
 
@@ -662,7 +700,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 30,
+    marginBottom: 28,
   },
   addPhotoButton: {
     width: 68,
@@ -709,8 +747,9 @@ const styles = StyleSheet.create({
   },
   photosHelperText: {
     fontSize: 12,
-    color: '#6B7280',
-    marginTop: -18,
+    fontFamily: customerFonts.regular,
+    color: customerColors.muted,
+    marginTop: -16,
     marginBottom: 24,
   },
 
@@ -730,7 +769,7 @@ const styles = StyleSheet.create({
   },
   sendButtonText: {
     fontSize: 16,
-    fontWeight: '700',
+    fontFamily: customerFonts.bold,
     color: '#FFFFFF',
   },
 
@@ -750,8 +789,8 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontFamily: customerFonts.bold,
+    color: customerColors.heading,
     marginBottom: 16,
   },
   modalOrderItem: {

@@ -4,15 +4,14 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
-  ViewStyle,
-  TextStyle,
-  StyleProp,
+  type ViewStyle,
+  type TextStyle,
+  type StyleProp,
 } from 'react-native';
 import {
   customerColors,
   customerType,
   customerRadius,
-  customerShadow,
   CUSTOMER_ACTION_HEIGHT,
   CUSTOMER_CIRCULAR_BUTTON_SIZE,
 } from '../theme';

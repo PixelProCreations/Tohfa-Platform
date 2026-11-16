@@ -12,15 +12,13 @@ import {
   Alert,
   StatusBar,
 } from 'react-native';
-import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { ProductImages } from '../assets/images/products';
 import {
   customerColors,
   customerFonts,
   customerSpacing,
-  customerRadius,
   customerShadow,
-  customerPrimitives,
 } from '../theme';
 
 // ── SVG ICONS ───────────────────────────────────────────────────────────────
@@ -139,9 +137,10 @@ export type DeliveryState = 'home' | 'pickup' | 'customize';
 export interface CartScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onGoBack?: () => void;
+  onBack?: () => void;
 }
 
-export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack }) => {
+export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, onBack }) => {
   // ── CART ITEMS STATE ──────────────────────────────────────────────────────
   const [items, setItems] = useState<CartItem[]>([
     {
@@ -295,7 +294,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack }) 
       <View style={styles.header}>
         <TouchableOpacity
           activeOpacity={0.7}
-          onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Home'))}
+          onPress={() => (onGoBack ? onGoBack() : (onBack ? onBack() : onNavigate?.('Home')))}
           style={styles.backButton}
         >
           <BackArrowSvg />
@@ -630,10 +629,10 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack }) 
                           {selectedMarket === 'Coonoor Market'
                             ? 'The Coonoor Municipal Market is located near Bedford Circle, Coonoor, Tamil Nadu 643101.'
                             : selectedMarket === 'Kotagiri Market'
-                            ? 'The Kotagiri Weekly Market is located near Johnston Square, Kotagiri, Tamil Nadu 643217.'
-                            : selectedMarket === 'Gudalur Market'
-                            ? 'The Gudalur Town Farmers Market is located near Ooty Main Road, Gudalur, Tamil Nadu 643212.'
-                            : 'The main Ooty Municipal Market is located on Commercial Road / Upper Bazar Road, Ooty, Tamil Nadu 643001.'}
+                              ? 'The Kotagiri Weekly Market is located near Johnston Square, Kotagiri, Tamil Nadu 643217.'
+                              : selectedMarket === 'Gudalur Market'
+                                ? 'The Gudalur Town Farmers Market is located near Ooty Main Road, Gudalur, Tamil Nadu 643212.'
+                                : 'The main Ooty Municipal Market is located on Commercial Road / Upper Bazar Road, Ooty, Tamil Nadu 643001.'}
                         </Text>
                       </View>
                       <View style={styles.yourNearSolidBadge}>

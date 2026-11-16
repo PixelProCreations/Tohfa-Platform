@@ -9,6 +9,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
@@ -342,7 +343,12 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
   onNavigate,
   onBack,
 }) => {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+
+  const headerTopPadding = insets.top > 0
+    ? insets.top + 8
+    : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
   // By default in Figma Image 1, "Orders & Delivery" is open
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
     orders_delivery: true,
@@ -392,7 +398,7 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
       <StatusBar barStyle="dark-content" />
 
       {/* ── HEADER (EXACT FIGMA: (<-) Help & FAQs) ─────────────────────────── */}
-      <View style={styles.headerRow}>
+      <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
           <TouchableOpacity
             activeOpacity={0.7}
