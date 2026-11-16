@@ -187,7 +187,7 @@ describe('invoice detail and download ownership (real router)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ withTransaction, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { withTransaction } = await import('../../db/pool.js');
     await withTransaction(async (tx) => {
       const ids = Object.values(invoice).filter((id) => id !== '');
       await tx.query(`DELETE FROM invoice_lines WHERE invoice_id = ANY($1::uuid[])`, [ids]);
@@ -206,7 +206,6 @@ describe('invoice detail and download ownership (real router)', () => {
       await tx.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [users]);
     });
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const bearer = (who: string): string => `Bearer ${tokens[who]!}`;

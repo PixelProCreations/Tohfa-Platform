@@ -25,6 +25,12 @@ export type AgeBucket = (typeof ageBuckets)[number];
 // GET /admin/payout-dues
 // ---------------------------------------------------------------------------
 
+export const exportPayoutsQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+export type ExportPayoutsQuery = z.infer<typeof exportPayoutsQuerySchema>;
+
 export const payoutDuesQuerySchema = z.object({
   farmerId: z.string().uuid().optional(),
   ageBucket: z.enum(ageBuckets).optional(),
@@ -55,12 +61,19 @@ export interface PayoutDuesTotals {
 // POST /admin/payouts
 // ---------------------------------------------------------------------------
 
+export const payoutItemInputSchema = z.object({
+  goodsReceiptId: z.string().uuid(),
+  amount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Must be a decimal string e.g. "500.00"'),
+});
+export type PayoutItemInput = z.infer<typeof payoutItemInputSchema>;
+
 export const createPayoutSchema = z.object({
   farmerId: z.string().uuid(),
   amount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Must be a decimal string e.g. "500.00"'),
   mode: z.enum(payoutModes),
   bankAccountId: z.string().uuid().optional(),
   dueIds: z.array(z.string().uuid()).optional(),
+  items: z.array(payoutItemInputSchema).optional(),
   remarks: z.string().max(300).optional(),
 });
 export type CreatePayoutInput = z.infer<typeof createPayoutSchema>;

@@ -223,6 +223,8 @@ function mapCertificationResponse(row: CertificationRow) {
   return {
     id: row.id,
     farmerId: row.farmer_id,
+    ...(row.farmer_name !== undefined ? { farmerName: row.farmer_name ?? undefined } : {}),
+    ...(row.tohfa_farmer_id !== undefined ? { tohfaFarmerId: row.tohfa_farmer_id ?? undefined } : {}),
     certType: row.cert_type,
     customTypeName: row.custom_type_name,
     certNumber: row.cert_number,

@@ -135,6 +135,7 @@ export const adminFarmerLandLocation = z.object({
   centroid: z.object({ lat: z.number(), lng: z.number() }).nullable(),
   hasBoundary: z.boolean(),
   isPrimary: z.boolean(),
+  createdAt: z.string(),
   plots: z.array(adminFarmerPlot),
 });
 export type AdminFarmerLandLocation = z.infer<typeof adminFarmerLandLocation>;

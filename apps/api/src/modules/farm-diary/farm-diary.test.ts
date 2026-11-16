@@ -9,7 +9,7 @@
  *  3. ONE integration block against a real pool, soft-skipped when the diary
  *     tables are not migrated, proving the repo SQL parses against 0020/0021.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { Request, Response } from 'express';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
@@ -1067,12 +1067,6 @@ describeIfDatabase('farmDiaryRepo (integration)', () => {
   beforeAll(async () => {
     ready = (await databaseReady('diary_entries')) && (await databaseReady('diary_entry_workers'));
     if (!ready) console.warn('[skip] diary tables not migrated — run `pnpm db:migrate`');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   it('runs the taxonomy, list, calendar and lookup queries against Postgres', async () => {

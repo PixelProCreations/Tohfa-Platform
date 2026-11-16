@@ -346,6 +346,50 @@ describe('AllocationsService (Unit & Business Rules S-27)', () => {
       expect(second).toHaveLength(4);
       expect(repo.allocationRows).toHaveLength(4);
     });
+
+    it('BR-12c: allocation split uses integer grams without float truncation on 2.3 kg, 33.3 kg, 4.35 kg (P0-13)', async () => {
+      class Live70Repo extends MockAllocationsRepo {
+        override async getEffectivePercentages(): Promise<EffectivePercentage[]> {
+          return [
+            { channel: 'LIVE_MARKET', percentage: 70 },
+            { channel: 'ONLINE', percentage: 10 },
+            { channel: 'RESERVE', percentage: 10 },
+            { channel: 'BUFFER', percentage: 10 },
+          ];
+        }
+      }
+      const { service } = createTestService(new Live70Repo());
+
+      // Case 1: 2.3 kg -> 70% of 2300g = 1610g = 1.610 kg (not 1.609)
+      const r1 = await service.allocateBatch({
+        batchId: 'batch-2-3',
+        warehouseId: IDS.warehouseOoty,
+        cropId: IDS.cropCarrot,
+        qtyReceivedKg: '2.300',
+      });
+      const live1 = r1.find((r) => r.channel === 'LIVE_MARKET');
+      expect(live1?.allocatedQtyKg).toBe('1.610');
+
+      // Case 2: 33.3 kg -> 70% of 33300g = 23310g = 23.310 kg (not 23.309)
+      const r2 = await service.allocateBatch({
+        batchId: 'batch-33-3',
+        warehouseId: IDS.warehouseOoty,
+        cropId: IDS.cropCarrot,
+        qtyReceivedKg: '33.300',
+      });
+      const live2 = r2.find((r) => r.channel === 'LIVE_MARKET');
+      expect(live2?.allocatedQtyKg).toBe('23.310');
+
+      // Case 3: 4.35 kg -> 70% of 4350g = 3045g = 3.045 kg (not 3.044)
+      const r3 = await service.allocateBatch({
+        batchId: 'batch-4-35',
+        warehouseId: IDS.warehouseOoty,
+        cropId: IDS.cropCarrot,
+        qtyReceivedKg: '4.350',
+      });
+      const live3 = r3.find((r) => r.channel === 'LIVE_MARKET');
+      expect(live3?.allocatedQtyKg).toBe('3.045');
+    });
   });
 
   describe('BR-12b: Allocation Configuration Updates & Sum Guard Validation', () => {

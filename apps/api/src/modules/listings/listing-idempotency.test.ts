@@ -72,6 +72,7 @@ const sampleListing: ListingRow = {
   rejectedBy: null,
   rejectedAt: null,
   rejectionReason: null,
+  rejectionReasonCode: null,
   createdAt: '2026-08-27T10:00:00.000Z',
   updatedAt: null,
 };

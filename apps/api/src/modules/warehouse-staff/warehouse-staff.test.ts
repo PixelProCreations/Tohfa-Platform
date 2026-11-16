@@ -783,7 +783,7 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ withTransaction, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { withTransaction } = await import('../../db/pool.js');
     // The append-only history cannot be deleted through the app role; replica mode lets this CI-only
     // cleanup (superuser test database) remove exactly the rows of this run. Audit rows stay.
     await withTransaction(async (tx) => {
@@ -793,7 +793,6 @@ describeIfDatabase('Warehouse staff routes (real app router, PostgreSQL)', () =>
       await tx.query(`DELETE FROM warehouse_staff WHERE designation LIKE $1`, [`${tag}%`]);
     });
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

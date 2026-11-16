@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import type { Actor } from '../../auth/requireAuth.js';
@@ -124,12 +124,50 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
   const createTestService = (overrides?: Partial<PurchaseOrdersRepo>) =>
     createPurchaseOrdersService(createMockRepo(overrides));
 
+  const dummyTx: Executor = {
+    query: async () => ({ rows: [{ id: 'audit-mock-id' }], rowCount: 1 } as any),
+  } as unknown as Executor;
+
   it('Calculates total amount in integer paise Money accurately', () => {
     // 250.000 kg @ Rs 52.00/kg = Rs 13,000.00
     expect(calculateTotalAmountPaise('52.00', '250.000')).toBe('13000.00');
 
     // 75.500 kg @ Rs 48.75/kg = Rs 3,680.63
     expect(calculateTotalAmountPaise('48.75', '75.500')).toBe('3680.63');
+  });
+
+  it('BR-30: calculateTotalAmountPaise computes total using integer paise and grams without float inaccuracy (P0-16)', () => {
+    // With floats: 1075 * 0.94 = 1010.4999999999999 -> Math.round gives 10.10.
+    // With integer grams: 1075 * 940 = 1010500 paise-grams / 1000 = 1010.5 paise -> divHalfUp gives 1011 paise = 10.11.
+    expect(calculateTotalAmountPaise('10.75', '0.940')).toBe('10.11');
+    expect(calculateTotalAmountPaise('0.25', '0.580')).toBe('0.15');
+  });
+
+  it('BR-35: createForListing records audit log and does not swallow audit write failure (P0-16)', async () => {
+    const service = createTestService();
+    const failingTx = {
+      query: async (sql: string) => {
+        if (typeof sql === 'string' && sql.includes('audit_log')) {
+          throw new Error('simulated audit failure');
+        }
+        return { rows: [] };
+      },
+    } as unknown as Executor;
+
+    const sampleListing: ListingForApproval = {
+      id: 'lst-audit',
+      farmerId: IDS.farmer,
+      cropId: 'crop-1',
+      grade: 'GRADE_1',
+      askingPricePerKg: '50.00',
+      quantityKg: '100.000',
+    };
+
+    await expect(
+      service.createForListing(failingTx, mockActorAdmin, mockScopeAdmin, sampleListing, {
+        warehouseId: WH_OOTY,
+      }),
+    ).rejects.toThrow('simulated audit failure');
   });
 
   it('Negotiated terms: Adopts counter-offer final price and quantity over asking terms', async () => {
@@ -167,7 +205,7 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     };
 
     const po = await service.createForListing(
-      {} as unknown as Executor,
+      dummyTx,
       mockActorAdmin,
       mockScopeAdmin,
       negotiatedListing,
@@ -219,7 +257,7 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     };
 
     const po = await service.createForListing(
-      {} as unknown as Executor,
+      dummyTx,
       mockActorAdmin,
       mockScopeAdmin,
       directListing,
@@ -262,7 +300,7 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     };
 
     const result = await service.createForListing(
-      {} as unknown as Executor,
+      dummyTx,
       mockActorAdmin,
       mockScopeAdmin,
       listing,
@@ -285,12 +323,12 @@ describe('PurchaseOrdersService (Unit & Business Rules)', () => {
     };
     const created = await createTestService({
       insertPurchaseOrder: async () => ({ ...samplePoRow, crop_name: 'Carrot' }),
-    }).createForListing({} as unknown as Executor, mockActorAdmin, mockScopeAdmin, listing, { warehouseId: WH_OOTY });
+    }).createForListing(dummyTx, mockActorAdmin, mockScopeAdmin, listing, { warehouseId: WH_OOTY });
     expect(created.cropName).toBe('Carrot');
 
     const existing = await createTestService({
       findPurchaseOrderByListingId: async () => ({ ...samplePoRow, crop_name: 'Beans' }),
-    }).createForListing({} as unknown as Executor, mockActorAdmin, mockScopeAdmin, listing, { warehouseId: WH_OOTY });
+    }).createForListing(dummyTx, mockActorAdmin, mockScopeAdmin, listing, { warehouseId: WH_OOTY });
     expect(existing.cropName).toBe('Beans');
 
     expect(formatPoRowToResponse(samplePoRow).cropName).toBeNull();
@@ -621,10 +659,6 @@ describe('Purchase order timestamps are ISO-8601 on the wire (docs/openapi.yaml:
       }
     });
 
-    afterAll(async () => {
-      const { closePool } = await import('../../db/pool.js');
-      await closePool();
-    });
 
     it('issuedAt/receivedAt read back equal the stored instant; a microsecond cursor pages correctly', async (ctx) => {
       if (!(await requireDatabaseTables('purchase_orders', 'goods_receipts', 'produce_listings'))) return ctx.skip();

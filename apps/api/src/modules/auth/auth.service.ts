@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
-import { type RoleCode } from '@tohfa/shared-types';
+import { type RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { loadRbac } from '../../rbac/loadRbac.js';
 import { signOAuthLinkToken, signTokenPair, verifyOAuthLinkToken, verifyRefreshToken } from '../../auth/jwt.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -58,6 +59,7 @@ export interface MySessionResponse {
   lastSeenAt: string | null;
   lastSeenIp: string | null;
   expiresAt: string;
+  isCurrent: boolean;
 }
 
 /** A user has a handful of sessions; this only bounds a pathological account. */
@@ -89,14 +91,54 @@ export interface AuthService {
 }
 
 /** The GET /auth/me response; PATCH /auth/me answers with the same shape. */
-async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<unknown> {
+async function buildMe(repo: AuthRepo, db: Executor, userId: string, actor?: Actor): Promise<unknown> {
   const user = await repo.findUserById(db, userId);
   if (user === null) {
     throw new AppError('UNAUTHENTICATED', { detail: 'User not found.' });
   }
 
   const roles = await repo.getUserRoles(db, user.id);
-  const permissions = await repo.getUserPermissions(db, user.id);
+  const dbPermissions = await repo.getUserPermissions(db, user.id);
+
+  const roleCodes = new Set<string>();
+  for (const r of roles) {
+    roleCodes.add(r.role_code);
+  }
+  if (actor?.roles) {
+    for (const r of actor.roles) {
+      roleCodes.add(r.code);
+    }
+  }
+
+  // BR-auth: flat permission codes that docs/rbac.json grants the user's role
+  const rbac = loadRbac();
+  const permissionsSet = new Set<string>(dbPermissions);
+  for (const roleCode of roleCodes) {
+    for (const perm of rbac.document.permissions) {
+      const grant = perm.grants[roleCode as RoleCode];
+      if (grant && grant !== ScopeLevel.NONE) {
+        permissionsSet.add(perm.code);
+      }
+    }
+  }
+
+  const permissions = Array.from(permissionsSet).sort();
+
+  const effectiveRoles = roles.length > 0
+    ? roles.map((r) => ({
+        code: r.role_code,
+        warehouseId: r.warehouse_id ?? undefined,
+        warehouseName: r.warehouse_name ?? undefined,
+        zoneId: r.zone_id ?? undefined,
+        zoneName: r.zone_name ?? undefined,
+      }))
+    : (actor?.roles ?? []).map((r) => ({
+        code: r.code,
+        warehouseId: r.warehouseId ?? undefined,
+        warehouseName: undefined,
+        zoneId: r.zoneId ?? undefined,
+        zoneName: undefined,
+      }));
 
   return {
     id: user.id,
@@ -108,13 +150,7 @@ async function buildMe(repo: AuthRepo, db: Executor, userId: string): Promise<un
     status: user.status,
     createdAt: user.created_at.toISOString(),
     lastLoginAt: user.last_login_at === null ? null : user.last_login_at.toISOString(),
-    roles: roles.map((r) => ({
-      code: r.role_code,
-      warehouseId: r.warehouse_id ?? undefined,
-      warehouseName: r.warehouse_name ?? undefined,
-      zoneId: r.zone_id ?? undefined,
-      zoneName: r.zone_name ?? undefined,
-    })),
+    roles: effectiveRoles,
     permissions,
   };
 }
@@ -852,7 +888,7 @@ export function createAuthService(
     },
 
     async getMe(actor) {
-      return buildMe(repo, pool, actor.userId);
+      return buildMe(repo, pool, actor.userId, actor);
     },
 
     async updateMyProfile(scope, input) {
@@ -899,7 +935,12 @@ export function createAuthService(
         });
       });
 
-      return buildMe(repo, pool, scope.userId);
+      return buildMe(repo, pool, scope.userId, {
+        userId: scope.userId,
+        roles: [{ code: scope.roleCode }],
+        farmerId: scope.farmerId ?? null,
+        customerId: scope.customerId ?? null,
+      });
     },
 
     async listMySessions(actor) {
@@ -914,6 +955,7 @@ export function createAuthService(
         lastSeenAt: row.last_seen_at === null ? null : row.last_seen_at.toISOString(),
         lastSeenIp: row.last_seen_ip,
         expiresAt: row.expires_at.toISOString(),
+        isCurrent: actor.sessionId !== undefined && row.id === actor.sessionId,
       }));
     },
 

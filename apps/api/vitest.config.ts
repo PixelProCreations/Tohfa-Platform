@@ -10,6 +10,7 @@ export default defineConfig({
       '@tohfa/shared-types': fileURLToPath(
         new URL('../../packages/shared-types/src/index.ts', import.meta.url),
       ),
+      supertest: fileURLToPath(new URL('src/test/supertestWrapper.ts', import.meta.url)),
     },
   },
   test: {

@@ -23,6 +23,7 @@
  * "refunded at most once" true by construction rather than by a flag.
  */
 import { ScopeLevel, parseMoney } from '@tohfa/shared-types';
+import { kgToGrams } from '../sales/sales.math.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -129,7 +130,7 @@ export function createReturnRequestsService(
             detail: `Order item ${item.orderItemId} is already ${orderItem.status} and cannot be returned again.`,
           });
         }
-        if (Number(item.qty) > Number(orderItem.qtyKg) + 0.001) {
+        if (kgToGrams(item.qty) > kgToGrams(orderItem.qtyKg)) {
           throw new AppError('VALIDATION_FAILED', {
             detail: `Requested return quantity (${item.qty}) exceeds the ordered quantity (${orderItem.qtyKg}) for item ${item.orderItemId}.`,
           });

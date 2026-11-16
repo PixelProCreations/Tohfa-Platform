@@ -18,7 +18,7 @@
  * rule in docs/rules.md, so inventing an id for it would be a lie the spec
  * drift checker would then have to be taught to ignore.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import type { Executor } from '../../db/pool.js';
@@ -232,11 +232,6 @@ describeIfDatabase('weatherService (integration)', () => {
     }
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it('runs the real farm-location query against Postgres', async () => {
     if (!ready) return;

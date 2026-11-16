@@ -8,7 +8,7 @@
  * against a throwaway / CI database.
  */
 import request from 'supertest';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import type { Actor } from '../../auth/requireAuth.js';
@@ -102,10 +102,6 @@ describeIfDatabase('BR-70: payout bank account ownership (real database)', () =>
     adminToken = signAccessToken({ sub: adminUserId, roles: [{ code: 'SUPER_ADMIN' }], customerId: null, farmerId: null });
   });
 
-  afterAll(async () => {
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it("BR-70a: the QA reproduction: farmer B's account on farmer A's payout is 404 and writes no payout row and no audit row", async () => {
     const a = await makeFarmer('A');

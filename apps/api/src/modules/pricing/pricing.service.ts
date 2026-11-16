@@ -2,6 +2,12 @@ import { compare, greaterThan, isMoney, parseMoney, toPaise, ZERO, type Paise } 
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import {
+  beginIdempotent,
+  idempotencyStore,
+  requireIdempotencyKey,
+  type IdempotencyStore,
+} from '../../http/idempotency.js';
 import { AppError } from '../../http/problem.js';
 import {
   pricingRepo,
@@ -77,11 +83,11 @@ function mapRetailPriceResponse(row: RetailPriceRow) {
 
 export interface PricingService {
   listFairPrices(query: ListFairPricesQuery): Promise<unknown>;
-  createFairPrice(actor: Actor, body: FairPriceCreate): Promise<unknown>;
-  bulkUpsertFairPrices(actor: Actor, body: BulkUpsertFairPricesBody): Promise<unknown>;
+  createFairPrice(actor: Actor, body: FairPriceCreate, idempotencyKey?: string): Promise<unknown>;
+  bulkUpsertFairPrices(actor: Actor, body: BulkUpsertFairPricesBody, idempotencyKey?: string): Promise<unknown>;
   getFairPriceHistory(query: GetFairPriceHistoryQuery): Promise<unknown>;
   listRetailPrices(query: ListRetailPricesQuery): Promise<unknown>;
-  createRetailPrice(actor: Actor, body: RetailPriceCreate): Promise<unknown>;
+  createRetailPrice(actor: Actor, body: RetailPriceCreate, idempotencyKey?: string): Promise<unknown>;
 }
 
 export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
@@ -89,6 +95,7 @@ export type TransactionRunner = <T>(fn: (tx: Executor) => Promise<T>) => Promise
 export function createPricingService(
   repo: PricingRepo = pricingRepo,
   runTx: TransactionRunner = withTransaction,
+  idempotency: IdempotencyStore = idempotencyStore,
 ): PricingService {
   return {
     async listFairPrices(query) {
@@ -107,8 +114,17 @@ export function createPricingService(
       };
     },
 
-    async createFairPrice(actor, body) {
-      const result = await runTx(async (tx) => {
+    async createFairPrice(actor, body, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<any>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: 'pricing.fair_price.set',
+          request: body,
+        });
+        if (idem.replay) return idem.response;
+
         try {
           const { fairPrice, affectedRetailPrices } = await repo.createFairPrice(
             tx,
@@ -138,7 +154,16 @@ export function createPricingService(
             changedFields: ['ceiling_price', 'effective_from'],
           });
 
-          return { fairPrice, affectedRetailPrices };
+          const mapped = mapFairPriceResponse(fairPrice);
+          const response = affectedRetailPrices.length > 0
+            ? {
+                ...mapped,
+                affectedRetailPrices: affectedRetailPrices.map(mapRetailPriceResponse),
+              }
+            : mapped;
+
+          await idem.complete(response);
+          return response;
         } catch (err: unknown) {
           const pgErr = err as { code?: string };
           if (pgErr.code === '23505' || pgErr.code === '23P01') {
@@ -151,32 +176,24 @@ export function createPricingService(
           throw err;
         }
       });
-
-      const mapped = mapFairPriceResponse(result.fairPrice);
-      if (result.affectedRetailPrices.length > 0) {
-        return {
-          ...mapped,
-          affectedRetailPrices: result.affectedRetailPrices.map(mapRetailPriceResponse),
-        };
-      }
-      return mapped;
     },
 
-    async bulkUpsertFairPrices(actor, body) {
+    async bulkUpsertFairPrices(actor, body, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
       // Validate batch internally
       const errors: Array<{ index: number; field: string; message: string }> = [];
       const seen = new Set<string>();
 
       body.items.forEach((item, idx) => {
-        const key = `${item.cropId}:${item.grade}:${item.effectiveFrom}`;
-        if (seen.has(key)) {
+        const itemKey = `${item.cropId}:${item.grade}:${item.effectiveFrom}`;
+        if (seen.has(itemKey)) {
           errors.push({
             index: idx,
             field: 'cropId',
             message: `Duplicate entry for crop ${item.cropId} grade ${item.grade} on ${item.effectiveFrom}`,
           });
         }
-        seen.add(key);
+        seen.add(itemKey);
 
         if (!isPositiveMoney(item.ceilingPrice)) {
           errors.push({
@@ -195,7 +212,15 @@ export function createPricingService(
         });
       }
 
-      const results = await runTx(async (tx) => {
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<any>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: 'pricing.fair_price.bulk_update',
+          request: body,
+        });
+        if (idem.replay) return idem.response;
+
         const createdItems: FairPriceRow[] = [];
 
         for (const item of body.items) {
@@ -230,13 +255,13 @@ export function createPricingService(
           createdItems.push(fairPrice);
         }
 
-        return createdItems;
+        const response = {
+          applied: createdItems.length,
+          items: createdItems.map(mapFairPriceResponse),
+        };
+        await idem.complete(response);
+        return response;
       });
-
-      return {
-        applied: results.length,
-        items: results.map(mapFairPriceResponse),
-      };
     },
 
     async getFairPriceHistory(query) {
@@ -271,7 +296,8 @@ export function createPricingService(
       };
     },
 
-    async createRetailPrice(actor, body) {
+    async createRetailPrice(actor, body, idempotencyKey) {
+      const key = requireIdempotencyKey(idempotencyKey);
       // Refuse, never round, a sub-paise price: "100.005" compared equal to a
       // 100.00 ceiling through a float and NUMERIC(12,2) then stored 100.01.
       if (!isPositiveMoney(body.price)) {
@@ -282,7 +308,15 @@ export function createPricingService(
         });
       }
 
-      const created = await runTx(async (tx) => {
+      return runTx(async (tx) => {
+        const idem = await beginIdempotent<any>(idempotency, tx, {
+          actorUserId: actor.userId,
+          key,
+          operation: 'pricing.retail_price.set',
+          request: body,
+        });
+        if (idem.replay) return idem.response;
+
         const ceiling = await repo.findEffectiveFairPrice(
           tx,
           body.cropId,
@@ -338,10 +372,10 @@ export function createPricingService(
           changedFields: ['price', 'effective_from'],
         });
 
-        return row;
+        const response = mapRetailPriceResponse(row);
+        await idem.complete(response);
+        return response;
       });
-
-      return mapRetailPriceResponse(created);
     },
   };
 }

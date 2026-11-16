@@ -275,13 +275,12 @@ describeIfDatabase('Expense voucher and the absent approval workflow (real app r
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ pool, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { pool } = await import('../../db/pool.js');
     // Audit rows are append-only and stay; the rows this suite committed are removed.
     await pool.query(`DELETE FROM expenses WHERE idempotency_key LIKE $1`, [`${tag}%`]);
     await pool.query(`DELETE FROM idempotency_keys WHERE idempotency_key LIKE $1`, [`${tag}%`]);
     await pool.query(`DELETE FROM expense_categories WHERE name LIKE $1`, [`${tag}%`]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

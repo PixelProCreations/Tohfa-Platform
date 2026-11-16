@@ -76,8 +76,6 @@ describeIfDatabase('stock adjustment creator and approver names (PostgreSQL, rol
     if (!ready) return;
     await client.query('ROLLBACK');
     client.release();
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   it('BR-130a: list rows name the creator; only the approved one names an approver (pending and rejected are null)', async (ctx) => {

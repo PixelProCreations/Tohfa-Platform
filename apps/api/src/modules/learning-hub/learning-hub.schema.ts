@@ -304,6 +304,8 @@ export const learningGroupResponse = z.object({
   category: z.string(),
   memberCount: z.number(),
   isJoined: z.boolean().optional(),
+  isArchived: z.boolean().optional(),
+  archivedAt: z.string().nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -5,6 +5,7 @@ import { config } from '../../config.js';
 import { hasRole, type Actor } from '../../auth/requireAuth.js';
 import { resolveScope } from '../../rbac/requirePermission.js';
 import { fromPaise, toPaise, allocate, RoleCode, ScopeLevel, type Money } from '@tohfa/shared-types';
+import { gstPaise } from '../sales/sales.math.js';
 import {
   invoicesRepo,
   type CreateInvoiceInput,
@@ -278,12 +279,13 @@ export function createInvoicesService(repo: InvoicesRepo = invoicesRepo): Invoic
           if (gstInclusive) {
             // Split line total into taxable base and tax proportion using allocate
             // base = total / (1 + rate/100)
-            const rateBp = Math.round(line.gstRate * 100); // 5% -> 500 bp
+            const rateBp = Math.round(Number(line.gstRate) * 100); // 5% -> 500 bp
             const split = allocate(line.total, [10000, rateBp]);
             lineTaxablePaise = toPaise(split[0]!);
             lineTaxPaise = toPaise(split[1]!);
           } else {
-            const taxPaise = Math.round((lineTotalPaise * line.gstRate) / 100);
+            const rateBp = Math.round(Number(line.gstRate) * 100);
+            const taxPaise = gstPaise(lineTotalPaise, rateBp);
             lineTaxablePaise = lineTotalPaise;
             lineTaxPaise = taxPaise;
           }

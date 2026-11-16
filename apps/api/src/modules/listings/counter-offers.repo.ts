@@ -65,6 +65,7 @@ export interface AdminListingView {
   rejectedBy: string | null;
   rejectedAt: Date | null;
   rejectionReason: string | null;
+  rejectionReasonCode: string | null;
   createdAt: Date;
   updatedAt: Date | null;
 }
@@ -99,6 +100,7 @@ export interface ListingTransitionPatch {
   rejectedBy?: string;
   rejectedAt?: Date;
   rejectionReason?: string;
+  rejectionReasonCode?: string;
 }
 
 export interface ExpiredPendingOffer {
@@ -107,6 +109,13 @@ export interface ExpiredPendingOffer {
   round: number;
   actor: CounterActor;
   expiresAt: Date;
+}
+
+export interface FairPriceCeilingLookup {
+  id: string;
+  ceilingPrice: string;
+  effectiveFrom: string;
+  effectiveTo: string | null;
 }
 
 const OFFER_COLUMNS = `
@@ -124,7 +133,8 @@ const LISTING_COLUMNS = `
   l.final_price_per_kg AS "finalPricePerKg", l.final_quantity_kg AS "finalQuantityKg",
   l.version, l.approved_by AS "approvedBy", l.approved_at AS "approvedAt",
   l.rejected_by AS "rejectedBy", l.rejected_at AS "rejectedAt",
-  l.rejection_reason AS "rejectionReason", l.created_at AS "createdAt", l.updated_at AS "updatedAt"
+  l.rejection_reason AS "rejectionReason", l.rejection_reason_code AS "rejectionReasonCode",
+  l.created_at AS "createdAt", l.updated_at AS "updatedAt"
 `;
 
 export const counterOffersRepo = {
@@ -307,6 +317,7 @@ export const counterOffersRepo = {
       rejectedBy: 'rejected_by',
       rejectedAt: 'rejected_at',
       rejectionReason: 'rejection_reason',
+      rejectionReasonCode: 'rejection_reason_code',
     };
     for (const key of Object.keys(patch) as Array<keyof ListingTransitionPatch>) {
       const value = patch[key];
@@ -479,6 +490,7 @@ export const counterOffersRepo = {
       activeOfferExpiresAt: Date | null;
       activeOfferStatus: string | null;
       rejectionReason: string | null;
+      rejectionReasonCode: string | null;
       version: number;
       createdAt: Date;
       updatedAt: Date | null;
@@ -509,6 +521,7 @@ export const counterOffersRepo = {
         co.expires_at                        AS "activeOfferExpiresAt",
         co.status                            AS "activeOfferStatus",
         l.rejection_reason                   AS "rejectionReason",
+        l.rejection_reason_code              AS "rejectionReasonCode",
         l.version,
         l.created_at                         AS "createdAt",
         l.updated_at                         AS "updatedAt"
@@ -569,6 +582,7 @@ export const counterOffersRepo = {
           }
         : null,
       rejectionReason: r.rejectionReason,
+      rejectionReasonCode: r.rejectionReasonCode,
       version: r.version,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
@@ -576,4 +590,38 @@ export const counterOffersRepo = {
 
     return { items, page: { nextCursor, hasMore } };
   },
+
+  async findEffectiveFairPrice(
+    db: Executor,
+    cropId: string,
+    grade: string,
+    effectiveDate: string,
+  ): Promise<FairPriceCeilingLookup | null> {
+    const res = await db.query<{
+      id: string;
+      ceiling_price: string;
+      effective_from: string;
+      effective_to: string | null;
+    }>(
+      `SELECT id, ceiling_price::text, effective_from::text, effective_to::text
+       FROM fair_prices
+       WHERE crop_id = $1
+         AND grade = $2
+         AND effective_from <= $3::date
+         AND (effective_to IS NULL OR effective_to >= $3::date)
+       ORDER BY effective_from DESC
+       LIMIT 1`,
+      [cropId, grade, effectiveDate],
+    );
+    const row = res.rows[0];
+    if (!row) return null;
+    return {
+      id: row.id,
+      ceilingPrice: row.ceiling_price,
+      effectiveFrom: row.effective_from,
+      effectiveTo: row.effective_to,
+    };
+  },
 };
+
+export type CounterOffersRepo = typeof counterOffersRepo;

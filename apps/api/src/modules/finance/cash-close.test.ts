@@ -635,10 +635,9 @@ describeIfDatabase('Cash close routes (real app router, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ pool, closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
+    const { pool } = await import('../../db/pool.js');
     await pool.query(`DELETE FROM idempotency_keys WHERE idempotency_key LIKE 'ci-cash-%'`);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

@@ -335,7 +335,7 @@ export const notificationDispatch: Handler<'notification-dispatch'> = async (pay
           'notification-dispatch: no active device tokens found for push',
         );
         await notificationsRepo.updateNotificationDelivery(pool, payload.notificationId, {
-          status: 'DELIVERED',
+          status: 'SKIPPED',
           error: 'No registered device tokens for user.',
         });
         return;

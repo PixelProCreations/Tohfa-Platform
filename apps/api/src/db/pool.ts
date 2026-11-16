@@ -25,7 +25,7 @@ export const pool = new Pool(
   buildPoolConfig({
     databaseUrl: config.DATABASE_URL,
     ssl: parseDatabaseSsl(config.DATABASE_SSL),
-    max: config.isTest ? 4 : 10,
+    max: config.isTest ? 25 : 10,
   }),
 );
 

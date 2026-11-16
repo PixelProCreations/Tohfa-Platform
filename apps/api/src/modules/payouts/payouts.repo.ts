@@ -52,8 +52,38 @@ export interface PayoutRepo {
       dueIds?: string[];
       remarks?: string;
       initiatedBy: string;
+      requiresDualApproval?: boolean;
     },
   ): Promise<{ payout: PayoutRow; approvals: PayoutApprovalRow[] }>;
+
+  insertPayoutItems(
+    db: Executor,
+    payoutId: string,
+    items: Array<{ goodsReceiptId: string; amount: string }>,
+  ): Promise<void>;
+
+  getGoodsReceiptsDues(
+    db: Executor,
+    farmerId: string,
+    goodsReceiptIds: string[],
+  ): Promise<Array<{
+    id: string;
+    acceptedValuePaise: number;
+    settledAmountPaise: number;
+    remainingDuePaise: number;
+  }>>;
+
+  listPayoutsForExport(
+    db: Executor,
+    from?: string,
+    to?: string,
+  ): Promise<Array<{
+    payout_number: string;
+    farmer_name: string;
+    amount: string;
+    status: string;
+    created_at: Date;
+  }>>;
 
   /**
    * `forUpdate` locks the payout row until the caller's transaction ends. The
@@ -148,34 +178,33 @@ export const payoutsRepo: PayoutRepo = {
     const values: unknown[] = [];
     let idx = 1;
 
-    // Payout dues = purchase orders that are accepted and not yet fully paid out.
-    // We derive dues from goods_receipts that passed quality check, joined to PO and farmer.
+    // BR-144: Dues = purchase orders/goods receipts where remaining due (accepted value - sum of non-failed payout items) > 0.
     let sql = `
       SELECT
-        gr.id                                                          AS id,
-        po.farmer_id                                                   AS farmer_id,
-        f.tohfa_farmer_id                                              AS tohfa_farmer_id,
-        u.full_name                                                    AS farmer_name,
-        gr.purchase_order_id                                           AS purchase_order_id,
-        gr.id                                                          AS goods_receipt_id,
-        (po.price_per_kg * gr.accepted_qty_kg)::numeric(12,2)          AS amount_due,
-        gr.created_at::date                                            AS due_since,
-        (CURRENT_DATE - gr.created_at::date)::int                     AS age_days
+        gr.id                                                                         AS id,
+        po.farmer_id                                                                  AS farmer_id,
+        f.tohfa_farmer_id                                                             AS tohfa_farmer_id,
+        u.full_name                                                                   AS farmer_name,
+        gr.purchase_order_id                                                          AS purchase_order_id,
+        gr.id                                                                         AS goods_receipt_id,
+        ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0))::numeric(12,2)::text AS amount_due,
+        gr.created_at::date                                                           AS due_since,
+        (CURRENT_DATE - gr.created_at::date)::int                                    AS age_days
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
       JOIN farmers f           ON f.id = po.farmer_id
       JOIN users u             ON u.id = f.user_id
+      LEFT JOIN (
+        SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
+        FROM payout_items pi
+        JOIN payouts p ON p.id = pi.payout_id
+        WHERE p.status NOT IN ('FAILED', 'REVERSED')
+        GROUP BY pi.goods_receipt_id
+      ) paid ON paid.goods_receipt_id = gr.id
       WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
         AND gr.accepted_qty_kg > 0
-        AND NOT EXISTS (
-          SELECT 1
-          FROM payouts p
-          WHERE p.farmer_id = po.farmer_id
-            AND p.status IN ('APPROVED', 'PROCESSING', 'PAID')
-            AND $${idx} = $${idx}
-        )
+        AND ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0)) > 0
     `;
-    values.push(1); idx++; // dummy self-ref to keep param index consistent
 
     if (query.farmerId) {
       conditions.push(`po.farmer_id = $${idx}`);
@@ -240,11 +269,20 @@ export const payoutsRepo: PayoutRepo = {
     // Totals
     const totalsRes = await db.query<{ total_due: string; farmer_count: string }>(`
       SELECT
-        COALESCE(SUM((po.price_per_kg * gr.accepted_qty_kg)::numeric(12,2)), 0)::text AS total_due,
+        COALESCE(SUM((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0)), 0)::numeric(12,2)::text AS total_due,
         COUNT(DISTINCT po.farmer_id)::text AS farmer_count
       FROM goods_receipts gr
       JOIN purchase_orders po ON po.id = gr.purchase_order_id
-      WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE') AND gr.accepted_qty_kg > 0
+      LEFT JOIN (
+        SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
+        FROM payout_items pi
+        JOIN payouts p ON p.id = pi.payout_id
+        WHERE p.status NOT IN ('FAILED', 'REVERSED')
+        GROUP BY pi.goods_receipt_id
+      ) paid ON paid.goods_receipt_id = gr.id
+      WHERE gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
+        AND gr.accepted_qty_kg > 0
+        AND ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0)) > 0
     `);
 
     const totals: PayoutDuesTotals = {
@@ -253,6 +291,52 @@ export const payoutsRepo: PayoutRepo = {
     };
 
     return { items, totals, nextCursor };
+  },
+
+  async insertPayoutItems(db, payoutId, items) {
+    for (const item of items) {
+      await db.query(
+        `INSERT INTO payout_items (payout_id, goods_receipt_id, amount)
+         VALUES ($1, $2, $3)`,
+        [payoutId, item.goodsReceiptId, item.amount],
+      );
+    }
+  },
+
+  async getGoodsReceiptsDues(db, farmerId, goodsReceiptIds) {
+    if (goodsReceiptIds.length === 0) return [];
+    const res = await db.query<{
+      id: string;
+      accepted_value: string;
+      settled_amount: string;
+      remaining_due: string;
+    }>(
+      `SELECT
+         gr.id,
+         (po.price_per_kg * gr.accepted_qty_kg)::numeric(12,2)::text AS accepted_value,
+         COALESCE(paid.total_paid, 0)::numeric(12,2)::text AS settled_amount,
+         ((po.price_per_kg * gr.accepted_qty_kg) - COALESCE(paid.total_paid, 0))::numeric(12,2)::text AS remaining_due
+       FROM goods_receipts gr
+       JOIN purchase_orders po ON po.id = gr.purchase_order_id
+       LEFT JOIN (
+         SELECT pi.goods_receipt_id, SUM(pi.amount) AS total_paid
+         FROM payout_items pi
+         JOIN payouts p ON p.id = pi.payout_id
+         WHERE p.status NOT IN ('FAILED', 'REVERSED')
+         GROUP BY pi.goods_receipt_id
+       ) paid ON paid.goods_receipt_id = gr.id
+       WHERE gr.id = ANY($1::uuid[])
+         AND po.farmer_id = $2
+         AND gr.status IN ('ACCEPTED', 'PARTIALLY_ACCEPTED', 'QC_DONE')
+         AND gr.accepted_qty_kg > 0`,
+      [goodsReceiptIds, farmerId],
+    );
+    return res.rows.map((r) => ({
+      id: r.id,
+      acceptedValuePaise: toPaise(parseMoney(r.accepted_value)),
+      settledAmountPaise: toPaise(parseMoney(r.settled_amount)),
+      remainingDuePaise: toPaise(parseMoney(r.remaining_due)),
+    }));
   },
 
   /**
@@ -278,8 +362,8 @@ export const payoutsRepo: PayoutRepo = {
     const insertRes = await db.query<PayoutRow>(
       `INSERT INTO payouts
          (payout_number, farmer_id, bank_account_id, amount, mode, status,
-          initiated_by, created_at)
-       VALUES ($1, $2, $3, $4, $5, 'REQUESTED', $6, now())
+          requires_dual_approval, initiated_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'REQUESTED', $6, $7, now())
        RETURNING
          id, payout_number, farmer_id, amount::text, mode, status,
          requires_dual_approval, initiated_by, released_by, released_at,
@@ -291,6 +375,7 @@ export const payoutsRepo: PayoutRepo = {
         params.bankAccountId ?? null,
         params.amount,
         params.mode,
+        params.requiresDualApproval ?? false,
         params.initiatedBy,
       ],
     );
@@ -405,6 +490,41 @@ export const payoutsRepo: PayoutRepo = {
       [farmerId],
     );
     return res.rows[0]?.user_id ?? null;
+  },
+
+  async listPayoutsForExport(db, from, to) {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    if (from) {
+      params.push(from.length === 10 ? `${from}T00:00:00.000Z` : from);
+      conditions.push(`p.created_at >= $${params.length}`);
+    }
+    if (to) {
+      params.push(to.length === 10 ? `${to}T23:59:59.999Z` : to);
+      conditions.push(`p.created_at <= $${params.length}`);
+    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const res = await db.query<{
+      payout_number: string;
+      farmer_name: string;
+      amount: string;
+      status: string;
+      created_at: Date;
+    }>(
+      `SELECT p.payout_number,
+              COALESCE(u.full_name, 'Unknown') AS farmer_name,
+              p.amount,
+              p.status,
+              p.created_at
+         FROM payouts p
+         JOIN farmers f ON f.id = p.farmer_id
+         JOIN users u ON u.id = f.user_id
+        ${whereClause}
+        ORDER BY p.created_at ASC`,
+      params,
+    );
+    return res.rows;
   },
 
   // Internal helper (not part of interface)

@@ -40,6 +40,7 @@ const accessPayloadSchema = z.object({
   /** Denormalised for convenience; `null` for admin users with no farmer row. */
   farmerId: z.string().uuid().nullable().default(null),
   customerId: z.string().uuid().nullable().default(null),
+  sessionId: z.string().uuid().optional(),
   /**
    * Seconds-since-epoch this token was minted, set automatically by
    * `jsonwebtoken` on every `sign()` call. Previously dropped by this schema;
@@ -98,7 +99,10 @@ export function signTokenPair(
   refresh: Omit<RefreshPayload, 'typ' | 'nonce'>,
 ): TokenPair {
   return {
-    accessToken: signAccessToken(access),
+    accessToken: signAccessToken({
+      sessionId: refresh.jti,
+      ...access,
+    }),
     refreshToken: signRefreshToken(refresh),
   };
 }

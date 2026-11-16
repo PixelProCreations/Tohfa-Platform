@@ -3,7 +3,7 @@
  * sale repos inside their transactions. These checks read the catalog and the sequence state only;
  * they never call nextval (a sequence is not transactional, so a test must not consume numbers).
  */
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import { describeIfDatabase } from '../test/factories.js';
 import { requireDatabaseTables } from '../test/dbFixtures.js';
 
@@ -12,12 +12,6 @@ describeIfDatabase('order_number_seq (migration 0065)', () => {
 
   beforeAll(async () => {
     ready = await requireDatabaseTables('orders');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('./pool.js');
-    await closePool();
   });
 
   it('exists as a sequence owned by orders.order_number', async (ctx) => {

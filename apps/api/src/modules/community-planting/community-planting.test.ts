@@ -10,7 +10,7 @@ import { randomInt } from 'node:crypto';
 import express from 'express';
 import request from 'supertest';
 import type pg from 'pg';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
@@ -478,6 +478,11 @@ describe('community planting routes (BR-136g)', () => {
   app.use('/v1/farmers/community', createCommunityPlantingRouter(stub));
   app.use(notFoundHandler);
   app.use(errorHandler);
+  const server = app.listen(0);
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
 
   const token = (roles: Array<{ code: RoleCode; warehouseId?: string; zoneId?: string }>, farmerId: string | null = null) =>
     `Bearer ${signAccessToken({ sub: newId(), roles, farmerId, customerId: null })}`;
@@ -486,7 +491,7 @@ describe('community planting routes (BR-136g)', () => {
 
   it('BR-136g: both routes are 401 without a token', async () => {
     for (const path of [SUMMARY, FILTERS]) {
-      const res = await request(app).get(path);
+      const res = await request(server).get(path);
       expect(res.status, path).toBe(401);
     }
   });
@@ -507,7 +512,7 @@ describe('community planting routes (BR-136g)', () => {
     seen.length = 0;
     for (const auth of everyRole) {
       for (const path of [SUMMARY, FILTERS]) {
-        const res = await request(app).get(path).set('Authorization', auth);
+        const res = await request(server).get(path).set('Authorization', auth);
         expect(res.status, path).toBe(403);
         expect(res.body.code).toBe('FORBIDDEN');
       }
@@ -713,8 +718,16 @@ describeIfDatabase('community planting summary (PostgreSQL, rolled back) — BR-
       await farmer(tx, null, plant, { farmerTaluk: taluk });
       await farmer(tx, '   ', plant, { farmerTaluk: taluk.toLowerCase() }); // blank farm taluk = none
       await farmer(tx, taluk, plant); // farm taluk set, profile taluk NULL
-      // A farm taluk, when present, wins over the profile: this one is not in `taluk`.
-      await farmer(tx, `Fxt${letters(10)}`, plant, { farmerTaluk: taluk });
+      // A farm taluk, when present, wins over the profile: these are not in `taluk`. There are
+      // THREE of them, not one, because BR-136i withholds a crop whose all-regions count minus
+      // this region's count would expose fewer than k farmers. With a single outside farmer,
+      // 4 (all regions) - 3 (this region) = 1 would isolate that farmer's 10 kg, so the guard
+      // correctly suppresses the crop. Three outside farmers keep both slices at >= k. If the
+      // fallback wrongly preferred the profile taluk, the region would read 6 farmers / 60 kg.
+      const elsewhere = `Fxt${letters(10)}`;
+      for (let i = 0; i < 3; i += 1) {
+        await farmer(tx, elsewhere, plant, { farmerTaluk: taluk });
+      }
 
       const service = createCommunityPlantingService({ db: tx });
       const summary = await service.getPlantingSummary(farmerScope(), { region: taluk });

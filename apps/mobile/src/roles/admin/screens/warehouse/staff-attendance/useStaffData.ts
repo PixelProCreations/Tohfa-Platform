@@ -36,7 +36,11 @@ import {
   type StaffStatus,
   type UpdateStaffBody,
 } from '../../../api/staff';
+import { createAdminAccount } from '../../../api/adminAccounts';
+import { listRoles } from '../../../api/roles';
+import { createSubAdmin } from '../../../api/subAdmins';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
+import type { AccountRequest } from './accessMappers';
 import {
   makeWarehouseNameOf,
   STAFF_CODES,
@@ -211,6 +215,39 @@ export function useMarkAttendanceMutation() {
   return useAdminMutation({
     mutationFn: ({ staffId, date, body }: { staffId: string; date: string; body: MarkAttendanceBody }) => markAttendance(staffId, date, body),
     invalidates: ATTENDANCE_WRITE_INVALIDATES,
+  });
+}
+
+// ─── Roles and accounts (Roles, Assign Access, Create account) ───────────────
+
+export const ROLES_MODULE = 'roleDefinitions';
+
+/** GET /roles (role.definition.view). Role definitions are not warehouse rows, so the key is unscoped. */
+export function useRoleDefinitions(enabled: boolean) {
+  const query = useAdminQuery(adminKeys.scoped(ROLES_MODULE, undefined, { resource: 'list' }), (signal) => listRoles(signal), { enabled });
+  return {
+    roles: query.data?.items ?? [],
+    isLoading: enabled && query.isPending,
+    error: query.error,
+    refresh: () => {
+      void query.refetch();
+    },
+  };
+}
+
+/**
+ * The account a Create account form sends: a login (POST /admin/accounts, or
+ * POST /admin/sub-warehouse-admins for a Sub) or a staff record without one.
+ * Resolves to the generated code to show (ADM-nnn / SWA-nnn / STF-nnnn).
+ */
+export function useCreateAccountMutation() {
+  return useAdminMutation({
+    mutationFn: async (request: AccountRequest): Promise<string | null> => {
+      if (request.kind === 'admin') return (await createAdminAccount(request.body)).adminCode;
+      if (request.kind === 'subAdmin') return (await createSubAdmin(request.body)).adminCode;
+      return (await createStaff(request.body)).staffCode;
+    },
+    invalidates: STAFF_WRITE_INVALIDATES,
   });
 }
 

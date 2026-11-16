@@ -722,6 +722,10 @@ export function createAuditsService(deps: AuditsServiceDeps = {}): AuditsService
       const access: AuditAccess = { ...adminAccess(scope), farmerId: query.farmerId };
       const { rows, next } = await repo.listAudits(db, {
         access,
+        q: query.q,
+        minScore: query.minScore,
+        maxScore: query.maxScore,
+        auditorUserId: query.auditorUserId,
         zoneId: query.zoneId,
         statuses: query.status,
         type: query.type,

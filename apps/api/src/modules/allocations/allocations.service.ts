@@ -1,4 +1,5 @@
 import { ErrorCode, GenericProblemCode, RoleCode } from '@tohfa/shared-types';
+import { kgToGrams, gramsToKg } from '../sales/sales.math.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
@@ -54,31 +55,30 @@ export class AllocationsService {
         input.cropId,
       );
 
-      const batchQty = Number(input.qtyReceivedKg);
-      const flooredItems: Array<{ channel: AllocationChannel; qty: number }> = [];
-      let sumFloored = 0;
+      const batchGrams = kgToGrams(input.qtyReceivedKg);
+      const flooredItems: Array<{ channel: AllocationChannel; grams: number }> = [];
+      let sumFlooredGrams = 0;
 
       for (const p of percentages) {
-        const raw = batchQty * (p.percentage / 100);
-        // Floor to 3 decimal places
-        const floored = Math.floor(raw * 1000) / 1000;
-        flooredItems.push({ channel: p.channel, qty: floored });
-        sumFloored += floored;
+        // Floor integer division: floor(batchGrams * p.percentage / 100)
+        const channelGrams = Math.floor((batchGrams * p.percentage) / 100);
+        flooredItems.push({ channel: p.channel, grams: channelGrams });
+        sumFlooredGrams += channelGrams;
       }
 
       // Exact remainder goes to BUFFER (BR-12a)
-      const remainder = Math.round((batchQty - sumFloored) * 1000) / 1000;
+      const remainderGrams = batchGrams - sumFlooredGrams;
 
       const itemsToInsert: InsertAllocationItem[] = flooredItems.map((item) => {
-        let finalQty = item.qty;
+        let finalGrams = item.grams;
         if (item.channel === 'BUFFER') {
-          finalQty = Math.round((item.qty + remainder) * 1000) / 1000;
+          finalGrams += remainderGrams;
         }
         return {
           batchId: input.batchId,
           warehouseId: input.warehouseId,
           channel: item.channel,
-          allocatedQtyKg: finalQty.toFixed(3),
+          allocatedQtyKg: gramsToKg(finalGrams),
           computedBy: 'AUTO',
         };
       });
@@ -169,7 +169,7 @@ export class AllocationsService {
       channel,
     );
 
-    if (Number(available) < Number(requestedQtyKg)) {
+    if (kgToGrams(available) < kgToGrams(requestedQtyKg)) {
       throw new AppError(ErrorCode.INSUFFICIENT_ALLOCATION, {
         status: 409,
         detail: `Requested ${requestedQtyKg} kg exceeds available ${available} kg in ${channel} allocation.`,

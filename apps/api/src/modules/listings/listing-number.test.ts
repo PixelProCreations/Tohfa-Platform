@@ -119,8 +119,6 @@ describeIfDatabase('BR-71: listing numbers (real database)', () => {
     for (const userId of createdUsers) {
       await pool.query(`DELETE FROM idempotency_keys WHERE actor_user_id = $1`, [userId]).catch(() => undefined);
     }
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   it('BR-71a: 20 parallel creates by 20 different farmers all succeed with 20 distinct numbers in the existing format', async () => {

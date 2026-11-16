@@ -34,6 +34,7 @@ export interface TrainingRow {
 export interface GroupRow {
   id: string; name: string; description: string | null; category: string;
   created_at: string; updated_at: string; member_count?: string | number; is_joined?: boolean;
+  archived_at?: string | null;
 }
 
 export interface TrainingLockRow {
@@ -107,6 +108,8 @@ export interface LearningHubRepo {
   createGroup(db: Executor, body: CreateGroupBody): Promise<GroupRow>;
   updateGroup(db: Executor, id: string, patch: UpdateGroupBody): Promise<GroupRow | null>;
   deleteGroup(db: Executor, id: string): Promise<boolean>;
+  archiveGroup(db: Executor, id: string): Promise<GroupRow | null>;
+  countGroupMembers(db: Executor, groupId: string): Promise<number>;
   /** `created` is false when the farmer was already a member (a replay). */
   joinGroup(
     db: Executor,
@@ -622,15 +625,18 @@ export const learningHubRepo: LearningHubRepo = {
       ) AS is_joined`;
     }
 
-    let orderBy = 'g.created_at DESC';
+    // Both sorts compare names the same way (LOWER: the database collates with "C", where
+    // 'Beta' sorts before 'alpha'), and every order ends on the unique g.id so that equal keys
+    // cannot reorder between pages. The default (no sort) stays newest first.
+    let orderBy = 'g.created_at DESC, g.id ASC';
     if (sort === 'members') {
-      orderBy = 'member_count DESC, g.name ASC';
+      orderBy = 'member_count DESC, LOWER(g.name) ASC, g.id ASC';
     } else if (sort === 'name') {
-      orderBy = 'LOWER(g.name) ASC';
+      orderBy = 'LOWER(g.name) ASC, g.id ASC';
     }
 
     const querySql = `
-      SELECT g.id, g.name, g.description, g.category, g.created_at, g.updated_at,
+      SELECT g.id, g.name, g.description, g.category, g.archived_at, g.created_at, g.updated_at,
              (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = g.id) AS member_count,
              ${joinedSelect}
       FROM learning_groups g
@@ -655,7 +661,7 @@ export const learningHubRepo: LearningHubRepo = {
     }
 
     const res = await db.query<GroupRow>(
-      `SELECT g.id, g.name, g.description, g.category, g.created_at, g.updated_at,
+      `SELECT g.id, g.name, g.description, g.category, g.archived_at, g.created_at, g.updated_at,
               (SELECT count(*)::int FROM learning_group_memberships m WHERE m.group_id = g.id) AS member_count,
               ${joinedSelect}
        FROM learning_groups g
@@ -669,7 +675,7 @@ export const learningHubRepo: LearningHubRepo = {
     const res = await db.query<GroupRow>(
       `INSERT INTO learning_groups (name, description, category)
        VALUES ($1, $2, $3)
-       RETURNING id, name, description, category, created_at, updated_at`,
+       RETURNING id, name, description, category, archived_at, created_at, updated_at`,
       [body.name, body.description ?? null, body.category],
     );
     const row = res.rows[0]!;
@@ -700,7 +706,7 @@ export const learningHubRepo: LearningHubRepo = {
       `UPDATE learning_groups
        SET ${sets.join(', ')}
        WHERE id = $1
-       RETURNING id, name, description, category, created_at, updated_at,
+       RETURNING id, name, description, category, archived_at, created_at, updated_at,
                  (SELECT count(*)::int FROM learning_group_memberships WHERE group_id = $1) AS member_count`,
       params,
     );
@@ -710,6 +716,26 @@ export const learningHubRepo: LearningHubRepo = {
   async deleteGroup(db, id) {
     const res = await db.query(`DELETE FROM learning_groups WHERE id = $1`, [id]);
     return (res.rowCount ?? 0) > 0;
+  },
+
+  async archiveGroup(db, id) {
+    const res = await db.query<GroupRow>(
+      `UPDATE learning_groups
+       SET archived_at = now(), updated_at = now()
+       WHERE id = $1
+       RETURNING id, name, description, category, archived_at, created_at, updated_at,
+                 (SELECT count(*)::int FROM learning_group_memberships WHERE group_id = $1) AS member_count`,
+      [id],
+    );
+    return res.rows[0] ?? null;
+  },
+
+  async countGroupMembers(db, groupId) {
+    const res = await db.query<{ count: number }>(
+      `SELECT count(*)::int AS count FROM learning_group_memberships WHERE group_id = $1`,
+      [groupId],
+    );
+    return res.rows[0]?.count ?? 0;
   },
 
   // DO NOTHING returns no row on a conflict, which is how a replay (or a

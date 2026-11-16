@@ -1,18 +1,36 @@
-import { describe, expect, it, vi, beforeEach, beforeAll } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
 import { RoleCode } from '@tohfa/shared-types';
 import { signAccessToken } from '../../auth/jwt.js';
-import { databaseReady, describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { describeIfDatabase, IDS, newId } from '../../test/factories.js';
+import { requireDatabaseTables, requireTestDatabaseName } from '../../test/dbFixtures.js';
+import {
+  cleanupLearningFixtures,
+  emptyLearningFixtureIds,
+  insertLearningArticle,
+  insertLearningFarmer,
+  insertLearningGroup,
+  runSuffix,
+} from '../../test/learningHubFixtures.js';
 import { learningHubService, LearningHubService } from './learning-hub.service.js';
 import type { LearningHubRepo } from './learning-hub.repo.js';
 import { pool } from '../../db/pool.js';
 
-// Mock token invalidation to avoid Redis timeouts during unit/route testing
+// Mock token invalidation to avoid Redis timeouts during unit/route testing. Plain functions,
+// not vi.fn(): the afterEach below restores every mock, and a restored vi.fn() would lose its
+// resolved value.
 vi.mock('../../auth/tokenInvalidation.js', () => ({
-  isAccessTokenInvalidated: vi.fn().mockResolvedValue(false),
-  markTokensInvalidBefore: vi.fn().mockResolvedValue(undefined),
+  isAccessTokenInvalidated: async () => false,
+  markTokensInvalidBefore: async () => undefined,
 }));
+
+// The route tests spy on the SHARED learningHubService object. Without this restore the spies
+// leak into the real-SQL block below, which then reads the mocked empty results instead of the
+// database (that is how four real-SQL tests failed on CI).
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 function makeToken(role: RoleCode, extra: { farmerId?: string | null; customerId?: string | null } = {}) {
   return signAccessToken({
@@ -30,11 +48,18 @@ const tokens = {
   mainWhAdmin: makeToken(RoleCode.MAIN_WH_ADMIN),
   subWhAdmin: makeToken(RoleCode.SUB_WH_ADMIN),
   farmer: makeToken(RoleCode.FARMER, { farmerId: IDS.farmer }),
+  farmerWithoutProfile: makeToken(RoleCode.FARMER, { farmerId: null }),
   customer: makeToken(RoleCode.CUSTOMER, { customerId: newId() }),
 };
 
 describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', () => {
   const app = createApp();
+  const server = app.listen(0);
+
+  afterAll(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
   const testId = newId();
 
   describe('Authorization: learning.admin.manage on admin read routes and farmer.learning.view on group detail', () => {
@@ -49,14 +74,45 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
       `/v1/admin/learning/groups/${testId}`,
     ];
 
+    it('BR-learn-admin: learning-hub admin routes reject missing permission code', async () => {
+      // Unauthenticated -> 401
+      expect((await request(server).get('/v1/admin/learning-hub')).status).toBe(401);
+      expect((await request(server).get(`/v1/admin/learning-hub/${testId}`)).status).toBe(401);
+
+      // Authenticated user lacking farmer.learning.manage -> 403
+      const resList403 = await request(server)
+        .get('/v1/admin/learning-hub')
+        .set('Authorization', `Bearer ${tokens.customer}`);
+      expect(resList403.status).toBe(403);
+
+      const resDetail403 = await request(server)
+        .get(`/v1/admin/learning-hub/${testId}`)
+        .set('Authorization', `Bearer ${tokens.customer}`);
+      expect(resDetail403.status).toBe(403);
+
+      // Authorized admin with farmer.learning.manage -> 200
+      vi.spyOn(learningHubService, 'listAdminArticles').mockResolvedValue({ items: [], total: 0, page: 1, limit: 20 });
+      vi.spyOn(learningHubService, 'getAdminArticle').mockResolvedValue({ id: testId } as never);
+
+      const resList200 = await request(server)
+        .get('/v1/admin/learning-hub')
+        .set('Authorization', `Bearer ${tokens.tohfaAdmin}`);
+      expect(resList200.status).toBe(200);
+
+      const resDetail200 = await request(server)
+        .get(`/v1/admin/learning-hub/${testId}`)
+        .set('Authorization', `Bearer ${tokens.tohfaAdmin}`);
+      expect(resDetail200.status).toBe(200);
+    });
+
     it.each(adminReadPaths)('unauthenticated request to %s returns 401', async (path) => {
-      const res = await request(app).get(path);
+      const res = await request(server).get(path);
       expect(res.status).toBe(401);
     });
 
     it.each(adminReadPaths)('forbidden roles (FARMER_ADMIN, MAIN_WH_ADMIN, SUB_WH_ADMIN, FARMER, CUSTOMER) receive 403 on %s', async (path) => {
       for (const roleToken of [tokens.farmerAdmin, tokens.mainWhAdmin, tokens.subWhAdmin, tokens.farmer, tokens.customer]) {
-        const res = await request(app).get(path).set('Authorization', `Bearer ${roleToken}`);
+        const res = await request(server).get(path).set('Authorization', `Bearer ${roleToken}`);
         expect(res.status).toBe(403);
       }
     });
@@ -72,14 +128,14 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
       vi.spyOn(learningHubService, 'getAdminGroup').mockResolvedValue({ id: testId } as never);
 
       for (const roleToken of [tokens.superAdmin, tokens.tohfaAdmin]) {
-        const res = await request(app).get(path).set('Authorization', `Bearer ${roleToken}`);
+        const res = await request(server).get(path).set('Authorization', `Bearer ${roleToken}`);
         expect(res.status).toBe(200);
       }
     });
 
     it('farmer group detail /v1/farmers/me/learning/groups/:id returns 401 unauthenticated and 403 for CUSTOMER', async () => {
-      expect((await request(app).get(`/v1/farmers/me/learning/groups/${testId}`)).status).toBe(401);
-      const res = await request(app)
+      expect((await request(server).get(`/v1/farmers/me/learning/groups/${testId}`)).status).toBe(401);
+      const res = await request(server)
         .get(`/v1/farmers/me/learning/groups/${testId}`)
         .set('Authorization', `Bearer ${tokens.customer}`);
       expect(res.status).toBe(403);
@@ -87,30 +143,88 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
 
     it('farmer group detail /v1/farmers/me/learning/groups/:id passes auth for FARMER and returns 200', async () => {
       vi.spyOn(learningHubService, 'getFarmerGroup').mockResolvedValue({ id: testId } as never);
-      const res = await request(app)
+      const res = await request(server)
         .get(`/v1/farmers/me/learning/groups/${testId}`)
         .set('Authorization', `Bearer ${tokens.farmer}`);
       expect(res.status).toBe(200);
+    });
+
+    it('BR-59o: farmer group detail is 403 for CUSTOMER, MAIN_WH_ADMIN and SUB_WH_ADMIN', async () => {
+      const spy = vi.spyOn(learningHubService, 'getFarmerGroup').mockResolvedValue({ id: testId } as never);
+      for (const roleToken of [tokens.customer, tokens.mainWhAdmin, tokens.subWhAdmin]) {
+        const res = await request(server)
+          .get(`/v1/farmers/me/learning/groups/${testId}`)
+          .set('Authorization', `Bearer ${roleToken}`);
+        expect(res.status).toBe(403);
+      }
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('BR-59o: a FARMER token with no farmer profile is 403 FORBIDDEN on group detail and never reaches the service', async () => {
+      const spy = vi.spyOn(learningHubService, 'getFarmerGroup').mockResolvedValue({ id: testId } as never);
+      const res = await request(server)
+        .get(`/v1/farmers/me/learning/groups/${testId}`)
+        .set('Authorization', `Bearer ${tokens.farmerWithoutProfile}`);
+      expect(res.status).toBe(403);
+      expect(res.body.code).toBe('FORBIDDEN');
+      expect(spy).not.toHaveBeenCalled();
+    });
+
+    it('BR-59l: ?isPublished=false over HTTP reaches the admin list services as boolean false; true as true; absent as undefined', async () => {
+      const page = { items: [], total: 0, page: 1, limit: 20 };
+      const cases = [
+        ['/v1/admin/learning/articles', vi.spyOn(learningHubService, 'listAdminArticles').mockResolvedValue(page)],
+        ['/v1/admin/learning/videos', vi.spyOn(learningHubService, 'listAdminVideos').mockResolvedValue(page)],
+        ['/v1/admin/learning/trainings', vi.spyOn(learningHubService, 'listAdminTrainings').mockResolvedValue(page)],
+      ] as const;
+      for (const [path, spy] of cases) {
+        for (const [raw, parsed] of [['false', false], ['true', true]] as const) {
+          spy.mockClear();
+          const res = await request(server).get(`${path}?isPublished=${raw}`).set('Authorization', `Bearer ${tokens.superAdmin}`);
+          expect(res.status).toBe(200);
+          expect(spy).toHaveBeenCalledTimes(1);
+          expect(spy.mock.calls[0]![0].isPublished).toBe(parsed);
+        }
+        spy.mockClear();
+        await request(server).get(path).set('Authorization', `Bearer ${tokens.superAdmin}`);
+        expect(spy.mock.calls[0]![0].isPublished).toBeUndefined();
+      }
     });
   });
 
   describe('Validation: parameter limits and formats (BR-59n)', () => {
     it('BR-59n: q of 81 characters returns 422 VALIDATION_FAILED on admin and farmer list endpoints', async () => {
       const longQ = 'a'.repeat(81);
-      const adminArticles = await request(app)
+      const adminArticles = await request(server)
         .get(`/v1/admin/learning/articles?q=${longQ}`)
         .set('Authorization', `Bearer ${tokens.superAdmin}`);
       expect(adminArticles.status).toBe(422);
 
-      const adminGroups = await request(app)
+      const adminGroups = await request(server)
         .get(`/v1/admin/learning/groups?q=${longQ}`)
         .set('Authorization', `Bearer ${tokens.superAdmin}`);
       expect(adminGroups.status).toBe(422);
 
-      const farmerGroups = await request(app)
+      const farmerGroups = await request(server)
         .get(`/v1/farmers/me/learning/groups?q=${longQ}`)
         .set('Authorization', `Bearer ${tokens.farmer}`);
       expect(farmerGroups.status).toBe(422);
+    });
+
+    it('BR-59n: q of 81 characters is 422 with code VALIDATION_FAILED on every admin list and the farmer group list', async () => {
+      const longQ = 'a'.repeat(81);
+      const cases = [
+        ['/v1/admin/learning/articles', tokens.superAdmin],
+        ['/v1/admin/learning/videos', tokens.superAdmin],
+        ['/v1/admin/learning/trainings', tokens.superAdmin],
+        ['/v1/admin/learning/groups', tokens.superAdmin],
+        ['/v1/farmers/me/learning/groups', tokens.farmer],
+      ] as const;
+      for (const [path, token] of cases) {
+        const res = await request(server).get(`${path}?q=${longQ}`).set('Authorization', `Bearer ${token}`);
+        expect(res.status, path).toBe(422);
+        expect(res.body.code, path).toBe('VALIDATION_FAILED');
+      }
     });
   });
 
@@ -287,171 +401,129 @@ describe('Learning Hub Admin Reads & Farmer Group Detail (Unit / Route Tests)', 
 });
 
 // ── Real PostgreSQL (Integration tests when database is ready) ───────────────
+// These rows are COMMITTED through the shared pool (the service opens its own
+// transactions), so: the suite refuses a database whose name lacks "test", every fixture
+// is created inside the try whose finally cleans it up, and every name / tag / category
+// carries a per-run random suffix so reruns and parallel runs cannot collide.
 describeIfDatabase('Learning Hub Admin Reads (Real SQL)', () => {
   let ready = false;
-  const ts = Date.now();
   const service = learningHubService;
 
   beforeAll(async () => {
-    ready = await databaseReady('learning_articles');
+    ready = await requireDatabaseTables('learning_articles', 'learning_groups', 'learning_group_memberships', 'farmers');
+    if (!ready) return;
+    await requireTestDatabaseName(pool);
   });
 
-  it('BR-59l: admin article list includes unpublished articles; the farmer list still hides them', async () => {
-    if (!ready) return;
-    const tag = `tag-${ts}`;
-    const draft = await pool.query<{ id: string }>(
-      `INSERT INTO learning_articles (title, content, snippet, read_time, author, tag, language, is_published)
-       VALUES ($1, 'content', 'snippet', '3 min', 'Admin', $2, 'en', false) RETURNING id`,
-      [`Draft Article ${ts}`, tag],
-    );
-    const pub = await pool.query<{ id: string }>(
-      `INSERT INTO learning_articles (title, content, snippet, read_time, author, tag, language, is_published)
-       VALUES ($1, 'content', 'snippet', '3 min', 'Admin', $2, 'en', true) RETURNING id`,
-      [`Published Article ${ts}`, tag],
-    );
-
+  it('BR-59l: admin article list includes unpublished articles; the farmer list still hides them', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const sfx = runSuffix();
+    const tag = `tag-${sfx}`;
+    const ids = emptyLearningFixtureIds();
     try {
+      await insertLearningArticle(pool, ids, { title: `Draft Article ${sfx}`, tag, isPublished: false });
+      const pubId = await insertLearningArticle(pool, ids, { title: `Published Article ${sfx}`, tag, isPublished: true });
+
       const farmerList = await service.listArticles({ page: 1, limit: 10, tag });
       expect(farmerList.items).toHaveLength(1);
-      expect(farmerList.items[0]!.id).toBe(pub.rows[0]!.id);
+      expect(farmerList.items[0]!.id).toBe(pubId);
 
       const adminList = await service.listAdminArticles({ page: 1, limit: 10, tag });
       expect(adminList.items).toHaveLength(2);
       expect(adminList.total).toBe(2);
     } finally {
-      await pool.query(`DELETE FROM learning_articles WHERE id = ANY($1::uuid[])`, [
-        [draft.rows[0]!.id, pub.rows[0]!.id],
-      ]);
+      await cleanupLearningFixtures(pool, ids);
     }
   });
 
-  it('BR-59l: isPublished=false returns only unpublished rows; total equals the filtered count', async () => {
-    if (!ready) return;
-    const tag = `tag-filter-${ts}`;
-    const draft = await pool.query<{ id: string }>(
-      `INSERT INTO learning_articles (title, content, snippet, read_time, author, tag, language, is_published)
-       VALUES ($1, 'content', 'snippet', '3 min', 'Admin', $2, 'en', false) RETURNING id`,
-      [`Draft ${ts}`, tag],
-    );
-    const pub = await pool.query<{ id: string }>(
-      `INSERT INTO learning_articles (title, content, snippet, read_time, author, tag, language, is_published)
-       VALUES ($1, 'content', 'snippet', '3 min', 'Admin', $2, 'en', true) RETURNING id`,
-      [`Published ${ts}`, tag],
-    );
-
+  it('BR-59l: isPublished=false returns only unpublished rows; total equals the filtered count', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const sfx = runSuffix();
+    const tag = `tag-filter-${sfx}`;
+    const ids = emptyLearningFixtureIds();
     try {
+      const draftId = await insertLearningArticle(pool, ids, { title: `Draft ${sfx}`, tag, isPublished: false });
+      await insertLearningArticle(pool, ids, { title: `Published ${sfx}`, tag, isPublished: true });
+
       const res = await service.listAdminArticles({ page: 1, limit: 10, tag, isPublished: false });
       expect(res.items).toHaveLength(1);
-      expect(res.items[0]!.id).toBe(draft.rows[0]!.id);
+      expect(res.items[0]!.id).toBe(draftId);
       expect(res.total).toBe(1);
     } finally {
-      await pool.query(`DELETE FROM learning_articles WHERE id = ANY($1::uuid[])`, [
-        [draft.rows[0]!.id, pub.rows[0]!.id],
-      ]);
+      await cleanupLearningFixtures(pool, ids);
     }
   });
 
-  it('BR-59n: q matches case-insensitively and treats % and _ literally', async () => {
-    if (!ready) return;
-    const tag = `tag-q-${ts}`;
-    const match = await pool.query<{ id: string }>(
-      `INSERT INTO learning_articles (title, content, snippet, read_time, author, tag, language, is_published)
-       VALUES ($1, 'content', 'snippet', '3 min', 'Admin', $2, 'en', true) RETURNING id`,
-      [`Special 100% Organic_Tea ${ts}`, tag],
-    );
-    const other = await pool.query<{ id: string }>(
-      `INSERT INTO learning_articles (title, content, snippet, read_time, author, tag, language, is_published)
-       VALUES ($1, 'content', 'snippet', '3 min', 'Admin', $2, 'en', true) RETURNING id`,
-      [`Other 1000 Organic Tea ${ts}`, tag],
-    );
-
+  it('BR-59n: q matches case-insensitively and treats % and _ literally', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const sfx = runSuffix();
+    const tag = `tag-q-${sfx}`;
+    const ids = emptyLearningFixtureIds();
     try {
+      const matchId = await insertLearningArticle(pool, ids, { title: `Special 100% Organic_Tea ${sfx}`, tag, isPublished: true });
+      await insertLearningArticle(pool, ids, { title: `Other 1000 Organic Tea ${sfx}`, tag, isPublished: true });
+
       // Searching literally for "100%"
       const resPercent = await service.listAdminArticles({ page: 1, limit: 10, tag, q: '100%' });
       expect(resPercent.items).toHaveLength(1);
-      expect(resPercent.items[0]!.id).toBe(match.rows[0]!.id);
+      expect(resPercent.items[0]!.id).toBe(matchId);
 
       // Searching literally for "organic_tea" case-insensitively
       const resUnderscore = await service.listAdminArticles({ page: 1, limit: 10, tag, q: 'organic_tea' });
       expect(resUnderscore.items).toHaveLength(1);
-      expect(resUnderscore.items[0]!.id).toBe(match.rows[0]!.id);
+      expect(resUnderscore.items[0]!.id).toBe(matchId);
     } finally {
-      await pool.query(`DELETE FROM learning_articles WHERE id = ANY($1::uuid[])`, [
-        [match.rows[0]!.id, other.rows[0]!.id],
-      ]);
+      await cleanupLearningFixtures(pool, ids);
     }
   });
 
-  it('BR-59n: groups sort=members orders by memberCount desc; sort=name orders alphabetically', async () => {
-    if (!ready) return;
-    const g1 = (
-      await pool.query<{ id: string }>(
-        `INSERT INTO learning_groups (name, category) VALUES ($1, 'SortTest') RETURNING id`,
-        [`Zeta Group ${ts}`],
-      )
-    ).rows[0]!.id;
-    const g2 = (
-      await pool.query<{ id: string }>(
-        `INSERT INTO learning_groups (name, category) VALUES ($1, 'SortTest') RETURNING id`,
-        [`Alpha Group ${ts}`],
-      )
-    ).rows[0]!.id;
-
-    // Insert dummy farmer user for membership
-    const u = newId();
-    await pool.query(`INSERT INTO users (id, mobile, full_name, user_type) VALUES ($1, $2, 'Sort Farmer', 'FARMER')`, [
-      u,
-      `+9179${String(ts).slice(-8)}`,
-    ]);
-    const f = (
-      await pool.query<{ id: string }>(
-        `INSERT INTO farmers (user_id, tohfa_farmer_id, application_status) VALUES ($1, $2, 'APPROVED') RETURNING id`,
-        [u, `TF-SORT-${ts}`],
-      )
-    ).rows[0]!.id;
-
-    // Add membership to g1 so memberCount is 1
-    await pool.query(`INSERT INTO learning_group_memberships (group_id, farmer_id) VALUES ($1, $2)`, [g1, f]);
-
+  it('BR-59n: groups sort=members orders by memberCount desc; sort=name orders alphabetically', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const sfx = runSuffix();
+    const category = `SortTest-${sfx}`;
+    const ids = emptyLearningFixtureIds();
     try {
-      const byMembers = await service.listAdminGroups({ page: 1, limit: 10, category: 'SortTest', sort: 'members' });
+      const g1 = await insertLearningGroup(pool, ids, { name: `Zeta Group ${sfx}`, category });
+      const g2 = await insertLearningGroup(pool, ids, { name: `Alpha Group ${sfx}`, category });
+      const { farmerId } = await insertLearningFarmer(pool, ids, sfx);
+      // Add membership to g1 so memberCount is 1
+      await pool.query(`INSERT INTO learning_group_memberships (group_id, farmer_id) VALUES ($1, $2)`, [g1, farmerId]);
+
+      const byMembers = await service.listAdminGroups({ page: 1, limit: 10, category, sort: 'members' });
       expect(byMembers.items[0]!.id).toBe(g1);
       expect(byMembers.items[1]!.id).toBe(g2);
 
-      const byName = await service.listAdminGroups({ page: 1, limit: 10, category: 'SortTest', sort: 'name' });
+      const byName = await service.listAdminGroups({ page: 1, limit: 10, category, sort: 'name' });
       expect(byName.items[0]!.id).toBe(g2);
       expect(byName.items[1]!.id).toBe(g1);
     } finally {
-      await pool.query(`DELETE FROM learning_groups WHERE id = ANY($1::uuid[])`, [[g1, g2]]);
-      await pool.query(`DELETE FROM farmers WHERE id = $1`, [f]);
-      await pool.query(`DELETE FROM users WHERE id = $1`, [u]);
+      await cleanupLearningFixtures(pool, ids);
     }
   });
 
-  it('BR-59p: q filters the farmer group list by name; without q the list is unchanged', async () => {
-    if (!ready) return;
-    const gMatch = (
-      await pool.query<{ id: string }>(
-        `INSERT INTO learning_groups (name, category) VALUES ($1, 'QTest') RETURNING id`,
-        [`Specific Mango Growers ${ts}`],
-      )
-    ).rows[0]!.id;
-    const gOther = (
-      await pool.query<{ id: string }>(
-        `INSERT INTO learning_groups (name, category) VALUES ($1, 'QTest') RETURNING id`,
-        [`Specific Banana Growers ${ts}`],
-      )
-    ).rows[0]!.id;
-
+  it('BR-59p: q filters the farmer group list by name; without q the list is unchanged', async (ctx) => {
+    if (!ready) return ctx.skip();
+    const sfx = runSuffix();
+    const category = `QTest-${sfx}`;
+    const ids = emptyLearningFixtureIds();
     try {
-      const all = await service.listGroups({ page: 1, limit: 10, category: 'QTest' });
-      expect(all.items).toHaveLength(2);
+      const gMatch = await insertLearningGroup(pool, ids, { name: `Specific Mango Growers ${sfx}`, category });
+      const gOther = await insertLearningGroup(pool, ids, { name: `Specific Banana Growers ${sfx}`, category });
 
-      const filtered = await service.listGroups({ page: 1, limit: 10, category: 'QTest', q: 'mango' });
+      // Without q: exactly both groups, in the default order (created_at DESC), item for item.
+      const all = await service.listGroups({ page: 1, limit: 10, category });
+      expect(all.total).toBe(2);
+      expect(all.items.map((g) => g.id)).toEqual([gOther, gMatch]);
+      expect(all.items.map((g) => g.name)).toEqual([`Specific Banana Growers ${sfx}`, `Specific Mango Growers ${sfx}`]);
+      // A q both names match returns exactly the unfiltered items, in the same order.
+      const viaQ = await service.listGroups({ page: 1, limit: 10, category, q: 'specific' });
+      expect(viaQ.items).toEqual(all.items);
+
+      const filtered = await service.listGroups({ page: 1, limit: 10, category, q: 'mango' });
       expect(filtered.items).toHaveLength(1);
       expect(filtered.items[0]!.id).toBe(gMatch);
     } finally {
-      await pool.query(`DELETE FROM learning_groups WHERE id = ANY($1::uuid[])`, [[gMatch, gOther]]);
+      await cleanupLearningFixtures(pool, ids);
     }
   });
 });

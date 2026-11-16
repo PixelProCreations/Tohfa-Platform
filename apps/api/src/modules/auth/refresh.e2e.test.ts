@@ -13,14 +13,13 @@
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import { createApp } from '../../app.js';
 import { AUDIENCE, ISSUER } from '../../auth/jwt.js';
 import { config } from '../../config.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { authRepo, type AuthRepo } from './auth.repo.js';
 import { createAuthService } from './auth.service.js';
-import { closeRedis } from '../../redis.js';
 import { databaseReady, describeIfDatabase } from '../../test/factories.js';
 
 const MOBILE = '+919800000001';
@@ -37,11 +36,6 @@ describeIfDatabase('HTTP: POST /v1/auth/refresh rotation (real router, real data
     if (!ready) throw new Error('database is not migrated: run `pnpm db:migrate`');
     const dev = await pool.query(`SELECT 1 FROM users WHERE mobile = $1`, [MOBILE]);
     if (dev.rowCount === 0) throw new Error('dev user missing: seed db/seed/003_dev_users.sql');
-  });
-
-  afterAll(async () => {
-    await pool.end().catch(() => undefined);
-    await closeRedis().catch(() => undefined);
   });
 
   async function login(): Promise<{ accessToken: string; refreshToken: string }> {

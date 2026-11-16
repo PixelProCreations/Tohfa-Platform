@@ -1,28 +1,38 @@
 import React from 'react';
 import { Platform, View } from 'react-native';
 import type { ViewProps } from 'react-native';
-import { SafeAreaView as InsetSafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 /**
  * Drop-in replacement for React Native's deprecated `SafeAreaView`.
  *
- * Why this exists: React Native 0.88 deprecates `SafeAreaView` from
- * 'react-native' and points at 'react-native-safe-area-context' instead.
- * Swapping every screen straight to the library's component would change
- * layout on Android, so this wrapper keeps the old behaviour exactly:
+ * Why this uses useSafeAreaInsets instead of the context library's SafeAreaView:
+ * the library's SafeAreaView pulls in NativeSafeAreaView (a Fabric codegen
+ * component) at module-load time, which can cause mobile-ui's module initialisation
+ * to fail during Metro bundling. useSafeAreaInsets is already imported in
+ * SystemBars.tsx so it introduces no new dependency.
  *
- * - iOS: RN's SafeAreaView padded its content by the device's safe-area
- *   insets on all edges. The library's SafeAreaView does the same (all edges
- *   by default), so iOS renders it.
- * - Android: RN's SafeAreaView never applied any inset; it was a plain View.
- *   Android insets are reserved once at the app root by `StatusBarInset` and
- *   `NavigationBarInset` (see SystemBars.tsx, the edge-to-edge fix of
- *   pull request 156). Applying the library's insets here as well would pad every
- *   screen a second time, so Android keeps rendering a plain View.
+ * - iOS: applies insets on all edges as padding, matching RN's deprecated behaviour.
+ * - Android: returns a plain View with no insets; root insets are reserved once by
+ *   StatusBarInset and NavigationBarInset (SystemBars.tsx, pull request 156).
  */
-export function SafeAreaView(props: ViewProps): React.JSX.Element {
-  if (Platform.OS === 'ios') {
-    return <InsetSafeAreaView {...props} />;
+export function SafeAreaView({ style, ...props }: ViewProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
+  if (Platform.OS !== 'ios') {
+    return <View style={style} {...props} />;
   }
-  return <View {...props} />;
+  return (
+    <View
+      style={[
+        {
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+          paddingLeft: insets.left,
+          paddingRight: insets.right,
+        },
+        style,
+      ]}
+      {...props}
+    />
+  );
 }

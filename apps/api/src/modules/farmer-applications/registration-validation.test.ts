@@ -82,20 +82,22 @@ function freshMobile(): string {
 
 describeIfDatabase('BR-69: registration step validation (real router, real database)', () => {
   const app = createApp();
+  const server = app.listen(0);
 
   afterAll(async () => {
-    await pool.end().catch(() => undefined);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
   });
+
 
   async function newApplication(): Promise<{ id: string; mobile: string }> {
     const mobile = freshMobile();
-    const res = await request(app).post('/v1/farmers/applications').send({ mobile, fullName: 'Devika R' });
+    const res = await request(server).post('/v1/farmers/applications').send({ mobile, fullName: 'Devika R' });
     expect(res.status).toBe(201);
     return { id: res.body.id as string, mobile };
   }
 
   const patchStep = (id: string, step: number, body: unknown) =>
-    request(app).patch(`/v1/farmers/applications/${id}/steps/${step}`).send(body as object);
+    request(server).patch(`/v1/farmers/applications/${id}/steps/${step}`).send(body as object);
 
   async function storedStep3(id: string): Promise<unknown> {
     const r = await pool.query<{ step3_location: unknown }>(
@@ -164,7 +166,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     // Documents are complete: the ONLY thing missing is located land.
     expect((await patchStep(id, 4, MOBILE_DOCS)).status).toBe(200);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.code).toBe('VALIDATION_FAILED');
     expect(res.body.detail).toMatch(/step 3/i);
@@ -185,7 +187,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       (await patchStep(id, 3, { locations: [{ id: 'loc-a', label: 'Home plot', areaAcres: 2 }] })).status,
     ).toBe(200);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.detail).toMatch(/step 3/i);
   });
@@ -200,7 +202,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       JSON.stringify({ locations: [{ foo: 'bar' }] }),
     ]);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.detail).toMatch(/step 3/i);
   });
@@ -210,7 +212,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     const { id } = await newApplication();
     expect((await patchStep(id, 3, { locations: [MOBILE_LOCATION] })).status).toBe(200);
 
-    const res = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const res = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(res.status).toBe(422);
     expect(res.body.meta.missingDocuments).toEqual(['ID_PROOF', 'FARM_DOC']);
     expect(res.body.meta.missingSteps).toEqual([4]);
@@ -232,7 +234,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
       [id],
     );
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/v1/admin/farmer-applications/${id}/approve`)
       .set('Authorization', `Bearer ${await adminToken()}`)
       .send({});
@@ -264,7 +266,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     const { id, mobile } = await newApplication();
     await pool.query(`UPDATE farmer_applications SET status = 'AUDIT', is_draft = false WHERE id = $1`, [id]);
 
-    const res = await request(app)
+    const res = await request(server)
       .post(`/v1/admin/farmer-applications/${id}/approve`)
       .set('Authorization', `Bearer ${await adminToken()}`)
       .send({});
@@ -283,12 +285,12 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     expect((await patchStep(id, 4, MOBILE_DOCS)).status).toBe(200);
     expect((await patchStep(id, 5, { confirmed: true })).status).toBe(200);
 
-    const submit = await request(app).post(`/v1/farmers/applications/${id}/submit`).send();
+    const submit = await request(server).post(`/v1/farmers/applications/${id}/submit`).send();
     expect(submit.status).toBe(200);
     expect(submit.body.status).toBe('DOCS_REVIEW');
 
     await pool.query(`UPDATE farmer_applications SET status = 'AUDIT' WHERE id = $1`, [id]);
-    const approve = await request(app)
+    const approve = await request(server)
       .post(`/v1/admin/farmer-applications/${id}/approve`)
       .set('Authorization', `Bearer ${await adminToken()}`)
       .send({});
@@ -430,7 +432,7 @@ describeIfDatabase('BR-69: registration step validation (real router, real datab
     for (const step of [1, 2, 3, 4, 5]) {
       const asArray = await patchStep(id, step, [{ fullName: 'Devika R' }]);
       expect(asArray.status, `array, step ${step}`).toBe(422);
-      const asScalar = await request(app)
+      const asScalar = await request(server)
         .patch(`/v1/farmers/applications/${id}/steps/${step}`)
         .set('Content-Type', 'application/json')
         .send('"just a string"');

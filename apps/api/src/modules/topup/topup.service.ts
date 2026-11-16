@@ -157,7 +157,8 @@ export function createTopupService(opts: {
       // docs/openapi.yaml IdempotencyKeyHeader is `required: true` on this money-moving POST
       // (CLAUDE.md 2.4); without a key a retry cannot be told from a second top-up.
       const key = requireIdempotencyKey(idempotencyKey);
-      if (!input.fiscalCashTag || input.fiscalCashTag.trim().length === 0) {
+      const fiscalCashTag = input.fiscalCashTag?.trim();
+      if (!fiscalCashTag) {
         throw new AppError('FISCAL_TAG_REQUIRED', {
           status: 422,
           detail: 'Fiscal cash tag is mandatory for cash top-up.',
@@ -221,14 +222,14 @@ export function createTopupService(opts: {
             warehouseId: input.warehouseId,
             processedBy: actor.userId,
             amount: input.amount,
-            fiscalCashTag: input.fiscalCashTag,
+            fiscalCashTag,
           });
         } catch (err: unknown) {
           const pgErr = err as { code?: string };
           if (pgErr.code === '23505') {
             throw new AppError('CONFLICT', {
               status: 409,
-              detail: `Fiscal cash tag ${input.fiscalCashTag} has already been used.`,
+              detail: `Fiscal cash tag ${fiscalCashTag} has already been used.`,
             });
           }
           if (pgErr.code === '23514') {

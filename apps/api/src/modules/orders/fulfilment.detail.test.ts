@@ -587,22 +587,17 @@ describeIfDatabase('admin order detail route (HTTP, PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const [{ closePool, withTransaction }, { closeRedis }, { removeCommittedFixtures }] = await Promise.all([
+    const [{ withTransaction }, { removeCommittedFixtures }] = await Promise.all([
       import('../../db/pool.js'),
-      import('../../redis.js'),
       import('../../test/committedFixtureCleanup.js'),
     ]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    try {
-      await removeCommittedFixtures(withTransaction, {
-        orderIds: created.orders,
-        cropIds: created.crops,
-        customerIds: created.customers,
-        userIds: created.users,
-      });
-    } finally {
-      await Promise.allSettled([closePool(), closeRedis()]);
-    }
+    await removeCommittedFixtures(withTransaction, {
+      orderIds: created.orders,
+      cropIds: created.crops,
+      customerIds: created.customers,
+      userIds: created.users,
+    });
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

@@ -78,6 +78,7 @@ function fakeRepo(app: FarmerApplicationRow, applicantRoles: string[]): { repo: 
   };
   const repo = {
     findById: async () => app,
+    findByIdForUpdate: async () => app,
     findApplicantLiveRoles: async (_db: unknown, lookup: Lookup) => {
       lookups.push(lookup);
       return applicantRoles;

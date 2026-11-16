@@ -65,10 +65,9 @@ describeIfDatabase('BR-65 notifications (HTTP + PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const { pool, closePool } = await import('../../db/pool.js');
+    const { pool } = await import('../../db/pool.js');
     await pool.query(`DELETE FROM notifications WHERE user_id = ANY($1::uuid[])`, [[userA, userB]]);
     await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [[userA, userB]]);
-    await closePool();
   });
 
   it('BR-65a: GET /v1/notifications/:id returns the caller own IN_APP row in the list item shape', async () => {

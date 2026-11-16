@@ -16,6 +16,7 @@ export { OperatingInfoScreen, type OperatingInfoScreenProps } from './OperatingI
 export { ContactScreen, type ContactScreenProps } from './ContactScreen';
 export { DocumentsScreen, type DocumentsScreenProps } from './DocumentsScreen';
 export { WarehouseSettingsScreen, type WarehouseSettingsScreenProps } from './WarehouseSettingsScreen';
+export { WarehouseEditProfileScreen, type WarehouseEditProfileScreenProps, type EditWarehouseTab } from './WarehouseEditProfileScreen';
 export { WAREHOUSE_PROFILE_CODES } from './WarehouseProfileParts';
 export { PASSWORD_MIN_LENGTH, PROFILE_CODES } from './ProfileParts';
 export { FAQ_ITEMS, roleLabelOf, scopeLabelOf } from './fixtures';

@@ -13,7 +13,7 @@
  */
 import type { Express } from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
@@ -258,14 +258,6 @@ describeIfDatabase('S-30 — Golden Thread End-to-End Supply Chain', () => {
        ON CONFLICT (crop_id, grade, effective_from) DO UPDATE SET ceiling_price = 80.00`,
       [IDS.cropCarrot, IDS.userSuperAdmin],
     );
-  });
-
-  afterAll(async () => {
-    const [{ closePool }, { closeRedis }] = await Promise.all([
-      import('../../db/pool.js'),
-      import('../../redis.js'),
-    ]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   // -------------------------------------------------------------------------

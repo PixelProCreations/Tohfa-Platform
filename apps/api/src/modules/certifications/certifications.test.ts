@@ -42,6 +42,8 @@ function mockCertificationsRepo(initialCert?: Partial<CertificationRow>): Certif
         verified_at: initialCert.verified_at ?? null,
         verification_notes: initialCert.verification_notes ?? null,
         portal_checked_url: initialCert.portal_checked_url ?? null,
+        farmer_name: initialCert.farmer_name ?? null,
+        tohfa_farmer_id: initialCert.tohfa_farmer_id ?? null,
         created_at: new Date(),
         updated_at: null,
       } as CertificationRow)
@@ -1683,6 +1685,25 @@ describe('Certifications & BR-01/BR-02 Test Contracts', () => {
       expect(result.items[0]?.farmerId).toBe(IDS.farmer);
       expect(result.items[0]?.verificationStatus).toBe('VERIFIED');
       expect(result.page).toEqual({ nextCursor: null, hasMore: false });
+    });
+
+    it('BR-51 / P0-40: Admin certification list items carry farmerName and tohfaFarmerId', async () => {
+      const repo = mockCertificationsRepo({
+        id: '33333333-3333-3333-3333-333333333333',
+        farmer_id: IDS.farmer,
+        verification_status: 'VERIFIED',
+        farmer_name: 'Murugan Farmer',
+        tohfa_farmer_id: 'TF-2026-0001',
+      } as any);
+      const service = createCertificationsService(repo);
+      const adminActor = anActor({ userId: IDS.userSuperAdmin });
+
+      const result = (await service.adminListCertifications(adminActor, { limit: 20 })) as {
+        items: Array<{ id: string; farmerId: string; farmerName?: string; tohfaFarmerId?: string }>;
+      };
+
+      expect(result.items[0]?.farmerName).toBe('Murugan Farmer');
+      expect(result.items[0]?.tohfaFarmerId).toBe('TF-2026-0001');
     });
 
     it('adminListCertifications passes status and farmerId filters through to the repo', async () => {

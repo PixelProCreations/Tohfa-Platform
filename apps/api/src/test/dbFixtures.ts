@@ -55,6 +55,26 @@ export async function requireDatabaseTables(...tables: string[]): Promise<boolea
   );
 }
 
+/**
+ * Throws unless the connected database's name contains "test".
+ *
+ * WHY: globalSetup (dbSafety.ts) only refuses NON-LOCAL hosts. A developer's
+ * own local database (`tohfa`) is local too, and a suite that COMMITS rows
+ * through the shared pool would write its fixtures straight into it. Suites
+ * that commit call this from `beforeAll`, after `requireDatabaseTables`, so a
+ * wrongly pointed DATABASE_URL fails loudly instead of polluting real data.
+ */
+export async function requireTestDatabaseName(db: Executor): Promise<void> {
+  const { rows } = await db.query<{ name: string }>('SELECT current_database() AS name');
+  const name = rows[0]?.name ?? '';
+  if (!name.includes('test')) {
+    throw new Error(
+      `refusing to commit fixture rows into database "${name}": its name does not contain "test". ` +
+        'Point DATABASE_URL at a disposable test database (e.g. tohfa_test).',
+    );
+  }
+}
+
 /** A random +91 mobile that cannot collide with the fixed mobiles other suites use. */
 export function randomMobile(): string {
   return `+9190${randomInt(10_000_000, 99_999_999)}`;

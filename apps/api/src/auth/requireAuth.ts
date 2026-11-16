@@ -21,6 +21,7 @@ export interface Actor {
   farmerId: string | null;
   /** Present when the user is a customer; used by `own`-scope predicates. */
   customerId: string | null;
+  sessionId?: string | undefined;
 }
 
 export function hasRole(actor: Actor, code: RoleCode): boolean {
@@ -77,6 +78,7 @@ export const requireAuth: RequestHandler = asyncHandler(async (req, _res, next) 
     roles: payload.roles,
     farmerId: payload.farmerId,
     customerId: payload.customerId,
+    sessionId: payload.sessionId,
   };
 
   // Attach the user to the ambient log context so every subsequent line in

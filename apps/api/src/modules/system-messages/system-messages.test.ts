@@ -230,12 +230,17 @@ describe('BR-134: system message type (mocked repo)', () => {
 // ---------------------------------------------------------------------------
 
 const app = createApp();
+const server = app.listen(0);
+
+afterAll(async () => {
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+});
 
 describe('BR-65: system messages endpoints require authentication', () => {
   it('BR-65g: list, get and mark-read without a token are 401', async () => {
-    expect((await request(app).get('/v1/system-messages')).status).toBe(401);
-    expect((await request(app).get(`/v1/system-messages/${MSG_ID}`)).status).toBe(401);
-    expect((await request(app).post(`/v1/system-messages/${MSG_ID}/read`)).status).toBe(401);
+    expect((await request(server).get('/v1/system-messages')).status).toBe(401);
+    expect((await request(server).get(`/v1/system-messages/${MSG_ID}`)).status).toBe(401);
+    expect((await request(server).post(`/v1/system-messages/${MSG_ID}/read`)).status).toBe(401);
   });
 });
 
@@ -312,7 +317,7 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
 
   /** Every fixture message this caller sees, by key, walking pages of 100. */
   async function visibleKeys(who: keyof ReturnType<typeof tokens>, query = ''): Promise<string[]> {
-    const res = await request(app).get(`/v1/system-messages?limit=100${query}`).set('Authorization', as(who));
+    const res = await request(server).get(`/v1/system-messages?limit=100${query}`).set('Authorization', as(who));
     expect(res.status).toBe(200);
     const byId = new Map(Object.entries(msg).map(([key, id]) => [id, key]));
     return (res.body.items as Item[])
@@ -366,12 +371,11 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
 
   afterAll(async () => {
     if (!ready) return;
-    const { pool, closePool } = await import('../../db/pool.js');
+    const { pool } = await import('../../db/pool.js');
     // announcement_reads cascade with their announcement.
     await pool.query(`DELETE FROM announcements WHERE created_by = $1`, [users.main]);
     await pool.query(`DELETE FROM zones WHERE id = $1`, [zoneId]);
     await pool.query(`DELETE FROM users WHERE id = ANY($1::uuid[])`, [Object.values(users)]);
-    await closePool();
   });
 
   it('BR-65c: a Main Warehouse admin (no assigned warehouse) sees system-wide and ALL warehouse messages, not role-scoped or zone ones', async () => {
@@ -401,7 +405,7 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
 
   it('BR-65c: the list item has exactly the documented fields and no farm/warehouse/zone/role ids', async () => {
     if (!ready) return;
-    const res = await request(app).get('/v1/system-messages?limit=100').set('Authorization', as('subA'));
+    const res = await request(server).get('/v1/system-messages?limit=100').set('Authorization', as('subA'));
     const item = (res.body.items as Item[]).find((i) => i.id === msg['whA']);
     expect(item).toBeDefined();
     expect(Object.keys(item!).sort()).toEqual(
@@ -412,27 +416,27 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
 
   it('BR-65d: GET /v1/system-messages/:id is 200 for a visible message and 404 for every hidden, expired, future, deleted, zone or other-scope one', async () => {
     if (!ready) return;
-    const ok = await request(app).get(`/v1/system-messages/${msg['whA']}`).set('Authorization', as('subA'));
+    const ok = await request(server).get(`/v1/system-messages/${msg['whA']}`).set('Authorization', as('subA'));
     expect(ok.status).toBe(200);
     expect(ok.body.id).toBe(msg['whA']);
 
     const hiddenForSubA = ['whB', 'roleFarmer', 'zone', 'expired', 'future', 'deleted'];
     for (const key of hiddenForSubA) {
-      const res = await request(app).get(`/v1/system-messages/${msg[key]}`).set('Authorization', as('subA'));
+      const res = await request(server).get(`/v1/system-messages/${msg[key]}`).set('Authorization', as('subA'));
       expect(res.status, key).toBe(404);
       expect(JSON.stringify(res.body)).not.toContain(`BR65-${key}-${stamp}`);
     }
-    expect((await request(app).get(`/v1/system-messages/${msg['whA']}`).set('Authorization', as('farmer'))).status).toBe(404);
-    expect((await request(app).get(`/v1/system-messages/${msg['whA']}`).set('Authorization', as('customer'))).status).toBe(404);
-    expect((await request(app).get(`/v1/system-messages/${newId()}`).set('Authorization', as('subA'))).status).toBe(404);
-    expect((await request(app).get('/v1/system-messages/not-a-uuid').set('Authorization', as('subA'))).status).toBe(422);
+    expect((await request(server).get(`/v1/system-messages/${msg['whA']}`).set('Authorization', as('farmer'))).status).toBe(404);
+    expect((await request(server).get(`/v1/system-messages/${msg['whA']}`).set('Authorization', as('customer'))).status).toBe(404);
+    expect((await request(server).get(`/v1/system-messages/${newId()}`).set('Authorization', as('subA'))).status).toBe(404);
+    expect((await request(server).get('/v1/system-messages/not-a-uuid').set('Authorization', as('subA'))).status).toBe(422);
   });
 
   it('BR-65e: POST read on a message the caller cannot see is 404 and leaves no read row behind', async () => {
     if (!ready) return;
     const { pool } = await import('../../db/pool.js');
     for (const key of ['whB', 'expired', 'future', 'deleted', 'zone']) {
-      const res = await request(app).post(`/v1/system-messages/${msg[key]}/read`).set('Authorization', as('subA'));
+      const res = await request(server).post(`/v1/system-messages/${msg[key]}/read`).set('Authorization', as('subA'));
       expect(res.status, key).toBe(404);
     }
     const rows = await pool.query(`SELECT 1 FROM announcement_reads WHERE announcement_id = ANY($1::uuid[])`, [
@@ -445,20 +449,20 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
     if (!ready) return;
     const { pool } = await import('../../db/pool.js');
 
-    const first = await request(app).post(`/v1/system-messages/${msg['sys']}/read`).set('Authorization', as('subA'));
+    const first = await request(server).post(`/v1/system-messages/${msg['sys']}/read`).set('Authorization', as('subA'));
     expect(first.status).toBe(200);
     expect(first.body).toMatchObject({ id: msg['sys'], isRead: true });
     expect(typeof first.body.readAt).toBe('string');
 
-    const replay = await request(app).post(`/v1/system-messages/${msg['sys']}/read`).set('Authorization', as('subA'));
+    const replay = await request(server).post(`/v1/system-messages/${msg['sys']}/read`).set('Authorization', as('subA'));
     expect(replay.status).toBe(200);
     expect(replay.body.readAt).toBe(first.body.readAt);
     const rows = await pool.query(`SELECT user_id FROM announcement_reads WHERE announcement_id = $1`, [msg['sys']]);
     expect(rows.rows).toEqual([{ user_id: users.subA }]);
 
-    const asB = await request(app).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('subB'));
+    const asB = await request(server).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('subB'));
     expect(asB.body).toMatchObject({ isRead: false, readAt: null });
-    const asA = await request(app).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('subA'));
+    const asA = await request(server).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('subA'));
     expect(asA.body).toMatchObject({ isRead: true, readAt: first.body.readAt });
   });
 
@@ -474,7 +478,7 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
 
   it('BR-65f: cursor pagination with microsecond-apart and exactly tied start times neither skips nor repeats a row', async () => {
     if (!ready) return;
-    const full = await request(app).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
+    const full = await request(server).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
     const expected = (full.body.items as Item[]).map((i) => i.id);
     expect(pagedIds.every((id) => expected.includes(id))).toBe(true);
     expect(new Set(expected).size).toBe(expected.length);
@@ -484,7 +488,7 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
       let cursor: string | null = null;
       for (let guard = 0; guard < 100; guard += 1) {
         const query: string = cursor === null ? `limit=${limit}` : `limit=${limit}&cursor=${encodeURIComponent(cursor)}`;
-        const page = await request(app).get(`/v1/system-messages?${query}`).set('Authorization', as('customer'));
+        const page = await request(server).get(`/v1/system-messages?${query}`).set('Authorization', as('customer'));
         expect(page.status).toBe(200);
         walked.push(...(page.body.items as Item[]).map((i) => i.id));
         if (!page.body.page.hasMore) {
@@ -499,9 +503,9 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
 
   it('BR-65f: a forged cursor or an unknown query filter is 422', async () => {
     if (!ready) return;
-    expect((await request(app).get('/v1/system-messages?cursor=garbage').set('Authorization', as('main'))).status).toBe(422);
-    expect((await request(app).get('/v1/system-messages?type=ALERT').set('Authorization', as('main'))).status).toBe(422);
-    expect((await request(app).get('/v1/system-messages?limit=101').set('Authorization', as('main'))).status).toBe(422);
+    expect((await request(server).get('/v1/system-messages?cursor=garbage').set('Authorization', as('main'))).status).toBe(422);
+    expect((await request(server).get('/v1/system-messages?type=ALERT').set('Authorization', as('main'))).status).toBe(422);
+    expect((await request(server).get('/v1/system-messages?limit=101').set('Authorization', as('main'))).status).toBe(422);
   });
 
   it('BR-134b: an announcement written without a type reads GENERAL, a MAINTENANCE one reads MAINTENANCE on list and detail, and an unknown type is rejected by the database', async () => {
@@ -509,9 +513,9 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
     const { pool } = await import('../../db/pool.js');
 
     // `sys` was inserted without naming a type: the column default applies.
-    const sysList = await request(app).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
+    const sysList = await request(server).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
     expect((sysList.body.items as Item[]).find((i) => i.id === msg['sys'])?.type).toBe('GENERAL');
-    expect((await request(app).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('customer'))).body.type).toBe('GENERAL');
+    expect((await request(server).get(`/v1/system-messages/${msg['sys']}`).set('Authorization', as('customer'))).body.type).toBe('GENERAL');
 
     // Not registered in `msg`, so the visibility assertions above never see it.
     const typed = await pool.query<{ id: string }>(
@@ -521,9 +525,9 @@ describeIfDatabase('BR-65 system messages (HTTP + PostgreSQL)', () => {
       [`BR134-maintenance-${stamp}`, users.main],
     );
     const typedId = typed.rows[0]!.id;
-    const list = await request(app).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
+    const list = await request(server).get('/v1/system-messages?limit=100').set('Authorization', as('customer'));
     expect((list.body.items as Item[]).find((i) => i.id === typedId)?.type).toBe('MAINTENANCE');
-    const detail = await request(app).get(`/v1/system-messages/${typedId}`).set('Authorization', as('customer'));
+    const detail = await request(server).get(`/v1/system-messages/${typedId}`).set('Authorization', as('customer'));
     expect(detail.status).toBe(200);
     expect(detail.body.type).toBe('MAINTENANCE');
 

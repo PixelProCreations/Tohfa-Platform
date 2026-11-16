@@ -8,6 +8,7 @@ import {
   payoutDuesQuerySchema,
   createPayoutSchema,
   approvePayoutSchema,
+  exportPayoutsQuerySchema,
 } from './payouts.schema.js';
 import { payoutsService } from './payouts.service.js';
 
@@ -32,6 +33,30 @@ payoutDuesRouter.get(
     const query = getValidated(req, 'query', payoutDuesQuerySchema);
     const result = await payoutsService.listPayoutDues(actor, req.scope!, query);
     res.status(200).json(result);
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// GET /admin/payouts/export
+// ---------------------------------------------------------------------------
+
+payoutsRouter.get(
+  '/export',
+  requireAuth,
+  requirePermission('report.export.file'),
+  validate({ query: exportPayoutsQuerySchema }),
+  asyncHandler(async (req, res) => {
+    const query = getValidated(req, 'query', exportPayoutsQuerySchema);
+    const result = await payoutsService.exportPayouts(req.scope!, query);
+    res
+      .status(200)
+      .set({
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
+        'Cache-Control': 'no-store',
+        'X-Content-Type-Options': 'nosniff',
+      })
+      .send(result.csv);
   }),
 );
 

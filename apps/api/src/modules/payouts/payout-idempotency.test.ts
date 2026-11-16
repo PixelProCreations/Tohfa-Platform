@@ -77,8 +77,6 @@ describeIfDatabase('BR-72: payout replay safety and payout numbers (real databas
 
   afterAll(async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   // ---- create: replay ----------------------------------------------------

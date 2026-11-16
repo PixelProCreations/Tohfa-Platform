@@ -26,6 +26,7 @@ export interface ListingRow {
   rejectedBy: string | null;
   rejectedAt: string | null;
   rejectionReason: string | null;
+  rejectionReasonCode: string | null;
   createdAt: string;
   updatedAt: string | null;
   counterRoundsUsed?: number;
@@ -327,6 +328,7 @@ export const listingsRepo = {
       rejected_by: string | null;
       rejected_at: Date | null;
       rejection_reason: string | null;
+      rejection_reason_code: string | null;
       created_at: Date;
       updated_at: Date | null;
     }>(
@@ -349,7 +351,7 @@ export const listingsRepo = {
               ins.fair_price_id, ins.status, ins.available_from::text,
               ins.photo_keys, ins.certification_badges, ins.version,
               ins.approved_by, ins.approved_at, ins.rejected_by,
-              ins.rejected_at, ins.rejection_reason,
+              ins.rejected_at, ins.rejection_reason, ins.rejection_reason_code,
               ins.created_at, ins.updated_at
        FROM ins
        JOIN crop_master cm ON cm.id = ins.crop_id
@@ -395,6 +397,7 @@ export const listingsRepo = {
       rejectedBy: row.rejected_by,
       rejectedAt: isoOrNull(row.rejected_at),
       rejectionReason: row.rejection_reason,
+      rejectionReasonCode: row.rejection_reason_code ?? null,
       createdAt: row.created_at.toISOString(),
       updatedAt: isoOrNull(row.updated_at),
     };
@@ -426,6 +429,7 @@ export const listingsRepo = {
       rejected_by: string | null;
       rejected_at: Date | null;
       rejection_reason: string | null;
+      rejection_reason_code: string | null;
       created_at: Date;
       updated_at: Date | null;
     }>(
@@ -436,7 +440,7 @@ export const listingsRepo = {
               pl.fair_price_id, pl.status, pl.available_from::text,
               pl.photo_keys, pl.certification_badges, pl.version,
               pl.approved_by, pl.approved_at, pl.rejected_by,
-              pl.rejected_at, pl.rejection_reason,
+              pl.rejected_at, pl.rejection_reason, pl.rejection_reason_code,
               pl.created_at, pl.updated_at
        FROM produce_listings pl
        JOIN crop_master cm ON cm.id = pl.crop_id
@@ -472,6 +476,7 @@ export const listingsRepo = {
       rejectedBy: row.rejected_by,
       rejectedAt: isoOrNull(row.rejected_at),
       rejectionReason: row.rejection_reason,
+      rejectionReasonCode: row.rejection_reason_code ?? null,
       createdAt: row.created_at.toISOString(),
       updatedAt: isoOrNull(row.updated_at),
     };
@@ -529,6 +534,7 @@ export const listingsRepo = {
       rejected_by: string | null;
       rejected_at: Date | null;
       rejection_reason: string | null;
+      rejection_reason_code: string | null;
       created_at: Date;
       updated_at: Date | null;
       cursor_created_at: string;
@@ -554,7 +560,7 @@ export const listingsRepo = {
               pl.fair_price_id, pl.status, pl.available_from::text,
               pl.photo_keys, pl.certification_badges, pl.version,
               pl.approved_by, pl.approved_at, pl.rejected_by,
-              pl.rejected_at, pl.rejection_reason,
+              pl.rejected_at, pl.rejection_reason, pl.rejection_reason_code,
               pl.created_at, pl.updated_at,
               to_char(pl.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS cursor_created_at,
               (SELECT COUNT(*)::int FROM counter_offers WHERE listing_id = pl.id AND actor = 'FARMER') AS counter_rounds_used,
@@ -605,6 +611,7 @@ export const listingsRepo = {
       rejectedBy: row.rejected_by,
       rejectedAt: isoOrNull(row.rejected_at),
       rejectionReason: row.rejection_reason,
+      rejectionReasonCode: row.rejection_reason_code ?? null,
       createdAt: row.created_at.toISOString(),
       updatedAt: isoOrNull(row.updated_at),
       counterRoundsUsed: row.counter_rounds_used ?? 0,

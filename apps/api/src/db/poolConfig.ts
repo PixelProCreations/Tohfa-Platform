@@ -89,7 +89,7 @@ export function buildPoolConfig(input: PoolConfigInput): pg.PoolConfig {
     connectionString: applyDatabaseSsl(input.databaseUrl, input.ssl),
     max: input.max,
     idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 10_000,
     application_name: 'tohfa-api',
   };
 }

@@ -47,6 +47,9 @@ export const ErrorCode = {
   DUAL_APPROVAL_REQUIRED: 'DUAL_APPROVAL_REQUIRED',
   /** The approver of a payout is also its initiator. */
   SAME_ACTOR_APPROVAL: 'SAME_ACTOR_APPROVAL',
+  /** Taluk cannot be mapped to a known warehouse zone (BR-143 / BR-19). */
+  ZONE_NOT_RESOLVED: 'ZONE_NOT_RESOLVED',
+  ZONE_NOT_FOUND: 'ZONE_NOT_FOUND',
   /** Requested quantity is not physically available in the batch. */
   STOCK_UNAVAILABLE: 'STOCK_UNAVAILABLE',
   /** Requested quantity exceeds the channel's allocation percentage. */

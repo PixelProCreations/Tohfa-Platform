@@ -11,18 +11,8 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { fetchMe, type UserMe } from '../../../farmer/api/auth';
 import { colors } from '../../../farmer/theme';
 import { AdminProfileScreen } from './AdminProfileScreen';
-import {
-  MarketPricingHomeScreen,
-  FairPriceCeilingScreen,
-  UpdateFairPriceScreen,
-  BulkPriceUpdateScreen,
-  PriceHistoryScreen,
-  MarketDayScheduleScreen,
-  AddMarketDayScreen,
-  ListingApprovalQueueScreen,
-  type MarketDay,
-  MOCK_DAYS,
-} from './';
+import { NotificationsFlow } from '../warehouse/notifications/NotificationsFlow';
+import { PricingFlow } from '../pricing/PricingFlow';
 import { FarmersFlow } from '../farmers/FarmersFlow';
 import { canOpenFarmers } from '../farmers/flow/farmersFlowNav';
 import { makeCan } from '../../permissions/can';
@@ -119,6 +109,15 @@ function PersonAvatarIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function BellHeaderIcon({ color = PALETTE.orange, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M13.73 21a2 2 0 0 1-3.46 0" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -481,12 +480,6 @@ function QuickActionCard({
 
 export type AdminScreenName =
   | 'MarketPricingHome'
-  | 'FairPriceCeiling'
-  | 'UpdateFairPrice'
-  | 'BulkPriceUpdate'
-  | 'PriceHistory'
-  | 'MarketDaySchedule'
-  | 'ListingApprovalQueue'
   | 'AuditCalendar'
   | 'FinancialDashboard';
 
@@ -521,26 +514,8 @@ export function SuperAdminDashboardScreen({
   >(null);
   const [selectedAdminToEdit, setSelectedAdminToEdit] = useState<AdminAccountData | null>(null);
   const [selectedAdminProfile, setSelectedAdminProfile] = useState<AdminAccountData | null>(null);
-  // Market & Pricing subscreen navigation state
-  const [pricingSubScreen, setPricingSubScreen] = useState<
-    | 'home'
-    | 'fair_price'
-    | 'update_price'
-    | 'bulk_update'
-    | 'price_history'
-    | 'market_days'
-    | 'add_market_day'
-    | 'listing_approval'
-    | null
-  >(null);
-  const [selectedPriceCrop, setSelectedPriceCrop] = useState<{
-    name: string;
-    category: string;
-    price: number;
-    change?: number;
-    lastUpdate: string;
-  } | null>(null);
-  const [marketDaysList, setMarketDaysList] = useState<MarketDay[]>(MOCK_DAYS);
+  const [showPricing, setShowPricing] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [reportsSubScreen, setReportsSubScreen] = useState<
     'analytics' | 'pl' | 'farmerPerformance' | 'warehouseOps' | 'builder' | 'alerts' | 'announcements' | 'allRecent' | null
   >(null);
@@ -560,6 +535,13 @@ export function SuperAdminDashboardScreen({
       <ScreenStatusBar barStyle="dark-content" backgroundColor={PALETTE.pageBg} />
 
       {/* Main Content Area */}
+      {showNotifications ? (
+        <NotificationsFlow
+          scope={{}}
+          can={adminCan}
+          onBack={() => setShowNotifications(false)}
+        />
+      ) : (<>
       <View style={{ flex: 1 }}>
         {activeTab === 'Dashboard' ? (
           adminSubScreen === 'create' ? (
@@ -644,89 +626,10 @@ export function SuperAdminDashboardScreen({
             <CompanyDetailsScreen onBack={() => setConfigSubScreen('main')} />
           ) : configSubScreen === 'audit_logs' ? (
             <SystemAuditLogsScreen onBack={() => setConfigSubScreen('main')} />
-          ) : pricingSubScreen === 'home' ? (
-            <MarketPricingHomeScreen
-              onBack={() => setPricingSubScreen(null)}
-              onNavigateToFairPrice={() => setPricingSubScreen('fair_price')}
-              onNavigateToMarketDay={() => setPricingSubScreen('market_days')}
-              onNavigateToListingApproval={() => setPricingSubScreen('listing_approval')}
-            />
-          ) : pricingSubScreen === 'fair_price' ? (
-            <FairPriceCeilingScreen
-              onBack={() => setPricingSubScreen('home')}
-              onUpdatePrice={(item) => {
-                setSelectedPriceCrop(item);
-                setPricingSubScreen('update_price');
-              }}
-              onBulkUpdate={() => setPricingSubScreen('bulk_update')}
-              onViewHistory={(item) => {
-                setSelectedPriceCrop(item);
-                setPricingSubScreen('price_history');
-              }}
-            />
-          ) : pricingSubScreen === 'update_price' ? (
-            <UpdateFairPriceScreen
-              onBack={() => setPricingSubScreen('fair_price')}
-              itemName={selectedPriceCrop?.name ?? 'Carrots'}
-              category={selectedPriceCrop?.category ?? 'Vegetables'}
-              currentPrice={selectedPriceCrop?.price ?? 42}
-              onSave={(newPrice) => {
-                if (selectedPriceCrop) {
-                  setSelectedPriceCrop({ ...selectedPriceCrop, price: newPrice });
-                }
-                setPricingSubScreen('fair_price');
-              }}
-            />
-          ) : pricingSubScreen === 'bulk_update' ? (
-            <BulkPriceUpdateScreen
-              onBack={() => setPricingSubScreen('fair_price')}
-              onApply={() => {
-                setPricingSubScreen('fair_price');
-              }}
-            />
-          ) : pricingSubScreen === 'price_history' ? (
-            <PriceHistoryScreen
-              onBack={() => setPricingSubScreen('fair_price')}
-              itemName={selectedPriceCrop?.name ?? 'Carrots'}
-              category={selectedPriceCrop?.category ?? 'Vegetables'}
-              currentPrice={selectedPriceCrop?.price ?? 42}
-            />
-          ) : pricingSubScreen === 'market_days' ? (
-            <MarketDayScheduleScreen
-              onBack={() => setPricingSubScreen('home')}
-              onAddMarketDay={() => setPricingSubScreen('add_market_day')}
-              onToggle={(id, val) => {
-                setMarketDaysList((prev) =>
-                  prev.map((d) => (d.id === id ? { ...d, isActive: val } : d)),
-                );
-              }}
-              days={marketDaysList}
-              onDaysChange={setMarketDaysList}
-            />
-          ) : pricingSubScreen === 'add_market_day' ? (
-            <AddMarketDayScreen
-              onBack={() => setPricingSubScreen('market_days')}
-              onSave={(newDay) => {
-                setMarketDaysList((prev) => [
-                  {
-                    id: String(Date.now()),
-                    date: newDay.date,
-                    month: newDay.month,
-                    warehouse: newDay.warehouse,
-                    timeRange: newDay.timeRange,
-                    isActive: true,
-                  },
-                  ...prev,
-                ]);
-                setPricingSubScreen('market_days');
-              }}
-            />
-          ) : pricingSubScreen === 'listing_approval' ? (
-            <ListingApprovalQueueScreen
-              onBack={() => setPricingSubScreen('home')}
-              onApprove={() => { }}
-              onCounter={() => { }}
-              onReject={() => { }}
+          ) : showPricing ? (
+            <PricingFlow
+              can={adminCan}
+              onBack={() => setShowPricing(false)}
             />
           ) : (
             <ScrollView
@@ -747,14 +650,24 @@ export function SuperAdminDashboardScreen({
                   </View>
                 </View>
 
-                {/* Profile Avatar */}
-                <TouchableOpacity
-                  style={styles.avatarCircle}
-                  onPress={() => setActiveTab('Profile')}
-                  activeOpacity={0.8}
-                >
-                  <PersonAvatarIcon />
-                </TouchableOpacity>
+                {/* Bell + Profile Avatar */}
+                <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    style={styles.avatarCircle}
+                    onPress={() => setShowNotifications(true)}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Notifications"
+                  >
+                    <BellHeaderIcon />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.avatarCircle}
+                    onPress={() => setActiveTab('Profile')}
+                    activeOpacity={0.8}
+                  >
+                    <PersonAvatarIcon />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Section 1: System-wide overview */}
@@ -869,7 +782,7 @@ export function SuperAdminDashboardScreen({
                 <QuickActionCard
                   icon={<MarketPriceIcon />}
                   label={'Market &\nPrice'}
-                  onPress={() => setPricingSubScreen('home')}
+                  onPress={() => setShowPricing(true)}
                 />
                 {/* Only Finance module navigation is enabled */}
                 <QuickActionCard
@@ -1002,7 +915,7 @@ export function SuperAdminDashboardScreen({
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
-            setPricingSubScreen(null);
+            setShowPricing(false);
             setReportsSubScreen(null);
             setActiveTab('Dashboard');
           }}
@@ -1025,7 +938,7 @@ export function SuperAdminDashboardScreen({
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
-            setPricingSubScreen(null);
+            setShowPricing(false);
             setReportsSubScreen(null);
             setActiveTab('Farmers');
           }}
@@ -1047,7 +960,7 @@ export function SuperAdminDashboardScreen({
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
-            setPricingSubScreen(null);
+            setShowPricing(false);
             setReportsSubScreen(null);
             setSalesSubScreen('overview');
             setActiveTab('Sales');
@@ -1069,7 +982,7 @@ export function SuperAdminDashboardScreen({
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
-            setPricingSubScreen(null);
+            setShowPricing(false);
             setReportsSubScreen(null);
             setActiveTab('Reports');
           }}
@@ -1090,7 +1003,7 @@ export function SuperAdminDashboardScreen({
           style={styles.tabItem}
           onPress={() => {
             setConfigSubScreen(null);
-            setPricingSubScreen(null);
+            setShowPricing(false);
             setReportsSubScreen(null);
             setActiveTab('Profile');
           }}
@@ -1107,6 +1020,7 @@ export function SuperAdminDashboardScreen({
           </Text>
         </TouchableOpacity>
       </View>
+      </>)}
     </SafeAreaView>
   );
 }

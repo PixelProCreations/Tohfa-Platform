@@ -37,7 +37,7 @@ fairPricesRouter.post(
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
     const body = getValidated(req, 'body', fairPriceCreateSchema);
-    const result = await pricingService.createFairPrice(actor, body);
+    const result = await pricingService.createFairPrice(actor, body, req.header('idempotency-key'));
     res.status(201).json(result);
   }),
 );
@@ -51,7 +51,7 @@ fairPricesRouter.post(
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
     const body = getValidated(req, 'body', bulkUpsertFairPricesBody);
-    const result = await pricingService.bulkUpsertFairPrices(actor, body);
+    const result = await pricingService.bulkUpsertFairPrices(actor, body, req.header('idempotency-key'));
     res.json(result);
   }),
 );
@@ -84,7 +84,7 @@ retailPricesRouter.get(
   }),
 );
 
-// POST /retail-prices — Set a retail price (Super Admin / TOHFA Admin, BR-09)
+// POST /retail-prices — Set a retail price (Super Admin only, BR-09)
 retailPricesRouter.post(
   '/',
   requireAuth,
@@ -93,7 +93,7 @@ retailPricesRouter.post(
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
     const body = getValidated(req, 'body', retailPriceCreateSchema);
-    const result = await pricingService.createRetailPrice(actor, body);
+    const result = await pricingService.createRetailPrice(actor, body, req.header('idempotency-key'));
     res.status(201).json(result);
   }),
 );

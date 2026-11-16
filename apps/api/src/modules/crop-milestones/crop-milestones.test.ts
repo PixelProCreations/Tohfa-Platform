@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -431,12 +431,6 @@ describeIfDatabase('Crop Milestones (PostgreSQL)', () => {
 
   beforeAll(async () => {
     ready = await databaseReady('farm_crop_milestones');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   /** Runs `fn` in a real transaction and always rolls it back, so no fixture rows survive. */

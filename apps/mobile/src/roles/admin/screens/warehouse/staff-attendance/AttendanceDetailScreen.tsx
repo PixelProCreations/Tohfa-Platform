@@ -41,9 +41,11 @@ import { useAttendanceChanges, useAttendanceDay, useMarkAttendanceMutation } fro
 export interface AttendanceDetailScreenProps extends WarehouseScreenBaseProps {
   /** Whose day: required, from the Attendance list. */
   record?: AttendanceRecordRef | undefined;
+  /** Opens Attendance Correction for this day (admin.staff.attendance.mark). */
+  onOpenCorrection?: ((record: AttendanceRecordRef) => void) | undefined;
 }
 
-export function AttendanceDetailScreen({ scope, can, onBack, record }: AttendanceDetailScreenProps) {
+export function AttendanceDetailScreen({ scope, can, onBack, record, onOpenCorrection }: AttendanceDetailScreenProps) {
   const allowed = canViewAttendance(can) && record !== undefined;
   const [now] = useState(() => new Date());
   const staffId = record?.staffId ?? '';
@@ -149,6 +151,14 @@ export function AttendanceDetailScreen({ scope, can, onBack, record }: Attendanc
                       const body = rowRef === null ? null : checkOutNowBody(rowRef, new Date());
                       if (body !== null) send(body);
                     }}
+                  />
+                ) : null}
+                {onOpenCorrection ? (
+                  <WalletButton
+                    label={t('staffAccess.correction.title')}
+                    variant="outline"
+                    disabled={mark.isPending}
+                    onPress={() => onOpenCorrection({ ...record, name: name || record.name, designation: designation || record.designation })}
                   />
                 ) : null}
               </>

@@ -1,4 +1,6 @@
 import type { Executor } from '../../db/pool.js';
+import { MICRO_TS_SQL } from '../../http/microTimestamp.js';
+import { CURSOR_TAGS, encodeKeysetCursor, requireKeysetCursor } from '../../http/keysetCursor.js';
 
 export type ApplicationStatus =
   | 'SUBMITTED'
@@ -23,9 +25,16 @@ export interface FarmerApplicationRow {
   step4_documents: Record<string, unknown>;
   user_id: string | null;
   farmer_id: string | null;
+  zone_id: string | null;
   submitted_at: Date | null;
   created_at: Date;
   updated_at: Date | null;
+  tohfa_farmer_id?: string | null;
+  decided_at?: Date | null;
+  decided_by?: string | null;
+  rejection_reason?: string | null;
+  info_request?: string | null;
+  is_info_requested?: boolean;
 }
 
 export interface StatusHistoryRow {
@@ -71,9 +80,21 @@ export interface FarmerProfileRow {
 }
 
 export interface ListAdminApplicationsOptions {
-  status?: ApplicationStatus | undefined;
+  status?:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'DOCS_REVIEW'
+    | 'FARM_VERIFICATION'
+    | 'AUDIT'
+    | 'INFO_REQUESTED'
+    | 'APPROVED'
+    | 'REJECTED'
+    | undefined;
   zoneId?: string | undefined;
+  zoneIds?: string[] | undefined;
   submittedAfter?: string | undefined;
+  q?: string | undefined;
+  pendingOnly?: boolean | undefined;
   limit: number;
   cursor?: string | undefined;
 }
@@ -89,7 +110,10 @@ export interface FarmerApplicationsRepo {
     },
   ): Promise<FarmerApplicationRow>;
   findById(db: Executor, id: string): Promise<FarmerApplicationRow | null>;
+  findByIdForUpdate(db: Executor, id: string): Promise<FarmerApplicationRow | null>;
   findLiveByMobile(db: Executor, mobile: string): Promise<FarmerApplicationRow | null>;
+  findZoneByTaluk(db: Executor, taluk: string, district?: string | null): Promise<{ id: string; code: string; name: string } | null>;
+  isZoneActive(db: Executor, zoneId: string): Promise<boolean>;
   updateStepData(
     db: Executor,
     id: string,
@@ -104,6 +128,7 @@ export interface FarmerApplicationsRepo {
     toStatus: ApplicationStatus,
     actorId?: string | undefined,
     note?: string | undefined,
+    zoneId?: string | null | undefined,
   ): Promise<FarmerApplicationRow>;
   listAdminApplications(
     db: Executor,
@@ -131,6 +156,41 @@ export interface FarmerApplicationsRepo {
   findApplicantLiveRoles(db: Executor, lookup: { userId: string | null; mobile: string }): Promise<string[]>;
 }
 
+const APPLICATION_SELECT = `
+  fa.id, fa.mobile, fa.full_name, fa.preferred_locale, fa.status, fa.is_draft,
+  fa.current_step, fa.completed_steps, fa.step1_personal, fa.step2_farm_details,
+  fa.step3_location, fa.step4_documents, fa.user_id, fa.farmer_id, fa.zone_id, fa.submitted_at,
+  fa.created_at, fa.updated_at,
+  f.tohfa_farmer_id,
+  dec.created_at AS decided_at,
+  dec.actor_id AS decided_by,
+  CASE WHEN fa.status = 'REJECTED' THEN dec.note ELSE NULL END AS rejection_reason,
+  info.note AS info_request,
+  CASE WHEN fa.status NOT IN ('APPROVED', 'REJECTED') AND NOT fa.is_draft AND last_hist.note LIKE 'More info requested:%' THEN true ELSE false END AS is_info_requested
+`;
+
+const APPLICATION_JOINS = `
+  LEFT JOIN farmers f ON f.id = fa.farmer_id
+  LEFT JOIN LATERAL (
+    SELECT created_at, actor_id, note
+      FROM farmer_application_status_history
+     WHERE application_id = fa.id AND to_status IN ('APPROVED', 'REJECTED')
+     ORDER BY created_at DESC LIMIT 1
+  ) dec ON true
+  LEFT JOIN LATERAL (
+    SELECT note
+      FROM farmer_application_status_history
+     WHERE application_id = fa.id AND note LIKE 'More info requested:%'
+     ORDER BY created_at DESC LIMIT 1
+  ) info ON true
+  LEFT JOIN LATERAL (
+    SELECT note
+      FROM farmer_application_status_history
+     WHERE application_id = fa.id
+     ORDER BY created_at DESC LIMIT 1
+  ) last_hist ON true
+`;
+
 export const farmerApplicationsRepo: FarmerApplicationsRepo = {
   async createApplication(db, params) {
     const result = await db.query<FarmerApplicationRow>(
@@ -138,7 +198,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
        VALUES ($1, $2, $3, $4)
        RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                  current_step, completed_steps, step1_personal, step2_farm_details,
-                 step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                 step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                  created_at, updated_at`,
       [params.mobile, params.fullName, params.preferredLocale, params.userId ?? null],
     );
@@ -147,13 +207,23 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
   async findById(db, id) {
     const result = await db.query<FarmerApplicationRow>(
-      `SELECT id, mobile, full_name, preferred_locale, status, is_draft,
-              current_step, completed_steps, step1_personal, step2_farm_details,
-              step3_location, step4_documents, user_id, farmer_id, submitted_at,
-              created_at, updated_at
-         FROM farmer_applications
-        WHERE id = $1 AND deleted_at IS NULL
+      `SELECT ${APPLICATION_SELECT}
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
+        WHERE fa.id = $1 AND fa.deleted_at IS NULL
         LIMIT 1`,
+      [id],
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async findByIdForUpdate(db, id) {
+    const result = await db.query<FarmerApplicationRow>(
+      `SELECT ${APPLICATION_SELECT}
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
+        WHERE fa.id = $1 AND fa.deleted_at IS NULL
+        FOR UPDATE OF fa`,
       [id],
     );
     return result.rows[0] ?? null;
@@ -161,16 +231,61 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
 
   async findLiveByMobile(db, mobile) {
     const result = await db.query<FarmerApplicationRow>(
-      `SELECT id, mobile, full_name, preferred_locale, status, is_draft,
-              current_step, completed_steps, step1_personal, step2_farm_details,
-              step3_location, step4_documents, user_id, farmer_id, submitted_at,
-              created_at, updated_at
-         FROM farmer_applications
-        WHERE mobile = $1 AND status NOT IN ('APPROVED', 'REJECTED') AND deleted_at IS NULL
+      `SELECT ${APPLICATION_SELECT}
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
+        WHERE fa.mobile = $1 AND fa.status NOT IN ('APPROVED', 'REJECTED') AND fa.deleted_at IS NULL
         LIMIT 1`,
       [mobile],
     );
     return result.rows[0] ?? null;
+  },
+
+  async findZoneByTaluk(db, taluk, district) {
+    const trimmedTaluk = taluk.trim();
+    if (trimmedTaluk.toLowerCase() === 'kundah') {
+      const cfgRes = await db.query<{ value: unknown }>(
+        `SELECT value FROM system_config WHERE key = 'kundah_zone_name' LIMIT 1`,
+      );
+      const val = cfgRes.rows[0]?.value;
+      const zoneNameOrCode =
+        typeof val === 'string'
+          ? val
+          : typeof val === 'object' && val !== null
+            ? String(val)
+            : null;
+      if (zoneNameOrCode) {
+        const zoneRes = await db.query<{ id: string; code: string; name: string }>(
+          `SELECT id, code, name FROM zones WHERE (name = $1 OR code = $1) AND is_active = true LIMIT 1`,
+          [zoneNameOrCode],
+        );
+        if (zoneRes.rows[0]) return zoneRes.rows[0];
+      }
+    }
+
+    const query = district
+      ? `SELECT gz.zone_id AS id, gz.zone_code AS code, gz.zone_name AS name
+           FROM geographic_zones gz
+          WHERE lower(gz.taluk) = lower($1)
+            AND lower(gz.district) = lower($2)
+            AND gz.is_active = true
+          LIMIT 1`
+      : `SELECT gz.zone_id AS id, gz.zone_code AS code, gz.zone_name AS name
+           FROM geographic_zones gz
+          WHERE lower(gz.taluk) = lower($1)
+            AND gz.is_active = true
+          LIMIT 1`;
+    const params = district ? [trimmedTaluk, district.trim()] : [trimmedTaluk];
+    const res = await db.query<{ id: string; code: string; name: string }>(query, params);
+    return res.rows[0] ?? null;
+  },
+
+  async isZoneActive(db, zoneId) {
+    const res = await db.query<{ count: string }>(
+      `SELECT count(*) FROM zones WHERE id = $1 AND is_active = true`,
+      [zoneId],
+    );
+    return parseInt(res.rows[0]?.count ?? '0', 10) > 0;
   },
 
   async updateStepData(db, id, step, stepData, completedSteps) {
@@ -192,7 +307,7 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
           WHERE id = $1 AND deleted_at IS NULL
           RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                     current_step, completed_steps, step1_personal, step2_farm_details,
-                    step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                    step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                     created_at, updated_at`,
         [id, JSON.stringify(stepData), completedSteps, Math.min(step + 1, 5)],
       );
@@ -206,28 +321,33 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
         WHERE id = $1 AND deleted_at IS NULL
         RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                   current_step, completed_steps, step1_personal, step2_farm_details,
-                  step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                  step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                   created_at, updated_at`,
       [id, completedSteps],
     );
     return result.rows[0] ?? null;
   },
 
-  async transitionStatus(db, id, fromStatus, toStatus, actorId, note) {
+  async transitionStatus(db, id, fromStatus, toStatus, actorId, note, zoneId) {
     const isSubmitted = toStatus === 'SUBMITTED' || toStatus === 'DOCS_REVIEW';
     const result = await db.query<FarmerApplicationRow>(
       `UPDATE farmer_applications
           SET status = $2,
               is_draft = CASE WHEN $3 = true THEN false ELSE is_draft END,
               submitted_at = CASE WHEN $3 = true AND submitted_at IS NULL THEN now() ELSE submitted_at END,
+              zone_id = COALESCE($4, zone_id),
               updated_at = now()
-        WHERE id = $1
+        WHERE id = $1 AND ($5::text IS NULL OR status = $5::application_status)
         RETURNING id, mobile, full_name, preferred_locale, status, is_draft,
                   current_step, completed_steps, step1_personal, step2_farm_details,
-                  step3_location, step4_documents, user_id, farmer_id, submitted_at,
+                  step3_location, step4_documents, user_id, farmer_id, zone_id, submitted_at,
                   created_at, updated_at`,
-      [id, toStatus, isSubmitted],
+      [id, toStatus, isSubmitted, zoneId ?? null, fromStatus ?? null],
     );
+
+    if (result.rowCount === 0) {
+      throw new Error(`CONCURRENT_MODIFICATION: Application ${id} was modified concurrently.`);
+    }
 
     // Record in history log
     await db.query(
@@ -240,41 +360,79 @@ export const farmerApplicationsRepo: FarmerApplicationsRepo = {
   },
 
   async listAdminApplications(db, options) {
-    const conditions: string[] = ['deleted_at IS NULL'];
+    const conditions: string[] = ['fa.deleted_at IS NULL'];
     const values: unknown[] = [];
     let paramIndex = 1;
 
-    if (options.status !== undefined) {
-      conditions.push(`status = $${paramIndex++}`);
+    // Draft and status filtering
+    if (options.status === 'DRAFT') {
+      conditions.push('fa.is_draft = true');
+    } else if (options.status === 'INFO_REQUESTED') {
+      conditions.push(
+        `fa.is_draft = false AND fa.status NOT IN ('APPROVED', 'REJECTED') AND (SELECT fash.note FROM farmer_application_status_history fash WHERE fash.application_id = fa.id ORDER BY fash.created_at DESC LIMIT 1) LIKE 'More info requested:%'`,
+      );
+    } else if (options.status !== undefined) {
+      conditions.push(`fa.status = $${paramIndex++}`);
       values.push(options.status);
+      conditions.push('fa.is_draft = false');
+    } else {
+      // By default exclude drafts
+      conditions.push('fa.is_draft = false');
+    }
+
+    if (options.pendingOnly === true) {
+      conditions.push(`fa.status NOT IN ('APPROVED', 'REJECTED') AND fa.is_draft = false`);
+    }
+
+    if (options.q !== undefined && options.q.trim().length > 0) {
+      const term = `%${options.q.trim()}%`;
+      conditions.push(`(fa.full_name ILIKE $${paramIndex} OR fa.mobile ILIKE $${paramIndex})`);
+      values.push(term);
+      paramIndex++;
+    }
+
+    if (options.zoneIds !== undefined) {
+      if (options.zoneIds.length === 0) {
+        conditions.push('FALSE');
+      } else {
+        conditions.push(`fa.zone_id = ANY($${paramIndex++}::uuid[])`);
+        values.push(options.zoneIds);
+      }
+    } else if (options.zoneId !== undefined) {
+      conditions.push(`fa.zone_id = $${paramIndex++}::uuid`);
+      values.push(options.zoneId);
     }
     if (options.submittedAfter !== undefined) {
-      conditions.push(`submitted_at >= $${paramIndex++}`);
+      conditions.push(`fa.submitted_at >= $${paramIndex++}`);
       values.push(options.submittedAfter);
     }
     if (options.cursor !== undefined && options.cursor.length > 0) {
-      conditions.push(`id < $${paramIndex++}`);
-      values.push(options.cursor);
+      const after = requireKeysetCursor(CURSOR_TAGS.farmerApplications, options.cursor);
+      conditions.push(`(fa.created_at, fa.id) < ($${paramIndex++}::timestamptz, $${paramIndex++}::uuid)`);
+      values.push(after.ts, after.id);
     }
 
     values.push(options.limit + 1);
     const limitParam = paramIndex;
 
-    const result = await db.query<FarmerApplicationRow>(
-      `SELECT id, mobile, full_name, preferred_locale, status, is_draft,
-              current_step, completed_steps, step1_personal, step2_farm_details,
-              step3_location, step4_documents, user_id, farmer_id, submitted_at,
-              created_at, updated_at
-         FROM farmer_applications
+    const result = await db.query<FarmerApplicationRow & { cursor_ts: string }>(
+      `SELECT ${APPLICATION_SELECT},
+              ${MICRO_TS_SQL('fa.created_at')} AS cursor_ts
+         FROM farmer_applications fa
+         ${APPLICATION_JOINS}
         WHERE ${conditions.join(' AND ')}
-        ORDER BY created_at DESC, id DESC
+        ORDER BY fa.created_at DESC, fa.id DESC
         LIMIT $${limitParam}`,
       values,
     );
 
     const hasMore = result.rows.length > options.limit;
     const items = hasMore ? result.rows.slice(0, options.limit) : result.rows;
-    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.id : null;
+    const last = items[items.length - 1];
+    const nextCursor =
+      hasMore && last !== undefined
+        ? encodeKeysetCursor(CURSOR_TAGS.farmerApplications, { ts: last.cursor_ts, id: last.id })
+        : null;
 
     return { items, nextCursor, hasMore };
   },

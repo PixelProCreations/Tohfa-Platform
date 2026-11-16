@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import sharp from 'sharp';
 import { createApp } from '../../app.js';
@@ -328,10 +328,6 @@ describe('Uploads Module & BR-16 Privacy Test Contract', () => {
       }
     });
 
-    afterAll(async () => {
-      const { closePool } = await import('../../db/pool.js');
-      await closePool();
-    });
 
     it('returns 201 with signed target for valid payload', async (ctx) => {
       if (!(await requireDatabaseTables('uploads', 'users'))) return ctx.skip();

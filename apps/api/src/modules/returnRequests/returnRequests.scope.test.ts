@@ -12,7 +12,7 @@
  * transaction only, so the fixture does not have to build users and farmers just to get an
  * order. Everything rolls back.
  */
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { beforeAll, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
@@ -36,11 +36,6 @@ describeIfDatabase('Returns warehouse scoping (PostgreSQL)', () => {
     ready = await requireDatabaseTables('return_requests', 'orders', 'customers', 'warehouses');
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   async function inRolledBackTx(fn: (tx: Executor) => Promise<void>): Promise<void> {
     const { withTransaction } = await import('../../db/pool.js');

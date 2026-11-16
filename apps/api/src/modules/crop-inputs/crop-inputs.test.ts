@@ -1,6 +1,6 @@
 import express from 'express';
 import request from 'supertest';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { parseMoney, RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import { signAccessToken } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
@@ -861,12 +861,6 @@ describeIfDatabase('Crop Inputs (PostgreSQL)', () => {
 
   beforeAll(async () => {
     ready = await databaseReady('crop_inputs');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   /** Runs `fn` in a real transaction and always rolls it back, so no fixture rows survive. */

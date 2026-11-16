@@ -80,25 +80,21 @@ describeIfDatabase('BR-100 shelf-capped availability (PostgreSQL, real HTTP)', (
   }, 60_000); // importing the whole app (createApp) is slow on a cold transform cache
 
   afterAll(async () => {
-    const [{ closePool, withTransaction }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    try {
-      if (pool === undefined) return;
-      await pool.query(
-        `DELETE FROM cart_items WHERE cart_id IN (SELECT id FROM carts WHERE customer_id = ANY($1::uuid[]))`,
-        [created.customers],
-      );
-      await pool.query(`DELETE FROM carts WHERE customer_id = ANY($1::uuid[])`, [created.customers]);
-      await removeCommittedFixtures(withTransaction, {
-        warehouseIds: created.warehouses,
-        cropIds: created.crops,
-        customerIds: created.customers,
-        userIds: created.users,
-        farmerIds: created.farmers,
-        idempotencyKeyPrefix: RUN_KEY_PREFIX,
-      });
-    } finally {
-      await Promise.allSettled([closePool(), closeRedis()]);
-    }
+    const { withTransaction } = await import('../../db/pool.js');
+    if (pool === undefined) return;
+    await pool.query(
+      `DELETE FROM cart_items WHERE cart_id IN (SELECT id FROM carts WHERE customer_id = ANY($1::uuid[]))`,
+      [created.customers],
+    );
+    await pool.query(`DELETE FROM carts WHERE customer_id = ANY($1::uuid[])`, [created.customers]);
+    await removeCommittedFixtures(withTransaction, {
+      warehouseIds: created.warehouses,
+      cropIds: created.crops,
+      customerIds: created.customers,
+      userIds: created.users,
+      farmerIds: created.farmers,
+      idempotencyKeyPrefix: RUN_KEY_PREFIX,
+    });
   }, 60_000);
 
   // -------------------------------------------------------------------------

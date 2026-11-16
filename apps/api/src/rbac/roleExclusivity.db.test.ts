@@ -10,7 +10,7 @@
  * was changed because the owner changed the rule.
  */
 import type pg from 'pg';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode } from '@tohfa/shared-types';
 import type { Executor } from '../db/pool.js';
 import { insertUser, requireDatabaseTables } from '../test/dbFixtures.js';
@@ -28,11 +28,6 @@ describeIfDatabase('BR-135: role exclusivity triggers (migrations 0082 + 0083)',
     ready = await requireDatabaseTables('user_roles', 'farmers', 'roles', 'warehouses');
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../db/pool.js');
-    await closePool();
-  });
 
   /** Runs `fn` inside a transaction that is always rolled back. */
   async function inRollback(fn: (tx: pg.PoolClient) => Promise<void>): Promise<void> {

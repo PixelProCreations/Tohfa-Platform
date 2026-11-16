@@ -65,8 +65,14 @@ const GRANT_CASES: readonly GrantCase[] = [
   {
     permission: 'pricing.retail_price.set',
     role: RoleCode.TOHFA_ADMIN,
+    expected: ScopeLevel.NONE,
+    because: 'BR-09: owner decision 2026-11-10 - only Super Admin sets prices, so TOHFA Admin no longer sets retail prices.',
+  },
+  {
+    permission: 'pricing.retail_price.view',
+    role: RoleCode.TOHFA_ADMIN,
     expected: ScopeLevel.ALL,
-    because: 'TOHFA Admin can set retail prices.',
+    because: 'BR-09: the 2026-11-10 decision removes only the write; TOHFA Admin still reads retail prices.',
   },
   {
     permission: 'pricing.fair_price.view',

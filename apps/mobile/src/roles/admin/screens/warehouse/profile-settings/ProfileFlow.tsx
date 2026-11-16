@@ -49,10 +49,14 @@ import { SessionSecurityScreen } from './SessionSecurityScreen';
 import { SettingsScreen, type SettingsChildRoute } from './SettingsScreen';
 import { StorageInfoScreen, type StorageStatusFilter } from './StorageInfoScreen';
 import { UserProfileScreen } from './UserProfileScreen';
+import { WarehouseEditProfileScreen } from './WarehouseEditProfileScreen';
 import { WarehouseInfoScreen } from './WarehouseInfoScreen';
 import { WarehouseSettingsScreen } from './WarehouseSettingsScreen';
 import { IssueSubmittedScreen, ReportIssueScreen } from '../storage-ops';
-import { isMainScope, profileWarehouseId, toOperatingWeek } from './mappers';
+import { AdminEmptyState } from '../shared/AsyncStates';
+import { WalletScreen } from '../wallet-cashtopup/WalletParts';
+import { t } from '../../../i18n';
+import { canOpenProfileRoute, isMainScope, profileWarehouseId, toOperatingWeek } from './mappers';
 import { filterParam, type DocumentStatusFilter, type DocumentTypeFilter } from './mappers_documents';
 import { pickWarehouseId } from './mappers_settings';
 import { useWarehouseOptions } from '../shared/useWarehouseOptions';
@@ -237,7 +241,13 @@ interface LiveWarehouseProps {
   warehouseId: string | undefined;
 }
 
-function LiveWarehouseInfoRoute({ base, selection, warehouseId, onOpen }: LiveWarehouseProps & { onOpen: (route: ProfileRoute) => void }) {
+function LiveWarehouseInfoRoute({
+  base,
+  selection,
+  warehouseId,
+  onOpen,
+  onEdit,
+}: LiveWarehouseProps & { onOpen: (route: ProfileRoute) => void; onEdit: () => void }) {
   const warehouse = useWarehouseProfile(warehouseId);
   const capacity = useWarehouseCapacity(warehouseId);
   const locations = useStorageLocations(warehouseId, {});
@@ -246,6 +256,7 @@ function LiveWarehouseInfoRoute({ base, selection, warehouseId, onOpen }: LiveWa
       {...base}
       {...selection}
       onOpen={onOpen}
+      onEdit={onEdit}
       profile={warehouse.warehouse}
       capacity={capacity.capacity}
       locationCount={locations.total}
@@ -481,6 +492,24 @@ function LiveWarehouseSettingsRoute({ base, selection }: { base: WarehouseScreen
   );
 }
 
+/**
+ * Edit Warehouse Profile for the warehouse the flow reads (BR-30: a Sub scope is
+ * its own, Main the uuid pick). The screen refuses without warehouse.profile.edit
+ * too, so a host that mounts the flow on this route still gets no form.
+ */
+function LiveWarehouseEditRoute({ base, warehouseId, onSaved }: { base: WarehouseScreenBaseProps; warehouseId: string | undefined; onSaved: () => void }) {
+  return <WarehouseEditProfileScreen scope={base.scope} can={base.can} onBack={base.onBack} warehouseId={warehouseId} onSaveSuccess={onSaved} />;
+}
+
+/** What a route the caller may not open renders: a note, never the screen. */
+function RouteNotAvailable({ onBack }: { onBack: () => void }) {
+  return (
+    <WalletScreen title={t('warehouseEdit.title')} onBack={onBack}>
+      <AdminEmptyState title={t('warehouseAdmin.notAvailable.title')} subtitle={t('warehouseEdit.noPermission')} />
+    </WalletScreen>
+  );
+}
+
 export function ProfileFlow({
   scope,
   can,
@@ -521,7 +550,11 @@ export function ProfileFlow({
   }, [initialScreen]);
 
   const current = stack[stack.length - 1] ?? initialScreen;
-  const navigate = (screen: ProfileRoute) => setStack((prev) => [...prev, screen]);
+  // Fail closed: a gated route (WarehouseEditProfile) is refused without its code.
+  const navigate = (screen: ProfileRoute) => {
+    if (!canOpenProfileRoute(screen, can)) return;
+    setStack((prev) => [...prev, screen]);
+  };
   const back = () => {
     if (stack.length > 1) setStack((prev) => prev.slice(0, -1));
     else onBack();
@@ -610,7 +643,22 @@ export function ProfileFlow({
     case 'About':
       return <AboutScreen {...common} />;
     case 'WarehouseProfile':
-      return <LiveWarehouseInfoRoute base={common} selection={selection} warehouseId={warehouseId} onOpen={navigate} />;
+      return (
+        <LiveWarehouseInfoRoute
+          base={common}
+          selection={selection}
+          warehouseId={warehouseId}
+          onOpen={navigate}
+          onEdit={() => navigate('WarehouseEditProfile')}
+        />
+      );
+    case 'WarehouseEditProfile':
+      // The save invalidates the warehouse module, so Warehouse Info refetches on return.
+      return canOpenProfileRoute(current, can) ? (
+        <LiveWarehouseEditRoute base={common} warehouseId={warehouseId} onSaved={back} />
+      ) : (
+        <RouteNotAvailable onBack={back} />
+      );
     case 'StorageInfo':
       return <LiveStorageInfo base={common} selection={selection} warehouseId={warehouseId} onSelectLocation={onSelectStorageLocation} />;
     case 'OperatingInfo':

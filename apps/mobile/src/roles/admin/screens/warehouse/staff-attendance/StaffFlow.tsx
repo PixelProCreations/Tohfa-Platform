@@ -5,13 +5,20 @@
  *   Staff -> Staff Detail -> Edit Staff Profile (form / confirm / success)
  *                         -> Attendance History (this member)
  *         -> Add Staff (Edit Staff Profile in create mode)
- *   Staff -> Attendance -> Attendance Detail ({ staffId, date })
+ *   Staff -> Attendance -> Attendance Detail ({ staffId, date }) -> Attendance Correction
  *                       -> Attendance History -> Attendance Detail (a By Date row)
+ *   Staff Detail -> Attendance Correction (this member, day picked there)
+ *   Staff -> Roles -> Assign Access (that role);  Staff -> Assign Access
+ *   Staff -> Add Staff: Create account when the viewer may create an admin
+ *            login (POST /admin/accounts), else the Add Staff form
  *
  * Gate (docs/rbac.json; BR-83: a Sub Warehouse Admin holds none of these):
  *   Staff, StaffDetail                         admin.staff.list_view
  *   EditStaffProfile                           admin.staff.manage
  *   Attendance, AttendanceDetail, History      admin.staff.attendance.view
+ *   AttendanceCorrection                       admin.staff.attendance.mark
+ *   Roles, AssignAccess                        role.definition.view
+ *   CreateStaffAccount                         admin.staff.manage or any admin.<role>.create
  * navigate() refuses a route without its code and each screen renders a
  * not-available note if opened directly; the server enforces all of it again.
  *
@@ -21,12 +28,17 @@
 import React, { useEffect, useState } from 'react';
 import { useFlowBack } from '../useFlowBack';
 
+import { canCreateAdminLogin } from './accessMappers';
+import { AssignAccessScreen } from './AssignAccessScreen';
+import { AttendanceCorrectionScreen } from './AttendanceCorrectionScreen';
 import { AttendanceDetailScreen } from './AttendanceDetailScreen';
 import { AttendanceHistoryScreen } from './AttendanceHistoryScreen';
 import { AttendanceScreen } from './AttendanceScreen';
 import { EditStaffProfileScreen } from './EditStaffProfileScreen';
 import { StaffDetailScreen } from './StaffDetailScreen';
+import { CreateStaffAccountScreen } from './CreateStaffAccountScreen';
 import { canOpenStaffRoute } from './mappers';
+import { RolesScreen } from './RolesScreen';
 import { StaffScreen } from './StaffScreen';
 import type { PermissionCheck, StaffMember, StaffRoute, StaffRouteParams, WarehouseScope, WarehouseTab } from './types';
 
@@ -101,7 +113,9 @@ export function StaffFlow({
         <StaffScreen
           {...common}
           onSelectStaff={(staff) => navigate('StaffDetail', { staff })}
-          onAddStaff={() => navigate('EditStaffProfile', {})}
+          onAddStaff={() => navigate(canCreateAdminLogin(can) ? 'CreateStaffAccount' : 'EditStaffProfile', {})}
+          onNavigateToRoles={() => navigate('Roles')}
+          onNavigateToAssignAccess={() => navigate('AssignAccess')}
           onNavigateToAttendance={() => navigate('Attendance', { attendanceFilter: 'All' })}
           onNavigateToHistory={() => navigate('AttendanceHistory')}
         />
@@ -113,6 +127,7 @@ export function StaffFlow({
           staff={params.staff}
           onEditProfile={(staff) => navigate('EditStaffProfile', { staff })}
           onViewAttendanceHistory={(staff) => navigate('AttendanceHistory', { historyStaffId: staff.id, historyStaffName: staff.name })}
+          onCorrectAttendance={(staff) => navigate('AttendanceCorrection', { staff })}
         />
       );
     case 'EditStaffProfile':
@@ -127,7 +142,21 @@ export function StaffFlow({
         />
       );
     case 'AttendanceDetail':
-      return <AttendanceDetailScreen {...common} record={params.record} />;
+      return (
+        <AttendanceDetailScreen
+          {...common}
+          record={params.record}
+          onOpenCorrection={(record) => navigate('AttendanceCorrection', { record })}
+        />
+      );
+    case 'AttendanceCorrection':
+      return <AttendanceCorrectionScreen {...common} record={params.record} staff={params.staff} onSuccess={back} />;
+    case 'Roles':
+      return <RolesScreen {...common} onSelectRole={(roleCode) => navigate('AssignAccess', { roleCode })} />;
+    case 'AssignAccess':
+      return <AssignAccessScreen {...common} initialRoleCode={params.roleCode} />;
+    case 'CreateStaffAccount':
+      return <CreateStaffAccountScreen {...common} onSave={backToStaffList} />;
     case 'AttendanceHistory':
       return (
         <AttendanceHistoryScreen

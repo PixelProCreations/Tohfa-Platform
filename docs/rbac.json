@@ -1096,6 +1096,21 @@
       "source": "specification gap \u2014 added for M7 Learning Hub (BR-59)"
     },
     {
+      "code": "farmer.learning.manage",
+      "module": "Farmers Management",
+      "description": "Create, edit, view and manage learning hub content (articles, videos, trainings, groups).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "P0-05 BR-learn-admin"
+    },
+    {
       "code": "learning.admin.manage",
       "module": "Farmers Management",
       "description": "Create, edit, view and manage learning hub content (articles, videos, trainings, groups).",
@@ -1379,6 +1394,21 @@
         "CUSTOMER": "view"
       },
       "source": "inferred \u2014 the customer catalog cannot render without it"
+    },
+    {
+      "code": "market.schedule.manage",
+      "module": "Market & Pricing",
+      "description": "Configure and manage scheduled automated market open and close windows (SA-M2-S02 / SA-M2-S03).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "SA-M2-S02 / SA-M2-S03 Market Control"
     },
     {
       "code": "listing.create_own",
@@ -2717,6 +2747,21 @@
         "CUSTOMER": "none"
       },
       "source": "reqs 6.3"
+    },
+    {
+      "code": "payout.view",
+      "module": "Accounts & Finance",
+      "description": "View farmer payouts list and details.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "P0-40"
     },
     {
       "code": "payout.dues.view",

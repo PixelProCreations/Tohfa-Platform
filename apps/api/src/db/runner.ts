@@ -45,6 +45,7 @@ export const SEED_KINDS: Readonly<Record<string, 'reference' | 'dev'>> = {
   '002_permissions.js': 'reference',
   '003_dev_users.sql': 'dev',
   '004_demo.js': 'dev',
+  '005_zones.sql': 'reference',
   // Inserts plots for every farm that has none and DELETEs all
   // crop_rotation_entries / cover_crop_windows on every run: that is a demo
   // fixture, not reference data, and destructive against real farmers' data.

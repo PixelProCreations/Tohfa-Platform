@@ -34,6 +34,8 @@ import type {
   CapacityView,
   HelpView,
   OperatingDayView,
+  PermissionCheck,
+  ProfileRoute,
   SessionRowView,
   StorageLocationView,
   WarehouseProfileView,
@@ -47,6 +49,17 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** Main Warehouse view: no warehouseId means every warehouse. */
 export function isMainScope(scope: WarehouseScope): boolean {
   return scope.warehouseId === undefined;
+}
+
+/**
+ * Fail-closed route gate of ProfileFlow. Only WarehouseEditProfile is gated (it
+ * needs warehouse.profile.edit, BR-80); every other route is open to the flow's
+ * callers and their screens apply their own checks. A missing or empty `can`
+ * grants nothing. This only decides what to render: the server authorises the
+ * PATCH again (root CLAUDE.md 2.1).
+ */
+export function canOpenProfileRoute(route: ProfileRoute, can: PermissionCheck): boolean {
+  return route === 'WarehouseEditProfile' ? can('warehouse.profile.edit') : true;
 }
 
 /**

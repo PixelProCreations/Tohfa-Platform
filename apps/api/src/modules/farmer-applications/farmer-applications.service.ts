@@ -3,6 +3,7 @@ import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
+import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { assertMayGrantRole, farmerRoleCode } from '../../rbac/roleExclusivity.js';
 import { uploadsService, type UploadsService } from '../uploads/uploads.service.js';
 import type { SignUploadBody, SignUploadResponse } from '../uploads/uploads.schema.js';
@@ -102,13 +103,60 @@ export function isValidTransition(from: ApplicationStatus, to: ApplicationStatus
   return VALID_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
-function mapApplicationResponse(row: FarmerApplicationRow) {
+export interface ReviewHistoryItem {
+  id: string;
+  fromStatus: string | null;
+  toStatus: string;
+  actorId: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+function mapApplicationResponse(row: FarmerApplicationRow, reviewHistory?: ReviewHistoryItem[]) {
+  // Village from personal details
+  const personal = (row.step1_personal as Record<string, unknown>) ?? {};
+  const village = (typeof personal['village'] === 'string' ? personal['village'] : null) ?? null;
+
+  // Area acres from step3 location parcels or step 2 totalAreaAcres
+  const locObj = (row.step3_location as Record<string, unknown>) ?? {};
+  const rawLocations = locObj['locations'];
+  let areaAcres: number | null = null;
+  if (Array.isArray(rawLocations) && rawLocations.length > 0) {
+    areaAcres = rawLocations.reduce((sum: number, loc: unknown) => {
+      if (loc && typeof loc === 'object' && typeof (loc as Record<string, unknown>)['areaAcres'] === 'number') {
+        return sum + ((loc as Record<string, unknown>)['areaAcres'] as number);
+      }
+      return sum;
+    }, 0);
+  } else if (typeof (row.step2_farm_details as Record<string, unknown> | undefined)?.['totalAreaAcres'] === 'number') {
+    areaAcres = (row.step2_farm_details as Record<string, unknown>)['totalAreaAcres'] as number;
+  }
+
+  // SLA due at (5 days after submission)
+  const slaDueAt = row.submitted_at
+    ? new Date(row.submitted_at.getTime() + 5 * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
+  // Documents complete (both ID_PROOF and FARM_DOC)
+  const docObj = (row.step4_documents as Record<string, unknown>) ?? {};
+  const docList = Array.isArray(docObj['documents'])
+    ? (docObj['documents'] as Array<{ docType?: string }>)
+    : [];
+  const docTypes = docList.map((d) => d.docType);
+  const documentsComplete = docTypes.includes('ID_PROOF') && docTypes.includes('FARM_DOC');
+
+  // Derived status matching OpenAPI ApplicationStatus enum
+  let status: string = row.status;
+  if (row.is_info_requested) {
+    status = 'INFO_REQUESTED';
+  }
+
   return {
     id: row.id,
     mobile: row.mobile,
     fullName: row.full_name,
     preferredLocale: row.preferred_locale,
-    status: row.status,
+    status,
     isDraft: row.is_draft,
     currentStep: row.current_step,
     completedSteps: row.completed_steps,
@@ -116,8 +164,30 @@ function mapApplicationResponse(row: FarmerApplicationRow) {
     step2FarmDetails: row.step2_farm_details,
     step3Location: row.step3_location,
     step4Documents: row.step4_documents,
+    data: {
+      personal: row.step1_personal,
+      farm: row.step2_farm_details,
+      location: row.step3_location,
+      documents: row.step4_documents,
+    },
+    zoneId: row.zone_id ?? null,
+    village,
+    areaAcres,
     submittedAt: row.submitted_at?.toISOString() ?? null,
-    createdAt: row.created_at.toISOString(),
+    slaDueAt,
+    documentsComplete,
+    tohfaFarmerId: row.tohfa_farmer_id ?? null,
+    decidedAt: row.decided_at?.toISOString() ?? null,
+    decidedBy: row.decided_by ?? null,
+    rejectionReason: row.rejection_reason ?? null,
+    infoRequest: row.info_request ?? null,
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : typeof row.created_at === 'string'
+          ? row.created_at
+          : new Date().toISOString(),
+    ...(reviewHistory !== undefined ? { reviewHistory } : {}),
   };
 }
 
@@ -136,8 +206,8 @@ export interface FarmerApplicationsService {
   ): Promise<unknown>;
   getMyProfile(actor: Actor): Promise<unknown>;
   updateMyProfile(actor: Actor, body: UpdateFarmerProfileBody): Promise<unknown>;
-  listAdminApplications(actor: Actor, query: ListAdminApplicationsQuery): Promise<unknown>;
-  getAdminApplication(actor: Actor, id: string): Promise<unknown>;
+  listAdminApplications(actor: Actor, scope: ResolvedScope, query: ListAdminApplicationsQuery): Promise<unknown>;
+  getAdminApplication(actor: Actor, scope: ResolvedScope, id: string): Promise<unknown>;
   approveApplication(actor: Actor, id: string, body: ApproveApplicationBody): Promise<unknown>;
   rejectApplication(actor: Actor, id: string, body: RejectApplicationBody): Promise<unknown>;
   requestInfoApplication(actor: Actor, id: string, body: RequestInfoApplicationBody): Promise<unknown>;
@@ -417,6 +487,20 @@ export function createFarmerApplicationsService(
         });
       }
 
+      // BR-143 / BR-19: Normalize taluk and derive zone if possible
+      const personal = (app.step1_personal as Record<string, unknown>) ?? {};
+      const rawTaluk = personal['taluk'];
+      const rawDistrict = personal['district'];
+      let derivedZoneId: string | null = null;
+      if (typeof rawTaluk === 'string' && rawTaluk.trim().length > 0) {
+        const districtStr =
+          typeof rawDistrict === 'string' && rawDistrict.trim().length > 0 ? rawDistrict.trim() : null;
+        const matchedZone = await repo.findZoneByTaluk(pool, rawTaluk.trim(), districtStr);
+        if (matchedZone !== null) {
+          derivedZoneId = matchedZone.id;
+        }
+      }
+
       const updated = await repo.transitionStatus(
         pool,
         id,
@@ -424,6 +508,7 @@ export function createFarmerApplicationsService(
         'DOCS_REVIEW',
         actor?.userId,
         'Submitted by applicant',
+        derivedZoneId,
       );
 
       return mapApplicationResponse(updated);
@@ -588,66 +673,142 @@ export function createFarmerApplicationsService(
       };
     },
 
-    async listAdminApplications(_actor, query) {
-      const { items, nextCursor, hasMore } = await repo.listAdminApplications(pool, query);
+    async listAdminApplications(_actor, scope, query) {
+      let zoneIds: string[] | undefined = undefined;
+      if (scope.level !== 'all') {
+        if (query.zoneId !== undefined) {
+          zoneIds = scope.zoneIds.includes(query.zoneId) ? [query.zoneId] : [];
+        } else {
+          zoneIds = scope.zoneIds;
+        }
+      } else if (query.zoneId !== undefined) {
+        zoneIds = [query.zoneId];
+      }
+
+      const { items, nextCursor, hasMore } = await repo.listAdminApplications(pool, {
+        ...query,
+        ...(zoneIds !== undefined ? { zoneIds } : {}),
+      });
       return {
-        items: items.map(mapApplicationResponse),
+        items: items.map((r) => mapApplicationResponse(r)),
         page: { nextCursor, hasMore },
       };
     },
 
-    async getAdminApplication(_actor, id) {
+    async getAdminApplication(_actor, scope, id) {
       const app = await repo.findById(pool, id);
       if (app === null) {
         throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
       }
-      return mapApplicationResponse(app);
+      if (scope.level !== 'all') {
+        if (app.zone_id === null || !scope.zoneIds.includes(app.zone_id)) {
+          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+        }
+      }
+      const history = await repo.getStatusHistory(pool, id);
+      const reviewHistory: ReviewHistoryItem[] = history.map((h) => ({
+        id: h.id,
+        fromStatus: h.from_status,
+        toStatus: h.to_status,
+        actorId: h.actor_id,
+        note: h.note,
+        createdAt: h.created_at.toISOString(),
+      }));
+      return mapApplicationResponse(app, reviewHistory);
     },
 
     async approveApplication(actor, id, body) {
-      const app = await repo.findById(pool, id);
-      if (app === null) {
-        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-      }
-
-      if (app.status === 'APPROVED') {
-        throw new AppError('CONFLICT', {
-          status: 409,
-          detail: 'Application is already approved.',
-        });
-      }
-
-      // BR-69: refuse BEFORE anything is written. A farmer with zero farms is VERIFIED but can
-      // list nothing and has no land for FARM_VERIFICATION to have looked at; the QA run that
-      // found this had approval succeed on `{"locations":[]}`. The count is of the entries that
-      // will actually become `farms` rows below, so the two can never disagree.
-      const rawLocationsToApprove =
-        ((app.step3_location as Record<string, unknown> | null) ?? {})['locations'];
-      const locationsToApprove: unknown[] = Array.isArray(rawLocationsToApprove)
-        ? rawLocationsToApprove.filter(
-            (l) => l !== null && typeof l === 'object' && !Array.isArray(l),
-          )
-        : [];
-      if (locationsToApprove.length === 0) {
-        throw new AppError('VALIDATION_FAILED', {
-          status: 422,
-          detail:
-            'Application has no farm locations (step 3). A farmer cannot be approved with zero farms; request the applicant to complete step 3 or reject the application.',
-          errors: { step3: ['At least one farm location is required to approve an application.'] },
-          meta: { missingSteps: [3] },
-        });
-      }
-
       const result = await withTransaction(async (tx) => {
+        const app = (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
+        if (app === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+        }
+
+        if (app.is_draft) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: 'Cannot approve a draft application.',
+          });
+        }
+
+        if (app.status === 'APPROVED') {
+          throw new AppError('CONFLICT', {
+            status: 409,
+            detail: 'Application is already approved.',
+          });
+        }
+
+        if (app.status === 'REJECTED') {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: 'Cannot approve a rejected application.',
+          });
+        }
+
+        // BR-143: resolve zone
+        let resolvedZoneId: string | null = null;
+        if (body.zoneId !== undefined) {
+          const isActive = await repo.isZoneActive(tx, body.zoneId);
+          if (!isActive) {
+            throw new AppError('VALIDATION_FAILED', {
+              status: 422,
+              detail: 'The specified zoneId does not exist or is inactive.',
+              errors: { 'body.zoneId': ['Invalid or inactive zone.'] },
+            });
+          }
+          resolvedZoneId = body.zoneId;
+        } else if (app.zone_id !== null) {
+          resolvedZoneId = app.zone_id;
+        } else {
+          const personal = (app.step1_personal as Record<string, unknown>) ?? {};
+          const rawTaluk = personal['taluk'];
+          const rawDistrict = personal['district'];
+          if (typeof rawTaluk === 'string' && rawTaluk.trim().length > 0) {
+            const districtStr =
+              typeof rawDistrict === 'string' && rawDistrict.trim().length > 0 ? rawDistrict.trim() : null;
+            const matched = await repo.findZoneByTaluk(tx, rawTaluk.trim(), districtStr);
+            if (matched !== null) {
+              resolvedZoneId = matched.id;
+            }
+          }
+        }
+
+        if (resolvedZoneId === null) {
+          const personal = (app.step1_personal as Record<string, unknown>) ?? {};
+          const talukName = (typeof personal['taluk'] === 'string' ? personal['taluk'].trim() : '') || '(missing)';
+          throw new AppError('ZONE_NOT_FOUND', {
+            status: 422,
+            detail: `Farmer address taluk '${talukName}' cannot be mapped to a zone. Please provide zoneId in the approval request.`,
+          });
+        }
+
+        // BR-69: refuse BEFORE anything is written. A farmer with zero farms is VERIFIED but can
+        // list nothing and has no land for FARM_VERIFICATION to have looked at; the QA run that
+        // found this had approval succeed on `{"locations":[]}`. The count is of the entries that
+        // will actually become `farms` rows below, so the two can never disagree.
+        const rawLocationsToApprove =
+          ((app.step3_location as Record<string, unknown> | null) ?? {})['locations'];
+        const locationsToApprove: unknown[] = Array.isArray(rawLocationsToApprove)
+          ? rawLocationsToApprove.filter(
+              (l) => l !== null && typeof l === 'object' && !Array.isArray(l),
+            )
+          : [];
+        if (locationsToApprove.length === 0) {
+          throw new AppError('VALIDATION_FAILED', {
+            status: 422,
+            detail:
+              'Application has no farm locations (step 3). A farmer cannot be approved with zero farms; request the applicant to complete step 3 or reject the application.',
+            errors: { step3: ['At least one farm location is required to approve an application.'] },
+            meta: { missingSteps: [3] },
+          });
+        }
+
         // BR-135: approval gives the applicant's account FARMER and a farmers row. The resulting
         // role set must be one docs/rbac.json allows: a Farmer Admin or customer may become a
         // farmer, a SUPER_ADMIN, TOHFA_ADMIN, MAIN_WH_ADMIN or SUB_WH_ADMIN may not. Checked before
         // anything is written; migration 0083 is the backstop.
         const applicantRoles = await repo.findApplicantLiveRoles(tx, { userId: app.user_id, mobile: app.mobile });
         assertMayGrantRole({ roles: applicantRoles, hasLiveFarmer: false }, farmerRoleCode());
-
-        const year = new Date().getFullYear();
-        const tohfaFarmerId = await repo.allocateNextTohfaFarmerId(tx, year);
 
         let userId = app.user_id;
         if (userId === null) {
@@ -668,31 +829,36 @@ export function createFarmerApplicationsService(
           [userId],
         );
 
+        // Concurrency-safe: check if user already has an existing tohfa_farmer_id
+        let tohfaFarmerId: string | null = null;
+        if (typeof app.tohfa_farmer_id === 'string' && app.tohfa_farmer_id.length > 0) {
+          tohfaFarmerId = app.tohfa_farmer_id;
+        } else if (userId !== null) {
+          const existingFarmer = await tx.query<{ tohfa_farmer_id: string }>(
+            `SELECT tohfa_farmer_id FROM farmers WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+            [userId],
+          );
+          if (
+            typeof existingFarmer.rows[0]?.tohfa_farmer_id === 'string' &&
+            existingFarmer.rows[0].tohfa_farmer_id.length > 0
+          ) {
+            tohfaFarmerId = existingFarmer.rows[0].tohfa_farmer_id;
+          }
+        }
+        if (tohfaFarmerId === null) {
+          const year = new Date().getFullYear();
+          tohfaFarmerId = await repo.allocateNextTohfaFarmerId(tx, year);
+        }
+
         const personal = (app.step1_personal as Record<string, unknown>) ?? {};
         const farmDetails = (app.step2_farm_details as Record<string, unknown>) ?? {};
 
-        // Experience is collected in step 2 (the farming operation), which is the only
-        // screen that actually asks for it. The step-1 read is a fallback for
-        // applications that were already in flight when it moved, where the value may
-        // still sit in `step1_personal.farmingExperienceYears`.
         const experienceYears =
           farmDetails['experienceYears'] ?? personal['farmingExperienceYears'] ?? 0;
-
-        // dob/gender/pincode are genuinely collected in step 1 (real inputs on
-        // Step1Personal.tsx) but were previously read nowhere on approval, silently
-        // dropping data the farmer actually provided even though `farmers` has real
-        // columns for all three. Each is normalised/validated defensively here
-        // (never thrown on) because none of this JSONB was ever schema-validated on
-        // the write path -- see updateStep's step===1 branch.
         const dob = parseDobForInsert(personal['dob']);
         const gender = normalizeGenderForInsert(personal['gender']);
         const pincode = normalizePincodeForInsert(personal['pincode']);
 
-        // NOTE: `step2FarmDetails.totalAreaAcres` is deliberately NOT persisted onto a
-        // farmer or farm column. It is the farmer's stated total holding and stays in
-        // the step-2 JSONB as a claim; `farms.area_acres` below keeps coming from each
-        // location's own measured `areaAcres`. Collapsing the two would erase the
-        // claim-vs-ground discrepancy that FARM_VERIFICATION exists to look at.
         const farmerRes = await tx.query<{ id: string }>(
           `INSERT INTO farmers (
              user_id, tohfa_farmer_id, zone_id, farming_experience_years,
@@ -707,12 +873,13 @@ export function createFarmerApplicationsService(
            ON CONFLICT (user_id) DO UPDATE SET
              application_status = 'APPROVED',
              kyc_status = 'VERIFIED',
-             tohfa_farmer_id = EXCLUDED.tohfa_farmer_id
+             tohfa_farmer_id = COALESCE(farmers.tohfa_farmer_id, EXCLUDED.tohfa_farmer_id),
+             zone_id = EXCLUDED.zone_id
            RETURNING id`,
           [
             userId,
             tohfaFarmerId,
-            body.zoneId ?? null,
+            resolvedZoneId,
             experienceYears,
             personal['addressLine1'] ?? null,
             personal['village'] ?? null,
@@ -726,12 +893,6 @@ export function createFarmerApplicationsService(
         );
         const farmerId = farmerRes.rows[0]!.id;
 
-        // One farms row per land location captured in step 3. There is a single
-        // farming operation per farmer (its type of farming and years of experience
-        // live in step 2) — what varies per row is the parcel, so each location is
-        // self-contained and nothing is correlated across steps.
-        // BR-69: the guard above guarantees at least one location here, so approval can never
-        // produce a VERIFIED farmer with zero farms.
         const locationData = (app.step3_location as Record<string, unknown>) ?? {};
         const rawLocations = locationData['locations'];
         const locationList: Array<Record<string, unknown>> = Array.isArray(rawLocations)
@@ -752,12 +913,6 @@ export function createFarmerApplicationsService(
             Array.isArray(fmbPolygon.coordinates) &&
             fmbPolygon.coordinates.length > 0;
 
-          // centroid_lat/centroid_lng are gated independently of hasBoundary:
-          // farmLocationItemSchema allows latitude/longitude without an fmbPolygon
-          // (manual entry, gpsCaptured: false) and allows either coordinate alone.
-          // `farms_centroid_pair_chk` (db/migrations/0003_farmers_and_farms.sql)
-          // rejects a row where exactly one of the pair is set, so both must be
-          // present together or neither is written.
           const rawLatitude = location['latitude'];
           const rawLongitude = location['longitude'];
           const hasCentroid = typeof rawLatitude === 'number' && typeof rawLongitude === 'number';
@@ -800,11 +955,12 @@ export function createFarmerApplicationsService(
           'APPROVED',
           actor.userId,
           body.note ?? 'Approved by admin',
+          resolvedZoneId,
         );
 
         await tx.query(
-          `UPDATE farmer_applications SET farmer_id = $1, user_id = $2 WHERE id = $3`,
-          [farmerId, userId, id],
+          `UPDATE farmer_applications SET farmer_id = $1, user_id = $2, zone_id = $3, is_draft = false WHERE id = $4`,
+          [farmerId, userId, resolvedZoneId, id],
         );
 
         await writeAuditLog(tx, {
@@ -815,10 +971,10 @@ export function createFarmerApplicationsService(
           entityId: id,
           before: { status: app.status },
           after: { status: 'APPROVED', tohfaFarmerId, farmerId },
-          changedFields: ['status', 'farmer_id'],
+          changedFields: ['status', 'farmer_id', 'zone_id'],
         });
 
-        return { updated, tohfaFarmerId, userId };
+        return { updated: { ...updated, zone_id: resolvedZoneId, tohfa_farmer_id: tohfaFarmerId }, tohfaFarmerId, userId };
       });
 
       await eventBus.publish('farmer.application.approved', {
@@ -831,19 +987,33 @@ export function createFarmerApplicationsService(
     },
 
     async rejectApplication(actor, id, body) {
-      const app = await repo.findById(pool, id);
-      if (app === null) {
-        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-      }
-
-      if (app.status === 'REJECTED') {
-        throw new AppError('CONFLICT', {
-          status: 409,
-          detail: 'Application is already rejected.',
-        });
-      }
-
       const updated = await withTransaction(async (tx) => {
+        const app = (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
+        if (app === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+        }
+
+        if (app.is_draft) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: 'Cannot reject a draft application.',
+          });
+        }
+
+        if (app.status === 'REJECTED') {
+          throw new AppError('CONFLICT', {
+            status: 409,
+            detail: 'Application is already rejected.',
+          });
+        }
+
+        if (!isValidTransition(app.status, 'REJECTED')) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `Illegal transition from ${app.status} to REJECTED.`,
+          });
+        }
+
         const res = await repo.transitionStatus(
           tx,
           id,
@@ -864,27 +1034,41 @@ export function createFarmerApplicationsService(
           changedFields: ['status'],
         });
 
-        return res;
+        return { res, userId: app.user_id };
       });
 
-      if (app.user_id) {
+      if (updated.userId) {
         await eventBus.publish('farmer.application.rejected', {
-          userId: app.user_id,
+          userId: updated.userId,
           applicationId: id,
           reason: body.reason,
         });
       }
 
-      return mapApplicationResponse(updated);
+      return mapApplicationResponse(updated.res);
     },
 
     async requestInfoApplication(actor, id, body) {
-      const app = await repo.findById(pool, id);
-      if (app === null) {
-        throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
-      }
-
       const updated = await withTransaction(async (tx) => {
+        const app = (await repo.findByIdForUpdate?.(tx, id)) ?? (await repo.findById(tx, id));
+        if (app === null) {
+          throw new AppError('NOT_FOUND', { detail: 'Application not found.' });
+        }
+
+        if (app.is_draft) {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: 'Cannot request info on a draft application.',
+          });
+        }
+
+        if (app.status === 'APPROVED' || app.status === 'REJECTED') {
+          throw new AppError('INVALID_STATE_TRANSITION', {
+            status: 409,
+            detail: `Cannot request info on an application in ${app.status} status.`,
+          });
+        }
+
         const res = await repo.transitionStatus(
           tx,
           id,
@@ -915,19 +1099,19 @@ export function createFarmerApplicationsService(
           changedFields: ['status'],
         });
 
-        return res;
+        return { res, userId: app.user_id };
       });
 
-      if (app.user_id) {
+      if (updated.userId) {
         await eventBus.publish('farmer.application.info_requested', {
-          userId: app.user_id,
+          userId: updated.userId,
           applicationId: id,
           steps: body.requiredSteps ?? [4],
           message: body.message,
         });
       }
 
-      return mapApplicationResponse(updated);
+      return mapApplicationResponse(updated.res);
     },
   };
 }

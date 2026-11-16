@@ -98,3 +98,26 @@ vi.mock('react-native-safe-area-context', () => {
     useSafeAreaInsets: () => insets,
   };
 });
+
+/**
+ * `react-native-svg` ships source that uses React Native's internal module
+ * resolution — it cannot run in plain Node. The same parse-error symptom as
+ * react-native above. Only the shapes used in admin icon files need stubs here;
+ * per-file mocks in render-heavy tests (more_menu, etc.) can extend this.
+ */
+vi.mock('react-native-svg', () => ({
+  default: 'Svg',
+  Circle: 'Circle',
+  Defs: 'Defs',
+  Ellipse: 'Ellipse',
+  G: 'G',
+  Line: 'Line',
+  LinearGradient: 'LinearGradient',
+  Path: 'Path',
+  Polygon: 'Polygon',
+  Polyline: 'Polyline',
+  Rect: 'Rect',
+  Stop: 'Stop',
+  Svg: 'Svg',
+  Text: 'Text',
+}));

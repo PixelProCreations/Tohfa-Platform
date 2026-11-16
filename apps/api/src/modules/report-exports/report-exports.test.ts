@@ -1365,9 +1365,7 @@ describeIfDatabase('Report exports routes (real app router, PostgreSQL)', () => 
   });
 
   afterAll(async () => {
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
     await new Promise<void>((resolve) => server.close(() => resolve()));
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   const auth = (name: string): string => `Bearer ${tokens[name]!}`;

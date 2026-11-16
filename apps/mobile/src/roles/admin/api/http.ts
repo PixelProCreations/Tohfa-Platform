@@ -57,3 +57,12 @@ export function adminPatch<T>(path: string, body: unknown, options: AdminWriteOp
 export function adminPut<T>(path: string, body: unknown, options: AdminWriteOptions = {}): Promise<T> {
   return write<T>('PUT', path, body, options);
 }
+
+/** DELETE `path`; the server answers 204 with no body. */
+export function adminDelete(path: string, options: AdminWriteOptions = {}): Promise<void> {
+  return request<void>(path, {
+    method: 'DELETE',
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    timeoutMs: ADMIN_REQUEST_TIMEOUT_MS,
+  });
+}

@@ -954,4 +954,47 @@ describeIfDatabase('admin farmers (PostgreSQL, rolled back)', () => {
       expect((await caught(service(tx).getSubscription(farmerAdminScope([w.zoneA], 'farmer.subscription.view_tier_limits'), w.farmerB))).status).toBe(404);
     });
   });
+
+  it('BR-36 / P0-38: Farmer search q matches tohfa_farmer_id and zone name as well as full_name and mobile', async () => {
+    await inRollback(async (tx) => {
+      const w = await seed(tx);
+      const farmerRow = (await tx.query<{ tohfa_farmer_id: string; zone_name: string }>(
+        `SELECT f.tohfa_farmer_id, z.name AS zone_name
+           FROM farmers f
+           JOIN zones z ON z.id = f.zone_id
+          WHERE f.id = $1`,
+        [w.farmerA],
+      )).rows[0]!;
+
+      // 1. Search by tohfa_farmer_id
+      const byId = await adminFarmersRepo.list(tx, {
+        filters: { q: farmerRow.tohfa_farmer_id },
+        scope: { sql: 'TRUE', params: [], nextIndex: 1 },
+        limit: 10,
+      });
+      expect(byId.items.some((item) => item.id === w.farmerA)).toBe(true);
+
+      // 2. Search by zone name
+      const byZone = await adminFarmersRepo.list(tx, {
+        filters: { q: farmerRow.zone_name },
+        scope: { sql: 'TRUE', params: [], nextIndex: 1 },
+        limit: 10,
+      });
+      expect(byZone.items.some((item) => item.id === w.farmerA)).toBe(true);
+    });
+  });
+
+  it('BR-36 / P0-39: AdminFarmerLandLocation includes createdAt from farms.created_at', async () => {
+    await inRollback(async (tx) => {
+      const w = await seed(tx);
+      await tx.query(
+        `INSERT INTO farms (farmer_id, name, area_acres, centroid_lat, centroid_lng, is_primary) VALUES ($1, 'Upper field', 2.5, 11.4, 76.7, true)`,
+        [w.farmerA],
+      );
+      const locations = await adminFarmersRepo.findLandLocations(tx, w.farmerA);
+      expect(locations.length).toBeGreaterThan(0);
+      expect(locations[0]).toHaveProperty('createdAt');
+      expect(typeof (locations[0] as any).createdAt).toBe('string');
+    });
+  });
 });

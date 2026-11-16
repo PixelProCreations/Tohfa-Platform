@@ -2,7 +2,7 @@ import { Router, type RequestHandler } from 'express';
 import { optionalAuth, requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission } from '../../rbac/requirePermission.js';
+import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import { signUploadBody } from '../uploads/uploads.schema.js';
 import {
   approveApplicationBody,
@@ -146,8 +146,9 @@ adminFarmerApplicationsRouter.get(
   validate({ query: listAdminApplicationsQuery }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const query = getValidated(req, 'query', listAdminApplicationsQuery);
-    const result = await farmerApplicationsService.listAdminApplications(actor, query);
+    const result = await farmerApplicationsService.listAdminApplications(actor, scope, query);
     res.json(result);
   }),
 );
@@ -159,8 +160,9 @@ adminFarmerApplicationsRouter.get(
   validate({ params: farmerApplicationIdParams }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
+    const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', farmerApplicationIdParams);
-    const result = await farmerApplicationsService.getAdminApplication(actor, id);
+    const result = await farmerApplicationsService.getAdminApplication(actor, scope, id);
     res.json(result);
   }),
 );

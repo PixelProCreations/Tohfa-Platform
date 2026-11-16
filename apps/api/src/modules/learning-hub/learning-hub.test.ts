@@ -333,6 +333,22 @@ function createFakeRepo(state: FakeDbState): LearningHubRepo {
       return state.groups.delete(id);
     },
 
+    async archiveGroup(_db, id) {
+      const g = state.groups.get(id);
+      if (!g) return null;
+      const updated = { ...g, archived_at: new Date().toISOString() };
+      state.groups.set(id, updated);
+      return updated;
+    },
+
+    async countGroupMembers(_db, groupId) {
+      let count = 0;
+      for (const m of state.memberships.values()) {
+        if (m.group_id === groupId) count += 1;
+      }
+      return count;
+    },
+
     async joinGroup(_db, groupId, farmerId) {
       const key = `${groupId}:${farmerId}`;
       const existing = state.memberships.get(key);
@@ -760,8 +776,6 @@ describeIfDatabase('Learning Hub (integration, real SQL)', () => {
     await pool.query(`DELETE FROM learning_groups WHERE id = ANY($1::uuid[])`, [groupIds]);
     await pool.query(`DELETE FROM farmers WHERE id = ANY($1::uuid[])`, [farmerIds]);
     farmers = [];
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   const makeTraining = async (overrides: Partial<typeof baseTraining> = {}) => {
@@ -868,5 +882,26 @@ describeIfDatabase('Learning Hub (integration, real SQL)', () => {
       [group.id],
     );
     expect(audits.rows[0]!.n).toBe(1);
+  });
+
+  it('BR-59q: POST /admin/learning/groups/:id/archive archives group; DELETE refuses group with members (409 CONFLICT) and permits group with 0 members', async () => {
+    if (!ready) return;
+    const group = await service.createGroup(admin, { name: `LH group arch ${ts}`, category: 'Tea' });
+    groupIds.push(group.id);
+    const farmer = farmers[0]!;
+    await service.joinGroup(farmer, group.id);
+
+    // 1. Deleting a group with members throws 409 CONFLICT
+    await expect(service.deleteGroup(admin, group.id)).rejects.toMatchObject({
+      status: 409,
+    });
+
+    // 2. Archiving the group succeeds
+    const archived = await (service as any).archiveGroup(admin, group.id);
+    expect(archived).toHaveProperty('isArchived', true);
+
+    // 3. Leaving the group allows delete to succeed
+    await service.leaveGroup(farmer, group.id);
+    await expect(service.deleteGroup(admin, group.id)).resolves.not.toThrow();
   });
 });

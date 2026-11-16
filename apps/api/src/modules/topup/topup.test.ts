@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createHmac, randomUUID } from 'node:crypto';
 import { fromPaise, parseMoney, toPaise, type Money } from '@tohfa/shared-types';
@@ -400,11 +400,6 @@ describeIfDatabase('Topup & Webhook Integration Tests (BR-17b)', () => {
     });
   });
 
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
-  });
 
   it('BR-17b: POST /v1/wallets/me/topups creates pending intent without crediting balance', async () => {
     if (!ready) return;
@@ -567,8 +562,8 @@ describeIfDatabase('Admin Cash Top-up & Daily Reconciliation (BR-18, BR-19, S-33
     const custMobile = `+919833${rand}`;
 
     await pool.query(`
-      INSERT INTO warehouses (id, code, name, type, address_line1, city, state, pincode)
-      VALUES ('${testWarehouseId}', 'WH-TEST-${rand}', 'Ooty Test WH', 'MAIN', '123 Hill Rd', 'Ooty', 'Tamil Nadu', '643001');
+      INSERT INTO warehouses (id, code, name, type, address, city, pincode)
+      VALUES ('${testWarehouseId}', 'WH-TEST-${rand}', 'Ooty Test WH', 'MAIN', '123 Hill Rd', 'Ooty', '643001');
 
       INSERT INTO users (id, mobile, full_name, user_type, status)
       VALUES
@@ -578,6 +573,9 @@ describeIfDatabase('Admin Cash Top-up & Daily Reconciliation (BR-18, BR-19, S-33
 
       INSERT INTO customers (id, user_id, customer_code)
       VALUES ('${customerId}', '${customerUserId}', 'CUST-CASH-${rand}');
+
+      INSERT INTO wallets (customer_id, owner_type, balance, currency, status)
+      VALUES ('${customerId}', 'CUSTOMER', 0.00, 'INR', 'ACTIVE');
     `);
 
     adminToken = signAccessToken({

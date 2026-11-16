@@ -26,6 +26,8 @@ export interface CertificationRow {
   portal_checked_url: string | null;
   created_at: Date;
   updated_at: Date | null;
+  farmer_name?: string | null;
+  tohfa_farmer_id?: string | null;
 }
 
 export interface CreateCertificationParams {
@@ -613,8 +615,12 @@ export const certificationsRepo: CertificationsRepo = {
     const where = conditions.join(' AND ');
 
     const result = await db.query<CertificationRow>(
-      `SELECT ${CERT_COLUMNS}
+      `SELECT ${CERT_COLUMNS},
+              u.full_name AS farmer_name,
+              f.tohfa_farmer_id AS tohfa_farmer_id
          FROM certifications c
+         JOIN farmers f ON f.id = c.farmer_id
+         JOIN users u ON u.id = f.user_id
     LEFT JOIN farmer_documents fd ON fd.id = c.document_id
         WHERE ${where}
         ORDER BY c.created_at DESC, c.id DESC
@@ -635,8 +641,12 @@ export const certificationsRepo: CertificationsRepo = {
    */
   async findByIdAdmin(db, id) {
     const result = await db.query<CertificationRow>(
-      `SELECT ${CERT_COLUMNS}
+      `SELECT ${CERT_COLUMNS},
+              u.full_name AS farmer_name,
+              f.tohfa_farmer_id AS tohfa_farmer_id
          FROM certifications c
+         JOIN farmers f ON f.id = c.farmer_id
+         JOIN users u ON u.id = f.user_id
     LEFT JOIN farmer_documents fd ON fd.id = c.document_id
         WHERE c.id = $1 AND c.deleted_at IS NULL
         LIMIT 1`,

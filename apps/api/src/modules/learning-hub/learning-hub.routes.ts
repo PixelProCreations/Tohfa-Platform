@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
+import { AppError } from '../../http/problem.js';
 import { getValidated, validate } from '../../http/validate.js';
 import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
 import {
@@ -125,7 +126,12 @@ farmerLearningRouter.get(
   asyncHandler(async (req, res) => {
     const scope = requireScope(req.scope);
     const { id } = getValidated(req, 'params', learningIdParams);
-    res.json(await learningHubService.getFarmerGroup(scope.farmerId!, id));
+    // A FARMER role without a resolved farmer profile has no membership to report. Refuse it
+    // the same way the join/leave/enrol paths do, rather than reading with an undefined farmer.
+    if (!scope.farmerId) {
+      throw new AppError('FORBIDDEN', { detail: 'Only farmers can view community group details' });
+    }
+    res.json(await learningHubService.getFarmerGroup(scope.farmerId, id));
   }),
 );
 
@@ -158,6 +164,30 @@ farmerLearningRouter.delete(
 
 // ── Admin Routes (Mounted under /v1/admin) ───────────────────────────────────
 export const adminLearningRouter: Router = Router();
+
+// GET /v1/admin/learning-hub (BR-learn-admin)
+adminLearningRouter.get(
+  '/learning-hub',
+  requireAuth,
+  requirePermission('farmer.learning.manage'),
+  validate({ query: listAdminArticlesQuery }),
+  asyncHandler(async (req, res) => {
+    const query = getValidated(req, 'query', listAdminArticlesQuery);
+    res.json(await learningHubService.listAdminArticles(query));
+  }),
+);
+
+// GET /v1/admin/learning-hub/:id (BR-learn-admin)
+adminLearningRouter.get(
+  '/learning-hub/:id',
+  requireAuth,
+  requirePermission('farmer.learning.manage'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.getAdminArticle(id));
+  }),
+);
 
 // GET /v1/admin/learning/articles
 adminLearningRouter.get(
@@ -406,6 +436,19 @@ adminLearningRouter.patch(
     const { id } = getValidated(req, 'params', learningIdParams);
     const patch = getValidated(req, 'body', updateGroupBody);
     res.json(await learningHubService.updateGroup(scope, id, patch));
+  }),
+);
+
+// POST /v1/admin/learning/groups/:id/archive
+adminLearningRouter.post(
+  '/learning/groups/:id/archive',
+  requireAuth,
+  requirePermission('learning.admin.manage'),
+  validate({ params: learningIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', learningIdParams);
+    res.json(await learningHubService.archiveGroup(scope, id));
   }),
 );
 

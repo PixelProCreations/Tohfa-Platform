@@ -1,7 +1,10 @@
+import { fromPaise, parseMoney, toPaise } from '@tohfa/shared-types';
+import { writeAuditLog } from '../../audit/auditLog.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { amountForGramsPaise, gramsToKg, kgToGrams } from '../sales/sales.math.js';
 import {
   purchaseOrdersRepo,
   type PurchaseOrdersRepo,
@@ -76,10 +79,10 @@ export function formatPoRowToResponse(row: PurchaseOrderRow): PurchaseOrderRespo
 
 export function calculateTotalAmountPaise(pricePerKg: string, quantityKg: string): string {
   // Compute in integer paise to eliminate floating point inaccuracy (BR-30, Money)
-  const pricePaise = Math.round(Number(pricePerKg) * 100);
-  const qty = Number(quantityKg);
-  const totalPaise = Math.round(pricePaise * qty);
-  return (totalPaise / 100).toFixed(2);
+  const pricePaise = toPaise(parseMoney(pricePerKg));
+  const qtyGrams = kgToGrams(quantityKg);
+  const totalPaise = amountForGramsPaise(pricePaise, qtyGrams);
+  return fromPaise(totalPaise);
 }
 
 export function createPurchaseOrdersService(
@@ -113,33 +116,24 @@ export function createPurchaseOrdersService(
         warehouseId: input.warehouseId,
         cropId: listing.cropId,
         grade: listing.grade,
-        pricePerKg: Number(effectivePricePerKg).toFixed(2),
-        quantityKg: Number(effectiveQuantityKg).toFixed(3),
+        pricePerKg: parseMoney(effectivePricePerKg),
+        quantityKg: gramsToKg(kgToGrams(effectiveQuantityKg)),
         totalAmount,
         issuedBy: actor.userId,
         expectedDeliveryDate: input.expectedDeliveryDate,
       });
 
       // 5. Append-only audit log inside same transaction (BR-35)
-      try {
-        await tx.query(
-          `INSERT INTO audit_log (
-            actor_id, actor_role, action_code, entity_type, entity_id, warehouse_id, outcome, after
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            actor.userId,
-            scope.roleCode,
-            'purchase.order.create',
-            'purchase_order',
-            poRow.id,
-            input.warehouseId,
-            'ALLOWED',
-            JSON.stringify(poRow),
-          ],
-        );
-      } catch {
-        // Table may not exist in lightweight unit test environments
-      }
+      await writeAuditLog(tx, {
+        actorId: actor.userId,
+        actorRole: scope.roleCode,
+        actionCode: 'purchase.order.create',
+        entityType: 'purchase_order',
+        entityId: poRow.id,
+        warehouseId: input.warehouseId,
+        outcome: 'ALLOWED',
+        after: poRow,
+      });
 
       return formatPoRowToResponse(poRow);
     },

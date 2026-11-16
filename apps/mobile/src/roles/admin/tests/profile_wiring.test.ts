@@ -146,7 +146,11 @@ describe('warehouse profile (BR-30, BR-66)', () => {
     expect(grant('warehouse.capacity.set', 'SUB_WH_ADMIN')).toBe('none');
     expect(grant('warehouse.storage_location.manage', 'SUB_WH_ADMIN')).toBe('none');
     expect(WAREHOUSE_API).not.toMatch(/adminPatch|adminPost|adminPut/);
-    for (const source of WAREHOUSE_SCREENS) expect(source).not.toMatch(/label="Edit|onEdit|onSave/);
+    const [info, ...readOnly] = WAREHOUSE_SCREENS;
+    for (const source of readOnly) expect(source).not.toMatch(/label="Edit|onEdit|onSave/);
+    // Warehouse Info opens the editor, but only behind warehouse.profile.edit (none for Sub).
+    expect(info).not.toMatch(/label="Edit|onSave/);
+    expect(info).toMatch(/onEdit !== undefined && can\('warehouse\.profile\.edit'\)/);
   });
 
   it('shows no region, assigned admin, sections, hierarchy, services or emergency contact (no API field)', () => {

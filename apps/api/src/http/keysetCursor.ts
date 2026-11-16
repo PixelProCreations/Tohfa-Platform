@@ -68,4 +68,9 @@ export const CURSOR_TAGS = {
   adminFarmers: 'fm',
   promotionRequests: 'pr',
   goodsReceiptDiscrepancies: 'gd',
+  produceRecords: 'pcr',
+  produceEvents: 'pce',
+  farmerApplications: 'fa',
+  adminPayouts: 'apo',
+  adminAccounts: 'adm',
 } as const;

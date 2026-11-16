@@ -123,6 +123,8 @@ function createFakeRatings(overrides: Partial<FarmRatingsRepo> = {}): FakeRating
         tierCode: latest.tierCode,
         ratedAt: latest.ratedAt,
         sourceAuditId: latest.sourceAuditId,
+        ratedBy: latest.ratedBy ?? null,
+        ratedByName: (latest as any).ratedByName ?? null,
       };
     },
     findScoresForRating: async (_tx, ratingId) => {
@@ -257,6 +259,28 @@ describe('FarmRatingsService (Unit)', () => {
       sourceAuditId: input.auditId,
     });
     expect(() => farmRatingResponse.parse(result)).not.toThrow();
+  });
+
+  it('BR-06 / P0-41: FarmRating response includes ratedBy and ratedByName', async () => {
+    const fake = createFakeRatings();
+    fake.ratings.push({
+      id: 'rate-1',
+      farmerId: FARMER_ID,
+      farmId: FARM_ID,
+      zoneId: ZONE_NORTH,
+      periodLabel: '2026-27 Q3',
+      totalScore: 75,
+      tierCode: 'GOOD',
+      ratedBy: ADMIN,
+      sourceAuditId: 'audit-1',
+      status: 'COMPLETE',
+      ratedAt: new Date('2026-10-01T10:00:00Z'),
+      seq: 1,
+      scores: new Map(),
+    });
+    const service = serviceWith(fake);
+    const result = await service.getAdminRating(adminView, FARMER_ID);
+    expect((result as any).ratedBy).toBe(ADMIN);
   });
 
   it('BR-04a: changing rating_tier_config changes which tier the same audit total maps to', async () => {

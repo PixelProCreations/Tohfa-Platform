@@ -110,7 +110,7 @@ async function runDemoSeed() {
       await client.query(
         `INSERT INTO user_roles (user_id, role_id, role_code)
          VALUES ($1, (SELECT id FROM roles WHERE code = 'FARMER'), 'FARMER')
-         ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
+         ON CONFLICT (user_id, role_id, COALESCE(warehouse_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(zone_id, '00000000-0000-0000-0000-000000000000'::uuid)) WHERE valid_to IS NULL
          DO NOTHING`,
         [uId],
       );
@@ -204,6 +204,41 @@ async function runDemoSeed() {
                boundary_version = 1
            WHERE id = $1`,
           [farmId, boundaryGeoJson, uId],
+        );
+      }
+
+      // Farmer 3's three zones get drawn boundaries that tile inside the farm boundary above, so
+      // ZonesScreen has real overlay polygons to display (without these the zones exist as cards
+      // but never appear on the map because boundary is null).
+      if (f.num === 3) {
+        const plotPrefix = `31000000-${String(f.num).padStart(4, '0')}-0000-0000`;
+        // Farm: lon 76.70435–76.70565, lat 11.42436–11.42564
+        // Zone A (North Field): top two-thirds
+        const zoneAGeoJson = JSON.stringify({ type: 'Polygon', coordinates: [[
+          [76.70435, 11.42479], [76.70565, 11.42479], [76.70565, 11.42564],
+          [76.70435, 11.42564], [76.70435, 11.42479],
+        ]]});
+        // Zone B (South Valley): bottom-left quarter
+        const zoneBGeoJson = JSON.stringify({ type: 'Polygon', coordinates: [[
+          [76.70435, 11.42436], [76.70500, 11.42436], [76.70500, 11.42479],
+          [76.70435, 11.42479], [76.70435, 11.42436],
+        ]]});
+        // Zone C (Terrace Ridge): bottom-right quarter
+        const zoneCGeoJson = JSON.stringify({ type: 'Polygon', coordinates: [[
+          [76.70500, 11.42436], [76.70565, 11.42436], [76.70565, 11.42479],
+          [76.70500, 11.42479], [76.70500, 11.42436],
+        ]]});
+        await client.query(
+          `UPDATE plots SET boundary = ST_GeomFromGeoJSON($2)::geography WHERE id = $1`,
+          [`${plotPrefix}-000000000001`, zoneAGeoJson],
+        );
+        await client.query(
+          `UPDATE plots SET boundary = ST_GeomFromGeoJSON($2)::geography WHERE id = $1`,
+          [`${plotPrefix}-000000000002`, zoneBGeoJson],
+        );
+        await client.query(
+          `UPDATE plots SET boundary = ST_GeomFromGeoJSON($2)::geography WHERE id = $1`,
+          [`${plotPrefix}-000000000003`, zoneCGeoJson],
         );
       }
 

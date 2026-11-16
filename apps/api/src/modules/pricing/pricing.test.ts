@@ -1,10 +1,11 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../app.js';
-import { signAccessToken } from '../../auth/jwt.js';
+import { signAccessToken, type RoleAssignment } from '../../auth/jwt.js';
 import type { Executor } from '../../db/pool.js';
 import { anActor, describeIfDatabase, IDS } from '../../test/factories.js';
 import { ensureStandardUsers, insertCrop, requireDatabaseTables } from '../../test/dbFixtures.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import {
   compareMoney,
   createPricingService,
@@ -177,8 +178,8 @@ describe('Pricing Module Unit & Business Rules', () => {
         return repo.createRetailPrice(...args);
       },
     };
-    const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [] }) } as unknown as Executor);
-    const service = createPricingService(guardedRepo, mockTx);
+    const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: '1' }] }) } as unknown as Executor);
+    const service = createPricingService(guardedRepo, mockTx, createInMemoryIdempotencyStore());
     const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
 
     await expect(
@@ -188,7 +189,7 @@ describe('Pricing Module Unit & Business Rules', () => {
         price: '100.005',
         gstInclusive: true,
         effectiveFrom: '2026-08-19',
-      }),
+      }, crypto.randomUUID()),
     ).rejects.toThrow(expect.objectContaining({ code: 'VALIDATION_FAILED', status: 422 }));
     expect(inserted).toBe(false);
   });
@@ -207,8 +208,8 @@ describe('Pricing Module Unit & Business Rules', () => {
       notes: null,
       created_at: new Date(),
     };
-    const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [] }) } as unknown as Executor);
-    const service = createPricingService(mockPricingRepo([ceiling]), mockTx);
+    const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: '1' }] }) } as unknown as Executor);
+    const service = createPricingService(mockPricingRepo([ceiling]), mockTx, createInMemoryIdempotencyStore());
     const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
 
     await expect(
@@ -218,7 +219,7 @@ describe('Pricing Module Unit & Business Rules', () => {
         price: '120.5',
         gstInclusive: true,
         effectiveFrom: '2026-08-19',
-      }),
+      }, crypto.randomUUID()),
     ).rejects.toThrow(
       expect.objectContaining({
         code: 'PRICE_ABOVE_CEILING',
@@ -256,14 +257,14 @@ describe('Pricing Module Unit & Business Rules', () => {
   });
 
   it('Bulk fair price update refuses a sub-paise or non-positive ceiling instead of rounding it', async () => {
-    const service = createPricingService(mockPricingRepo());
+    const service = createPricingService(mockPricingRepo(), undefined, createInMemoryIdempotencyStore());
     const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
 
     for (const ceilingPrice of ['52.005', '0.004', '0.00', '-1.00']) {
       await expect(
         service.bulkUpsertFairPrices(actor, {
           items: [{ cropId, grade: 'GRADE_1', ceilingPrice, frequency: 'WEEKLY', effectiveFrom: '2026-08-20' }],
-        }),
+        }, crypto.randomUUID()),
       ).rejects.toSatisfy((err: unknown) => {
         const e = err as { code: string; status: number; meta: { errors: Array<{ index: number; field: string }> } };
         expect(e.code).toBe('VALIDATION_FAILED');
@@ -307,6 +308,7 @@ describe('Pricing Module Unit & Business Rules', () => {
       const res = await request(app)
         .post('/v1/fair-prices')
         .set('Authorization', `Bearer ${tohfaAdminToken}`)
+        .set('Idempotency-Key', '11111111-1111-4111-8111-111111111111')
         .send({
           cropId,
           grade: 'GRADE_1',
@@ -330,6 +332,7 @@ describe('Pricing Module Unit & Business Rules', () => {
       const res = await request(app)
         .post('/v1/fair-prices')
         .set('Authorization', `Bearer ${superAdminToken}`)
+        .set('Idempotency-Key', '22222222-2222-4222-8222-222222222222')
         .send({
           cropId: '00000000-0000-0000-0000-000000000000', // non-existent crop in mock
           grade: 'INVALID_GRADE',
@@ -340,6 +343,128 @@ describe('Pricing Module Unit & Business Rules', () => {
 
       // Passed auth/rbac, failed schema validation on grade
       expect(res.status).toBe(422);
+    });
+
+    it('BR-08: POST /v1/fair-prices requires Idempotency-Key and rejects missing header with 422', async () => {
+      const app = createApp();
+      const superAdminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+
+      const res = await request(app)
+        .post('/v1/fair-prices')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({
+          cropId,
+          grade: 'GRADE_1',
+          ceilingPrice: '52.00',
+          frequency: 'WEEKLY',
+          effectiveFrom: '2026-08-24',
+        });
+
+      expect(res.status).toBe(422);
+      expect(res.body.errors?.['header.Idempotency-Key']).toBeDefined();
+    });
+
+    it('BR-08: POST /v1/fair-prices/bulk requires Idempotency-Key and rejects missing header with 422', async () => {
+      const app = createApp();
+      const superAdminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+
+      const res = await request(app)
+        .post('/v1/fair-prices/bulk')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({
+          items: [
+            {
+              cropId,
+              grade: 'GRADE_1',
+              ceilingPrice: '52.00',
+              frequency: 'WEEKLY',
+              effectiveFrom: '2026-08-24',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(422);
+      expect(res.body.errors?.['header.Idempotency-Key']).toBeDefined();
+    });
+
+    it('BR-09: POST /v1/retail-prices requires Idempotency-Key and rejects missing header with 422', async () => {
+      const app = createApp();
+      const superAdminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+
+      const res = await request(app)
+        .post('/v1/retail-prices')
+        .set('Authorization', `Bearer ${superAdminToken}`)
+        .send({
+          cropId,
+          grade: 'GRADE_1',
+          price: '52.00',
+          gstInclusive: true,
+          effectiveFrom: '2026-08-24',
+        });
+
+      expect(res.status).toBe(422);
+      expect(res.body.errors?.['header.Idempotency-Key']).toBeDefined();
+    });
+  });
+
+  describe('BR-09: only Super Admin sets the retail price (owner decision 2026-11-10)', () => {
+    const tokenFor = (sub: string, code: RoleAssignment['code']) =>
+      signAccessToken({ sub, roles: [{ code }], farmerId: null, customerId: null });
+
+    // A body that is deliberately invalid (grade): requirePermission runs BEFORE validate, so a
+    // 403 proves the permission gate refused the role, and a 422 proves the role got past it.
+    // That keeps this test independent of a database while still exercising the real route.
+    const invalidBody = {
+      cropId: '00000000-0000-0000-0000-000000000000',
+      grade: 'INVALID_GRADE',
+      price: '52.00',
+      gstInclusive: true,
+      effectiveFrom: '2026-08-24',
+    };
+
+    it('BR-09: only SUPER_ADMIN may set a retail price; TOHFA_ADMIN is denied (403) and reads are unchanged', async () => {
+      const app = createApp();
+      const write = (token: string) =>
+        request(app).post('/v1/retail-prices').set('Authorization', `Bearer ${token}`).send(invalidBody);
+
+      // SUPER_ADMIN is allowed: it reaches validation (422), not the permission gate (403).
+      const superAdmin = await write(tokenFor(IDS.userSuperAdmin, 'SUPER_ADMIN'));
+      expect(superAdmin.status).toBe(422);
+
+      // Every other admin role is refused at the permission gate.
+      const denied: ReadonlyArray<readonly [string, RoleAssignment['code']]> = [
+        [IDS.userTohfaAdmin, 'TOHFA_ADMIN'],
+        [IDS.userFarmerAdmin, 'FARMER_ADMIN'],
+        ['00000000-0000-4000-8000-000000000006', 'MAIN_WH_ADMIN'],
+        [IDS.userSubWhAdmin, 'SUB_WH_ADMIN'],
+      ];
+      for (const [sub, code] of denied) {
+        const res = await write(tokenFor(sub, code));
+        expect(res.status, `${code} must be denied on POST /retail-prices`).toBe(403);
+      }
+
+      // Reads are unchanged: TOHFA_ADMIN still passes the view gate on GET /retail-prices.
+      // An out-of-range limit makes validation (422) answer after the gate, so no database is needed.
+      const read = await request(app)
+        .get('/v1/retail-prices')
+        .query({ limit: 0 })
+        .set('Authorization', `Bearer ${tokenFor(IDS.userTohfaAdmin, 'TOHFA_ADMIN')}`);
+      expect(read.status).toBe(422);
     });
   });
 
@@ -361,7 +486,7 @@ describe('Pricing Module Unit & Business Rules', () => {
 
       const repo = mockPricingRepo([initialFairPrice]);
       const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: '1' }] }) } as unknown as Executor);
-      const service = createPricingService(repo, mockTx);
+      const service = createPricingService(repo, mockTx, createInMemoryIdempotencyStore());
       const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
 
       await expect(
@@ -371,7 +496,7 @@ describe('Pricing Module Unit & Business Rules', () => {
           price: '120.00',
           gstInclusive: true,
           effectiveFrom: '2026-08-19',
-        }),
+        }, crypto.randomUUID()),
       ).rejects.toThrow(
         expect.objectContaining({
           code: 'PRICE_ABOVE_CEILING',
@@ -414,7 +539,7 @@ describe('Pricing Module Unit & Business Rules', () => {
 
       const repo = mockPricingRepo([initialFairPrice], [initialRetailPrice]);
       const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: '1' }] }) } as unknown as Executor);
-      const service = createPricingService(repo, mockTx);
+      const service = createPricingService(repo, mockTx, createInMemoryIdempotencyStore());
       const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
 
       // Lower ceiling to 80.00
@@ -424,7 +549,7 @@ describe('Pricing Module Unit & Business Rules', () => {
         ceilingPrice: '80.00',
         frequency: 'WEEKLY',
         effectiveFrom: '2026-08-20',
-      })) as Record<string, unknown>;
+      }, crypto.randomUUID())) as Record<string, unknown>;
 
       expect(res.affectedRetailPrices).toBeDefined();
       expect(Array.isArray(res.affectedRetailPrices)).toBe(true);
@@ -434,7 +559,7 @@ describe('Pricing Module Unit & Business Rules', () => {
 
   describe('Bulk Fair Price Update', () => {
     it('rejects batch with 422 if duplicate item exists in payload', async () => {
-      const service = createPricingService(mockPricingRepo());
+      const service = createPricingService(mockPricingRepo(), undefined, createInMemoryIdempotencyStore());
       const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
 
       await expect(
@@ -455,13 +580,103 @@ describe('Pricing Module Unit & Business Rules', () => {
               effectiveFrom: '2026-08-20',
             },
           ],
-        }),
+        }, crypto.randomUUID()),
       ).rejects.toThrow(
         expect.objectContaining({
           code: 'VALIDATION_FAILED',
           status: 422,
         }),
       );
+    });
+  });
+
+  describe('BR-08 / BR-09: Idempotency Key Replay (P0-17)', () => {
+    it('BR-08: createFairPrice replays original response on same key, refuses different payload with 409 IDEMPOTENCY_KEY_REUSED', async () => {
+      const repo = mockPricingRepo();
+      const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: 'mock-audit-id' }] }) } as unknown as Executor);
+      const store = createInMemoryIdempotencyStore();
+      const service = createPricingService(repo, mockTx, store);
+      const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
+      const key = '55555555-5555-4555-8555-555555555555';
+      const body = {
+        cropId,
+        grade: 'GRADE_1' as const,
+        ceilingPrice: '50.00',
+        frequency: 'WEEKLY' as const,
+        effectiveFrom: '2026-08-01',
+      };
+
+      const first = await service.createFairPrice(actor, body, key);
+      const replay = await service.createFairPrice(actor, body, key);
+      expect(replay).toEqual(first);
+      expect(store.size()).toBe(1);
+
+      await expect(
+        service.createFairPrice(actor, { ...body, ceilingPrice: '60.00' }, key),
+      ).rejects.toThrow(expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED', status: 409 }));
+    });
+
+    it('BR-08: bulkUpsertFairPrices replays original response on same key', async () => {
+      const repo = mockPricingRepo();
+      const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: 'mock-audit-id' }] }) } as unknown as Executor);
+      const store = createInMemoryIdempotencyStore();
+      const service = createPricingService(repo, mockTx, store);
+      const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
+      const key = '66666666-6666-4666-8666-666666666666';
+      const body = {
+        items: [
+          {
+            cropId,
+            grade: 'GRADE_1' as const,
+            ceilingPrice: '50.00',
+            frequency: 'WEEKLY' as const,
+            effectiveFrom: '2026-08-01',
+          },
+        ],
+      };
+
+      const first = await service.bulkUpsertFairPrices(actor, body, key);
+      const replay = await service.bulkUpsertFairPrices(actor, body, key);
+      expect(replay).toEqual(first);
+      expect(store.size()).toBe(1);
+    });
+
+    it('BR-09: createRetailPrice replays original response on same key, refuses different payload with 409 IDEMPOTENCY_KEY_REUSED', async () => {
+      const ceiling: FairPriceRow = {
+        id: 'fp-1',
+        crop_id: cropId,
+        crop_name: 'Carrot',
+        grade: 'GRADE_1',
+        ceiling_price: '100.00',
+        frequency: 'WEEKLY',
+        effective_from: '2026-08-01',
+        effective_to: null,
+        set_by: IDS.userSuperAdmin,
+        notes: null,
+        created_at: new Date(),
+      };
+      const repo = mockPricingRepo([ceiling]);
+      const mockTx = async <T>(fn: (tx: Executor) => Promise<T>) => fn({ query: async () => ({ rows: [{ id: 'mock-audit-id' }] }) } as unknown as Executor);
+      const store = createInMemoryIdempotencyStore();
+      const service = createPricingService(repo, mockTx, store);
+      const actor = anActor({ roles: [{ code: 'SUPER_ADMIN' }] });
+      const key = '77777777-7777-4777-8777-777777777777';
+      const body = {
+        cropId,
+        grade: 'GRADE_1' as const,
+        price: '90.00',
+        gstInclusive: true,
+        effectiveFrom: '2026-08-01',
+      };
+
+      const first = await service.createRetailPrice(actor, body, key);
+      const replay = await service.createRetailPrice(actor, body, key);
+      expect(replay).toEqual(first);
+      expect(store.size()).toBe(1);
+
+      await expect(
+        service.createRetailPrice(actor, { ...body, price: '95.00' }, key),
+      ).rejects.toThrow(expect.objectContaining({ code: 'IDEMPOTENCY_KEY_REUSED', status: 409 }));
     });
   });
 
@@ -491,12 +706,13 @@ describe('Pricing Module Unit & Business Rules', () => {
       // operator's) can overlap or 409 this test's window.
       const testCropId = await insertCrop(pool);
 
-      let createdFairPriceId: string | null = null;
+      let _createdFairPriceId: string | null = null;
       try {
         // 1. Create first ceiling
         const res1 = await request(app)
           .post('/v1/fair-prices')
           .set('Authorization', `Bearer ${superAdminToken}`)
+          .set('Idempotency-Key', crypto.randomUUID())
           .send({
             cropId: testCropId,
             grade: 'GRADE_1',
@@ -509,7 +725,7 @@ describe('Pricing Module Unit & Business Rules', () => {
         expect(res1.status, JSON.stringify(res1.body)).toBe(201);
         // POST /v1/fair-prices answers with the FairPrice itself (id at the top level), not
         // a `{ fairPrice }` wrapper: reading `.fairPrice.id` threw on every 201.
-        createdFairPriceId = (res1.body as { id: string }).id;
+        _createdFairPriceId = (res1.body as { id: string }).id;
 
         // 2. Direct raw SQL insert with overlapping window to test database constraint
         await expect(
@@ -521,23 +737,74 @@ describe('Pricing Module Unit & Business Rules', () => {
         ).rejects.toThrow(/fair_prices_no_overlap|conflicting key value violates exclusion constraint/i);
       } finally {
         // Remove only what THIS run created. (Its audit_log row is append-only and stays.)
-        if (createdFairPriceId !== null) {
-          await pool.query('DELETE FROM fair_prices WHERE id = $1', [createdFairPriceId]);
+        await pool.query('SET session_replication_role = replica');
+        try {
+          await pool.query('DELETE FROM fair_prices WHERE crop_id = $1', [testCropId]);
+          await pool.query('DELETE FROM crop_master WHERE id = $1', [testCropId]);
+        } finally {
+          await pool.query('SET session_replication_role = DEFAULT');
         }
-        await pool.query('DELETE FROM crop_master WHERE id = $1', [testCropId]);
+      }
+    });
+
+    it('BR-08c: Database rejects UPDATE of ceiling_price and DELETE on fair_prices and retail_prices', async (ctx) => {
+      if (!(await requireDatabaseTables('fair_prices', 'retail_prices', 'crop_master', 'users'))) return ctx.skip();
+
+      const { pool } = await import('../../db/pool.js');
+      await ensureStandardUsers(pool, 'userSuperAdmin');
+      const testAdminId = IDS.userSuperAdmin;
+      const testCropId = await insertCrop(pool);
+
+      try {
+        const fpRes = await pool.query<{ id: string }>(
+          `INSERT INTO fair_prices (crop_id, grade, ceiling_price, effective_from, set_by)
+           VALUES ($1, 'GRADE_1', 60.00, '2026-10-01', $2)
+           RETURNING id`,
+          [testCropId, testAdminId],
+        );
+        const fpId = fpRes.rows[0]!.id;
+
+        const rpRes = await pool.query<{ id: string }>(
+          `INSERT INTO retail_prices (crop_id, grade, price, fair_price_id, effective_from, set_by)
+           VALUES ($1, 'GRADE_1', 75.00, $2, '2026-10-01', $3)
+           RETURNING id`,
+          [testCropId, fpId, testAdminId],
+        );
+        const rpId = rpRes.rows[0]!.id;
+
+        // 1. UPDATE of ceiling_price on fair_prices must be rejected by trigger
+        await expect(
+          pool.query('UPDATE fair_prices SET ceiling_price = 70.00 WHERE id = $1', [fpId]),
+        ).rejects.toThrow(/append-only/i);
+
+        // 2. DELETE on fair_prices must be rejected by trigger
+        await expect(
+          pool.query('DELETE FROM fair_prices WHERE id = $1', [fpId]),
+        ).rejects.toThrow(/append-only/i);
+
+        // 3. UPDATE of price on retail_prices must be rejected by trigger
+        await expect(
+          pool.query('UPDATE retail_prices SET price = 85.00 WHERE id = $1', [rpId]),
+        ).rejects.toThrow(/append-only/i);
+
+        // 4. DELETE on retail_prices must be rejected by trigger
+        await expect(
+          pool.query('DELETE FROM retail_prices WHERE id = $1', [rpId]),
+        ).rejects.toThrow(/append-only/i);
+      } finally {
+        await pool.query('SET session_replication_role = replica');
+        try {
+          await pool.query('DELETE FROM retail_prices WHERE crop_id = $1', [testCropId]);
+          await pool.query('DELETE FROM fair_prices WHERE crop_id = $1', [testCropId]);
+          await pool.query('DELETE FROM crop_master WHERE id = $1', [testCropId]);
+        } finally {
+          await pool.query('SET session_replication_role = DEFAULT');
+        }
       }
     });
   });
 
   describeIfDatabase('Calendar dates round-trip as written, whatever TZ the API host runs in', () => {
-    // pg turns a `date` column into a JS Date at LOCAL midnight; toISOString() then
-    // converts to UTC, so on an IST host 2031-08-17 came out as 2031-08-16. The repo
-    // selects the date columns ::text instead (same as listings.available_from).
-    afterAll(async () => {
-      // Last integration block in the file, and the only place the pool is closed.
-      const { closePool } = await import('../../db/pool.js');
-      await closePool();
-    });
 
     const TZS = ['UTC', 'Asia/Kolkata', 'America/Los_Angeles'];
     const FROM = '2031-08-17';
@@ -575,7 +842,7 @@ describe('Pricing Module Unit & Business Rules', () => {
             ceilingPrice: '42.00',
             frequency: 'WEEKLY',
             effectiveFrom: FROM,
-          })) as { effectiveFrom: string; effectiveTo: string | null };
+          }, '44444444-4444-4444-8444-444444444444')) as { effectiveFrom: string; effectiveTo: string | null };
           expect(created.effectiveFrom).toBe(FROM);
           expect(created.effectiveTo).toBeNull();
 

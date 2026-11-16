@@ -68,3 +68,103 @@ export const applicationKeys = {
   detail: (warehouseId: string | undefined, applicationId: string | undefined) =>
     adminKeys.scoped(FARMER_APPLICATIONS_MODULE, warehouseId, { resource: 'detail', applicationId: applicationId ?? null }),
 };
+
+/**
+ * Market & Pricing (api/pricing.ts). Ceilings and retail prices are separate
+ * modules so a retail write refetches the retail list only; the ceiling list
+ * is read-only from these screens. Unset filters are null so the key shape is
+ * stable.
+ */
+export const PRICING_FAIR_MODULE = 'pricingFair';
+export const PRICING_RETAIL_MODULE = 'pricingRetail';
+
+export interface FairPriceListKeyFilters {
+  cropId?: string | undefined;
+  grade?: string | undefined;
+  effectiveOn?: string | undefined;
+}
+
+export interface FairPriceHistoryKeyFilters {
+  cropId: string | undefined;
+  grade?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
+export interface RetailPriceListKeyFilters {
+  cropId?: string | undefined;
+  grade?: string | undefined;
+}
+
+export const pricingKeys = {
+  fairList: (warehouseId: string | undefined, filters: FairPriceListKeyFilters) =>
+    adminKeys.scoped(PRICING_FAIR_MODULE, warehouseId, {
+      resource: 'list',
+      cropId: filters.cropId ?? null,
+      grade: filters.grade ?? null,
+      effectiveOn: filters.effectiveOn ?? null,
+    }),
+  fairHistory: (warehouseId: string | undefined, filters: FairPriceHistoryKeyFilters) =>
+    adminKeys.scoped(PRICING_FAIR_MODULE, warehouseId, {
+      resource: 'history',
+      cropId: filters.cropId ?? null,
+      grade: filters.grade ?? null,
+      from: filters.from ?? null,
+      to: filters.to ?? null,
+    }),
+  retailList: (warehouseId: string | undefined, filters: RetailPriceListKeyFilters) =>
+    adminKeys.scoped(PRICING_RETAIL_MODULE, warehouseId, {
+      resource: 'list',
+      cropId: filters.cropId ?? null,
+      grade: filters.grade ?? null,
+    }),
+};
+
+/**
+ * Listing approval (api/listings.ts). Every approve / reject / counter
+ * refetches the whole module, since each one takes the row out of the
+ * pending queue. Unset filters are null so the key shape is stable.
+ */
+export const LISTINGS_MODULE = 'listings';
+
+export interface ListingQueueKeyFilters {
+  status?: string | undefined;
+  cropId?: string | undefined;
+  zoneId?: string | undefined;
+}
+
+export const listingKeys = {
+  queue: (warehouseId: string | undefined, filters: ListingQueueKeyFilters) =>
+    adminKeys.scoped(LISTINGS_MODULE, warehouseId, {
+      resource: 'queue',
+      status: filters.status ?? null,
+      cropId: filters.cropId ?? null,
+      zoneId: filters.zoneId ?? null,
+    }),
+};
+
+/**
+ * Purchase Orders (api/purchaseOrders.ts), read-only. Unset filters are null
+ * so the key shape is stable.
+ */
+export const PURCHASE_ORDERS_MODULE = 'purchaseOrders';
+
+export interface PurchaseOrderListKeyFilters {
+  status?: string | undefined;
+  q?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
+}
+
+export const purchaseOrderKeys = {
+  list: (warehouseId: string | undefined, filters: PurchaseOrderListKeyFilters) =>
+    adminKeys.scoped(PURCHASE_ORDERS_MODULE, warehouseId, {
+      resource: 'list',
+      status: filters.status ?? null,
+      q: filters.q ?? null,
+      from: filters.from ?? null,
+      to: filters.to ?? null,
+    }),
+  detail: (warehouseId: string | undefined, id: string | undefined) =>
+    adminKeys.scoped(PURCHASE_ORDERS_MODULE, warehouseId, { resource: 'detail', id: id ?? null }),
+};

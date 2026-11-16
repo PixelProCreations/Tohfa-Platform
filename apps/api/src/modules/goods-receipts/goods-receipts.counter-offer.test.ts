@@ -31,7 +31,7 @@ import type { Actor } from '../../auth/requireAuth.js';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import { aScope, anActor, describeIfDatabase, hasDatabase, IDS, newId } from '../../test/factories.js';
+import { aScope, anActor, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import {
   ensureStandardUsers,
   insertCrop,
@@ -606,14 +606,14 @@ describeIfDatabase('quality counter-offer: service and repo against PostgreSQL (
     const first = await w.counterOffers.sendCounterOffer(w.admin, w.listingAdminScope, lot.listingId, {
       pricePerKg: '45.00',
       quantityKg: '100.000',
-    });
+    }, newId());
     await w.counterOffers.respondReject(farmer.actor, farmer.scope, lot.listingId, first.id, null, newId());
     expect((await listingState(w.tx, lot.listingId)).status).toBe('PENDING_APPROVAL');
 
     const second = await w.counterOffers.sendCounterOffer(w.admin, w.listingAdminScope, lot.listingId, {
       pricePerKg: '46.00',
       quantityKg: '100.000',
-    });
+    }, newId());
     await w.tx.query(
       `UPDATE counter_offers SET created_at = now() - interval '2 days', expires_at = now() - interval '1 day' WHERE id = $1`,
       [second.id],
@@ -808,8 +808,3 @@ describeIfDatabase('quality counter-offer over HTTP (real app router, PostgreSQL
   });
 });
 
-afterAll(async () => {
-  if (!hasDatabase) return;
-  const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-  await Promise.allSettled([closePool(), closeRedis()]);
-});

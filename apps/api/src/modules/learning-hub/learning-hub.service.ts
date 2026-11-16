@@ -137,7 +137,7 @@ function toEnrollmentResponse(row: EnrollmentRow) {
 }
 
 function mapGroup(row: GroupRow): LearningGroupResponse {
-  return {
+  const result: LearningGroupResponse = {
     id: row.id,
     name: row.name,
     description: row.description,
@@ -147,6 +147,11 @@ function mapGroup(row: GroupRow): LearningGroupResponse {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+  if (row.archived_at !== undefined) {
+    result.archivedAt = row.archived_at;
+    result.isArchived = Boolean(row.archived_at);
+  }
+  return result;
 }
 
 function mapAdminGroup(row: GroupRow): LearningGroupResponse {
@@ -156,6 +161,8 @@ function mapAdminGroup(row: GroupRow): LearningGroupResponse {
     description: row.description,
     category: row.category,
     memberCount: Number(row.member_count ?? 0),
+    isArchived: Boolean(row.archived_at),
+    archivedAt: row.archived_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -523,6 +530,12 @@ export class LearningHubService {
       if (!before) {
         throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
       }
+      const memberCount = await this.deps.repo.countGroupMembers(tx, id);
+      if (memberCount > 0) {
+        throw new AppError('CONFLICT', {
+          detail: 'Cannot delete group with active members. Archive it instead.',
+        });
+      }
       await this.deps.repo.deleteGroup(tx, id);
       await writeAuditLog(tx, {
         actorId: scope.userId,
@@ -532,6 +545,26 @@ export class LearningHubService {
         entityId: id,
         before,
       });
+    });
+  }
+
+  async archiveGroup(scope: ResolvedScope, id: string) {
+    return this.deps.runTx(async (tx) => {
+      const before = await this.deps.repo.findGroupById(tx, id);
+      if (!before) {
+        throw new AppError('NOT_FOUND', { detail: 'Learning group not found' });
+      }
+      const updated = await this.deps.repo.archiveGroup(tx, id);
+      await writeAuditLog(tx, {
+        actorId: scope.userId,
+        actorRole: scope.roleCode,
+        actionCode: 'learning.group.archive',
+        entityType: 'learning_group',
+        entityId: id,
+        before,
+        after: updated,
+      });
+      return mapAdminGroup(updated!);
     });
   }
 

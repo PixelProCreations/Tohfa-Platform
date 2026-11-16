@@ -3,7 +3,7 @@ import request from 'supertest';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
 import { signAccessToken } from '../../auth/jwt.js';
-import { closePool, pool } from '../../db/pool.js';
+import { pool } from '../../db/pool.js';
 import { describeIfDatabase } from '../../test/factories.js';
 import { insertUser, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { notificationCategories } from './notification-preferences.schema.js';
@@ -44,6 +44,11 @@ const EXPECTED_ADMIN_CATEGORIES = [
 ];
 
 const app = createApp();
+const server = app.listen(0);
+
+afterAll(async () => {
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+});
 
 function tokenFor(userId: string, role: RoleCode): string {
   return signAccessToken({ sub: userId, roles: [{ code: role }], farmerId: null, customerId: null });
@@ -56,8 +61,8 @@ interface Item {
 
 describe('BR-82f: GET /v1/notification-preferences/admin requires authentication', () => {
   it('BR-82f: no token is 401', async () => {
-    expect((await request(app).get('/v1/notification-preferences/admin')).status).toBe(401);
-    const patch = await request(app).patch('/v1/notification-preferences/admin/GOODS_RECEIVING').send({ enabled: false });
+    expect((await request(server).get('/v1/notification-preferences/admin')).status).toBe(401);
+    const patch = await request(server).patch('/v1/notification-preferences/admin/GOODS_RECEIVING').send({ enabled: false });
     expect(patch.status).toBe(401);
   });
 });
@@ -78,13 +83,12 @@ describeIfDatabase('BR-82f-h: admin notification categories (real database, real
     for (const id of admins.keys()) {
       await pool.query('DELETE FROM users WHERE id = $1', [id]);
     }
-    await closePool();
   });
 
   it.each(ADMIN_ROLES)('BR-82f: %s sees the 14 admin categories, in order, all enabled by default', async (role) => {
     const { id, token } = await adminToken(role);
     admins.set(id, role);
-    const res = await request(app).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${token}`);
+    const res = await request(server).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     const items = (res.body as { items: Item[] }).items;
     expect(items.map((i) => i.category)).toEqual(EXPECTED_ADMIN_CATEGORIES);
@@ -99,9 +103,9 @@ describeIfDatabase('BR-82f-h: admin notification categories (real database, real
     admins.set(id, role);
     const token = tokenFor(id, role);
 
-    const get = await request(app).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${token}`);
+    const get = await request(server).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${token}`);
     expect(get.status).toBe(403);
-    const patch = await request(app)
+    const patch = await request(server)
       .patch('/v1/notification-preferences/admin/GOODS_RECEIVING')
       .set('Authorization', `Bearer ${token}`)
       .send({ enabled: false });
@@ -113,7 +117,7 @@ describeIfDatabase('BR-82f-h: admin notification categories (real database, real
   it('BR-82g: a farmer cannot set an admin category through the farmer endpoint either (422, nothing stored)', async () => {
     const id = await insertUser(pool, 'FARMER', 'BR-82 farmer');
     admins.set(id, 'FARMER');
-    const res = await request(app)
+    const res = await request(server)
       .patch('/v1/notification-preferences/GOODS_RECEIVING')
       .set('Authorization', `Bearer ${tokenFor(id, RoleCode.FARMER)}`)
       .send({ enabled: false });
@@ -128,20 +132,20 @@ describeIfDatabase('BR-82f-h: admin notification categories (real database, real
     admins.set(a.id, 'a');
     admins.set(b.id, 'b');
 
-    const off = await request(app)
+    const off = await request(server)
       .patch('/v1/notification-preferences/admin/INVENTORY_ALERTS')
       .set('Authorization', `Bearer ${a.token}`)
       .send({ enabled: false });
     expect(off.status).toBe(200);
     expect(off.body).toEqual({ category: 'INVENTORY_ALERTS', enabled: false });
 
-    const listA = await request(app).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${a.token}`);
-    const listB = await request(app).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${b.token}`);
+    const listA = await request(server).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${a.token}`);
+    const listB = await request(server).get('/v1/notification-preferences/admin').set('Authorization', `Bearer ${b.token}`);
     expect((listA.body as { items: Item[] }).items.find((i) => i.category === 'INVENTORY_ALERTS')?.enabled).toBe(false);
     expect((listA.body as { items: Item[] }).items.filter((i) => !i.enabled)).toHaveLength(1);
     expect((listB.body as { items: Item[] }).items.every((i) => i.enabled)).toBe(true);
 
-    const on = await request(app)
+    const on = await request(server)
       .patch('/v1/notification-preferences/admin/INVENTORY_ALERTS')
       .set('Authorization', `Bearer ${a.token}`)
       .send({ enabled: true });
@@ -157,7 +161,7 @@ describeIfDatabase('BR-82f-h: admin notification categories (real database, real
   ])('BR-82h: %s is 422 on the admin endpoint', async (_label, category, body) => {
     const { id, token } = await adminToken(RoleCode.SUPER_ADMIN);
     admins.set(id, 'x');
-    const res = await request(app)
+    const res = await request(server)
       .patch(`/v1/notification-preferences/admin/${category}`)
       .set('Authorization', `Bearer ${token}`)
       .send(body);
@@ -169,12 +173,12 @@ describeIfDatabase('BR-82f-h: admin notification categories (real database, real
 
     const { id, token } = await adminToken(RoleCode.SUPER_ADMIN);
     admins.set(id, 'x');
-    await request(app)
+    await request(server)
       .patch('/v1/notification-preferences/admin/SECURITY_ALERTS')
       .set('Authorization', `Bearer ${token}`)
       .send({ enabled: false });
 
-    const res = await request(app).get('/v1/notification-preferences').set('Authorization', `Bearer ${token}`);
+    const res = await request(server).get('/v1/notification-preferences').set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
     expect(res.body).toEqual({
       items: [

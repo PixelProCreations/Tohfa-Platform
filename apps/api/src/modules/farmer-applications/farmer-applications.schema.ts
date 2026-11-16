@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CURSOR_TAGS, decodeKeysetCursor } from '../../http/keysetCursor.js';
 
 const mobileRegex = /^\+[1-9][0-9]{7,14}$/;
 const pincodeRegex = /^[1-9][0-9]{5}$/;
@@ -285,10 +286,28 @@ export const updateFarmerProfileBody = z
 export type UpdateFarmerProfileBody = z.infer<typeof updateFarmerProfileBody>;
 
 export const listAdminApplicationsQuery = z.object({
-  status: z.enum(['SUBMITTED', 'DOCS_REVIEW', 'FARM_VERIFICATION', 'AUDIT', 'APPROVED', 'REJECTED']).optional(),
+  status: z
+    .enum([
+      'DRAFT',
+      'SUBMITTED',
+      'DOCS_REVIEW',
+      'FARM_VERIFICATION',
+      'AUDIT',
+      'INFO_REQUESTED',
+      'APPROVED',
+      'REJECTED',
+    ])
+    .optional(),
   zoneId: z.string().uuid().optional(),
   submittedAfter: z.string().datetime().optional(),
-  cursor: z.string().optional(),
+  q: z.string().trim().optional(),
+  pendingOnly: z.coerce.boolean().optional(),
+  cursor: z
+    .string()
+    .refine((raw) => decodeKeysetCursor(CURSOR_TAGS.farmerApplications, raw) !== null, {
+      message: 'Invalid cursor.',
+    })
+    .optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type ListAdminApplicationsQuery = z.infer<typeof listAdminApplicationsQuery>;
@@ -299,19 +318,16 @@ export const approveApplicationBody = z.object({
 });
 export type ApproveApplicationBody = z.infer<typeof approveApplicationBody>;
 
-export const rejectApplicationBody = z
-  .object({
-    reasonCode: z
-      .enum(['DOCUMENTS_INVALID', 'LAND_NOT_VERIFIED', 'DUPLICATE_APPLICANT', 'OUTSIDE_SERVICE_AREA', 'OTHER'])
-      .optional(),
-    reason: z.string().trim().min(1).max(500).optional(),
-    rejectionReason: z.string().trim().min(1).max(500).optional(),
-    note: z.string().trim().min(1).max(500).optional(),
-  })
-  .transform((data) => ({
-    reasonCode: data.reasonCode ?? 'OTHER',
-    reason: data.reason || data.rejectionReason || data.note || 'Application rejected by administrator.',
-  }));
+export const rejectApplicationBody = z.object({
+  reasonCode: z.enum([
+    'DOCUMENTS_INVALID',
+    'LAND_NOT_VERIFIED',
+    'DUPLICATE_APPLICANT',
+    'OUTSIDE_SERVICE_AREA',
+    'OTHER',
+  ]),
+  reason: z.string().trim().min(5).max(500),
+});
 export type RejectApplicationBody = z.infer<typeof rejectApplicationBody>;
 
 export const requestInfoApplicationBody = z.object({

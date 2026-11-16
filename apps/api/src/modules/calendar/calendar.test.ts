@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -466,12 +466,6 @@ describeIfDatabase('calendarRepo (integration)', () => {
   beforeAll(async () => {
     ready = await databaseReady('platform_events');
     if (!ready) console.warn('[skip] platform_events not migrated -- run `pnpm db:migrate`');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   async function inRolledBackTx(fn: (tx: Executor) => Promise<void>): Promise<void> {

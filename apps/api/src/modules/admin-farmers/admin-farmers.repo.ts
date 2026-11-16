@@ -292,7 +292,9 @@ export const adminFarmersRepo: AdminFarmersRepo = {
 
     if (filters.q !== undefined) {
       params.push(likePattern(filters.q));
-      conditions.push(`(u.full_name ILIKE $${params.length} ESCAPE '\\' OR u.mobile ILIKE $${params.length} ESCAPE '\\')`);
+      conditions.push(
+        `(u.full_name ILIKE $${params.length} ESCAPE '\\' OR u.mobile ILIKE $${params.length} ESCAPE '\\' OR f.tohfa_farmer_id ILIKE $${params.length} ESCAPE '\\' OR z.name ILIKE $${params.length} ESCAPE '\\')`,
+      );
     }
     if (filters.status !== undefined) {
       params.push(filters.status);
@@ -433,6 +435,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
       centroid_lng: string | null;
       has_boundary: boolean;
       is_primary: boolean;
+      created_at: Date;
       plots: Array<{
         id: string;
         name: string;
@@ -444,7 +447,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
     }>(
       `SELECT fm.id, fm.name, fm.survey_number, fm.area_acres::text AS area_acres, fm.address, fm.village,
               fm.taluk, fm.district, fm.centroid_lat::text AS centroid_lat, fm.centroid_lng::text AS centroid_lng,
-              fm.boundary IS NOT NULL AS has_boundary, fm.is_primary,
+              fm.boundary IS NOT NULL AS has_boundary, fm.is_primary, fm.created_at,
               COALESCE((
                 SELECT json_agg(json_build_object(
                          'id', p.id, 'name', p.name, 'areaAcres', p.area_acres, 'soilType', p.soil_type,
@@ -473,6 +476,7 @@ export const adminFarmersRepo: AdminFarmersRepo = {
           : { lat: Number(row.centroid_lat), lng: Number(row.centroid_lng) },
       hasBoundary: row.has_boundary,
       isPrimary: row.is_primary,
+      createdAt: row.created_at.toISOString(),
       plots: row.plots.map((plot) => ({ ...plot, areaAcres: toNumber(plot.areaAcres) })),
     }));
   },

@@ -17,7 +17,7 @@
  * computes the round from MAX(round) and lets the constraint, not a SELECT,
  * decide the race.
  */
-import { ScopeLevel } from '@tohfa/shared-types';
+import { greaterThan, parseMoney, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { beginIdempotent, idempotencyStore, requireIdempotencyKey, type IdempotencyStore } from '../../http/idempotency.js';
@@ -25,6 +25,9 @@ import { eventBus } from '../../events/bus.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { goodsReceiptsService } from '../goods-receipts/goods-receipts.service.js';
+import { getTodayKolkata } from '../pricing/pricing.service.js';
+import { purchaseOrdersService, type PurchaseOrdersService } from '../purchase-orders/purchase-orders.service.js';
+import type { PurchaseOrderResponse } from '../purchase-orders/purchase-orders.schema.js';
 import {
   counterOffersRepo,
   type AdminListingView,
@@ -111,6 +114,12 @@ export interface CounterOfferView {
   respondedAt: string | null;
 }
 
+export interface ApproveListingResult {
+  purchaseOrderId: string;
+  listing: AdminListingView;
+  purchaseOrder: PurchaseOrderResponse;
+}
+
 export function toCounterOfferView(row: CounterOfferRow): CounterOfferView {
   return {
     id: row.id,
@@ -137,6 +146,7 @@ export class CounterOffersService {
     private readonly dbPool: Executor = pool,
     private readonly idempotency: IdempotencyStore = idempotencyStore,
     private readonly onQualityOfferAccepted: QualityOfferAcceptedHook = stockAcceptedQualityOffer,
+    private readonly purchaseOrders: PurchaseOrdersService = purchaseOrdersService,
   ) {}
 
   // ------------------------------------------------------------------ config
@@ -279,7 +289,9 @@ export class CounterOffersService {
     scope: ResolvedScope,
     listingId: string,
     body: CounterOfferCreateBody,
+    idempotencyKey?: string,
   ): Promise<CounterOfferView> {
+    const key = requireIdempotencyKey(idempotencyKey);
     const outcome = await this.runTx(
       async (tx): Promise<TxOutcome<CounterOfferView>> => {
         const listing = await this.repo.findAdminListing(tx, listingId);
@@ -291,9 +303,30 @@ export class CounterOffersService {
           return { denied: await this.routeAwayFromOwner(tx, scope, listing, 'counter_offer') };
         }
 
+        const idem = await beginIdempotent<CounterOfferView>(this.idempotency, tx, {
+          actorUserId: scope.userId,
+          key,
+          operation: 'listing.counter_offer.send',
+          request: { listingId, body },
+        });
+        if (idem.replay) return { result: idem.response };
+
         if (!PENDABLE_STATUSES.includes(listing.status as (typeof PENDABLE_STATUSES)[number])) {
           throw new AppError('LISTING_NOT_PENDING', {
             detail: `Counter-offers require a pending listing (current status: ${listing.status}).`,
+          });
+        }
+
+        // BR-07d: check price against active ceiling
+        const ceiling = await this.repo.findEffectiveFairPrice(tx, listing.cropId, listing.grade, getTodayKolkata());
+        if (ceiling !== null && greaterThan(parseMoney(body.pricePerKg), parseMoney(ceiling.ceilingPrice))) {
+          throw new AppError('PRICE_ABOVE_CEILING', {
+            status: 422,
+            detail: `Counter-offer price ₹${body.pricePerKg} exceeds fair price ceiling of ₹${ceiling.ceilingPrice}.`,
+            meta: {
+              ceilingPrice: parseMoney(ceiling.ceilingPrice),
+              attemptedPrice: parseMoney(body.pricePerKg),
+            },
           });
         }
 
@@ -363,8 +396,10 @@ export class CounterOffersService {
           changedFields: ['status', 'version'],
         });
 
+        const view = toCounterOfferView(offer);
+        await idem.complete(view);
         return {
-          result: toCounterOfferView(offer),
+          result: view,
         };
       },
     );
@@ -388,18 +423,19 @@ export class CounterOffersService {
   /**
    * POST /admin/listings/{id}/approve — approval accepts the listing at its
    * asking price (BR-29 denial + auto-route for the owner). Any offer still
-   * pending is superseded by the decision. The purchase order itself is
-   * raised by the S-24 story; `body.warehouseId` is validated per the spec
-   * and consumed there.
+   * pending is superseded by the decision. The purchase order is created
+   * atomically within the same transaction.
    */
   async approveListing(
-    _actor: Actor,
+    actor: Actor,
     scope: ResolvedScope,
     listingId: string,
-    _body: AdminApproveListingBody,
-  ): Promise<AdminListingView> {
+    body: AdminApproveListingBody,
+    idempotencyKey?: string,
+  ): Promise<ApproveListingResult> {
+    const key = requireIdempotencyKey(idempotencyKey);
     const outcome = await this.runTx(
-      async (tx): Promise<TxOutcome<AdminListingView>> => {
+      async (tx): Promise<TxOutcome<ApproveListingResult>> => {
         const listing = await this.repo.findAdminListing(tx, listingId);
         if (listing === null) {
           throw new AppError('NOT_FOUND', { detail: 'Listing not found.' });
@@ -408,6 +444,14 @@ export class CounterOffersService {
         if (isOwnListing(scope, listing)) {
           return { denied: await this.routeAwayFromOwner(tx, scope, listing, 'approve') };
         }
+
+        const idem = await beginIdempotent<ApproveListingResult>(this.idempotency, tx, {
+          actorUserId: scope.userId,
+          key,
+          operation: 'listing.approve',
+          request: { listingId, body },
+        });
+        if (idem.replay) return { result: idem.response };
 
         if (!PENDABLE_STATUSES.includes(listing.status as (typeof PENDABLE_STATUSES)[number])) {
           throw new AppError('LISTING_NOT_PENDING', {
@@ -452,7 +496,37 @@ export class CounterOffersService {
           changedFields: ['status', 'version', 'finalPricePerKg', 'finalQuantityKg', 'approvedBy', 'approvedAt'],
         });
 
-        return { result: updated };
+        const po = await this.purchaseOrders.createForListing(
+          tx,
+          actor,
+          scope,
+          {
+            id: updated.id,
+            farmerId: updated.farmerId,
+            cropId: updated.cropId,
+            grade: updated.grade as Parameters<PurchaseOrdersService['createForListing']>[3]['grade'],
+            quantityKg: updated.quantityKg,
+            askingPricePerKg: updated.askingPricePerKg,
+            finalPricePerKg: updated.finalPricePerKg,
+            finalQuantityKg: updated.finalQuantityKg,
+          },
+          {
+            warehouseId: body.warehouseId,
+            expectedDeliveryDate: body.expectedDeliveryDate ?? null,
+            ...(body.note ? { note: body.note } : {}),
+          },
+        );
+
+        const approveResult: ApproveListingResult = {
+          purchaseOrderId: po.id,
+          listing: updated,
+          purchaseOrder: po,
+        };
+        await idem.complete(approveResult);
+
+        return {
+          result: approveResult,
+        };
       },
     );
 
@@ -469,7 +543,9 @@ export class CounterOffersService {
     scope: ResolvedScope,
     listingId: string,
     body: AdminRejectListingBody,
+    idempotencyKey?: string,
   ): Promise<AdminListingView> {
+    const key = requireIdempotencyKey(idempotencyKey);
     const outcome = await this.runTx(
       async (tx): Promise<TxOutcome<AdminListingView>> => {
         const listing = await this.repo.findAdminListing(tx, listingId);
@@ -480,6 +556,14 @@ export class CounterOffersService {
         if (isOwnListing(scope, listing)) {
           return { denied: await this.routeAwayFromOwner(tx, scope, listing, 'reject') };
         }
+
+        const idem = await beginIdempotent<AdminListingView>(this.idempotency, tx, {
+          actorUserId: scope.userId,
+          key,
+          operation: 'listing.reject',
+          request: { listingId, body },
+        });
+        if (idem.replay) return { result: idem.response };
 
         if (!PENDABLE_STATUSES.includes(listing.status as (typeof PENDABLE_STATUSES)[number])) {
           throw new AppError('LISTING_NOT_PENDING', {
@@ -497,6 +581,7 @@ export class CounterOffersService {
             rejectedBy: scope.userId,
             rejectedAt: new Date(),
             rejectionReason: body.reason,
+            rejectionReasonCode: body.reasonCode,
           },
         );
         if (updated === null) {
@@ -520,9 +605,10 @@ export class CounterOffersService {
           entityId: listingId,
           before: { status: listing.status, version: listing.version },
           after: { status: updated.status, version: updated.version, reasonCode: body.reasonCode },
-          changedFields: ['status', 'version', 'rejectedBy', 'rejectedAt', 'rejectionReason'],
+          changedFields: ['status', 'version', 'rejectedBy', 'rejectedAt', 'rejectionReason', 'rejectionReasonCode'],
         });
 
+        await idem.complete(updated);
         return { result: updated };
       },
     );
@@ -743,6 +829,19 @@ export class CounterOffersService {
         throw new AppError('COUNTER_LIMIT_REACHED', {
           detail: 'No counter rounds remain for this listing; accept or reject the offer.',
           meta: { maxRound, roundCeiling: roundCeiling(roundLimit) },
+        });
+      }
+
+      // BR-07d: check price against active ceiling
+      const ceiling = await this.repo.findEffectiveFairPrice(tx, listing.cropId, listing.grade, getTodayKolkata());
+      if (ceiling !== null && greaterThan(parseMoney(body.pricePerKg), parseMoney(ceiling.ceilingPrice))) {
+        throw new AppError('PRICE_ABOVE_CEILING', {
+          status: 422,
+          detail: `Counter-offer price ₹${body.pricePerKg} exceeds fair price ceiling of ₹${ceiling.ceilingPrice}.`,
+          meta: {
+            ceilingPrice: parseMoney(ceiling.ceilingPrice),
+            attemptedPrice: parseMoney(body.pricePerKg),
+          },
         });
       }
 

@@ -47,7 +47,8 @@ import {
   staffStatusTone,
   staffWarehouseFilter,
 } from './mappers';
-import { ChevronRightIcon, FilterSlidersIcon, HistoryIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
+import { canViewRoles } from './accessMappers';
+import { ChevronRightIcon, FilterSlidersIcon, HistoryIcon, PersonIcon, StaffAvatar, StaffGroupIcon } from './StaffParts';
 import { StaffFiltersScreen, type StaffFilterValues, type StaffStatusFilter } from './StaffFiltersScreen';
 import type { StaffMember, WarehouseScreenBaseProps } from './types';
 import { useRollCall, useStaffList, useStaffWarehouses } from './useStaffData';
@@ -69,6 +70,10 @@ export interface StaffScreenProps extends WarehouseScreenBaseProps {
   onAddStaff?: (() => void) | undefined;
   onNavigateToAttendance?: (() => void) | undefined;
   onNavigateToHistory?: (() => void) | undefined;
+  /** "System Roles" quick action (role.definition.view). */
+  onNavigateToRoles?: (() => void) | undefined;
+  /** "Assign Access" quick action (role.definition.view). */
+  onNavigateToAssignAccess?: (() => void) | undefined;
 }
 
 export function StaffScreen({
@@ -80,6 +85,8 @@ export function StaffScreen({
   onAddStaff,
   onNavigateToAttendance,
   onNavigateToHistory,
+  onNavigateToRoles,
+  onNavigateToAssignAccess,
 }: StaffScreenProps) {
   const isMain = isAllWarehouses(scope);
   const allowed = can(STAFF_ROSTER_CODE);
@@ -255,6 +262,23 @@ export function StaffScreen({
             <TouchableOpacity style={styles.actionCard} onPress={onNavigateToHistory} activeOpacity={0.8} accessibilityRole="button">
               <HistoryIcon color={adminColors.brand} />
               <Text style={styles.actionText}>{t('staff.history.title')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+
+      {canViewRoles(can) && (onNavigateToRoles || onNavigateToAssignAccess) ? (
+        <View style={styles.actionRow}>
+          {onNavigateToRoles ? (
+            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToRoles} activeOpacity={0.8} accessibilityRole="button">
+              <StaffGroupIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staffAccess.quick.roles')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onNavigateToAssignAccess ? (
+            <TouchableOpacity style={styles.actionCard} onPress={onNavigateToAssignAccess} activeOpacity={0.8} accessibilityRole="button">
+              <PersonIcon color={adminColors.brand} />
+              <Text style={styles.actionText}>{t('staffAccess.quick.assignAccess')}</Text>
             </TouchableOpacity>
           ) : null}
         </View>

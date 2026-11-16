@@ -9,7 +9,7 @@
  */
 import type { Express } from 'express';
 import request from 'supertest';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp, CORRELATION_HEADER } from './app.js';
 import { signAccessToken } from './auth/jwt.js';
@@ -19,14 +19,6 @@ let app: Express;
 
 beforeAll(() => {
   app = createApp();
-});
-
-afterAll(async () => {
-  const [{ closePool }, { closeRedis }] = await Promise.all([
-    import('./db/pool.js'),
-    import('./redis.js'),
-  ]);
-  await Promise.allSettled([closePool(), closeRedis()]);
 });
 
 describe('GET /healthz', () => {

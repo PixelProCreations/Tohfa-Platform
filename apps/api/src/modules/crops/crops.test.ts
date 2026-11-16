@@ -10,7 +10,7 @@
  *  3. ONE integration block against a real pool, soft-skipped when the crops
  *     migration has not run, proving the repo SQL parses against 0004/0023.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import type { Request, Response } from 'express';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Executor } from '../../db/pool.js';
@@ -593,12 +593,6 @@ describeIfDatabase('cropsRepo (integration)', () => {
   beforeAll(async () => {
     // Throws when a DATABASE_URL is configured but the schema is unreachable/unmigrated.
     ready = await requireDatabaseTables('farm_crops', 'plots', 'crop_master', 'users', 'farmers', 'farms', 'categories');
-  });
-
-  afterAll(async () => {
-    if (!ready) return;
-    const { closePool } = await import('../../db/pool.js');
-    await closePool();
   });
 
   it('runs the crop_master, list, lookup and rotation-history queries against Postgres', async (ctx) => {

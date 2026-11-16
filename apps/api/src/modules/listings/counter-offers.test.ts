@@ -4,7 +4,7 @@ import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
-import type { AdminListingView, CounterOfferRow } from './counter-offers.repo.js';
+import type { AdminListingView, CounterOfferRow, CounterOffersRepo } from './counter-offers.repo.js';
 import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { CounterOffersService } from './counter-offers.service.js';
 
@@ -79,6 +79,7 @@ function makeListing(status: string, overrides?: Partial<AdminListingView>): Adm
     rejectedBy: null,
     rejectedAt: null,
     rejectionReason: null,
+    rejectionReasonCode: null,
     createdAt: new Date('2026-08-26T09:00:00Z'),
     updatedAt: null,
     ...overrides,
@@ -338,6 +339,13 @@ function buildRepo(store: Store) {
         .filter((o) => o.status === 'PENDING' && o.expiresAt.getTime() <= Date.now())
         .map((o) => ({ id: o.id, listingId: o.listingId, round: o.round, actor: o.actor, expiresAt: o.expiresAt }));
     },
+
+    findEffectiveFairPrice: async () => ({
+      id: 'fp-default',
+      ceilingPrice: '100.00',
+      effectiveFrom: '2026-01-01',
+      effectiveTo: null,
+    }),
   };
 }
 
@@ -348,7 +356,27 @@ const anyKey = (): string => randomUUID();
 function createService(store: Store): CounterOffersService {
   const repo = buildRepo(store);
   const runTx = async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn({});
-  return new CounterOffersService(repo as never, runTx as never, {} as never, createInMemoryIdempotencyStore());
+  const fakePurchaseOrdersService = {
+    createForListing: async (_tx: unknown, _actor: unknown, _scope: unknown, listing: { id: string }, input: { warehouseId: string }) => ({
+      id: 'po-test-1',
+      purchaseOrderNumber: 'PO-TEST-1',
+      listingId: listing.id,
+      warehouseId: input.warehouseId,
+      status: 'ISSUED',
+      totalAmountPaise: 100000,
+      cropName: 'Carrot',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }),
+  };
+  return new CounterOffersService(
+    repo as never,
+    runTx as never,
+    {} as never,
+    createInMemoryIdempotencyStore(),
+    undefined as never,
+    fakePurchaseOrdersService as never,
+  );
 }
 
 /** Assert a rejected promise is an AppError with a code. */
@@ -391,6 +419,7 @@ async function adminCounter(
     peerAdminScope('listing.counter_offer.send'),
     store.listing.id,
     { pricePerKg: price, quantityKg: quantity },
+    anyKey(),
   );
   const offer = await buildRepo(store).findLatestPendingOffer({}, store.listing.id);
   if (offer === null) throw new Error('expected a pending offer after the admin counter');
@@ -448,6 +477,7 @@ describe('S-22 counter-offer state machine', () => {
       peerAdminScope('listing.counter_offer.send'),
       store.listing.id,
       { pricePerKg: '75.00', quantityKg: '75.000' },
+      anyKey(),
     );
     const opening = store.offers.values().next().value as OfferMutable;
     opening.expiresAt = new Date(Date.now() - 1000); // past the 24h window
@@ -592,9 +622,15 @@ describe('S-22 counter-offer state machine', () => {
     const versionBefore = store.listing.version;
 
     await expectAppError(
-      svc.approveListing(ownFarmerAdminActor, ownAdminScope('listing.approve'), store.listing.id, {
-        warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
-      }),
+      svc.approveListing(
+        ownFarmerAdminActor,
+        ownAdminScope('listing.approve'),
+        store.listing.id,
+        {
+          warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
+        },
+        anyKey(),
+      ),
       'SELF_APPROVAL_FORBIDDEN',
     );
     expect(store.listing.status).toBe('PENDING_APPROVAL');
@@ -605,9 +641,15 @@ describe('S-22 counter-offer state machine', () => {
     const store = freshStore();
     const svc = createService(store);
     await expectAppError(
-      svc.approveListing(ownFarmerAdminActor, ownAdminScope('listing.approve'), store.listing.id, {
-        warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
-      }),
+      svc.approveListing(
+        ownFarmerAdminActor,
+        ownAdminScope('listing.approve'),
+        store.listing.id,
+        {
+          warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
+        },
+        anyKey(),
+      ),
       'SELF_APPROVAL_FORBIDDEN',
     );
     const routed = store.routingRows[store.routingRows.length - 1];
@@ -624,18 +666,30 @@ describe('S-22 counter-offer state machine', () => {
     const svc = createService(store);
 
     await expectAppError(
-      svc.sendCounterOffer(ownFarmerAdminActor, ownAdminScope('listing.counter_offer.send'), store.listing.id, {
-        pricePerKg: '75.00',
-        quantityKg: '75.000',
-      }),
+      svc.sendCounterOffer(
+        ownFarmerAdminActor,
+        ownAdminScope('listing.counter_offer.send'),
+        store.listing.id,
+        {
+          pricePerKg: '75.00',
+          quantityKg: '75.000',
+        },
+        anyKey(),
+      ),
       'SELF_APPROVAL_FORBIDDEN',
     );
 
     await expectAppError(
-      svc.rejectListing(ownFarmerAdminActor, ownAdminScope('listing.reject'), store.listing.id, {
-        reasonCode: 'QUALITY_CONCERN',
-        reason: 'Grade does not match the lot sampled.',
-      }),
+      svc.rejectListing(
+        ownFarmerAdminActor,
+        ownAdminScope('listing.reject'),
+        store.listing.id,
+        {
+          reasonCode: 'QUALITY_CONCERN',
+          reason: 'Grade does not match the lot sampled.',
+        },
+        anyKey(),
+      ),
       'SELF_APPROVAL_FORBIDDEN',
     );
 
@@ -674,9 +728,15 @@ describe('S-22 counter-offer state machine', () => {
     const opening = await adminCounter(store, '75.00', '75.000');
     await svc.respondAccept(farmerActor, farmerOwnScope, listingId, opening.id, anyKey());
     await expectAppError(
-      svc.approveListing(peerFarmerAdminActor, peerAdminScope('listing.approve'), listingId, {
-        warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
-      }),
+      svc.approveListing(
+        peerFarmerAdminActor,
+        peerAdminScope('listing.approve'),
+        listingId,
+        {
+          warehouseId: 'aaaaaaaa-0000-0000-0000-000000000099',
+        },
+        anyKey(),
+      ),
       'LISTING_NOT_PENDING',
     );
     expect(store.listing.status).toBe('ACCEPTED');
@@ -762,5 +822,142 @@ describe('farmer counter-offer responses and the Idempotency-Key (BR-68)', () =>
       'IDEMPOTENCY_KEY_REUSED',
     );
     expect(store.offers.size).toBe(2);
+  });
+});
+
+describe('admin listing actions and the Idempotency-Key (BR-68, P0-18)', () => {
+  const wire = (value: unknown): unknown => JSON.parse(JSON.stringify(value));
+
+  it('BR-68c: approveListing without an Idempotency-Key is 422 VALIDATION_FAILED', async () => {
+    const store = freshStore();
+    const svc = createService(store);
+    await expectAppError(
+      svc.approveListing(peerFarmerAdminActor, peerAdminScope('listing.approve'), store.listing.id, { warehouseId: '10000000-0000-4000-8000-000000000001' }),
+      'VALIDATION_FAILED',
+    );
+  });
+
+  it('BR-68c: replaying approveListing returns original response and does NOT create a second purchase order', async () => {
+    const store = freshStore();
+    let poCreatedCount = 0;
+    const fakePoService = {
+      createForListing: async (_tx: unknown, _actor: unknown, _scope: unknown, listing: { id: string }, input: { warehouseId: string }) => {
+        poCreatedCount += 1;
+        return {
+          id: `po-${poCreatedCount}`,
+          purchaseOrderNumber: `PO-TEST-${poCreatedCount}`,
+          listingId: listing.id,
+          warehouseId: input.warehouseId,
+          status: 'ISSUED',
+          totalAmountPaise: 100000,
+          cropName: 'Carrot',
+          createdAt: new Date().toISOString(),
+        };
+      },
+    };
+    const svc = new CounterOffersService(
+      buildRepo(store) as unknown as CounterOffersRepo,
+      (async (fn: any) => fn({})) as any,
+      {} as any,
+      createInMemoryIdempotencyStore(),
+      async () => {},
+      fakePoService as any,
+    );
+
+    const first = await svc.approveListing(
+      peerFarmerAdminActor,
+      peerAdminScope('listing.approve'),
+      store.listing.id,
+      { warehouseId: '10000000-0000-4000-8000-000000000001' },
+      'k-approve',
+    );
+    const replay = await svc.approveListing(
+      peerFarmerAdminActor,
+      peerAdminScope('listing.approve'),
+      store.listing.id,
+      { warehouseId: '10000000-0000-4000-8000-000000000001' },
+      'k-approve',
+    );
+
+    expect(wire(replay)).toEqual(wire(first));
+    expect(poCreatedCount).toBe(1);
+  });
+
+  it('BR-68c: rejectListing without Idempotency-Key is 422; replaying returns original response', async () => {
+    const store = freshStore();
+    const svc = createService(store);
+    await expectAppError(
+      svc.rejectListing(peerFarmerAdminActor, peerAdminScope('listing.reject'), store.listing.id, { reasonCode: 'OTHER', reason: 'No demand' }),
+      'VALIDATION_FAILED',
+    );
+
+    const first = await svc.rejectListing(
+      peerFarmerAdminActor,
+      peerAdminScope('listing.reject'),
+      store.listing.id,
+      { reasonCode: 'OTHER', reason: 'No demand' },
+      'k-reject',
+    );
+    const replay = await svc.rejectListing(
+      peerFarmerAdminActor,
+      peerAdminScope('listing.reject'),
+      store.listing.id,
+      { reasonCode: 'OTHER', reason: 'No demand' },
+      'k-reject',
+    );
+    expect(wire(replay)).toEqual(wire(first));
+  });
+
+  it('BR-29d: rejectListing persists reasonCode on produce_listings and returns rejectionReasonCode', async () => {
+    const store = freshStore();
+    const svc = createService(store);
+    const rejected = await svc.rejectListing(
+      peerFarmerAdminActor,
+      peerAdminScope('listing.reject'),
+      store.listing.id,
+      { reasonCode: 'QUALITY_CONCERN', reason: 'Grade does not match the lot sampled.' },
+      'k-reject-br29d',
+    );
+    expect((rejected as any).rejectionReasonCode).toBe('QUALITY_CONCERN');
+    expect((store.listing as any).rejectionReasonCode).toBe('QUALITY_CONCERN');
+  });
+
+  it('BR-68c: sendCounterOffer without Idempotency-Key is 422; replaying returns original response without opening extra round', async () => {
+    const store = freshStore();
+    const svc = createService(store);
+    const body = { pricePerKg: '75.00', quantityKg: '100.000' };
+
+    await expectAppError(
+      svc.sendCounterOffer(peerFarmerAdminActor, peerAdminScope('listing.counter_offer.send'), store.listing.id, body),
+      'VALIDATION_FAILED',
+    );
+
+    const first = await svc.sendCounterOffer(peerFarmerAdminActor, peerAdminScope('listing.counter_offer.send'), store.listing.id, body, 'k-admin-counter');
+    const replay = await svc.sendCounterOffer(peerFarmerAdminActor, peerAdminScope('listing.counter_offer.send'), store.listing.id, body, 'k-admin-counter');
+    expect(wire(replay)).toEqual(wire(first));
+    expect(store.offers.size).toBe(1);
+  });
+});
+
+describe('BR-07d: Counter-offer prices checked against fair price ceiling (P0-21)', () => {
+  it('BR-07d: admin sendCounterOffer priced above ceiling throws 422 PRICE_ABOVE_CEILING', async () => {
+    const store = freshStore();
+    const svc = createService(store);
+    // Ceiling is 100.00; counter offer 105.00
+    await expectAppError(
+      svc.sendCounterOffer(peerFarmerAdminActor, peerAdminScope('listing.counter_offer.send'), store.listing.id, { pricePerKg: '105.00', quantityKg: '100.000' }, anyKey()),
+      'PRICE_ABOVE_CEILING',
+    );
+  });
+
+  it('BR-07d: farmer respondCounter priced above ceiling throws 422 PRICE_ABOVE_CEILING', async () => {
+    const store = freshStore();
+    const opening = await adminCounter(store);
+    const svc = createService(store);
+    // Ceiling is 100.00; counter back at 105.00
+    await expectAppError(
+      svc.respondCounter(farmerActor, farmerOwnScope, store.listing.id, opening.id, { pricePerKg: '105.00', quantityKg: '100.000' }, anyKey()),
+      'PRICE_ABOVE_CEILING',
+    );
   });
 });

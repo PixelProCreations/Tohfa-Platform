@@ -97,8 +97,6 @@ describeIfDatabase('inventory list keyset paging (PostgreSQL, rolled back)', () 
     if (!ready) return;
     await client.query('ROLLBACK');
     client.release();
-    const [{ closePool }, { closeRedis }] = await Promise.all([import('../../db/pool.js'), import('../../redis.js')]);
-    await Promise.allSettled([closePool(), closeRedis()]);
   });
 
   it('BR-30: the batch list pages through tied and interleaved created_at values with no row skipped or repeated', async () => {

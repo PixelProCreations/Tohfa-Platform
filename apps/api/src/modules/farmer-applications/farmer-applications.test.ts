@@ -7,7 +7,7 @@ import { RoleCode } from '@tohfa/shared-types';
 import { AppError } from '../../http/problem.js';
 import type { UploadsService } from '../uploads/uploads.service.js';
 import type { SignUploadResponse } from '../uploads/uploads.schema.js';
-import { anActor, describeIfDatabase, IDS } from '../../test/factories.js';
+import { anActor, describeIfDatabase, IDS, newId } from '../../test/factories.js';
 import { ensureStandardUsers, requireDatabaseTables } from '../../test/dbFixtures.js';
 import { calculatePolygonMetrics } from './geo.utils.js';
 import {
@@ -112,7 +112,7 @@ function mockFarmerApplicationsRepo(
         full_name: initialApp.full_name ?? 'Murugan S',
         preferred_locale: initialApp.preferred_locale ?? 'en',
         status: initialApp.status ?? 'SUBMITTED',
-        is_draft: initialApp.is_draft ?? true,
+        is_draft: initialApp.is_draft ?? (initialApp.status && initialApp.status !== 'SUBMITTED' ? false : true),
         current_step: initialApp.current_step ?? 1,
         completed_steps: initialApp.completed_steps ?? [],
         step1_personal: initialApp.step1_personal ?? {},
@@ -173,6 +173,7 @@ function mockFarmerApplicationsRepo(
         step4_documents: {},
         user_id: params.userId ?? null,
         farmer_id: null,
+        zone_id: null,
         submitted_at: null,
         created_at: new Date(),
         updated_at: null,
@@ -183,12 +184,18 @@ function mockFarmerApplicationsRepo(
       if (appState && appState.id === id) return appState;
       return null;
     },
+    findByIdForUpdate: async (_db, id) => {
+      if (appState && appState.id === id) return appState;
+      return null;
+    },
     findLiveByMobile: async (_db, mobile) => {
       if (appState && appState.mobile === mobile && appState.status !== 'APPROVED' && appState.status !== 'REJECTED') {
         return appState;
       }
       return null;
     },
+    findZoneByTaluk: async () => null,
+    isZoneActive: async () => true,
     updateStepData: async (_db, id, step, stepData, completedSteps) => {
       if (appState && appState.id === id) {
         if (step === 1) appState.step1_personal = stepData;
@@ -200,9 +207,12 @@ function mockFarmerApplicationsRepo(
       }
       return null;
     },
-    transitionStatus: async (_db, id, fromStatus, toStatus) => {
+    transitionStatus: async (_db, id, fromStatus, toStatus, _actorId, _note, zoneId) => {
       if (appState && appState.id === id) {
         appState.status = toStatus;
+        if (zoneId !== undefined) {
+          appState.zone_id = zoneId;
+        }
         if (toStatus === 'DOCS_REVIEW') {
           appState.is_draft = false;
           appState.submitted_at = new Date();
@@ -1370,9 +1380,14 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
   describe('HTTP Route Integration (Schema Validation)', () => {
     const app = createApp();
+    const server = app.listen(0);
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
 
     it('POST /v1/farmers/applications rejects invalid mobile format', async () => {
-      const res = await request(app)
+      const res = await request(server)
         .post('/v1/farmers/applications')
         .send({
           mobile: '9812345678', // Missing + prefix
@@ -1384,7 +1399,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     });
 
     it('PATCH /v1/farmers/applications/:id/steps/99 rejects invalid step number with 422', async () => {
-      const res = await request(app)
+      const res = await request(server)
         .patch('/v1/farmers/applications/11111111-1111-1111-1111-111111111111/steps/99')
         .send({});
 
@@ -1393,7 +1408,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     });
 
     it('GET /v1/admin/farmer-applications requires authentication', async () => {
-      const res = await request(app).get('/v1/admin/farmer-applications');
+      const res = await request(server).get('/v1/admin/farmer-applications');
       expect(res.status).toBe(401);
     });
 
@@ -1401,7 +1416,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       // No `.set('Authorization', ...)` anywhere in this test -- reaching request
       // validation (rather than a 401) with no Bearer token at all is the point:
       // it proves the route is wired with optionalAuth, not requireAuth.
-      const res = await request(app)
+      const res = await request(server)
         .post('/v1/farmers/applications/11111111-1111-1111-1111-111111111111/uploads/sign')
         .send({
           purpose: 'NOT_A_REAL_PURPOSE',
@@ -1414,7 +1429,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     });
 
     it('POST /v1/farmers/applications/:id/uploads/sign rejects a non-UUID id with 422, unauthenticated', async () => {
-      const res = await request(app)
+      const res = await request(server)
         .post('/v1/farmers/applications/not-a-uuid/uploads/sign')
         .send({
           purpose: 'FARMER_DOCUMENT',
@@ -1427,7 +1442,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
     });
 
     it('GET /v1/farmers/applications/:id rejects a non-UUID id with 422, unauthenticated (same optionalAuth wiring as /status)', async () => {
-      const res = await request(app).get('/v1/farmers/applications/not-a-uuid');
+      const res = await request(server).get('/v1/farmers/applications/not-a-uuid');
 
       expect(res.status).toBe(422);
       expect(res.body.code).toBe('VALIDATION_FAILED');
@@ -1441,7 +1456,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         customerId: null,
       });
 
-      const res = await request(app)
+      const res = await request(server)
         .post('/v1/admin/farmer-applications/11111111-1111-1111-1111-111111111111/reject')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -1520,6 +1535,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
   describeIfDatabase('Integration against PostgreSQL', () => {
     const app = createApp();
+    const server = app.listen(0);
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
 
     beforeAll(async () => {
       // These tests stamp IDS.userSuperAdmin (approve -> audit_log.actor_id) and IDS.userFarmer
@@ -1531,18 +1551,13 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       }
     });
 
-    afterAll(async () => {
-      const { closePool } = await import('../../db/pool.js');
-      await closePool();
-    });
-
     const uniqueMobile = `+9198${Date.now().toString().slice(-8)}`;
 
     it('creates draft, updates steps, and checks duplicate live constraint', async (ctx) => {
       if (!(await requireDatabaseTables('farmer_applications'))) return ctx.skip();
 
       // 1. Create Draft
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({
           mobile: uniqueMobile,
@@ -1555,7 +1570,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(appId).toBeDefined();
 
       // 2. Reject duplicate live application for same mobile
-      const dupRes = await request(app)
+      const dupRes = await request(server)
         .post('/v1/farmers/applications')
         .send({
           mobile: uniqueMobile,
@@ -1566,7 +1581,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       expect(dupRes.body.code).toBe('CONFLICT');
 
       // 3. Save Step 3 Location — one self-contained parcel per land location
-      const step3Res = await request(app)
+      const step3Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/3`)
         .send({
           locations: [
@@ -1606,7 +1621,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const mobile = `+9195${Date.now().toString().slice(-8)}`;
 
       // 1. Create the first (real) draft.
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Lost Draft Farmer', preferredLocale: 'ta' });
       expect(createRes.status).toBe(201);
@@ -1614,19 +1629,19 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       // 2. Save real step 1 and step 2 data -- what this farmer actually typed in,
       // not a placeholder -- so the recovery fetch below has something real to prove.
-      const step1Res = await request(app)
+      const step1Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/1`)
         .send({ fullName: 'Lost Draft Farmer', village: 'Kotagiri', district: 'The Nilgiris' });
       expect(step1Res.status).toBe(200);
 
-      const step2Res = await request(app)
+      const step2Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/2`)
         .send({ farmName: 'Recovered Farm', typeOfFarming: 'Tea', experienceYears: 6 });
       expect(step2Res.status).toBe(200);
 
       // 3. Simulate the farmer losing their local draft (reinstall/new device) and
       // trying to start a fresh registration with the same mobile number.
-      const dupRes = await request(app)
+      const dupRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Lost Draft Farmer Retry' });
 
@@ -1640,7 +1655,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       // 4. Use that recovered id to fetch the FULL draft -- not the lightweight
       // /status timeline -- and confirm it is the real data, not an empty shell.
-      const draftRes = await request(app).get(`/v1/farmers/applications/${appId}`);
+      const draftRes = await request(server).get(`/v1/farmers/applications/${appId}`);
 
       expect(draftRes.status).toBe(200);
       expect(draftRes.body.id).toBe(appId);
@@ -1660,7 +1675,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       if (!(await requireDatabaseTables('farmer_applications'))) return ctx.skip();
 
       const mobile = `+9193${Date.now().toString().slice(-8)}`;
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Owner Farmer' });
       const appId = createRes.body.id as string;
@@ -1681,7 +1696,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         customerId: null,
       });
 
-      const res = await request(app)
+      const res = await request(server)
         .get(`/v1/farmers/applications/${appId}`)
         .set('Authorization', `Bearer ${attackerToken}`);
 
@@ -1693,7 +1708,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       if (!(await requireDatabaseTables('farmer_applications', 'uploads'))) return ctx.skip();
 
       const mobile = `+9197${Date.now().toString().slice(-8)}`;
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Kumaresan V' });
       expect(createRes.status).toBe(201);
@@ -1703,7 +1718,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       // No `.set('Authorization', ...)` -- this is the entire bug this endpoint fixes: a
       // brand-new applicant has no account, and therefore no Bearer token, at Step 4.
-      const signRes = await request(app)
+      const signRes = await request(server)
         .post(`/v1/farmers/applications/${appId}/uploads/sign`)
         .send({
           purpose: 'FARMER_DOCUMENT',
@@ -1749,7 +1764,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       if (!(await requireDatabaseTables('farmer_applications', 'uploads'))) return ctx.skip();
 
       const mobile = `+9196${Date.now().toString().slice(-8)}`;
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Selvi R' });
       const appId = createRes.body.id as string;
@@ -1761,11 +1776,11 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const { pool } = await import('../../db/pool.js');
       await farmerApplicationsRepo.transitionStatus(pool, appId, 'SUBMITTED', 'REJECTED');
 
-      const terminalRes = await request(app)
+      const terminalRes = await request(server)
         .post(`/v1/farmers/applications/${appId}/uploads/sign`)
         .send({ purpose: 'FARMER_DOCUMENT', contentType: 'application/pdf', sizeBytes: 1000 });
 
-      const missingRes = await request(app)
+      const missingRes = await request(server)
         .post('/v1/farmers/applications/99999999-9999-9999-9999-999999999999/uploads/sign')
         .send({ purpose: 'FARMER_DOCUMENT', contentType: 'application/pdf', sizeBytes: 1000 });
 
@@ -1795,7 +1810,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const expectedLast4 = fullAadhaar.slice(-4);
 
       // 1. Create draft
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Devika R' });
       expect(createRes.status).toBe(201);
@@ -1803,7 +1818,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       // 2. Save Step 1 with a full Aadhaar, dob (mobile's "DD / MM / YYYY" shape),
       // gender (mobile's Title-case shape) and a valid pincode.
-      const step1Res = await request(app)
+      const step1Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/1`)
         .send({
           fullName: 'Devika R',
@@ -1825,7 +1840,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       // 3. Save Step 2 (the one farming operation) and Step 3 (one land location),
       // so approval has a realistic farms row to write too.
-      const step2Res = await request(app)
+      const step2Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/2`)
         .send({
           farmName: 'Blue Hills Organic',
@@ -1836,7 +1851,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         });
       expect(step2Res.status).toBe(200);
 
-      const step3Res = await request(app)
+      const step3Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/3`)
         .send({
           locations: [
@@ -1852,6 +1867,18 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         });
       expect(step3Res.status).toBe(200);
 
+      const step4Res = await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/4`)
+        .send({
+          documents: [
+            { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+            { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+          ],
+        });
+      expect(step4Res.status).toBe(200);
+      const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
+
       // 4. Approve as SUPER_ADMIN
       const adminToken = (await import('../../auth/jwt.js')).signAccessToken({
         sub: IDS.userSuperAdmin,
@@ -1860,7 +1887,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         customerId: null,
       });
 
-      const approveRes = await request(app)
+      const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({});
@@ -1902,7 +1929,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       // 6. And the admin detail endpoint -- what a human reviewer actually sees --
       // must not surface it either.
-      const detailRes = await request(app)
+      const detailRes = await request(server)
         .get(`/v1/admin/farmer-applications/${appId}`)
         .set('Authorization', `Bearer ${adminToken}`);
       expect(detailRes.status).toBe(200);
@@ -1920,26 +1947,38 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
       const { pool } = await import('../../db/pool.js');
       const mobile = `+9193${Date.now().toString().slice(-8)}`;
 
-      const createRes = await request(app)
+      const createRes = await request(server)
         .post('/v1/farmers/applications')
         .send({ mobile, fullName: 'Kavitha M' });
       expect(createRes.status).toBe(201);
       const appId = createRes.body.id as string;
 
-      const step1Res = await request(app)
+      const step1Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/1`)
-        .send({ fullName: 'Kavitha M', district: 'The Nilgiris', ...step1 });
+        .send({ fullName: 'Kavitha M', district: 'The Nilgiris', taluk: 'Ooty', ...step1 });
       expect(step1Res.status).toBe(200);
 
-      const step2Res = await request(app)
+      const step2Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/2`)
         .send({ farmName: 'Misty Ridge', typeOfFarming: 'Vegetables', experienceYears: 3, totalAreaAcres: 1, numberOfFarms: 1 });
       expect(step2Res.status).toBe(200);
 
-      const step3Res = await request(app)
+      const step3Res = await request(server)
         .patch(`/v1/farmers/applications/${appId}/steps/3`)
         .send({ locations: [{ id: 'loc-a', label: 'Plot', areaAcres: 1, gpsCaptured: true, latitude: 11.41, longitude: 76.69 }] });
       expect(step3Res.status).toBe(200);
+
+      const step4Res = await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/4`)
+        .send({
+          documents: [
+            { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+            { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+          ],
+        });
+      expect(step4Res.status).toBe(200);
+      const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
 
       const adminToken = signAccessToken({
         sub: IDS.userSuperAdmin,
@@ -1947,7 +1986,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
         farmerId: null,
         customerId: null,
       });
-      const approveRes = await request(app)
+      const approveRes = await request(server)
         .post(`/v1/admin/farmer-applications/${appId}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({});
@@ -1975,7 +2014,7 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const { farmerToken } = await approveFreshFarmer({ dob: '21 / 05 / 1990', gender: 'Female' });
 
-      const meRes = await request(app).get('/v1/farmers/me').set('Authorization', `Bearer ${farmerToken}`);
+      const meRes = await request(server).get('/v1/farmers/me').set('Authorization', `Bearer ${farmerToken}`);
 
       expect(meRes.status).toBe(200);
       // Exactly the stored calendar date -- no timezone shift to 1990-05-20.
@@ -1988,11 +2027,682 @@ describe('Farmer Applications & BR-33/BR-36 Test Contracts', () => {
 
       const { farmerToken } = await approveFreshFarmer({});
 
-      const meRes = await request(app).get('/v1/farmers/me').set('Authorization', `Bearer ${farmerToken}`);
+      const meRes = await request(server).get('/v1/farmers/me').set('Authorization', `Bearer ${farmerToken}`);
 
       expect(meRes.status).toBe(200);
       expect(meRes.body).toHaveProperty('dob', null);
       expect(meRes.body).toHaveProperty('gender', null);
     });
+
+    // ---------------------------------------------------------------------------
+    // BR-143: Zone derivation from taluk and application zone scoping
+    // ---------------------------------------------------------------------------
+
+    describe('BR-143: Zone derivation from taluk and application zone scoping', () => {
+    const app = createApp();
+    const server = app.listen(0);
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+    const zones: Record<string, string> = {};
+    let adminToken: string;
+    let ootyFarmerAdminToken: string;
+    let ootyFarmerAdminUserId: string;
+
+    beforeAll(async () => {
+      const { pool } = await import('../../db/pool.js');
+      const { signAccessToken } = await import('../../auth/jwt.js');
+
+      const zRes = await pool.query<{ id: string; code: string }>(
+        `SELECT id, code FROM zones WHERE code IN ('ZONE-OOTY', 'ZONE-COON', 'ZONE-KOTA', 'ZONE-GUDA')`,
+      );
+      for (const row of zRes.rows) {
+        zones[row.code] = row.id;
+      }
+
+      adminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+
+      ootyFarmerAdminUserId = newId();
+      await pool.query(
+        `INSERT INTO users (id, mobile, full_name, user_type, status)
+         VALUES ($1, $2, 'Ooty FA BR143', 'ADMIN', 'ACTIVE') ON CONFLICT DO NOTHING`,
+        [ootyFarmerAdminUserId, `+9191${Date.now().toString().slice(-8)}`],
+      );
+      await pool.query(
+        `INSERT INTO user_roles (user_id, role_id, role_code, zone_id)
+         VALUES ($1, (SELECT id FROM roles WHERE code = 'FARMER_ADMIN'), 'FARMER_ADMIN', $2)
+         ON CONFLICT DO NOTHING`,
+        [ootyFarmerAdminUserId, zones['ZONE-OOTY']],
+      );
+      ootyFarmerAdminToken = signAccessToken({
+        sub: ootyFarmerAdminUserId,
+        roles: [{ code: 'FARMER_ADMIN', zoneId: zones['ZONE-OOTY'] }],
+        farmerId: null,
+        customerId: null,
+      });
+    });
+
+    async function createAndFillApplication(taluk: string): Promise<string> {
+      const mobile = `+9195${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 9)}`;
+      const createRes = await request(server)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: `Farmer ${taluk}` });
+      const appId = createRes.body.id as string;
+
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/1`)
+        .send({
+          fullName: `Farmer ${taluk}`,
+          addressLine1: 'Test Farm Road',
+          village: 'Test Village',
+          taluk,
+          district: 'The Nilgiris',
+          pincode: '643001',
+        });
+
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/2`)
+        .send({
+          farmName: 'Green Farm',
+          typeOfFarming: 'Vegetables',
+          experienceYears: 5,
+          totalAreaAcres: 2,
+          numberOfFarms: 1,
+        });
+
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/3`)
+        .send({
+          locations: [
+            {
+              id: 'loc-1',
+              label: 'Main Farm',
+              areaAcres: 2,
+              gpsCaptured: true,
+              latitude: 11.41,
+              longitude: 76.69,
+            },
+          ],
+        });
+
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/4`)
+        .send({
+          documents: [
+            { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+            { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+          ],
+        });
+
+      return appId;
+    }
+
+    it('BR-143: All 5 Nilgiris taluks (+ alias) derive zone on submit, unmapped leaves zone_id null', async () => {
+      const mappings: Array<[string, string | null]> = [
+        ['Ooty', zones['ZONE-OOTY']!],
+        ['Udhagamandalam', zones['ZONE-OOTY']!],
+        ['Coonoor', zones['ZONE-COON']!],
+        ['Kotagiri', zones['ZONE-KOTA']!],
+        ['Gudalur', zones['ZONE-GUDA']!],
+        ['Pandalur', zones['ZONE-GUDA']!],
+        ['Kundah', null],
+      ];
+
+      for (const [taluk, expectedZoneId] of mappings) {
+        const appId = await createAndFillApplication(taluk);
+        const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+        expect(submitRes.status).toBe(200);
+        expect(submitRes.body.zoneId).toBe(expectedZoneId);
+      }
+    });
+
+    it('BR-143: Approval with no body zoneId uses derived zone and writes onto farmers.zone_id', async () => {
+      const appId = await createAndFillApplication('Kotagiri');
+      await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.zoneId).toBe(zones['ZONE-KOTA']);
+
+      const { pool } = await import('../../db/pool.js');
+      const fRes = await pool.query<{ zone_id: string }>(
+        'SELECT zone_id FROM farmers WHERE user_id = (SELECT user_id FROM farmer_applications WHERE id = $1)',
+        [appId],
+      );
+      expect(fRes.rows[0]!.zone_id).toBe(zones['ZONE-KOTA']);
+    });
+
+    it('BR-143: Explicit body zoneId overrides derived zone on approval', async () => {
+      const appId = await createAndFillApplication('Kotagiri');
+      await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ zoneId: zones['ZONE-COON'] });
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.zoneId).toBe(zones['ZONE-COON']);
+
+      const { pool } = await import('../../db/pool.js');
+      const fRes = await pool.query<{ zone_id: string }>(
+        'SELECT zone_id FROM farmers WHERE user_id = (SELECT user_id FROM farmer_applications WHERE id = $1)',
+        [appId],
+      );
+      expect(fRes.rows[0]!.zone_id).toBe(zones['ZONE-COON']);
+    });
+
+    it('BR-143: Explicit unknown zoneId on approval returns 422', async () => {
+      const appId = await createAndFillApplication('Kotagiri');
+      await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ zoneId: '00000000-0000-0000-0000-000000000000' });
+
+      expect(approveRes.status).toBe(422);
+    });
+
+    it('BR-19: zone derives from taluk, throws ZONE_NOT_FOUND when unmapped', async () => {
+      const appId = await createAndFillApplication('UnmappedTalukXYZ');
+      const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
+
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+
+      expect(approveRes.status).toBe(422);
+      expect(approveRes.body.code).toBe('ZONE_NOT_FOUND');
+
+      // Test Kundah block derives from system_config.kundah_zone_name
+      const { pool } = await import('../../db/pool.js');
+      await pool.query(
+        `INSERT INTO system_config (key, value, data_type, description)
+         VALUES ('kundah_zone_name', '"ZONE-OOTY"'::jsonb, 'string', 'Zone for Kundah block')
+         ON CONFLICT (key) DO UPDATE SET value = '"ZONE-OOTY"'::jsonb`,
+      );
+
+      try {
+        const kundahAppId = await createAndFillApplication('Kundah');
+        const kundahSubmitRes = await request(server).post(`/v1/farmers/applications/${kundahAppId}/submit`);
+        expect(kundahSubmitRes.status).toBe(200);
+        expect(kundahSubmitRes.body.zoneId).toBe(zones['ZONE-OOTY']);
+      } finally {
+        await pool.query(`DELETE FROM system_config WHERE key = 'kundah_zone_name'`);
+      }
+    });
+
+    it('BR-143: Unmapped taluk on submit leaves zone_id null; approval without override returns 422 ZONE_NOT_FOUND with no farmer row created', async () => {
+      const appId = await createAndFillApplication('Kundah');
+      const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
+      expect(submitRes.body.zoneId).toBeNull();
+
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+
+      expect(approveRes.status).toBe(422);
+      expect(approveRes.body.code).toBe('ZONE_NOT_FOUND');
+      expect(approveRes.body.detail).toContain("Farmer address taluk 'Kundah' cannot be mapped to a zone. Please provide zoneId in the approval request.");
+
+      const { pool } = await import('../../db/pool.js');
+      const fRes = await pool.query(
+        'SELECT 1 FROM farmers WHERE user_id = (SELECT user_id FROM farmer_applications WHERE id = $1)',
+        [appId],
+      );
+      expect(fRes.rowCount).toBe(0);
+    });
+
+    it('BR-143: Scoped list and detail: Farmer Admin in Ooty cannot see Coonoor application; unmapped visible only to all scope (Super/Tohfa Admin)', async () => {
+      const ootyAppId = await createAndFillApplication('Ooty');
+      await request(server).post(`/v1/farmers/applications/${ootyAppId}/submit`);
+
+      const coonAppId = await createAndFillApplication('Coonoor');
+      await request(server).post(`/v1/farmers/applications/${coonAppId}/submit`);
+
+      const kundahAppId = await createAndFillApplication('Kundah');
+      await request(server).post(`/v1/farmers/applications/${kundahAppId}/submit`);
+
+      // 1. Farmer Admin in Ooty lists applications
+      const ootyListRes = await request(server)
+        .get('/v1/admin/farmer-applications')
+        .set('Authorization', `Bearer ${ootyFarmerAdminToken}`);
+
+      expect(ootyListRes.status).toBe(200);
+      const ootyIds = ootyListRes.body.items.map((i: { id: string }) => i.id);
+      expect(ootyIds).toContain(ootyAppId);
+      expect(ootyIds).not.toContain(coonAppId);
+      expect(ootyIds).not.toContain(kundahAppId);
+
+      // 2. Farmer Admin in Ooty GET /:id
+      const ootyGetOoty = await request(server)
+        .get(`/v1/admin/farmer-applications/${ootyAppId}`)
+        .set('Authorization', `Bearer ${ootyFarmerAdminToken}`);
+      expect(ootyGetOoty.status).toBe(200);
+
+      const ootyGetCoon = await request(server)
+        .get(`/v1/admin/farmer-applications/${coonAppId}`)
+        .set('Authorization', `Bearer ${ootyFarmerAdminToken}`);
+      expect(ootyGetCoon.status).toBe(404);
+
+      const ootyGetKundah = await request(server)
+        .get(`/v1/admin/farmer-applications/${kundahAppId}`)
+        .set('Authorization', `Bearer ${ootyFarmerAdminToken}`);
+      expect(ootyGetKundah.status).toBe(404);
+
+      // 3. Super Admin sees all three
+      const saListRes = await request(server)
+        .get('/v1/admin/farmer-applications?limit=100')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(saListRes.status).toBe(200);
+      const saIds = saListRes.body.items.map((i: { id: string }) => i.id);
+      expect(saIds).toContain(ootyAppId);
+      expect(saIds).toContain(coonAppId);
+      expect(saIds).toContain(kundahAppId);
+
+      const saGetKundah = await request(server)
+        .get(`/v1/admin/farmer-applications/${kundahAppId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(saGetKundah.status).toBe(200);
+    });
+  });
+
+  describe('BR-146: Farmer application lifecycle integrity, concurrency guards, keyset pagination, and response parity', () => {
+    const app = createApp();
+    const server = app.listen(0);
+
+    afterAll(async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    let adminToken: string;
+    const zones: Record<string, string> = {};
+
+    beforeAll(async () => {
+      const { pool } = await import('../../db/pool.js');
+      const { signAccessToken } = await import('../../auth/jwt.js');
+
+      const zRes = await pool.query<{ id: string; code: string }>(
+        `SELECT id, code FROM zones WHERE code IN ('ZONE-OOTY', 'ZONE-COON', 'ZONE-KOTA')`,
+      );
+      for (const row of zRes.rows) {
+        zones[row.code] = row.id;
+      }
+
+      adminToken = signAccessToken({
+        sub: IDS.userSuperAdmin,
+        roles: [{ code: 'SUPER_ADMIN' }],
+        farmerId: null,
+        customerId: null,
+      });
+    });
+
+    async function createFreshDraft(name: string = 'Test Farmer'): Promise<{ appId: string; mobile: string }> {
+      const mobile = `+9197${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 9)}`;
+      const res = await request(server)
+        .post('/v1/farmers/applications')
+        .send({ mobile, fullName: name });
+      expect(res.status).toBe(201);
+      const appId = res.body.id as string;
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/1`)
+        .send({ fullName: name, village: 'Kodanad', taluk: 'Kotagiri', district: 'The Nilgiris', pincode: '643217' });
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/2`)
+        .send({ farmName: 'Hill View', typeOfFarming: 'Vegetables', experienceYears: 4, totalAreaAcres: 3, numberOfFarms: 1 });
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/3`)
+        .send({ locations: [{ id: 'loc-1', label: 'Plot 1', areaAcres: 3, gpsCaptured: true, latitude: 11.42, longitude: 76.71 }] });
+      await request(server)
+        .patch(`/v1/farmers/applications/${appId}/steps/4`)
+        .send({
+          documents: [
+            { docType: 'ID_PROOF', fileUrl: 'https://example.com/id.pdf' },
+            { docType: 'FARM_DOC', fileUrl: 'https://example.com/farm.pdf' },
+          ],
+        });
+      return { appId, mobile };
+    }
+
+    async function createAndSubmitApp(name: string = 'Submitted Farmer'): Promise<{ appId: string; mobile: string }> {
+      const { appId, mobile } = await createFreshDraft(name);
+      const submitRes = await request(server).post(`/v1/farmers/applications/${appId}/submit`);
+      expect(submitRes.status).toBe(200);
+      return { appId, mobile };
+    }
+
+    it('BR-146a: Draft applications return 409 INVALID_STATE_TRANSITION on approve, reject, or request-info', async () => {
+      const { appId } = await createFreshDraft('Draft Only Farmer');
+
+      // Approve draft
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+      expect(approveRes.status).toBe(409);
+      expect(approveRes.body.code).toBe('INVALID_STATE_TRANSITION');
+
+      // Reject draft
+      const rejectRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'OTHER', reason: 'Rejecting draft application' });
+      expect(rejectRes.status).toBe(409);
+      expect(rejectRes.body.code).toBe('INVALID_STATE_TRANSITION');
+
+      // Request info on draft
+      const infoRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/request-info`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ message: 'Need more information on draft' });
+      expect(infoRes.status).toBe(409);
+      expect(infoRes.body.code).toBe('INVALID_STATE_TRANSITION');
+    });
+
+    it('BR-146b: Terminal applications cannot be transitioned or re-decided', async () => {
+      // Test REJECTED terminal application
+      const { appId: rejAppId } = await createAndSubmitApp('Rejection Test Farmer');
+      const rejectRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${rejAppId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Documents are unreadable.' });
+      expect(rejectRes.status).toBe(200);
+
+      // Approve rejected application -> 409 INVALID_STATE_TRANSITION
+      const rejApproveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${rejAppId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+      expect(rejApproveRes.status).toBe(409);
+      expect(rejApproveRes.body.code).toBe('INVALID_STATE_TRANSITION');
+
+      // Reject already rejected application -> 409 CONFLICT
+      const rejAgainRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${rejAppId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Documents are unreadable again.' });
+      expect(rejAgainRes.status).toBe(409);
+      expect(rejAgainRes.body.code).toBe('CONFLICT');
+
+      // Request info on rejected application -> 409 INVALID_STATE_TRANSITION
+      const rejInfoRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${rejAppId}/request-info`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ message: 'Please clarify rejection' });
+      expect(rejInfoRes.status).toBe(409);
+      expect(rejInfoRes.body.code).toBe('INVALID_STATE_TRANSITION');
+
+      // Test APPROVED terminal application
+      const { appId: appAppId } = await createAndSubmitApp('Approval Test Farmer');
+      const approveRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appAppId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+      expect(approveRes.status).toBe(200);
+
+      // Approve already approved application -> 409 CONFLICT
+      const appAgainRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appAppId}/approve`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+      expect(appAgainRes.status).toBe(409);
+      expect(appAgainRes.body.code).toBe('CONFLICT');
+
+      // Reject approved application -> 409 INVALID_STATE_TRANSITION
+      const appRejectRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appAppId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'OTHER', reason: 'Cannot reject approved farmer' });
+      expect(appRejectRes.status).toBe(409);
+      expect(appRejectRes.body.code).toBe('INVALID_STATE_TRANSITION');
+
+      // Request info on approved application -> 409 INVALID_STATE_TRANSITION
+      const appInfoRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appAppId}/request-info`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ message: 'Cannot request info on approved farmer' });
+      expect(appInfoRes.status).toBe(409);
+      expect(appInfoRes.body.code).toBe('INVALID_STATE_TRANSITION');
+    });
+
+    it('BR-146c: Concurrency-safe approval: two simultaneous approves yield 1 farmer, 1 TOHFA ID, 1 audit row', async () => {
+      const { appId, mobile } = await createAndSubmitApp('Concurrent Farmer');
+
+      const [res1, res2] = await Promise.all([
+        request(server)
+          .post(`/v1/admin/farmer-applications/${appId}/approve`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({}),
+        request(server)
+          .post(`/v1/admin/farmer-applications/${appId}/approve`)
+          .set('Authorization', `Bearer ${adminToken}`)
+          .send({}),
+      ]);
+
+      const statuses = [res1.status, res2.status].sort();
+      expect(statuses).toEqual([200, 409]);
+
+      const { pool } = await import('../../db/pool.js');
+      const farmerRows = await pool.query(
+        `SELECT f.id, f.tohfa_farmer_id FROM farmers f JOIN users u ON u.id = f.user_id WHERE u.mobile = $1`,
+        [mobile],
+      );
+      expect(farmerRows.rows).toHaveLength(1);
+
+      const auditRows = await pool.query(
+        `SELECT id FROM audit_log WHERE action_code = 'farmer.application.approve' AND entity_id = $1`,
+        [appId],
+      );
+      expect(auditRows.rows).toHaveLength(1);
+    });
+
+    it('BR-146d: Keyset cursor pagination on (created_at, id) across >= 3 pages sharing timestamps', async () => {
+      const { pool } = await import('../../db/pool.js');
+      const fixedTs = new Date('2026-11-13T10:00:00.000Z');
+      const appIds: string[] = [];
+
+      for (let i = 0; i < 5; i++) {
+        const mobile = `+9196${Date.now().toString().slice(-8)}${i}`;
+        const res = await pool.query<{ id: string }>(
+          `INSERT INTO farmer_applications (mobile, full_name, preferred_locale, status, is_draft, created_at, submitted_at, zone_id)
+           VALUES ($1, $2, 'en', 'DOCS_REVIEW', false, $3, $3, $4)
+           RETURNING id`,
+          [mobile, `Pagination Farmer ${i}`, fixedTs, zones['ZONE-KOTA']],
+        );
+        appIds.push(res.rows[0]!.id);
+      }
+
+      // Page 1 with limit = 2
+      const p1Res = await request(server)
+        .get(`/v1/admin/farmer-applications?limit=2&zoneId=${zones['ZONE-KOTA']}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(p1Res.status).toBe(200);
+      expect(p1Res.body.items).toHaveLength(2);
+      expect(p1Res.body.page.hasMore).toBe(true);
+      expect(p1Res.body.page.nextCursor).toBeDefined();
+
+      // Page 2 with limit = 2
+      const p2Res = await request(server)
+        .get(`/v1/admin/farmer-applications?limit=2&zoneId=${zones['ZONE-KOTA']}&cursor=${encodeURIComponent(p1Res.body.page.nextCursor)}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(p2Res.status).toBe(200);
+      expect(p2Res.body.items).toHaveLength(2);
+      expect(p2Res.body.page.hasMore).toBe(true);
+      expect(p2Res.body.page.nextCursor).toBeDefined();
+
+      // Page 3 with limit = 2
+      const p3Res = await request(server)
+        .get(`/v1/admin/farmer-applications?limit=2&zoneId=${zones['ZONE-KOTA']}&cursor=${encodeURIComponent(p2Res.body.page.nextCursor)}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(p3Res.status).toBe(200);
+      expect(p3Res.body.items.length).toBeGreaterThanOrEqual(1);
+
+      // Verify all IDs across all pages are strictly distinct (no overlap)
+      const allIds = [
+        ...p1Res.body.items.map((i: { id: string }) => i.id),
+        ...p2Res.body.items.map((i: { id: string }) => i.id),
+        ...p3Res.body.items.map((i: { id: string }) => i.id),
+      ];
+      const uniqueIds = new Set(allIds);
+      expect(uniqueIds.size).toBe(allIds.length);
+    });
+
+    it('BR-146e: List filters: zoneId, q (name and mobile), pendingOnly, status enum (DRAFT, INFO_REQUESTED), excludes drafts by default', async () => {
+      const uniqueSuffix = Date.now().toString().slice(-6);
+      const uniqueName = `Draft Uniq${uniqueSuffix}`;
+      const { appId: draftId } = await createFreshDraft(uniqueName);
+      const { appId: subId, mobile: subMobile } = await createAndSubmitApp('Submitted FilterFarmer');
+
+      // Request info on another application
+      const { appId: infoId } = await createAndSubmitApp('InfoRequested FilterFarmer');
+      const reqInfoRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${infoId}/request-info`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ message: 'Need updated land documents' });
+      expect(reqInfoRes.status).toBe(200);
+
+      // 1. By default, drafts are excluded
+      const defaultListRes = await request(server)
+        .get('/v1/admin/farmer-applications?limit=100')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(defaultListRes.status).toBe(200);
+      const defaultIds = defaultListRes.body.items.map((i: { id: string }) => i.id);
+      expect(defaultIds).not.toContain(draftId);
+      expect(defaultIds).toContain(subId);
+
+      // 2. Querying status=DRAFT returns drafts
+      const draftListRes = await request(server)
+        .get('/v1/admin/farmer-applications?status=DRAFT&limit=100')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(draftListRes.status).toBe(200);
+      const draftIds = draftListRes.body.items.map((i: { id: string }) => i.id);
+      expect(draftIds).toContain(draftId);
+
+      // 3. Querying status=INFO_REQUESTED returns the info requested application
+      const infoListRes = await request(server)
+        .get('/v1/admin/farmer-applications?status=INFO_REQUESTED&limit=100')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(infoListRes.status).toBe(200);
+      const infoIds = infoListRes.body.items.map((i: { id: string }) => i.id);
+      expect(infoIds).toContain(infoId);
+
+      // 4. Querying q filters by name
+      const qNameRes = await request(server)
+        .get(`/v1/admin/farmer-applications?q=Uniq${uniqueSuffix}&status=DRAFT`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(qNameRes.status).toBe(200);
+      expect(qNameRes.body.items).toHaveLength(1);
+      expect(qNameRes.body.items[0].id).toBe(draftId);
+
+      // 5. Querying q filters by mobile
+      const qMobileRes = await request(server)
+        .get(`/v1/admin/farmer-applications?q=${encodeURIComponent(subMobile.slice(-6))}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(qMobileRes.status).toBe(200);
+      const qMobileIds = qMobileRes.body.items.map((i: { id: string }) => i.id);
+      expect(qMobileIds).toContain(subId);
+
+      // 6. pendingOnly=true returns non-terminal active applications
+      const pendingRes = await request(server)
+        .get('/v1/admin/farmer-applications?pendingOnly=true&limit=100')
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(pendingRes.status).toBe(200);
+      const pendingIds = pendingRes.body.items.map((i: { id: string }) => i.id);
+      expect(pendingIds).toContain(subId);
+      expect(pendingIds).toContain(infoId);
+      expect(pendingIds).not.toContain(draftId);
+    });
+
+    it('BR-146f: Rejection reason validation: requires reasonCode and reason (5-500 chars)', async () => {
+      const { appId } = await createAndSubmitApp('Reject Reason Test');
+
+      // Missing reasonCode
+      const noCodeRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reason: 'Some valid reason here' });
+      expect(noCodeRes.status).toBe(422);
+
+      // Invalid reasonCode
+      const badCodeRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'NOT_A_VALID_CODE', reason: 'Some valid reason here' });
+      expect(badCodeRes.status).toBe(422);
+
+      // Missing reason
+      const noReasonRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'DOCUMENTS_INVALID' });
+      expect(noReasonRes.status).toBe(422);
+
+      // Reason too short (< 5 chars)
+      const shortReasonRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Bad' });
+      expect(shortReasonRes.status).toBe(422);
+
+      // Valid reject
+      const validRes = await request(server)
+        .post(`/v1/admin/farmer-applications/${appId}/reject`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reasonCode: 'DOCUMENTS_INVALID', reason: 'Survey number mismatch on patta.' });
+      expect(validRes.status).toBe(200);
+      expect(validRes.body.status).toBe('REJECTED');
+    });
+
+    it('BR-146g: Application detail and summary responses include OpenAPI parity fields and review history', async () => {
+      const { appId } = await createAndSubmitApp('Parity Test Farmer');
+
+      // Check GET /v1/admin/farmer-applications (summary)
+      const listRes = await request(server)
+        .get(`/v1/admin/farmer-applications?q=Parity+Test`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.items.length).toBeGreaterThanOrEqual(1);
+      const summary = listRes.body.items.find((i: { id: string }) => i.id === appId);
+      expect(summary).toBeDefined();
+      expect(summary).toHaveProperty('village');
+      expect(summary).toHaveProperty('areaAcres');
+      expect(summary).toHaveProperty('slaDueAt');
+      expect(summary).toHaveProperty('documentsComplete');
+      expect(summary.village).toBe('Kodanad');
+      expect(summary.areaAcres).toBe(3);
+      expect(summary.documentsComplete).toBe(true);
+
+      // Check GET /v1/admin/farmer-applications/:id (detail)
+      const detailRes = await request(server)
+        .get(`/v1/admin/farmer-applications/${appId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+      expect(detailRes.status).toBe(200);
+      const detail = detailRes.body;
+      expect(detail).toHaveProperty('zoneId');
+      expect(detail).toHaveProperty('tohfaFarmerId');
+      expect(detail).toHaveProperty('decidedAt');
+      expect(detail).toHaveProperty('decidedBy');
+      expect(detail).toHaveProperty('rejectionReason');
+      expect(detail).toHaveProperty('infoRequest');
+      expect(detail).toHaveProperty('reviewHistory');
+      expect(Array.isArray(detail.reviewHistory)).toBe(true);
+      expect(detail.reviewHistory.length).toBeGreaterThanOrEqual(1); // includes submission transition
+    });
+  });
   });
 });

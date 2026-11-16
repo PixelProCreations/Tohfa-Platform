@@ -60,25 +60,50 @@ export const STAFF_CODES = {
   attendanceMark: 'admin.staff.attendance.mark',
   /** The warehouse master list (Main picker and names). SUB none. */
   warehouseList: 'warehouse.all.view',
+  /** Role definitions (Roles, Assign Access). SA/TOHFA all; FA, MAIN, SUB view. */
+  roleView: 'role.definition.view',
 } as const;
+
+/** One create code per admin role (POST /admin/accounts; Sub via POST /admin/sub-warehouse-admins). */
+export const ACCOUNT_CREATE_CODES = {
+  SUPER_ADMIN: 'admin.super_admin.create',
+  TOHFA_ADMIN: 'admin.tohfa_admin.create',
+  FARMER_ADMIN: 'admin.farmer_admin.create',
+  MAIN_WH_ADMIN: 'admin.main_wh_admin.create',
+  SUB_WH_ADMIN: 'admin.sub_wh_admin.create',
+} as const;
+
+/** The module's one "no value" text (an em-dash), for every field the API does not carry. */
+export const STAFF_NONE_KEY: TranslationKey = 'staff.common.none';
 
 // ─── Permission gating (display only; the server enforces every action) ──────
 
-const ROUTE_CODE: Record<StaffRoute, string> = {
+type SingleCodeRoute = Exclude<StaffRoute, 'CreateStaffAccount'>;
+
+const ROUTE_CODE: Record<SingleCodeRoute, string> = {
   Staff: STAFF_CODES.listView,
   StaffDetail: STAFF_CODES.listView,
   EditStaffProfile: STAFF_CODES.manage,
   Attendance: STAFF_CODES.attendanceView,
   AttendanceDetail: STAFF_CODES.attendanceView,
   AttendanceHistory: STAFF_CODES.attendanceView,
+  AttendanceCorrection: STAFF_CODES.attendanceMark,
+  Roles: STAFF_CODES.roleView,
+  AssignAccess: STAFF_CODES.roleView,
 };
 
 /** The code a route needs. Every staff and attendance route needs one (BR-83: Sub holds none). */
-export function staffRouteCode(route: StaffRoute): string {
+export function staffRouteCode(route: SingleCodeRoute): string {
   return ROUTE_CODE[route];
 }
 
+/** Create account opens with anything it can create: a staff record or a login of some role. */
+export function canOpenCreateStaffAccount(can: PermissionCheck): boolean {
+  return can(STAFF_CODES.manage) || Object.values(ACCOUNT_CREATE_CODES).some((code) => can(code));
+}
+
 export function canOpenStaffRoute(route: StaffRoute, can: PermissionCheck): boolean {
+  if (route === 'CreateStaffAccount') return canOpenCreateStaffAccount(can);
   return can(ROUTE_CODE[route]);
 }
 
