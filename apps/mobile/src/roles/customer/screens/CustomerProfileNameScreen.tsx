@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: customerSpacing[24],
-    paddingTop: 48,
+    paddingTop: Platform.OS === 'android' ? 52 : 48,
     paddingBottom: 16,
     gap: 16,
   },
@@ -125,6 +125,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    marginRight: 16,
   },
   progressSegment: {
     flex: 1,

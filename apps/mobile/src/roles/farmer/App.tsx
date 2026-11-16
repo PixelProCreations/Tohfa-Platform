@@ -1250,6 +1250,8 @@ export default function App(): React.JSX.Element {
     <View style={[styles.screen, isAuthLanding && styles.screenSplash]}>
       <StatusBar
         hidden={isCustomerScreen}
+        translucent={isCustomerScreen}
+        backgroundColor={isCustomerScreen ? 'transparent' : undefined}
         barStyle={isCustomerScreen ? 'dark-content' : 'light-content'}
       />
       {/* Android draws edge-to-edge since RN 0.88: reserve the status bar's

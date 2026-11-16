@@ -81,13 +81,13 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
   };
 
   const handleNext = () => {
-    // Navigate directly to CustomerMain post-verification to enter the customer store flow
-    onNavigate('CustomerMain', { mobile });
+    // Show Screen 7 Number Verified popup
+    setShowVerifiedModal(true);
   };
 
   const handleContinue = () => {
     setShowVerifiedModal(false);
-    onNavigate('CustomerMain', { mobile });
+    onNavigate('CustomerProfileName', { mobile });
   };
 
   return (
@@ -365,21 +365,26 @@ const styles = StyleSheet.create({
   },
   modalCloseBtn: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    top: -14,
+    right: -12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFFFFF',
-    zIndex: 10,
+    zIndex: 999,
+    elevation: 6,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
   },
   modalCloseText: {
-    fontSize: 12,
-    color: '#6B7280',
+    fontSize: 14,
+    color: '#1F2937',
     fontWeight: '700',
   },
   verifiedGraphicWrap: {

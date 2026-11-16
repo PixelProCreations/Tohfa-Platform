@@ -210,7 +210,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* ── HERO VISUAL (FROM FIGMA) ─────────────────────────────────────── */}
         <View style={styles.heroWrap}>
-          <Image source={permissionsHeroCrate} style={styles.heroImage} resizeMode="contain" />
+          <Image source={permissionsHeroCrate} style={styles.heroImage} resizeMode="cover" />
         </View>
 
         {/* ── CONTENT SECTION ──────────────────────────────────────────────── */}
@@ -376,7 +376,10 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
       <CustomerDeliveryAddressModal
         visible={modalStep === 'delivery' || modalStep === 'addAddress'}
         initialStep={modalStep === 'addAddress' ? 'addAddress' : 'delivery'}
-        onClose={() => setModalStep('none')}
+        onClose={() => {
+          setModalStep('none');
+          onNavigate('CustomerAddAddress');
+        }}
         onUseCurrentLocation={() => handleDeliveryChoice('current')}
         onSelectManualLocation={() => handleDeliveryChoice('manual')}
         onSaveAddress={handleSaveAddress}
@@ -396,7 +399,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: customerSpacing[24],
-    paddingTop: Platform.OS === 'android' ? 24 : 16,
+    paddingTop: Platform.OS === 'android' ? 52 : 48,
     paddingBottom: 8,
     zIndex: 10,
   },
@@ -428,14 +431,11 @@ const styles = StyleSheet.create({
   },
   heroWrap: {
     width: '100%',
-    height: 230,
     backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   heroImage: {
     width: '100%',
-    height: '100%',
+    aspectRatio: 780 / 554,
   },
   textSection: {
     paddingHorizontal: customerSpacing[24],

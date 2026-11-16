@@ -76,7 +76,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
   return (
     <View style={styles.container}>
       {/* Hide status bar symbols across customer onboarding flow */}
-      <StatusBar hidden={true} />
+      <StatusBar hidden={true} translucent={true} backgroundColor="transparent" />
 
       {/* ── SCREEN 1: CUSTOMER SPLASH ────────────────────────────────────────── */}
       {isSplash && (
@@ -84,7 +84,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
           <Image
             source={customerSplashClean}
             style={styles.splashImageFull}
-            resizeMode="contain"
+            resizeMode="cover"
           />
         </Animated.View>
       )}
@@ -98,7 +98,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
               <Image
                 source={customerWelcomeSlide1Full}
                 style={styles.slide0ExactImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               {/* Pagination dots (pointerEvents="box-none" so it never blocks button) */}
               <View style={styles.slide0DotsRow} pointerEvents="box-none">
@@ -136,7 +136,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
               <Image
                 source={onboardingSlide1CleanExact}
                 style={styles.slide0ExactImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               {/* Pagination dots (pointerEvents="box-none") */}
               <View style={styles.slide0DotsRow} pointerEvents="box-none">
@@ -174,7 +174,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
               <Image
                 source={onboardingSlide2CleanExact}
                 style={styles.slide0ExactImage}
-                resizeMode="contain"
+                resizeMode="cover"
               />
               {/* Pagination dots */}
               <View style={styles.slide2DotsRow} pointerEvents="box-none">
