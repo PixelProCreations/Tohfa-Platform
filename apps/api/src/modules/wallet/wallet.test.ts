@@ -73,6 +73,9 @@ function fakeRepo(rows: WalletRow[]): RecordingRepo {
     ): Promise<WalletTransactionRow | null> {
       return null;
     },
+    async findWalletBalance(): Promise<string | null> {
+      return null;
+    },
     async insertTransaction(
       _db: Executor,
       _input: InsertTransactionData,

@@ -108,6 +108,7 @@ function world(opts: { users?: UserRow[]; roles?: UserRoleRow[]; otp?: OtpVerifi
       if (!customers.has(userId)) customers.set(userId, `cust-${userId}`);
       return customers.get(userId)!;
     }),
+    onboardingFields: vi.fn(async () => ({ age: null, gender: null, harvestPreferences: [] as string[] })),
   };
 
   const deps: Partial<CustomerOtpDeps> = {
@@ -145,6 +146,13 @@ async function expectAppError(p: Promise<unknown>, code: string): Promise<AppErr
 }
 
 describe('BR-153 passwordless customer sign-in', () => {
+  it('BR-190: a new account signs in with profileComplete=false and the placeholder name flagged', async () => {
+    const w = world();
+    const result = await w.service.verify(verifyInput, '127.0.0.1', 'vitest');
+    expect(result.user.profileComplete).toBe(false);
+    expect(result.user.missingFields).toContain('fullName');
+  });
+
   it('BR-153a: an unknown number is auto-registered as an ACTIVE customer with no password, a customers row and a wallet', async () => {
     const w = world();
     const result = await w.service.verify({ ...verifyInput, preferredLocale: 'ta' }, '127.0.0.1', 'vitest');

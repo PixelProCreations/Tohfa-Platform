@@ -7,6 +7,9 @@ export const produceGrades = ['GRADE_1', 'GRADE_2', 'GRADE_3', 'REJECT'] as cons
 export type ProduceGrade = (typeof produceGrades)[number];
 export const gradeSchema = z.enum(produceGrades);
 
+export const cartLineAvailabilities = ['OK', 'LOW_STOCK', 'UNAVAILABLE'] as const;
+export type CartLineAvailability = (typeof cartLineAvailabilities)[number];
+
 export const cartStatuses = ['ACTIVE', 'LOCKED', 'CONVERTED', 'EXPIRED'] as const;
 export type CartStatus = (typeof cartStatuses)[number];
 
@@ -44,6 +47,13 @@ export const cartItemResponseSchema = z.object({
   unitPrice: moneySchema,
   lineTotal: moneySchema,
   certificationBadges: z.array(z.string()).optional(),
+  /**
+   * BR-203: OK, LOW_STOCK (the line is fully on the shelf but little more is available), or
+   * UNAVAILABLE (the line's reservation is no longer fully on the shelf; checkout would 409).
+   */
+  availability: z.enum(['OK', 'LOW_STOCK', 'UNAVAILABLE']),
+  /** BR-203 / BR-100: kg this line could hold right now (its backed hold + further ONLINE stock). */
+  availableKg: quantitySchema,
 });
 export type CartItemResponse = z.infer<typeof cartItemResponseSchema>;
 

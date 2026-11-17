@@ -78,6 +78,37 @@ export const productSchema = z
   .strict();
 export type ProductView = z.infer<typeof productSchema>;
 
+/**
+ * BR-202: one sellable grade of a product, as shown on the product detail. Same allow-list
+ * discipline as `productSchema` (BR-16): quantities and prices only, never a farm field.
+ */
+export const productVariantSchema = z
+  .object({
+    grade: productGradeEnum,
+    pricePerKg: z.string(),
+    availableKg: z.string(),
+    compareAtPrice: z.string().nullable(),
+    discountPercent: z.number().int().nullable(),
+    flags: z
+      .object({
+        isComingSoon: z.boolean(),
+        comingTomorrow: z.boolean(),
+        isUnsalable: z.boolean(),
+      })
+      .strict(),
+  })
+  .strict();
+export type ProductVariantView = z.infer<typeof productVariantSchema>;
+
+/**
+ * GET /catalog/products/{id}: the original Product (its lowest sellable grade, unchanged for
+ * existing clients) plus `variants`, every sellable grade sorted by grade (BR-202). The crop master
+ * has no variety grouping field, so no `variety` is exposed (farm_crops.seed_variety is farm-side
+ * data and must not reach a customer, BR-16).
+ */
+export const productDetailSchema = productSchema.extend({ variants: z.array(productVariantSchema) }).strict();
+export type ProductDetailView = z.infer<typeof productDetailSchema>;
+
 export const categorySchema = z
   .object({
     id: z.string().uuid(),

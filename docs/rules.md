@@ -3888,7 +3888,206 @@ Every other place that adds a role creates a brand-new account in the same trans
 
 **Test contract.** `apps/api/src/modules/orders/own-scope-null-customer.test.ts`: SUPER_ADMIN (no customer id) on every customer-own endpoint gets 403/404/empty and none of another customer's data; the owner still reads; cross-customer is 404; the admin order route still answers.
 
+
+### BR-190 — Customer profile completeness is computed server-side
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/customers/me` and the `user` object of `POST /v1/auth/customer/otp/verify` carry `profileComplete` and `missingFields`. A profile is complete when the name is a real one (not blank and not the sign-up placeholder `TOHFA Customer`, case-insensitive) AND at least one onboarding field (`age`, `gender` or `harvestPreferences`) is set. `missingFields` lists `fullName` when the name is missing and, when no onboarding field is set, `age`, `gender` and `harvestPreferences` (any one of them satisfies the rule). The mobile app routes to onboarding while `profileComplete` is false.
+
+**Test contract.** `customer-profile/customer-profile.completeness.test.ts`, `customer-profile.test.ts`, `auth/customerOtp.test.ts` (BR-190 cases).
+
 ---
+
+### BR-191 — A customer sets their own app language
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `PATCH /v1/customers/me` accepts `preferredLocale` (`en` or `ta`, anything else is 422), stored on `users.preferred_locale`, and `GET /v1/customers/me` returns it. No other user field becomes editable through this route.
+
+**Test contract.** `customer-profile/customer-profile.test.ts` (BR-191).
+
+---
+
+### BR-192 — WALLET_INSUFFICIENT carries a typed shortfall
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** A 402 `WALLET_INSUFFICIENT` problem (checkout, wallet transfers, any ledger debit) carries the documented top-level extension members `shortfall`, `balance` and `required`, all decimal money strings with `shortfall = required - balance`. Checkout also keeps `meta.shortfall` for older clients. Built in one place (`wallet/wallet.insufficient.ts`).
+
+**Test contract.** `wallet/wallet.insufficient.test.ts`, `orders/orders.test.ts` (BR-17a), `wallet/wallet.test.ts`.
+
+---
+
+### BR-193 — Per-top-up limits are configuration and are exposed to the app
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** A digital top-up amount must lie within `system_config` `topup_min_amount` .. `topup_max_amount` (money strings; defaults 100.00 and 50000.00 when unset or malformed, and when min exceeds max). Outside the range is 422 `VALIDATION_FAILED` with `errors['body.amount']` and `meta.topupLimits {min,max}`. `GET /v1/wallets/me` returns `topupLimits {min,max}`.
+
+**Test contract.** `wallet/topupLimits.test.ts`.
+
+---
+
+### BR-194 — The pickup QR carries only a signed order number and pickup code
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/orders/{id}` returns `pickupQr.payload` for PICKUP orders (null otherwise): `TOHFA|PICKUP|v1|<orderNumber>|<pickupCode>|<sig>`, `sig` being a truncated HMAC-SHA256 under a key derived from the server secret, so staff can verify it. The handover OTP (BR-20) is never in the payload, and the payload grants nothing by itself.
+
+**Test contract.** `orders/orders.display.test.ts` (BR-194).
+
+---
+
+### BR-195 — Order list rows carry item count and thumbnails
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** Each row of `GET /v1/orders` has `itemCount` and `thumbnails[]` (at most 3, largest line first): `productName` and `imageUrl`. The image URL is built only from the catalog CDN base and the product icon key (the same helper as the catalog, `catalog/catalog.image.ts`), never from a listing or upload, so it carries no farm information (BR-16).
+
+**Test contract.** `orders/orders.test.ts` (BR-195 DB case).
+
+---
+
+### BR-196 — A customer can cancel their own OPEN support ticket
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `POST /v1/support/tickets/{id}/cancel` (permission `support.ticket.create_own`, own tickets only) moves an OPEN ticket to CANCELLED and writes an audit row (`support.ticket.cancel`). Any other status (IN_PROGRESS, RESOLVED, CLOSED, CANCELLED) is 409 `CONFLICT`; another customer's ticket is 404. The admin ticket views show `CANCELLED`. Migration 0160 extends the status CHECK.
+
+**Test contract.** `customer-support/customer-support.test.ts` (BR-196).
+
+---
+
+### BR-197 — Display references on the own ledger and tickets
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/wallets/me/transactions` rows add `txnCode` (`TXN-` plus ten hex characters derived from the ledger id) and `orderNumber` (for rows referring to an order, else null); customer tickets add `orderNumber`. The shared admin wallet serializer is unchanged.
+
+**Test contract.** `wallet/wallet.insufficient.test.ts`, `customer-support/customer-support.test.ts` (BR-197).
+
+---
+
+### BR-198 — A customer lists their own service-area requests
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `GET /v1/service-area-requests/me` (permission `service_area.request.view_own`, CUSTOMER `own`) returns the caller's own requests, newest first, paged (`page`, `limit`), without contact or customer id. A scope with no customer id narrows to nothing (BR-187).
+
+**Test contract.** `serviceability/serviceability.test.ts` (BR-198), `rbac/rbac.test.ts`.
+
+---
+
+### BR-199 — A support ticket takes at most five photos
+
+| | |
+|---|---|
+| **Source** | Derived rule (customer app integration, added 2026-11-17) |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/` (see test contract) |
+
+**Rule.** `POST /v1/support/tickets` accepts at most five `photoUploadIds` (the app allows five); a sixth is 422.
+
+**Test contract.** `customer-support/customer-support.test.ts` (BR-199).
+
+---
+
+### BR-200 — The pre-checkout quote is priced by the checkout's own pricing path and writes nothing
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap B-1, added 2026-11-17). Extends BR-17, BR-22, BR-98, BR-161 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/orders/` (`orders.pricing.ts`, `orders.service.ts` `priceCart`/`quote`), migration `0170` |
+
+**Rule.** `POST /orders/quote` takes the checkout body (no `Idempotency-Key`) and returns what `POST /orders` would charge for the caller's cart right now: the cart lines, `subtotal`, `deliveryFee`, `handlingFee`, `gstRateBasisPoints`, `gstAmount`, `discount` (0), `totalAmount`, `freeDeliveryThreshold`, `walletBalance`, `walletSufficient` and `shortfall` (total − balance when insufficient, else `0.00`, the same figure as the BR-192 problem member), the cart lock (`lockExpiresAt`, `lockExpired`) and, for a delivery, the chosen slot (BR-201). Quote and checkout call ONE pricing path (`priceCart` → `computeCheckoutTotals`) with the same inputs, so `quote.totalAmount` equals the placed order's `totalAmount` by construction. `total = subtotal + delivery + handling + gst − discount`, integer paise: delivery = `system_config.delivery_fee` for a DELIVERY order below `free_delivery_threshold`, else 0; handling = `system_config.handling_fee` (default `0.00`, pickup and delivery alike, outside the GST base; a missing, malformed or negative value is 0); GST per BR-98. The handling fee is stored on the order (`orders.handling_fee`, migration 0170). A quote reserves, debits, books and creates nothing (it reads the wallet balance without creating a wallet). It fails like checkout does (403 without a customer id per BR-187, 404 without a cart, 404 for a foreign address, 422 for a past date or missing slot, 501 for a non-wallet method or disabled delivery, 409 `SLOT_FULL`), except that an expired lock is reported (`lockExpired: true`), not refused. Permission: `order.place`.
+
+**Test contract.** `apps/api/src/modules/orders/orders.quote.test.ts` (`BR-200a` property test over 300 random carts and configs: quote totals equal what checkout writes, and a quote calls no write method; `BR-200b`..`BR-200d`), `orders.pricing.test.ts` (`BR-200` handling fee and wallet coverage), `orders.quote.db.test.ts` (quote changes no allocation, wallet, cart, slot or order row; the order then placed has the quoted total).
+
+### BR-201 — Delivery slot availability is readable and a full slot is refused with SLOT_FULL
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap G-6, added 2026-11-17). Extends BR-161 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/delivery-slots/`, `orders.service.ts` |
+
+**Rule.** `GET /delivery-slots?warehouseId=&date=` (permission `order.place`) lists the three slots of the day in enum order, each with `label`, `startsAt`/`endsAt` (Asia/Kolkata windows 08-12, 12-16, 16-20), `capacity`, `booked`, `available` (= capacity − booked, never below 0), `isActive`, `bookable` and `cutoff` (= start − `system_config.delivery_slot_cutoff_minutes`, default 120) with `cutoffPassed`. A day/slot with no `delivery_slots` row is uncapped (`capacity`/`available` null, bookable), exactly as checkout books it. `bookable` = active and not full; that is what checkout enforces, and a quote or checkout on a slot that is not bookable is 409 `SLOT_FULL` (not the generic `CONFLICT`). An unknown or deleted warehouse is 404; a past date (Asia/Kolkata) is 422. The cutoff is informational in this release (UNCONFIRMED: not enforced at checkout until the owner decides).
+
+**Test contract.** `apps/api/src/modules/delivery-slots/delivery-slots.test.ts` (`BR-201a`..`BR-201g` plus the HTTP integration), `orders.quote.test.ts` and `orders.quote.db.test.ts` (`SLOT_FULL` at quote and checkout).
+
+### BR-202 — Product detail lists every sellable grade as variants
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap B-3, added 2026-11-17). Extends BR-16, BR-24, BR-181 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/catalog/` |
+
+**Rule.** `GET /catalog/products/{id}` keeps every existing field (the lowest sellable grade, unchanged) and adds `variants[]`: one entry per sellable grade of the crop, sorted by grade, each `{grade, pricePerKg, availableKg, compareAtPrice, discountPercent, flags{isComingSoon, comingTomorrow, isUnsalable}}`, computed by the same pooled, shelf-capped (BR-100) aggregate as the detail and serialized through the BR-16 allow-list. List rows keep their (id, grade) identity. `ratingAverage`/`ratingCount` (product reviews only; farm ratings untouched, BR-06) are on list items and on the detail. The crop master has no variety grouping field, so no `variety` is exposed; `farm_crops.seed_variety` is farm-side data and never reaches a customer (BR-16).
+
+**Test contract.** `apps/api/src/modules/catalog/catalog.variants.test.ts` (`BR-202a`..`BR-202d`, BR-16 no-farm-field, HTTP integration).
+
+### BR-203 — Cart lines carry a stock flag from the BR-100 shelf figures
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration gap B-4, added 2026-11-17). Extends BR-22, BR-100 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/cart/`, `apps/api/src/db/shelfAvailability.ts` |
+
+**Rule.** Every line of a cart response (`GET`/`PUT /cart`, `POST /cart/items`) carries `availability` and `availableKg`. `backed` = the part of the line's hold still on its batch's shelf (`qty_available` − all claims ≥ 0 means fully backed; a batch that is not `ACTIVE` backs nothing); `more` = the further effective ONLINE availability (BR-100) of the same product and grade at the line's warehouse. `UNAVAILABLE` when backed < line quantity (checkout would 409), else `LOW_STOCK` when more < `system_config.cart_low_stock_threshold_kg` (default 2), else `OK`. `availableKg = backed + more`. Computed in integer grams; read-only.
+
+**Test contract.** `apps/api/src/modules/cart/cart.availability.test.ts` (`BR-203a`..`BR-203d` and the HTTP integration: OK, LOW_STOCK, then UNAVAILABLE once the batch leaves the shelf).
+
+### BR-204 — A return carries up to five of the customer's own ISSUE_PHOTO uploads
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration, added 2026-11-17). Extends BR-155, BR-16 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/returnRequests/`, migration `0170` (`return_requests.photo_keys`) |
+
+**Rule.** `POST /orders/{orderId}/returns` accepts `photoUploadIds` (0-5): each must be an upload the caller signed with purpose `ISSUE_PHOTO` (the support-ticket photo flow; EXIF/GPS stripped at upload), else 422 and nothing is written. Storage keys are stored; every response (the create response, `GET /returns/me`, `GET /returns/me/{id}`, and the staff list/detail) carries `photos` as short-lived signed read URLs, never keys.
+
+**Test contract.** `apps/api/src/modules/returnRequests/returnRequests.photos.test.ts` (`BR-204a`..`BR-204c`).
 
 ## Open contradictions — DO NOT GUESS
 

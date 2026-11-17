@@ -48,7 +48,6 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   PICKED_UP: ['RETURNED'],
   CANCELLED: [],
   RETURNED: [],
-  COMPLETED: [],
 };
 
 export interface FulfilmentService {

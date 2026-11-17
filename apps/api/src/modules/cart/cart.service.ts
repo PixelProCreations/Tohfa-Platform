@@ -14,9 +14,11 @@ import type {
   CartItemCreateInput,
   CartItemResponse,
   CartReplaceInput,
+  CartLineAvailability,
   CartResponse,
   ProduceGrade,
 } from './cart.schema.js';
+import { gramsToKg } from '../sales/sales.math.js';
 import { cartLineTotal, qtyGrams } from './cart.pricing.js';
 
 /** D-01: quantities compared as integer grams, never as floats. "0.000" and malformed are <= 0. */
@@ -54,9 +56,41 @@ export interface CartService {
   clearCart(actor: Actor, scope: ResolvedScope): Promise<void>;
 }
 
+/** BR-203: documented default when cart_low_stock_threshold_kg is missing or invalid. */
+export const DEFAULT_LOW_STOCK_THRESHOLD_KG = '2';
+
+/** Threshold in integer grams; anything unparseable or negative falls back to the default. */
+export function lowStockThresholdGrams(raw: unknown): number {
+  const text = typeof raw === 'number' ? String(raw) : typeof raw === 'string' ? raw.trim() : '';
+  const grams = qtyGrams(text);
+  return grams === null || grams < 0 ? (qtyGrams(DEFAULT_LOW_STOCK_THRESHOLD_KG) ?? 0) : grams;
+}
+
+/**
+ * BR-203: classify one held line, in integer grams (D-01).
+ *  - UNAVAILABLE: the hold is no longer fully backed by the shelf (BR-100); checkout would 409.
+ *  - LOW_STOCK:   fully backed, but the further ONLINE availability is below the threshold.
+ *  - OK:          otherwise.
+ * availableKg = backed hold + further availability: the most this line could hold right now.
+ */
+export function classifyCartLine(
+  qtyKg: string,
+  backedKg: string,
+  moreKg: string,
+  thresholdGrams: number,
+): { availability: CartLineAvailability; availableKg: string } {
+  const line = stockGrams(qtyKg);
+  const backed = stockGrams(backedKg);
+  const more = stockGrams(moreKg);
+  const availability: CartLineAvailability =
+    backed < line ? 'UNAVAILABLE' : more < thresholdGrams ? 'LOW_STOCK' : 'OK';
+  return { availability, availableKg: gramsToKg(backed + more) };
+}
+
 function mapCartResponse(
   cart: CartRecord,
   items: CartItemRecord[],
+  availability: Map<string, { availability: CartLineAvailability; availableKg: string }>,
 ): CartResponse {
   const mappedItems: CartItemResponse[] = items.map((item) => ({
     id: item.id,
@@ -67,6 +101,8 @@ function mapCartResponse(
     unitPrice: item.unitPrice as Money,
     lineTotal: item.lineTotal as Money,
     certificationBadges: [],
+    // A line the availability read did not return (it cannot happen for a HELD line) fails closed.
+    ...(availability.get(item.id) ?? { availability: 'UNAVAILABLE' as const, availableKg: '0.000' }),
   }));
 
   return {
@@ -92,6 +128,27 @@ export function createCartService(opts: {
    * line's final (possibly merged) quantity and unit price. The upsert's row lock is held until
    * the transaction commits, so a concurrent add cannot interleave between the two statements.
    */
+  /** BR-203: the stock flag of every held line, from the same BR-100 shelf figures. */
+  async function lineAvailability(
+    executor: Executor,
+    cartId: string,
+    items: CartItemRecord[],
+  ): Promise<Map<string, { availability: CartLineAvailability; availableKg: string }>> {
+    const out = new Map<string, { availability: CartLineAvailability; availableKg: string }>();
+    if (items.length === 0) return out;
+    const [rows, rawThreshold] = await Promise.all([
+      repo.getHeldLineAvailability(executor, cartId),
+      repo.getLowStockThresholdRaw(executor),
+    ]);
+    const threshold = lowStockThresholdGrams(rawThreshold);
+    const byId = new Map(rows.map((r) => [r.itemId, r]));
+    for (const item of items) {
+      const row = byId.get(item.id);
+      if (row) out.set(item.id, classifyCartLine(item.qtyKg, row.backedKg, row.moreKg, threshold));
+    }
+    return out;
+  }
+
   async function upsertLine(
     tx: Executor,
     line: {
@@ -135,7 +192,7 @@ export function createCartService(opts: {
       }
 
       const items = await repo.getCartItems(db, cart.id);
-      return mapCartResponse(cart, items);
+      return mapCartResponse(cart, items, await lineAvailability(db, cart.id, items));
     },
 
     async addItem(actor, _scope, input) {
@@ -237,7 +294,7 @@ export function createCartService(opts: {
         );
 
         const items = await repo.getCartItems(tx, cart.id);
-        return mapCartResponse(updatedCart, items);
+        return mapCartResponse(updatedCart, items, await lineAvailability(tx, cart.id, items));
       });
     },
 
@@ -332,7 +389,7 @@ export function createCartService(opts: {
         );
 
         const items = await repo.getCartItems(tx, cart.id);
-        return mapCartResponse(updatedCart, items);
+        return mapCartResponse(updatedCart, items, await lineAvailability(tx, cart.id, items));
       });
     },
 

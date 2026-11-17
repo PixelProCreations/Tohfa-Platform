@@ -61,6 +61,18 @@ export function createCustomerSupportRouter(service: CustomerSupportService = cu
     }),
   );
 
+  router.post(
+    '/tickets/:id/cancel',
+    requireAuth,
+    requirePermission('support.ticket.create_own'),
+    validate({ params: ticketIdParams }),
+    asyncHandler(async (req, res) => {
+      const scope = requireScope(req.scope);
+      const { id } = getValidated(req, 'params', ticketIdParams);
+      res.json(await service.cancelTicket(scope, id));
+    }),
+  );
+
   return router;
 }
 

@@ -1,6 +1,7 @@
-import { fromPaise, greaterThan, isMoney, parseMoney, toPaise, RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import { compare, fromPaise, greaterThan, isMoney, parseMoney, toPaise, RoleCode, ScopeLevel } from '@tohfa/shared-types';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { readTopupLimits } from '../wallet/topupLimits.js';
 import { config } from '../../config.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
@@ -137,6 +138,17 @@ export function createTopupService(opts: {
         throw new AppError('VALIDATION_FAILED', {
           status: 422,
           detail: 'Top-up amount must be positive.',
+        });
+      }
+
+      // BR-193: per-top-up limits from system_config (defaults when unset).
+      const limits = await readTopupLimits(db);
+      if (compare(input.amount, limits.min) < 0 || compare(input.amount, limits.max) > 0) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: `Top-up amount must be between INR ${limits.min} and INR ${limits.max}.`,
+          errors: { 'body.amount': [`Must be between ${limits.min} and ${limits.max}`] },
+          meta: { topupLimits: limits },
         });
       }
 

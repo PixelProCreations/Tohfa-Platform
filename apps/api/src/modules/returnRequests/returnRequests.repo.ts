@@ -41,6 +41,7 @@ interface ReturnSummaryRow {
   status: ReturnStatus;
   reason: string;
   note: string | null;
+  photo_keys: string[] | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -87,6 +88,8 @@ function toSummary(row: ReturnSummaryRow): ReturnSummaryResponse {
     status: row.status,
     reason: row.reason,
     note: row.note,
+    // BR-204: STORAGE KEYS here; the service replaces them with signed read URLs before any response.
+    photos: row.photo_keys ?? [],
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at === null ? null : row.updated_at.toISOString(),
   };
@@ -117,7 +120,7 @@ function toHistoryEntry(row: HistoryRow): ReturnStatusHistoryEntryResponse {
 
 const SUMMARY_COLUMNS = `
   r.id, r.order_id, r.customer_id, o.warehouse_id, r.status, r.reason, r.note,
-  r.created_at, r.updated_at
+  r.photo_keys, r.created_at, r.updated_at
 `;
 
 export interface InsertReturnRequestInput {
@@ -125,6 +128,8 @@ export interface InsertReturnRequestInput {
   customerId: string;
   reason: string;
   note: string | null;
+  /** BR-204: validated storage keys of the caller's own ISSUE_PHOTO uploads (max 5). */
+  photoKeys?: string[];
 }
 
 export interface InsertReturnRequestItemInput {
@@ -227,8 +232,24 @@ export interface ReturnSummaryRowShape {
   status: ReturnStatus;
   reason: string;
   note: string | null;
+  /** BR-204: storage keys (not URLs). */
+  photoKeys?: string[];
   createdAt: Date;
   updatedAt: Date | null;
+}
+
+/** BR-204: upload rows for photo validation (owner + storage key). Not on the repo interface so
+ * hand-built repo fakes stay valid; injected into the service as a dependency. */
+export async function findUploadsForReturn(
+  db: Executor,
+  ids: string[],
+): Promise<Array<{ id: string; storageKey: string; uploadedBy: string | null }>> {
+  if (ids.length === 0) return [];
+  const res = await db.query<{ id: string; storage_key: string; uploaded_by: string | null }>(
+    `SELECT id, storage_key, uploaded_by FROM uploads WHERE id = ANY($1::uuid[]) AND deleted_at IS NULL`,
+    [ids],
+  );
+  return res.rows.map((r) => ({ id: r.id, storageKey: r.storage_key, uploadedBy: r.uploaded_by }));
 }
 
 export const returnRequestsRepo: ReturnRequestsRepo = {
@@ -274,13 +295,14 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       status: ReturnStatus;
       reason: string;
       note: string | null;
+      photo_keys: string[];
       created_at: Date;
       updated_at: Date | null;
     }>(
-      `INSERT INTO return_requests (order_id, customer_id, reason, note)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, order_id, customer_id, status, reason, note, created_at, updated_at`,
-      [input.orderId, input.customerId, input.reason, input.note],
+      `INSERT INTO return_requests (order_id, customer_id, reason, note, photo_keys)
+       VALUES ($1, $2, $3, $4, $5::text[])
+       RETURNING id, order_id, customer_id, status, reason, note, photo_keys, created_at, updated_at`,
+      [input.orderId, input.customerId, input.reason, input.note, input.photoKeys ?? []],
     );
     const row = result.rows[0]!;
     return {
@@ -290,6 +312,7 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       status: row.status,
       reason: row.reason,
       note: row.note,
+      photoKeys: row.photo_keys,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

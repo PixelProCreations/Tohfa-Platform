@@ -1,5 +1,7 @@
 import type { Actor } from '../../auth/requireAuth.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import { readTopupLimits } from './topupLimits.js';
+import { walletInsufficientError } from './wallet.insufficient.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { isMoney, greaterThan, ZERO, parseMoney, type Money } from '@tohfa/shared-types';
@@ -41,6 +43,8 @@ export interface WalletServiceDeps {
 
 export interface WalletService {
   getWalletForActor(actor: Actor): Promise<WalletResponse>;
+  /** GET /wallets/me: the wallet plus the per-top-up limits (BR-193). */
+  getWalletWithLimits(actor: Actor): Promise<WalletResponse>;
   listTransactionsForActor(
     actor: Actor,
     query: ListMyTransactionsQuery,
@@ -60,6 +64,11 @@ export function createWalletService(
   const runTx = deps.runTx ?? (deps.db ? <T>(fn: (executor: Executor) => Promise<T>) => fn(deps.db!) : withTransaction);
 
   return {
+    async getWalletWithLimits(actor): Promise<WalletResponse> {
+      const wallet = await this.getWalletForActor(actor);
+      return { ...wallet, topupLimits: await readTopupLimits(db) };
+    },
+
     async getWalletForActor(actor): Promise<WalletResponse> {
       let ownerType: 'CUSTOMER' | 'FARMER';
       let ownerId: string;
@@ -194,8 +203,10 @@ export function createWalletService(
           // B. Trigger check constraints (insufficient balance or frozen status)
           if (pgErr.code === '23514') {
             if (pgErr.hint === 'code: WALLET_INSUFFICIENT' || pgErr.message?.includes('insufficient wallet balance')) {
-              throw new AppError('WALLET_INSUFFICIENT', {
-                status: 402,
+              const balance = await repo.findWalletBalance(activeTx, walletId);
+              throw walletInsufficientError({
+                balance: balance ?? '0.00',
+                required: input.amount,
                 detail: 'Insufficient wallet balance.',
                 cause: err,
               });

@@ -74,6 +74,7 @@ import {
 } from './modules/topup/topup.routes.js';
 import { cartRouter } from './modules/cart/cart.routes.js';
 import { ordersRouter } from './modules/orders/orders.routes.js';
+import { deliverySlotsRouter } from './modules/delivery-slots/delivery-slots.routes.js';
 import {
   adminFulfilmentRouter,
   orderTrackingRouter,
@@ -225,6 +226,7 @@ export const API_MOUNTS: ReadonlyArray<{
   { prefix: '/v1/webhooks', router: webhookRouter },
   { prefix: '/v1/cart', router: cartRouter },
   { prefix: '/v1/orders', router: ordersRouter },
+  { prefix: '/v1/delivery-slots', router: deliverySlotsRouter },
   { prefix: '/v1/orders', router: orderTrackingRouter },
   { prefix: '/v1/orders', router: returnRequestsRouter },
   { prefix: '/v1/admin/returns', router: adminReturnsRouter },

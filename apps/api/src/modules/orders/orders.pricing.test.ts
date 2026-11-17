@@ -4,7 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Money } from '@tohfa/shared-types';
 import { readFileSync } from 'node:fs';
-import { computeCheckoutTotals, toDbFulfilmentType, todayInKolkata } from './orders.pricing.js';
+import { computeCheckoutTotals, toDbFulfilmentType, todayInKolkata, walletCoverage } from './orders.pricing.js';
 
 const fee = '40.00' as Money;
 const threshold = '500.00' as Money;
@@ -17,6 +17,7 @@ describe('BR-161: checkout totals', () => {
     expect(totals(['0.10', '0.20'], 0)).toEqual({
       subtotal: '0.30',
       deliveryFee: '0.00',
+      handlingFee: '0.00',
       discount: '0.00',
       gstAmount: '0.00',
       totalAmount: '0.30',
@@ -56,5 +57,19 @@ describe('BR-161: checkout totals', () => {
     const src = readFileSync(new URL('./orders.service.ts', import.meta.url), 'utf8');
     expect(src).not.toMatch(/toFixed\(/);
     expect(src).not.toMatch(/Number\(\s*(wallet|it|deliveryConfig)/);
+  });
+});
+
+describe('BR-200: handling fee and wallet coverage', () => {
+  it('BR-200: the handling fee is added once per order, pickup and delivery, outside the GST base', () => {
+    const base = { lineTotals: ['100.00'], deliveryFee: fee, freeDeliveryThreshold: threshold, gstRateBasisPoints: 500, handlingFee: '12.50' as Money };
+    expect(computeCheckoutTotals({ ...base, fulfilment: 'PICKUP' })).toMatchObject({ handlingFee: '12.50', gstAmount: '5.00', totalAmount: '117.50' });
+    expect(computeCheckoutTotals({ ...base, fulfilment: 'DELIVERY' })).toMatchObject({ deliveryFee: '40.00', totalAmount: '157.50' });
+  });
+
+  it('BR-200: wallet coverage is the checkout comparison; shortfall = total - balance, else 0', () => {
+    expect(walletCoverage('200.00', '500.00' as Money)).toEqual({ sufficient: false, shortfall: '300.00' });
+    expect(walletCoverage('500.00', '500.00' as Money)).toEqual({ sufficient: true, shortfall: '0.00' });
+    expect(walletCoverage('0.10', '0.30' as Money)).toEqual({ sufficient: false, shortfall: '0.20' });
   });
 });

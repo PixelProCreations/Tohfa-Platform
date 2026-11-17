@@ -1,5 +1,5 @@
 import type { Executor } from '../../db/pool.js';
-import { effectiveAvailableSql, shelfFreeSql } from '../../db/shelfAvailability.js';
+import { effectiveAvailableSql, shelfClaimsSql, shelfFreeSql } from '../../db/shelfAvailability.js';
 import type { ProduceGrade } from './cart.schema.js';
 
 /** BR-100: the ONLINE row's availability capped by the batch's unclaimed shelf. */
@@ -31,6 +31,12 @@ export interface CartItemRecord {
   reservedUntil: Date | null;
 }
 
+export interface CartLineAvailabilityRow {
+  itemId: string;
+  backedKg: string;
+  moreKg: string;
+}
+
 export interface AllocationRecord {
   id: string;
   batch_id: string;
@@ -53,6 +59,16 @@ export interface CartRepo {
   ): Promise<CartRecord>;
 
   getCartItems(db: Executor, cartId: string): Promise<CartItemRecord[]>;
+
+  /**
+   * BR-203: per HELD line, the kg of its hold still backed by the shelf (BR-100) and the further
+   * ONLINE availability of the same product and grade (same warehouse as the line's allocation).
+   * Decimal strings, 3 decimals. Read-only.
+   */
+  getHeldLineAvailability(db: Executor, cartId: string): Promise<CartLineAvailabilityRow[]>;
+
+  /** BR-203: raw system_config.cart_low_stock_threshold_kg; undefined when missing. */
+  getLowStockThresholdRaw(db: Executor): Promise<unknown>;
 
   findActiveRetailPrice(
     db: Executor,
@@ -181,6 +197,43 @@ export const cartRepo: CartRepo = {
       [cartId],
     );
     return res.rows;
+  },
+
+  async getHeldLineAvailability(db, cartId) {
+    // backedKg: the line's own hold is part of the batch's claims, so it is fully on the shelf
+    // while qty_available - claims >= 0; a deficit (a DIRECT sale took stock after the hold, BR-95k)
+    // eats into it. A batch that is no longer ACTIVE backs nothing.
+    const res = await db.query<CartLineAvailabilityRow>(
+      `SELECT ci.id AS "itemId",
+              (CASE WHEN b.id IS NULL OR b.status <> 'ACTIVE' THEN 0::numeric
+                    ELSE GREATEST(0::numeric,
+                           LEAST(ci.qty_kg, ci.qty_kg + b.qty_available - ${shelfClaimsSql('b')}))
+               END)::numeric(12,3)::text AS "backedKg",
+              COALESCE((
+                SELECT SUM(${effectiveAvailableSql('oa', 'ob')})
+                  FROM allocations oa
+                  JOIN inventory_batches ob ON ob.id = oa.batch_id
+                 WHERE oa.channel = 'ONLINE'
+                   AND ob.crop_id = ci.crop_id
+                   AND ob.grade = ci.grade
+                   AND ob.status = 'ACTIVE'
+                   AND (a.warehouse_id IS NULL OR oa.warehouse_id = a.warehouse_id)
+              ), 0)::numeric(12,3)::text AS "moreKg"
+         FROM cart_items ci
+    LEFT JOIN allocations a ON a.id = ci.allocation_id
+    LEFT JOIN inventory_batches b ON b.id = a.batch_id
+        WHERE ci.cart_id = $1
+          AND ci.status = 'HELD'`,
+      [cartId],
+    );
+    return res.rows;
+  },
+
+  async getLowStockThresholdRaw(db) {
+    const res = await db.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'cart_low_stock_threshold_kg'`,
+    );
+    return res.rows[0]?.value;
   },
 
   async findActiveRetailPrice(db, cropId, grade) {

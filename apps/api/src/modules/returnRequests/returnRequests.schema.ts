@@ -51,9 +51,17 @@ export const createReturnRequestBody = z
     reason: z.string().trim().min(1).max(300),
     items: z.array(createReturnRequestItem).min(1),
     note: z.string().trim().max(500).optional(),
+    /**
+     * BR-204: up to five of the caller's own uploads signed with purpose ISSUE_PHOTO (the support
+     * ticket photo flow; EXIF/GPS stripped at upload, BR-16).
+     */
+    photoUploadIds: z.array(z.string().uuid()).max(5).default([]),
   })
   .strict();
-export type CreateReturnRequestBody = z.infer<typeof createReturnRequestBody>;
+/** photoUploadIds is optional for service callers (the route's Zod default fills []). */
+export type CreateReturnRequestBody = Omit<z.infer<typeof createReturnRequestBody>, 'photoUploadIds'> & {
+  photoUploadIds?: string[] | undefined;
+};
 
 // ---------------------------------------------------------------------------
 // GET /v1/admin/returns, GET /v1/admin/returns/:id
@@ -117,6 +125,8 @@ export const returnSummaryResponse = z.object({
   status: z.enum(returnStatuses),
   reason: z.string(),
   note: z.string().nullable(),
+  /** BR-204: short-lived signed read URLs of the attached photos (storage keys never leave the API). */
+  photos: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 });
@@ -179,6 +189,8 @@ export const customerReturnSummaryResponse = z.object({
   status: z.enum(returnStatuses),
   reason: z.string(),
   note: z.string().nullable(),
+  /** BR-204: signed read URLs of the customer's own return photos. */
+  photos: z.array(z.string()),
   createdAt: z.string(),
   updatedAt: z.string().nullable(),
 });

@@ -47,6 +47,11 @@ export interface CatalogRepo {
     cropId: string,
     grade?: ProductGrade,
   ): Promise<RawCatalogProductRow | null>;
+  /**
+   * BR-202: every sellable grade of one crop, sorted by grade (same aggregate as getProductById).
+   * Optional so hand-built fakes stay valid; the service falls back to the single detail row.
+   */
+  listProductGrades?(db: Executor, cropId: string): Promise<RawCatalogProductRow[]>;
   searchProducts(
     db: Executor,
     filters: SearchCatalogQuery,
@@ -101,6 +106,59 @@ function buildSortClause(sort: ProductSort): string {
     default:
       return 'ORDER BY cm.name ASC, b.grade ASC, cm.id ASC';
   }
+}
+
+/**
+ * BR-202: the product-detail aggregate, one row per sellable grade of the crop (pooled across
+ * batches and warehouses, BR-24; never a farmer column, BR-16). getProductById takes the first grade,
+ * listProductGrades every grade, so the detail and its variants cannot disagree.
+ */
+function productGradesSql(whereClause: string, limitClause: string): string {
+  return `
+      WITH active_retail_prices AS (
+        SELECT DISTINCT ON (crop_id, grade)
+               crop_id, grade, price
+          FROM retail_prices
+         WHERE effective_from <= CURRENT_DATE
+           AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
+         ORDER BY crop_id, grade, effective_from DESC
+      ),
+      active_fair_prices AS (
+        SELECT DISTINCT ON (crop_id, grade)
+               crop_id, grade, ceiling_price
+          FROM fair_prices
+         WHERE effective_from <= CURRENT_DATE
+           AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
+         ORDER BY crop_id, grade, effective_from DESC
+      )
+      SELECT cm.id                                                AS crop_id,
+             cm.name                                              AS name,
+             cm.category_id                                       AS category_id,
+             b.grade                                              AS grade,
+             COALESCE(
+               rp.price::text,
+               fp.ceiling_price::text,
+               '50.00'
+             )                                                    AS price_per_kg,
+             SUM(${ONLINE_EFFECTIVE})::text                           AS available_qty,
+             'kg'::text                                           AS unit,
+             cm.icon_key                                          AS icon_key,
+             NULL::text                                           AS photo_url,
+             ARRAY[]::text[]                                      AS certification_badges,
+             ${PRODUCT_META_SELECT},
+             ARRAY_AGG(DISTINCT a.warehouse_id::text)             AS warehouse_ids,
+             MIN(b.created_at)                                    AS created_at
+        FROM allocations a
+        JOIN inventory_batches b ON b.id = a.batch_id
+        JOIN crop_master cm ON cm.id = b.crop_id
+   LEFT JOIN active_retail_prices rp ON rp.crop_id = b.crop_id AND rp.grade = b.grade
+   LEFT JOIN active_fair_prices fp ON fp.crop_id = b.crop_id AND fp.grade = b.grade
+       WHERE ${whereClause}
+       GROUP BY cm.id, cm.name, cm.category_id, b.grade, rp.price, fp.ceiling_price, cm.icon_key
+       HAVING SUM(${ONLINE_EFFECTIVE}) > 0
+       ORDER BY b.grade ASC
+       ${limitClause}
+    `;
 }
 
 export const catalogRepo: CatalogRepo = {
@@ -221,54 +279,24 @@ export const catalogRepo: CatalogRepo = {
 
     const whereClause = conditions.join(' AND ');
 
-    const sql = `
-      WITH active_retail_prices AS (
-        SELECT DISTINCT ON (crop_id, grade)
-               crop_id, grade, price
-          FROM retail_prices
-         WHERE effective_from <= CURRENT_DATE
-           AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
-         ORDER BY crop_id, grade, effective_from DESC
-      ),
-      active_fair_prices AS (
-        SELECT DISTINCT ON (crop_id, grade)
-               crop_id, grade, ceiling_price
-          FROM fair_prices
-         WHERE effective_from <= CURRENT_DATE
-           AND (effective_to IS NULL OR effective_to > CURRENT_DATE)
-         ORDER BY crop_id, grade, effective_from DESC
-      )
-      SELECT cm.id                                                AS crop_id,
-             cm.name                                              AS name,
-             cm.category_id                                       AS category_id,
-             b.grade                                              AS grade,
-             COALESCE(
-               rp.price::text,
-               fp.ceiling_price::text,
-               '50.00'
-             )                                                    AS price_per_kg,
-             SUM(${ONLINE_EFFECTIVE})::text                           AS available_qty,
-             'kg'::text                                           AS unit,
-             cm.icon_key                                          AS icon_key,
-             NULL::text                                           AS photo_url,
-             ARRAY[]::text[]                                      AS certification_badges,
-             ${PRODUCT_META_SELECT},
-             ARRAY_AGG(DISTINCT a.warehouse_id::text)             AS warehouse_ids,
-             MIN(b.created_at)                                    AS created_at
-        FROM allocations a
-        JOIN inventory_batches b ON b.id = a.batch_id
-        JOIN crop_master cm ON cm.id = b.crop_id
-   LEFT JOIN active_retail_prices rp ON rp.crop_id = b.crop_id AND rp.grade = b.grade
-   LEFT JOIN active_fair_prices fp ON fp.crop_id = b.crop_id AND fp.grade = b.grade
-       WHERE ${whereClause}
-       GROUP BY cm.id, cm.name, cm.category_id, b.grade, rp.price, fp.ceiling_price, cm.icon_key
-       HAVING SUM(${ONLINE_EFFECTIVE}) > 0
-       ORDER BY b.grade ASC
-       LIMIT 1
-    `;
+    const sql = productGradesSql(whereClause, 'LIMIT 1');
 
     const res = await db.query<RawCatalogProductRow>(sql, params);
     return res.rows[0] ?? null;
+  },
+
+  async listProductGrades(db: Executor, cropId: string): Promise<RawCatalogProductRow[]> {
+    const whereClause = [
+      "a.channel = 'ONLINE'",
+      "b.status = 'ACTIVE'",
+      "b.grade IN ('GRADE_1', 'GRADE_2', 'GRADE_3')",
+      'cm.deleted_at IS NULL',
+      'cm.is_active = true',
+      'cm.id = $1',
+      'a.available_qty > 0',
+    ].join(' AND ');
+    const res = await db.query<RawCatalogProductRow>(productGradesSql(whereClause, ''), [cropId]);
+    return res.rows;
   },
 
   async searchProducts(

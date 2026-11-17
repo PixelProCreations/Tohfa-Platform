@@ -16,6 +16,8 @@ export interface TicketDbRow {
   created_at: Date;
   updated_at: Date;
   message_count: number;
+  /** Display only: the linked order's number (BR-197); null when the ticket has no order. */
+  order_number?: string | null;
 }
 
 export interface MessageDbRow {
@@ -53,13 +55,16 @@ export interface CustomerSupportRepo {
     input: { ticketId: string; senderUserId: string; body: string; attachmentKey: string | null },
   ): Promise<MessageDbRow>;
   touchTicket(db: Executor, ticketId: string): Promise<void>;
+  /** BR-196: OPEN -> CANCELLED. Returns false when the row was no longer OPEN. */
+  cancelOpenTicket(db: Executor, ticketId: string): Promise<boolean>;
   orderBelongsToCustomer(db: Executor, customerId: string, orderId: string): Promise<boolean>;
   findUploads(db: Executor, ids: string[]): Promise<UploadInfo[]>;
 }
 
 const COLUMNS = `st.id, st.ticket_number, st.order_id, st.category, st.subject, st.description, st.photo_keys,
   st.status, st.resolved_at, st.created_at, COALESCE(st.updated_at, st.created_at) AS updated_at,
-  (SELECT count(*)::int FROM support_messages m WHERE m.ticket_id = st.id AND NOT m.is_internal) AS message_count`;
+  (SELECT count(*)::int FROM support_messages m WHERE m.ticket_id = st.id AND NOT m.is_internal) AS message_count,
+  (SELECT o.order_number FROM orders o WHERE o.id = st.order_id) AS order_number`;
 
 export const customerSupportRepo: CustomerSupportRepo = {
   async createTicket(db, customerId, input) {
@@ -143,6 +148,14 @@ export const customerSupportRepo: CustomerSupportRepo = {
 
   async touchTicket(db, ticketId) {
     await db.query(`UPDATE support_tickets SET updated_at = now() WHERE id = $1`, [ticketId]);
+  },
+
+  async cancelOpenTicket(db, ticketId) {
+    const res = await db.query(
+      `UPDATE support_tickets SET status = 'CANCELLED', updated_at = now() WHERE id = $1 AND status = 'OPEN'`,
+      [ticketId],
+    );
+    return (res.rowCount ?? 0) > 0;
   },
 
   async orderBelongsToCustomer(db, customerId, orderId) {

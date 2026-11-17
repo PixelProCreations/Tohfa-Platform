@@ -11,14 +11,14 @@ import { z } from 'zod';
 export const SUPPORT_SUBJECT_MAX = 250;
 export const SUPPORT_TEXT_MAX = 2000;
 /** Photos per ticket: a technical bound on the request, not a business threshold. */
-export const SUPPORT_MAX_PHOTOS = 3;
+export const SUPPORT_MAX_PHOTOS = 5;
 
 /** support_tickets.category CHECK (0008). */
 export const ticketCategoryEnum = z.enum(['QUALITY', 'QUANTITY', 'MISSING', 'WRONG_ITEM', 'DAMAGED', 'LATE', 'PAYMENT', 'OTHER']);
 export type TicketCategory = z.infer<typeof ticketCategoryEnum>;
 
 /** The API vocabulary (the DB stores INVESTIGATING for IN_PROGRESS; same mapping as the admin API, BR-97). */
-export const ticketStatusEnum = z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED']);
+export const ticketStatusEnum = z.enum(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED']);
 export type TicketStatus = z.infer<typeof ticketStatusEnum>;
 
 export const ticketIdParams = z.object({ id: z.string().uuid() }).strict();
@@ -74,6 +74,8 @@ export const customerTicketSummaryResponse = z
     id: z.string().uuid(),
     ticketNumber: z.string(),
     orderId: z.string().uuid().nullable(),
+    /** BR-197: display number of the linked order, null when none. */
+    orderNumber: z.string().nullable(),
     category: ticketCategoryEnum,
     subject: z.string(),
     description: z.string(),

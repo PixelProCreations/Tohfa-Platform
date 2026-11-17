@@ -11831,17 +11831,19 @@ paths:
       summary: Product detail
       description: |
         Returns one product with its grade, certification badges and current retail price. Farm-
-        anonymous: no farmer, farm, GPS or FMB field is present (BR-16).
+        anonymous: no farmer, farm, GPS or FMB field is present (BR-16). The top-level fields are
+        the lowest sellable grade (unchanged); `variants` lists every sellable grade, sorted by
+        grade (BR-202). There is no variety grouping on the crop master, so no `variety` field.
       security: []
       x-permission: public
-      x-business-rules: [BR-16]
+      x-business-rules: [BR-16, BR-202]
       parameters: [{ $ref: '#/components/parameters/IdParam' }]
       responses:
         '200':
-          description: Product. Farm-anonymous — see the schema description.
+          description: Product with its grade variants. Farm-anonymous — see the schema description.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Product' }
+              schema: { $ref: '#/components/schemas/ProductDetail' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -12185,6 +12187,37 @@ paths:
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /service-area-requests/me:
+    get:
+      tags: [Catalog]
+      operationId: listMyServiceAreaRequests
+      summary: Own area requests
+      description: |
+        The signed-in customer's own area requests, newest first (BR-198), for the "request received"
+        screen. Never another customer's, and without contact or customer id.
+      x-permission: service_area.request.view_own
+      x-business-rules: [BR-198]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Page of own requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, page, limit]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/ServiceAreaRequest' } }
+                  total: { type: integer, minimum: 0 }
+                  page: { type: integer }
+                  limit: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/service-area-requests:
     get:
       tags: [Catalog]
@@ -12354,7 +12387,7 @@ paths:
       tags: [Customer Profile]
       operationId: updateMyCustomerProfile
       summary: Edit own profile
-      description: Name, age, gender, harvest preferences and photo. Email changes go through `/customers/me/email/otp` + `/verify`; GST details through `/customers/me/gst-details`.
+      description: Name, age, gender, harvest preferences, photo and app language (`preferredLocale`, BR-191). Email changes go through `/customers/me/email/otp` + `/verify`; GST details through `/customers/me/gst-details`.
       x-permission: customer.profile.edit
       x-business-rules: [BR-160]
       requestBody:
@@ -12746,9 +12779,12 @@ paths:
         `round_half_up(subtotal × system_config.retail_gst_rate_percent / 100)` once per order
         (BR-98), the delivery fee applies below `free_delivery_threshold`, discount is 0, and
         `order.confirmed` is published after commit (BR-163). Payment stays WALLET only (BR-17).
+        The configured `handling_fee` is added to every order and stored as `handlingFee`; the
+        totals are computed by the same pricing path as `POST /orders/quote` (BR-200). A full or
+        switched-off delivery slot is 409 `SLOT_FULL` (BR-201).
         Money-moving — `Idempotency-Key` required; a replay never writes a second wallet debit (BR-17).
       x-permission: order.place
-      x-business-rules: [BR-17, BR-21, BR-22, BR-98, BR-161, BR-163]
+      x-business-rules: [BR-17, BR-21, BR-22, BR-98, BR-161, BR-163, BR-200, BR-201]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -12780,12 +12816,16 @@ paths:
                 status: 402
                 detail: Order total is INR 412.50 and the wallet holds INR 180.00.
                 code: WALLET_INSUFFICIENT
+                shortfall: '232.50'
+                balance: '180.00'
+                required: '412.50'
                 traceId: 01J9F1B2C3D4E5F6G7H8J9K5
         '409':
           description: |
             `STOCK_UNAVAILABLE`: the batch behind a cart line no longer holds the reserved quantity,
             e.g. because a DIRECT counter sale drew it (DIRECT sales do not decrement allocations,
-            BR-95k). Nothing is written: no debit, no order, no ledger row.
+            BR-95k). Nothing is written: no debit, no order, no ledger row. `SLOT_FULL`: the
+            chosen delivery slot is full or switched off (BR-201); nothing is written.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -12816,6 +12856,84 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /orders/quote:
+    post:
+      tags: [Cart & Orders]
+      operationId: quoteCheckout
+      summary: Pre-checkout quote (read-only)
+      description: |
+        What `POST /orders` would charge for the caller's cart right now (BR-200): the lines,
+        subtotal, delivery fee, handling fee, GST (BR-98, half-up, rate from system_config),
+        discount (0), total, the wallet balance with `walletSufficient` and `shortfall` (the same
+        figure a refused checkout carries, BR-192), the cart lock and, for a delivery, the chosen
+        slot (BR-201). Quote and checkout share one pricing path, so `totalAmount` equals the
+        placed order's total. Takes the checkout body; nothing is reserved, debited, booked or
+        created, so no `Idempotency-Key`. Fails like checkout (404 no cart or foreign address, 422
+        past date or missing slot, 501 non-wallet method or delivery disabled, 409 `SLOT_FULL`),
+        except an expired lock is reported as `lockExpired: true` rather than refused.
+      x-permission: order.place
+      x-business-rules: [BR-200, BR-201, BR-98, BR-161, BR-187]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckoutRequest' }
+      responses:
+        '200':
+          description: The quote.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckoutQuote' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: '`SLOT_FULL`: the chosen delivery slot is full or switched off (BR-201).'
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '501':
+          description: Non-wallet payment method, or home delivery disabled.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /delivery-slots:
+    get:
+      tags: [Cart & Orders]
+      operationId: listDeliverySlots
+      summary: Delivery slot availability for one warehouse and day
+      description: |
+        The three delivery slots of `date` at `warehouseId`, in enum order, with capacity, booked,
+        available and the informational cutoff (BR-201). A slot with no capacity row is uncapped
+        (`capacity` and `available` null). `bookable` is exactly what checkout enforces (active and
+        not full); a quote or checkout on a slot that is not bookable is 409 `SLOT_FULL`. Unknown
+        warehouse 404; a past date (Asia/Kolkata) 422.
+      x-permission: order.place
+      x-business-rules: [BR-201]
+      parameters:
+        - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: date, in: query, required: true, schema: { type: string, format: date } }
+      responses:
+        '200':
+          description: The day's slots.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [warehouseId, date, items]
+                properties:
+                  warehouseId: { type: string, format: uuid }
+                  date: { type: string, format: date }
+                  items: { type: array, items: { $ref: '#/components/schemas/DeliverySlotAvailability' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /orders/{id}:
@@ -12855,14 +12973,13 @@ paths:
               schema: { $ref: '#/components/schemas/OrderTracking' }
               example:
                 orderId: 5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d
-                status: OUT_FOR_DELIVERY
+                status: DISPATCHED
                 otpRequired: true
-                estimatedArrival: '2026-08-20T05:30:00Z'
+                estimatedArrival: '2026-08-20'
                 events:
-                  - { status: CONFIRMED, at: '2026-08-18T06:31:00Z', note: null }
-                  - { status: PACKED, at: '2026-08-19T02:10:00Z', note: Packed at Coonoor }
-                  - { status: DISPATCHED, at: '2026-08-20T01:05:00Z', note: TN43AB1234 }
-                  - { status: OUT_FOR_DELIVERY, at: '2026-08-20T04:40:00Z', note: null }
+                  - { id: 0b0e1a52-6a2f-4c4e-9a51-1f1e2d3c4b5a, status: CONFIRMED, at: '2026-08-18T06:31:00Z', note: Order placed via wallet checkout }
+                  - { id: 1c1f2b63-7b30-4d5f-8b62-2a2f3e4d5c6b, status: PACKED, at: '2026-08-19T02:10:00Z', note: null }
+                  - { id: 2d203c74-8c41-4e60-9c73-3b304f5e6d7c, status: DISPATCHED, at: '2026-08-20T01:05:00Z', note: TN43AB1234 }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -12874,15 +12991,23 @@ paths:
       operationId: streamOrderEvents
       summary: Live order events (SSE)
       description: |
-        Server-Sent Events stream. Each event is `event: order.status` with a JSON
-        `OrderTrackingEvent` payload; a `: keepalive` comment is emitted every 20 seconds.
-        The stream closes once the order reaches `DELIVERED` or `CANCELLED`. Clients
-        resume with the standard `Last-Event-ID` header.
+        Server-Sent Events stream. There is ONE event type, `event: order.status`, whose `data:`
+        is an `OrderTrackingEvent` JSON object without `id`:
+          * on connect, one frame with the order's current status and the note
+            `Connected to order event stream`;
+          * `PACKED` when the order is packed;
+          * `DISPATCHED` (delivery) or `READY_FOR_PICKUP` (pickup) when it is dispatched;
+          * `DELIVERED` (delivery) or `PICKED_UP` (pickup) when the handover OTP is verified.
+        A `: keepalive` comment is sent every 20 seconds. The server closes the stream after a
+        `DELIVERED`, `PICKED_UP` or `CANCELLED` frame. Frames carry no `id:` line, so
+        `Last-Event-ID` is accepted but ignored: on reconnect, read `GET /orders/{id}/tracking`
+        for anything missed. Pushes are in-process (one API instance); poll tracking as the
+        fallback.
       x-permission: order.view_own
       x-business-rules: [BR-36]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
-        - { name: Last-Event-ID, in: header, required: false, schema: { type: string } }
+        - { name: Last-Event-ID, in: header, required: false, description: Accepted and ignored (frames carry no id)., schema: { type: string } }
       responses:
         '200':
           description: Event stream opened.
@@ -12893,8 +13018,12 @@ paths:
                 description: SSE frames; the `data:` field of each frame is an `OrderTrackingEvent` JSON object.
               example: |
                 event: order.status
-                id: 42
-                data: {"status":"PACKED","at":"2026-08-19T02:10:00Z","note":"Packed at Coonoor"}
+                data: {"status":"CONFIRMED","at":"2026-08-19T02:00:00Z","note":"Connected to order event stream"}
+
+                : keepalive
+
+                event: order.status
+                data: {"status":"PACKED","at":"2026-08-19T02:10:00Z","note":"Packed at warehouse 3f1b7c2e-2a44-4f0e-9b1a-6b0d2f0f1a01"}
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -13556,7 +13685,7 @@ paths:
       tags: [Wallet]
       operationId: getMyWallet
       summary: Own wallet balance
-      description: The balance is derived from the append-only ledger, never edited directly.
+      description: The balance is derived from the append-only ledger, never edited directly. Also returns `topupLimits` (min and max per digital top-up, from system_config `topup_min_amount` / `topup_max_amount`, defaults 100.00 / 50000.00; BR-193).
       x-permission: wallet.own.view
       x-business-rules: [BR-36]
       responses:
@@ -13572,6 +13701,7 @@ paths:
                 currency: INR
                 status: ACTIVE
                 updatedAt: '2026-08-18T06:31:00Z'
+                topupLimits: { min: '100.00', max: '50000.00' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -13702,10 +13832,19 @@ paths:
                       balanceAfter: { $ref: '#/components/schemas/Money' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '402':
-          description: Insufficient wallet balance (`WALLET_INSUFFICIENT`).
+          description: Insufficient wallet balance (`WALLET_INSUFFICIENT`), carrying `shortfall`, `balance` and `required` (BR-192).
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
+              example:
+                type: https://docs.tohfa.in/problems/wallet-insufficient
+                title: Insufficient wallet balance
+                status: 402
+                detail: Insufficient wallet balance.
+                code: WALLET_INSUFFICIENT
+                shortfall: '50.00'
+                balance: '150.00'
+                required: '200.00'
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -13747,7 +13886,8 @@ paths:
         Creates a Razorpay order and returns the parameters the mobile SDK needs. The
         wallet is **not** credited here — it is credited when the signed
         `payment.captured` webhook arrives. Money-moving, so `Idempotency-Key`
-        is required.
+        is required. An amount outside the per-top-up limits is 422 `VALIDATION_FAILED` with
+        `errors['body.amount']` and `meta.topupLimits` `{min, max}` (BR-193).
       x-permission: wallet.topup.digital
       x-business-rules: []
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
@@ -17251,7 +17391,7 @@ paths:
       parameters:
         - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-        - { name: status, in: query, schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] } }
+        - { name: status, in: query, schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED, CANCELLED] } }
       responses:
         '200':
           description: Page of own tickets.
@@ -17267,7 +17407,7 @@ paths:
       description: |
         Creates a TKT-YYYY-XXXXX ticket in the shared support_tickets table, so it appears in
         `/admin/customers/{customerId}/support-tickets`. Photos are ids from `POST /uploads/sign`
-        with purpose ISSUE_PHOTO (own uploads only). Text that names a farmer or farm is refused 422
+        with purpose ISSUE_PHOTO (own uploads only, up to five: BR-199). Text that names a farmer or farm is refused 422
         (BR-97, BR-16). An `orderId` that is not the caller's is 404.
       x-permission: support.ticket.create_own
       x-business-rules: [BR-36, BR-97, BR-16]
@@ -17305,6 +17445,30 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /support/tickets/{id}/cancel:
+    post:
+      tags: [Support Tickets]
+      operationId: cancelMyCustomerSupportTicket
+      summary: Cancel an own open ticket (customer)
+      description: |
+        Moves the caller's own ticket from OPEN to CANCELLED (BR-196) and writes an audit row
+        (`support.ticket.cancel`); the admin ticket list then shows `CANCELLED`. Only an OPEN
+        ticket can be cancelled: IN_PROGRESS, RESOLVED, CLOSED and already-CANCELLED tickets are
+        409 `CONFLICT` (`meta.reason` `TICKET_NOT_OPEN`). Another customer's id is 404.
+      x-permission: support.ticket.create_own
+      x-business-rules: [BR-196, BR-36]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: The cancelled ticket and its thread.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerTicketDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /support/tickets/{id}/messages:
     post:
@@ -18824,7 +18988,7 @@ components:
         subject: { type: string, minLength: 1, maxLength: 250 }
         description: { type: string, minLength: 1, maxLength: 2000 }
         orderId: { type: string, format: uuid }
-        photoUploadIds: { type: array, maxItems: 3, items: { type: string, format: uuid } }
+        photoUploadIds: { type: array, maxItems: 5, items: { type: string, format: uuid }, description: 'Up to five ISSUE_PHOTO upload ids (BR-199).' }
     CustomerTicketMessage:
       type: object
       required: [id, ticketId, sender, message, attachmentUrl, redacted, createdAt]
@@ -18838,16 +19002,17 @@ components:
         createdAt: { type: string, format: date-time }
     CustomerTicketSummary:
       type: object
-      required: [id, ticketNumber, orderId, category, subject, description, photos, status, messageCount, resolvedAt, createdAt, updatedAt]
+      required: [id, ticketNumber, orderId, orderNumber, category, subject, description, photos, status, messageCount, resolvedAt, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         ticketNumber: { type: string }
         orderId: { type: string, format: uuid, nullable: true }
+        orderNumber: { type: string, nullable: true, description: 'Display number of the linked order (BR-197); null when the ticket has no order.' }
         category: { type: string, enum: [QUALITY, QUANTITY, MISSING, WRONG_ITEM, DAMAGED, LATE, PAYMENT, OTHER] }
         subject: { type: string }
         description: { type: string }
         photos: { type: array, items: { type: string } }
-        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED, CANCELLED], description: '`CANCELLED` once the customer cancelled an OPEN ticket (BR-196).' }
         messageCount: { type: integer }
         resolvedAt: { type: string, nullable: true }
         createdAt: { type: string }
@@ -19496,6 +19661,7 @@ components:
         * `INSUFFICIENT_ALLOCATION` — the channel's allocated quantity is used up (BR-12).
         * `ALLOCATION_SUM_INVALID` — the channel percentages do not sum to 100 (BR-12).
         * `CART_LOCK_EXPIRED` — the 24-hour cart reservation lapsed (BR-22).
+        * `SLOT_FULL` — the chosen delivery slot is fully booked or switched off (BR-201).
         * `OTP_INVALID` — the supplied OTP did not match (BR-20, BR-32).
         * `OTP_EXPIRED` — the OTP challenge is past its validity window (BR-32).
         * `OTP_LOCKED` — three failed attempts; a new challenge is required (BR-32).
@@ -19589,7 +19755,19 @@ components:
         meta:
           type: object
           additionalProperties: true
-          description: Extra machine-readable context for some codes, e.g. `ceilingPrice` and `attemptedPrice` on `PRICE_ABOVE_CEILING`.
+          description: Extra machine-readable context for some codes, e.g. `ceilingPrice` and `attemptedPrice` on `PRICE_ABOVE_CEILING`. A `VALIDATION_FAILED` on `POST /wallets/me/topups` carries `meta.topupLimits` `{min, max}` (BR-193).
+        shortfall:
+          type: string
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
+          description: '`WALLET_INSUFFICIENT` only (BR-192). `required` minus `balance`, a decimal money string, so the app can pre-fill the top-up amount.'
+        balance:
+          type: string
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
+          description: '`WALLET_INSUFFICIENT` only (BR-192). The wallet balance when the debit was refused.'
+        required:
+          type: string
+          pattern: '^[0-9]{1,10}\.[0-9]{2}$'
+          description: '`WALLET_INSUFFICIENT` only (BR-192). The amount the debit needed (order total or transfer amount).'
 
     PageMeta:
       type: object
@@ -19686,7 +19864,14 @@ components:
 
     OrderStatus:
       type: string
-      enum: [CONFIRMED, PACKED, DISPATCHED, OUT_FOR_DELIVERY, DELIVERED, CANCELLED]
+      description: |
+        Every value of the `order_status` database enum, all of which the server can emit.
+        `PENDING_PAYMENT` is a counter sale awaiting UPI confirmation (BR-94); online checkout
+        creates `CONFIRMED`. Pickup orders go `CONFIRMED -> PACKED -> READY_FOR_PICKUP ->
+        PICKED_UP`; delivery orders `CONFIRMED -> PACKED -> DISPATCHED -> DELIVERED`
+        (`OUT_FOR_DELIVERY` is modelled but not written in Track 1, BR-21b). `CANCELLED` and
+        `RETURNED` are terminal.
+      enum: [PENDING_PAYMENT, CONFIRMED, PACKED, DISPATCHED, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED, PICKED_UP, CANCELLED, RETURNED]
 
     CounterOfferStatus:
       type: string
@@ -19912,8 +20097,12 @@ components:
         isNewUser: { type: boolean, description: True when this call created the customer account. }
         user:
           type: object
-          required: [id, fullName, mobile, userType, preferredLocale, status, hasPassword, customerId, roles]
+          required: [id, fullName, mobile, userType, preferredLocale, status, hasPassword, customerId, profileComplete, missingFields, roles]
           properties:
+            profileComplete: { type: boolean, description: 'BR-190: false until a real name and an onboarding field are set.' }
+            missingFields:
+              type: array
+              items: { type: string, enum: [fullName, age, gender, harvestPreferences] }
             id: { type: string, format: uuid }
             fullName: { type: string, description: A placeholder (`TOHFA Customer`) on a new account until the customer edits it. }
             mobile: { $ref: '#/components/schemas/Mobile' }
@@ -25377,6 +25566,107 @@ components:
         sortOrder: { type: integer }
         productCount: { type: integer }
 
+    ProductVariant:
+      type: object
+      description: One sellable grade of a product (BR-202). Allow-list; never a farm field (BR-16).
+      additionalProperties: false
+      required: [grade, pricePerKg, availableKg, compareAtPrice, discountPercent, flags]
+      properties:
+        grade: { $ref: '#/components/schemas/Grade' }
+        pricePerKg: { $ref: '#/components/schemas/Money' }
+        availableKg: { $ref: '#/components/schemas/Quantity' }
+        compareAtPrice: { type: [string, 'null'] }
+        discountPercent: { type: [integer, 'null'] }
+        flags:
+          type: object
+          additionalProperties: false
+          required: [isComingSoon, comingTomorrow, isUnsalable]
+          properties:
+            isComingSoon: { type: boolean }
+            comingTomorrow: { type: boolean }
+            isUnsalable: { type: boolean }
+
+    ProductDetail:
+      description: '`GET /catalog/products/{id}`: the Product (lowest sellable grade) plus every grade as `variants`, sorted by grade (BR-202).'
+      allOf:
+        - $ref: '#/components/schemas/Product'
+        - type: object
+          required: [variants]
+          properties:
+            variants: { type: array, items: { $ref: '#/components/schemas/ProductVariant' } }
+
+    DeliverySlotAvailability:
+      type: object
+      description: One delivery slot of one warehouse-day (BR-201).
+      required: [slot, label, date, startsAt, endsAt, cutoff, cutoffPassed, capacity, booked, available, isActive, bookable]
+      properties:
+        slot: { $ref: '#/components/schemas/DeliverySlot' }
+        label: { type: string, examples: ['8 AM - 12 PM'] }
+        date: { type: string, format: date }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        cutoff: { type: string, format: date-time, description: 'startsAt minus system_config.delivery_slot_cutoff_minutes. Informational; not enforced at checkout yet.' }
+        cutoffPassed: { type: boolean }
+        capacity: { type: [integer, 'null'], description: null when the day has no capacity row (uncapped). }
+        booked: { type: integer }
+        available: { type: [integer, 'null'], description: 'capacity - booked, never below 0; null when uncapped.' }
+        isActive: { type: boolean }
+        bookable: { type: boolean, description: Active and not full; what checkout enforces (else 409 SLOT_FULL). }
+
+    CheckoutQuote:
+      type: object
+      description: '`POST /orders/quote` (BR-200). Money is integer paise rendered as decimal strings.'
+      required: [fulfillmentType, warehouseId, cartId, cartStatus, lockExpiresAt, lockExpired, lines, itemCount, subtotal, deliveryFee, handlingFee, gstRateBasisPoints, gstAmount, discount, totalAmount, freeDeliveryThreshold, walletBalance, walletSufficient, shortfall, slot]
+      properties:
+        fulfillmentType: { $ref: '#/components/schemas/FulfillmentType' }
+        warehouseId: { type: string, format: uuid }
+        cartId: { type: string, format: uuid }
+        cartStatus: { type: string, enum: [ACTIVE, LOCKED] }
+        lockExpiresAt: { type: [string, 'null'], format: date-time }
+        lockExpired: { type: boolean, description: True when checkout would be refused CART_LOCK_EXPIRED now (BR-22). }
+        lines:
+          type: array
+          items:
+            type: object
+            required: [id, productId, name, grade, qtyKg, unitPrice, lineTotal]
+            properties:
+              id: { type: string, format: uuid }
+              productId: { type: string, format: uuid }
+              name: { type: string }
+              grade: { $ref: '#/components/schemas/Grade' }
+              qtyKg: { $ref: '#/components/schemas/Quantity' }
+              unitPrice: { $ref: '#/components/schemas/Money' }
+              lineTotal: { $ref: '#/components/schemas/Money' }
+        itemCount: { type: integer }
+        subtotal: { $ref: '#/components/schemas/Money' }
+        deliveryFee: { $ref: '#/components/schemas/Money' }
+        handlingFee: { $ref: '#/components/schemas/Money' }
+        gstRateBasisPoints: { type: integer, description: 'GST rate in hundredths of a percent (5% = 500), from system_config.retail_gst_rate_percent (BR-98).' }
+        gstAmount: { $ref: '#/components/schemas/Money' }
+        discount: { $ref: '#/components/schemas/Money' }
+        totalAmount: { $ref: '#/components/schemas/Money' }
+        freeDeliveryThreshold: { $ref: '#/components/schemas/Money' }
+        walletBalance: { $ref: '#/components/schemas/Money' }
+        walletSufficient: { type: boolean }
+        shortfall: { $ref: '#/components/schemas/Money', description: 'totalAmount - walletBalance when insufficient, else 0.00 (the BR-192 problem member).' }
+        slot:
+          description: The chosen delivery slot (delivery only), else null.
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [date, slot, label, startsAt, cutoff, cutoffPassed, capacity, booked, available, bookable]
+              properties:
+                date: { type: string, format: date }
+                slot: { $ref: '#/components/schemas/DeliverySlot' }
+                label: { type: string }
+                startsAt: { type: string, format: date-time }
+                cutoff: { type: string, format: date-time }
+                cutoffPassed: { type: boolean }
+                capacity: { type: [integer, 'null'] }
+                booked: { type: integer }
+                available: { type: [integer, 'null'] }
+                bookable: { type: boolean }
+
     Product:
       type: object
       description: |
@@ -25632,7 +25922,7 @@ components:
     CustomerProfile:
       type: object
       description: The caller's own customer profile (BR-160).
-      required: [id, customerCode, fullName, mobile, email, emailVerified, age, gender, harvestPreferences, photoKey, customerType, businessName, gstin, gstVerified, defaultAddressId, createdAt]
+      required: [id, customerCode, fullName, mobile, email, emailVerified, age, gender, harvestPreferences, photoKey, customerType, businessName, gstin, gstVerified, defaultAddressId, preferredLocale, profileComplete, missingFields, createdAt]
       properties:
         id: { type: string, format: uuid }
         customerCode: { type: string }
@@ -25649,6 +25939,12 @@ components:
         gstin: { type: [string, 'null'] }
         gstVerified: { type: boolean }
         defaultAddressId: { type: [string, 'null'], format: uuid }
+        preferredLocale: { type: string, enum: [en, ta], description: The customer's app language (BR-191). }
+        profileComplete: { type: boolean, description: 'True once a real name and at least one onboarding field are set (BR-190).' }
+        missingFields:
+          type: array
+          description: Empty when complete. `fullName` when the name is blank or the sign-up placeholder; `age`, `gender`, `harvestPreferences` (any one satisfies the rule) when none is set (BR-190).
+          items: { type: string, enum: [fullName, age, gender, harvestPreferences] }
         createdAt: { type: string, format: date-time }
 
     UpdateCustomerProfileRequest:
@@ -25661,6 +25957,7 @@ components:
         gender: { type: [string, 'null'], enum: [FEMALE, MALE, OTHER, PREFER_NOT_TO_SAY, null] }
         harvestPreferences: { type: array, maxItems: 20, items: { type: string, minLength: 1, maxLength: 50 } }
         photoKey: { type: [string, 'null'], minLength: 1, maxLength: 500 }
+        preferredLocale: { type: string, enum: [en, ta], description: App language (BR-191). }
 
     CustomerGstDetailsRequest:
       type: object
@@ -25741,7 +26038,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, productId, name, grade, qtyKg, unitPrice, lineTotal]
+            required: [id, productId, name, grade, qtyKg, unitPrice, lineTotal, availability, availableKg]
             properties:
               id: { type: string, format: uuid }
               productId: { type: string, format: uuid }
@@ -25751,6 +26048,14 @@ components:
               unitPrice: { $ref: '#/components/schemas/Money' }
               lineTotal: { $ref: '#/components/schemas/Money' }
               certificationBadges: { type: array, items: { $ref: '#/components/schemas/CertificationType' } }
+              availability:
+                type: string
+                enum: [OK, LOW_STOCK, UNAVAILABLE]
+                description: |
+                  BR-203. `UNAVAILABLE`: the line's reservation is no longer fully on the shelf
+                  (checkout would be 409). `LOW_STOCK`: fully held, but the further ONLINE stock of
+                  this product and grade is below `cart_low_stock_threshold_kg`. `OK` otherwise.
+              availableKg: { $ref: '#/components/schemas/Quantity', description: 'BR-203 / BR-100: the most this line could hold right now (its backed hold + further ONLINE stock).' }
         subtotal: { $ref: '#/components/schemas/Money' }
         lockedAt: { type: [string, 'null'], format: date-time }
         lockExpiresAt: { type: [string, 'null'], format: date-time, description: Locked plus 24 hours (BR-22). }
@@ -25795,6 +26100,17 @@ components:
         fulfillmentType: { $ref: '#/components/schemas/FulfillmentType' }
         warehouseId: { type: string, format: uuid }
         itemCount: { type: integer }
+        thumbnails:
+          type: array
+          maxItems: 3
+          description: 'Customer order list and detail only (BR-195): up to three items, largest line first, for the order card. Catalog name and an allow-listed CDN image URL; never any farm information (BR-16).'
+          items:
+            type: object
+            additionalProperties: false
+            required: [productName, imageUrl]
+            properties:
+              productName: { type: string }
+              imageUrl: { type: string, format: uri }
         totalAmount: { $ref: '#/components/schemas/Money' }
         paymentStatus: { type: string, enum: [PENDING, PAID, PARTIALLY_PAID, REFUNDED, FAILED] }
         deliveryDate: { type: [string, 'null'], format: date }
@@ -25847,11 +26163,20 @@ components:
                   lineTotal: { $ref: '#/components/schemas/Money' }
             subtotal: { $ref: '#/components/schemas/Money' }
             deliveryCharge: { $ref: '#/components/schemas/Money' }
+            deliveryFee: { $ref: '#/components/schemas/Money', description: 'The delivery fee charged, as the server emits it (`deliveryCharge` is the earlier name and is not sent).' }
+            handlingFee: { $ref: '#/components/schemas/Money', description: 'system_config.handling_fee at checkout (BR-200); 0.00 for orders placed before it existed.' }
             discount: { $ref: '#/components/schemas/Money' }
             gstAmount: { $ref: '#/components/schemas/Money' }
             paymentMethod: { $ref: '#/components/schemas/PaymentMethod' }
             paymentMethodLabel: { type: string, example: Wallet, description: Human label of paymentMethod (BR-182). }
             pickupCode: { type: [string, 'null'], pattern: '^PICKUP-[0-9]{4}$', example: PICKUP-0039, description: 'Human reference derived from the order number sequence, PICKUP orders only (BR-182). NOT the handover OTP (BR-20) and grants nothing.' }
+            pickupQr:
+              type: [object, 'null']
+              description: 'PICKUP orders only (BR-194). `payload` is `TOHFA|PICKUP|v1|<orderNumber>|<pickupCode>|<sig>`, where `sig` is the first 22 base64url characters of an HMAC-SHA256 over `v1|<orderNumber>|<pickupCode>` with a server-held key, so staff can verify it. It carries only the order number and pickup code, never the handover OTP (BR-20), and grants nothing by itself.'
+              additionalProperties: false
+              required: [payload]
+              properties:
+                payload: { type: string, example: 'TOHFA|PICKUP|v1|TOH-2026-000039|PICKUP-0039|Zk3m0u9vQJ1x2yH4a7Bc5w' }
             deliverySlot: { $ref: '#/components/schemas/DeliverySlot' }
             deliveryAddressId: { type: [string, 'null'], format: uuid }
             otpRequired: { type: boolean, description: 4-digit handover OTP (BR-20). The code itself is never returned by the API. }
@@ -25863,6 +26188,7 @@ components:
       type: object
       required: [status, at]
       properties:
+        id: { type: string, format: uuid, description: 'The order_status_history row id. Present on GET /orders/{id}/tracking events; absent on SSE frames.' }
         status: { $ref: '#/components/schemas/OrderStatus' }
         at: { type: string, format: date-time }
         note: { type: [string, 'null'] }
@@ -25873,9 +26199,12 @@ components:
       properties:
         orderId: { type: string, format: uuid }
         status: { $ref: '#/components/schemas/OrderStatus' }
-        otpRequired: { type: boolean }
-        estimatedArrival: { type: [string, 'null'], format: date-time }
-        events: { type: array, items: { $ref: '#/components/schemas/OrderTrackingEvent' } }
+        otpRequired: { type: boolean, description: 'True while a handover OTP exists and has not been verified (BR-20).' }
+        estimatedArrival: { type: [string, 'null'], format: date, description: 'The order''s delivery date (YYYY-MM-DD); null for pickup orders. A date, not a timestamp.' }
+        events:
+          type: array
+          description: The order_status_history rows, oldest first.
+          items: { $ref: '#/components/schemas/OrderTrackingEvent' }
 
     Wallet:
       type: object
@@ -25887,6 +26216,14 @@ components:
         currency: { type: string, enum: [INR] }
         status: { type: string, enum: [ACTIVE, FROZEN] }
         updatedAt: { type: string, format: date-time }
+        topupLimits:
+          type: object
+          description: Only on `GET /wallets/me` (BR-193).
+          additionalProperties: false
+          required: [min, max]
+          properties:
+            min: { $ref: '#/components/schemas/Money' }
+            max: { $ref: '#/components/schemas/Money' }
 
     WalletTransaction:
       type: object
@@ -25906,6 +26243,8 @@ components:
         performedBy: { type: [string, 'null'], format: uuid }
         performedAt: { type: string, format: date-time }
         remarks: { type: [string, 'null'] }
+        txnCode: { type: string, example: TXN-9F3A1C7B20, description: 'Own ledger (`GET /wallets/me/transactions`) only (BR-197). Display code derived from the ledger id: `TXN-` plus ten upper-case hex characters.' }
+        orderNumber: { type: [string, 'null'], description: 'Own ledger only (BR-197). Number of the order a row refers to (`refType` ORDER), null otherwise.' }
         status:
           type: string
           enum: [COMPLETED]
@@ -26818,6 +27157,11 @@ components:
           minItems: 1
           items: { $ref: '#/components/schemas/ReturnRequestItemCreate' }
         note: { type: string, maxLength: 500 }
+        photoUploadIds:
+          type: array
+          maxItems: 5
+          description: BR-204. Ids from `POST /uploads/sign` with purpose ISSUE_PHOTO, signed by the caller (else 422).
+          items: { type: string, format: uuid }
 
     ReturnRequestItem:
       type: object
@@ -27349,6 +27693,7 @@ components:
         status: { $ref: '#/components/schemas/ReturnStatus' }
         reason: { type: string }
         note: { type: [string, 'null'] }
+        photos: { type: array, items: { type: string, format: uri }, description: 'BR-204: short-lived signed read URLs of the customer''s return photos.' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
 
@@ -27367,13 +27712,14 @@ components:
       description: |
         The customer's view of a return (BR-155). An allow-list: no warehouse, no customer id,
         no inspection internals (damaged quantity, condition) and nothing farm-identifying (BR-16).
-      required: [id, orderId, status, reason, note, createdAt, updatedAt]
+      required: [id, orderId, status, reason, note, photos, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         orderId: { type: string, format: uuid }
         status: { $ref: '#/components/schemas/ReturnStatus' }
         reason: { type: string }
         note: { type: [string, 'null'] }
+        photos: { type: array, items: { type: string, format: uri }, description: 'BR-204: short-lived signed read URLs of the photos attached when filing.' }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: [string, 'null'], format: date-time }
 
@@ -27787,7 +28133,7 @@ components:
         subject: { type: string, description: 'For an `own` actor, farmer-identifying text is replaced by `[redacted]` (BR-97).' }
         status:
           type: string
-          enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED]
+          enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED, CANCELLED]
           description: |
             API vocabulary, shared with `/admin/support-tickets`. The database stores
             `INVESTIGATING` for the second state; it is returned as `IN_PROGRESS`. The other values

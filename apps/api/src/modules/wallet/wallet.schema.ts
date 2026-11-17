@@ -42,6 +42,8 @@ export const walletResponse = z
     currency: z.literal('INR'),
     status: z.enum(walletStatuses),
     updatedAt: z.string().nullable().optional(),
+    /** BR-193: only on GET /wallets/me. */
+    topupLimits: z.object({ min: moneySchema, max: moneySchema }).strict().optional(),
   })
   .strict();
 export type WalletResponse = z.infer<typeof walletResponse>;
@@ -62,6 +64,9 @@ export const walletTransactionResponse = z
     performedAt: z.string(),
     remarks: z.string().nullable(),
     status: z.enum(walletTxnStatuses),
+    /** BR-197: own-ledger display fields. */
+    txnCode: z.string().optional(),
+    orderNumber: z.string().nullable().optional(),
   })
   .strict();
 export type WalletTransactionResponse = z.infer<typeof walletTransactionResponse>;

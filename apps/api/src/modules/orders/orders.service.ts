@@ -1,10 +1,22 @@
-import { lessThan, subtract, type Money } from '@tohfa/shared-types';
+import { lessThan, parseMoney, type Money } from '@tohfa/shared-types';
 import { logger } from '../../logger.js';
 import { parseRateBasisPoints } from '../sales/sales.math.js';
-import { computeCheckoutTotals, toDbFulfilmentType, todayInKolkata } from './orders.pricing.js';
+import {
+  computeCheckoutTotals,
+  toDbFulfilmentType,
+  todayInKolkata,
+  walletCoverage,
+  type CheckoutTotals,
+  type DbFulfilmentType,
+} from './orders.pricing.js';
+import { deliverySlotsService, type DeliverySlotsService } from '../delivery-slots/delivery-slots.service.js';
+import type { CartCheckoutRecord } from './orders.repo.js';
 import type { Actor } from '../../auth/requireAuth.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import { config } from '../../config.js';
+import { productImageUrl } from '../catalog/catalog.image.js';
+import { walletInsufficientError } from '../wallet/wallet.insufficient.js';
 import { AppError } from '../../http/problem.js';
 import { requireIdempotencyKey } from '../../http/idempotency.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
@@ -18,12 +30,14 @@ import {
   type OrderRecord,
   type OrderItemRecord,
 } from './orders.repo.js';
-import { paymentMethodLabel, pickupCode } from './orders.display.js';
+import { paymentMethodLabel, pickupCode, pickupQr } from './orders.display.js';
 import type {
   CheckoutRequest,
   ListOrdersQuery,
   OrderResponse,
   OrderSummaryResponse,
+  QuoteRequest,
+  QuoteResponse,
   ReorderResponse,
   ReorderUnavailableItem,
   ReorderUnavailableReason,
@@ -36,6 +50,12 @@ export interface OrdersService {
     input: CheckoutRequest,
     idempotencyKey?: string,
   ): Promise<OrderResponse>;
+
+  /**
+   * BR-200: what checkout would charge for the caller's cart right now. Read-only: reserves,
+   * debits, books and creates nothing. Uses the same pricing path as checkout.
+   */
+  quote(actor: Actor, scope: ResolvedScope, input: QuoteRequest): Promise<QuoteResponse>;
 
   getOrder(
     actor: Actor,
@@ -71,6 +91,10 @@ function reorderReason(err: unknown): ReorderUnavailableReason | null {
   return null;
 }
 
+function thumbnail(productName: string, iconKey: string | null, cropId: string) {
+  return { productName, imageUrl: productImageUrl(iconKey, cropId) };
+}
+
 function mapOrderResponse(
   order: OrderRecord,
   items: OrderItemRecord[],
@@ -83,12 +107,14 @@ function mapOrderResponse(
     fulfillmentType: order.fulfillmentType,
     warehouseId: order.warehouseId,
     itemCount: items.length,
+    thumbnails: items.slice(0, 3).map((it) => thumbnail(it.name, it.iconKey ?? null, it.productId)),
     totalAmount: order.totalAmount as Money,
     paymentStatus: order.paymentStatus,
     deliveryDate: order.deliveryDate,
     placedAt: order.placedAt.toISOString(),
     subtotal: order.subtotal as Money,
     deliveryFee: order.deliveryFee as Money,
+    handlingFee: order.handlingFee as Money,
     discount: order.discount as Money,
     gstAmount: order.gstAmount as Money,
     deliveryAddressId: order.deliveryAddressId,
@@ -96,6 +122,7 @@ function mapOrderResponse(
     paymentMethod: order.paymentMethod,
     paymentMethodLabel: paymentMethodLabel(order.paymentMethod),
     pickupCode: pickupCode(order.orderNumber, order.fulfillmentType),
+    pickupQr: pickupQr(order.orderNumber, order.fulfillmentType, config.JWT_SECRET),
     items: items.map((it) => ({
       id: it.id,
       productId: it.productId,
@@ -114,6 +141,7 @@ export function createOrdersService(opts: {
   db?: Executor;
   events?: OrderEventPublisher;
   cartSvc?: CartService;
+  slotsSvc?: DeliverySlotsService;
 } = {}): OrdersService {
   const repo = opts.repo ?? ordersRepo;
   const walletSvc = opts.walletSvc ?? walletService;
@@ -121,6 +149,103 @@ export function createOrdersService(opts: {
   // BR-163: order.confirmed after commit, best-effort, never on an idempotent replay.
   const events = opts.events ?? createOrderEventPublisher({ db });
   const cartSvc = opts.cartSvc ?? cartService;
+  const slotsSvc = opts.slotsSvc ?? deliverySlotsService;
+
+  /** BR-15 / BR-17: wallet-only in Track 1. Shared by checkout and quote. */
+  function assertPaymentMethod(input: CheckoutRequest): void {
+    if (input.paymentMethod === 'CASH') {
+      throw new AppError('INTERNAL', {
+        status: 501,
+        detail: 'Cash on delivery is disabled in Track 1 (BR-17).',
+      });
+    }
+    if (input.paymentMethod !== 'WALLET') {
+      throw new AppError('INTERNAL', {
+        status: 501,
+        detail: 'Only WALLET payment method is supported in Track 1.',
+      });
+    }
+  }
+
+  /**
+   * BR-200: THE pricing path. Checkout and quote both call this with the same cart and body, so
+   * the quoted total is the order total by construction. Validates the fulfilment inputs
+   * (BR-161), reads the fees and GST rate from system_config (BR-98) and calls the one pure
+   * pricing function (orders.pricing computeCheckoutTotals). Read-only.
+   */
+  async function priceCart(
+    executor: Executor,
+    customerId: string,
+    cart: CartCheckoutRecord,
+    input: CheckoutRequest,
+  ): Promise<{ fulfilment: DbFulfilmentType; totals: CheckoutTotals; gstRateBasisPoints: number; freeDeliveryThreshold: Money }> {
+    const deliveryConfig = await repo.getDeliveryConfig(executor);
+    // BR-161: HOME_DELIVERY / DELIVERY and PICKUP / WAREHOUSE_PICKUP are client aliases of the
+    // two DB enum values; everything below works on the DB value.
+    const fulfilment = toDbFulfilmentType(input.fulfillmentType);
+
+    if (fulfilment === 'DELIVERY') {
+      if (!deliveryConfig.homeDeliveryEnabled) {
+        throw new AppError('INTERNAL', {
+          status: 501,
+          detail: 'Home delivery is currently disabled.',
+        });
+      }
+      if (!input.deliveryAddressId) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: 'Delivery address is required for home delivery.',
+        });
+      }
+      if (!input.deliveryDate || !input.deliverySlot) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: 'Delivery date and slot are required for home delivery.',
+        });
+      }
+      // BR-161 / BR-36: the address must be the caller's own live address. Unknown, deleted
+      // and another customer's address are the same 404.
+      if (!(await repo.isOwnLiveAddress(executor, customerId, input.deliveryAddressId))) {
+        throw new AppError('NOT_FOUND', {
+          status: 404,
+          detail: `No address with id ${input.deliveryAddressId} is visible to you.`,
+        });
+      }
+      if (input.deliveryDate < todayInKolkata()) {
+        throw new AppError('VALIDATION_FAILED', {
+          status: 422,
+          detail: 'Delivery date cannot be in the past.',
+          errors: { deliveryDate: ['must be today or later (Asia/Kolkata)'] },
+        });
+      }
+    }
+
+    // BR-161 / BR-98: integer paise throughout; GST rate from system_config, half-up, per order.
+    const rawRate = await repo.getRetailGstRateRaw(executor);
+    let gstRateBasisPoints = parseRateBasisPoints(rawRate);
+    if (gstRateBasisPoints === null) {
+      logger.warn(
+        { key: 'retail_gst_rate_percent', present: rawRate !== undefined },
+        'checkout: GST rate missing or invalid in system_config; using the documented default 0 (BR-98i)',
+      );
+      gstRateBasisPoints = 0;
+    }
+    const totals = computeCheckoutTotals({
+      lineTotals: cart.items.map((it) => it.lineTotal),
+      fulfilment,
+      deliveryFee: deliveryConfig.deliveryFee,
+      freeDeliveryThreshold: deliveryConfig.freeDeliveryThreshold,
+      handlingFee: deliveryConfig.handlingFee,
+      gstRateBasisPoints,
+    });
+    return { fulfilment, totals, gstRateBasisPoints, freeDeliveryThreshold: deliveryConfig.freeDeliveryThreshold };
+  }
+
+  const slotFull = (): AppError =>
+    new AppError('SLOT_FULL', {
+      status: 409,
+      detail: 'Selected delivery slot is fully booked or closed (BR-201).',
+    });
 
   return {
     async checkout(actor, scope, input, idempotencyKey) {
@@ -131,19 +256,7 @@ export function createOrdersService(opts: {
         });
       }
 
-      if (input.paymentMethod === 'CASH') {
-        throw new AppError('INTERNAL', {
-          status: 501,
-          detail: 'Cash on delivery is disabled in Track 1 (BR-17).',
-        });
-      }
-
-      if (input.paymentMethod !== 'WALLET') {
-        throw new AppError('INTERNAL', {
-          status: 501,
-          detail: 'Only WALLET payment method is supported in Track 1.',
-        });
-      }
+      assertPaymentMethod(input);
 
       // Check idempotency replay before cart lookup
       if (idempotencyKey) {
@@ -176,73 +289,17 @@ export function createOrdersService(opts: {
         });
       }
 
-      const deliveryConfig = await repo.getDeliveryConfig(db);
-      // BR-161: HOME_DELIVERY / DELIVERY and PICKUP / WAREHOUSE_PICKUP are client aliases of the
-      // two DB enum values; everything below works on the DB value.
-      const fulfilment = toDbFulfilmentType(input.fulfillmentType);
-
-      if (fulfilment === 'DELIVERY') {
-        if (!deliveryConfig.homeDeliveryEnabled) {
-          throw new AppError('INTERNAL', {
-            status: 501,
-            detail: 'Home delivery is currently disabled.',
-          });
-        }
-        if (!input.deliveryAddressId) {
-          throw new AppError('VALIDATION_FAILED', {
-            status: 422,
-            detail: 'Delivery address is required for home delivery.',
-          });
-        }
-        if (!input.deliveryDate || !input.deliverySlot) {
-          throw new AppError('VALIDATION_FAILED', {
-            status: 422,
-            detail: 'Delivery date and slot are required for home delivery.',
-          });
-        }
-        // BR-161 / BR-36: the address must be the caller's own live address. Unknown, deleted
-        // and another customer's address are the same 404.
-        if (!(await repo.isOwnLiveAddress(db, actor.customerId, input.deliveryAddressId))) {
-          throw new AppError('NOT_FOUND', {
-            status: 404,
-            detail: `No address with id ${input.deliveryAddressId} is visible to you.`,
-          });
-        }
-        if (input.deliveryDate < todayInKolkata()) {
-          throw new AppError('VALIDATION_FAILED', {
-            status: 422,
-            detail: 'Delivery date cannot be in the past.',
-            errors: { deliveryDate: ['must be today or later (Asia/Kolkata)'] },
-          });
-        }
-      }
-
-      // BR-161 / BR-98: integer paise throughout; GST rate from system_config, half-up, per order.
-      const rawRate = await repo.getRetailGstRateRaw(db);
-      let gstRateBasisPoints = parseRateBasisPoints(rawRate);
-      if (gstRateBasisPoints === null) {
-        logger.warn(
-          { key: 'retail_gst_rate_percent', present: rawRate !== undefined },
-          'checkout: GST rate missing or invalid in system_config; using the documented default 0 (BR-98i)',
-        );
-        gstRateBasisPoints = 0;
-      }
-      const { subtotal, deliveryFee, discount, gstAmount, totalAmount } = computeCheckoutTotals({
-        lineTotals: cart.items.map((it) => it.lineTotal),
-        fulfilment,
-        deliveryFee: deliveryConfig.deliveryFee,
-        freeDeliveryThreshold: deliveryConfig.freeDeliveryThreshold,
-        gstRateBasisPoints,
-      });
+      // BR-200: the one pricing path shared with POST /orders/quote.
+      const { fulfilment, totals } = await priceCart(db, actor.customerId, cart, input);
+      const { subtotal, deliveryFee, handlingFee, discount, gstAmount, totalAmount } = totals;
 
       // Check wallet balance (BR-17): compared in paise, never as floats.
       const wallet = await walletSvc.getWalletForActor(actor);
       if (lessThan(wallet.balance as Money, totalAmount)) {
-        const shortfall = subtract(totalAmount, wallet.balance as Money);
-        throw new AppError('WALLET_INSUFFICIENT', {
-          status: 402,
+        throw walletInsufficientError({
+          balance: wallet.balance,
+          required: totalAmount,
           detail: `Wallet balance INR ${wallet.balance} is insufficient for order total INR ${totalAmount}.`,
-          meta: { shortfall },
         });
       }
 
@@ -257,10 +314,8 @@ export function createOrdersService(opts: {
             );
           } catch (err: unknown) {
             if (err instanceof Error && err.message === 'SLOT_CAPACITY_EXCEEDED') {
-              throw new AppError('CONFLICT', {
-                status: 409,
-                detail: 'Selected delivery slot is fully booked or closed.',
-              });
+              // BR-201: a specific code so the client can reopen the slot picker.
+              throw slotFull();
             }
             throw err;
           }
@@ -302,6 +357,7 @@ export function createOrdersService(opts: {
           deliverySlot: fulfilment === 'DELIVERY' ? input.deliverySlot : null,
           subtotal,
           deliveryFee,
+          handlingFee,
           discount,
           gstAmount,
           totalAmount,
@@ -341,6 +397,89 @@ export function createOrdersService(opts: {
 
       await events.publish('order.confirmed', placed.id);
       return placed;
+    },
+
+    async quote(actor, _scope, input) {
+      // BR-187: an own scope with no customer id narrows to nothing; same refusal as checkout.
+      if (!actor.customerId) {
+        throw new AppError('FORBIDDEN', {
+          status: 403,
+          detail: 'Orders can only be quoted for customers.',
+        });
+      }
+      assertPaymentMethod(input);
+
+      const cart = await repo.findCartForCheckout(db, actor.customerId);
+      if (!cart || cart.items.length === 0) {
+        throw new AppError('NOT_FOUND', {
+          status: 404,
+          detail: 'No active cart found for checkout.',
+        });
+      }
+
+      // BR-200: the same pricing path checkout runs, on the same cart rows.
+      const { fulfilment, totals, gstRateBasisPoints, freeDeliveryThreshold } = await priceCart(
+        db,
+        actor.customerId,
+        cart,
+        input,
+      );
+
+      // BR-201: checkout refuses a full or switched-off slot; the quote says so first, read-only.
+      let slot: QuoteResponse['slot'] = null;
+      if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
+        const view = await slotsSvc.describeOne(db, input.warehouseId, input.deliveryDate, input.deliverySlot);
+        if (!view.bookable) throw slotFull();
+        slot = {
+          date: view.date,
+          slot: view.slot,
+          label: view.label,
+          startsAt: view.startsAt,
+          cutoff: view.cutoff,
+          cutoffPassed: view.cutoffPassed,
+          capacity: view.capacity,
+          booked: view.booked,
+          available: view.available,
+          bookable: view.bookable,
+        };
+      }
+
+      // Read-only balance: no wallet is created by a quote (checkout creates one if missing).
+      const walletBalance = parseMoney((await repo.getCustomerWalletBalance(db, actor.customerId)) ?? '0.00');
+      const coverage = walletCoverage(walletBalance, totals.totalAmount);
+      const lockExpired =
+        cart.status !== 'LOCKED' || !cart.lockedUntil || new Date(cart.lockedUntil) <= new Date();
+
+      return {
+        fulfillmentType: input.fulfillmentType,
+        warehouseId: input.warehouseId,
+        cartId: cart.id,
+        cartStatus: cart.status,
+        lockExpiresAt: cart.lockedUntil ? new Date(cart.lockedUntil).toISOString() : null,
+        lockExpired,
+        lines: cart.items.map((it) => ({
+          id: it.id,
+          productId: it.productId,
+          name: it.name,
+          grade: it.grade,
+          qtyKg: it.qtyKg,
+          unitPrice: parseMoney(it.unitPrice),
+          lineTotal: parseMoney(it.lineTotal),
+        })),
+        itemCount: cart.items.length,
+        subtotal: totals.subtotal,
+        deliveryFee: totals.deliveryFee,
+        handlingFee: totals.handlingFee,
+        gstRateBasisPoints,
+        gstAmount: totals.gstAmount,
+        discount: totals.discount,
+        totalAmount: totals.totalAmount,
+        freeDeliveryThreshold: parseMoney(freeDeliveryThreshold),
+        walletBalance,
+        walletSufficient: coverage.sufficient,
+        shortfall: coverage.shortfall,
+        slot,
+      };
     },
 
     async reorder(actor, scope, orderId, idempotencyKey) {
@@ -433,6 +572,7 @@ export function createOrdersService(opts: {
         fulfillmentType: o.fulfillmentType,
         warehouseId: o.warehouseId,
         itemCount: o.itemCount,
+        thumbnails: (o.thumbs ?? []).map((t) => thumbnail(t.productName, t.iconKey, t.cropId)),
         totalAmount: o.totalAmount as Money,
         paymentStatus: o.paymentStatus,
         deliveryDate: o.deliveryDate,

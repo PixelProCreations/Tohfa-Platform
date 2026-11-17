@@ -15,7 +15,7 @@ import { consumeBucket } from '../../rate-limit/rateLimiter.js';
 import { redis } from '../../redis.js';
 import { requirePermission } from '../../rbac/requirePermission.js';
 import { serviceabilityRepo } from './serviceability.repo.js';
-import { createAreaRequestBody, listAreaRequestsQuery, serviceabilityQuery } from './serviceability.schema.js';
+import { createAreaRequestBody, listAreaRequestsQuery, listMyAreaRequestsQuery, serviceabilityQuery } from './serviceability.schema.js';
 import { serviceabilityService } from './serviceability.service.js';
 
 export const serviceabilityRouter: Router = Router();
@@ -59,6 +59,16 @@ serviceAreaRequestsRouter.post(
       { customerId: req.actor?.customerId ?? null, ip: req.ip ?? null },
     );
     res.status(created ? 201 : 200).json(request);
+  }),
+);
+
+serviceAreaRequestsRouter.get(
+  '/me',
+  requireAuth,
+  requirePermission('service_area.request.view_own'),
+  validate({ query: listMyAreaRequestsQuery }),
+  asyncHandler(async (req, res) => {
+    res.json(await serviceabilityService.listMine(req.scope?.customerId, getValidated(req, 'query', listMyAreaRequestsQuery)));
   }),
 );
 

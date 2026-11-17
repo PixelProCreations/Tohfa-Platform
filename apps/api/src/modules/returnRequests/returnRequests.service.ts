@@ -31,7 +31,10 @@ import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { confineToAssignedWarehouses } from '../warehouse-ops/scope.js';
 import { kgToGrams } from '../sales/sales.math.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
+import { defaultBlobStorage } from '../../storage/blobStorage.js';
+import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
 import {
+  findUploadsForReturn,
   returnRequestsRepo,
   type OrderForReturn,
   type ReturnRequestsRepo,
@@ -62,6 +65,10 @@ export interface ReturnRequestsServiceDeps {
   db: Executor;
   runTx: TransactionRunner;
   walletSvc: WalletService;
+  /** BR-204: upload lookup for photo validation. */
+  findUploads: typeof findUploadsForReturn;
+  /** BR-204: storage key -> short-lived signed read URL. */
+  photoUrl: (storageKey: string) => Promise<string>;
 }
 
 /**
@@ -90,6 +97,7 @@ function toCustomerSummary(row: ReturnSummaryResponse): CustomerReturnSummaryRes
     status: row.status,
     reason: row.reason,
     note: row.note,
+    photos: row.photos,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -128,6 +136,39 @@ export function createReturnRequestsService(
   const db = deps.db ?? pool;
   const runTx = deps.runTx ?? (deps.db ? <T>(fn: (tx: Executor) => Promise<T>) => fn(deps.db!) : withTransaction);
   const walletSvc = deps.walletSvc ?? walletService;
+  const findUploads = deps.findUploads ?? findUploadsForReturn;
+  const photoUrl = deps.photoUrl ?? ((key: string) => defaultBlobStorage.generateReadUrl(key));
+
+  /** BR-204: the repo carries storage keys; every response carries signed URLs instead. */
+  async function withPhotoUrls<T extends { photos: string[] }>(row: T): Promise<T> {
+    return { ...row, photos: await Promise.all(row.photos.map((key) => photoUrl(key))) };
+  }
+
+  /**
+   * BR-204: the caller's own ISSUE_PHOTO uploads, as storage keys; 422 for anything else (the same
+   * rule as support-ticket photos, customer-support.service resolvePhotos).
+   */
+  async function resolvePhotoKeys(executor: Executor, userId: string, uploadIds: string[]): Promise<string[]> {
+    if (uploadIds.length === 0) return [];
+    const unique = [...new Set(uploadIds)];
+    const byId = new Map((await findUploads(executor, unique)).map((u) => [u.id, u]));
+    return unique.map((id) => {
+      const upload = byId.get(id);
+      if (upload === undefined || upload.uploadedBy !== userId) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'A photo does not reference an upload you own.',
+          errors: { 'body.photoUploadIds': ['Must be uploads you signed yourself.'] },
+        });
+      }
+      if (uploadPurposeOfStorageKey(upload.storageKey) !== UploadPurpose.ISSUE_PHOTO) {
+        throw new AppError('VALIDATION_FAILED', {
+          detail: 'A photo must be an upload signed with purpose ISSUE_PHOTO.',
+          errors: { 'body.photoUploadIds': ['Must be ISSUE_PHOTO uploads.'] },
+        });
+      }
+      return upload.storageKey;
+    });
+  }
 
   // A warehouse admin holds the return permissions at `all`, and `scopedWhere` adds no warehouse
   // clause at `all`, so every read and write below first narrows a scope that carries assigned
@@ -136,7 +177,7 @@ export function createReturnRequestsService(
   async function loadVisible(scope: ResolvedScope, id: string): Promise<ReturnRequestResponse> {
     const found = await repo.findById(db, id, confineToAssignedWarehouses(scope));
     if (found === null) throw notFound(id);
-    return found;
+    return withPhotoUrls(found);
   }
 
   return {
@@ -196,12 +237,15 @@ export function createReturnRequestsService(
         }
       }
 
+      const photoKeys = await resolvePhotoKeys(db, actor.userId, input.photoUploadIds ?? []);
+
       const { returnRow, items } = await runTx(async (tx) => {
         const inserted = await repo.insertReturnRequest(tx, {
           orderId,
           customerId: order.customerId,
           reason: input.reason,
           note: input.note ?? null,
+          photoKeys,
         });
 
         const insertedItems = await repo.insertReturnRequestItems(
@@ -230,7 +274,7 @@ export function createReturnRequestsService(
         return { returnRow: inserted, items: insertedItems };
       });
 
-      const full = toResponse(returnRow, order.warehouseId, items);
+      const full = await withPhotoUrls(toResponse(returnRow, order.warehouseId, items));
       return asCustomer ? toCustomerReturn(full) : full;
     },
 
@@ -243,7 +287,7 @@ export function createReturnRequestsService(
         limit: query.limit,
       });
       return {
-        items: result.items.map(toCustomerSummary),
+        items: await Promise.all(result.items.map(async (row) => toCustomerSummary(await withPhotoUrls(row)))),
         page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
       };
     },
@@ -252,13 +296,13 @@ export function createReturnRequestsService(
       const found =
         scope.customerId === undefined ? null : await repo.findByIdForCustomer(db, id, scope.customerId);
       if (found === null) throw notFound(id);
-      return toCustomerReturn(found);
+      return toCustomerReturn(await withPhotoUrls(found));
     },
 
     async list(scope, query): Promise<ListReturnsResponse> {
       const result = await repo.list(db, { filters: query, scope: confineToAssignedWarehouses(scope) });
       return {
-        items: result.items,
+        items: await Promise.all(result.items.map(withPhotoUrls)),
         page: { nextCursor: result.nextCursor, hasMore: result.hasMore },
       };
     },
@@ -509,6 +553,7 @@ function toResponse(
     status: row.status,
     reason: row.reason,
     note: row.note,
+    photos: row.photoKeys ?? [],
     items,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt === null ? null : row.updatedAt.toISOString(),

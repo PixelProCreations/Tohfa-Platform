@@ -3,7 +3,7 @@
  * the caller's own customer id; a soft-deleted customer matches nothing.
  */
 import type { Executor } from '../../db/pool.js';
-import type { CustomerProfile, GstDetailsBody, UpdateProfileBody } from './customer-profile.schema.js';
+import type { CustomerProfileRecord, GstDetailsBody, UpdateProfileBody } from './customer-profile.schema.js';
 
 export interface EmailChallenge {
   id: string;
@@ -15,7 +15,7 @@ export interface EmailChallenge {
 }
 
 export interface CustomerProfileRepo {
-  findProfile(db: Executor, customerId: string): Promise<CustomerProfile | null>;
+  findProfile(db: Executor, customerId: string): Promise<CustomerProfileRecord | null>;
   updateProfile(db: Executor, customerId: string, patch: UpdateProfileBody): Promise<void>;
   updateGstDetails(db: Executor, customerId: string, body: GstDetailsBody): Promise<void>;
   /** True when another LIVE user already holds this email (uq_users_email_live). */
@@ -47,7 +47,7 @@ const OPEN_ORDER_STATUSES = [
   'OUT_FOR_DELIVERY',
 ];
 
-interface ProfileRow extends Omit<CustomerProfile, 'createdAt'> {
+interface ProfileRow extends Omit<CustomerProfileRecord, 'createdAt'> {
   createdAt: Date;
 }
 
@@ -59,7 +59,8 @@ export const customerProfileRepo: CustomerProfileRepo = {
               c.age::int AS age, c.gender, c.harvest_preferences AS "harvestPreferences",
               c.photo_key AS "photoKey", c.customer_type AS "customerType",
               c.business_name AS "businessName", c.gstin, c.gst_verified AS "gstVerified",
-              c.default_address_id AS "defaultAddressId", c.created_at AS "createdAt"
+              c.default_address_id AS "defaultAddressId", u.preferred_locale AS "preferredLocale",
+              c.created_at AS "createdAt"
          FROM customers c
          JOIN users u ON u.id = c.user_id
         WHERE c.id = $1 AND c.deleted_at IS NULL`,
@@ -70,11 +71,12 @@ export const customerProfileRepo: CustomerProfileRepo = {
   },
 
   async updateProfile(db, customerId, patch) {
-    if (patch.fullName !== undefined) {
+    if (patch.fullName !== undefined || patch.preferredLocale !== undefined) {
       await db.query(
-        `UPDATE users SET full_name = $2, updated_at = now()
+        `UPDATE users SET full_name = COALESCE($2, full_name),
+                          preferred_locale = COALESCE($3, preferred_locale), updated_at = now()
           WHERE id = (SELECT user_id FROM customers WHERE id = $1)`,
-        [customerId, patch.fullName],
+        [customerId, patch.fullName ?? null, patch.preferredLocale ?? null],
       );
     }
     const sets: string[] = [];

@@ -69,6 +69,7 @@ function makeDb(rec: Recorder): { db: Executor; runTx: <T>(fn: (tx: Executor) =>
 
 function summary(id: string, customerId: string): ReturnSummaryResponse {
   return {
+    photos: [],
     id,
     orderId: ORDER_ID,
     customerId,
@@ -299,7 +300,7 @@ describe('BR-155: a customer files a return only against their own delivered ord
       note: 'two crates moldy',
     });
     expect(Object.keys(result).sort()).toEqual(
-      ['createdAt', 'id', 'items', 'note', 'orderId', 'reason', 'status', 'updatedAt'].sort(),
+      ['createdAt', 'id', 'items', 'note', 'orderId', 'photos', 'reason', 'status', 'updatedAt'].sort(),
     );
     expectNoInternalKeys(result);
   });

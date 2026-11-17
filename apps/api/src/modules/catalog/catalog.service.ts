@@ -13,9 +13,12 @@ import type {
   HeroBannerView,
   HomeSectionView,
   ListProductsQuery,
+  ProductDetailView,
+  ProductVariantView,
   ProductView,
   SearchCatalogQuery,
 } from './catalog.schema.js';
+import { productImageUrl } from './catalog.image.js';
 import { homeContentRepo, type HomeContentSource } from '../home-content/home-content.repo.js';
 import { bannerDeeplink } from '../home-content/home-content.service.js';
 
@@ -27,9 +30,7 @@ import { bannerDeeplink } from '../home-content/home-content.service.js';
 export function serializeProduct(row: RawCatalogProductRow): ProductView {
   const photos = row.photo_url
     ? [row.photo_url]
-    : row.icon_key
-      ? [`https://cdn.tohfa.in/products/${row.icon_key}.jpg`]
-      : [`https://cdn.tohfa.in/products/${row.crop_id}.jpg`];
+    : [productImageUrl(row.icon_key, row.crop_id)];
 
   const priceP = toPaise(Number(row.price_per_kg).toFixed(2));
   const mrp = toPaise(row.compare_at_price == null ? null : Number(row.compare_at_price).toFixed(2));
@@ -60,6 +61,27 @@ export function serializeProduct(row: RawCatalogProductRow): ProductView {
     ratingAverage: row.rating_average == null ? null : Number(row.rating_average),
     ratingCount: row.rating_count ?? 0,
   };
+}
+
+/**
+ * BR-202 / BR-16: variants through the same allow-listed serializer as the product, keeping only
+ * the per-grade fields. Sorted by grade (GRADE_1 first), one entry per grade.
+ */
+export function serializeVariants(rows: RawCatalogProductRow[]): ProductVariantView[] {
+  const byGrade = new Map<string, ProductVariantView>();
+  for (const row of rows) {
+    const p = serializeProduct(row);
+    if (byGrade.has(p.grade)) continue;
+    byGrade.set(p.grade, {
+      grade: p.grade,
+      pricePerKg: p.pricePerKg,
+      availableKg: p.availableQty,
+      compareAtPrice: p.compareAtPrice,
+      discountPercent: p.discountPercent,
+      flags: { isComingSoon: p.isComingSoon, comingTomorrow: p.comingTomorrow, isUnsalable: p.isUnsalable },
+    });
+  }
+  return [...byGrade.values()].sort((a, b) => a.grade.localeCompare(b.grade));
 }
 
 /** Rupee decimal string -> integer paise (no float arithmetic on the displayed value). */
@@ -149,14 +171,16 @@ export class CatalogService {
     };
   }
 
-  async getProductById(id: string, db: Executor = pool): Promise<ProductView> {
+  async getProductById(id: string, db: Executor = pool): Promise<ProductDetailView> {
     const row = await this.repo.getProductById(db, id);
     if (row === null) {
       throw new AppError(GenericProblemCode.NOT_FOUND, {
         detail: 'Product not found or currently unavailable.',
       });
     }
-    return serializeProduct(row);
+    // BR-202: every sellable grade; a repo without the method (test fakes) yields the one row.
+    const grades = this.repo.listProductGrades ? await this.repo.listProductGrades(db, id) : [row];
+    return { ...serializeProduct(row), variants: serializeVariants(grades.length > 0 ? grades : [row]) };
   }
 
   async searchCatalog(

@@ -8,7 +8,7 @@ import type { Executor } from '../../db/pool.js';
 import { aScope } from '../../test/factories.js';
 import type { CustomerProfileRepo, EmailChallenge } from './customer-profile.repo.js';
 import { createCustomerProfileService, placeholderMobile } from './customer-profile.service.js';
-import { gstDetailsBody, updateProfileBody, type CustomerProfile } from './customer-profile.schema.js';
+import { gstDetailsBody, updateProfileBody, type CustomerProfileRecord } from './customer-profile.schema.js';
 
 const CUSTOMER = '40000000-0000-4000-8000-00000000000a';
 const scope = aScope({
@@ -19,7 +19,7 @@ const scope = aScope({
   userId: '30000000-0000-4000-8000-00000000000a',
 });
 
-function aProfile(): CustomerProfile {
+function aProfile(): CustomerProfileRecord {
   return {
     id: CUSTOMER,
     customerCode: 'CUST-0001',
@@ -36,6 +36,7 @@ function aProfile(): CustomerProfile {
     gstin: null,
     gstVerified: false,
     defaultAddressId: null,
+    preferredLocale: 'en',
     createdAt: '2026-11-01T00:00:00.000Z',
   };
 }
@@ -118,6 +119,21 @@ describe('BR-160: customer profile', () => {
     );
     expect(out).toMatchObject({ fullName: 'Asha K', age: 34, gender: 'FEMALE', harvestPreferences: ['carrot'], photoKey: 'u/1.jpg' });
     expect(updateProfileBody.safeParse({ email: 'x@y.z' }).success).toBe(false);
+  });
+
+  it('BR-191: PATCH sets preferredLocale en|ta and rejects anything else', async () => {
+    const { svc } = setup();
+    const out = await svc.update(scope, updateProfileBody.parse({ preferredLocale: 'ta' }));
+    expect(out.preferredLocale).toBe('ta');
+    expect(updateProfileBody.safeParse({ preferredLocale: 'fr' }).success).toBe(false);
+  });
+
+  it('BR-190: GET carries profileComplete and missingFields', async () => {
+    const { svc } = setup();
+    const before = await svc.get(scope);
+    expect(before).toMatchObject({ profileComplete: false, missingFields: ['age', 'gender', 'harvestPreferences'] });
+    const after = await svc.update(scope, updateProfileBody.parse({ gender: 'FEMALE' }));
+    expect(after).toMatchObject({ profileComplete: true, missingFields: [] });
   });
 
   it('BR-160: email changes only after the OTP sent to the new address is verified', async () => {

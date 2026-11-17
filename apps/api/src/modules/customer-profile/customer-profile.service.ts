@@ -20,6 +20,7 @@ import type { Executor } from '../../db/pool.js';
 import { pool, withTransaction } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
+import { profileCompleteness } from './customer-profile.completeness.js';
 import { customerProfileRepo, type CustomerProfileRepo } from './customer-profile.repo.js';
 import type {
   CustomerProfile,
@@ -102,7 +103,7 @@ export function createCustomerProfileService(
   async function load(executor: Executor, customerId: string): Promise<CustomerProfile> {
     const profile = await repo.findProfile(executor, customerId);
     if (profile === null) throw notFound();
-    return profile;
+    return { ...profile, ...profileCompleteness(profile) };
   }
 
   return {

@@ -55,6 +55,8 @@ export const ErrorCode = {
   ALLOCATION_SUM_INVALID: 'ALLOCATION_SUM_INVALID',
   /** The cart's stock reservation lock lapsed before checkout completed. */
   CART_LOCK_EXPIRED: 'CART_LOCK_EXPIRED',
+  /** The chosen delivery slot is fully booked or switched off (BR-201). */
+  SLOT_FULL: 'SLOT_FULL',
   /** The supplied OTP did not match the challenge. */
   OTP_INVALID: 'OTP_INVALID',
   /** The OTP challenge is past its validity window. */
@@ -185,6 +187,12 @@ export interface Problem {
   traceId?: string;
   /** Extra, problem-specific context (e.g. `{ ceilingPaise: 12000 }`). */
   meta?: Record<string, unknown>;
+  /** WALLET_INSUFFICIENT only (BR-192): required - balance, as a decimal money string. */
+  shortfall?: string;
+  /** WALLET_INSUFFICIENT only: the wallet balance when the debit was refused. */
+  balance?: string;
+  /** WALLET_INSUFFICIENT only: the amount the debit needed. */
+  required?: string;
 }
 
 export type ProblemCode = Problem['code'];

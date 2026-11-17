@@ -12,6 +12,7 @@
  *  - the status vocabulary is the API's: DB INVESTIGATING reads as IN_PROGRESS.
  */
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
+import { writeAuditLog } from '../../audit/auditLog.js';
 import { AppError } from '../../http/problem.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { defaultBlobStorage } from '../../storage/blobStorage.js';
@@ -45,6 +46,8 @@ export interface CustomerSupportService {
   listTickets(scope: ResolvedScope, query: ListTicketsQuery): Promise<CustomerTicketList>;
   getTicket(scope: ResolvedScope, ticketId: string): Promise<CustomerTicketDetail>;
   addMessage(scope: ResolvedScope, ticketId: string, body: SendMessageBody): Promise<CustomerTicketMessage>;
+  /** BR-196: cancel an own OPEN ticket; any other status is 409. */
+  cancelTicket(scope: ResolvedScope, ticketId: string): Promise<CustomerTicketDetail>;
 }
 
 export interface CustomerSupportDeps {
@@ -78,6 +81,7 @@ export function createCustomerSupportService(deps: Partial<CustomerSupportDeps> 
       id: row.id,
       ticketNumber: row.ticket_number,
       orderId: row.order_id,
+      orderNumber: row.order_number ?? null,
       category: row.category as TicketCategory,
       subject: redactor.redact(row.subject).text,
       description: redactor.redact(row.description ?? '').text,
@@ -168,6 +172,34 @@ export function createCustomerSupportService(deps: Partial<CustomerSupportDeps> 
       const row = await repo.findTicket(db, customerId, ticketId);
       if (row === null) throw ticketNotFound();
       return detail(db, customerId, row);
+    },
+
+    async cancelTicket(scope, ticketId) {
+      const customerId = requireCustomerId(scope);
+      return transaction(async (tx) => {
+        const row = await repo.findTicket(tx, customerId, ticketId, true);
+        if (row === null) throw ticketNotFound();
+        if (row.status !== 'OPEN') {
+          throw new AppError('CONFLICT', {
+            detail: 'Only an open ticket can be cancelled.',
+            meta: { reason: 'TICKET_NOT_OPEN', status: apiStatus(row.status) },
+          });
+        }
+        if (!(await repo.cancelOpenTicket(tx, row.id))) {
+          throw new AppError('CONFLICT', { detail: 'Only an open ticket can be cancelled.', meta: { reason: 'TICKET_NOT_OPEN' } });
+        }
+        await writeAuditLog(tx, {
+          actorId: scope.userId,
+          actorRole: scope.roleCode,
+          actionCode: 'support.ticket.cancel',
+          entityType: 'support_ticket',
+          entityId: row.id,
+          before: { status: 'OPEN' },
+          after: { status: 'CANCELLED' },
+        });
+        const fresh = await repo.findTicket(tx, customerId, row.id);
+        return detail(tx, customerId, fresh ?? { ...row, status: 'CANCELLED' });
+      });
     },
 
     async addMessage(scope, ticketId, body) {

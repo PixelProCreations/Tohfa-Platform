@@ -67,3 +67,17 @@ export const listAreaRequestsQuery = z
   })
   .strict();
 export type ListAreaRequestsQuery = z.infer<typeof listAreaRequestsQuery>;
+
+/** GET /v1/service-area-requests/me (BR-198): the caller's own requests, newest first. */
+export const listMyAreaRequestsQuery = z
+  .object({
+    page: z.coerce.number().int().min(1).max(10000).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type ListMyAreaRequestsQuery = z.infer<typeof listMyAreaRequestsQuery>;
+
+export const myAreaRequestListResponse = z
+  .object({ items: z.array(areaRequestSchema), total: z.number().int(), page: z.number().int(), limit: z.number().int() })
+  .strict();
+export type MyAreaRequestList = z.infer<typeof myAreaRequestListResponse>;

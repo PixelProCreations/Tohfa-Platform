@@ -15,6 +15,11 @@ export interface CustomerOtpRepo {
    * (UNIQUE customers.user_id, UNIQUE wallets.customer_id). Returns the customer id.
    */
   ensureCustomerAndWallet(db: Executor, userId: string): Promise<string>;
+  /** BR-190: the onboarding fields that decide `profileComplete`. */
+  onboardingFields(
+    db: Executor,
+    customerId: string,
+  ): Promise<{ age: number | null; gender: string | null; harvestPreferences: string[] }>;
 }
 
 export const customerOtpRepo: CustomerOtpRepo = {
@@ -49,5 +54,15 @@ export const customerOtpRepo: CustomerOtpRepo = {
       [customerId],
     );
     return customerId;
+  },
+
+  async onboardingFields(db, customerId) {
+    const res = await db.query<{ age: number | null; gender: string | null; harvestPreferences: string[] | null }>(
+      `SELECT age::int AS age, gender, harvest_preferences AS "harvestPreferences"
+         FROM customers WHERE id = $1`,
+      [customerId],
+    );
+    const row = res.rows[0];
+    return { age: row?.age ?? null, gender: row?.gender ?? null, harvestPreferences: row?.harvestPreferences ?? [] };
   },
 };

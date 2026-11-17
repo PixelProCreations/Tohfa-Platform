@@ -19,6 +19,8 @@ import type {
   AreaRequest,
   CreateAreaRequestBody,
   ListAreaRequestsQuery,
+  ListMyAreaRequestsQuery,
+  MyAreaRequestList,
   ServiceabilityQuery,
   ServiceabilityResponse,
 } from './serviceability.schema.js';
@@ -48,6 +50,8 @@ export interface ServiceabilityService {
     who: { customerId: string | null; ip: string | null },
   ): Promise<{ request: AreaRequest; created: boolean }>;
   listRequests(q: ListAreaRequestsQuery): Promise<{ items: AdminAreaRequest[] }>;
+  /** BR-198: own requests. A scope with no customer id narrows to nothing (BR-187). */
+  listMine(customerId: string | undefined, q: ListMyAreaRequestsQuery): Promise<MyAreaRequestList>;
 }
 
 export function createServiceabilityService(
@@ -122,6 +126,12 @@ export function createServiceabilityService(
         contact: body.contact ?? null,
       });
       return { request: toAreaRequest(row), created };
+    },
+
+    async listMine(customerId, q) {
+      if (customerId === undefined) return { items: [], total: 0, page: q.page, limit: q.limit };
+      const { rows, total } = await repo.listOwnAreaRequests(db, customerId, q.page, q.limit);
+      return { items: rows.map(toAreaRequest), total, page: q.page, limit: q.limit };
     },
 
     async listRequests(q) {

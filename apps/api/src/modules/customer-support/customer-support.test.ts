@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from '../../http/errorHandler.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { aScope, newId } from '../../test/factories.js';
 import type { CustomerSupportRepo, MessageDbRow, TicketDbRow } from './customer-support.repo.js';
+import { createTicketBody } from './customer-support.schema.js';
 import { createCustomerSupportRouter } from './customer-support.routes.js';
 import { createCustomerSupportService, type CustomerSupportService } from './customer-support.service.js';
 
@@ -23,6 +24,8 @@ const ticket = (over: Partial<TicketDbRow> = {}): TicketDbRow => ({
 function build(opts: { tickets?: TicketDbRow[]; messages?: MessageDbRow[]; uploads?: Array<{ id: string; storageKey: string; uploadedBy: string | null }>; terms?: string[] } = {}) {
   const tickets = opts.tickets ?? [];
   const inserted: unknown[] = [];
+  const audits: unknown[][] = [];
+  const txDb = { query: async (sql: string, params?: unknown[]) => { if (/audit_log/i.test(sql)) { audits.push(params ?? []); return { rows: [{ id: 'a' }], rowCount: 1 }; } return { rows: [], rowCount: 0 }; } } as unknown as Executor;
   const repo: CustomerSupportRepo = {
     async createTicket(_d, customerId, input) {
       expect(customerId).toBe(CUSTOMER);
@@ -35,14 +38,20 @@ function build(opts: { tickets?: TicketDbRow[]; messages?: MessageDbRow[]; uploa
     async listMessages() { return opts.messages ?? []; },
     async insertMessage(_d, input) { inserted.push(input); return { id: newId(), ticket_id: input.ticketId, from_customer: true, body: input.body, attachment_key: input.attachmentKey, created_at: new Date() }; },
     async touchTicket() {},
+    async cancelOpenTicket(_d, id) {
+      const t = tickets.find((x) => x.id === id);
+      if (t === undefined || t.status !== 'OPEN') return false;
+      t.status = 'CANCELLED';
+      return true;
+    },
     async orderBelongsToCustomer(_d, _c, orderId) { return orderId === OWN_ORDER; },
     async findUploads() { return opts.uploads ?? []; },
   };
   const service = createCustomerSupportService({
-    repo, db, transaction: (fn) => fn(db), publicUrl: (k) => `https://cdn/${k}`,
+    repo, db, transaction: (fn) => fn(txDb), publicUrl: (k) => `https://cdn/${k}`,
     identityLookup: async () => ({ terms: opts.terms ?? [], personNames: [] }),
   });
-  return { service, tickets, inserted };
+  return { service, tickets, inserted, audits };
 }
 const OWN_ORDER = newId();
 
@@ -101,6 +110,37 @@ describe('customer support tickets: service', () => {
     await expect(build({ tickets: [t] }).service.addMessage(scope, t.id, { message: 'hi' })).rejects.toMatchObject({ code: 'CONFLICT', status: 409 });
   });
 
+  it('BR-196: cancels an own OPEN ticket, writes an audit row, and a second cancel is 409', async () => {
+    const t = ticket();
+    const { service, audits } = build({ tickets: [t] });
+    const out = await service.cancelTicket(scope, t.id);
+    expect(out.status).toBe('CANCELLED');
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toContain('support.ticket.cancel');
+    await expect(service.cancelTicket(scope, t.id)).rejects.toMatchObject({ code: 'CONFLICT', status: 409 });
+  });
+
+  it('BR-196: CLOSED, RESOLVED and IN_PROGRESS tickets cannot be cancelled (409); a stranger gets 404', async () => {
+    for (const status of ['CLOSED', 'RESOLVED', 'INVESTIGATING']) {
+      const t = ticket({ status });
+      await expect(build({ tickets: [t] }).service.cancelTicket(scope, t.id)).rejects.toMatchObject({ status: 409 });
+    }
+    const t = ticket();
+    const stranger = aScope({ level: ScopeLevel.OWN, roleCode: RoleCode.CUSTOMER, permission: 'support.ticket.create_own', userId: USER, customerId: newId() });
+    await expect(build({ tickets: [t] }).service.cancelTicket(stranger, t.id)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+  });
+
+  it('BR-197: a ticket linked to an order carries its orderNumber', async () => {
+    const t = ticket({ order_number: 'TOH-2026-000039' });
+    expect((await build({ tickets: [t] }).service.getTicket(scope, t.id)).orderNumber).toBe('TOH-2026-000039');
+  });
+
+  it('BR-199: up to five photos are accepted, six are refused', () => {
+    const ids = Array.from({ length: 6 }, () => newId());
+    expect(createTicketBody.safeParse({ subject: 's', description: 'd', photoUploadIds: ids.slice(0, 5) }).success).toBe(true);
+    expect(createTicketBody.safeParse({ subject: 's', description: 'd', photoUploadIds: ids }).success).toBe(false);
+  });
+
   it('adds a customer message to an open ticket', async () => {
     const t = ticket();
     const { service, inserted } = build({ tickets: [t] });
@@ -129,6 +169,7 @@ describe('customer support tickets: routes (real middleware, stub service)', () 
     expect((await request(app).get('/v1/support/tickets').set('Authorization', customer)).status).toBe(200);
     expect((await request(app).get(`/v1/support/tickets/${id}`).set('Authorization', customer)).status).toBe(200);
     expect((await request(app).post('/v1/support/tickets').set('Authorization', customer).send({ subject: 's', description: 'd' })).status).toBe(201);
+    expect((await request(app).post(`/v1/support/tickets/${id}/cancel`).set('Authorization', customer)).status).toBe(200);
     expect((await request(app).post(`/v1/support/tickets/${id}/messages`).set('Authorization', customer).send({ message: 'm' })).status).toBe(201);
   });
 

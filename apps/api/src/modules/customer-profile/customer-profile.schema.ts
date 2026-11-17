@@ -19,6 +19,8 @@ export const updateProfileBody = z
     harvestPreferences: z.array(z.string().trim().min(1).max(50)).max(20).optional(),
     /** An object key returned by POST /uploads; null removes the photo. */
     photoKey: z.string().trim().min(1).max(500).nullable().optional(),
+    /** BR-191: the customer's own app language. */
+    preferredLocale: z.enum(['en', 'ta']).optional(),
   })
   .strict()
   .refine((b) => Object.keys(b).length > 0, { message: 'at least one field is required' });
@@ -64,9 +66,14 @@ export const customerProfileSchema = z.object({
   gstin: z.string().nullable(),
   gstVerified: z.boolean(),
   defaultAddressId: z.string().uuid().nullable(),
+  preferredLocale: z.enum(['en', 'ta']),
+  profileComplete: z.boolean(),
+  missingFields: z.array(z.enum(['fullName', 'age', 'gender', 'harvestPreferences'])),
   createdAt: z.string(),
 });
 export type CustomerProfile = z.infer<typeof customerProfileSchema>;
+/** What the repo returns; the service adds the derived completeness members (BR-190). */
+export type CustomerProfileRecord = Omit<CustomerProfile, 'profileComplete' | 'missingFields'>;
 
 export interface EmailOtpSentResponse {
   email: string;

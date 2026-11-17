@@ -225,6 +225,7 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
     expect(checkoutRes.status).toBe(402);
     expect(checkoutRes.body.code).toBe('WALLET_INSUFFICIENT');
     expect(checkoutRes.body.meta?.shortfall).toBe('300.00'); // 500 - 200 = 300
+    expect(checkoutRes.body).toMatchObject({ shortfall: '300.00', balance: '200.00', required: '500.00' }); // BR-192
 
     // 3. Assert NO order row exists for customer 1
     const orderCountRes = await pool.query<{ count: string }>(

@@ -36,6 +36,13 @@ export interface ServiceabilityRepo {
   /** Idempotent per (requester, area): `created` is false when the row already existed. */
   insertAreaRequest(db: Executor, r: InsertAreaRequest): Promise<{ row: AreaRequestRow; created: boolean }>;
   listAreaRequests(db: Executor, status: string | undefined, limit: number): Promise<AreaRequestRow[]>;
+  /** BR-198: strictly the caller's own rows (customer_id = $1). */
+  listOwnAreaRequests(
+    db: Executor,
+    customerId: string,
+    page: number,
+    limit: number,
+  ): Promise<{ rows: AreaRequestRow[]; total: number }>;
 }
 
 const COLS = 'id, area, locality, city, pincode, contact, customer_id, status, created_at';
@@ -83,5 +90,20 @@ export const serviceabilityRepo: ServiceabilityRepo = {
       [status ?? null, limit],
     );
     return res.rows;
+  },
+
+  async listOwnAreaRequests(db, customerId, page, limit) {
+    const count = await db.query<{ total: number }>(
+      'SELECT count(*)::int AS total FROM service_area_requests WHERE customer_id = $1',
+      [customerId],
+    );
+    const res = await db.query<AreaRequestRow>(
+      `SELECT ${COLS} FROM service_area_requests
+        WHERE customer_id = $1
+        ORDER BY created_at DESC, id DESC
+        LIMIT $2 OFFSET $3`,
+      [customerId, limit, (page - 1) * limit],
+    );
+    return { rows: res.rows, total: count.rows[0]?.total ?? 0 };
   },
 };

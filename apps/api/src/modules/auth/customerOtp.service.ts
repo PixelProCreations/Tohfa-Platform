@@ -8,6 +8,11 @@ import { authRepo, type AuthRepo, type UserRow } from './auth.repo.js';
 import type { CustomerOtpSendBody, CustomerOtpVerifyBody, SendOtpBody } from './auth.schema.js';
 import { authService } from './auth.service.js';
 import { customerOtpRepo, type CustomerOtpRepo } from './customerOtp.repo.js';
+import {
+  PLACEHOLDER_CUSTOMER_NAME,
+  profileCompleteness,
+  type MissingProfileField,
+} from '../customer-profile/customer-profile.completeness.js';
 
 /**
  * BR-153: passwordless customer sign-in (mobile + OTP).
@@ -22,7 +27,7 @@ import { customerOtpRepo, type CustomerOtpRepo } from './customerOtp.repo.js';
 
 const OTP_PURPOSE = 'LOGIN' as const;
 /** full_name is NOT NULL; the customer edits it from their profile. */
-const DEFAULT_CUSTOMER_NAME = 'TOHFA Customer';
+const DEFAULT_CUSTOMER_NAME = PLACEHOLDER_CUSTOMER_NAME;
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 function hashValue(value: string): string {
@@ -63,6 +68,8 @@ export interface CustomerOtpVerifyResult {
     status: 'ACTIVE';
     hasPassword: boolean;
     customerId: string;
+    profileComplete: boolean;
+    missingFields: MissingProfileField[];
     roles: { code: RoleCode }[];
   };
 }
@@ -226,6 +233,11 @@ export function createCustomerOtpService(overrides: Partial<CustomerOtpDeps> = {
       });
       await repo.updateUserLastLogin(db, user.id);
 
+      const completeness = profileCompleteness({
+        fullName: user.full_name,
+        ...(await customerRepo.onboardingFields(db, customerId)),
+      });
+
       return {
         accessToken: tokenPair.accessToken,
         refreshToken: tokenPair.refreshToken,
@@ -241,6 +253,7 @@ export function createCustomerOtpService(overrides: Partial<CustomerOtpDeps> = {
           status: 'ACTIVE',
           hasPassword: user.password_hash !== null,
           customerId,
+          ...completeness,
           roles: [{ code: 'CUSTOMER' as RoleCode }],
         },
       };

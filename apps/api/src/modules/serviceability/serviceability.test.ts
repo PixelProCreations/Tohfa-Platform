@@ -28,6 +28,10 @@ class FakeRepo implements ServiceabilityRepo {
   async listAreaRequests(_d: Executor, status: string | undefined, limit: number) {
     return [...this.requests.values()].filter((r) => !status || r.status === status).slice(0, limit);
   }
+  async listOwnAreaRequests(_d: Executor, customerId: string, page: number, limit: number) {
+    const own = [...this.requests.values()].filter((r) => r.customer_id === customerId);
+    return { rows: own.slice((page - 1) * limit, page * limit), total: own.length };
+  }
 }
 const pickups: PickupPointsRepo = {
   async listPublic() {
@@ -100,6 +104,20 @@ describe('BR-171: service-area requests', () => {
     expect(request).not.toHaveProperty('customerId');
     const admin = await svc.listRequests({ limit: 50 });
     expect(admin.items[0]?.contact).toBe(body.contact);
+  });
+
+  it("BR-198: GET /me lists only the caller's own requests, paged; no customer id narrows to nothing", async () => {
+    const { svc } = make();
+    const me = '30000000-0000-4000-8000-000000000001';
+    await svc.createRequest(body, { customerId: me, ip: null });
+    await svc.createRequest({ ...body, area: 'Lovedale' }, { customerId: me, ip: null });
+    await svc.createRequest({ ...body, area: 'Kotagiri' }, { customerId: '30000000-0000-4000-8000-000000000002', ip: null });
+    await svc.createRequest({ ...body, area: 'Anon' }, { customerId: null, ip: null });
+    const mine = await svc.listMine(me, { page: 1, limit: 1 });
+    expect(mine).toMatchObject({ total: 2, page: 1, limit: 1 });
+    expect(mine.items).toHaveLength(1);
+    expect(mine.items[0]).not.toHaveProperty('contact');
+    expect((await svc.listMine(undefined, { page: 1, limit: 20 })).items).toEqual([]);
   });
 
   it('body is strict and validated', () => {

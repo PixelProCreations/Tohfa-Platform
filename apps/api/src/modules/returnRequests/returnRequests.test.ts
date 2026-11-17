@@ -115,6 +115,7 @@ function buildFakeRepo(options: {
 
   function toResponse(r: FakeReturn): ReturnRequestResponse {
     return {
+      photos: [],
       id: r.id,
       orderId: r.orderId,
       customerId: r.customerId,

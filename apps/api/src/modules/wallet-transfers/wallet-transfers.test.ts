@@ -57,6 +57,7 @@ class World {
   wallets: WalletRepo = {
     findWalletByOwner: async (_db, _t, id) => this.wallet(id),
     createWallet: async (_db, _t, id) => { this.balances.set(`w-${id}`, parseMoney('0')); return this.wallet(id)!; },
+    findWalletBalance: async () => null,
     insertTransaction: async () => { throw new Error('unused'); },
     findTransactionByIdempotencyKey: async () => null,
     listTransactions: async () => ({ items: [], nextCursor: null, hasMore: false }),
@@ -80,6 +81,7 @@ class World {
 
   walletSvc: WalletService = {
     getWalletForActor: async () => { throw new Error('unused'); },
+    getWalletWithLimits: async () => { throw new Error('unused'); },
     listTransactionsForActor: async () => { throw new Error('unused'); },
     move: async (_s, input: WalletMoveInput): Promise<WalletTransactionResponse> => {
       const cur = this.balances.get(input.walletId!)!;

@@ -84,8 +84,8 @@ describe('BR-162: reorder', () => {
     vi.mocked(cartSvc.getCart).mockResolvedValueOnce({
       ...emptyCart,
       items: [
-        { id: 'c1', productId: 'p-carrot', name: 'Carrot', grade: 'GRADE_1', qtyKg: '2.000', unitPrice: '50.00', lineTotal: '100.00' },
-        { id: 'c2', productId: 'p-beans', name: 'Beans', grade: 'GRADE_1', qtyKg: '0.500', unitPrice: '50.00', lineTotal: '25.00' },
+        { id: 'c1', productId: 'p-carrot', name: 'Carrot', grade: 'GRADE_1', qtyKg: '2.000', unitPrice: '50.00', lineTotal: '100.00', availability: 'OK', availableKg: '10.000' },
+        { id: 'c2', productId: 'p-beans', name: 'Beans', grade: 'GRADE_1', qtyKg: '0.500', unitPrice: '50.00', lineTotal: '25.00', availability: 'OK', availableKg: '10.000' },
       ],
     });
     const res = await svc.reorder(actorFor(CUSTOMER), scope, ORDER, 'k');
