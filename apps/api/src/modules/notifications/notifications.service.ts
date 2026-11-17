@@ -30,6 +30,7 @@ export const EVENT_TEMPLATE_MAP: Record<DomainEventName, string> = {
   'order.dispatched': 'ORDER_DISPATCHED',
   'order.delivered': 'ORDER_DELIVERED',
   'wallet.credited': 'WALLET_CREDITED',
+  'wallet.debited': 'WALLET_DEBITED',
 };
 
 /**
@@ -44,6 +45,26 @@ export const EVENT_CATEGORY_MAP: Partial<Record<DomainEventName, NotificationCat
   'counter_offer.expiring': 'MARKETING',
   'payout.released': 'PAYROLL',
   'wallet.credited': 'PAYROLL',
+  'wallet.debited': 'PAYROLL',
+};
+
+/**
+ * BR-185: events that also go out by EMAIL (data table, edit to change).
+ * `transactional` events are always emailed (BR-52/BR-65); the rest honour the
+ * BR-52 category opt-out like push.
+ */
+export const EVENT_EMAIL_MAP: Partial<Record<DomainEventName, { transactional: boolean }>> = {
+  'order.confirmed': { transactional: true },
+  'order.dispatched': { transactional: true },
+  'order.delivered': { transactional: true },
+  'wallet.credited': { transactional: true },
+  'wallet.debited': { transactional: true },
+  'counter_offer.received': { transactional: false },
+  'counter_offer.expiring': { transactional: false },
+  'payout.released': { transactional: false },
+  'farmer.application.approved': { transactional: false },
+  'farmer.application.rejected': { transactional: false },
+  'farmer.application.info_requested': { transactional: false },
 };
 
 export type CategoryPreferenceLookup = Pick<NotificationPreferencesRepo, 'isCategoryEnabled'>;
@@ -283,6 +304,42 @@ export function createNotificationsService(
         }
       } catch (err) {
         logger.warn({ err, userId, eventName }, 'failed to queue SMS notification dispatch job');
+      }
+
+      // 4. Queue EMAIL (BR-185). Recipient/verification is resolved in the job.
+      const emailRule = EVENT_EMAIL_MAP[eventName];
+      if (emailRule && (emailRule.transactional || !pushSuppressed)) {
+        try {
+          const emailTemplate = (await repo.findTemplate(pool, templateCode, 'EMAIL', locale)) ?? template;
+          const emailTitle = emailTemplate.subject
+            ? interpolateTemplate(emailTemplate.subject, rawData)
+            : title;
+          const emailBody = interpolateTemplate(emailTemplate.body_template, rawData);
+          const emailRow = await repo.createNotification(pool, {
+            userId,
+            templateId: emailTemplate.id,
+            channel: 'EMAIL',
+            title: emailTitle,
+            body: emailBody,
+            locale: emailTemplate.locale,
+            data: rawData,
+            dedupeKey: `email:${dedupeKey}`,
+          });
+          if (emailRow) {
+            await enqueue('notification-dispatch', {
+              notificationId: emailRow.id,
+              channel: 'EMAIL',
+              userId,
+              templateCode,
+              title: emailTitle,
+              body: emailBody,
+              locale: emailTemplate.locale,
+              dedupeKey: `email:${dedupeKey}`,
+            });
+          }
+        } catch (err) {
+          logger.warn({ err, userId, eventName }, 'failed to queue email notification dispatch job');
+        }
       }
 
       return inAppRow;

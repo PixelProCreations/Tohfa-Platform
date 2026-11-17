@@ -44,7 +44,22 @@ export interface TopupWithPayment extends TopupRecord {
   gateway_payment_id: string | null;
 }
 
+export interface TopupReceiptRow {
+  id: string;
+  channel: string;
+  amount: string;
+  status: 'PENDING' | 'SUCCESS' | 'FAILED';
+  created_at: Date;
+  updated_at: Date | null;
+  wallet_txn_id: string | null;
+  balance_after: string | null;
+  txn_at: Date | null;
+}
+
 export interface TopupRepo {
+  /** BR-183: the customer's OWN top-up with its ledger row; null for an unknown or foreign id. */
+  findOwnTopupReceipt(db: Executor, customerId: string, topupId: string): Promise<TopupReceiptRow | null>;
+
   createTopupIntent(
     db: Executor,
     params: {
@@ -150,6 +165,19 @@ export interface TopupRepo {
 export type CashTopupCustomerMatch = { kind: 'mobile'; digits: string } | { kind: 'code'; code: string };
 
 export const topupRepo: TopupRepo = {
+  async findOwnTopupReceipt(db, customerId, topupId) {
+    const res = await db.query<TopupReceiptRow>(
+      `SELECT t.id, t.channel::text AS channel, t.amount::text AS amount, t.status,
+              t.created_at, t.updated_at, t.wallet_txn_id,
+              wt.balance_after::text AS balance_after, wt.created_at AS txn_at
+         FROM topups t
+         LEFT JOIN wallet_transactions wt ON wt.id = t.wallet_txn_id
+        WHERE t.id = $1 AND t.customer_id = $2`,
+      [topupId, customerId],
+    );
+    return res.rows[0] ?? null;
+  },
+
   async createTopupIntent(db, params) {
     const paymentRes = await db.query<PaymentRecord>(
       `INSERT INTO payments (

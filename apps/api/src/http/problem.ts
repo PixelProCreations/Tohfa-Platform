@@ -69,6 +69,8 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   OTP_LOCKED: 429,
   OTP_RESEND_TOO_SOON: 429,
   OTP_SMS_DELIVERY_FAILED: 502,
+  EMAIL_NOT_CONFIGURED: 503,
+  EMAIL_DELIVERY_FAILED: 502,
   AUDIT_QUARTER_TAKEN: 409,
   SCORE_OUT_OF_RANGE: 422,
   AUDIT_INCOMPLETE: 422,
@@ -97,6 +99,9 @@ const DEFAULT_STATUS: Record<ProblemCode, number> = {
   ROLE_NOT_FOUND: 422,
   COMMUNITY_PLANTING_NOT_CONFIGURED: 503,
   PASSWORD_ALREADY_SET: 409,
+  WALLET_TRANSFER_DISABLED: 403,
+  WALLET_TRANSFER_LIMIT_EXCEEDED: 422,
+  WALLET_TRANSFER_SELF: 422,
 };
 
 /** Short, stable, human-readable titles. Localisation happens client-side. */
@@ -137,6 +142,8 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   OTP_LOCKED: 'OTP challenge is locked',
   OTP_RESEND_TOO_SOON: 'OTP resend requested too soon',
   OTP_SMS_DELIVERY_FAILED: 'Could not send OTP SMS',
+  EMAIL_NOT_CONFIGURED: 'Email delivery is not configured',
+  EMAIL_DELIVERY_FAILED: 'Could not send email',
   AUDIT_QUARTER_TAKEN: 'That quarter already has an audit',
   SCORE_OUT_OF_RANGE: 'Score is outside the allowed range',
   AUDIT_INCOMPLETE: 'Audit is missing category scores',
@@ -165,6 +172,9 @@ const DEFAULT_TITLE: Record<ProblemCode, string> = {
   ROLE_NOT_FOUND: 'Role is not defined',
   COMMUNITY_PLANTING_NOT_CONFIGURED: 'Community planting summary is not configured',
   PASSWORD_ALREADY_SET: 'A password is already set for this account',
+  WALLET_TRANSFER_DISABLED: 'Wallet transfers are not available',
+  WALLET_TRANSFER_LIMIT_EXCEEDED: 'Wallet transfer limit exceeded',
+  WALLET_TRANSFER_SELF: 'Cannot send money to your own wallet',
 };
 
 /**

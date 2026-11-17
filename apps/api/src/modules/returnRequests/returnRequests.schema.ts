@@ -159,3 +159,45 @@ export const returnRefundResponse = z.object({
   amount: moneySchema,
 });
 export type ReturnRefundResponse = z.infer<typeof returnRefundResponse>;
+
+// ---------------------------------------------------------------------------
+// Customer-facing shapes (BR-155): an ALLOW-LIST. No warehouse, no customer id,
+// no inspection internals (damaged qty, condition), no status-history actors,
+// and nothing that could lead back to a farm (BR-16).
+// ---------------------------------------------------------------------------
+export const customerReturnItemResponse = z.object({
+  id: z.string().uuid(),
+  orderItemId: z.string().uuid(),
+  requestedQty: quantitySchema,
+  acceptedQty: quantitySchema.nullable(),
+});
+export type CustomerReturnItemResponse = z.infer<typeof customerReturnItemResponse>;
+
+export const customerReturnSummaryResponse = z.object({
+  id: z.string().uuid(),
+  orderId: z.string().uuid(),
+  status: z.enum(returnStatuses),
+  reason: z.string(),
+  note: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string().nullable(),
+});
+export type CustomerReturnSummaryResponse = z.infer<typeof customerReturnSummaryResponse>;
+
+export const customerReturnResponse = customerReturnSummaryResponse.extend({
+  items: z.array(customerReturnItemResponse),
+});
+export type CustomerReturnResponse = z.infer<typeof customerReturnResponse>;
+
+export const listMyReturnsQuery = z
+  .object({
+    cursor: z.string().datetime({ offset: true }).optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type ListMyReturnsQuery = z.infer<typeof listMyReturnsQuery>;
+
+export interface ListMyReturnsResponse {
+  items: CustomerReturnSummaryResponse[];
+  page: { nextCursor: string | null; hasMore: boolean };
+}

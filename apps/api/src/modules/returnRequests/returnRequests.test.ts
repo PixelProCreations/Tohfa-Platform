@@ -136,6 +136,16 @@ function buildFakeRepo(options: {
       if (orderId !== order.id) return [];
       return orderItems.filter((oi) => orderItemIds.includes(oi.id));
     },
+    // BR-155e: nothing previously returned in these staff-path tests.
+    async sumAlreadyReturnedQty() {
+      return {};
+    },
+    async listForCustomer() {
+      throw new Error('customer reads are covered by returnRequests.customer.test.ts');
+    },
+    async findByIdForCustomer() {
+      throw new Error('customer reads are covered by returnRequests.customer.test.ts');
+    },
     async insertReturnRequest(_db, input) {
       const r: FakeReturn = {
         id: RETURN_ID,

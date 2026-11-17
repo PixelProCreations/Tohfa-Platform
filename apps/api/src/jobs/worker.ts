@@ -268,6 +268,8 @@ export const cartLockReaper: Handler<'cart-lock-reaper'> = async (payload) => {
 import { notificationsRepo } from '../modules/notifications/notifications.repo.js';
 import { smsTransport } from '../modules/notifications/sms/index.js';
 import { pushTransport, resolveDeepLink } from '../modules/notifications/push/index.js';
+import { dispatchEmailNotification } from '../modules/notifications/email/email.dispatch.js';
+import { emailSender } from '../email/index.js';
 import { enqueue } from './queue.js';
 
 export const notificationDispatch: Handler<'notification-dispatch'> = async (payload, job) => {
@@ -392,6 +394,36 @@ export const notificationDispatch: Handler<'notification-dispatch'> = async (pay
         }
         throw error;
       }
+    } else if (payload.channel === 'EMAIL') {
+      const attempt = job.attemptsMade + 1;
+      await dispatchEmailNotification(
+        {
+          notificationId: payload.notificationId,
+          userId: payload.userId,
+          title: payload.title,
+          body: payload.body,
+          attempt,
+          maxAttempts: job.opts.attempts ?? 3,
+        },
+        {
+          sender: emailSender,
+          getDeliveryStatus: (id) => notificationsRepo.getDeliveryStatus(pool, id),
+          getVerifiedEmail: (userId) => notificationsRepo.getUserVerifiedEmail(pool, userId),
+          markDelivery: (id, outcome) =>
+            notificationsRepo.updateNotificationDelivery(pool, id, outcome),
+          deadLetter: async (message) => {
+            await enqueue('notification-dead-letter', {
+              notificationId: payload.notificationId,
+              jobId: job.id,
+              channel: 'EMAIL',
+              userId: payload.userId,
+              error: message,
+              attempts: attempt,
+              failedAt: new Date().toISOString(),
+            });
+          },
+        },
+      );
     } else {
       // IN_APP or others
       await notificationsRepo.updateNotificationDelivery(pool, payload.notificationId, {

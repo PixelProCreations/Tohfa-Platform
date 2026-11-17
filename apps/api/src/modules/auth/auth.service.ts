@@ -533,7 +533,7 @@ export function createAuthService(
     async login(input, ip, userAgent) {
       const user = await repo.findUserByMobile(pool, input.mobile);
       if (user === null || user.password_hash === null) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password.' });
+        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password. An account without a password signs in with OTP.' });
       }
 
       if (user.status === 'DISABLED') {
@@ -542,7 +542,7 @@ export function createAuthService(
 
       const passwordValid = await bcrypt.compare(input.password, user.password_hash);
       if (!passwordValid) {
-        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password.' });
+        throw new AppError('UNAUTHENTICATED', { detail: 'Invalid mobile or password. An account without a password signs in with OTP.' });
       }
 
       const roles = await repo.getUserRoles(pool, user.id);
