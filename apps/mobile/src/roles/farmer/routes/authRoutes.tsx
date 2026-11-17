@@ -20,13 +20,7 @@ export const renderAuthRoute: FarmerRouteRenderer = ({ screen, params, navigate,
     case 'Welcome':
       return <WelcomeScreen onNavigate={(s) => navigate(s)} />;
     case 'Login':
-      return (
-        <LoginScreen
-          onNavigate={(s, p) => navigate(s, p)}
-          initialMobile={typeof params['initialMobile'] === 'string' ? params['initialMobile'] : undefined}
-          initialMode={params['initialMode'] === 'password' ? 'password' : 'otp'}
-        />
-      );
+      return <LoginScreen onNavigate={(s, p) => navigate(s, p)} />;
     case 'RoleSelection':
       return <RoleSelectionScreen onNavigate={(s) => navigate(s)} />;
     case 'Register':
@@ -55,13 +49,7 @@ export const renderAuthRoute: FarmerRouteRenderer = ({ screen, params, navigate,
         />
       );
     case 'ForgotPassword':
-      return (
-        <ForgotPasswordScreen
-          onNavigate={(s, p) => navigate(s, p)}
-          initialMobile={typeof params['mobile'] === 'string' ? params['mobile'] : undefined}
-          mode={params['mode'] === 'first_time' ? 'first_time' : 'forgot'}
-        />
-      );
+      return <ForgotPasswordScreen onNavigate={(s, p) => navigate(s, p)} />;
     case 'ResetPassword':
       return (
         <ResetPasswordScreen
@@ -82,7 +70,7 @@ export const renderAuthRoute: FarmerRouteRenderer = ({ screen, params, navigate,
       return (
         <ApplicationStatusScreen
           applicationId={String(params['applicationId'] ?? 'DEMO-APP-001')}
-          onNavigate={(s, p) => navigate(s, p)}
+          onNavigate={(s) => navigate(s)}
         />
       );
     default:

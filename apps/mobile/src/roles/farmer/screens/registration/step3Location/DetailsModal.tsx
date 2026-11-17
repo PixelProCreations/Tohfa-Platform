@@ -30,7 +30,7 @@ interface DetailsModalProps {
   draftAreaAcresText: string;
   labelError: string | undefined;
   areaError: string | undefined;
-  areaInputRef: React.RefObject<TextInputInstance>;
+  areaInputRef: React.RefObject<TextInputInstance | null>;
   onChangeLabel: (text: string) => void;
   onChangeArea: (text: string) => void;
   onCancel: () => void;

@@ -1442,7 +1442,7 @@ const styles = StyleSheet.create({
   condition: {
     fontSize: typography.body,
     fontWeight: '600',
-    color: P.grey700,
+    color: P.grey600,
   },
   weatherEstimatedLabel: {
     fontSize: typography.caption,

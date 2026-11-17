@@ -212,78 +212,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
     }
   }
 
-  /**
-   * OTP login (purpose LOGIN). Restores the S-42 "OTP Sign-In" entry
-   * (2dd99bf2) that the 8e0d4feb redesign dropped: send a LOGIN challenge for
-   * the typed number and hand it to the existing OTP screen, which verifies it
-   * via `POST /auth/otp/verify` and routes exactly like a password login.
-   */
-  async function handleOtpLogin() {
-    const rawMobile = mobile.replace(/\s+/g, '').trim();
-    if (rawMobile.length < 10) {
-      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
-      return;
-    }
-    setLoading(true);
-    setErrorMsg(null);
-
-    const cMobile = rawMobile.startsWith('+') ? rawMobile : `${MOBILE_PREFIX}${rawMobile}`;
-
-    try {
-      const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
-      onNavigate('Otp', {
-        mobile: cMobile,
-        challengeId: res.challengeId,
-        resendAvailableAt: res.resendAvailableAt,
-        attemptsRemaining: res.attemptsRemaining,
-        mockCode: res._mockCode,
-        purpose: 'LOGIN',
-      });
-    } catch (err: unknown) {
-      setErrorMsg(formatErrorMessage(err, t('error.generic')));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function switchMode(mode: AuthMode) {
-    setAuthMode(mode);
-    setErrorMsg(null);
-  }
-
-  /**
-   * OTP login (purpose LOGIN). Restores the S-42 "OTP Sign-In" entry
-   * (2dd99bf2) that the 8e0d4feb redesign dropped: send a LOGIN challenge for
-   * the typed number and hand it to the existing OTP screen, which verifies it
-   * via `POST /auth/otp/verify` and routes exactly like a password login.
-   */
-  async function handleOtpLogin() {
-    const rawMobile = mobile.replace(/\s+/g, '').trim();
-    if (rawMobile.length < 10) {
-      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
-      return;
-    }
-    setLoading(true);
-    setErrorMsg(null);
-
-    const cMobile = rawMobile.startsWith('+') ? rawMobile : `${MOBILE_PREFIX}${rawMobile}`;
-
-    try {
-      const res = await requestOtp({ mobile: cMobile, purpose: 'LOGIN' });
-      onNavigate('Otp', {
-        mobile: cMobile,
-        challengeId: res.challengeId,
-        resendAvailableAt: res.resendAvailableAt,
-        attemptsRemaining: res.attemptsRemaining,
-        mockCode: res._mockCode,
-        purpose: 'LOGIN',
-      });
-    } catch (err: unknown) {
-      setErrorMsg(formatErrorMessage(err, t('error.generic')));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   function switchMode(mode: AuthMode) {
     setAuthMode(mode);
@@ -291,9 +219,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onNavigate }) => {
   }
 
   async function handleOtpLogin() {
+    const rawMobile = mobile.replace(/\s+/g, '').trim();
+    if (rawMobile.length < 10) {
+      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
+      return;
+    }
     // Only the mobile number is needed for an OTP login.
     if (validation.allErrors.mobile !== undefined) {
       validation.validateAll();
+      setErrorMsg(t('farmer.auth.login.mobileInvalid'));
       return;
     }
     setLoading(true);
