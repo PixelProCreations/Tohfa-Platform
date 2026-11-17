@@ -6,6 +6,8 @@ import { requirePermission, requireScope } from '../../rbac/requirePermission.js
 import { authRateLimit } from '../../rate-limit/rateLimiter.js';
 import {
   changePasswordBody,
+  customerOtpSendBody,
+  customerOtpVerifyBody,
   forgotPasswordBody,
   loginBody,
   oauthLinkBody,
@@ -21,6 +23,7 @@ import {
   verifyOtpBody,
 } from './auth.schema.js';
 import { authService } from './auth.service.js';
+import { customerOtpService } from './customerOtp.service.js';
 
 export const authRouter: Router = Router();
 
@@ -54,6 +57,28 @@ authRouter.post(
     const body = getValidated(req, 'body', verifyOtpBody);
     const result = await authService.verifyOtp(body, req.ip, req.headers['user-agent']);
     res.json(result);
+  }),
+);
+
+// BR-153: passwordless customer sign-in. Public and rate-limited like /otp/*;
+// the send response is identical for registered and unregistered numbers.
+authRouter.post(
+  '/customer/otp/send',
+  validate({ body: customerOtpSendBody }),
+  authRateLimit(),
+  asyncHandler(async (req, res) => {
+    const body = getValidated(req, 'body', customerOtpSendBody);
+    res.status(202).json(await customerOtpService.send(body));
+  }),
+);
+
+authRouter.post(
+  '/customer/otp/verify',
+  validate({ body: customerOtpVerifyBody }),
+  authRateLimit(),
+  asyncHandler(async (req, res) => {
+    const body = getValidated(req, 'body', customerOtpVerifyBody);
+    res.json(await customerOtpService.verify(body, req.ip, req.headers['user-agent']));
   }),
 );
 

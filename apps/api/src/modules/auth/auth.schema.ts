@@ -31,6 +31,32 @@ export const verifyOtpBody = z.object({
 });
 export type VerifyOtpBody = z.infer<typeof verifyOtpBody>;
 
+/** BR-153: passwordless customer sign-in, step 1. Purpose is fixed server-side (LOGIN). */
+export const customerOtpSendBody = z
+  .object({
+    mobile: z.string().regex(mobileRegex, { message: 'Must be a valid E.164 mobile number (+91...)' }),
+  })
+  .strict();
+export type CustomerOtpSendBody = z.infer<typeof customerOtpSendBody>;
+
+/** BR-153: passwordless customer sign-in, step 2. */
+export const customerOtpVerifyBody = z
+  .object({
+    mobile: z.string().regex(mobileRegex, { message: 'Must be a valid E.164 mobile number (+91...)' }),
+    challengeId: z.string().uuid(),
+    otp: z.string().regex(otpCodeRegex, { message: 'OTP must be 6 digits' }),
+    preferredLocale: z.enum(['en', 'ta']).optional(),
+    deviceInfo: z
+      .object({
+        deviceId: z.string().min(1).max(120).optional(),
+        platform: z.enum(['ios', 'android', 'web']).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+export type CustomerOtpVerifyBody = z.infer<typeof customerOtpVerifyBody>;
+
 export const oauthProviders = ['google', 'facebook'] as const;
 export type OAuthProviderCode = (typeof oauthProviders)[number];
 

@@ -79,6 +79,17 @@ export interface UpdateCropMasterPatch {
   shelfLifeDays?: number | null | undefined;
   iconKey?: string | null | undefined;
   isActive?: boolean | undefined;
+  // BR-181 display metadata.
+  tasteNotes?: string | null | undefined;
+  harvestSeason?: string | null | undefined;
+  originRegion?: string | null | undefined;
+  farmingType?: 'ORGANIC' | 'NATURAL' | 'CONVENTIONAL' | null | undefined;
+  packSize?: number | null | undefined;
+  packUnit?: 'KG' | 'G' | 'PIECE' | 'BUNCH' | 'DOZEN' | 'PACK' | null | undefined;
+  compareAtPrice?: number | null | undefined;
+  isComingSoon?: boolean | undefined;
+  comingTomorrow?: boolean | undefined;
+  isUnsalable?: boolean | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -282,6 +293,16 @@ const CROP_MASTER_PATCH_COLUMNS: Record<string, { column: string; cast?: string 
   shelfLifeDays: { column: 'shelf_life_days' },
   iconKey: { column: 'icon_key' },
   isActive: { column: 'is_active' },
+  tasteNotes: { column: 'taste_notes' },
+  harvestSeason: { column: 'harvest_season' },
+  originRegion: { column: 'origin_region' },
+  farmingType: { column: 'farming_type' },
+  packSize: { column: 'pack_size' },
+  packUnit: { column: 'pack_unit' },
+  compareAtPrice: { column: 'compare_at_price' },
+  isComingSoon: { column: 'is_coming_soon' },
+  comingTomorrow: { column: 'coming_tomorrow' },
+  isUnsalable: { column: 'is_unsalable' },
 };
 
 // ---------------------------------------------------------------------------

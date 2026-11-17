@@ -17,11 +17,16 @@ import { Router } from 'express';
 import { requireActor, requireAuth } from '../../auth/requireAuth.js';
 import { asyncHandler } from '../../http/asyncHandler.js';
 import { getValidated, validate } from '../../http/validate.js';
-import { requirePermission, requireScope } from '../../rbac/requirePermission.js';
+import {
+  requireAnyPermission,
+  requirePermission,
+  requireScope,
+} from '../../rbac/requirePermission.js';
 import { returnRequestsService } from './returnRequests.service.js';
 import {
   createReturnRequestBody,
   inspectReturnBody,
+  listMyReturnsQuery,
   listReturnsQuery,
   orderIdParams,
   rejectReturnBody,
@@ -30,6 +35,15 @@ import {
 
 export const returnRequestsRouter: Router = Router();
 export const adminReturnsRouter: Router = Router();
+/** BR-155: the customer's own returns, mounted at /v1/returns. */
+export const customerReturnsRouter: Router = Router();
+
+/**
+ * BR-155: staff file under `rma.request.process`, customers under `rma.request.create_own` (own
+ * orders only). The first code the actor holds wins, so the resolved scope names which path the
+ * service takes; no role string is checked anywhere.
+ */
+export const FILE_RETURN_PERMISSIONS = ['rma.request.process', 'rma.request.create_own'] as const;
 
 // ---------------------------------------------------------------------------
 // Customer/admin: file a return against an order.
@@ -37,7 +51,7 @@ export const adminReturnsRouter: Router = Router();
 returnRequestsRouter.post(
   '/:orderId/returns',
   requireAuth,
-  requirePermission('rma.request.process'),
+  requireAnyPermission(FILE_RETURN_PERMISSIONS),
   validate({ params: orderIdParams, body: createReturnRequestBody }),
   asyncHandler(async (req, res) => {
     const actor = requireActor(req.actor);
@@ -155,5 +169,32 @@ adminReturnsRouter.post(
     const { id } = getValidated(req, 'params', returnIdParams);
     const idempotencyKey = req.header('idempotency-key');
     res.status(200).json(await returnRequestsService.refundBank(actor, scope, id, idempotencyKey));
+  }),
+);
+
+// ---------------------------------------------------------------------------
+// Customer: own returns (BR-155).
+// ---------------------------------------------------------------------------
+customerReturnsRouter.get(
+  '/me',
+  requireAuth,
+  requirePermission('rma.request.view_own'),
+  validate({ query: listMyReturnsQuery }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const query = getValidated(req, 'query', listMyReturnsQuery);
+    res.status(200).json(await returnRequestsService.listOwn(scope, query));
+  }),
+);
+
+customerReturnsRouter.get(
+  '/me/:id',
+  requireAuth,
+  requirePermission('rma.request.view_own'),
+  validate({ params: returnIdParams }),
+  asyncHandler(async (req, res) => {
+    const scope = requireScope(req.scope);
+    const { id } = getValidated(req, 'params', returnIdParams);
+    res.status(200).json(await returnRequestsService.getOwn(scope, id));
   }),
 );

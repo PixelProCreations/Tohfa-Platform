@@ -162,6 +162,8 @@ function mockNotificationsRepo(): NotificationsRepo & {
     },
     getUserPreferredLocale: async () => 'en',
     getUserMobile: async () => '+919876543210',
+    getUserVerifiedEmail: async () => null,
+    getDeliveryStatus: async () => 'QUEUED',
     registerDeviceToken: async (_db, params: RegisterDeviceTokenParams) => {
       const existing = deviceTokens.find((d) => d.token === params.token);
       if (existing) {
@@ -275,8 +277,9 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       expect(second).toBeNull(); // Deduplicated
     });
 
-    it('all 11 golden-thread events have a defined template code mapping', () => {
-      expect(Object.keys(EVENT_TEMPLATE_MAP)).toHaveLength(11);
+    it('all 12 domain events have a defined template code mapping', () => {
+      expect(Object.keys(EVENT_TEMPLATE_MAP)).toHaveLength(12);
+      expect(EVENT_TEMPLATE_MAP['wallet.debited']).toBe('WALLET_DEBITED'); // BR-150h sender
       expect(EVENT_TEMPLATE_MAP['farmer.application.approved']).toBe('FARMER_APP_APPROVED');
       expect(EVENT_TEMPLATE_MAP['goods.received']).toBe('GOODS_RECEIVED');
       expect(EVENT_TEMPLATE_MAP['wallet.credited']).toBe('WALLET_CREDITED');
@@ -712,8 +715,8 @@ describe('Domain Event Bus & Notification Centre (Stories S-15 & S-50)', () => {
       const res = await service.handleDomainEvent('counter_offer.received', counterOffer);
 
       expect(res).not.toBeNull();
-      expect(channels(repo)).toEqual(['IN_APP', 'PUSH', 'SMS']);
-      expect(enqueuedChannels()).toEqual(['PUSH', 'SMS']);
+      expect(channels(repo)).toEqual(['EMAIL', 'IN_APP', 'PUSH', 'SMS']);
+      expect(enqueuedChannels()).toEqual(['EMAIL', 'PUSH', 'SMS']);
     });
 
     it('BR-52: events with no category mapping stay always-on even when every category is disabled', async () => {

@@ -17,6 +17,24 @@ import type {
   CartResponse,
   ProduceGrade,
 } from './cart.schema.js';
+import { cartLineTotal, qtyGrams } from './cart.pricing.js';
+
+/** D-01: quantities compared as integer grams, never as floats. "0.000" and malformed are <= 0. */
+function requirePositiveGrams(qtyKg: string): number {
+  const grams = qtyGrams(qtyKg);
+  if (grams === null || grams <= 0) {
+    throw new AppError('VALIDATION_FAILED', {
+      status: 422,
+      detail: 'Quantity must be greater than 0.',
+    });
+  }
+  return grams;
+}
+
+/** Grams of a pg NUMERIC(…,3) stock figure; anything unparseable counts as 0 (fail closed). */
+function stockGrams(qtyKg: string): number {
+  return qtyGrams(qtyKg) ?? 0;
+}
 
 export interface CartService {
   getCart(actor: Actor, scope: ResolvedScope): Promise<CartResponse>;
@@ -69,6 +87,31 @@ export function createCartService(opts: {
   const repo = opts.repo ?? cartRepo;
   const db = opts.db ?? pool;
 
+  /**
+   * Insert or merge a HELD line, then store its line total computed in integer paise from the
+   * line's final (possibly merged) quantity and unit price. The upsert's row lock is held until
+   * the transaction commits, so a concurrent add cannot interleave between the two statements.
+   */
+  async function upsertLine(
+    tx: Executor,
+    line: {
+      cartId: string;
+      cropId: string;
+      grade: ProduceGrade;
+      qtyKg: string;
+      unitPrice: string;
+      allocationId: string;
+      reservedUntil: Date;
+    },
+  ): Promise<void> {
+    const row = await repo.upsertCartItem(tx, {
+      ...line,
+      lineTotal: cartLineTotal(line.unitPrice, line.qtyKg),
+    });
+    const lineTotal = cartLineTotal(row.unitPrice, row.qtyKg);
+    await repo.setLineTotal(tx, row.id, lineTotal);
+  }
+
   return {
     async getCart(actor, _scope) {
       if (!actor.customerId) {
@@ -103,13 +146,7 @@ export function createCartService(opts: {
         });
       }
 
-      const qty = Number(input.qtyKg);
-      if (isNaN(qty) || qty <= 0) {
-        throw new AppError('VALIDATION_FAILED', {
-          status: 422,
-          detail: 'Quantity must be greater than 0.',
-        });
-      }
+      const grams = requirePositiveGrams(input.qtyKg);
 
       const grade: ProduceGrade = input.grade ?? 'GRADE_1';
 
@@ -143,7 +180,7 @@ export function createCartService(opts: {
             warehouseId: targetWarehouseId,
           });
 
-          if (Number(breakdown.totalAvailable) === 0) {
+          if (stockGrams(breakdown.totalAvailable) === 0) {
             throw new AppError('STOCK_UNAVAILABLE', {
               status: 409,
               detail: `Only ${breakdown.onlineAvailable} kg of ${priceInfo.cropName} ${grade} remains today.`,
@@ -153,7 +190,7 @@ export function createCartService(opts: {
           // BR-12c: above the stored ONLINE bucket itself is an allocation refusal, never a draw on
           // Reserve. Within the bucket but above the shelf (a DIRECT sale took it, BR-100) is a
           // stock refusal.
-          if (Number(breakdown.onlineAllocationAvailable) < qty) {
+          if (stockGrams(breakdown.onlineAllocationAvailable) < grams) {
             throw new AppError('INSUFFICIENT_ALLOCATION', {
               status: 409,
               detail: `Requested ${input.qtyKg} kg exceeds remaining online allocation of ${breakdown.onlineAllocationAvailable} kg (BR-12c).`,
@@ -180,16 +217,14 @@ export function createCartService(opts: {
         }
 
         const lockHours = await repo.getCartLockHours(tx);
-        const lineTotal = (qty * Number(priceInfo.price)).toFixed(2);
         const reservedUntil = new Date(Date.now() + lockHours * 3600 * 1000);
 
-        await repo.upsertCartItem(tx, {
+        await upsertLine(tx, {
           cartId: cart.id,
           cropId: input.productId,
           grade,
           qtyKg: input.qtyKg,
           unitPrice: priceInfo.price,
-          lineTotal,
           allocationId: allocation.id,
           reservedUntil,
         });
@@ -226,13 +261,7 @@ export function createCartService(opts: {
         const targetWarehouseId = input.warehouseId ?? cart.warehouse_id;
 
         for (const itemInput of input.items) {
-          const qty = Number(itemInput.qtyKg);
-          if (isNaN(qty) || qty <= 0) {
-            throw new AppError('VALIDATION_FAILED', {
-              status: 422,
-              detail: 'Quantity must be greater than 0.',
-            });
-          }
+          const grams = requirePositiveGrams(itemInput.qtyKg);
 
           const grade: ProduceGrade = itemInput.grade ?? 'GRADE_1';
           const priceInfo = await repo.findActiveRetailPrice(tx, itemInput.productId, grade);
@@ -257,7 +286,7 @@ export function createCartService(opts: {
               warehouseId: targetWarehouseId,
             });
 
-            if (Number(breakdown.totalAvailable) === 0) {
+            if (stockGrams(breakdown.totalAvailable) === 0) {
               throw new AppError('STOCK_UNAVAILABLE', {
                 status: 409,
                 detail: `Only ${breakdown.onlineAvailable} kg of ${priceInfo.cropName} ${grade} remains today.`,
@@ -267,7 +296,7 @@ export function createCartService(opts: {
             // BR-12c: above the stored ONLINE bucket itself is an allocation refusal, never a draw on
             // Reserve. Within the bucket but above the shelf (a DIRECT sale took it, BR-100) is a
             // stock refusal.
-            if (Number(breakdown.onlineAllocationAvailable) < qty) {
+            if (stockGrams(breakdown.onlineAllocationAvailable) < grams) {
               throw new AppError('INSUFFICIENT_ALLOCATION', {
                 status: 409,
                 detail: `Requested ${itemInput.qtyKg} kg exceeds remaining online allocation of ${breakdown.onlineAllocationAvailable} kg (BR-12c).`,
@@ -282,16 +311,14 @@ export function createCartService(opts: {
 
           await repo.reserveAllocation(tx, allocation.id, itemInput.qtyKg);
 
-          const lineTotal = (qty * Number(priceInfo.price)).toFixed(2);
           const reservedUntil = new Date(Date.now() + lockHours * 3600 * 1000);
 
-          await repo.upsertCartItem(tx, {
+          await upsertLine(tx, {
             cartId: cart.id,
             cropId: itemInput.productId,
             grade,
             qtyKg: itemInput.qtyKg,
             unitPrice: priceInfo.price,
-            lineTotal,
             allocationId: allocation.id,
             reservedUntil,
           });

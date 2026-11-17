@@ -59,3 +59,23 @@ ordersRouter.get(
     res.status(200).json(result);
   }),
 );
+
+// BR-162: rebuild the cart from one of the caller's own past orders.
+ordersRouter.post(
+  '/:id/reorder',
+  requireAuth,
+  requirePermission('order.reorder_own'),
+  validate({ params: orderIdParamSchema }),
+  asyncHandler(async (req, res) => {
+    const actor = requireActor(req.actor);
+    const params = getValidated(req, 'params', orderIdParamSchema);
+
+    const result = await ordersService.reorder(
+      actor,
+      req.scope!,
+      params.id,
+      req.header('idempotency-key'),
+    );
+    res.status(200).json(result);
+  }),
+);

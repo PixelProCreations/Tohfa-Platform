@@ -113,7 +113,7 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
         ('${customerId2}', '${customerUserId2}', 'CUST-ORD2-${rand}');
 
       INSERT INTO customer_addresses (id, customer_id, label, line1, city, pincode, is_default)
-      VALUES ('${addressId}', '${customerId1}', 'HOME', '10 Fernhill Road', 'Ooty', '643004', true);
+      VALUES ('${addressId}', '${customerId2}', 'HOME', '10 Fernhill Road', 'Ooty', '643004', true);
 
       INSERT INTO farmers (id, user_id, tohfa_farmer_id, application_status)
       VALUES ('${farmerId}', '${farmerUserId}', 'FARM-ORD-${rand}', 'APPROVED');
@@ -523,6 +523,11 @@ describeIfDatabase('Orders Integration Tests (BR-17, BR-21, BR-15, BR-22)', () =
     expect(getRes.status).toBe(200);
     expect(getRes.body.id).toBe(orderId);
     expect(getRes.body.items.length).toBeGreaterThan(0);
+    // BR-182: display extras; the handover OTP is never part of a read (BR-20).
+    expect(getRes.body.paymentMethodLabel).toBe('Wallet');
+    if (getRes.body.fulfillmentType === 'PICKUP') expect(getRes.body.pickupCode).toMatch(/^PICKUP-\d{4}$/);
+    else expect(getRes.body.pickupCode).toBeNull();
+    expect(JSON.stringify(getRes.body)).not.toMatch(/otp/i);
 
     // Customer 1 tries to fetch Customer 2's order -> 404 (BR-36 customer isolation)
     const forbiddenRes = await request(app)

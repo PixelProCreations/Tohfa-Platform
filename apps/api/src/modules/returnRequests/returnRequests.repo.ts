@@ -151,6 +151,13 @@ export interface ListResult {
   hasMore: boolean;
 }
 
+/** BR-155: a customer's own returns, newest first. customerId is mandatory, never optional. */
+export interface CustomerListArgs {
+  customerId: string;
+  cursor?: string | undefined;
+  limit: number;
+}
+
 export interface ReturnRequestsRepo {
   /** The order a return is being filed against, unscoped — the service decides who may see it. */
   findOrderForReturn(db: Executor, orderId: string): Promise<OrderForReturn | null>;
@@ -160,6 +167,16 @@ export interface ReturnRequestsRepo {
     orderId: string,
     orderItemIds: string[],
   ): Promise<OrderItemForReturn[]>;
+
+  /**
+   * BR-155e: per order item, the quantity already on returns that were not REJECTED, as kg
+   * strings ("1.500"). Items with nothing returned are absent from the map.
+   */
+  sumAlreadyReturnedQty(
+    db: Executor,
+    orderId: string,
+    orderItemIds: string[],
+  ): Promise<Record<string, string>>;
 
   insertReturnRequest(db: Executor, input: InsertReturnRequestInput): Promise<ReturnSummaryRowShape>;
   insertReturnRequestItems(
@@ -173,6 +190,10 @@ export interface ReturnRequestsRepo {
   /** Unscoped lookup for a transition handler that has already loaded the row via findById. */
   findRawById(db: Executor, id: string): Promise<ReturnSummaryRowShape | null>;
   list(db: Executor, args: ListArgs): Promise<ListResult>;
+  /** BR-155g: filtered by return_requests.customer_id in SQL. */
+  listForCustomer(db: Executor, args: CustomerListArgs): Promise<ListResult>;
+  /** BR-155h: null for an unknown id AND for another customer's return. */
+  findByIdForCustomer(db: Executor, id: string, customerId: string): Promise<ReturnRequestResponse | null>;
 
   updateStatus(db: Executor, id: string, status: ReturnStatus): Promise<void>;
   /**
@@ -229,6 +250,20 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
       [orderId, orderItemIds],
     );
     return result.rows;
+  },
+
+  async sumAlreadyReturnedQty(db, orderId, orderItemIds): Promise<Record<string, string>> {
+    const result = await db.query<{ order_item_id: string; qty: string }>(
+      `SELECT ri.order_item_id, SUM(ri.requested_qty)::numeric(12,3)::text AS qty
+         FROM return_request_items ri
+         JOIN return_requests r ON r.id = ri.return_request_id
+        WHERE r.order_id = $1
+          AND ri.order_item_id = ANY($2::uuid[])
+          AND r.status <> 'REJECTED'
+        GROUP BY ri.order_item_id`,
+      [orderId, orderItemIds],
+    );
+    return Object.fromEntries(result.rows.map((row) => [row.order_item_id, row.qty]));
   },
 
   async insertReturnRequest(db, input): Promise<ReturnSummaryRowShape> {
@@ -377,6 +412,44 @@ export const returnRequestsRepo: ReturnRequestsRepo = {
     const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.createdAt : null;
 
     return { items, nextCursor, hasMore };
+  },
+
+  async listForCustomer(db, { customerId, cursor, limit }): Promise<ListResult> {
+    const params: unknown[] = [customerId];
+    let cursorClause = '';
+    if (cursor !== undefined) {
+      params.push(cursor);
+      cursorClause = `AND r.created_at < $${params.length}::timestamptz`;
+    }
+    params.push(limit + 1);
+    const result = await db.query<ReturnSummaryRow>(
+      `SELECT ${SUMMARY_COLUMNS}
+         FROM return_requests r
+         JOIN orders o ON o.id = r.order_id
+        WHERE r.customer_id = $1 ${cursorClause}
+        ORDER BY r.created_at DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+    const hasMore = result.rows.length > limit;
+    const items = (hasMore ? result.rows.slice(0, limit) : result.rows).map(toSummary);
+    const nextCursor = hasMore && items.length > 0 ? items[items.length - 1]!.createdAt : null;
+    return { items, nextCursor, hasMore };
+  },
+
+  async findByIdForCustomer(db, id, customerId): Promise<ReturnRequestResponse | null> {
+    const result = await db.query<ReturnSummaryRow>(
+      `SELECT ${SUMMARY_COLUMNS}
+         FROM return_requests r
+         JOIN orders o ON o.id = r.order_id
+        WHERE r.id = $1 AND r.customer_id = $2
+        LIMIT 1`,
+      [id, customerId],
+    );
+    const row = result.rows[0];
+    if (row === undefined) return null;
+    const items = await this.getItems(db, id);
+    return { ...toSummary(row), items };
   },
 
   async updateStatus(db, id, status): Promise<void> {

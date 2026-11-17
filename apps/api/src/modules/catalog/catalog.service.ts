@@ -7,16 +7,21 @@ import {
   type RawCatalogProductRow,
 } from './catalog.repo.js';
 import type {
+  BannerView,
   CatalogHomeView,
   CategoryView,
+  HeroBannerView,
+  HomeSectionView,
   ListProductsQuery,
   ProductView,
   SearchCatalogQuery,
 } from './catalog.schema.js';
+import { homeContentRepo, type HomeContentSource } from '../home-content/home-content.repo.js';
+import { bannerDeeplink } from '../home-content/home-content.service.js';
 
 /**
  * BR-16: FARM-ANONYMOUS SERIALIZER (ALLOW-LIST).
- * Positively constructs every Product with exactly the 10 permitted fields.
+ * Positively constructs every Product with exactly the permitted allow-list fields.
  * NO object spread (...row), NO key deletion (delete row.x).
  */
 export function serializeProduct(row: RawCatalogProductRow): ProductView {
@@ -25,6 +30,9 @@ export function serializeProduct(row: RawCatalogProductRow): ProductView {
     : row.icon_key
       ? [`https://cdn.tohfa.in/products/${row.icon_key}.jpg`]
       : [`https://cdn.tohfa.in/products/${row.crop_id}.jpg`];
+
+  const priceP = toPaise(Number(row.price_per_kg).toFixed(2));
+  const mrp = toPaise(row.compare_at_price == null ? null : Number(row.compare_at_price).toFixed(2));
 
   return {
     id: row.crop_id,
@@ -37,11 +45,95 @@ export function serializeProduct(row: RawCatalogProductRow): ProductView {
     photos,
     certificationBadges: row.certification_badges ?? [],
     warehouseIds: row.warehouse_ids ?? [],
+    tasteNotes: row.taste_notes ?? null,
+    shelfLifeDays: row.shelf_life_days ?? null,
+    harvestSeason: row.harvest_season ?? null,
+    originRegion: row.origin_region ?? null,
+    farmingType: (row.farming_type as ProductView['farmingType']) ?? null,
+    packSize: row.pack_size === null || row.pack_size === undefined ? null : Number(row.pack_size).toString(),
+    packUnit: (row.pack_unit as ProductView['packUnit']) ?? null,
+    compareAtPrice: mrp === null ? null : (mrp / 100).toFixed(2),
+    discountPercent: discountPercent(priceP, mrp),
+    isComingSoon: row.is_coming_soon ?? false,
+    comingTomorrow: row.coming_tomorrow ?? false,
+    isUnsalable: row.is_unsalable ?? false,
+    ratingAverage: row.rating_average == null ? null : Number(row.rating_average),
+    ratingCount: row.rating_count ?? 0,
   };
 }
 
+/** Rupee decimal string -> integer paise (no float arithmetic on the displayed value). */
+function toPaise(rupees: string | null | undefined): number | null {
+  if (rupees === null || rupees === undefined) return null;
+  const [whole = '0', frac = ''] = rupees.split('.');
+  return Number(whole) * 100 + Number((frac + '00').slice(0, 2));
+}
+
+/** BR-181: floor((mrp - price) / mrp * 100) in integer paise; null unless MRP > price. */
+export function discountPercent(pricePaise: number | null, mrpPaise: number | null): number | null {
+  if (pricePaise === null || mrpPaise === null || mrpPaise <= pricePaise) return null;
+  return Math.floor(((mrpPaise - pricePaise) * 100) / mrpPaise);
+}
+
+/** The placeholder banners served before any admin banner is live (pre-BR-152 behaviour). */
+const STATIC_BANNERS: BannerView[] = [
+  {
+    id: '10000000-0000-4000-8000-000000000001',
+    imageUrl: 'https://cdn.tohfa.in/banners/fresh-nilgiris-harvest.jpg',
+    deeplink: '/categories/vegetables',
+  },
+  {
+    id: '10000000-0000-4000-8000-000000000002',
+    imageUrl: 'https://cdn.tohfa.in/banners/organic-carrots-special.jpg',
+    deeplink: '/products',
+  },
+];
+
 export class CatalogService {
-  constructor(private readonly repo: CatalogRepo = catalogRepo) {}
+  /**
+   * `homeContent` (BR-152) is optional so a service built with only a catalog repo (unit tests)
+   * keeps the original home payload: static banners and no sections.
+   */
+  constructor(
+    private readonly repo: CatalogRepo = catalogRepo,
+    private readonly homeContent?: HomeContentSource,
+  ) {}
+
+  /** BR-152: live admin banners, or the static placeholders when none is live. */
+  private async heroBanners(db: Executor): Promise<HeroBannerView[]> {
+    const rows = this.homeContent ? await this.homeContent.listActiveBanners(db) : [];
+    if (rows.length === 0) {
+      return STATIC_BANNERS.map((b) => ({ id: b.id, imageUrl: b.imageUrl, title: null, deeplink: b.deeplink ?? null }));
+    }
+    return rows.map((r) => ({ id: r.id, imageUrl: r.image_url, title: r.title, deeplink: bannerDeeplink(r) }));
+  }
+
+  /** BR-152: live curated rails, items through the BR-16 serializer; empty rails omitted. */
+  private async homeSections(db: Executor, warehouseId?: string): Promise<HomeSectionView[]> {
+    if (!this.homeContent) return [];
+    const rows = await this.homeContent.listActiveSections(db);
+    const out: HomeSectionView[] = [];
+    for (const s of rows) {
+      let items: ProductView[] = [];
+      if (s.target_type === 'CATEGORY' && s.target_category_id !== null) {
+        const res = await this.repo.listProducts(db, {
+          categoryId: s.target_category_id,
+          limit: s.max_items,
+          sort: 'NAME_ASC',
+          ...(warehouseId !== undefined ? { warehouseId } : {}),
+        });
+        items = res.items.slice(0, s.max_items).map(serializeProduct);
+      } else {
+        for (const id of s.product_ids) {
+          if (items.length >= s.max_items) break;
+          const row = await this.repo.getProductById(db, id);
+          if (row !== null) items.push(serializeProduct(row));
+        }
+      }
+      if (items.length > 0) out.push({ id: s.id, title: s.title, subtitle: s.subtitle, items });
+    }
+    return out;
+  }
 
   async listProducts(
     filters: ListProductsQuery,
@@ -90,26 +182,20 @@ export class CatalogService {
     warehouseId?: string,
     db: Executor = pool,
   ): Promise<CatalogHomeView> {
-    const [categories, featuredRows] = await Promise.all([
+    const [categories, featuredRows, heroBanners, sections] = await Promise.all([
       this.repo.listCategories(db),
       this.repo.getFeaturedProducts(db, warehouseId),
+      this.heroBanners(db),
+      this.homeSections(db, warehouseId),
     ]);
 
-    const banners = [
-      {
-        id: '10000000-0000-4000-8000-000000000001',
-        imageUrl: 'https://cdn.tohfa.in/banners/fresh-nilgiris-harvest.jpg',
-        deeplink: '/categories/vegetables',
-      },
-      {
-        id: '10000000-0000-4000-8000-000000000002',
-        imageUrl: 'https://cdn.tohfa.in/banners/organic-carrots-special.jpg',
-        deeplink: '/products',
-      },
-    ];
+    // `banners` keeps its original {id, imageUrl, deeplink} shape for existing clients.
+    const banners: BannerView[] = heroBanners.map((b) => ({ id: b.id, imageUrl: b.imageUrl, deeplink: b.deeplink }));
 
     return {
       banners,
+      heroBanners,
+      sections,
       categories,
       featured: featuredRows.map(serializeProduct),
       nearestWarehouseId: warehouseId ?? null,
@@ -117,4 +203,4 @@ export class CatalogService {
   }
 }
 
-export const catalogService = new CatalogService();
+export const catalogService = new CatalogService(catalogRepo, homeContentRepo);

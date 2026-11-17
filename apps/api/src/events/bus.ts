@@ -69,6 +69,13 @@ export interface DomainEvents {
     balance: string;
     reference: string;
   };
+  /** BR-150h: the sender of a customer-to-customer transfer (in-app only). */
+  'wallet.debited': {
+    userId: string;
+    amount: string;
+    balance: string;
+    reference: string;
+  };
 }
 
 export type DomainEventName = keyof DomainEvents;

@@ -21,6 +21,20 @@ export interface RawCatalogProductRow {
   certification_badges: string[] | null;
   warehouse_ids: string[];
   created_at: Date;
+  /** BR-181 metadata: optional so hand-built rows (tests, other modules' fakes) stay valid. */
+  taste_notes?: string | null | undefined;
+  shelf_life_days?: number | null | undefined;
+  harvest_season?: string | null | undefined;
+  origin_region?: string | null | undefined;
+  farming_type?: string | null | undefined;
+  pack_size?: string | null | undefined;
+  pack_unit?: string | null | undefined;
+  compare_at_price?: string | null | undefined;
+  is_coming_soon?: boolean | undefined;
+  coming_tomorrow?: boolean | undefined;
+  is_unsalable?: boolean | undefined;
+  rating_average?: string | null | undefined;
+  rating_count?: number | undefined;
 }
 
 export interface CatalogRepo {
@@ -50,12 +64,37 @@ export interface CatalogRepo {
  */
 const ONLINE_EFFECTIVE = effectiveAvailableSql('a', 'b');
 
+/**
+ * BR-181: admin-managed display metadata (crop_master) + the BR-06-safe product rating aggregate
+ * (order_review_items only; farm ratings are a different table and untouched). cm.id is in every
+ * GROUP BY, so the cm.* columns are functionally dependent on it.
+ */
+const PRODUCT_META_SELECT = `cm.taste_notes AS taste_notes,
+             cm.shelf_life_days AS shelf_life_days,
+             cm.harvest_season AS harvest_season,
+             cm.origin_region AS origin_region,
+             cm.farming_type AS farming_type,
+             cm.pack_size::text AS pack_size,
+             cm.pack_unit AS pack_unit,
+             cm.compare_at_price::text AS compare_at_price,
+             cm.is_coming_soon AS is_coming_soon,
+             cm.coming_tomorrow AS coming_tomorrow,
+             cm.is_unsalable AS is_unsalable,
+             (SELECT ROUND(AVG(ri.rating)::numeric, 1)::text
+                FROM order_review_items ri JOIN order_items oi ON oi.id = ri.order_item_id
+               WHERE oi.crop_id = cm.id) AS rating_average,
+             (SELECT COUNT(*)::int
+                FROM order_review_items ri JOIN order_items oi ON oi.id = ri.order_item_id
+               WHERE oi.crop_id = cm.id) AS rating_count`;
+
 function buildSortClause(sort: ProductSort): string {
   switch (sort) {
     case 'PRICE_ASC':
       return 'ORDER BY price_per_kg ASC, cm.name ASC, cm.id ASC';
     case 'PRICE_DESC':
       return 'ORDER BY price_per_kg DESC, cm.name ASC, cm.id ASC';
+    case 'just_arrived':
+      return 'ORDER BY MAX(a.created_at) DESC, cm.name ASC, cm.id ASC';
     case 'NEWEST':
       return 'ORDER BY MIN(b.created_at) DESC, cm.name ASC, cm.id ASC';
     case 'NAME_ASC':
@@ -134,6 +173,7 @@ export const catalogRepo: CatalogRepo = {
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
              ARRAY[]::text[]                                      AS certification_badges,
+             ${PRODUCT_META_SELECT},
              ARRAY_AGG(DISTINCT a.warehouse_id::text)             AS warehouse_ids,
              MIN(b.created_at)                                    AS created_at
         FROM allocations a
@@ -212,6 +252,7 @@ export const catalogRepo: CatalogRepo = {
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
              ARRAY[]::text[]                                      AS certification_badges,
+             ${PRODUCT_META_SELECT},
              ARRAY_AGG(DISTINCT a.warehouse_id::text)             AS warehouse_ids,
              MIN(b.created_at)                                    AS created_at
         FROM allocations a
@@ -289,6 +330,7 @@ export const catalogRepo: CatalogRepo = {
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
              ARRAY[]::text[]                                      AS certification_badges,
+             ${PRODUCT_META_SELECT},
              ARRAY_AGG(DISTINCT a.warehouse_id::text)             AS warehouse_ids,
              MIN(b.created_at)                                    AS created_at
         FROM allocations a
@@ -394,6 +436,7 @@ export const catalogRepo: CatalogRepo = {
              cm.icon_key                                          AS icon_key,
              NULL::text                                           AS photo_url,
              ARRAY[]::text[]                                      AS certification_badges,
+             ${PRODUCT_META_SELECT},
              ARRAY_AGG(DISTINCT a.warehouse_id::text)             AS warehouse_ids,
              MIN(b.created_at)                                    AS created_at
         FROM allocations a
