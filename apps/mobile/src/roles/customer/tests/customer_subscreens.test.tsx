@@ -42,6 +42,7 @@ vi.mock('react-native-svg', () => ({
 vi.mock('../assets/images', () => ({
   walletPouchCard: 1,
   profileEmailVerified: 2,
+  walletMoneyAddedSuccess: 2,
   profileWalletIcon: 3,
   profileOrdersIcon: 4,
   profileWishlistIcon: 5,

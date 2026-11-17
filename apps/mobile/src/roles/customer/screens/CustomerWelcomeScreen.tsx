@@ -291,15 +291,4 @@ const styles = StyleSheet.create({
     gap: 16,
     zIndex: 50,
   },
-
-  // Home indicator pill
-  homeIndicator: {
-    width: 134,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#000000',
-    opacity: 0.8,
-    alignSelf: 'center',
-    marginBottom: 8,
-  },
 });
