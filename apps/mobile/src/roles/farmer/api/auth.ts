@@ -28,6 +28,8 @@ import {
   sendOtp as apiSendOtp,
   verifyOtp as apiVerifyOtp,
 } from '../../../shell/auth/api';
+import { needsCustomerOnboarding } from '../../../shell/auth/customerOnboarding';
+import { unregisterPushForSession } from '../../../shell/notifications/push';
 import { saveTokens, clearTokens, getAccessToken as getStoredAccessToken } from '../storage/tokenStorage';
 import { ADMIN_SHELL_ROLES, adminShellForRoles, type AdminShellRole } from '../utils/adminShell';
 import { clearCertificationsCache } from './farmer';
@@ -77,6 +79,12 @@ export interface UserMe {
    * `false` routes to Create Password (see `resolveRouteAfterAuth`).
    */
   hasPassword?: boolean;
+  /**
+   * BR-190, customers only: false while the customer profile still needs
+   * onboarding. Optional (older servers / non-customers); only an explicit
+   * `false` routes to customer onboarding (see `needsCustomerOnboarding`).
+   */
+  profileComplete?: boolean;
   roles: UserRole[];
   permissions?: string[];
 }
@@ -279,10 +287,30 @@ export function renderOtpState(input: RenderOtpStateInput): RenderOtpStateResult
   };
 }
 
-export function resolveRouteAfterAuth(me: UserMe): {
-  name: 'CreatePassword' | 'ApplicationStatus' | 'MainTabs' | 'CustomerMain' | 'AdminMain' | 'Unsupported';
+export function resolveRouteAfterAuth(
+  me: UserMe,
+  options: { isNewUser?: boolean | undefined } = {},
+): {
+  name:
+    | 'CreatePassword'
+    | 'ApplicationStatus'
+    | 'MainTabs'
+    | 'CustomerMain'
+    | 'CustomerProfileName'
+    | 'AdminMain'
+    | 'Unsupported';
   params?: { applicationId?: string; adminRole?: AdminRoleCode };
 } {
+  // Customers are passwordless (BR-153): `hasPassword: false` is their normal
+  // state, so the BR-142 Create Password gate below must never catch a
+  // customer-only account. A customer still onboarding (new account, or
+  // BR-190 `profileComplete: false`) goes to the first onboarding screen.
+  const isCustomerOnly = getPrimaryAdminRole(me.roles) === null && resolveAppRole(me.roles) === 'CUSTOMER';
+  if (isCustomerOnly) {
+    return needsCustomerOnboarding({ isNewUser: options.isNewUser, profileComplete: me.profileComplete })
+      ? { name: 'CustomerProfileName' }
+      : { name: 'CustomerMain' };
+  }
   // BR-142: an account with no password (a first sign-in by OTP) sets one
   // before reaching any role shell. Checked here, not only on the OTP screen,
   // because every sign-in path and the Splash session restore route through
@@ -510,6 +538,9 @@ export async function logout(): Promise<void> {
     // refresh already cleared the session): a tokenless POST /auth/logout
     // would only 401 into the refresh path and fire the auth-failure handler.
     if (await hasSessionCredentials()) {
+      // Revoke this device's push token while the access token is still
+      // valid (no-op when push was never registered / Firebase unconfigured).
+      await unregisterPushForSession();
       await apiLogout();
     }
   } catch {

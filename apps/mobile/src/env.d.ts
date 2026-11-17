@@ -9,6 +9,8 @@
 // own. Keep this in sync with that file.
 declare module '@env' {
   export const MAPBOX_ACCESS_TOKEN: string;
+  /** Optional API origin for this build (no /v1). See src/shell/config/env.ts. */
+  export const MOBILE_API_BASE_URL: string | undefined;
 }
 
 declare module '*.png' {
@@ -24,4 +26,30 @@ declare module '*.jpg' {
 declare module '*.jpeg' {
   const content: any;
   export default content;
+}
+
+declare module 'react-native-razorpay' {
+  /** Subset of the SDK's options this app uses; see src/shell/payments/razorpay.ts. */
+  export interface RazorpayCheckoutOptions {
+    key: string;
+    amount: number | string;
+    currency?: string;
+    name?: string;
+    description?: string;
+    order_id?: string;
+    prefill?: { name?: string; email?: string; contact?: string };
+    notes?: Record<string, string>;
+    theme?: { color?: string };
+    method?: string;
+    [key: string]: unknown;
+  }
+  export interface RazorpaySuccess {
+    razorpay_payment_id: string;
+    razorpay_order_id?: string;
+    razorpay_signature?: string;
+  }
+  const RazorpayCheckout: {
+    open(options: RazorpayCheckoutOptions): Promise<RazorpaySuccess>;
+  };
+  export default RazorpayCheckout;
 }

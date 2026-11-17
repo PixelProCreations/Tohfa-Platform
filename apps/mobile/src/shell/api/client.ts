@@ -32,7 +32,7 @@ export function setApiBaseUrl(url: string): void {
  * localhost workaround: it names `localhost` and we're actually running on
  * Android, where `localhost` means the emulator itself, not the dev machine
  * hosting the API. Shared by `request()`'s own retry below and by
- * `roles/farmer/api/uploader.ts`'s raw `fetch` of a presigned upload target
+ * `shell/uploads/uploader.ts`'s raw `fetch` of a presigned upload target
  * (`apps/api/src/storage/blobStorage.ts`'s dev-mode `LocalDiskBlobStorage`
  * bakes `http://localhost:3000` into every signed URL unconditionally), which
  * bypasses `request()` entirely and so cannot reuse the try/catch below.
@@ -57,10 +57,112 @@ export function resolveUrl(path: string): string {
   return `${API_BASE_URL}/v1${normalizedPath}`;
 }
 
+/**
+ * RFC 9457 extension members the API adds on top of `Problem` (shared-types
+ * does not list them yet). All money values are decimal strings.
+ * - `shortfall`/`balance`/`required`: `WALLET_INSUFFICIENT` only (BR-192;
+ *   402 on transfers, 422 on checkout). `shortfall = required - balance`.
+ * - `meta.topupLimits` `{min, max}`: `VALIDATION_FAILED` on POST /wallets/me/topups (BR-193).
+ */
+export interface ProblemExtensions {
+  shortfall?: string | undefined;
+  balance?: string | undefined;
+  required?: string | undefined;
+}
+
+export interface WalletInsufficientDetails {
+  shortfall: string;
+  balance: string | null;
+  required: string | null;
+}
+
+export interface TopupLimits {
+  min: string;
+  max: string;
+}
+
+/** Optional transport facts an `ApiError` carries next to the problem body. */
+export interface ApiErrorInit {
+  /**
+   * Parsed `Retry-After` response header, in whole seconds (429 RATE_LIMITED,
+   * OTP_RESEND_TOO_SOON, 503). `null` when the header was absent/unparseable.
+   */
+  retryAfterSeconds?: number | null | undefined;
+}
+
 export class ApiError extends Error {
-  constructor(readonly problem: Problem) {
+  /** Seconds the server asked us to wait (`Retry-After`), or null. */
+  readonly retryAfterSeconds: number | null;
+
+  constructor(
+    readonly problem: Problem & ProblemExtensions,
+    init: ApiErrorInit = {},
+  ) {
     super(problem.detail ?? problem.title);
     this.name = 'ApiError';
+    this.retryAfterSeconds = init.retryAfterSeconds ?? null;
+  }
+
+  /** HTTP status of the problem (mirrors `problem.status`). */
+  get status(): number {
+    return this.problem.status;
+  }
+
+  /**
+   * TOHFA machine code -- THE field to branch on. Typed to the shared union,
+   * but the server may add codes before shared-types learns them (e.g.
+   * `SLOT_FULL`), so compare with `is()` or treat unknown strings as generic.
+   */
+  get code(): ProblemCode {
+    return this.problem.code;
+  }
+
+  get detail(): string | undefined {
+    return this.problem.detail;
+  }
+
+  /** Problem-specific context (`problem.meta`), never undefined. */
+  get meta(): Record<string, unknown> {
+    return this.problem.meta ?? {};
+  }
+
+  /**
+   * `WALLET_INSUFFICIENT` details (top-level `shortfall`/`balance`/`required`,
+   * falling back to `meta.shortfall`), or null for any other problem / when
+   * the server sent no shortfall. Use `shortfall` to pre-fill the top-up.
+   */
+  get walletShortfall(): WalletInsufficientDetails | null {
+    if (this.problem.code !== 'WALLET_INSUFFICIENT') return null;
+    const money = (v: unknown): string | null => (typeof v === 'string' && /^\d+(\.\d{1,2})?$/.test(v) ? v : null);
+    const shortfall = money(this.problem.shortfall) ?? money(this.meta['shortfall']);
+    if (shortfall === null) return null;
+    return {
+      shortfall,
+      balance: money(this.problem.balance) ?? money(this.meta['balance']),
+      required: money(this.problem.required) ?? money(this.meta['required']),
+    };
+  }
+
+  /** `meta.topupLimits` on a rejected top-up amount (BR-193), else null. */
+  get topupLimits(): TopupLimits | null {
+    const raw = this.meta['topupLimits'];
+    if (typeof raw !== 'object' || raw === null) return null;
+    const { min, max } = raw as { min?: unknown; max?: unknown };
+    return typeof min === 'string' && typeof max === 'string' ? { min, max } : null;
+  }
+
+  /**
+   * Field validation errors keyed by field name with the `body.`/`query.`/
+   * `params.` prefix stripped, first message per field -- ready to bind to a
+   * form input. Empty object when the problem has none.
+   */
+  get fieldErrors(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const [key, messages] of Object.entries(this.problem.errors ?? {})) {
+      const first = messages?.[0];
+      if (first !== undefined) out[key.replace(/^(body|query|params)\./, '')] = first;
+    }
+    return out;
   }
 
   /**
@@ -69,20 +171,51 @@ export class ApiError extends Error {
    * `packages/shared-types/src/errors.ts`). Previously typed to `ErrorCode` alone, which made
    * `err.is('CONFLICT')` a compile error even though this file's own docblock says screens
    * should branch on `error.problem.code` via this method, never by comparing `problem.code`
-   * inline. Widening is source-compatible with every existing call site: `ErrorCode` is a
-   * subset of `ProblemCode`.
+   * inline. Also accepts any string, so a code the server sends before shared-types lists
+   * it (e.g. `SLOT_FULL`) can still be matched.
    */
-  is(code: ProblemCode): boolean {
+  is(code: ProblemCode | (string & {})): boolean {
     return this.problem.code === code;
   }
 }
 
+/**
+ * Why a request never got an HTTP answer:
+ * - `offline`: fetch itself failed (no connectivity, DNS, server down);
+ * - `timeout`: our own deadline (`timeoutMs`, or the default 5 s) fired;
+ * - `aborted`: the CALLER's signal aborted it (screen unmounted, query
+ *   cancelled) -- not something to show the user.
+ */
+export type NetworkErrorReason = 'offline' | 'timeout' | 'aborted';
+
 export class NetworkError extends Error {
-  constructor(cause: unknown) {
+  readonly reason: NetworkErrorReason;
+
+  constructor(cause: unknown, reason: NetworkErrorReason = 'offline') {
     super('The network is unavailable. Your work is saved on this device.');
     this.name = 'NetworkError';
+    this.reason = reason;
     Object.defineProperty(this, 'cause', { value: cause, enumerable: false });
   }
+}
+
+/** True for a transport failure the user should see ("offline / timed out, retry"). */
+export function isNetworkError(err: unknown): err is NetworkError {
+  return err instanceof NetworkError && err.reason !== 'aborted';
+}
+
+/**
+ * `Retry-After` is either delta-seconds or an HTTP-date (RFC 9110 10.2.3).
+ * Returns whole seconds >= 0, or null when absent/unparseable.
+ */
+export function parseRetryAfter(value: string | null | undefined, now: number = Date.now()): number | null {
+  if (value === null || value === undefined) return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return null;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  const at = Date.parse(trimmed);
+  if (Number.isNaN(at)) return null;
+  return Math.max(0, Math.ceil((at - now) / 1000));
 }
 
 export interface StoredAuthTokens {
@@ -128,7 +261,28 @@ export function setOnAuthFailure(callback: (() => void) | null): void {
   onAuthFailureCallback = callback;
 }
 
-interface RequestOptions {
+/**
+ * Paths where a 401 means "bad credentials", not "expired token": a refresh
+ * and resend would only repeat the failure (and could sign the user out).
+ * `/auth/customer/otp/*` is the passwordless customer login (BR-153): a wrong
+ * OTP there is 401 OTP_INVALID and must never trigger refresh/sign-out.
+ */
+export const AUTH_SKIP_REFRESH_PATHS: readonly string[] = [
+  '/auth/login',
+  '/auth/refresh',
+  '/auth/otp',
+  '/auth/customer/otp',
+  '/auth/me/change-password',
+];
+
+export function isAuthEndpoint(path: string): boolean {
+  return AUTH_SKIP_REFRESH_PATHS.some((p) => path.includes(p));
+}
+
+/** Default deadline when the caller passes neither `signal` nor `timeoutMs`. */
+export const DEFAULT_TIMEOUT_MS = 5000;
+
+export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE' | undefined;
   body?: unknown | undefined;
   /** Required on every non-idempotent write. See docs/rules.md. */
@@ -253,7 +407,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const deadline = options.timeoutMs === undefined ? null : linkedTimeoutSignal(options.signal, options.timeoutMs);
   const requestSignal = deadline?.signal ?? options.signal;
   const controller = deadline !== null || options.signal ? null : new AbortController();
-  const timeoutId = controller ? setTimeout(() => controller.abort(), 5000) : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS) : null;
+  const failureReason = (): NetworkErrorReason => {
+    if (options.signal?.aborted === true) return 'aborted';
+    if (deadline?.signal.aborted === true || controller?.signal.aborted === true) return 'timeout';
+    return 'offline';
+  };
   try {
     response = await fetch(resolveUrl(path), {
       method: options.method ?? 'GET',
@@ -262,7 +421,8 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       signal: requestSignal ?? controller?.signal,
     });
   } catch (error) {
-    if (isAndroidLocalhostFallbackCandidate(API_BASE_URL)) {
+    const reason = failureReason();
+    if (reason !== 'aborted' && isAndroidLocalhostFallbackCandidate(API_BASE_URL)) {
       try {
         const fallbackUrl = toAndroidLocalhostFallbackUrl(resolveUrl(path));
         response = await fetch(fallbackUrl, {
@@ -273,10 +433,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
         });
         API_BASE_URL = 'http://10.0.2.2:3000';
       } catch {
-        throw new NetworkError(error);
+        throw new NetworkError(error, failureReason());
       }
     } else {
-      throw new NetworkError(error);
+      throw new NetworkError(error, reason);
     }
   } finally {
     if (timeoutId) clearTimeout(timeoutId);
@@ -284,17 +444,12 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   }
 
   // Handle mid-session 401 token expiry with collapsed refresh and single retry.
-  // On these endpoints a 401 means bad credentials, not an expired token, so a refresh
-  // and resend would only repeat the failure. change-password answers a wrong CURRENT
-  // password with 401: retrying it resent the same wrong password (two rate-limiter
-  // strikes for one typo) and could sign the user out if the refresh then failed.
-  const isAuthEndpoint =
-    path.includes('/auth/login') ||
-    path.includes('/auth/refresh') ||
-    path.includes('/auth/otp') ||
-    path.includes('/auth/me/change-password');
-
-  if (response.status === 401 && !options._isRetry && !isAuthEndpoint) {
+  // On the AUTH_SKIP_REFRESH_PATHS endpoints a 401 means bad credentials, not an
+  // expired token, so a refresh and resend would only repeat the failure.
+  // change-password answers a wrong CURRENT password with 401: retrying it resent
+  // the same wrong password (two rate-limiter strikes for one typo) and could sign
+  // the user out if the refresh then failed.
+  if (response.status === 401 && !options._isRetry && !isAuthEndpoint(path)) {
     const newAccessToken = await refreshAuthTokens();
     if (newAccessToken !== null) {
       return request<T>(path, {
@@ -307,19 +462,61 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (response.status === 204) return undefined as T;
 
   const text = await response.text();
-  const payload: unknown = text.length === 0 ? null : JSON.parse(text);
+  let payload: unknown = null;
+  if (text.length > 0) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      // A proxy/gateway HTML error page, or a truncated body: not JSON.
+      payload = response.ok ? text : null;
+    }
+  }
 
   if (!response.ok) {
-    if (isProblem(payload)) throw new ApiError(payload);
-    throw new ApiError({
-      type: 'about:blank',
-      title: 'Request failed',
-      status: response.status,
-      code: 'INTERNAL',
-    });
+    const retryAfterSeconds = parseRetryAfter(readHeader(response, 'Retry-After'));
+    if (isProblem(payload)) throw new ApiError(payload, { retryAfterSeconds });
+    throw new ApiError(
+      {
+        type: 'about:blank',
+        title: 'Request failed',
+        status: response.status,
+        code: fallbackCodeForStatus(response.status),
+      },
+      { retryAfterSeconds },
+    );
   }
 
   return payload as T;
+}
+
+function readHeader(response: Response, name: string): string | null {
+  // Test doubles sometimes hand back a bare object without a Headers instance.
+  const headers = (response as { headers?: { get?: (n: string) => string | null } }).headers;
+  return typeof headers?.get === 'function' ? headers.get(name) : null;
+}
+
+/** Best generic code for a non-problem error body, so callers can still branch. */
+function fallbackCodeForStatus(status: number): ProblemCode {
+  switch (status) {
+    case 400:
+      return 'BAD_REQUEST';
+    case 401:
+      return 'UNAUTHENTICATED';
+    case 403:
+      return 'FORBIDDEN';
+    case 404:
+      return 'NOT_FOUND';
+    case 409:
+      return 'CONFLICT';
+    case 413:
+      return 'PAYLOAD_TOO_LARGE';
+    case 422:
+      return 'VALIDATION_FAILED';
+    case 429:
+      return 'RATE_LIMITED';
+    default:
+      return 'INTERNAL';
+  }
 }
 
 function isProblem(value: unknown): value is Problem {
@@ -332,19 +529,31 @@ function isProblem(value: unknown): value is Problem {
   );
 }
 
+/** Per-call extras the `api.*` helpers accept (all optional). */
+export type ApiCallOptions = Pick<RequestOptions, 'signal' | 'timeoutMs' | 'idempotencyKey'>;
+
+function callOptions(extra: ApiCallOptions | undefined): RequestOptions {
+  const out: RequestOptions = {};
+  if (extra?.signal !== undefined) out.signal = extra.signal;
+  if (extra?.timeoutMs !== undefined) out.timeoutMs = extra.timeoutMs;
+  if (extra?.idempotencyKey !== undefined) out.idempotencyKey = extra.idempotencyKey;
+  return out;
+}
+
 export const api = {
-  get: <T>(path: string, signal?: AbortSignal): Promise<T> =>
-    request<T>(path, signal === undefined ? {} : { signal }),
-  post: <T>(path: string, body: unknown, idempotencyKey?: string): Promise<T> =>
+  get: <T>(path: string, signal?: AbortSignal, extra?: ApiCallOptions): Promise<T> =>
+    request<T>(path, { ...callOptions(extra), ...(signal === undefined ? {} : { signal }) }),
+  post: <T>(path: string, body: unknown, idempotencyKey?: string, extra?: ApiCallOptions): Promise<T> =>
     request<T>(path, {
+      ...callOptions(extra),
       method: 'POST',
       body,
       ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
     }),
-  patch: <T>(path: string, body: unknown): Promise<T> =>
-    request<T>(path, { method: 'PATCH', body }),
-  put: <T>(path: string, body: unknown): Promise<T> =>
-    request<T>(path, { method: 'PUT', body }),
-  delete: <T>(path: string): Promise<T> =>
-    request<T>(path, { method: 'DELETE' }),
+  patch: <T>(path: string, body: unknown, extra?: ApiCallOptions): Promise<T> =>
+    request<T>(path, { ...callOptions(extra), method: 'PATCH', body }),
+  put: <T>(path: string, body: unknown, extra?: ApiCallOptions): Promise<T> =>
+    request<T>(path, { ...callOptions(extra), method: 'PUT', body }),
+  delete: <T>(path: string, extra?: ApiCallOptions): Promise<T> =>
+    request<T>(path, { ...callOptions(extra), method: 'DELETE' }),
 };

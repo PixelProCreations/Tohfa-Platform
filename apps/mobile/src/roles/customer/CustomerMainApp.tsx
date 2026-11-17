@@ -4,6 +4,8 @@ import { ThemeProvider, buildThemeForRole, ScreenStatusBar, SafeAreaView } from 
 import { RoleCode } from '@tohfa/shared-types';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../../shell/api/queryClient';
+import { onForegroundPush, registerPushForSession } from '../../shell/notifications/push';
+import { getLocale } from '../../i18n/customer';
 import { CategoriesScreen } from './screens/CategoriesScreen';
 import { ProductGridScreen } from './screens/ProductGridScreen';
 import { ProductDetailScreen } from './screens/ProductDetailScreen';
@@ -173,6 +175,16 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
     const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
     return () => subscription.remove();
   }, [currentScreen, history, goBack]);
+
+  // Push: register this device's FCM token for the signed-in customer. Never
+  // prompts here (the Permissions screen asks); a no-op with a logged reason
+  // when Firebase isn't configured. Revoked by logout() before tokens clear.
+  useEffect(() => {
+    void registerPushForSession({ app: 'customer-mobile', locale: getLocale() });
+    return onForegroundPush(() => {
+      void queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    });
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

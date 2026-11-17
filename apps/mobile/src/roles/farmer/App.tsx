@@ -4,6 +4,7 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 import Svg, { Path } from 'react-native-svg';
 import { configureTokenStorage, setOnAuthFailure } from '../../shell/api/client';
 import { SessionQueryProvider } from '../../shell/api/SessionQueryProvider';
+import { configureApiFromEnv } from '../../shell/config/env';
 import { deleteFarmAsset } from './api/farmAssets';
 import { deleteTreePlanting } from './api/treePlantings';
 import { tokenStorage } from './storage/tokenStorage';
@@ -586,6 +587,13 @@ export type ScreenName =
 type TabName = 'Home' | 'Listings' | 'Wallet' | 'Profile';
 
 /** Near-black green used behind the splash photo + status bar while Splash shows. */
+// Boot wiring, at module load so it precedes every child effect (Splash's
+// session restore runs before this component's own effects): the API origin
+// from MOBILE_API_BASE_URL, and THE shared secure token store (the one every
+// role's login writes) for the client's refresh-on-401.
+configureApiFromEnv();
+configureTokenStorage(tokenStorage);
+
 const SPLASH_DARK = authPalette.splashDark;
 
 function TabPlusIcon({ size = 22, color = colors.white }: { size?: number; color?: string }) {

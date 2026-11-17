@@ -227,3 +227,80 @@ export function registerCustomer(
     body,
   });
 }
+
+/* ------------------------------------------------------------------ *
+ * Passwordless customer sign-in (BR-153): `/auth/customer/otp/{send,verify}`.
+ * A wrong code is 401 OTP_INVALID; ../api/client.ts lists these paths in
+ * AUTH_SKIP_REFRESH_PATHS so that never triggers refresh/sign-out. SMS
+ * dispatch can be slow, hence the 15 s deadline instead of the default 5 s.
+ * ------------------------------------------------------------------ */
+
+export const CUSTOMER_OTP_TIMEOUT_MS = 15000;
+
+export interface CustomerOtpSendRequest {
+  /** `+91` + 10 digits, first digit 6-9. */
+  mobile: string;
+}
+
+/** docs/openapi.yaml `OtpChallenge` (202). */
+export interface CustomerOtpChallenge {
+  challengeId: string;
+  expiresAt: string;
+  resendAvailableAt: string;
+  attemptsRemaining: number;
+  /** Dev/mock SMS transport only. */
+  _mockCode?: string | undefined;
+}
+
+export interface CustomerOtpVerifyRequest {
+  mobile: string;
+  challengeId: string;
+  /** Exactly 6 digits. */
+  otp: string;
+  preferredLocale?: 'en' | 'ta' | undefined;
+  deviceInfo?: { deviceId?: string | undefined; platform?: 'ios' | 'android' | 'web' | undefined } | undefined;
+}
+
+/** docs/openapi.yaml `CustomerOtpVerifyResponse` (200). */
+export interface CustomerOtpVerifyResponse {
+  accessToken: string;
+  refreshToken: string;
+  tokenType: 'Bearer';
+  expiresIn: number;
+  /** True when this call created the customer account. */
+  isNewUser: boolean;
+  user: {
+    id: string;
+    fullName: string;
+    mobile: string;
+    userType: 'CUSTOMER';
+    preferredLocale: 'en' | 'ta';
+    status: 'ACTIVE';
+    hasPassword: boolean;
+    customerId: string;
+    roles: Array<{ code: string; warehouseId?: string | null | undefined }>;
+    /**
+     * BR-190 onboarding flag (backend adding it; absent on older servers).
+     * Only an explicit `false` means "profile incomplete".
+     */
+    profileComplete?: boolean | undefined;
+    /** Which onboarding fields are still missing, when `profileComplete` is false. */
+    missingFields?: string[] | undefined;
+  };
+}
+
+export function sendCustomerOtp(body: CustomerOtpSendRequest): Promise<CustomerOtpChallenge> {
+  return request<CustomerOtpChallenge>('/auth/customer/otp/send', {
+    method: 'POST',
+    body,
+    timeoutMs: CUSTOMER_OTP_TIMEOUT_MS,
+  });
+}
+
+export function verifyCustomerOtp(body: CustomerOtpVerifyRequest): Promise<CustomerOtpVerifyResponse> {
+  return request<CustomerOtpVerifyResponse>('/auth/customer/otp/verify', {
+    method: 'POST',
+    body,
+    timeoutMs: CUSTOMER_OTP_TIMEOUT_MS,
+  });
+}

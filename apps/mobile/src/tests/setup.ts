@@ -21,9 +21,31 @@
  */
 import { vi } from 'vitest';
 import { createKeychainMock } from './mocks/keychainMock';
+import { createAsyncStorageMock } from './mocks/asyncStorageMock';
+import {
+  createFirebaseAppMock,
+  createFirebaseMessagingMock,
+  createGeolocationMock,
+  createImagePickerMock,
+  createRazorpayMock,
+} from './mocks/nativeLibMocks';
 
 vi.mock('react-native-keychain', () => createKeychainMock());
-vi.mock('@env', () => ({ MAPBOX_ACCESS_TOKEN: 'mock_token' }));
+vi.mock('@env', () => ({ MAPBOX_ACCESS_TOKEN: 'mock_token', MOBILE_API_BASE_URL: undefined }));
+
+/**
+ * The shared token store (src/shell/storage/secureTokenStorage.ts) reads
+ * AsyncStorage once to migrate pre-unification customer tokens, so every test
+ * that touches the API client can reach it. Per-file mocks still win.
+ */
+vi.mock('@react-native-async-storage/async-storage', () => createAsyncStorageMock());
+
+/** Native libs added for the customer integration; see ./mocks/nativeLibMocks.ts. */
+vi.mock('react-native-razorpay', () => createRazorpayMock());
+vi.mock('@react-native-firebase/app', () => createFirebaseAppMock());
+vi.mock('@react-native-firebase/messaging', () => createFirebaseMessagingMock());
+vi.mock('react-native-image-picker', () => createImagePickerMock());
+vi.mock('@react-native-community/geolocation', () => createGeolocationMock());
 
 /**
  * `react-native` itself, mocked globally, for a completely different reason
@@ -67,6 +89,17 @@ vi.mock('react-native', () => {
     FlatList: componentStub('FlatList'),
     Image: componentStub('Image'),
     ImageBackground: componentStub('ImageBackground'),
+    PermissionsAndroid: {
+      PERMISSIONS: {
+        POST_NOTIFICATIONS: 'android.permission.POST_NOTIFICATIONS',
+        ACCESS_FINE_LOCATION: 'android.permission.ACCESS_FINE_LOCATION',
+        ACCESS_COARSE_LOCATION: 'android.permission.ACCESS_COARSE_LOCATION',
+        CAMERA: 'android.permission.CAMERA',
+      },
+      RESULTS: { GRANTED: 'granted', DENIED: 'denied', NEVER_ASK_AGAIN: 'never_ask_again' },
+      request: vi.fn(async () => 'granted'),
+      check: vi.fn(async () => true),
+    },
     Platform: { OS: 'ios', Version: 0, select: (obj: Record<string, unknown>) => obj.ios ?? obj.default },
     Pressable: componentStub('Pressable'),
     SafeAreaView: componentStub('SafeAreaView'),

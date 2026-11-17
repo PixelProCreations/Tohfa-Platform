@@ -168,7 +168,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── TOP HEADER ROW WITH BACK BUTTON (SAFELY BELOW CAMERA NOTCH) ────── */}
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>

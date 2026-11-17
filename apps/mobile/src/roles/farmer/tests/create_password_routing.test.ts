@@ -75,7 +75,7 @@ function me(roles: string[], hasPassword?: boolean): UserMe {
 }
 
 describe('BR-142e: resolveRouteAfterAuth sends an account with no password to Create Password', () => {
-  it.each(['FARMER', 'CUSTOMER', 'SUB_WH_ADMIN', 'SUPER_ADMIN'])(
+  it.each(['FARMER', 'SUB_WH_ADMIN', 'SUPER_ADMIN'])(
     'BR-142e: %s with hasPassword false goes to CreatePassword, before any role shell',
     (role) => {
       expect(resolveRouteAfterAuth(me([role], false))).toEqual({ name: 'CreatePassword' });
@@ -88,6 +88,26 @@ describe('BR-142e: resolveRouteAfterAuth sends an account with no password to Cr
     expect(resolveRouteAfterAuth(me(['SUB_WH_ADMIN'], true))).toEqual({
       name: 'AdminMain',
       params: { adminRole: 'SUB_WH_ADMIN' },
+    });
+  });
+
+  // BR-153: customers are passwordless, so hasPassword:false is their normal
+  // state; it must never send them to Create Password.
+  it('BR-153: a CUSTOMER with hasPassword false goes to the customer app, not CreatePassword', () => {
+    expect(resolveRouteAfterAuth(me(['CUSTOMER'], false))).toEqual({ name: 'CustomerMain' });
+  });
+
+  it('BR-190: a customer whose profile is incomplete, or who was just created, goes to onboarding', () => {
+    expect(resolveRouteAfterAuth({ ...me(['CUSTOMER'], false), profileComplete: false })).toEqual({
+      name: 'CustomerProfileName',
+    });
+    expect(resolveRouteAfterAuth(me(['CUSTOMER'], false), { isNewUser: true })).toEqual({
+      name: 'CustomerProfileName',
+    });
+    // profileComplete absent (older server) never traps a returning customer in onboarding.
+    expect(resolveRouteAfterAuth(me(['CUSTOMER'], false))).toEqual({ name: 'CustomerMain' });
+    expect(resolveRouteAfterAuth({ ...me(['CUSTOMER'], false), profileComplete: true })).toEqual({
+      name: 'CustomerMain',
     });
   });
 

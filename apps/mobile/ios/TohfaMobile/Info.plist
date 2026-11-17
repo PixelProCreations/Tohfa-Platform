@@ -25,11 +25,15 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>TOHFA needs your farm GPS location to verify land parcel boundaries during crop listing.</string>
+	<string>TOHFA uses your location to verify farm boundaries during crop listing and to find your delivery address.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>TOHFA needs camera access to capture harvest photos and organic certification documents.</string>
+	<string>TOHFA needs camera access to capture harvest photos, certification documents and photos for support requests.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>TOHFA needs photo library access to upload certification proofs and crop images.</string>
+	<string>TOHFA needs photo library access to upload certification proofs, crop images and photos for support requests.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>armv7</string>
