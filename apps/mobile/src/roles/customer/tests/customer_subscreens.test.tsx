@@ -380,5 +380,38 @@ describe('Customer Sub-Screens (Orders, Wallet, Support, Help, Notifications)', 
     expect(json).toContain('Tomato');
     expect(json).toContain('Red Tomato');
   });
+
+  it('SearchScreen displays banner collections when initialQuery is provided', async () => {
+    let tree: any;
+    await act(async () => {
+      tree = renderer.create(
+        <SearchScreen initialQuery="Just Arrived" onNavigate={mockNavigate} onBack={mockBack} />
+      );
+    });
+
+    let json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Just Arrived');
+    expect(json).toContain('Cherry Tomato');
+
+    await act(async () => {
+      tree = renderer.create(
+        <SearchScreen initialQuery="Pesticide Free" onNavigate={mockNavigate} onBack={mockBack} />
+      );
+    });
+
+    json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Pesticide Free');
+    expect(json).toContain('Broccoli');
+
+    await act(async () => {
+      tree = renderer.create(
+        <SearchScreen initialQuery="Seasonal Favs" onNavigate={mockNavigate} onBack={mockBack} />
+      );
+    });
+
+    json = JSON.stringify(tree.toJSON());
+    expect(json).toContain('Seasonal Favs');
+    expect(json).toContain('Watermelon');
+  });
 });
 

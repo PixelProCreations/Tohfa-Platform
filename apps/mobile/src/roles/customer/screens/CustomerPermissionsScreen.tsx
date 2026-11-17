@@ -17,8 +17,10 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import type { AddressData } from '../components';
 import { ArrowRightFigmaIcon, CustomerDeliveryAddressModal } from '../components';
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- RN static asset
 const permissionsHeroCrate = require('../assets/images/permissions_hero_crate.jpg');
 
 interface CustomerPermissionsScreenProps {
@@ -170,6 +172,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
   return (
     <View style={styles.container}>
       {/* Edge-to-edge pure white, status bar hidden */}
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* ── TOP BAR: (X) ON LEFT, SKIP ON RIGHT ───────────────────────────── */}

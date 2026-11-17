@@ -15,6 +15,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 interface CustomerProfileNameScreenProps {
@@ -38,6 +39,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
 
   return (
     <View style={styles.container}>
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* Top Header: 3-Segment Progress Bar + Skip */}

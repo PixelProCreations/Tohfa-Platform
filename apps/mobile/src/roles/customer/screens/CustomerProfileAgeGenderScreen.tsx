@@ -16,6 +16,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 interface CustomerProfileAgeGenderScreenProps {
@@ -43,6 +44,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
   return (
     <View style={styles.container}>
       {/* Hide status bar symbols, edge-to-edge pure white */}
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* ── TOP HEADER: 3-SEGMENT PROGRESS (Green / Green / Grey) + SKIP ── */}

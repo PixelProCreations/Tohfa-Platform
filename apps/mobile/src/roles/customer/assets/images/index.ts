@@ -25,4 +25,7 @@ export { default as profileAvatarMale } from './profileimages/image 16.png';
 export { default as profileAvatarFemale } from './profileimages/pngegg (4) 2.png';
 export { default as divQrCode } from './profileimages/div (1).png';
 export { default as pickupQrCode } from './pickup_qr_code.png';
+export { default as customerLoginBranchTopLeft } from './customer_login_branch_top_left.png';
+export { default as customerLoginRightLeaves } from './customer_login_right_leaves.png';
+
 

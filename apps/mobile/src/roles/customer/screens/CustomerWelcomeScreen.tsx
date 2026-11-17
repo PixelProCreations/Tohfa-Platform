@@ -8,6 +8,7 @@ import {
   StatusBar,
   BackHandler,
 } from 'react-native';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 
 import customerSplashClean from '../assets/images/customer_splash_clean.png';
 import customerWelcomeSlide1Full from '../assets/images/customer_welcome_slide1_full.png';
@@ -73,6 +74,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
   return (
     <View style={styles.container}>
       {/* Hide status bar symbols across customer onboarding flow */}
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* ── SCREEN 1: CUSTOMER SPLASH ────────────────────────────────────────── */}

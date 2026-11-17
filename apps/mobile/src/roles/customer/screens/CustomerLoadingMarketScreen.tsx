@@ -12,6 +12,8 @@ import {
   customerColors,
   customerFonts,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
+// eslint-disable-next-line @typescript-eslint/no-require-imports -- RN static asset
 const tohfaMarketLogo = require('../assets/images/tohfa_market_logo.png');
 
 interface CustomerLoadingMarketScreenProps {
@@ -143,6 +145,7 @@ export const CustomerLoadingMarketScreen: React.FC<CustomerLoadingMarketScreenPr
 
   return (
     <View style={styles.container}>
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} barStyle="dark-content" />
 
       <Animated.View style={[styles.centeredContainer, { opacity: fadeAnim }]}>

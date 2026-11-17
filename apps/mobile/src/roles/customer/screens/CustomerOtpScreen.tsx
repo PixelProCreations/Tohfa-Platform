@@ -18,6 +18,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 import branchLeavesTopLeft from '../assets/images/branch_leaves_top_left.png';
 import { profileEmailVerified } from '../assets/images';
@@ -98,6 +99,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
 
   return (
     <View style={styles.container}>
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* Decorative leaf branch top-left */}

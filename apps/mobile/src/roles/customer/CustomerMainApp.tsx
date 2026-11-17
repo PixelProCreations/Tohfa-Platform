@@ -200,7 +200,11 @@ export function CustomerMainApp({ onSignOut }: { onSignOut: () => void }): React
           )}
 
           {currentScreen === 'Search' && (
-            <SearchScreen onNavigate={(s, p) => navigate(s, p)} onBack={goBack} />
+            <SearchScreen
+              initialQuery={(navParams.query as string) || (navParams.initialQuery as string) || ''}
+              onNavigate={(s, p) => navigate(s, p)}
+              onBack={goBack}
+            />
           )}
 
           {currentScreen === 'Cart' && (

@@ -726,19 +726,19 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <View style={styles.categoriesTouchRow}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { }}
+                onPress={() => onNavigate?.('Search', { query: 'Just Arrived' })}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Just Arrived"
               />
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { }}
+                onPress={() => onNavigate?.('Search', { query: 'Pesticide Free' })}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Pesticide Free"
               />
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => { }}
+                onPress={() => onNavigate?.('Search', { query: 'Seasonal Favs' })}
                 style={styles.categoryCircleHit}
                 accessibilityLabel="Seasonal Favs"
               />
@@ -819,7 +819,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   <TouchableOpacity
                     key={cat.id}
                     activeOpacity={0.75}
-                    onPress={() => { }}
+                    onPress={() => onNavigate?.('Search', { query: cat.label })}
                     style={styles.categoryCircleItem}
                   >
                     <View style={styles.categoryCircleOuter}>
@@ -1730,7 +1730,7 @@ const styles = StyleSheet.create({
   },
   promoBannerImage: {
     width: '100%',
-    aspectRatio: 390 / 210,
+    aspectRatio: 350 / 170,
     borderRadius: 20,
   },
 

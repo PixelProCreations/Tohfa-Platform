@@ -21,6 +21,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface SearchScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
+  initialQuery?: string;
 }
 
 interface SearchProduct {
@@ -103,20 +104,22 @@ const SEARCH_CATEGORIES = [
   { id: 'c7', label: 'Bakery', image: CategoryImages.bakery },
 ];
 
-export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
+export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchScreenProps) {
   const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [favorites, setFavorites] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (initialQuery) {
+      setQuery(initialQuery);
+    }
+  }, [initialQuery]);
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
     : (Platform.OS === 'android' ? (StatusBar.currentHeight ? StatusBar.currentHeight + 12 : 44) : 16);
 
   const handleBack = () => {
-    if (query.trim().length > 0) {
-      setQuery('');
-      return;
-    }
     if (onBack) {
       onBack();
     } else {
@@ -130,12 +133,37 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
     );
   };
 
-  // Filter products by typed search query
+  // Filter products by typed search query, category, or banner collection
+  const queryClean = query.trim().toLowerCase();
+  const isJustArrived =
+    queryClean === 'just arrived' ||
+    queryClean === 'just-arrived' ||
+    queryClean.includes('arrived');
+  const isPesticideFree =
+    queryClean === 'pesticide free' ||
+    queryClean === 'pesticide-free' ||
+    queryClean.includes('pesticide');
+  const isSeasonal =
+    queryClean === 'seasonal favs' ||
+    queryClean === 'seasonal' ||
+    queryClean.includes('season');
+
   const searchResults = query.trim().length > 0
-    ? ALL_SEARCH_PRODUCTS.filter(p =>
-        p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.category.toLowerCase().includes(query.toLowerCase())
-      )
+    ? ALL_SEARCH_PRODUCTS.filter(p => {
+        if (isJustArrived) {
+          return ['t3', 'v2', 'f1', 'f5', 'v3', 'd1'].includes(p.id) || p.name.toLowerCase().includes(queryClean);
+        }
+        if (isPesticideFree) {
+          return ['t1', 't2', 'v3', 'v4', 'v2', 'g1'].includes(p.id) || p.name.toLowerCase().includes(queryClean);
+        }
+        if (isSeasonal) {
+          return ['f4', 'f1', 'f5', 'f3', 't4', 't5'].includes(p.id) || p.name.toLowerCase().includes(queryClean);
+        }
+        return (
+          p.name.toLowerCase().includes(queryClean) ||
+          p.category.toLowerCase().includes(queryClean)
+        );
+      })
     : [];
 
   return (

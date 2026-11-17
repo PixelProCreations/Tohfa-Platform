@@ -19,6 +19,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { CustomerDeliveryAddressModal, type AddressData } from '../components';
 import satelliteMapCoimbatore from '../assets/images/satellite_map_coimbatore.jpg';
 
@@ -140,6 +141,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
 
   return (
     <View style={styles.container}>
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* ── TOP HEADER BAR: ← Add Address ──────────────────────────────────── */}

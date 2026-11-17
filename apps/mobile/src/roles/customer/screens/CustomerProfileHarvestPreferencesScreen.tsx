@@ -15,6 +15,7 @@ import {
   customerShadow,
   customerSpacing,
 } from '../theme';
+import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 
 interface CustomerProfileHarvestPreferencesScreenProps {
@@ -295,6 +296,7 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
   return (
     <View style={styles.container}>
       {/* Edge-to-edge pure white, status bar hidden */}
+      <ScreenStatusBar translucent={true} backgroundColor="transparent" barStyle="dark-content" />
       <StatusBar hidden={true} />
 
       {/* ── TOP HEADER: 3-SEGMENT PROGRESS (Green / Green / Green) + SKIP ── */}

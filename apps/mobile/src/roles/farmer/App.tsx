@@ -614,7 +614,7 @@ function channelForRoute(route: 'SubWarehouseB2BSales' | 'SubWarehouseB2BDetail'
  */
 const MAIN_WAREHOUSE_SCOPE: WarehouseScope = {};
 /** Legacy Main inventory route keys -> shared InventoryFlow design ids (W4). */
-/** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST #106). */
+/** Legacy Sub RMA route keys -> shared ReturnsFlow routes (W4). 'SubWarehouseImageViewer' was dropped (FINAL_LIST No. 106). */
 const RETURNS_ROUTE_ENTRY: Partial<Record<ScreenName, ReturnsRoute>> = {
   SubWarehouseReturnsIssues: 'ReturnsIssues',
   SubWarehouseRmaDetail: 'RmaDetail',
@@ -1234,6 +1234,7 @@ export default function App(): React.JSX.Element {
   // Splash and Welcome are full-bleed photo screens: no header, dark chrome.
   const isAuthLanding = screen === 'Splash' || screen === 'Welcome';
   const isCustomerScreen = screen.startsWith('Customer');
+  const isCustomerIntroScreen = isCustomerScreen && screen !== 'CustomerMain';
 
   // The admin shell AdminMain renders, from the role the server returned at
   // sign-in. null (unknown or missing) renders no admin shell: AdminMain falls
@@ -1247,7 +1248,13 @@ export default function App(): React.JSX.Element {
   return (
     <SessionQueryProvider sessionKey={sessionEpoch}>
     <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-    <View style={[styles.screen, isAuthLanding && styles.screenSplash]}>
+    <View
+      style={[
+        styles.screen,
+        isAuthLanding && styles.screenSplash,
+        isCustomerIntroScreen && styles.screenCustomerIntro,
+      ]}
+    >
       <StatusBar
         hidden={isCustomerScreen}
         barStyle={isCustomerScreen ? 'dark-content' : 'light-content'}
@@ -3356,8 +3363,10 @@ export default function App(): React.JSX.Element {
           </View>
         )}
       </View>
-      {/* Splash and Welcome are full-bleed and pad their own bottom content. */}
-      {!isAuthLanding && <NavigationBarInset backgroundColor={colors.surface} />}
+      {/* Splash, Welcome, and Customer intro screens are full-bleed and pad their own bottom content. */}
+      {!isAuthLanding && !isCustomerIntroScreen && (
+        <NavigationBarInset backgroundColor={colors.surface} />
+      )}
     </View>
     </SafeAreaProvider>
     </SessionQueryProvider>
@@ -3366,6 +3375,9 @@ export default function App(): React.JSX.Element {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.surface },
+  screenCustomerIntro: {
+    backgroundColor: colors.white,
+  },
   screenSplash: {
     backgroundColor: SPLASH_DARK,
   },
