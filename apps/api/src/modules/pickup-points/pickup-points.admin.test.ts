@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { RoleCode, ScopeLevel } from '@tohfa/shared-types';
+import type * as AuditLogModule from '../../audit/auditLog.js';
 import type { Executor } from '../../db/pool.js';
 import { aScope, IDS } from '../../test/factories.js';
 import type { AdminPickupPointRow, AdminPickupPointsRepo } from './pickup-points.admin.repo.js';
@@ -9,7 +10,7 @@ import { isOpenNow, parseHours } from './pickup-points.service.js';
 
 const audit = vi.hoisted(() => vi.fn(async () => 'audit-id'));
 vi.mock('../../audit/auditLog.js', async (orig) => ({
-  ...(await orig<typeof import('../../audit/auditLog.js')>()),
+  ...(await orig<typeof AuditLogModule>()),
   writeAuditLog: audit,
 }));
 

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import renderer, { act } from 'react-test-renderer';
+import type * as LegalApi from '../api/legal';
 
 vi.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
@@ -28,7 +29,7 @@ vi.mock('react-native', () => ({
 }));
 
 vi.mock('../api/legal', async (orig) => {
-  const actual = await orig<typeof import('../api/legal')>();
+  const actual = await orig<typeof LegalApi>();
   return {
     ...actual,
     useLegal: () => ({

@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, expect, it } from 'vitest';
 import request from 'supertest';
 import { RoleCode } from '@tohfa/shared-types';
 import { createApp } from '../../app.js';
