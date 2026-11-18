@@ -66,3 +66,21 @@ export const customerOtpRepo: CustomerOtpRepo = {
     return { age: row?.age ?? null, gender: row?.gender ?? null, harvestPreferences: row?.harvestPreferences ?? [] };
   },
 };
+
+/**
+ * BR-205: the same onboarding fields keyed by user id, for `GET /auth/me`. Null when the user
+ * has no `customers` row yet (a CUSTOMER account that never signed in by OTP).
+ */
+export async function onboardingFieldsByUserId(
+  db: Executor,
+  userId: string,
+): Promise<{ age: number | null; gender: string | null; harvestPreferences: string[] } | null> {
+  const res = await db.query<{ age: number | null; gender: string | null; harvestPreferences: string[] | null }>(
+    `SELECT age::int AS age, gender, harvest_preferences AS "harvestPreferences"
+       FROM customers WHERE user_id = $1`,
+    [userId],
+  );
+  const row = res.rows[0];
+  if (row === undefined) return null;
+  return { age: row.age ?? null, gender: row.gender ?? null, harvestPreferences: row.harvestPreferences ?? [] };
+}

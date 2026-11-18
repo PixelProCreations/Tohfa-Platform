@@ -720,7 +720,7 @@ paths:
         effective permission codes — the payload every client shell reads to decide what to
         render.
       x-permission: auth.principal.view_own
-      x-business-rules: []
+      x-business-rules: [BR-205]
       responses:
         '200':
           description: The authenticated principal.
@@ -20177,6 +20177,17 @@ components:
             BR-142 additive field, present on `GET` and `PATCH /auth/me`: true when the account has a
             password set. An account that signed in by OTP and has none is sent to Create Password and
             sets one with `POST /auth/me/set-password`. Derived from the stored hash, which is never returned.
+        profileComplete:
+          type: boolean
+          description: |
+            BR-205, present only when `userType` is `customer` (omitted for every other user type):
+            true once the customer has a real name and at least one onboarding field (BR-190). The
+            mobile app restores a session and routes to onboarding while this is false. Same value as
+            `user.profileComplete` in the OTP verify response and `GET /customers/me`.
+        missingFields:
+          type: array
+          description: BR-205, customers only. The onboarding fields still missing (BR-190); empty when `profileComplete` is true.
+          items: { type: string, enum: [fullName, age, gender, harvestPreferences] }
         roles: { type: array, items: { $ref: '#/components/schemas/RoleAssignment' } }
         permissions:
           type: array

@@ -4089,6 +4089,18 @@ Every other place that adds a role creates a brand-new account in the same trans
 
 **Test contract.** `apps/api/src/modules/returnRequests/returnRequests.photos.test.ts` (`BR-204a`..`BR-204c`).
 
+### BR-205 — GET /auth/me tells a customer whether their profile is complete
+
+| | |
+|---|---|
+| **Source** | Derived rule (mobile integration, added 2026-11-17). Extends BR-190, BR-142 |
+| **Status** | DERIVED |
+| **Layer** | `apps/api/src/modules/auth/` (`buildMe`), reusing `customer-profile.completeness.ts` |
+
+**Rule.** For a `CUSTOMER` user, `GET /auth/me` (and `PATCH /auth/me`, same shape) also returns `profileComplete` and `missingFields`, computed by the BR-190 `profileCompleteness` helper from the user's name and `customers` onboarding fields (a customer with no `customers` row is incomplete). Other user types get neither key. This lets mobile session restore route to onboarding without a second call.
+
+**Test contract.** `apps/api/src/modules/auth/auth.me.completeness.test.ts` (`BR-205a`..`BR-205c`).
+
 ## Open contradictions — DO NOT GUESS
 
 | # | Topic | Requirements v1.0 says | Role & Feature Matrix v1.0 says | Codebase default | Status |
