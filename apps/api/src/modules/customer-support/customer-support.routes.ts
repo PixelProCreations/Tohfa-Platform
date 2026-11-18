@@ -22,7 +22,7 @@ export function createCustomerSupportRouter(service: CustomerSupportService = cu
     validate({ body: createTicketBody }),
     asyncHandler(async (req, res) => {
       const scope = requireScope(req.scope);
-      res.status(201).json(await service.createTicket(scope, getValidated(req, 'body', createTicketBody)));
+      res.status(201).json(await service.createTicket(scope, getValidated(req, 'body', createTicketBody), req.header('idempotency-key')));
     }),
   );
 

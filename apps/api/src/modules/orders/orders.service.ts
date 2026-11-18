@@ -19,12 +19,8 @@ import { productImageUrl } from '../catalog/catalog.image.js';
 import { walletInsufficientError } from '../wallet/wallet.insufficient.js';
 import { AppError } from '../../http/problem.js';
 import { requireIdempotencyKey } from '../../http/idempotency.js';
-import { requireIdempotencyKey } from '../../http/idempotency.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
-import { cartService, type CartService } from '../cart/cart.service.js';
-import { gramsToKg, kgToGrams } from '../sales/sales.math.js';
-import { createOrderEventPublisher, type OrderEventPublisher } from './orders.events.js';
 import { cartService, type CartService } from '../cart/cart.service.js';
 import { gramsToKg, kgToGrams } from '../sales/sales.math.js';
 import { createOrderEventPublisher, type OrderEventPublisher } from './orders.events.js';
@@ -251,6 +247,12 @@ export function createOrdersService(opts: {
       detail: 'Selected delivery slot is fully booked or closed (BR-201).',
     });
 
+  const slotCutoffPassed = (): AppError =>
+    new AppError('SLOT_CUTOFF_PASSED', {
+      status: 409,
+      detail: 'The ordering cutoff for the selected delivery slot has passed (BR-210). Pick a later slot.',
+    });
+
   return {
     async checkout(actor, scope, input, idempotencyKey) {
       if (!actor.customerId) {
@@ -297,6 +299,12 @@ export function createOrdersService(opts: {
       const { fulfilment, totals } = await priceCart(db, actor.customerId, cart, input);
       const { subtotal, deliveryFee, handlingFee, discount, gstAmount, totalAmount } = totals;
 
+      // BR-210: refuse a slot whose ordering cutoff (start - delivery_slot_cutoff_minutes) passed.
+      if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
+        const view = await slotsSvc.describeOne(db, input.warehouseId, input.deliveryDate, input.deliverySlot);
+        if (view.cutoffPassed) throw slotCutoffPassed();
+      }
+
       // Check wallet balance (BR-17): compared in paise, never as floats.
       // Check wallet balance (BR-17): compared in paise, never as floats.
       const wallet = await walletSvc.getWalletForActor(actor);
@@ -308,8 +316,6 @@ export function createOrdersService(opts: {
         });
       }
 
-      const placed = await withTransaction(async (tx) => {
-        if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
       const placed = await withTransaction(async (tx) => {
         if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
           try {
@@ -357,11 +363,6 @@ export function createOrdersService(opts: {
           warehouseId: input.warehouseId,
           cartId: cart.id,
           channel: 'ONLINE',
-          fulfillmentType: fulfilment,
-          // A pickup order carries no address or slot (orders_pickup_has_no_address_chk).
-          deliveryAddressId: fulfilment === 'DELIVERY' ? input.deliveryAddressId : null,
-          deliveryDate: fulfilment === 'DELIVERY' ? input.deliveryDate : null,
-          deliverySlot: fulfilment === 'DELIVERY' ? input.deliverySlot : null,
           fulfillmentType: fulfilment,
           // A pickup order carries no address or slot (orders_pickup_has_no_address_chk).
           deliveryAddressId: fulfilment === 'DELIVERY' ? input.deliveryAddressId : null,
@@ -441,6 +442,7 @@ export function createOrdersService(opts: {
       let slot: QuoteResponse['slot'] = null;
       if (fulfilment === 'DELIVERY' && input.deliveryDate && input.deliverySlot) {
         const view = await slotsSvc.describeOne(db, input.warehouseId, input.deliveryDate, input.deliverySlot);
+        if (view.cutoffPassed) throw slotCutoffPassed();
         if (!view.bookable) throw slotFull();
         slot = {
           date: view.date,
@@ -547,10 +549,6 @@ export function createOrdersService(opts: {
     },
 
     async getOrder(actor, _scope, orderId) {
-      // BR-187: `own` scope with no resolvable customer id narrows to nothing (404), never to
-      // every order. Staff read orders through /admin/orders with order.list.view_all.
-      const customerId = actor.customerId;
-      const res = customerId ? await repo.findOrderById(db, orderId, customerId) : null;
       // BR-187: `own` scope with no resolvable customer id narrows to nothing (404), never to
       // every order. Staff read orders through /admin/orders with order.list.view_all.
       const customerId = actor.customerId;

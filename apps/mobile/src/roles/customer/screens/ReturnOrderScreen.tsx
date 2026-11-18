@@ -36,6 +36,7 @@ import { pickIssuePhotos, uploadIssuePhoto } from '../api/support';
 import { mapProblem } from '../api/problem';
 import { canStepDown, canStepUp, formatKg, formatRupees, stepKg, type Quantity } from '../utils/money';
 import { formatIstDate } from '../utils/orderFormat';
+import { t } from '../../../i18n/customer';
 import { ReturnSubmittedModal } from '../components/ReturnSubmittedModal';
 
 export interface ReturnOrderScreenProps {
@@ -137,7 +138,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
   const handleAddPhoto = async () => {
     const room = RETURN_MAX_PHOTOS - photos.length;
     if (room <= 0) {
-      Alert.alert('Limit Reached', `You can add up to ${RETURN_MAX_PHOTOS} photos.`);
+      Alert.alert(t('customer.orders.return.limitTitle'), t('customer.orders.return.limitBody', { max: RETURN_MAX_PHOTOS }));
       return;
     }
     const picked = await pickIssuePhotos(room);
@@ -165,7 +166,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
   const handleSubmit = async () => {
     if (!order) return;
     if (lines.length === 0) {
-      Alert.alert('Select Product', 'Please select at least one product to return.');
+      Alert.alert(t('customer.orders.return.selectProductTitle'), t('customer.orders.return.selectProductBody'));
       return;
     }
     setError(null);
@@ -187,7 +188,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
       setFieldErrors(p.fieldErrors ?? {});
       setError(
         err instanceof ApiError && err.code === 'INVALID_STATE_TRANSITION'
-          ? 'This order can be returned only after it is delivered or picked up.'
+          ? t('customer.orders.return.notEligible')
           : p.message,
       );
     }
@@ -203,18 +204,18 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
 
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
-          <TouchableOpacity activeOpacity={0.7} onPress={onBack} style={styles.circleIconButton} accessibilityLabel="Back">
+          <TouchableOpacity activeOpacity={0.7} onPress={onBack} style={styles.circleIconButton} accessibilityLabel={t('customer.orders.return.back')}>
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Return Order</Text>
+          <Text style={styles.headerTitle}>{t('customer.orders.return.title')}</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.banner}>
           <View style={styles.bannerTextColumn}>
-            <Text style={styles.bannerTitle}>Request a Return</Text>
-            <Text style={styles.bannerSubtitle}>Select the item and reason for return.</Text>
+            <Text style={styles.bannerTitle}>{t('customer.orders.return.bannerTitle')}</Text>
+            <Text style={styles.bannerSubtitle}>{t('customer.orders.return.bannerSubtitle')}</Text>
           </View>
           <View style={styles.bannerImageWrapper}>
             <ReturnBoxIllustrationSvg size={58} />
@@ -222,15 +223,15 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
         </View>
 
         {/* ── SELECT ORDER CARD (eligible orders only) ────────────────────── */}
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowOrderPicker(true)} style={styles.orderCard} accessibilityLabel="Select Order" testID="return-order-card">
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowOrderPicker(true)} style={styles.orderCard} accessibilityLabel={t('customer.orders.return.selectOrderA11y')} testID="return-order-card">
           <View style={styles.orderIconBox}>
             <ShoppingBagSvg color="#1E7E34" size={20} />
           </View>
           <View style={styles.orderInfoColumn}>
-            <Text style={styles.orderIdText}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? 'Loading…' : 'No returnable orders')}</Text>
+            <Text style={styles.orderIdText}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? t('customer.orders.return.loading') : t('customer.orders.return.noReturnable'))}</Text>
             {order && (
               <Text style={styles.orderMetaText}>
-                {formatIstDate(order.placedAt)} · {order.items.length} items
+                {formatIstDate(order.placedAt)} · {t('customer.orders.history.itemMany', { count: order.items.length })}
               </Text>
             )}
           </View>
@@ -240,12 +241,12 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
         {orderQuery.isLoading && <ActivityIndicator testID="return-loading" />}
 
         {/* ── SELECT PRODUCT (order lines, kg quantity) ─────────────────────── */}
-        <Text style={styles.sectionTitle}>Select product</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.return.selectProduct')}</Text>
         <View style={styles.productsList}>
           {(order?.items ?? []).map((item, index) => {
             const isSelected = selected[item.id] !== undefined;
             const qty = selected[item.id] ?? item.qtyKg;
-            const thumb = order?.thumbnails?.find((t) => t.productName === item.name)?.imageUrl;
+            const thumb = order?.thumbnails?.find((th) => th.productName === item.name)?.imageUrl;
             const err = fieldError(lines.findIndex((l) => l.id === item.id));
             return (
               <View key={item.id}>
@@ -253,7 +254,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
                   activeOpacity={0.8}
                   onPress={() => toggleProduct(item.id, item.qtyKg)}
                   style={[styles.productCard, isSelected && styles.productCardSelected]}
-                  accessibilityLabel={`Select product ${item.name}`}
+                  accessibilityLabel={t('customer.orders.return.selectProductA11y', { name: item.name })}
                   testID={`return-item-${item.id}`}
                 >
                   {thumb ? <Image source={{ uri: thumb }} style={styles.productImage} resizeMode="contain" /> : <View style={styles.productImage} />}
@@ -267,12 +268,12 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
                 {/* Return quantity (kg) [needs design review] */}
                 {isSelected && (
                   <View style={styles.photosRow}>
-                    <Text style={styles.productWeightText}>Return qty</Text>
-                    <TouchableOpacity onPress={() => stepQty(item.id, item.qtyKg, -1)} disabled={!canStepDown(qty, QTY_STEP)} testID={`return-dec-${item.id}`} accessibilityLabel="Decrease quantity">
+                    <Text style={styles.productWeightText}>{t('customer.orders.return.returnQty')}</Text>
+                    <TouchableOpacity onPress={() => stepQty(item.id, item.qtyKg, -1)} disabled={!canStepDown(qty, QTY_STEP)} testID={`return-dec-${item.id}`} accessibilityLabel={t('customer.orders.return.decrease')}>
                       <Text style={styles.reasonSelectorText}> − </Text>
                     </TouchableOpacity>
                     <Text style={styles.reasonSelectorText}>{formatKg(qty)}</Text>
-                    <TouchableOpacity onPress={() => stepQty(item.id, item.qtyKg, 1)} disabled={!canStepUp(qty, { ...QTY_STEP, max: item.qtyKg })} accessibilityLabel="Increase quantity">
+                    <TouchableOpacity onPress={() => stepQty(item.id, item.qtyKg, 1)} disabled={!canStepUp(qty, { ...QTY_STEP, max: item.qtyKg })} accessibilityLabel={t('customer.orders.return.increase')}>
                       <Text style={styles.reasonSelectorText}> + </Text>
                     </TouchableOpacity>
                   </View>
@@ -287,19 +288,19 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
           })}
         </View>
 
-        <Text style={styles.sectionTitle}>Reason for return</Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowReasonPicker(true)} style={styles.reasonSelector} accessibilityLabel="Reason for return selector">
+        <Text style={styles.sectionTitle}>{t('customer.orders.return.reasonTitle')}</Text>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => setShowReasonPicker(true)} style={styles.reasonSelector} accessibilityLabel={t('customer.orders.return.reasonSelectorA11y')}>
           <Text style={styles.reasonSelectorText}>{selectedReason.label}</Text>
           <ChevronDownSvg color="#6B7280" size={16} />
         </TouchableOpacity>
         {!!(fieldErrors['body.reason'] ?? fieldErrors['reason']) && <Text style={styles.charCounter}>{fieldErrors['body.reason'] ?? fieldErrors['reason']}</Text>}
 
-        <Text style={styles.sectionTitle}>Describe the issue</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.return.describe')}</Text>
         <View style={styles.inputContainer}>
           <TextInput
             value={description}
             onChangeText={setDescription}
-            placeholder="Describe your issue or question..."
+            placeholder={t('customer.orders.return.describePlaceholder')}
             placeholderTextColor="#9CA3AF"
             multiline
             maxLength={500}
@@ -310,10 +311,10 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
         </View>
 
         {/* ── PHOTOS (<= 5, ISSUE_PHOTO uploads) ─────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Add Photos (optional)</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.return.photos')}</Text>
         <View style={styles.photosRow}>
           {photos.length < RETURN_MAX_PHOTOS && (
-            <TouchableOpacity activeOpacity={0.7} onPress={() => void handleAddPhoto()} style={styles.addPhotoButton} accessibilityLabel="Add Photo" testID="return-add-photo">
+            <TouchableOpacity activeOpacity={0.7} onPress={() => void handleAddPhoto()} style={styles.addPhotoButton} accessibilityLabel={t('customer.orders.return.addPhoto')} testID="return-add-photo">
               <CameraPlusSvg />
             </TouchableOpacity>
           )}
@@ -322,7 +323,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
               <Image source={{ uri: photo.uri }} style={[styles.photoThumbnail, !photo.uploadId && { opacity: 0.5 }]} resizeMode="cover" />
               {!photo.uploadId && !photo.failed && <ActivityIndicator style={{ position: 'absolute', top: 20, left: 20 }} />}
               {photo.failed && <Text style={styles.photoRemoveText}>!</Text>}
-              <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemovePhoto(photo.key)} style={styles.photoRemoveBadge} accessibilityLabel="Remove photo">
+              <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemovePhoto(photo.key)} style={styles.photoRemoveBadge} accessibilityLabel={t('customer.orders.return.removePhoto')}>
                 <Text style={styles.photoRemoveText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -340,18 +341,18 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
           onPress={() => void handleSubmit()}
           disabled={!order || uploading || createReturn.isPending}
           style={[styles.submitButton, (!order || uploading) && { opacity: 0.6 }]}
-          accessibilityLabel="Request Return"
+          accessibilityLabel={t('customer.orders.return.submit')}
           testID="return-submit"
         >
-          {createReturn.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Request Return</Text>}
+          {createReturn.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>{t('customer.orders.return.submit')}</Text>}
         </TouchableOpacity>
       </ScrollView>
 
       <Modal visible={showOrderPicker} transparent animationType="fade" onRequestClose={() => setShowOrderPicker(false)}>
         <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setShowOrderPicker(false)}>
           <View style={styles.pickerDialog}>
-            <Text style={styles.pickerTitle}>Select Order</Text>
-            {eligibleOrders.length === 0 && <Text style={styles.pickerItemSub}>Orders can be returned after delivery or pickup.</Text>}
+            <Text style={styles.pickerTitle}>{t('customer.orders.return.pickerOrderTitle')}</Text>
+            {eligibleOrders.length === 0 && <Text style={styles.pickerItemSub}>{t('customer.orders.return.pickerOrderEmpty')}</Text>}
             {eligibleOrders.map((o) => {
               const active = o.id === effectiveOrderId;
               return (
@@ -369,7 +370,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
                     <View style={styles.pickerItemTexts}>
                       <Text style={[styles.pickerItemTitle, active && styles.pickerItemTitleActive]}>{o.orderNumber}</Text>
                       <Text style={styles.pickerItemSub}>
-                        {formatIstDate(o.placedAt)} · {o.itemCount ?? 0} items
+                        {formatIstDate(o.placedAt)} · {t('customer.orders.history.itemMany', { count: o.itemCount ?? 0 })}
                       </Text>
                     </View>
                   </View>
@@ -384,7 +385,7 @@ export function ReturnOrderScreen({ onNavigate, onBack, initialOrderId }: Return
       <Modal visible={showReasonPicker} transparent animationType="fade" onRequestClose={() => setShowReasonPicker(false)}>
         <TouchableOpacity style={styles.pickerBackdrop} activeOpacity={1} onPress={() => setShowReasonPicker(false)}>
           <View style={styles.pickerDialog}>
-            <Text style={styles.pickerTitle}>Reason for Return</Text>
+            <Text style={styles.pickerTitle}>{t('customer.orders.return.pickerReasonTitle')}</Text>
             {RETURN_REASONS.map((reason) => {
               const active = reason.id === selectedReason.id;
               return (

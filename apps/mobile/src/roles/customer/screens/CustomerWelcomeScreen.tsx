@@ -15,6 +15,7 @@ import customerWelcomeSlide1Full from '../assets/images/customer_welcome_slide1_
 import onboardingSlide1CleanExact from '../assets/images/onboarding_slide1_clean_exact.png';
 import onboardingSlide2CleanExact from '../assets/images/onboarding_slide2_clean_exact.png';
 
+import { t } from '../../../i18n/customer';
 interface CustomerWelcomeScreenProps {
   onNavigate: (screen: 'RoleSelection' | 'Login' | 'CustomerLogin') => void;
 }
@@ -104,17 +105,17 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(0)}
-                  accessibilityLabel="Slide 1"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 1 })}
                 />
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(1)}
-                  accessibilityLabel="Slide 2"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 2 })}
                 />
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(2)}
-                  accessibilityLabel="Slide 3"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 3 })}
                 />
               </View>
               {/* Full bottom-right touch target over Figma Next button */}
@@ -124,7 +125,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                 style={styles.slide0NextButton}
                 hitSlop={{ top: 40, bottom: 40, left: 40, right: 40 }}
                 accessibilityRole="button"
-                accessibilityLabel="Next Step"
+                accessibilityLabel={t('customer.onboarding.welcome.next')}
               />
             </View>
           )}
@@ -142,17 +143,17 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(0)}
-                  accessibilityLabel="Slide 1"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 1 })}
                 />
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(1)}
-                  accessibilityLabel="Slide 2"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 2 })}
                 />
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(2)}
-                  accessibilityLabel="Slide 3"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 3 })}
                 />
               </View>
               {/* Full bottom-right touch target over Figma Next button */}
@@ -162,7 +163,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                 style={styles.slide0NextButton}
                 hitSlop={{ top: 40, bottom: 40, left: 40, right: 40 }}
                 accessibilityRole="button"
-                accessibilityLabel="Next Step"
+                accessibilityLabel={t('customer.onboarding.welcome.next')}
               />
             </View>
           )}
@@ -180,17 +181,17 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(0)}
-                  accessibilityLabel="Slide 1"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 1 })}
                 />
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(1)}
-                  accessibilityLabel="Slide 2"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 2 })}
                 />
                 <TouchableOpacity
                   style={styles.slide0DotHit}
                   onPress={() => setCurrentSlide(2)}
-                  accessibilityLabel="Slide 3"
+                  accessibilityLabel={t('customer.onboarding.welcome.slide', { number: 3 })}
                 />
               </View>
               {/* Full bottom touch target over 'Get Started →' button */}
@@ -200,7 +201,7 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                 style={styles.slide2GetStartedTouch}
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
                 accessibilityRole="button"
-                accessibilityLabel="Get Started"
+                accessibilityLabel={t('customer.onboarding.welcome.getStarted')}
               />
             </View>
           )}

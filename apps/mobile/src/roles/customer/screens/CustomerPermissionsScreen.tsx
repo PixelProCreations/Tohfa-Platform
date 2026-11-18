@@ -38,6 +38,7 @@ import {
   type PermissionOutcome,
 } from '../utils/deviceLocation';
 import permissionsHeroCrate from '../assets/images/permissions_hero_crate.jpg';
+import { t, type TranslationKey } from '../../../i18n/customer';
 
 interface CustomerPermissionsScreenProps {
   onNavigate: (
@@ -73,11 +74,11 @@ const GreenPinIcon = () => (
   </Svg>
 );
 
-const STATUS_TEXT: Record<PermissionOutcome, string> = {
-  granted: 'Turned on',
-  denied: 'Not allowed. You can turn this on later.',
-  blocked: 'Blocked. Enable it in Settings.',
-  unavailable: 'Not available on this device right now.',
+const STATUS_TEXT: Record<PermissionOutcome, TranslationKey> = {
+  granted: 'customer.account.permissions.granted',
+  denied: 'customer.account.permissions.denied',
+  blocked: 'customer.account.permissions.blocked',
+  unavailable: 'customer.account.permissions.unavailable',
 };
 
 export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps> = ({ onNavigate }) => {
@@ -130,11 +131,11 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
     status === null ? null : (
       <View style={styles.permissionStatusRow}>
         <Text testID={testID} style={[styles.permissionStatus, status === 'granted' && styles.permissionStatusOn]}>
-          {STATUS_TEXT[status]}
+          {t(STATUS_TEXT[status])}
         </Text>
         {status === 'blocked' ? (
           <TouchableOpacity onPress={openAppSettings} accessibilityRole="button" testID={`${testID}-settings`}>
-            <Text style={styles.permissionSettingsLink}>Open Settings</Text>
+            <Text style={styles.permissionSettingsLink}>{t('customer.account.permissions.openSettings')}</Text>
           </TouchableOpacity>
         ) : null}
       </View>
@@ -153,7 +154,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
           onPress={handleSkip}
           style={styles.closeCircleButton}
           accessibilityRole="button"
-          accessibilityLabel="Close"
+          accessibilityLabel={t('customer.account.permissions.close')}
         >
           <Text style={styles.closeIcon}>✕</Text>
         </TouchableOpacity>
@@ -164,9 +165,9 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
           onPress={handleSkip}
           style={styles.skipButton}
           accessibilityRole="button"
-          accessibilityLabel="Skip"
+          accessibilityLabel={t('customer.account.permissions.skip')}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={styles.skipText}>{t('customer.account.permissions.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -178,10 +179,10 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
 
         {/* ── CONTENT SECTION ──────────────────────────────────────────────── */}
         <View style={styles.textSection}>
-          <Text style={styles.preTitle}>MAKE IT YOURS</Text>
-          <Text style={styles.title}>A fresher experience starts here</Text>
+          <Text style={styles.preTitle}>{t('customer.account.permissions.preTitle')}</Text>
+          <Text style={styles.title}>{t('customer.account.permissions.title')}</Text>
           <Text style={styles.subtitle}>
-            Turn on a few helpful settings to make shopping with TOHFA Market easier.
+            {t('customer.account.permissions.subtitle')}
           </Text>
 
           {/* Option 1: Stay in the loop */}
@@ -190,9 +191,9 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
               <GreenBellIcon />
             </View>
             <View style={styles.permissionTextWrap}>
-              <Text style={styles.permissionTitle}>Stay in the loop</Text>
+              <Text style={styles.permissionTitle}>{t('customer.account.permissions.notifTitle')}</Text>
               <Text style={styles.permissionDesc}>
-                Get alerts about fresh arrivals, order updates and special offers.
+                {t('customer.account.permissions.notifBody')}
               </Text>
               {statusLine(notificationStatus, 'notification-status')}
             </View>
@@ -207,9 +208,9 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
               <GreenPinIcon />
             </View>
             <View style={styles.permissionTextWrap}>
-              <Text style={styles.permissionTitle}>Find what's nearby</Text>
+              <Text style={styles.permissionTitle}>{t('customer.account.permissions.locTitle')}</Text>
               <Text style={styles.permissionDesc}>
-                See produce available around your area and estimated delivery options.
+                {t('customer.account.permissions.locBody')}
               </Text>
               {statusLine(locationStatus, 'location-status')}
             </View>
@@ -225,7 +226,7 @@ export const CustomerPermissionsScreen: React.FC<CustomerPermissionsScreenProps>
         disabled={requesting}
         style={[styles.floatingNextButton, customerShadow.raised]}
         accessibilityRole="button"
-        accessibilityLabel="Continue to permissions"
+        accessibilityLabel={t('customer.account.permissions.continueA11y')}
         accessibilityState={{ busy: requesting }}
       >
         {requesting ? <ActivityIndicator color="#FFFFFF" /> : <ArrowRightFigmaIcon size={24} color="#FFFFFF" />}

@@ -1297,6 +1297,7 @@ export default function App(): React.JSX.Element {
             expiresAt={typeof params['expiresAt'] === 'string' ? params['expiresAt'] : undefined}
             resendAvailableAt={typeof params['resendAvailableAt'] === 'string' ? params['resendAvailableAt'] : undefined}
             attemptsRemaining={typeof params['attemptsRemaining'] === 'number' ? params['attemptsRemaining'] : undefined}
+            mockCode={typeof params['mockCode'] === 'string' ? params['mockCode'] : undefined}
             onNavigate={(s, p) => navigate(s as ScreenName, p)}
           />
         ) : screen === 'CustomerProfileName' ? (

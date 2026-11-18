@@ -21,12 +21,9 @@ import {
   customerSpacing,
 } from '../theme';
 import { SupportSubmittedModal } from '../components/SupportSubmittedModal';
-import { ReviewSubmittedModal } from '../components/ReviewSubmittedModal';
-import { ReviewFeedbackSection } from '../components/ReviewFeedbackSection';
 import {
   BackArrowSvg,
   SupportAgentSvg,
-  ProduceCrateSvg,
   ShoppingBagSvg,
   ChevronDownSvg,
   CameraPlusSvg,
@@ -41,12 +38,10 @@ import {
   PRODUCT_ISSUE_TYPES,
   OTHER_ISSUE_TYPES,
   ALL_ISSUE_LABELS,
-  SAMPLE_REVIEW_ITEMS,
 } from '../components/contactSupportData';
 import type {
   RelatedCategory,
   IssueTypeCode,
-  ReviewItem,
 } from '../components/contactSupportData';
 import {
   DESCRIPTION_MAX,
@@ -70,6 +65,7 @@ import {
   type SupportOrderOption,
 } from '../api/support';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 export interface ContactSupportScreenProps {
   onBack?: (() => void) | undefined;
@@ -93,7 +89,11 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   initialTab = 'order',
 }) => {
   const insets = useSafeAreaInsets();
-  const [relatedTo, setRelatedTo] = useState<RelatedCategory>(initialTab ?? 'order');
+  // The old in-screen 'review' tab (demo SAMPLE_REVIEW_ITEMS, fake submit) is gone: order reviews
+  // live in ReviewFeedbackScreen (POST /orders/{id}/review). A stale 'review' param opens 'order'.
+  const [relatedTo, setRelatedTo] = useState<SupportCategory>(
+    initialTab === undefined || initialTab === 'review' ? 'order' : initialTab,
+  );
   const ordersQuery = useSupportOrders();
   const orders = ordersQuery.data ?? [];
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
@@ -105,11 +105,6 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   const [photoNotice, setPhotoNotice] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [created, setCreated] = useState<CustomerTicketDetail | null>(null);
-  const [isReviewModalVisible, setIsReviewModalVisible] = useState<boolean>(false);
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>(SAMPLE_REVIEW_ITEMS);
-  const [activeReviewProductId, setActiveReviewProductId] = useState<string>('prod_1');
-  const [overallRating, setOverallRating] = useState<number>(0);
-  const [selectedAspects, setSelectedAspects] = useState<string[]>([]);
   const createTicket = useCreateSupportTicket();
 
   const selectedOrder: SupportOrderOption | null =
@@ -138,13 +133,13 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
   const handleAddPhoto = async () => {
     const slots = remainingPhotoSlots(photos.length);
     if (slots <= 0) {
-      Alert.alert('Limit Reached', `You can upload up to ${MAX_TICKET_PHOTOS} photos.`);
+      Alert.alert(t('customer.contact.photoLimitTitle'), t('customer.contact.photoLimitBody', { max: MAX_TICKET_PHOTOS }));
       return;
     }
     setPhotoNotice(null);
     try {
       const { photos: picked, rejected } = await pickIssuePhotos(slots);
-      if (rejected > 0) setPhotoNotice('Only JPG and PNG photos can be attached.');
+      if (rejected > 0) setPhotoNotice(t('customer.contact.photoTypeNotice'));
       const items: PhotoItem[] = capPhotos<PhotoItem>(
         [],
         picked.map((photo) => ({ key: `p${(photoSeq += 1)}`, photo, status: 'uploading' as const, progress: 0 })),
@@ -153,7 +148,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
       setPhotos((prev) => [...prev, ...items]);
       items.forEach((item) => void startUpload(item));
     } catch {
-      setPhotoNotice('Could not open your photos. Please try again.');
+      setPhotoNotice(t('customer.contact.photoOpenError'));
     }
   };
 
@@ -161,17 +156,14 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
     setPhotos((prev) => prev.filter((p) => p.key !== key));
   };
 
-  let bannerTitle = "We're Here to help!";
-  let bannerSubtitle = 'Get quick support for orders, payments, products or any other issues.';
+  let bannerTitle = t('customer.contact.banner.order.title');
+  let bannerSubtitle = t('customer.contact.banner.order.subtitle');
   if (relatedTo === 'product') {
-    bannerTitle = 'Need help with an ordered product?';
-    bannerSubtitle = "Tell us what's wrong and we'll get it sorted for you.";
+    bannerTitle = t('customer.contact.banner.product.title');
+    bannerSubtitle = t('customer.contact.banner.product.subtitle');
   } else if (relatedTo === 'other') {
-    bannerTitle = 'General support';
-    bannerSubtitle = "Need help with something else? Let us know and we'll assist you.";
-  } else if (relatedTo === 'review') {
-    bannerTitle = 'Share your experience';
-    bannerSubtitle = 'Tell other about the product quality, freshness and your overall experience.';
+    bannerTitle = t('customer.contact.banner.other.title');
+    bannerSubtitle = t('customer.contact.banner.other.subtitle');
   }
 
   const currentIssueTypes =
@@ -181,22 +173,18 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
         ? OTHER_ISSUE_TYPES
         : ORDER_ISSUE_TYPES;
 
-  let ctaButtonText = 'Send to Support';
+  let ctaButtonText = t('customer.contact.cta.send');
   if (relatedTo === 'product' || relatedTo === 'other') {
-    ctaButtonText = 'Submit Request';
-  } else if (relatedTo === 'review') {
-    ctaButtonText = 'Submit Review';
+    ctaButtonText = t('customer.contact.cta.submit');
   }
 
-  const handleSelectRelated = (tabId: RelatedCategory) => {
+  const handleSelectRelated = (tabId: SupportCategory) => {
     setRelatedTo(tabId);
     setSubmitError(null);
     if (tabId === 'product') {
       setSelectedIssue('quality_issue');
     } else if (tabId === 'other') {
       setSelectedIssue('account_profile');
-      setPhotos([]);
-    } else if (tabId === 'review') {
       setPhotos([]);
     } else {
       setSelectedIssue('product_support');
@@ -209,13 +197,9 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
     description,
     photosUploading: uploading,
   });
-  const canSubmit = relatedTo === 'review' || (draftProblem === null && !hasFailedPhoto && !createTicket.isPending);
+  const canSubmit = draftProblem === null && !hasFailedPhoto && !createTicket.isPending;
 
   const handleSubmit = async () => {
-    if (relatedTo === 'review') {
-      setIsReviewModalVisible(true);
-      return;
-    }
     if (!canSubmit) return;
     setSubmitError(null);
     const issueLabel = ALL_ISSUE_LABELS[selectedIssue];
@@ -235,15 +219,15 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
       if (e.silent) return;
       // POST /support/tickets has no Idempotency-Key: after a lost response the ticket may exist.
       const unsure = err instanceof NetworkError;
-      setSubmitError(unsure ? `${e.message} Check My requests before sending it again.` : e.message);
+      setSubmitError(unsure ? t('customer.contact.submitUnsure', { message: e.message }) : e.message);
     }
   };
 
   const draftHint =
     draftProblem === 'order_required'
-      ? 'Select the order this is about.'
+      ? t('customer.contact.hint.orderRequired')
       : draftProblem === 'photos_uploading'
-        ? 'Photos are still uploading...'
+        ? t('customer.contact.hint.photosUploading')
         : null;
 
   return (
@@ -257,23 +241,21 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             style={styles.circleIconButton}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('customer.contact.back')}
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>
-            {relatedTo === 'review' ? 'Review & Feedback' : 'Contact Support'}
+            {t('customer.contact.title')}
           </Text>
         </View>
-        {relatedTo !== 'review' ? (
-          <TouchableOpacity
-            onPress={() => onNavigate?.('CustomerSupport')}
-            accessibilityLabel="My requests"
-            style={{ marginLeft: 'auto' }}
-          >
-            <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>My requests</Text>
-          </TouchableOpacity>
-        ) : null}
+        <TouchableOpacity
+          onPress={() => onNavigate?.('CustomerSupport')}
+          accessibilityLabel={t('customer.contact.myRequests')}
+          style={{ marginLeft: 'auto' }}
+        >
+          <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>{t('customer.contact.myRequests')}</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -289,12 +271,12 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             <Text style={styles.bannerSubtitle}>{bannerSubtitle}</Text>
           </View>
           <View style={styles.bannerIllustration}>
-            {relatedTo === 'review' ? <ProduceCrateSvg size={68} /> : <SupportAgentSvg size={68} />}
+            <SupportAgentSvg size={68} />
           </View>
         </View>
 
         {/* ── RELATED TO SECTION ────────────────────────────────────────────── */}
-        <Text style={styles.sectionTitle}>Related to</Text>
+        <Text style={styles.sectionTitle}>{t('customer.contact.relatedTo')}</Text>
         <View style={styles.relatedRow}>
           {RELATED_TABS.map((tab) => {
             const isSelected = relatedTo === tab.id;
@@ -305,7 +287,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                 style={[styles.relatedTab, isSelected && styles.relatedTabSelected]}
                 onPress={() => handleSelectRelated(tab.id)}
                 activeOpacity={0.8}
-                accessibilityLabel={`Related to ${tab.label}`}
+                accessibilityLabel={t('customer.contact.relatedToA11y', { label: tab.label })}
               >
                 <IconComp color={isSelected ? '#2E7D32' : '#6B7280'} size={18} />
                 <Text style={[styles.relatedTabText, isSelected && styles.relatedTabTextSelected]}>
@@ -317,23 +299,23 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
         </View>
 
         {/* ── SELECT ORDER SECTION ──────────────────────────────────────────── */}
-        {(relatedTo === 'order' || relatedTo === 'product' || relatedTo === 'review') && (
+        {(relatedTo === 'order' || relatedTo === 'product') && (
           <>
-            <Text style={styles.sectionTitle}>Select order</Text>
+            <Text style={styles.sectionTitle}>{t('customer.contact.selectOrder')}</Text>
             {ordersQuery.isLoading ? (
-              <ActivityIndicator accessibilityLabel="Loading orders" />
+              <ActivityIndicator accessibilityLabel={t('customer.contact.ordersLoading')} />
             ) : ordersQuery.isError ? (
-              <TouchableOpacity onPress={() => void ordersQuery.refetch()} accessibilityLabel="Retry orders">
-                <Text style={{ color: '#DC2626' }}>Could not load your orders. Tap to retry</Text>
+              <TouchableOpacity onPress={() => void ordersQuery.refetch()} accessibilityLabel={t('customer.contact.ordersRetryA11y')}>
+                <Text style={{ color: '#DC2626' }}>{t('customer.contact.ordersError')}</Text>
               </TouchableOpacity>
             ) : selectedOrder === null ? (
-              <Text style={styles.orderSubtitle}>You have no orders yet. Choose "Other" to contact support.</Text>
+              <Text style={styles.orderSubtitle}>{t('customer.contact.noOrders')}</Text>
             ) : (
               <TouchableOpacity
                 style={styles.orderCard}
                 activeOpacity={0.7}
                 onPress={() => setShowOrderPicker(true)}
-                accessibilityLabel="Select order"
+                accessibilityLabel={t('customer.contact.selectOrderA11y')}
               >
                 <View style={styles.orderIconBadge}>
                   <ShoppingBagSvg color="#2E7D32" size={20} />
@@ -341,7 +323,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                 <View style={styles.orderTextColumn}>
                   <Text style={styles.orderNumber}>{selectedOrder.orderNumber}</Text>
                   <Text style={styles.orderSubtitle}>
-                    {`${formatSupportDate(selectedOrder.placedAt)}${selectedOrder.itemCount !== null ? ` · ${selectedOrder.itemCount} items` : ''}`}
+                    {`${formatSupportDate(selectedOrder.placedAt)}${selectedOrder.itemCount !== null ? ` · ${t('customer.contact.itemCount', { count: selectedOrder.itemCount })}` : ''}`}
                   </Text>
                 </View>
                 <ChevronDownSvg color="#4B5563" size={20} />
@@ -350,26 +332,11 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
           </>
         )}
 
-        {/* ── REVIEW TAB CONTENT (FIGMA SCREEN 65 MATCH) ────────────────────── */}
-        {relatedTo === 'review' ? (
-          <ReviewFeedbackSection
-            reviewItems={reviewItems}
-            activeReviewProductId={activeReviewProductId}
-            setActiveReviewProductId={setActiveReviewProductId}
-            setReviewItems={setReviewItems}
-            overallRating={overallRating}
-            setOverallRating={setOverallRating}
-            description={description}
-            setDescription={setDescription}
-            selectedAspects={selectedAspects}
-            setSelectedAspects={setSelectedAspects}
-          />
-        ) : (
-          <>
+        <>
             {/* ── SELECT PRODUCT SECTION (names from the order; folded into the description) ── */}
             {relatedTo === 'product' && selectedOrder !== null && selectedOrder.productNames.length > 0 && (
               <>
-                <Text style={styles.sectionTitle}>Select product</Text>
+                <Text style={styles.sectionTitle}>{t('customer.contact.selectProduct')}</Text>
                 <View style={styles.productListContainer}>
                   {selectedOrder.productNames.map((name) => {
                     const isSelected = selectedProductName === name;
@@ -379,7 +346,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                         style={[styles.productCard, isSelected && styles.productCardSelected]}
                         activeOpacity={0.8}
                         onPress={() => setSelectedProductName(name)}
-                        accessibilityLabel={`Select product ${name}`}
+                        accessibilityLabel={t('customer.contact.selectProductA11y', { name })}
                       >
                         <Text style={[styles.productName, { flex: 1 }]}>{name}</Text>
                         <View style={styles.radioWrapper}>
@@ -393,7 +360,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             )}
 
             {/* ── ISSUE TYPE SECTION ────────────────────────────────────────────── */}
-            <Text style={styles.sectionTitle}>Issue type</Text>
+            <Text style={styles.sectionTitle}>{t('customer.contact.issueType')}</Text>
             <View style={styles.issueGrid}>
               {currentIssueTypes.map((issue) => {
                 const isSelected = selectedIssue === issue.code;
@@ -424,17 +391,17 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             </View>
 
             {/* ── TELL US MORE SECTION ──────────────────────────────────────────── */}
-            <Text style={styles.sectionTitle}>Tell us more</Text>
+            <Text style={styles.sectionTitle}>{t('customer.contact.tellMore')}</Text>
             <View style={styles.inputContainer}>
               <TextInput
                 style={styles.textInput}
-                placeholder="Describe your issue or question..."
+                placeholder={t('customer.contact.descriptionPlaceholder')}
                 placeholderTextColor="#9CA3AF"
                 multiline
                 maxLength={DESCRIPTION_MAX}
                 value={description}
                 onChangeText={setDescription}
-                accessibilityLabel="Description"
+                accessibilityLabel={t('customer.contact.descriptionA11y')}
               />
               <Text style={styles.charCounter}>{`${description.length}/${DESCRIPTION_MAX}`}</Text>
             </View>
@@ -442,13 +409,13 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
             {/* ── ADD PHOTOS (OPTIONAL) SECTION ─────────────────────────────────── */}
             {(
               <>
-                <Text style={styles.sectionTitle}>Add Photos (optional)</Text>
+                <Text style={styles.sectionTitle}>{t('customer.contact.addPhotos')}</Text>
                 <View style={styles.photosRow}>
                   <TouchableOpacity
                     style={styles.addPhotoButton}
                     onPress={() => void handleAddPhoto()}
                     activeOpacity={0.7}
-                    accessibilityLabel="Add photo"
+                    accessibilityLabel={t('customer.contact.addPhotoA11y')}
                   >
                     <CameraPlusSvg />
                   </TouchableOpacity>
@@ -458,43 +425,42 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
                       <Image source={{ uri: p.photo.uri }} style={styles.photoThumbnail} />
                       {p.status === 'uploading' ? (
                         <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.6)' }}>
-                          <ActivityIndicator accessibilityLabel="Uploading photo" />
+                          <ActivityIndicator accessibilityLabel={t('customer.contact.photoUploading')} />
                           <Text style={{ fontSize: 10 }}>{`${Math.round(p.progress)}%`}</Text>
                         </View>
                       ) : null}
                       {p.status === 'error' ? (
                         <TouchableOpacity
                           onPress={() => void startUpload(p)}
-                          accessibilityLabel="Retry photo upload"
+                          accessibilityLabel={t('customer.contact.photoRetryA11y')}
                           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(220,38,38,0.7)' }}
                         >
-                          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>Retry</Text>
+                          <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>{t('customer.contact.retry')}</Text>
                         </TouchableOpacity>
                       ) : null}
                       <TouchableOpacity
                         style={styles.photoRemoveBadge}
                         onPress={() => handleRemovePhoto(p.key)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        accessibilityLabel="Remove photo"
+                        accessibilityLabel={t('customer.contact.removePhotoA11y')}
                       >
                         <CloseSmallSvg />
                       </TouchableOpacity>
                     </View>
                   ))}
                 </View>
-                <Text style={styles.photosHelperText}>{`You can add up to ${MAX_TICKET_PHOTOS} images (JPG, PNG)`}</Text>
+                <Text style={styles.photosHelperText}>{t('customer.contact.photosHelper', { max: MAX_TICKET_PHOTOS })}</Text>
                 {photoNotice !== null ? <Text style={{ color: '#DC2626', fontSize: 12 }}>{photoNotice}</Text> : null}
               </>
             )}
-          </>
-        )}
+        </>
 
         {submitError !== null ? (
           <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 8 }} accessibilityRole="alert">
             {submitError}
           </Text>
         ) : null}
-        {draftHint !== null && relatedTo !== 'review' ? (
+        {draftHint !== null ? (
           <Text style={{ color: '#6B7280', fontSize: 12, marginTop: 8 }}>{draftHint}</Text>
         ) : null}
 
@@ -518,7 +484,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
       <Modal visible={showOrderPicker} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOrderPicker(false)}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select an Order</Text>
+            <Text style={styles.modalTitle}>{t('customer.contact.selectOrderModal')}</Text>
             {orders.map((ord) => (
               <TouchableOpacity
                 key={ord.id}
@@ -531,7 +497,7 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
               >
                 <Text style={styles.orderNumber}>{ord.orderNumber}</Text>
                 <Text style={styles.orderSubtitle}>
-                  {`${formatSupportDate(ord.placedAt)}${ord.itemCount !== null ? ` · ${ord.itemCount} items` : ''}`}
+                  {`${formatSupportDate(ord.placedAt)}${ord.itemCount !== null ? ` · ${t('customer.contact.itemCount', { count: ord.itemCount })}` : ''}`}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -542,8 +508,8 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
       {/* ── SUBMITTED POPUP (real ticket) ─────────────────────────────────── */}
       <SupportSubmittedModal
         visible={created !== null}
-        orderNumber={created?.orderNumber ?? 'N/A'}
-        productName={created ? productFromDescription(created.description) ?? 'N/A' : 'N/A'}
+        orderNumber={created?.orderNumber ?? t('customer.contact.na')}
+        productName={created ? productFromDescription(created.description) ?? t('customer.contact.na') : t('customer.contact.na')}
         issueTypeLabel={created ? issueLabelFromSubject(created.subject, created.orderNumber) : ''}
         submittedOn={created ? formatSupportDateTime(created.createdAt) : ''}
         supportId={created?.ticketNumber ?? ''}
@@ -559,21 +525,6 @@ export const ContactSupportScreen: React.FC<ContactSupportScreenProps> = ({
         }}
       />
 
-      {/* ── REVIEW SUBMITTED POPUP (FIGMA SCREEN 66 MATCH) ────────────────── */}
-      <ReviewSubmittedModal
-        visible={isReviewModalVisible}
-        orderNumber={selectedOrder?.orderNumber ?? ''}
-        productName="Royal Gala"
-        onClose={() => setIsReviewModalVisible(false)}
-        onReviewAnother={(prodId) => {
-          setIsReviewModalVisible(false);
-          setActiveReviewProductId(prodId);
-        }}
-        onContinueShopping={() => {
-          setIsReviewModalVisible(false);
-          onNavigate?.('Home');
-        }}
-      />
     </View>
   );
 };

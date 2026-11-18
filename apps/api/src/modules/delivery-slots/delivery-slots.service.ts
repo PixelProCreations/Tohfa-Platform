@@ -7,8 +7,8 @@
  *    an existing row), so the list and checkout cannot disagree.
  *  - `bookable` is what checkout enforces (active and booked < capacity); a slot that is not
  *    bookable is refused at quote and checkout with 409 SLOT_FULL.
- *  - `cutoff` = slot start - system_config.delivery_slot_cutoff_minutes. It is informational in this
- *    release (`cutoffPassed`), not enforced at checkout (UNCONFIRMED, product decision pending).
+ *  - `cutoff` = slot start - system_config.delivery_slot_cutoff_minutes. `cutoffPassed` is reported
+ *    here and enforced at quote and checkout with 409 SLOT_CUTOFF_PASSED (BR-210).
  */
 import { pool, type Executor } from '../../db/pool.js';
 import { AppError } from '../../http/problem.js';

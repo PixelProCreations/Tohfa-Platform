@@ -7,6 +7,7 @@ import {
   customerSpacing,
   CUSTOMER_HEADER_HEIGHT,
 } from '../theme';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerHeaderProps {
   title?: string;
@@ -23,7 +24,7 @@ export const CustomerHeader: React.FC<CustomerHeaderProps> = ({
   onBack,
   rightElement,
   style,
-  backAccessibilityLabel = 'Go back',
+  backAccessibilityLabel = t('customer.catalog.header.goBack'),
 }) => {
   return (
     <View style={[styles.header, style]}>

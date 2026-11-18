@@ -19,6 +19,7 @@ import { deleteCustomerAccount } from '../api/profile';
 import { logout } from '../api/auth';
 import { mapProblem } from '../api/problem';
 import { ApiError } from '../../../shell/api/client';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerAccountSettingsScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
@@ -96,15 +97,13 @@ const TrashSvg = ({ color = '#B42318', size = 22 }: { color?: string | undefined
   </Svg>
 );
 
-const WALLET_MSG = 'Your wallet still has money. Withdraw or use it before deleting your account.';
-const ORDERS_MSG = 'You have orders in progress. You can delete your account once they are delivered.';
 
 /** BR-160: maps a failed account deletion to user-facing text. */
 export function deleteAccountErrorMessage(err: unknown): string {
   if (err instanceof ApiError && err.is('CONFLICT')) {
     const reason = err.meta['reason'];
-    if (reason === 'WALLET_NOT_EMPTY') return WALLET_MSG;
-    if (reason === 'OPEN_ORDERS') return ORDERS_MSG;
+    if (reason === 'WALLET_NOT_EMPTY') return t('customer.account.settings.walletNotEmpty');
+    if (reason === 'OPEN_ORDERS') return t('customer.account.settings.openOrders');
   }
   return mapProblem(err).message;
 }
@@ -154,11 +153,11 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccount'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.account.settings.back')}
           >
             <BackArrowSvg color="#1A2E1A" size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Account Settings</Text>
+          <Text style={styles.headerTitle}>{t('customer.account.settings.title')}</Text>
         </View>
       </View>
       <View style={styles.headerBottomDivider} />
@@ -170,14 +169,14 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
           activeOpacity={0.7}
           onPress={() => onNavigate?.('CustomerPrivacyPolicy')}
           style={styles.rowItem}
-          accessibilityLabel="Privacy Policy"
+          accessibilityLabel={t('customer.account.settings.privacy')}
         >
           <View style={styles.iconWrap}>
             <BookOpenSvg color="#1A2E1A" size={22} />
           </View>
           <View style={styles.textWrap}>
-            <Text style={styles.rowTitle}>Privacy Policy</Text>
-            <Text style={styles.rowSubtitle}>Read more about how we handle data</Text>
+            <Text style={styles.rowTitle}>{t('customer.account.settings.privacy')}</Text>
+            <Text style={styles.rowSubtitle}>{t('customer.account.settings.privacySub')}</Text>
           </View>
           <ChevronRightSvg color="#1A2E1A" size={18} />
         </TouchableOpacity>
@@ -188,14 +187,14 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
           activeOpacity={0.7}
           onPress={() => onNavigate?.('CustomerTerms')}
           style={styles.rowItem}
-          accessibilityLabel="Terms and condition"
+          accessibilityLabel={t('customer.account.settings.terms')}
         >
           <View style={styles.iconWrap}>
             <DocumentScrollSvg color="#1A2E1A" size={22} />
           </View>
           <View style={styles.textWrap}>
-            <Text style={styles.rowTitle}>Terms and condition</Text>
-            <Text style={styles.rowSubtitle}>Know the rules for using our service.</Text>
+            <Text style={styles.rowTitle}>{t('customer.account.settings.terms')}</Text>
+            <Text style={styles.rowSubtitle}>{t('customer.account.settings.termsSub')}</Text>
           </View>
           <ChevronRightSvg color="#1A2E1A" size={18} />
         </TouchableOpacity>
@@ -209,14 +208,14 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
             setConfirmOpen(true);
           }}
           style={styles.rowItem}
-          accessibilityLabel="Delete account"
+          accessibilityLabel={t('customer.account.settings.delete')}
         >
           <View style={styles.iconWrap}>
             <TrashSvg color="#B42318" size={22} />
           </View>
           <View style={styles.textWrap}>
-            <Text style={[styles.rowTitle, styles.dangerText]}>Delete account</Text>
-            <Text style={styles.rowSubtitle}>Permanently remove your account and data.</Text>
+            <Text style={[styles.rowTitle, styles.dangerText]}>{t('customer.account.settings.delete')}</Text>
+            <Text style={styles.rowSubtitle}>{t('customer.account.settings.deleteSub')}</Text>
           </View>
           <ChevronRightSvg color="#B42318" size={18} />
         </TouchableOpacity>
@@ -226,9 +225,9 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
       <Modal visible={confirmOpen} transparent animationType="fade" onRequestClose={() => { if (!deleting) setConfirmOpen(false); }}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Delete account?</Text>
+            <Text style={styles.modalTitle}>{t('customer.account.settings.deleteTitle')}</Text>
             <Text style={styles.modalBody}>
-              This will permanently delete your account. This action cannot be undone.
+              {t('customer.account.settings.deleteBody')}
             </Text>
             {deleteError ? <Text style={styles.modalError}>{deleteError}</Text> : null}
             <View style={styles.modalActions}>
@@ -237,18 +236,18 @@ export const CustomerAccountSettingsScreen: React.FC<CustomerAccountSettingsScre
                 disabled={deleting}
                 onPress={() => setConfirmOpen(false)}
                 style={[styles.modalBtn, styles.modalCancel]}
-                accessibilityLabel="Cancel"
+                accessibilityLabel={t('customer.account.settings.cancel')}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={styles.modalCancelText}>{t('customer.account.settings.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.7}
                 disabled={deleting}
                 onPress={() => void confirmDelete()}
                 style={[styles.modalBtn, styles.modalDelete]}
-                accessibilityLabel="Delete"
+                accessibilityLabel={t('customer.account.settings.deleteConfirm')}
               >
-                {deleting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalDeleteText}>Delete</Text>}
+                {deleting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalDeleteText}>{t('customer.account.settings.deleteConfirm')}</Text>}
               </TouchableOpacity>
             </View>
           </View>

@@ -196,10 +196,8 @@ export const notificationsRepo: NotificationsRepo = {
          status, provider_message_id, sent_at
        )
        VALUES ($1, $2, $3::notification_channel, $4, $5, $6, $7,
-               CASE WHEN $3::notification_channel = 'EMAIL' THEN 'QUEUED' ELSE
-               CASE WHEN $3 = 'EMAIL' THEN 'QUEUED' ELSE 'DELIVERED' END END, $8,
-               CASE WHEN $3::notification_channel = 'EMAIL' THEN NULL ELSE
-               CASE WHEN $3 = 'EMAIL' THEN NULL ELSE now() END END)
+               CASE WHEN $3::notification_channel = 'EMAIL' THEN 'QUEUED' ELSE 'DELIVERED' END, $8,
+               CASE WHEN $3::notification_channel = 'EMAIL' THEN NULL ELSE now() END)
        RETURNING id, user_id, template_id, channel, title, body, locale, data,
                  status, provider_message_id, sent_at, read_at, created_at, updated_at`,
       [

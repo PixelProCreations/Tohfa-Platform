@@ -34,6 +34,7 @@ import {
 import { isValidPincode, normalizeContactPhone, type CustomerAddress } from '../api/addresses';
 import { mapProblem } from '../api/problem';
 import flyingDeliveryBag from '../assets/images/flying_delivery_bag.png';
+import { t } from '../../../i18n/customer';
 
 export interface ServiceAreaPrefill {
   area?: string | undefined;
@@ -51,11 +52,11 @@ export type ServiceAreaFields = Record<FormField, string>;
 export function validateServiceAreaRequest(f: ServiceAreaFields): ServiceAreaFormErrors {
   const e: ServiceAreaFormErrors = {};
   const len = (s: string) => s.trim().length;
-  if (len(f.area) < 2 || len(f.area) > 120) e.area = 'Enter your apartment or area';
-  if (len(f.locality) < 2 || len(f.locality) > 120) e.locality = 'Enter your locality';
-  if (len(f.city) < 2 || len(f.city) > 80) e.city = 'Enter your city';
-  if (f.pincode.trim() && !isValidPincode(f.pincode)) e.pincode = 'Enter a valid 6-digit pincode';
-  if (f.contact.trim() && (len(f.contact) < 5 || len(f.contact) > 120)) e.contact = 'Enter a valid phone or email';
+  if (len(f.area) < 2 || len(f.area) > 120) e.area = t('customer.serviceArea.error.area');
+  if (len(f.locality) < 2 || len(f.locality) > 120) e.locality = t('customer.serviceArea.error.locality');
+  if (len(f.city) < 2 || len(f.city) > 80) e.city = t('customer.serviceArea.error.city');
+  if (f.pincode.trim() && !isValidPincode(f.pincode)) e.pincode = t('customer.serviceArea.error.pincode');
+  if (f.contact.trim() && (len(f.contact) < 5 || len(f.contact) > 120)) e.contact = t('customer.serviceArea.error.contact');
   return e;
 }
 
@@ -211,39 +212,34 @@ export const ServiceAreaRequestModal: React.FC<ServiceAreaRequestModalProps> = (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
-          <TouchableOpacity activeOpacity={0.8} onPress={onClose} style={styles.closeBtn} accessibilityLabel="Close">
+          <TouchableOpacity activeOpacity={0.8} onPress={onClose} style={styles.closeBtn} accessibilityLabel={t('customer.serviceArea.close')}>
             <CloseIcon />
           </TouchableOpacity>
 
           {step === 'unserved' ? (
             <View testID="area-unserved">
               <Image source={flyingDeliveryBag} style={styles.heroImage} resizeMode="contain" />
-              <Text style={styles.title}>We're not in your area yet</Text>
-              <Text style={styles.subtitle}>
-                Request your apartment and we'll let you know when we launch nearby. You can still browse and pick up from a
-                nearby market.
-              </Text>
+              <Text style={styles.title}>{t('customer.serviceArea.unserved.title')}</Text>
+              <Text style={styles.subtitle}>{t('customer.serviceArea.unserved.body')}</Text>
               <TouchableOpacity testID="area-request-start" activeOpacity={0.85} onPress={() => setStep('form')} style={styles.primaryBtn}>
-                <Text style={styles.primaryText}>Request area</Text>
+                <Text style={styles.primaryText}>{t('customer.serviceArea.unserved.request')}</Text>
               </TouchableOpacity>
               <TouchableOpacity testID="area-continue-browsing" activeOpacity={0.85} onPress={continueOrClose} style={styles.secondaryBtn}>
-                <Text style={styles.secondaryText}>Continue browsing</Text>
+                <Text style={styles.secondaryText}>{t('customer.serviceArea.unserved.browse')}</Text>
               </TouchableOpacity>
             </View>
           ) : step === 'form' ? (
             <View testID="area-request-form">
-              <Text style={styles.title}>Tell us your doorstep</Text>
-              <Text style={styles.subtitle}>
-                We're growing our delivery network. Tell us where you'd like to receive fresh farm produce.
-              </Text>
-              {input('area', 'Apartment / Area', area, setArea)}
-              {input('locality', 'Locality', locality, setLocality)}
-              {input('city', 'City', city, setCity)}
-              {input('pincode', 'Pincode (optional)', pincode, (s) => setPincode(s.replace(/\D/g, '').slice(0, 6)), {
+              <Text style={styles.title}>{t('customer.serviceArea.form.title')}</Text>
+              <Text style={styles.subtitle}>{t('customer.serviceArea.form.body')}</Text>
+              {input('area', t('customer.serviceArea.form.area'), area, setArea)}
+              {input('locality', t('customer.serviceArea.form.locality'), locality, setLocality)}
+              {input('city', t('customer.serviceArea.form.city'), city, setCity)}
+              {input('pincode', t('customer.serviceArea.form.pincode'), pincode, (s) => setPincode(s.replace(/\D/g, '').slice(0, 6)), {
                 keyboardType: 'number-pad',
                 maxLength: 6,
               })}
-              {input('contact', 'Phone or email (optional)', contact, setContact)}
+              {input('contact', t('customer.serviceArea.form.contact'), contact, setContact)}
               {formError ? (
                 <Text testID="area-request-error" style={styles.formError}>
                   {formError}
@@ -256,20 +252,18 @@ export const ServiceAreaRequestModal: React.FC<ServiceAreaRequestModalProps> = (
                 disabled={submitting}
                 style={[styles.primaryBtn, submitting && styles.btnDisabled]}
               >
-                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Submit</Text>}
+                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>{t('customer.serviceArea.form.submit')}</Text>}
               </TouchableOpacity>
             </View>
           ) : (
             <View testID="area-request-received">
               <View style={styles.doneBadge}>
                 <CheckCircle />
-                <Text style={styles.doneText}>We've got your request</Text>
+                <Text style={styles.doneText}>{t('customer.serviceArea.received.badge')}</Text>
               </View>
-              <Text style={styles.subtitle}>
-                Thanks! We'll let you know as soon as fresh produce delivery reaches your area.
-              </Text>
+              <Text style={styles.subtitle}>{t('customer.serviceArea.received.body')}</Text>
               <TouchableOpacity activeOpacity={0.85} onPress={continueOrClose} style={styles.primaryBtn}>
-                <Text style={styles.primaryText}>Continue</Text>
+                <Text style={styles.primaryText}>{t('customer.common.continue')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -299,12 +293,12 @@ export const ServiceAreaRequestCard: React.FC<ServiceAreaRequestCardProps> = ({ 
     <>
       <View testID="area-request-card" style={[styles.areaCard, customerShadow.subtle]}>
         <View style={styles.areaLeft}>
-          <Text style={styles.areaTitle}>We're not in your area yet</Text>
-          <Text style={styles.areaSubtitle}>Request your apartment and we'll let you know when we launch nearby.</Text>
+          <Text style={styles.areaTitle}>{t('customer.serviceArea.unserved.title')}</Text>
+          <Text style={styles.areaSubtitle}>{t('customer.serviceArea.card.body')}</Text>
           {request ? (
             <View testID="area-request-done" style={styles.requestDoneButton}>
               <CheckCircle />
-              <Text style={styles.requestDoneText}>We've got your request</Text>
+              <Text style={styles.requestDoneText}>{t('customer.serviceArea.received.badge')}</Text>
             </View>
           ) : (
             <TouchableOpacity
@@ -313,7 +307,7 @@ export const ServiceAreaRequestCard: React.FC<ServiceAreaRequestCardProps> = ({ 
               onPress={() => setShowModal(true)}
               style={styles.requestNowButton}
             >
-              <Text style={styles.requestNowText}>Request now</Text>
+              <Text style={styles.requestNowText}>{t('customer.serviceArea.card.requestNow')}</Text>
             </TouchableOpacity>
           )}
         </View>

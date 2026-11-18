@@ -53,7 +53,7 @@ import {
   type CustomerAddress,
 } from '../api/addresses';
 import { mapProblem } from '../api/problem';
-import { setLocale } from '../../../i18n/customer';
+import { setLocale, t } from '../../../i18n/customer';
 
 export type ProfileScreenMode = 'empty' | 'view' | 'edit';
 
@@ -86,7 +86,6 @@ const EMAIL_OTP_PATTERN = /^[0-9]{4,8}$/;
 /** Local resend cooldown (the email OTP answer carries no `resendAvailableAt`); 429 overrides it. */
 const EMAIL_RESEND_COOLDOWN_S = 60;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const EMAIL_UNAVAILABLE_MESSAGE = "Email verification isn't available right now";
 
 const EMPTY_FORM: CustomerProfileData = {
   name: '',
@@ -322,8 +321,8 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
     if (saving) return;
     const errs: Record<string, string> = {};
     const name = formData.name.trim();
-    if (!name) errs.name = 'Please enter your name';
-    else if (name.length > 120) errs.name = 'Name must be 120 characters or fewer.';
+    if (!name) errs.name = t('customer.account.profile.validation.nameRequired');
+    else if (name.length > 120) errs.name = t('customer.account.profile.validation.nameTooLong');
     const age = validateAge(formData.age);
     if (age.error) errs.age = age.error;
 
@@ -338,9 +337,9 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
       (formData.state.trim() !== '' && state !== baseline.state.trim());
     const wantsAddress = addressChanged && (addressText !== '' || city !== '' || pincode !== '');
     if (wantsAddress) {
-      if (!addressText) errs.address = 'Please enter your address';
-      if (!city) errs.city = 'Please enter your city';
-      if (!isValidPincode(pincode)) errs.pincode = 'Enter a valid 6-digit pincode';
+      if (!addressText) errs.address = t('customer.account.profile.validation.addressRequired');
+      if (!city) errs.city = t('customer.account.profile.validation.cityRequired');
+      if (!isValidPincode(pincode)) errs.pincode = t('customer.account.profile.validation.pincode');
     }
     if (Object.keys(errs).length > 0) {
       setFieldErrors(errs);
@@ -407,7 +406,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
     if (p.code === 'EMAIL_NOT_CONFIGURED' || p.status === 501) {
       setEmailUnavailable(true);
       setShowEmailOtpModal(false);
-      setEmailError(EMAIL_UNAVAILABLE_MESSAGE);
+      setEmailError(t('customer.account.profile.emailUnavailable'));
       return;
     }
     if (p.action === 'wait' && p.retryAfterSeconds) setResendIn(p.retryAfterSeconds);
@@ -437,7 +436,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
     if (sendingOtp || emailUnavailable) return;
     const email = formData.email.trim();
     if (!EMAIL_PATTERN.test(email) || email.length > 254) {
-      setEmailError('Please enter a valid email address');
+      setEmailError(t('customer.account.profile.validation.email'));
       return;
     }
     void sendEmailOtp(email, 'email');
@@ -512,14 +511,14 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             activeOpacity={0.7}
             onPress={handleHeaderBack}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.common.back')}
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
 
           {/* Screen Title - positioned adjacent to Back button (exact Figma spec) */}
           <Text style={styles.headerTitle}>
-            {mode === 'edit' ? 'Edit Profile' : 'My Profile'}
+            {mode === 'edit' ? t('customer.account.profile.editTitle') : t('customer.account.profile.viewTitle')}
           </Text>
         </View>
 
@@ -529,7 +528,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => setMode('edit')}
             style={styles.circleIconButton}
-            accessibilityLabel="Edit Profile"
+            accessibilityLabel={t('customer.account.profile.editTitle')}
           >
             <PencilEditSvg color={customerColors.heading} size={16} />
           </TouchableOpacity>
@@ -553,7 +552,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
 
         {/* Subheader */}
         <Text style={styles.editorialSubheader}>
-          {mode === 'edit' ? 'Update your details' : 'your profile details'}
+          {mode === 'edit' ? t('customer.account.profile.subheaderEdit') : t('customer.account.profile.subheaderView')}
         </Text>
 
         {loadingProfile ? (
@@ -569,15 +568,15 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               activeOpacity={0.8}
               onPress={() => void profileQuery.refetch()}
               accessibilityRole="button"
-              accessibilityLabel="Retry"
+              accessibilityLabel={t('customer.common.retry')}
             >
-              <Text style={styles.openMapBtnText}>Retry</Text>
+              <Text style={styles.openMapBtnText}>{t('customer.common.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
         <>
         {/* ── SECTION 1: PERSONAL DETAILS ────────────────────────────────────── */}
-        <Text style={styles.sectionHeadingUnderlined}>Personal details</Text>
+        <Text style={styles.sectionHeadingUnderlined}>{t('customer.account.profile.personalDetails')}</Text>
 
         <View style={styles.formSection}>
           {/* 1. Name */}
@@ -587,13 +586,13 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 style={styles.inputField}
                 value={formData.name}
                 onChangeText={text => updateForm(prev => ({ ...prev, name: text }))}
-                placeholder="Please enter your name"
+                placeholder={t('customer.account.profile.namePlaceholder')}
                 placeholderTextColor={customerColors.muted}
                 textAlign="center"
               />
             ) : (
               <Text style={styles.displayFieldText}>
-                {formData.name || 'Please enter your name'}
+                {formData.name || t('customer.account.profile.namePlaceholder')}
               </Text>
             )}
           </View>
@@ -608,9 +607,9 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             {/* Mobile is the sign-in identity (BR-33): always read-only. */}
             <Text
               style={[styles.displayFieldText, { flex: 1 }, !formData.phone && styles.placeholderText]}
-              accessibilityLabel="Mobile number"
+              accessibilityLabel={t('customer.account.profile.mobileA11y')}
             >
-              {formData.phone || 'Please enter your Number'}
+              {formData.phone || t('customer.account.profile.phonePlaceholder')}
             </Text>
             {formData.phoneVerified && (
               <View style={styles.trailingIcon}>
@@ -626,7 +625,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 style={[styles.inputField, { flex: 1 }]}
                 value={formData.email}
                 onChangeText={text => updateForm(prev => ({ ...prev, email: text }))}
-                placeholder="Please enter your email"
+                placeholder={t('customer.account.profile.emailPlaceholder')}
                 placeholderTextColor={customerColors.muted}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -634,7 +633,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               />
             ) : (
               <Text style={[styles.displayFieldText, { flex: 1 }]}>
-                {formData.email || 'Please enter your email'}
+                {formData.email || t('customer.account.profile.emailPlaceholder')}
               </Text>
             )}
 
@@ -644,13 +643,13 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 onPress={handleVerifyNow}
                 disabled={sendingOtp}
                 style={styles.verifyBadge}
-                accessibilityLabel="Verify now"
+                accessibilityLabel={t('customer.account.profile.verifyNowA11y')}
                 accessibilityState={{ disabled: sendingOtp, busy: sendingOtp }}
               >
                 {sendingOtp ? (
                   <ActivityIndicator size="small" color={customerColors.heading} />
                 ) : (
-                  <Text style={styles.verifyBadgeText}>Verify now &gt;</Text>
+                  <Text style={styles.verifyBadgeText}>{t('customer.account.profile.verifyNow')}</Text>
                 )}
               </TouchableOpacity>
             ) : emailVerifiedNow ? (
@@ -675,13 +674,13 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 onChangeText={text => updateForm(prev => ({ ...prev, age: text.replace(/[^0-9]/g, '') }))}
                 keyboardType="number-pad"
                 maxLength={3}
-                placeholder="Please enter your Age"
+                placeholder={t('customer.account.profile.agePlaceholder')}
                 placeholderTextColor={customerColors.muted}
                 textAlign="center"
               />
             ) : (
               <Text style={styles.displayFieldText}>
-                {formData.age ? `Age ${formData.age}` : 'Please enter your Age'}
+                {formData.age ? t('customer.account.profile.ageValue', { age: formData.age }) : t('customer.account.profile.agePlaceholder')}
               </Text>
             )}
           </View>
@@ -703,7 +702,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               }
             }}
             style={styles.dropdownFieldRow}
-            accessibilityLabel="Language"
+            accessibilityLabel={t('customer.account.profile.languageA11y')}
           >
             <Text
               style={[
@@ -711,7 +710,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 !formData.language && styles.placeholderText,
               ]}
             >
-              {formData.language || 'Select language'}
+              {formData.language || t('customer.account.profile.selectLanguage')}
             </Text>
             <ChevronDownSvg color={customerColors.heading} size={14} />
           </TouchableOpacity>
@@ -726,14 +725,14 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 styles.genderChip,
                 formData.gender === 'male' && styles.genderChipSelected,
               ]}
-              accessibilityLabel="Male"
+              accessibilityLabel={t('customer.account.profile.male')}
             >
               <Image
                 source={profileAvatarMale}
                 style={styles.genderAvatarImage}
                 resizeMode="contain"
               />
-              <Text style={styles.genderLabel}>Male</Text>
+              <Text style={styles.genderLabel}>{t('customer.account.profile.male')}</Text>
               {formData.gender === 'male' ? (
                 <CheckCircleSvg size={14} />
               ) : (
@@ -749,14 +748,14 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 styles.genderChip,
                 formData.gender === 'female' && styles.genderChipSelected,
               ]}
-              accessibilityLabel="Female"
+              accessibilityLabel={t('customer.account.profile.female')}
             >
               <Image
                 source={profileAvatarFemale}
                 style={styles.genderAvatarImage}
                 resizeMode="contain"
               />
-              <Text style={styles.genderLabel}>Female</Text>
+              <Text style={styles.genderLabel}>{t('customer.account.profile.female')}</Text>
               {formData.gender === 'female' ? (
                 <CheckCircleSvg size={14} />
               ) : (
@@ -772,9 +771,9 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 styles.genderChip,
                 formData.gender === 'prefer_not_to_say' && styles.genderChipSelected,
               ]}
-              accessibilityLabel="Prefer not to say"
+              accessibilityLabel={t('customer.account.profile.unspecified')}
             >
-              <Text style={styles.genderLabelSmall}>Prefer not to say</Text>
+              <Text style={styles.genderLabelSmall}>{t('customer.account.profile.unspecified')}</Text>
               {formData.gender === 'prefer_not_to_say' ? (
                 <CheckCircleSvg size={14} />
               ) : (
@@ -786,7 +785,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
         </View>
 
         {/* ── SECTION 2: ADDRESS DETAILS ────────────────────────────────────── */}
-        <Text style={styles.sectionHeadingUnderlined}>Address details</Text>
+        <Text style={styles.sectionHeadingUnderlined}>{t('customer.account.profile.addressDetails')}</Text>
 
         <View style={styles.formSection}>
           {/* 1. Address */}
@@ -796,13 +795,13 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 style={styles.inputField}
                 value={formData.address}
                 onChangeText={text => updateForm(prev => ({ ...prev, address: text }))}
-                placeholder="Please enter your address"
+                placeholder={t('customer.account.profile.addressPlaceholder')}
                 placeholderTextColor={customerColors.muted}
                 textAlign="center"
               />
             ) : (
               <Text style={styles.displayFieldText}>
-                {formData.address || 'Please enter your address'}
+                {formData.address || t('customer.account.profile.addressPlaceholder')}
               </Text>
             )}
           </View>
@@ -815,7 +814,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 style={[styles.inputField, { flex: 1 }]}
                 value={formData.city}
                 onChangeText={text => updateForm(prev => ({ ...prev, city: text }))}
-                placeholder="Select city"
+                placeholder={t('customer.account.profile.selectCity')}
                 placeholderTextColor={customerColors.muted}
                 maxLength={100}
                 textAlign="center"
@@ -827,7 +826,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                   !formData.city && styles.placeholderText,
                 ]}
               >
-                {formData.city || 'Select city'}
+                {formData.city || t('customer.account.profile.selectCity')}
               </Text>
             )}
             <ChevronDownSvg color={customerColors.heading} size={14} />
@@ -842,14 +841,14 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 value={formData.pincode}
                 onChangeText={text => updateForm(prev => ({ ...prev, pincode: text.replace(/[^0-9]/g, '') }))}
                 maxLength={6}
-                placeholder="Please enter your pincode"
+                placeholder={t('customer.account.profile.pincodePlaceholder')}
                 placeholderTextColor={customerColors.muted}
                 keyboardType="numeric"
                 textAlign="center"
               />
             ) : (
               <Text style={styles.displayFieldText}>
-                {formData.pincode || 'Please enter your pincode'}
+                {formData.pincode || t('customer.account.profile.pincodePlaceholder')}
               </Text>
             )}
           </View>
@@ -878,7 +877,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 !formData.state && styles.placeholderText,
               ]}
             >
-              {formData.state || 'Select State'}
+              {formData.state || t('customer.account.profile.selectState')}
             </Text>
             <ChevronDownSvg color={customerColors.heading} size={14} />
           </TouchableOpacity>
@@ -886,14 +885,14 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
 
         {/* ── SECTION 3: LOCATION ON MAP ─────────────────────────────────────── */}
         <View style={styles.mapHeaderRow}>
-          <Text style={styles.locationOnMapText}>Location on Map</Text>
+          <Text style={styles.locationOnMapText}>{t('customer.account.profile.locationOnMap')}</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             onPress={() => onNavigate?.('CustomerAddAddress')}
             style={styles.openMapBtn}
-            accessibilityLabel="Open Map"
+            accessibilityLabel={t('customer.account.profile.openMapA11y')}
           >
-            <Text style={styles.openMapBtnText}>Open Map</Text>
+            <Text style={styles.openMapBtnText}>{t('customer.account.profile.openMap')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -918,7 +917,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                 <MapPinSvg size={14} />
               </View>
               <View style={styles.tooltipTextWrap}>
-                <Text style={styles.tooltipTitle}>Selected Location</Text>
+                <Text style={styles.tooltipTitle}>{t('customer.account.profile.selectedLocation')}</Text>
                 <Text style={styles.tooltipAddress} numberOfLines={2}>
                   {formData.address}
                 </Text>
@@ -944,13 +943,13 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             onPress={() => void handleSaveProfile()}
             disabled={saving}
             style={styles.saveChangesButton}
-            accessibilityLabel="Save Changes"
+            accessibilityLabel={t('customer.account.profile.saveChangesA11y')}
             accessibilityState={{ disabled: saving, busy: saving }}
           >
             {saving ? (
               <ActivityIndicator color="#FFFFFF" testID="profile-saving" />
             ) : (
-              <Text style={styles.saveChangesText}>✔ Save Changes</Text>
+              <Text style={styles.saveChangesText}>{t('customer.account.profile.saveChanges')}</Text>
             )}
           </TouchableOpacity>
         )}
@@ -978,7 +977,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             />
 
             <Text style={styles.otpEditorialTitle}>
-              {`Please enter ${EMAIL_OTP_LENGTH}-digit PIN Sent to`}
+              {t('customer.account.profile.otpTitle', { length: EMAIL_OTP_LENGTH })}
             </Text>
             <View style={styles.emailEditRow}>
               <Text style={styles.otpMaskedEmail}>
@@ -989,9 +988,9 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                   setShowEmailOtpModal(false);
                   if (mode === 'view') setMode('edit');
                 }}
-                accessibilityLabel="Edit email"
+                accessibilityLabel={t('customer.account.profile.editEmailA11y')}
               >
-                <Text style={styles.otpEditText}>• Edit</Text>
+                <Text style={styles.otpEditText}>{t('customer.account.profile.editEmail')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1005,7 +1004,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
                   maxLength={index === 0 ? EMAIL_OTP_LENGTH : 1}
                   value={digit}
                   onChangeText={val => handleOtpChange(index, val)}
-                  accessibilityLabel={`PIN digit ${index + 1}`}
+                  accessibilityLabel={t('customer.auth.otp.digitA11y', { number: index + 1 })}
                   textContentType="oneTimeCode"
                   textAlign="center"
                 />
@@ -1019,17 +1018,17 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             ) : null}
 
             <Text style={styles.resendTimerText}>
-              Didn't receive the PIN?{' '}
+              {t('customer.auth.otp.noPin')}
               {resendIn > 0 ? (
-                <Text style={{ color: customerColors.muted }}>{`Resend in ${resendIn}s`}</Text>
+                <Text style={{ color: customerColors.muted }}>{t('customer.account.profile.resendIn', { seconds: resendIn })}</Text>
               ) : (
                 <Text
                   style={{ color: customerColors.brand }}
                   onPress={handleResendOtp}
                   accessibilityRole="button"
-                  accessibilityLabel="Resend PIN"
+                  accessibilityLabel={t('customer.auth.otp.resendA11y')}
                 >
-                  Resend
+                  {t('customer.auth.otp.resendLink')}
                 </Text>
               )}
             </Text>
@@ -1039,13 +1038,13 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               onPress={() => void handleVerifyEmailSubmit()}
               disabled={!otpReady || verifyingOtp}
               style={[styles.modalPrimaryBtn, (!otpReady || verifyingOtp) && { opacity: 0.6 }]}
-              accessibilityLabel="Continue"
+              accessibilityLabel={t('customer.common.continue')}
               accessibilityState={{ disabled: !otpReady || verifyingOtp, busy: verifyingOtp }}
             >
               {verifyingOtp ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.modalPrimaryBtnText}>Continue</Text>
+                <Text style={styles.modalPrimaryBtnText}>{t('customer.common.continue')}</Text>
               )}
             </TouchableOpacity>
           </View>
@@ -1059,7 +1058,7 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowEmailVerifiedSuccess(false)}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.common.close')}
             >
               <Text style={styles.modalCloseText}>✕</Text>
             </TouchableOpacity>
@@ -1072,18 +1071,18 @@ export const CustomerProfileScreen: React.FC<CustomerProfileScreenProps> = ({
               />
             </View>
 
-            <Text style={styles.successTitle}>Email Verified!</Text>
+            <Text style={styles.successTitle}>{t('customer.account.profile.verifiedTitle')}</Text>
             <Text style={styles.successDescription}>
-              Your email address has been successfully verified. You can now enjoy all features of TOHFA Market.
+              {t('customer.account.profile.verifiedBody')}
             </Text>
 
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleContinueAfterVerification}
               style={styles.modalPrimaryBtn}
-              accessibilityLabel="Continue to Profile"
+              accessibilityLabel={t('customer.account.profile.continueToProfileA11y')}
             >
-              <Text style={styles.modalPrimaryBtnText}>Continue to Profile</Text>
+              <Text style={styles.modalPrimaryBtnText}>{t('customer.account.profile.continueToProfile')}</Text>
             </TouchableOpacity>
           </View>
         </View>

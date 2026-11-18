@@ -32,6 +32,7 @@ import {
   sanitizeAmountText,
   txnCodeFromId,
 } from '../api/walletMoney';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerSendMoneyScreenProps {
   onBack?: (() => void) | undefined;
@@ -172,7 +173,7 @@ function describeSendError(err: unknown): SendProblem | null {
   const p = mapProblem(err);
   if (p.silent) return null;
   if (err instanceof ApiError) {
-    if (err.status === 404) return { message: 'No TOHFA account found for this number.', retryable: false };
+    if (err.status === 404) return { message: t('customer.wallet.send.error.noAccount'), retryable: false };
     if (err.is('WALLET_INSUFFICIENT')) {
       return { message: p.message, shortfall: err.walletShortfall?.shortfall, retryable: false };
     }
@@ -233,7 +234,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
   const handleVerify = async () => {
     setLookupError(null);
     if (normalizedMobile === null) {
-      setLookupError('Enter a valid 10-digit mobile number.');
+      setLookupError(t('customer.wallet.send.error.invalidMobile'));
       return;
     }
     try {
@@ -286,11 +287,11 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
           activeOpacity={0.7}
           onPress={onBack}
           style={styles.circleIconButton}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('customer.wallet.back')}
         >
           <BackArrowSvg color="#1A1A1A" size={18} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Send Money</Text>
+        <Text style={styles.headerTitle}>{t('customer.wallet.sendMoney')}</Text>
       </View>
 
       <ScrollView
@@ -300,29 +301,29 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         keyboardShouldPersistTaps="handled"
       >
         {/* ── FROM SECTION ────────────────────────────────────────────────────── */}
-        <Text style={styles.fieldLabel}>From</Text>
+        <Text style={styles.fieldLabel}>{t('customer.wallet.send.from')}</Text>
         <View style={styles.fromCard}>
           <View style={styles.fromIconBox}>
             <WalletBookSvg color="#2E7D32" size={20} />
           </View>
           <View style={styles.fromTextWrap}>
-            <Text style={styles.fromTitle}>TOHFA Wallet</Text>
-            <Text style={styles.fromSubtitle}>Balance: {formatInr(balance)}</Text>
+            <Text style={styles.fromTitle}>{t('customer.wallet.send.walletName')}</Text>
+            <Text style={styles.fromSubtitle}>{t('customer.wallet.send.balance', { amount: formatInr(balance) })}</Text>
           </View>
         </View>
 
         {/* ── RECIPIENT (mobile number only: the API has no wallet-id / directory lookup) ─────── */}
-        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>Mobile Number</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 18 }]}>{t('customer.wallet.send.mobileLabel')}</Text>
         <View style={styles.inputWrap}>
           <PhoneCallSvg color="#676767" size={18} />
           <TextInput
             style={styles.textInput}
             value={mobileInput}
-            placeholder="Enter 10-digit mobile number"
+            placeholder={t('customer.wallet.send.mobilePlaceholder')}
             placeholderTextColor="#9CA3AF"
             keyboardType="phone-pad"
             maxLength={16}
-            accessibilityLabel="Recipient mobile number"
+            accessibilityLabel={t('customer.wallet.send.mobileA11y')}
             onChangeText={(text) => {
               setMobileInput(text);
               setRecipient(null);
@@ -335,13 +336,13 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             disabled={!canVerify}
             onPress={() => void handleVerify()}
             style={styles.rightIconPress}
-            accessibilityLabel="Verify recipient"
+            accessibilityLabel={t('customer.wallet.send.verifyA11y')}
           >
             {lookup.isPending ? (
               <ActivityIndicator />
             ) : (
               <Text style={{ color: canVerify ? '#2E7D32' : '#9CA3AF', fontWeight: '700', fontSize: 13 }}>
-                {waitSeconds > 0 ? `${waitSeconds}s` : 'Verify'}
+                {waitSeconds > 0 ? `${waitSeconds}s` : t('customer.wallet.send.verify')}
               </Text>
             )}
           </TouchableOpacity>
@@ -367,7 +368,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
         ) : null}
 
         {/* ── AMOUNT SECTION ─────────────────────────────────────────────────── */}
-        <Text style={[styles.fieldLabel, { marginTop: 22 }]}>Amount</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 22 }]}>{t('customer.wallet.topup.amountLabel')}</Text>
         <View style={styles.amountInputRow}>
           <Text style={styles.rupeeSymbol}>₹</Text>
           <TextInput
@@ -380,26 +381,26 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             keyboardType="decimal-pad"
             placeholder="0.00"
             placeholderTextColor="#9CA3AF"
-            accessibilityLabel="Amount"
+            accessibilityLabel={t('customer.wallet.topup.amountLabel')}
           />
         </View>
         <View style={styles.amountUnderline} />
         {tooMuch ? (
           <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 6 }}>
-            This is more than your wallet balance.
+            {t('customer.wallet.send.error.exceedsBalance')}
           </Text>
         ) : null}
 
         {/* ── NOTE (OPTIONAL) SECTION ────────────────────────────────────────── */}
-        <Text style={[styles.fieldLabel, { marginTop: 20 }]}>Note (optional)</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 20 }]}>{t('customer.wallet.send.noteLabel')}</Text>
         <TextInput
           style={styles.noteInput}
-          placeholder="Add a note for the recipient"
+          placeholder={t('customer.wallet.send.notePlaceholder')}
           placeholderTextColor="#9CA3AF"
           value={noteInput}
           onChangeText={setNoteInput}
           maxLength={100}
-          accessibilityLabel="Note"
+          accessibilityLabel={t('customer.wallet.send.noteA11y')}
         />
         <View style={styles.noteUnderline} />
         <Text style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'right', marginTop: 4 }}>{noteInput.length}/100</Text>
@@ -410,9 +411,9 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             {sendError.shortfall !== undefined ? (
               <TouchableOpacity
                 onPress={() => onNavigate?.('Topup', { shortfall: sendError.shortfall })}
-                accessibilityLabel="Add money"
+                accessibilityLabel={t('customer.wallet.send.addMoney')}
               >
-                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>Add money</Text>
+                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>{t('customer.wallet.send.addMoney')}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -427,31 +428,33 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
             setShowPaymentDetailsModal(true);
           }}
           style={[styles.sendMoneyMainBtn, !canSend && styles.sendMoneyMainBtnDisabled]}
-          accessibilityLabel="Send Money"
+          accessibilityLabel={t('customer.wallet.sendMoney')}
         >
           <SendPaperPlaneSvg color={canSend ? '#FFFFFF' : '#9CA3AF'} size={18} />
           <Text style={[styles.sendMoneyMainBtnText, !canSend && styles.sendMoneyMainBtnTextDisabled]}>
-            Send Money
+            {t('customer.wallet.sendMoney')}
           </Text>
         </TouchableOpacity>
 
         {/* ── TRANSFER HISTORY ───────────────────────────────────────────────── */}
-        <Text style={[styles.fieldLabel, { marginTop: 28 }]}>Recent transfers</Text>
+        <Text style={[styles.fieldLabel, { marginTop: 28 }]}>{t('customer.wallet.send.recent')}</Text>
         {history.isLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading transfers" />
+          <ActivityIndicator accessibilityLabel={t('customer.wallet.send.loadingTransfers')} />
         ) : history.isError ? (
-          <TouchableOpacity onPress={() => void history.refetch()} accessibilityLabel="Retry transfers">
-            <Text style={{ color: '#2E7D32', fontWeight: '700' }}>Could not load transfers. Retry</Text>
+          <TouchableOpacity onPress={() => void history.refetch()} accessibilityLabel={t('customer.wallet.send.retryTransfers')}>
+            <Text style={{ color: '#2E7D32', fontWeight: '700' }}>{t('customer.wallet.send.loadError')}</Text>
           </TouchableOpacity>
         ) : transfers.length === 0 ? (
-          <Text style={{ color: '#6B7280', fontSize: 13 }}>No transfers yet</Text>
+          <Text style={{ color: '#6B7280', fontSize: 13 }}>{t('customer.wallet.send.empty')}</Text>
         ) : (
           <>
             {transfers.map((tr) => (
               <View key={tr.id} style={styles.summaryItemRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.summaryItemValueBold}>
-                    {tr.direction === 'SENT' ? 'Sent to' : 'Received from'} {tr.counterparty.displayName}
+                    {tr.direction === 'SENT'
+                      ? t('customer.wallet.send.sentTo', { name: tr.counterparty.displayName })
+                      : t('customer.wallet.send.receivedFrom', { name: tr.counterparty.displayName })}
                   </Text>
                   <Text style={styles.summaryItemLabel}>{formatIstDateTime(tr.createdAt)}</Text>
                 </View>
@@ -461,8 +464,8 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               </View>
             ))}
             {history.hasNextPage ? (
-              <TouchableOpacity onPress={() => void history.fetchNextPage()} accessibilityLabel="Load more transfers">
-                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 8 }}>Load more</Text>
+              <TouchableOpacity onPress={() => void history.fetchNextPage()} accessibilityLabel={t('customer.wallet.send.loadMoreA11y')}>
+                <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 8 }}>{t('customer.wallet.tx.loadMore')}</Text>
               </TouchableOpacity>
             ) : null}
           </>
@@ -477,7 +480,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               activeOpacity={0.7}
               onPress={() => setShowPaymentDetailsModal(false)}
               style={styles.modalCloseBtn}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.wallet.close')}
             >
               <CloseCrossSvg color="#676767" size={14} />
             </TouchableOpacity>
@@ -495,20 +498,20 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               </View>
             ) : null}
 
-            <Text style={styles.modalSectionTitle}>Payment Details</Text>
+            <Text style={styles.modalSectionTitle}>{t('customer.wallet.send.paymentDetails')}</Text>
 
             <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Amount</Text>
+              <Text style={styles.detailLabel}>{t('customer.wallet.topup.amountLabel')}</Text>
               <Text style={styles.detailValue}>{amountCheck.ok ? formatInr(amountCheck.amount) : '—'}</Text>
             </View>
             {noteInput.trim() !== '' ? (
               <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Note</Text>
+                <Text style={styles.detailLabel}>{t('customer.wallet.send.note')}</Text>
                 <Text style={styles.detailValue}>{noteInput.trim()}</Text>
               </View>
             ) : null}
             <View style={[styles.detailRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Total Payable</Text>
+              <Text style={styles.totalLabel}>{t('customer.wallet.send.totalPayable')}</Text>
               <Text style={styles.totalValue}>{amountCheck.ok ? formatInr(amountCheck.amount) : '—'}</Text>
             </View>
 
@@ -521,9 +524,9 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                       setShowPaymentDetailsModal(false);
                       onNavigate?.('Topup', { shortfall: sendError.shortfall });
                     }}
-                    accessibilityLabel="Add money"
+                    accessibilityLabel={t('customer.wallet.send.addMoney')}
                   >
-                    <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>Add money</Text>
+                    <Text style={{ color: '#2E7D32', fontWeight: '700', marginTop: 6 }}>{t('customer.wallet.send.addMoney')}</Text>
                   </TouchableOpacity>
                 ) : null}
               </View>
@@ -534,13 +537,13 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               disabled={send.isPending}
               onPress={() => void handleConfirmTransfer()}
               style={styles.confirmTransferBtn}
-              accessibilityLabel="Confirm Transfer"
+              accessibilityLabel={t('customer.wallet.send.confirm')}
             >
               {send.isPending ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.confirmTransferBtnText}>
-                  {sendError?.retryable ? 'Retry Transfer' : 'Confirm Transfer'}
+                  {sendError?.retryable ? t('customer.wallet.send.retryTransfer') : t('customer.wallet.send.confirm')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -556,19 +559,19 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               activeOpacity={0.7}
               onPress={handleCloseSuccess}
               style={styles.modalCloseBtn}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.wallet.close')}
             >
               <CloseCrossSvg color="#676767" size={14} />
             </TouchableOpacity>
 
             <CelebrationPlaneSvg />
 
-            <Text style={styles.successTitle}>Money Sent successfully!</Text>
+            <Text style={styles.successTitle}>{t('customer.wallet.send.successTitle')}</Text>
 
             {done !== null ? (
               <>
                 <Text style={styles.successSubtext}>
-                  {formatInr(done.amount)} has been sent to{'\n'}
+                  {t('customer.wallet.send.sentToLine', { amount: formatInr(done.amount) })}{'\n'}
                   <Text style={styles.boldText}>{done.counterparty.displayName}</Text>
                   {'\n'}({done.counterparty.mobileMasked}).
                 </Text>
@@ -577,7 +580,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                   <View style={styles.summaryItemRow}>
                     <View style={styles.summaryItemLeft}>
                       <ReceiptDocSvg color="#2E7D32" size={15} />
-                      <Text style={styles.summaryItemLabel}>Transaction ID</Text>
+                      <Text style={styles.summaryItemLabel}>{t('customer.wallet.result.transactionId')}</Text>
                     </View>
                     <Text style={styles.summaryItemValueBold}>{txnCodeFromId(done.id)}</Text>
                   </View>
@@ -585,7 +588,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                   <View style={styles.summaryItemRow}>
                     <View style={styles.summaryItemLeft}>
                       <CalendarSvg color="#2E7D32" size={15} />
-                      <Text style={styles.summaryItemLabel}>Date & Time</Text>
+                      <Text style={styles.summaryItemLabel}>{t('customer.wallet.send.dateTime')}</Text>
                     </View>
                     <Text style={styles.summaryItemValue}>{formatIstDateTime(done.createdAt)}</Text>
                   </View>
@@ -593,7 +596,7 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
                   <View style={styles.summaryItemRow}>
                     <View style={styles.summaryItemLeft}>
                       <WalletIdCardSvg color="#2E7D32" size={15} />
-                      <Text style={styles.summaryItemLabel}>Updated Balance</Text>
+                      <Text style={styles.summaryItemLabel}>{t('customer.wallet.send.updatedBalance')}</Text>
                     </View>
                     <Text style={styles.summaryItemValueBold}>{formatInr(done.balanceAfter)}</Text>
                   </View>
@@ -605,9 +608,9 @@ export const CustomerSendMoneyScreen: React.FC<CustomerSendMoneyScreenProps> = (
               activeOpacity={0.8}
               onPress={handleCloseSuccess}
               style={styles.closeOutlineBtn}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.wallet.close')}
             >
-              <Text style={styles.closeOutlineBtnText}>Close</Text>
+              <Text style={styles.closeOutlineBtnText}>{t('customer.wallet.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>

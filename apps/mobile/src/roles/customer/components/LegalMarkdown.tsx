@@ -5,6 +5,7 @@ import type { MarkdownBlock } from '../api/legal';
 import { formatLegalDate } from '../api/legal';
 import { customerFonts } from '../theme';
 
+import { t } from '../../../i18n/customer';
 export const LegalMarkdown: React.FC<{ blocks: MarkdownBlock[] }> = ({ blocks }) => (
   <View>
     {blocks.map((b, i) => {
@@ -57,23 +58,23 @@ export const LegalMeta: React.FC<{ title: string; lastUpdated?: string | undefin
       <Text style={styles.documentMainTitle}>{title}</Text>
       <View style={styles.metadataRow}>
         <Text style={styles.brandTitle}>TOHFA Market</Text>
-        {date ? <Text style={styles.lastUpdatedText}>{`Last Updated: ${date}`}</Text> : null}
+        {date ? <Text style={styles.lastUpdatedText}>{t('customer.legal.lastUpdated', { date })}</Text> : null}
       </View>
     </>
   );
 };
 
 export const LegalLoading: React.FC = () => (
-  <View style={styles.centered} accessibilityLabel="Loading">
+  <View style={styles.centered} accessibilityLabel={t('customer.legal.loading')}>
     <ActivityIndicator color="#1A2E1A" />
   </View>
 );
 
 export const LegalError: React.FC<{ onRetry: () => void }> = ({ onRetry }) => (
   <View style={styles.centered}>
-    <Text style={styles.bodyParagraph}>We could not load this document. Please try again.</Text>
-    <TouchableOpacity activeOpacity={0.7} onPress={onRetry} style={styles.retryBtn} accessibilityLabel="Retry">
-      <Text style={styles.retryText}>Retry</Text>
+    <Text style={styles.bodyParagraph}>{t('customer.legal.error')}</Text>
+    <TouchableOpacity activeOpacity={0.7} onPress={onRetry} style={styles.retryBtn} accessibilityLabel={t('customer.legal.retry')}>
+      <Text style={styles.retryText}>{t('customer.legal.retry')}</Text>
     </TouchableOpacity>
   </View>
 );

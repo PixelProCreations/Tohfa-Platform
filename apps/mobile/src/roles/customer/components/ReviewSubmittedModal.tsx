@@ -14,6 +14,7 @@ import {
   StarSvg,
 } from './ContactSupportIcons';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../../i18n/customer';
 
 const ModalCloseSvg = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
@@ -64,7 +65,7 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
           <TouchableOpacity
             style={styles.closeButton}
             onPress={onClose}
-            accessibilityLabel="Close dialog"
+            accessibilityLabel={t('customer.orders.review.modal.closeDialog')}
           >
             <ModalCloseSvg />
           </TouchableOpacity>
@@ -81,9 +82,9 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
             </View>
 
             {/* Title & Subtitle */}
-            <Text style={styles.title}>Thank you for your review!</Text>
+            <Text style={styles.title}>{t('customer.orders.review.modal.title')}</Text>
             <Text style={styles.subtitle}>
-              {`Your review for ${productName} has been submitted successfully.`}
+              {t('customer.orders.review.modal.subtitle', { product: productName })}
             </Text>
 
             {/* Order ID Banner */}
@@ -92,7 +93,7 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
                 <ShoppingBagSvg color="#2E7D32" size={18} />
               </View>
               <View style={styles.orderTextCol}>
-                <Text style={styles.orderLabel}>Order ID</Text>
+                <Text style={styles.orderLabel}>{t('customer.orders.review.modal.orderId')}</Text>
                 <Text style={styles.orderValue}>{orderNumber}</Text>
               </View>
             </View>
@@ -120,16 +121,16 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
 
                   {prod.reviewed ? (
                     <View style={styles.reviewedBadge}>
-                      <Text style={styles.reviewedText}>Reviewed</Text>
+                      <Text style={styles.reviewedText}>{t('customer.orders.review.modal.reviewed')}</Text>
                     </View>
                   ) : (
                     <TouchableOpacity
                       style={styles.writeReviewButton}
                       activeOpacity={0.7}
                       onPress={() => onReviewAnother?.(prod.id)}
-                      accessibilityLabel={`Write review for ${prod.name}`}
+                      accessibilityLabel={t('customer.orders.review.modal.writeReviewA11y', { name: prod.name })}
                     >
-                      <Text style={styles.writeReviewText}>Write Review</Text>
+                      <Text style={styles.writeReviewText}>{t('customer.orders.review.modal.writeReview')}</Text>
                     </TouchableOpacity>
                   )}
                 </View>
@@ -141,18 +142,18 @@ export const ReviewSubmittedModal: React.FC<ReviewSubmittedModalProps> = ({
               style={styles.primaryButton}
               activeOpacity={0.85}
               onPress={() => onReviewAnother?.('')}
-              accessibilityLabel="Review Another Product"
+              accessibilityLabel={t('customer.orders.review.modal.reviewAnother')}
             >
-              <Text style={styles.primaryButtonText}>Review Another Product</Text>
+              <Text style={styles.primaryButtonText}>{t('customer.orders.review.modal.reviewAnother')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.secondaryButton}
               activeOpacity={0.85}
               onPress={onContinueShopping}
-              accessibilityLabel="Continue Shopping"
+              accessibilityLabel={t('customer.orders.review.modal.continueShopping')}
             >
-              <Text style={styles.secondaryButtonText}>Continue Shopping</Text>
+              <Text style={styles.secondaryButtonText}>{t('customer.orders.review.modal.continueShopping')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

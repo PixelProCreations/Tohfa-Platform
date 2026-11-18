@@ -20,6 +20,7 @@ import {
 } from '../theme';
 import { useSupportTickets, formatSupportDateTime, type SupportTab, type TicketStatus } from '../api/support';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerSupportScreenProps {
   onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
@@ -69,20 +70,20 @@ const ChevronRightSvg = ({ color = '#2E7D32', size = 12 }: { color?: string; siz
   </Svg>
 );
 
-const TABS: Array<{ id: SupportTab; label: string }> = [
-  { id: 'ALL', label: 'All' },
-  { id: 'OPEN', label: 'Open' },
-  { id: 'IN_REVIEW', label: 'In Review' },
-  { id: 'RESOLVED', label: 'Resolved' },
-  { id: 'CANCELLED', label: 'Cancelled' },
+const TABS: Array<{ id: SupportTab; labelKey: 'all' | 'open' | 'inReview' | 'resolved' | 'cancelled' }> = [
+  { id: 'ALL', labelKey: 'all' },
+  { id: 'OPEN', labelKey: 'open' },
+  { id: 'IN_REVIEW', labelKey: 'inReview' },
+  { id: 'RESOLVED', labelKey: 'resolved' },
+  { id: 'CANCELLED', labelKey: 'cancelled' },
 ];
 
-const STATUS_LABEL: Record<TicketStatus, string> = {
-  OPEN: 'Open',
-  IN_PROGRESS: 'In Review',
-  RESOLVED: 'Resolved',
-  CLOSED: 'Resolved',
-  CANCELLED: 'Cancelled',
+const STATUS_LABEL_KEY: Record<TicketStatus, 'open' | 'inReview' | 'resolved' | 'cancelled'> = {
+  OPEN: 'open',
+  IN_PROGRESS: 'inReview',
+  RESOLVED: 'resolved',
+  CLOSED: 'resolved',
+  CANCELLED: 'cancelled',
 };
 
 export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
@@ -120,19 +121,19 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccount'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.support.back')}
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My requests</Text>
+          <Text style={styles.headerTitle}>{t('customer.support.title')}</Text>
         </View>
         <TouchableOpacity
           activeOpacity={0.7}
           onPress={() => onNavigate?.('ContactSupport')}
-          accessibilityLabel="New request"
+          accessibilityLabel={t('customer.support.newRequest')}
           style={{ marginLeft: 'auto' }}
         >
-          <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>+ New request</Text>
+          <Text style={{ color: customerColors.brand, fontWeight: '700', fontSize: 13 }}>{t('customer.support.newRequestCta')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -156,10 +157,10 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
                 activeOpacity={0.7}
                 onPress={() => setSelectedTab(tab.id)}
                 style={[styles.tabPill, isActive && styles.tabPillActive]}
-                accessibilityLabel={`Tab ${tab.label}`}
+                accessibilityLabel={t('customer.support.tabA11y', { label: t(`customer.support.tab.${tab.labelKey}`) })}
               >
                 <Text style={[styles.tabPillText, isActive && styles.tabPillTextActive]}>
-                  {tab.label}
+                  {t(`customer.support.tab.${tab.labelKey}`)}
                 </Text>
               </TouchableOpacity>
             );
@@ -168,17 +169,17 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
 
         {/* ── TICKETS LIST ────────────────────────────────────────────────────── */}
         {query.isLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading requests" style={{ marginTop: 32 }} />
+          <ActivityIndicator accessibilityLabel={t('customer.support.loading')} style={{ marginTop: 32 }} />
         ) : query.isError && tickets.length === 0 ? (
           <View style={{ alignItems: 'center', marginTop: 32, gap: 8 }} accessibilityRole="alert">
             <Text style={styles.ticketBodyText}>{mapProblem(query.error).message}</Text>
-            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel="Retry requests">
-              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Retry</Text>
+            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel={t('customer.support.retryA11y')}>
+              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>{t('customer.support.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : tickets.length === 0 ? (
           <Text style={[styles.ticketBodyText, { textAlign: 'center', marginTop: 32 }]}>
-            No requests here yet
+            {t('customer.support.empty')}
           </Text>
         ) : (
           <View style={styles.ticketList}>
@@ -188,12 +189,12 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
                 activeOpacity={0.8}
                 onPress={() => onNavigate?.('TrackSupportRequest', { ticketId: ticket.id })}
                 style={styles.ticketCard}
-                accessibilityLabel={`Request ${ticket.ticketNumber}`}
+                accessibilityLabel={t('customer.support.requestA11y', { number: ticket.ticketNumber })}
               >
                 <View style={styles.ticketHeaderRow}>
                   <Text style={styles.ticketNumberText}>{ticket.ticketNumber}</Text>
                   <View style={styles.statusBadge}>
-                    <Text style={styles.statusBadgeText}>{STATUS_LABEL[ticket.status] ?? ticket.status}</Text>
+                    <Text style={styles.statusBadgeText}>{STATUS_LABEL_KEY[ticket.status] ? t(`customer.support.tab.${STATUS_LABEL_KEY[ticket.status]}`) : ticket.status}</Text>
                     <ChevronRightSvg size={11} color={customerColors.brand} />
                   </View>
                 </View>
@@ -210,13 +211,13 @@ export const CustomerSupportScreen: React.FC<CustomerSupportScreenProps> = ({
               <TouchableOpacity
                 onPress={() => void query.fetchNextPage()}
                 disabled={query.isFetchingNextPage}
-                accessibilityLabel="Load more requests"
+                accessibilityLabel={t('customer.support.loadMoreA11y')}
                 style={{ alignItems: 'center', paddingVertical: 12 }}
               >
                 {query.isFetchingNextPage ? (
                   <ActivityIndicator />
                 ) : (
-                  <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Load more</Text>
+                  <Text style={{ color: customerColors.brand, fontWeight: '700' }}>{t('customer.support.loadMore')}</Text>
                 )}
               </TouchableOpacity>
             ) : null}

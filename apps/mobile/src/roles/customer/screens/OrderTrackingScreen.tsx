@@ -44,6 +44,7 @@ import { mapProblem } from '../api/problem';
 import { ProductCard } from '../components/ProductCard';
 import { PickupQrCode } from '../components/PickupQrCode';
 import { formatKg, formatRupees, sumMoney } from '../utils/money';
+import { t, type TranslationKey } from '../../../i18n/customer';
 import { SLOT_LABELS, activeOrderBadge, formatIstDate, orderStatusLabel } from '../utils/orderFormat';
 
 export interface OrderTrackingScreenProps {
@@ -206,17 +207,25 @@ export interface TimelineStep {
   state: 'done' | 'active' | 'todo' | 'cancelled';
 }
 
-const STEP_COPY: Record<string, [string, string]> = {
-  CONFIRMED: ['Order confirmed', 'Your wallet payment was successful and the order is accepted.'],
-  PACKED: ['Packed', 'Your items are collected and packed.'],
-  DISPATCHED: ['On the way', 'Your order has left the warehouse.'],
-  OUT_FOR_DELIVERY: ['Out for delivery', 'Your order is nearly there.'],
-  DELIVERED: ['Delivered', 'Your order has been handed over.'],
-  READY_FOR_PICKUP: ['Ready for pickup', 'Collect it at the pickup point with your pickup code.'],
-  PICKED_UP: ['Order collected', 'Your order has been handed over.'],
-  CANCELLED: ['Cancelled', 'This order was cancelled.'],
-  RETURNED: ['Returned', 'This order was returned.'],
-};
+const STEP_COPY_KEYS = [
+  'CONFIRMED',
+  'PACKED',
+  'DISPATCHED',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'READY_FOR_PICKUP',
+  'PICKED_UP',
+  'CANCELLED',
+  'RETURNED',
+];
+
+function stepCopy(status: string): [string, string] {
+  if (!STEP_COPY_KEYS.includes(status)) return [status, ''];
+  return [
+    t(`customer.orders.tracking.step.${status}.title` as TranslationKey),
+    t(`customer.orders.tracking.step.${status}.subtitle` as TranslationKey),
+  ];
+}
 
 /**
  * Tracking events (oldest first) mapped onto the fixed step list of the
@@ -242,7 +251,7 @@ export function buildTimeline(
   const terminal = isTerminalStatus(status);
   const steps: TimelineStep[] = base.map((s, i) => {
     const ev = [...events].reverse().find((e) => e.status === s);
-    const copy = STEP_COPY[s] ?? [s, ''];
+    const copy = stepCopy(s);
     return {
       status: s,
       title: copy[0],
@@ -254,16 +263,16 @@ export function buildTimeline(
   });
   if (status === 'CANCELLED' || status === 'RETURNED') {
     const ev = [...events].reverse().find((e) => e.status === status);
-    const copy = STEP_COPY[status] ?? [status, ''];
+    const copy = stepCopy(status);
     steps.push({ status, title: copy[0], subtitle: copy[1], at: ev?.at ?? null, note: ev?.note ?? null, state: 'cancelled' });
   }
   return steps;
 }
 
-const REORDER_REASON: Record<string, string> = {
-  OUT_OF_STOCK: 'Out of stock today',
-  DELISTED: 'No longer sold',
-  INSUFFICIENT_ALLOCATION: 'Daily limit reached',
+const REORDER_REASON_KEYS: Record<string, TranslationKey> = {
+  OUT_OF_STOCK: 'customer.orders.tracking.reorder.OUT_OF_STOCK',
+  DELISTED: 'customer.orders.tracking.reorder.DELISTED',
+  INSUFFICIENT_ALLOCATION: 'customer.orders.tracking.reorder.INSUFFICIENT_ALLOCATION',
 };
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -276,8 +285,9 @@ function formatDateTime(iso: string | null | undefined): string {
 // ── MAIN SCREEN COMPONENT ──────────────────────────────────────────────────
 /**
  * Order details & tracking (Figma 46:40927, share 46:41111, invoice 46:41394 /
- * 46:41607). Server-driven: GET /orders/{id} + GET /orders/{id}/tracking (polled
- * with backoff while active, stopped when terminal; the RN client has no SSE).
+ * 46:41607). Server-driven: GET /orders/{id} + GET /orders/{id}/tracking, kept live by
+ * the SSE stream GET /orders/{id}/events (useOrderTracking; falls back to polling
+ * with backoff when the stream is down or unsupported; stops when terminal).
  * Actions are gated by status: review/return only after DELIVERED/PICKED_UP,
  * invoice only with an invoiceId, reorder rebuilds the server cart.
  */
@@ -317,8 +327,8 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
     if (!order) return;
     try {
       await Share.share({
-        message: `TOHFA Market order ${order.orderNumber}\nStatus: ${orderStatusLabel(status)}\nItems: ${order.items.length}\nTotal: ${formatRupees(order.totalAmount)}`,
-        title: `Order ${order.orderNumber}`,
+        message: t('customer.orders.tracking.shareMessage', { number: order.orderNumber, status: orderStatusLabel(status), count: order.items.length, total: formatRupees(order.totalAmount) }),
+        title: t('customer.orders.tracking.shareTitle', { number: order.orderNumber }),
       });
     } catch {
       // Share sheet dismissed.
@@ -334,7 +344,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
       await Linking.openURL(url);
     } catch (err) {
       const p = mapProblem(err);
-      if (!p.silent) setNotice(err instanceof ApiError && err.status === 404 ? 'Invoice unavailable' : p.message);
+      if (!p.silent) setNotice(err instanceof ApiError && err.status === 404 ? t('customer.orders.tracking.invoiceUnavailable') : p.message);
     } finally {
       setDownloading(false);
     }
@@ -359,10 +369,10 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
   const header = (
     <View style={styles.headerRow}>
       <View style={styles.headerLeftGroup}>
-        <TouchableOpacity activeOpacity={0.7} onPress={onBack || (() => onNavigate?.('OrderHistory'))} style={styles.circleIconButton} accessibilityLabel="Back">
+        <TouchableOpacity activeOpacity={0.7} onPress={onBack || (() => onNavigate?.('OrderHistory'))} style={styles.circleIconButton} accessibilityLabel={t('customer.orders.tracking.back')}>
           <BackArrowSvg color={customerColors.heading} size={18} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Your Order</Text>
+        <Text style={styles.headerTitle}>{t('customer.orders.tracking.title')}</Text>
       </View>
     </View>
   );
@@ -381,10 +391,10 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
       <View style={styles.container}>
         {header}
         <View style={styles.summaryList} testID={notFound || !orderId ? 'order-not-found' : 'order-error'}>
-          <Text style={styles.sectionHeaderTitle}>{notFound || !orderId ? 'Order not found' : mapProblem(orderQuery.error).message}</Text>
+          <Text style={styles.sectionHeaderTitle}>{notFound || !orderId ? t('customer.orders.tracking.notFound') : mapProblem(orderQuery.error).message}</Text>
           {!notFound && !!orderId && (
             <TouchableOpacity onPress={() => void orderQuery.refetch()}>
-              <Text style={styles.viewQrLink}>Retry</Text>
+              <Text style={styles.viewQrLink}>{t('customer.common.retry')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -411,19 +421,19 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
             <View style={styles.productTitleRow}>
               <Text style={styles.productTitleText} numberOfLines={1}>
                 {firstThumb?.productName ?? order.items[0]?.name ?? order.orderNumber}
-                {order.items.length > 1 ? ` +${order.items.length - 1} more` : ''}
+                {order.items.length > 1 ? ` ${t('customer.orders.tracking.plusMore', { count: order.items.length - 1 })}` : ''}
               </Text>
               <Text style={styles.productPriceText}>{formatRupees(order.totalAmount)}</Text>
             </View>
             <Text style={styles.productTaglineText} numberOfLines={1}>
-              {order.items.length} {order.items.length === 1 ? 'item' : 'items'} · {orderStatusLabel(status)}
+              {order.items.length === 1 ? t('customer.orders.history.itemOne', { count: order.items.length }) : t('customer.orders.history.itemMany', { count: order.items.length })} · {orderStatusLabel(status)}
             </Text>
           </View>
         </View>
 
         {/* ── DELIVERY STATES ROW ───────────────────────────────────────────── */}
         <View style={styles.deliveryStatesRow}>
-          <Text style={styles.deliveryStatesLabel}>{pickup ? 'Pickup states:' : 'Delivery states:'}</Text>
+          <Text style={styles.deliveryStatesLabel}>{pickup ? t('customer.orders.tracking.pickupStates') : t('customer.orders.tracking.deliveryStates')}</Text>
           <View style={styles.deliveryStatesRight}>
             {!pickup && !!(tracking?.estimatedArrival ?? order.deliveryDate) && (
               <Text style={styles.deliveryDateText}>{formatIstDate(tracking?.estimatedArrival ?? order.deliveryDate)}</Text>
@@ -439,58 +449,58 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.dashedDivider} />
 
         {/* ── ORDER SUMMARY ───────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeaderTitle}>Order summary</Text>
+        <Text style={styles.sectionHeaderTitle}>{t('customer.orders.tracking.summary')}</Text>
         <View style={styles.summaryList}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>{pickup ? 'Status' : 'Arrive states'}</Text>
+            <Text style={styles.summaryKey}>{pickup ? t('customer.orders.tracking.status') : t('customer.orders.tracking.arriveStates')}</Text>
             <Text style={styles.summaryVal}>{arriveText}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Order ID</Text>
+            <Text style={styles.summaryKey}>{t('customer.orders.tracking.orderId')}</Text>
             <Text style={styles.summaryVal} testID="order-number">
               {order.orderNumber}
             </Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Order Date</Text>
+            <Text style={styles.summaryKey}>{t('customer.orders.tracking.orderDate')}</Text>
             <Text style={styles.summaryVal}>{formatDateTime(order.placedAt)}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>{pickup ? 'Pickup location' : 'Fulfilment'}</Text>
-            <Text style={styles.summaryVal}>{pickup ? (point?.name ?? '') : 'Home Delivery'}</Text>
+            <Text style={styles.summaryKey}>{pickup ? t('customer.orders.tracking.pickupLocation') : t('customer.orders.tracking.fulfilment')}</Text>
+            <Text style={styles.summaryVal}>{pickup ? (point?.name ?? '') : t('customer.orders.tracking.homeDelivery')}</Text>
           </View>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryKey}>Payment method</Text>
-            <Text style={styles.summaryVal}>{order.paymentMethodLabel ?? 'Wallet'}</Text>
+            <Text style={styles.summaryKey}>{t('customer.orders.tracking.paymentMethod')}</Text>
+            <Text style={styles.summaryVal}>{order.paymentMethodLabel ?? t('customer.orders.tracking.wallet')}</Text>
           </View>
           {pickup && !!order.pickupCode && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryKey}>Pickup code</Text>
+              <Text style={styles.summaryKey}>{t('customer.orders.tracking.pickupCode')}</Text>
               <View style={styles.pickupCodeRow}>
                 <Text style={styles.summaryVal}>{order.pickupCode} | </Text>
                 <TouchableOpacity activeOpacity={0.7} onPress={() => setShowQrModal(true)} testID="view-qr">
-                  <Text style={styles.viewQrLink}>View QR</Text>
+                  <Text style={styles.viewQrLink}>{t('customer.orders.tracking.viewQr')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
           {(tracking?.otpRequired ?? order.otpRequired) && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryKey}>Handover</Text>
-              <Text style={styles.summaryVal}>Share the OTP sent to you at handover</Text>
+              <Text style={styles.summaryKey}>{t('customer.orders.tracking.handover')}</Text>
+              <Text style={styles.summaryVal}>{t('customer.orders.tracking.handoverOtp')}</Text>
             </View>
           )}
           <View style={[styles.summaryRow, { alignItems: 'flex-start' }]}>
-            <Text style={styles.summaryKey}>{pickup ? 'Pickup address' : 'Delivery address'}</Text>
+            <Text style={styles.summaryKey}>{pickup ? t('customer.orders.tracking.pickupAddress') : t('customer.orders.tracking.deliveryAddress')}</Text>
             <View style={styles.addressValCol}>
               {pickup ? (
                 <>
-                  {!!point?.phone && <Text style={styles.addressPhoneText}>Ph: {point.phone},</Text>}
+                  {!!point?.phone && <Text style={styles.addressPhoneText}>{t('customer.orders.tracking.phone', { phone: point.phone })}</Text>}
                   <Text style={styles.addressBodyText}>{point?.address ?? point?.name ?? ''}</Text>
                 </>
               ) : (
                 <>
-                  {!!address?.contactPhone && <Text style={styles.addressPhoneText}>Ph: {address.contactPhone},</Text>}
+                  {!!address?.contactPhone && <Text style={styles.addressPhoneText}>{t('customer.orders.tracking.phone', { phone: address.contactPhone })}</Text>}
                   <Text style={styles.addressBodyText}>{address ? `${formatAddressLine(address)}, ${address.state}` : ''}</Text>
                 </>
               )}
@@ -501,7 +511,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.dashedDivider} />
 
         {/* ── ORDER ITEMS ───────────────────────────────────────────────────── */}
-        <Text style={styles.sectionHeaderTitle}>Order items</Text>
+        <Text style={styles.sectionHeaderTitle}>{t('customer.orders.tracking.orderItems')}</Text>
         <View style={styles.itemsBreakdownList}>
           {order.items.map((it) => (
             <View key={it.id} style={styles.itemPriceRow}>
@@ -510,7 +520,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                   {it.name} · {gradeLabel(it.grade)}
                 </Text>
                 <Text style={styles.itemUnitRate}>
-                  {formatKg(it.qtyKg)} × {formatRupees(it.unitPrice)} / kg
+                  {t('customer.orders.tracking.unitRate', { qty: formatKg(it.qtyKg), price: formatRupees(it.unitPrice) })}
                 </Text>
               </View>
               <Text style={styles.itemAmount}>{formatRupees(it.lineTotal)}</Text>
@@ -518,10 +528,10 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
           ))}
           {(
             [
-              ['Items total', order.subtotal],
-              ['Delivery fee', deliveryFee],
-              ['Handling fee', order.handlingFee],
-              ['GST', order.gstAmount],
+              [t('customer.orders.tracking.itemsTotal'), order.subtotal],
+              [t('customer.orders.tracking.deliveryFee'), deliveryFee],
+              [t('customer.orders.tracking.handlingFee'), order.handlingFee],
+              [t('customer.orders.tracking.gst'), order.gstAmount],
             ] as const
           )
             .filter(([, v]) => v !== undefined && v !== null)
@@ -536,14 +546,14 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.dashedDivider} />
 
         <View style={styles.totalPaidRow}>
-          <Text style={styles.totalPaidLabel}>Total Paid</Text>
+          <Text style={styles.totalPaidLabel}>{t('customer.orders.tracking.totalPaid')}</Text>
           <Text style={styles.totalPaidAmount} testID="order-total">
             {formatRupees(order.totalAmount)}
           </Text>
         </View>
 
         {/* ── ORDER PROGRESS TIMELINE (GET /orders/{id}/tracking) ─────────────── */}
-        <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>Order progress</Text>
+        <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>{t('customer.orders.tracking.progress')}</Text>
         <View style={styles.timelineStepper} testID="order-timeline">
           {timeline.map((step, i) => {
             const last = i === timeline.length - 1;
@@ -559,12 +569,12 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                     <Text style={done || step.state === 'active' ? styles.stepTitle : styles.stepTitleMuted}>{step.title}</Text>
                     {step.state === 'done' && (
                       <View style={styles.completedPill}>
-                        <Text style={styles.completedPillText}>Completed</Text>
+                        <Text style={styles.completedPillText}>{t('customer.orders.tracking.completed')}</Text>
                       </View>
                     )}
                     {step.state === 'active' && (
                       <View style={styles.inProgressPill}>
-                        <Text style={styles.inProgressPillText}>In progress</Text>
+                        <Text style={styles.inProgressPillText}>{t('customer.orders.tracking.inProgress')}</Text>
                       </View>
                     )}
                   </View>
@@ -585,11 +595,11 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         )}
 
         {/* ── ORDER ACTIONS (gated by status) ─────────────────────────────────── */}
-        <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>Order Actions</Text>
+        <Text style={[styles.sectionHeaderTitle, { marginTop: 24 }]}>{t('customer.orders.tracking.actions')}</Text>
         <View style={styles.actionsGrid}>
           <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => onNavigate?.('ContactSupport', { orderId: order.id, orderNumber: order.orderNumber })}>
             <HeadsetSupportSvg color="#2E7D32" size={22} />
-            <Text style={styles.actionLabel}>Contact Support</Text>
+            <Text style={styles.actionLabel}>{t('customer.orders.tracking.contactSupport')}</Text>
           </TouchableOpacity>
 
           {reviewEligible && (
@@ -600,25 +610,25 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
               onPress={() => onNavigate?.('ReviewFeedback', { orderId: order.id })}
             >
               <StarReviewSvg color="#F59E0B" size={22} />
-              <Text style={styles.actionLabel}>{reviewQuery.data ? `Your review: ${reviewQuery.data.rating} ★` : 'Write a Review & Feedback'}</Text>
+              <Text style={styles.actionLabel}>{reviewQuery.data ? t('customer.orders.tracking.yourReview', { rating: reviewQuery.data.rating }) : t('customer.orders.tracking.writeReview')}</Text>
             </TouchableOpacity>
           )}
 
           {isReturnEligible(status) && (
             <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} testID="action-return" onPress={() => onNavigate?.('ReturnOrder', { orderId: order.id })}>
               <PackageBoxSvg color="#D97706" size={22} />
-              <Text style={styles.actionLabel}>Return Order</Text>
+              <Text style={styles.actionLabel}>{t('customer.orders.tracking.returnOrder')}</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} testID="action-reorder" disabled={reorderM.isPending} onPress={() => void handleReorder()}>
             {reorderM.isPending ? <ActivityIndicator /> : <CartActionSvg color="#2E7D32" size={22} />}
-            <Text style={styles.actionLabel}>Buy Again</Text>
+            <Text style={styles.actionLabel}>{t('customer.orders.tracking.buyAgain')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.actionCard} activeOpacity={0.8} onPress={() => setShowShareModal(true)}>
             <ShareNodesSvg color="#2E7D32" size={22} />
-            <Text style={styles.actionLabel}>Share Order Details</Text>
+            <Text style={styles.actionLabel}>{t('customer.orders.tracking.shareOrder')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -629,14 +639,14 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
             onPress={() => setShowInvoiceModal(true)}
           >
             <DownloadTraySvg color="#2E7D32" size={22} />
-            <Text style={styles.actionLabel}>{order.invoiceId ? 'Download Invoice' : 'Invoice not ready yet'}</Text>
+            <Text style={styles.actionLabel}>{order.invoiceId ? t('customer.orders.tracking.downloadInvoice') : t('customer.orders.tracking.invoiceNotReady')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── FOR YOU (catalog featured) ─────────────────────────────────────── */}
         {(homeQuery.data?.featured ?? []).length > 0 && (
           <>
-            <Text style={[styles.sectionHeaderTitle, { marginTop: 24, fontSize: 22 }]}>For you</Text>
+            <Text style={[styles.sectionHeaderTitle, { marginTop: 24, fontSize: 22 }]}>{t('customer.orders.tracking.forYou')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.forYouScrollContent}>
               {(homeQuery.data?.featured ?? []).map((p) => {
                 const key = productKey(p);
@@ -663,38 +673,38 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.shareModalCard}>
-              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowShareModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowShareModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
               <View style={styles.largeIconCircle}>
                 <ShareNodesSvg color="#2E7D32" size={30} />
               </View>
-              <Text style={styles.modalEditorialTitle}>Share Order Details</Text>
-              <Text style={styles.modalSubtitle}>Share your information with family or friends.</Text>
+              <Text style={styles.modalEditorialTitle}>{t('customer.orders.tracking.shareOrder')}</Text>
+              <Text style={styles.modalSubtitle}>{t('customer.orders.tracking.shareSub')}</Text>
               <View style={styles.receiptContainer}>
                 <Image source={tohfaMarketLogo} style={styles.receiptLogoImage} resizeMode="contain" />
-                <Text style={styles.receiptOrderDetailsHeader}>Order Details</Text>
+                <Text style={styles.receiptOrderDetailsHeader}>{t('customer.orders.tracking.orderDetails')}</Text>
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptKey}>Order ID</Text>
+                  <Text style={styles.receiptKey}>{t('customer.orders.tracking.orderId')}</Text>
                   <Text style={styles.receiptValBold}>{order.orderNumber}</Text>
                 </View>
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptKey}>Order Date</Text>
+                  <Text style={styles.receiptKey}>{t('customer.orders.tracking.orderDate')}</Text>
                   <Text style={styles.receiptVal}>{formatDateTime(order.placedAt)}</Text>
                 </View>
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptKey}>Items</Text>
-                  <Text style={styles.receiptVal}>{order.items.length} Items</Text>
+                  <Text style={styles.receiptKey}>{t('customer.orders.tracking.items')}</Text>
+                  <Text style={styles.receiptVal}>{t('customer.orders.tracking.itemsCount', { count: order.items.length })}</Text>
                 </View>
                 <View style={styles.receiptRow}>
-                  <Text style={styles.receiptKey}>Total Paid</Text>
+                  <Text style={styles.receiptKey}>{t('customer.orders.tracking.totalPaid')}</Text>
                   <Text style={styles.receiptTotalPaid}>{formatRupees(order.totalAmount)}</Text>
                 </View>
                 {pickup && point && (
                   <View style={styles.receiptPickupBox}>
                     <Text style={{ fontSize: 16 }}>📍</Text>
                     <View>
-                      <Text style={styles.receiptPickupSub}>Pickup Location</Text>
+                      <Text style={styles.receiptPickupSub}>{t('customer.orders.tracking.pickupLocationLabel')}</Text>
                       <Text style={styles.receiptPickupTitle}>{point.name}</Text>
                     </View>
                   </View>
@@ -715,15 +725,15 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                   ))}
                 </View>
               </View>
-              <Text style={styles.shareOptionsHeader}>Share Order Details</Text>
+              <Text style={styles.shareOptionsHeader}>{t('customer.orders.tracking.shareOrder')}</Text>
               <View style={styles.socialButtonsRow}>
                 {(
                   [
                     ['WhatsApp', WhatsAppSvg],
                     ['Telegram', TelegramSvg],
-                    ['Message', MessageSvg],
-                    ['Email', EmailSvg],
-                    ['More', MoreSvg],
+                    [t('customer.orders.tracking.shareMessageBtn'), MessageSvg],
+                    [t('customer.orders.tracking.shareEmail'), EmailSvg],
+                    [t('customer.orders.tracking.shareMore'), MoreSvg],
                   ] as const
                 ).map(([label, Icon]) => (
                   <TouchableOpacity key={label} activeOpacity={0.7} onPress={() => void handleSystemShare()} style={styles.socialBtnCol}>
@@ -742,31 +752,31 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.downloadInvoiceModalCard} testID="invoice-modal">
-              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowInvoiceModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowInvoiceModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
               <View style={styles.largeIconCircle}>
                 <DownloadTraySvg color="#2E7D32" size={30} />
               </View>
-              <Text style={styles.modalEditorialTitle}>Download Invoice</Text>
-              <Text style={styles.modalSubtitle}>View or download the invoice for your order.</Text>
+              <Text style={styles.modalEditorialTitle}>{t('customer.orders.tracking.downloadInvoice')}</Text>
+              <Text style={styles.modalSubtitle}>{t('customer.orders.tracking.downloadSub')}</Text>
               <View style={styles.orderIdBannerCard}>
                 <View style={styles.orderBagCircle}>
                   <CartActionSvg color="#2E7D32" size={18} />
                 </View>
                 <View>
-                  <Text style={styles.orderIdBannerTitle}>Order ID: {order.orderNumber}</Text>
+                  <Text style={styles.orderIdBannerTitle}>{t('customer.orders.tracking.orderIdLine', { id: order.orderNumber })}</Text>
                   <Text style={styles.orderIdBannerSub}>
-                    {formatIstDate(order.placedAt)} - {order.items.length} items
+                    {t('customer.orders.tracking.bannerSub', { date: formatIstDate(order.placedAt), count: order.items.length })}
                   </Text>
                 </View>
               </View>
-              <Text style={styles.invoiceSectionTitle}>Invoice</Text>
+              <Text style={styles.invoiceSectionTitle}>{t('customer.orders.tracking.invoice')}</Text>
               {invoiceQuery.isLoading ? (
                 <ActivityIndicator testID="invoice-loading" />
               ) : invoiceQuery.isError ? (
                 <Text style={styles.invoiceInfoText} testID="invoice-error">
-                  {invoiceQuery.error instanceof ApiError && invoiceQuery.error.status === 404 ? 'Invoice unavailable' : mapProblem(invoiceQuery.error).message}
+                  {invoiceQuery.error instanceof ApiError && invoiceQuery.error.status === 404 ? t('customer.orders.tracking.invoiceUnavailable') : mapProblem(invoiceQuery.error).message}
                 </Text>
               ) : invoice ? (
                 <TouchableOpacity
@@ -783,15 +793,15 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                       {!!invoice.buyerName && <Text style={styles.miniInvoiceMeta}>{invoice.buyerName}</Text>}
                     </View>
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.miniInvoiceInvNo}>{invoice.gstApplicable ? 'Tax Invoice' : 'Invoice'}</Text>
-                      <Text style={styles.miniInvoiceMeta}>Inv No: {invoice.invoiceNumber}</Text>
-                      <Text style={styles.miniInvoiceMeta}>Status: {invoice.status}</Text>
+                      <Text style={styles.miniInvoiceInvNo}>{invoice.gstApplicable ? t('customer.orders.tracking.taxInvoice') : t('customer.orders.tracking.invoice')}</Text>
+                      <Text style={styles.miniInvoiceMeta}>{t('customer.orders.tracking.invNo', { no: invoice.invoiceNumber })}</Text>
+                      <Text style={styles.miniInvoiceMeta}>{t('customer.orders.tracking.statusLine', { status: invoice.status })}</Text>
                     </View>
                   </View>
                   <View style={styles.miniInvoiceTableHead}>
-                    <Text style={[styles.miniInvoiceColHead, { flex: 2 }]}>Product</Text>
-                    <Text style={styles.miniInvoiceColHead}>Qty</Text>
-                    <Text style={[styles.miniInvoiceColHead, { textAlign: 'right' }]}>Amount</Text>
+                    <Text style={[styles.miniInvoiceColHead, { flex: 2 }]}>{t('customer.orders.tracking.product')}</Text>
+                    <Text style={styles.miniInvoiceColHead}>{t('customer.orders.tracking.qty')}</Text>
+                    <Text style={[styles.miniInvoiceColHead, { textAlign: 'right' }]}>{t('customer.orders.tracking.amount')}</Text>
                   </View>
                   {(invoice.lines ?? []).slice(0, 3).map((l, i) => (
                     <View key={`${l.description}-${i}`} style={styles.miniInvoiceRow}>
@@ -805,7 +815,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                 </TouchableOpacity>
               ) : null}
               <TouchableOpacity style={styles.downloadPdfBtn} activeOpacity={0.85} onPress={() => void handleDownloadInvoice()} disabled={downloading} testID="invoice-download">
-                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>Download Invoice (PDF)</Text>}
+                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.downloadPdf')}</Text>}
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.closeBtnOutlined}
@@ -817,7 +827,7 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                 }}
                 testID="invoice-view"
               >
-                <Text style={styles.closeBtnOutlinedText}>View Invoice</Text>
+                <Text style={styles.closeBtnOutlinedText}>{t('customer.orders.tracking.viewInvoice')}</Text>
               </TouchableOpacity>
               {!!notice && <Text style={styles.invoiceInfoText}>{notice}</Text>}
             </View>
@@ -830,10 +840,10 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.invoiceModalCard} testID="invoice-full">
-              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowFullInvoiceModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowFullInvoiceModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
-              <Text style={styles.invoiceModalTitle}>Invoice</Text>
+              <Text style={styles.invoiceModalTitle}>{t('customer.orders.tracking.invoice')}</Text>
               <ScrollView style={styles.invoiceDocScrollView} contentContainerStyle={styles.invoiceDocScrollContent} showsVerticalScrollIndicator={false}>
                 {invoice && (
                   <View style={styles.invoiceDocumentCard}>
@@ -843,35 +853,35 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                           <Text style={styles.invBrandTohfa}>TOHFA </Text>
                           <Text style={styles.invBrandMarket}>Market</Text>
                         </View>
-                        {!!invoice.placeOfSupply && <Text style={styles.invMetaText}>Place of supply: {invoice.placeOfSupply}</Text>}
+                        {!!invoice.placeOfSupply && <Text style={styles.invMetaText}>{t('customer.orders.tracking.placeOfSupply', { value: invoice.placeOfSupply })}</Text>}
                       </View>
                       <View style={styles.invTaxCol}>
-                        <Text style={styles.invTaxInvoiceTitle}>{invoice.gstApplicable ? 'TAX INVOICE' : 'INVOICE'}</Text>
-                        <Text style={styles.invTaxMeta}>Invoice No.: {invoice.invoiceNumber}</Text>
-                        <Text style={styles.invTaxMeta}>Invoice Date: {formatIstDate(invoice.issueDate)}</Text>
-                        <Text style={styles.invTaxMeta}>Order ID: {order.orderNumber}</Text>
-                        <Text style={styles.invTaxMeta}>Status: {invoice.status}</Text>
+                        <Text style={styles.invTaxInvoiceTitle}>{invoice.gstApplicable ? t('customer.orders.tracking.taxInvoiceUpper') : t('customer.orders.tracking.invoiceUpper')}</Text>
+                        <Text style={styles.invTaxMeta}>{t('customer.orders.tracking.invoiceNo', { no: invoice.invoiceNumber })}</Text>
+                        <Text style={styles.invTaxMeta}>{t('customer.orders.tracking.invoiceDate', { date: formatIstDate(invoice.issueDate) })}</Text>
+                        <Text style={styles.invTaxMeta}>{t('customer.orders.tracking.orderIdLine', { id: order.orderNumber })}</Text>
+                        <Text style={styles.invTaxMeta}>{t('customer.orders.tracking.statusLine', { status: invoice.status })}</Text>
                       </View>
                     </View>
                     <View style={styles.invAddressTable}>
                       <View style={styles.invAddressColLeft}>
-                        <Text style={styles.invAddressHead}>BILL TO</Text>
+                        <Text style={styles.invAddressHead}>{t('customer.orders.tracking.billTo')}</Text>
                         <Text style={styles.invCustomerBold}>{invoice.buyerName ?? ''}</Text>
-                        {!!invoice.buyerGstin && <Text style={styles.invAddressLine}>GSTIN: {invoice.buyerGstin}</Text>}
+                        {!!invoice.buyerGstin && <Text style={styles.invAddressLine}>{t('customer.orders.tracking.gstin', { value: invoice.buyerGstin })}</Text>}
                       </View>
                       <View style={styles.invAddressColRight}>
-                        <Text style={styles.invAddressHead}>{pickup ? 'PICKUP POINT' : 'DELIVERY ADDRESS'}</Text>
+                        <Text style={styles.invAddressHead}>{pickup ? t('customer.orders.tracking.pickupPointUpper') : t('customer.orders.tracking.deliveryAddressUpper')}</Text>
                         <Text style={styles.invAddressLine}>{pickup ? (point?.name ?? '') : address ? formatAddressLine(address) : ''}</Text>
                       </View>
                     </View>
-                    <Text style={styles.invOrderItemsHeader}>ORDER ITEMS</Text>
+                    <Text style={styles.invOrderItemsHeader}>{t('customer.orders.tracking.orderItemsUpper')}</Text>
                     <View style={styles.invItemsTable}>
                       <View style={styles.invItemsTableHead}>
                         <Text style={[styles.invTh, { width: 18 }]}>#</Text>
-                        <Text style={[styles.invTh, { flex: 2 }]}>Product description</Text>
-                        <Text style={[styles.invTh, { width: 34, textAlign: 'center' }]}>Qty</Text>
-                        <Text style={[styles.invTh, { width: 56, textAlign: 'right' }]}>Unit price</Text>
-                        <Text style={[styles.invTh, { width: 60, textAlign: 'right' }]}>Amount</Text>
+                        <Text style={[styles.invTh, { flex: 2 }]}>{t('customer.orders.tracking.productDescription')}</Text>
+                        <Text style={[styles.invTh, { width: 34, textAlign: 'center' }]}>{t('customer.orders.tracking.qty')}</Text>
+                        <Text style={[styles.invTh, { width: 56, textAlign: 'right' }]}>{t('customer.orders.tracking.unitPrice')}</Text>
+                        <Text style={[styles.invTh, { width: 60, textAlign: 'right' }]}>{t('customer.orders.tracking.amount')}</Text>
                       </View>
                       {(invoice.lines ?? []).map((l, i) => (
                         <View key={`${l.description}-${i}`} style={styles.invItemRow}>
@@ -886,38 +896,38 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                     <View style={styles.invSubtotalBlock}>
                       {!!invoice.taxableAmount && (
                         <View style={styles.invSubtotalRow}>
-                          <Text style={styles.invSubtotalKey}>Taxable amount</Text>
+                          <Text style={styles.invSubtotalKey}>{t('customer.orders.tracking.taxable')}</Text>
                           <Text style={styles.invSubtotalVal}>{formatRupees(invoice.taxableAmount)}</Text>
                         </View>
                       )}
                       <View style={styles.invSubtotalRow}>
-                        <Text style={styles.invSubtotalKey}>Tax</Text>
+                        <Text style={styles.invSubtotalKey}>{t('customer.orders.tracking.tax')}</Text>
                         <Text style={styles.invSubtotalVal} testID="invoice-gst">
-                          {invoice.gstApplicable ? formatRupees(sumMoney([invoice.cgst ?? '0', invoice.sgst ?? '0', invoice.igst ?? '0'])) : 'GST not applicable'}
+                          {invoice.gstApplicable ? formatRupees(sumMoney([invoice.cgst ?? '0', invoice.sgst ?? '0', invoice.igst ?? '0'])) : t('customer.orders.tracking.gstNotApplicable')}
                         </Text>
                       </View>
                       <View style={styles.invSubtotalDivider} />
                       <View style={styles.invSubtotalRow}>
-                        <Text style={styles.invGrandTotalKey}>Grand total</Text>
+                        <Text style={styles.invGrandTotalKey}>{t('customer.orders.tracking.grandTotal')}</Text>
                         <Text style={styles.invGrandTotalVal}>{formatRupees(invoice.totalAmount)}</Text>
                       </View>
                     </View>
                     <View style={styles.invPaymentBox}>
-                      <Text style={styles.invPaymentHeading}>PAYMENT DETAILS</Text>
+                      <Text style={styles.invPaymentHeading}>{t('customer.orders.tracking.paymentDetails')}</Text>
                       <View style={styles.invPaymentRow}>
-                        <Text style={styles.invPaymentText}>Payment method: {order.paymentMethodLabel ?? 'Wallet'}</Text>
-                        <Text style={styles.invPaymentText}>Payment status: {order.paymentStatus ?? ''}</Text>
+                        <Text style={styles.invPaymentText}>{t('customer.orders.tracking.paymentMethodLine', { value: order.paymentMethodLabel ?? t('customer.orders.tracking.wallet') })}</Text>
+                        <Text style={styles.invPaymentText}>{t('customer.orders.tracking.paymentStatusLine', { value: order.paymentStatus ?? '' })}</Text>
                       </View>
                     </View>
-                    <Text style={styles.invThankYouText}>Thank you for choosing TOHFA Market.</Text>
+                    <Text style={styles.invThankYouText}>{t('customer.orders.tracking.thankYou')}</Text>
                   </View>
                 )}
               </ScrollView>
               <TouchableOpacity style={styles.downloadPdfBtn} activeOpacity={0.85} onPress={() => void handleDownloadInvoice()} disabled={downloading} testID="invoice-full-download">
-                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>Download Invoice (PDF)</Text>}
+                {downloading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.downloadPdf')}</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={styles.closeBtnOutlined} activeOpacity={0.85} onPress={() => setShowFullInvoiceModal(false)}>
-                <Text style={styles.closeBtnOutlinedText}>Close</Text>
+                <Text style={styles.closeBtnOutlinedText}>{t('customer.common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -929,18 +939,18 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.qrModalCard} testID="qr-modal">
-              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowQrModal(false)} accessibilityLabel="Close" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <TouchableOpacity style={styles.floatingCloseBtn} activeOpacity={0.8} onPress={() => setShowQrModal(false)} accessibilityLabel={t('customer.common.close')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <ModalCloseCrossSvg size={14} color="#1F2937" />
               </TouchableOpacity>
-              <Text style={styles.modalEditorialTitle}>Pickup QR Code</Text>
-              <Text style={styles.modalSubtitle}>Show this QR code at the counter for pickup</Text>
+              <Text style={styles.modalEditorialTitle}>{t('customer.orders.tracking.qrTitle')}</Text>
+              <Text style={styles.modalSubtitle}>{t('customer.orders.tracking.qrSub')}</Text>
               <View style={styles.qrImageFrame}>
                 <PickupQrCode payload={order.pickupQr?.payload} size={180} />
               </View>
               <View style={styles.pickupCodeBadge}>
                 <Text style={styles.pickupCodeText}>{order.pickupCode}</Text>
               </View>
-              <Text style={styles.qrOrderSubtitle}>Order: {order.orderNumber}</Text>
+              <Text style={styles.qrOrderSubtitle}>{t('customer.orders.tracking.orderLine', { id: order.orderNumber })}</Text>
             </View>
           </View>
         </View>
@@ -951,10 +961,10 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCardContainer}>
             <View style={styles.qrModalCard} testID="reorder-modal">
-              <Text style={styles.modalEditorialTitle}>{reorderResult?.addedCount === 0 ? 'Nothing could be added' : 'Some items are unavailable'}</Text>
+              <Text style={styles.modalEditorialTitle}>{reorderResult?.addedCount === 0 ? t('customer.orders.tracking.nothingAdded') : t('customer.orders.tracking.someUnavailable')}</Text>
               {(reorderResult?.unavailable ?? []).map((u) => (
                 <Text key={`${u.productId}:${u.grade}`} style={styles.modalSubtitle}>
-                  {u.name} · {gradeLabel(u.grade)} — {REORDER_REASON[u.reason] ?? u.reason}
+                  {u.name} · {gradeLabel(u.grade)} — {REORDER_REASON_KEYS[u.reason] ? t(REORDER_REASON_KEYS[u.reason] as TranslationKey) : u.reason}
                 </Text>
               ))}
               {(reorderResult?.addedCount ?? 0) > 0 && (
@@ -966,11 +976,11 @@ export const OrderTrackingScreen: React.FC<OrderTrackingScreenProps> = ({ orderI
                   }}
                   testID="reorder-go-cart"
                 >
-                  <Text style={styles.downloadPdfBtnText}>Go to cart</Text>
+                  <Text style={styles.downloadPdfBtnText}>{t('customer.orders.tracking.goCart')}</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.closeBtnOutlined} onPress={() => setReorderResult(null)}>
-                <Text style={styles.closeBtnOutlinedText}>Close</Text>
+                <Text style={styles.closeBtnOutlinedText}>{t('customer.common.close')}</Text>
               </TouchableOpacity>
             </View>
           </View>

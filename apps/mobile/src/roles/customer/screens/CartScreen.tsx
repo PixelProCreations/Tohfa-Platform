@@ -18,6 +18,7 @@ import {
   customerSpacing,
   customerShadow,
 } from '../theme';
+import { t } from '../../../i18n/customer';
 import { gradeLabel } from '../api/catalog';
 import {
   cartLineKey,
@@ -298,7 +299,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
   // ── PAY & CHECKOUT HANDLER ────────────────────────────────────────────────
   const handleCheckout = async () => {
     if (checkoutDisabled || !serverCart || !warehouseId) {
-      if (hasUnavailable) Alert.alert('Out of Stock Item', 'Please remove out-of-stock items before proceeding to checkout.');
+      if (hasUnavailable) Alert.alert(t('customer.cart.screen.oos.title'), t('customer.cart.screen.oos.body'));
       return;
     }
     try {
@@ -322,16 +323,16 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
   const pointInfo = (p: PickupPoint | null | undefined) =>
     p ? (
       <View style={styles.deliveryContentTextCol}>
-        {!!p.phone && <Text style={styles.pickupPhoneHeader}>Ph: {p.phone},</Text>}
+        {!!p.phone && <Text style={styles.pickupPhoneHeader}>{t('customer.cart.screen.market.phone', { phone: p.phone })}</Text>}
         <Text style={styles.pickupMarketDesc}>{p.address ?? p.name}</Text>
         <Text style={styles.pickupMarketDesc}>
-          {p.isOpenNow ? 'Open now' : 'Closed now'}
+          {p.isOpenNow ? t('customer.cart.screen.market.openNow') : t('customer.cart.screen.market.closedNow')}
           {typeof p.distanceKm === 'number' ? ` · ${p.distanceKm.toFixed(1)} km` : ''}
         </Text>
       </View>
     ) : (
       <View style={styles.deliveryContentTextCol}>
-        <Text style={styles.pickupMarketDesc}>{pickupQuery.isLoading ? 'Loading pickup points…' : 'No pickup point available'}</Text>
+        <Text style={styles.pickupMarketDesc}>{pickupQuery.isLoading ? t('customer.cart.screen.market.loading') : t('customer.cart.screen.market.none')}</Text>
       </View>
     );
 
@@ -353,11 +354,11 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
           activeOpacity={0.7}
           onPress={() => (onGoBack ? onGoBack() : (onBack ? onBack() : onNavigate?.('Home')))}
           style={styles.backButton}
-          accessibilityLabel="Back"
+          accessibilityLabel={t('customer.cart.screen.back')}
         >
           <BackArrowSvg />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My cart</Text>
+        <Text style={styles.headerTitle}>{t('customer.cart.screen.title')}</Text>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -365,7 +366,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
           <View style={styles.emptyCartWrap} testID="cart-error">
             <Text style={styles.emptyCartText}>{mapProblem(cartQuery.error).message}</Text>
             <TouchableOpacity onPress={() => void cartQuery.refetch()}>
-              <Text style={styles.readPolicyLink}>Retry</Text>
+              <Text style={styles.readPolicyLink}>{t('customer.cart.screen.retry')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -379,12 +380,12 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
         {/* ── BR-22 reservation countdown [needs design review] ── */}
         {items.length > 0 && countdown !== null && (
           <View style={styles.savingsPill} testID="cart-lock-countdown">
-            <Text style={styles.savingsText}>Items reserved for {countdown}</Text>
+            <Text style={styles.savingsText}>{t('customer.cart.screen.reserved', { time: countdown })}</Text>
           </View>
         )}
         {items.length > 0 && lockExpired && (
           <TouchableOpacity style={styles.savingsPill} onPress={() => void handleReReserve()} testID="cart-lock-expired">
-            <Text style={styles.savingsText}>Reservation expired · Tap to reserve again</Text>
+            <Text style={styles.savingsText}>{t('customer.cart.screen.expired')}</Text>
           </TouchableOpacity>
         )}
 
@@ -394,7 +395,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
             <View style={styles.deliveryBannerLeft}>
               <LocationPinSvg color="#0284C7" />
               <Text style={styles.deliveryBannerText} numberOfLines={1}>
-                {address ? formatAddressLine(address) : 'Add delivery details'}
+                {address ? formatAddressLine(address) : t('customer.cart.screen.addDetails')}
               </Text>
             </View>
             <ChevronDownSvg color="#0284C7" />
@@ -404,9 +405,9 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
         {/* ── 1. REVIEW ITEMS SECTION ───────────────────────────────────────── */}
         <View style={styles.reviewItemsContainer}>
           <View style={styles.reviewItemsHeader}>
-            <Text style={styles.reviewItemsTitle}>Review items</Text>
+            <Text style={styles.reviewItemsTitle}>{t('customer.cart.screen.review')}</Text>
             <Text style={styles.reviewItemsCount}>
-              {items.length} {items.length === 1 ? 'item' : 'items'}
+              {t(items.length === 1 ? 'customer.cart.screen.itemOne' : 'customer.cart.screen.itemMany', { count: items.length })}
             </Text>
           </View>
 
@@ -421,17 +422,17 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                       <Text style={styles.itemName}>{item.name}</Text>
                       {unavailable && (
                         <View style={styles.noStockBadge}>
-                          <Text style={styles.noStockText}>No stock</Text>
+                          <Text style={styles.noStockText}>{t('customer.cart.screen.noStock')}</Text>
                         </View>
                       )}
                       {item.availability === 'LOW_STOCK' && (
                         <View style={styles.noStockBadge}>
-                          <Text style={styles.noStockText}>Only {formatKg(item.availableKg)} left</Text>
+                          <Text style={styles.noStockText}>{t('customer.cart.screen.onlyLeft', { qty: formatKg(item.availableKg) })}</Text>
                         </View>
                       )}
                     </View>
                     <Text style={styles.itemSubtitle}>
-                      {gradeLabel(item.grade)} · {formatRupees(item.unitPrice)}/kg
+                      {gradeLabel(item.grade)} · {t('customer.cart.screen.pricePerKg', { price: formatRupees(item.unitPrice) })}
                     </Text>
                   </View>
 
@@ -442,11 +443,11 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                     {unavailable ? (
                       <TouchableOpacity activeOpacity={0.7} onPress={() => handleRemoveItem(item)} style={styles.removeOutlineBtn} testID={`cart-remove-${cartLineKey(item)}`}>
                         <TrashSvg />
-                        <Text style={styles.removeOutlineBtnText}>Remove</Text>
+                        <Text style={styles.removeOutlineBtnText}>{t('customer.cart.screen.remove')}</Text>
                       </TouchableOpacity>
                     ) : (
                       <View style={styles.stepperContainer}>
-                        <TouchableOpacity activeOpacity={0.7} onPress={() => changeQty(item, -1)} style={styles.stepperAction} testID={`cart-dec-${cartLineKey(item)}`} accessibilityLabel="Decrease">
+                        <TouchableOpacity activeOpacity={0.7} onPress={() => changeQty(item, -1)} style={styles.stepperAction} testID={`cart-dec-${cartLineKey(item)}`} accessibilityLabel={t('customer.cart.screen.decrease')}>
                           <Text style={styles.stepperSign}>−</Text>
                         </TouchableOpacity>
                         <Text style={styles.stepperQty}>{formatKg(item.qtyKg)}</Text>
@@ -456,7 +457,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                           disabled={!canStepUp(item.qtyKg, { ...STEP, max: item.availableKg })}
                           style={styles.stepperAction}
                           testID={`cart-inc-${cartLineKey(item)}`}
-                          accessibilityLabel="Increase"
+                          accessibilityLabel={t('customer.cart.screen.increase')}
                         >
                           <Text style={styles.stepperSign}>+</Text>
                         </TouchableOpacity>
@@ -469,9 +470,9 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
 
             {items.length === 0 && !cartQuery.isError && (
               <View style={styles.emptyCartWrap} testID="cart-empty">
-                <Text style={styles.emptyCartText}>Your cart is empty.</Text>
+                <Text style={styles.emptyCartText}>{t('customer.cart.screen.empty')}</Text>
                 <TouchableOpacity onPress={() => onNavigate?.('Home')}>
-                  <Text style={styles.readPolicyLink}>Start shopping</Text>
+                  <Text style={styles.readPolicyLink}>{t('customer.cart.screen.startShopping')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -482,11 +483,11 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
         {items.length > 0 && (
           <View style={styles.billContainer}>
             <View style={styles.billHeader}>
-              <Text style={styles.billHeaderTitle}>Your Bill</Text>
+              <Text style={styles.billHeaderTitle}>{t('customer.cart.screen.bill.title')}</Text>
             </View>
             <View style={styles.billBody}>
               <View style={styles.billRow}>
-                <Text style={styles.billLabel}>Items total</Text>
+                <Text style={styles.billLabel}>{t('customer.cart.screen.bill.items')}</Text>
                 <View style={styles.billPriceCol}>
                   <Text style={styles.billValue} testID="cart-subtotal">
                     {formatRupees(cart?.subtotal)}
@@ -496,19 +497,19 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
               {quote && (
                 <>
                   <View style={styles.billRow}>
-                    <Text style={[styles.billLabel, styles.underlinedLabel]}>Delivery Fee</Text>
+                    <Text style={[styles.billLabel, styles.underlinedLabel]}>{t('customer.cart.screen.bill.delivery')}</Text>
                     <View style={styles.billPriceCol}>
                       <Text style={styles.billValue}>{formatRupees(quote.deliveryFee)}</Text>
                     </View>
                   </View>
                   <View style={styles.billRow}>
-                    <Text style={[styles.billLabel, styles.underlinedLabel]}>Handling Fee</Text>
+                    <Text style={[styles.billLabel, styles.underlinedLabel]}>{t('customer.cart.screen.bill.handling')}</Text>
                     <View style={styles.billPriceCol}>
                       <Text style={styles.billValue}>{formatRupees(quote.handlingFee)}</Text>
                     </View>
                   </View>
                   <View style={styles.billRow}>
-                    <Text style={styles.billLabel}>GST</Text>
+                    <Text style={styles.billLabel}>{t('customer.cart.screen.bill.gst')}</Text>
                     <View style={styles.billPriceCol}>
                       <Text style={styles.billValue}>{formatRupees(quote.gstAmount)}</Text>
                     </View>
@@ -517,12 +518,12 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
               )}
               <View style={styles.dottedDivider} />
               <View style={styles.billRow}>
-                <Text style={styles.grandTotalLabel}>Grand total</Text>
+                <Text style={styles.grandTotalLabel}>{t('customer.cart.screen.bill.grand')}</Text>
                 <Text style={styles.grandTotalValue} testID="cart-grand-total">
                   {formatRupees(quote?.totalAmount ?? cart?.subtotal)}
                 </Text>
               </View>
-              {!quote && <Text style={styles.policyText}>Delivery, handling and GST are calculated at checkout.</Text>}
+              {!quote && <Text style={styles.policyText}>{t('customer.cart.screen.bill.note')}</Text>}
             </View>
           </View>
         )}
@@ -531,10 +532,10 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
         {items.length > 0 && (
           <View style={styles.deliveryStatesCard}>
             <View style={styles.deliveryStatesHeader}>
-              <Text style={styles.deliveryStatesTitle}>Choose a delivery states</Text>
+              <Text style={styles.deliveryStatesTitle}>{t('customer.cart.screen.mode.title')}</Text>
               {nearest && (
                 <View style={styles.nearMarketHeaderRight}>
-                  <Text style={styles.nearMarketHeaderLabel}>Your Near </Text>
+                  <Text style={styles.nearMarketHeaderLabel}>{t('customer.cart.screen.mode.yourNear')}</Text>
                   <Text style={styles.nearMarketHeaderGreen}>{nearest.name}</Text>
                 </View>
               )}
@@ -544,9 +545,9 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
               <View style={styles.deliveryRadiosRow}>
                 {(
                   [
-                    ['home', 'Home delivery'],
-                    ['pickup', 'Direct pickup'],
-                    ['customize', 'Customize'],
+                    ['home', 'mode.home'],
+                    ['pickup', 'mode.pickup'],
+                    ['customize', 'mode.customize'],
                   ] as const
                 )
                   .filter(([mode]) => !(mode === 'home' && draftState.homeDeliveryDisabled))
@@ -555,7 +556,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                       <View style={[styles.radioCircle, deliveryState === mode && styles.radioCircleSelected]}>
                         {deliveryState === mode && <View style={styles.radioInnerDot} />}
                       </View>
-                      <Text style={[styles.radioLabel, deliveryState === mode && styles.radioLabelSelected]}>{label}</Text>
+                      <Text style={[styles.radioLabel, deliveryState === mode && styles.radioLabelSelected]}>{t(`customer.cart.screen.${label}`)}</Text>
                     </TouchableOpacity>
                   ))}
               </View>
@@ -571,12 +572,12 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                           <Text style={styles.deliveryAddressText}>{address.state}.</Text>
                         </>
                       ) : (
-                        <Text style={styles.deliveryAddressText}>Add a delivery address to continue.</Text>
+                        <Text style={styles.deliveryAddressText}>{t('customer.cart.screen.address.add')}</Text>
                       )}
                     </View>
                     <TouchableOpacity activeOpacity={0.7} onPress={() => setAddressModalVisible(true)} style={styles.editOutlineBtn}>
                       <EditMemoSvg />
-                      <Text style={styles.editOutlineBtnText}>{address ? 'Edit' : 'Add'}</Text>
+                      <Text style={styles.editOutlineBtnText}>{address ? t('customer.cart.screen.address.editBtn') : t('customer.cart.screen.address.addBtn')}</Text>
                     </TouchableOpacity>
                   </View>
 
@@ -592,7 +593,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                         }}
                         style={[styles.inlineDropdownItem, dayOffset === d && styles.radioCircleSelected]}
                       >
-                        <Text style={styles.inlineDropdownItemName}>{d === 0 ? 'Today' : 'Tomorrow'}</Text>
+                        <Text style={styles.inlineDropdownItemName}>{d === 0 ? t('customer.cart.screen.day.today') : t('customer.cart.screen.day.tomorrow')}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -610,7 +611,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                         >
                           <Text style={styles.inlineDropdownItemName}>{s.label || SLOT_LABEL[s.slot]}</Text>
                           <View style={styles.openNowBadge}>
-                            <Text style={styles.openNowBadgeText}>{full ? 'Full' : s.available !== null ? `${s.available} left` : 'Open'}</Text>
+                            <Text style={styles.openNowBadgeText}>{full ? t('customer.cart.screen.slot.full') : s.available !== null ? t('customer.cart.screen.slot.left', { count: s.available }) : t('customer.cart.screen.slot.open')}</Text>
                           </View>
                         </TouchableOpacity>
                       );
@@ -635,10 +636,10 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                 <View style={styles.customizeContainer}>
                   <TouchableOpacity activeOpacity={0.85} onPress={() => setMarketDropdownVisible((prev) => !prev)} style={styles.customizeMarketDropdown} testID="market-dropdown">
                     <View style={styles.customizeDropdownLeft}>
-                      <Text style={styles.customizeMarketNameText}>{customPoint?.name ?? 'Choose a market'}</Text>
+                      <Text style={styles.customizeMarketNameText}>{customPoint?.name ?? t('customer.cart.screen.market.choose')}</Text>
                       {customPoint?.isNearest && (
                         <View style={styles.yourNearLightBadge}>
-                          <Text style={styles.yourNearLightBadgeText}>Your near</Text>
+                          <Text style={styles.yourNearLightBadgeText}>{t('customer.cart.screen.market.yourNear')}</Text>
                         </View>
                       )}
                     </View>
@@ -660,7 +661,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                         >
                           <Text style={styles.inlineDropdownItemName}>{p.name}</Text>
                           <View style={styles.openNowBadge}>
-                            <Text style={styles.openNowBadgeText}>{p.isOpenNow ? 'Open now' : 'Closed'}</Text>
+                            <Text style={styles.openNowBadgeText}>{p.isOpenNow ? t('customer.cart.screen.market.openNow') : t('customer.cart.screen.market.closed')}</Text>
                           </View>
                         </TouchableOpacity>
                       ))}
@@ -676,18 +677,18 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
 
         {/* ── 4. RETURN / REFUND POLICY ─────────────────────────────────────── */}
         <View style={styles.policyContainer}>
-          <Text style={styles.policyTitle}>Return/Refund Policy</Text>
-          <Text style={styles.policyText}>Freshly sourced from local farmers, thoughtfully delivered to your home.</Text>
+          <Text style={styles.policyTitle}>{t('customer.cart.screen.policy.title')}</Text>
+          <Text style={styles.policyText}>{t('customer.cart.screen.policy.tagline')}</Text>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() =>
               Alert.alert(
-                'Return & Refund Policy',
-                'If any item is damaged or not fresh, raise a return from My Orders after delivery or pickup.',
+                t('customer.cart.screen.policy.alertTitle'),
+                t('customer.cart.screen.policy.alertBody'),
               )
             }
           >
-            <Text style={styles.readPolicyLink}>Read policy</Text>
+            <Text style={styles.readPolicyLink}>{t('customer.cart.screen.policy.read')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -702,7 +703,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
 
             {deliveryState === 'home' && !address ? (
               <TouchableOpacity activeOpacity={0.85} onPress={() => setAddressModalVisible(true)} style={styles.addAddressBtn} testID="cart-add-address">
-                <Text style={styles.addAddressBtnText}>Add Address</Text>
+                <Text style={styles.addAddressBtnText}>{t('customer.cart.screen.addAddress')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -713,7 +714,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({ onNavigate, onGoBack, on
                 testID="cart-checkout"
               >
                 <Text style={[styles.payCheckoutBtnText, checkoutDisabled && styles.payCheckoutBtnTextDisabled]}>
-                  {missingDelivery ? 'Pick a delivery slot' : 'Pay & Checkout'}
+                  {missingDelivery ? t('customer.cart.screen.pickSlot') : t('customer.cart.screen.payCheckout')}
                 </Text>
               </TouchableOpacity>
             )}

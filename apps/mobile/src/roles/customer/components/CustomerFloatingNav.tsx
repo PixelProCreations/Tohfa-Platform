@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { customerColors, customerFonts, customerShadow } from '../theme';
+import { t } from '../../../i18n/customer';
 
 export type CustomerActiveTab = 'home' | 'search' | 'cart' | 'profile';
 
@@ -141,7 +142,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
             <SearchSvg color="#9CA3AF" size={18} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for fresh vegetables..."
+              placeholder={t('customer.search.placeholder')}
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={onSearchChange}
@@ -170,7 +171,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
               activeTab === 'profile' && styles.circleButtonActive,
               customerShadow.raised,
             ]}
-            accessibilityLabel="Profile"
+            accessibilityLabel={t('customer.nav.profile')}
           >
             <ProfileSvg
               color={activeTab === 'profile' ? '#FFFFFF' : '#1F2937'}
@@ -187,7 +188,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
               activeTab === 'cart' && styles.circleButtonActive,
               customerShadow.raised,
             ]}
-            accessibilityLabel="Shopping Cart"
+            accessibilityLabel={t('customer.nav.cart')}
           >
             <CartSvg
               color={activeTab === 'cart' ? '#FFFFFF' : '#1F2937'}
@@ -209,7 +210,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
               activeTab === 'search' && styles.circleButtonActive,
               customerShadow.raised,
             ]}
-            accessibilityLabel="Search"
+            accessibilityLabel={t('customer.nav.search')}
           >
             <SearchSvg
               color={activeTab === 'search' ? '#FFFFFF' : '#1F2937'}
@@ -227,7 +228,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
                 styles.circleButtonActive,
                 customerShadow.raised,
               ]}
-              accessibilityLabel="Home"
+              accessibilityLabel={t('customer.nav.home')}
             >
               <HomeSvg color="#FFFFFF" size={22} />
             </TouchableOpacity>
@@ -241,7 +242,7 @@ export const CustomerFloatingNav: React.FC<CustomerFloatingNavProps> = ({
         onPress={toggleMenu}
         style={[styles.mainFabButton, customerShadow.raised]}
         accessibilityRole="button"
-        accessibilityLabel={isOpen ? 'Close menu' : 'Open navigation menu'}
+        accessibilityLabel={isOpen ? t('customer.nav.closeMenu') : t('customer.nav.openMenu')}
       >
         {renderActiveFabIcon()}
       </TouchableOpacity>

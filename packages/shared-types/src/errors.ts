@@ -57,6 +57,8 @@ export const ErrorCode = {
   CART_LOCK_EXPIRED: 'CART_LOCK_EXPIRED',
   /** The chosen delivery slot is fully booked or switched off (BR-201). */
   SLOT_FULL: 'SLOT_FULL',
+  /** The slot's order cutoff (start minus delivery_slot_cutoff_minutes) has passed (BR-210). */
+  SLOT_CUTOFF_PASSED: 'SLOT_CUTOFF_PASSED',
   /** The supplied OTP did not match the challenge. */
   OTP_INVALID: 'OTP_INVALID',
   /** The OTP challenge is past its validity window. */

@@ -20,6 +20,7 @@ import { ScreenStatusBar } from '@tohfa/mobile-ui';
 import { ArrowRightFigmaIcon } from '../components/ArrowRightFigmaIcon';
 import { displayName, useCustomerProfile, useUpdateCustomerProfile } from '../api/profile';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 interface CustomerProfileNameScreenProps {
   onNavigate: (screen: 'CustomerProfileAgeGender' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerLogin') => void;
@@ -47,7 +48,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
   const handleNext = async () => {
     if (!hasName || saving) return;
     if (trimmed.length > 120) {
-      setError('Name must be 120 characters or fewer.');
+      setError(t('customer.account.setup.name.tooLong'));
       return;
     }
     setError(null);
@@ -83,9 +84,9 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
           onPress={handleSkip}
           style={styles.skipButton}
           accessibilityRole="button"
-          accessibilityLabel="Skip"
+          accessibilityLabel={t('customer.account.setup.skip')}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={styles.skipText}>{t('customer.account.setup.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -95,7 +96,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
       >
         {/* Main Center Block (349 Fill x 204 Hug from Figma) */}
         <View style={styles.centerBlock}>
-          <Text style={styles.title}>What should we call you?</Text>
+          <Text style={styles.title}>{t('customer.account.setup.name.title')}</Text>
 
           {/* Underline Name Input */}
           <View style={styles.inputContainer}>
@@ -110,7 +111,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
               }}
               maxLength={120}
               editable={!saving}
-              accessibilityLabel="Your name"
+              accessibilityLabel={t('customer.account.setup.name.inputA11y')}
               textAlign="center"
               autoFocus={true}
               returnKeyType="done"
@@ -138,7 +139,7 @@ export const CustomerProfileNameScreen: React.FC<CustomerProfileNameScreenProps>
               hasName && customerShadow.raised,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Continue"
+            accessibilityLabel={t('customer.account.setup.name.continue')}
           >
             {saving ? (
               <ActivityIndicator color="#FFFFFF" testID="name-saving" />

@@ -42,6 +42,7 @@ import {
   type TimelineStepKey,
 } from '../api/support';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 export interface TrackSupportRequestScreenProps {
   ticketId?: string | undefined;
@@ -50,19 +51,15 @@ export interface TrackSupportRequestScreenProps {
 }
 
 const STEP_COPY: Record<TimelineStepKey, { title: string; done: string; pending: string }> = {
-  received: { title: 'Request received', done: 'Your request has been successfully submitted.', pending: '' },
-  review: {
-    title: 'Under review',
-    done: 'Our support team is looking into your request.',
-    pending: 'Our support team will check the details and contact you within 24 hours.',
-  },
-  resolution: {
-    title: 'Resolution',
-    done: 'Your request has been resolved.',
-    pending: "We'll help you with a solution (replacement, refund or other support).",
-  },
-  cancelled: { title: 'Request cancelled', done: 'You cancelled this request.', pending: '' },
+  received: { title: 'received.title', done: 'received.done', pending: '' },
+  review: { title: 'review.title', done: 'review.done', pending: 'review.pending' },
+  resolution: { title: 'resolution.title', done: 'resolution.done', pending: 'resolution.pending' },
+  cancelled: { title: 'cancelled.title', done: 'cancelled.done', pending: '' },
 };
+
+/** Resolve a STEP_COPY entry to text at render time (an empty entry stays empty). */
+const stepText = (entry: string): string =>
+  entry === '' ? '' : t(`customer.track.step.${entry}` as 'customer.track.step.received.title');
 
 export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps> = ({
   ticketId,
@@ -91,7 +88,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
       if (!e.silent) {
         setActionError(
           err instanceof ApiError && err.status === 409
-            ? 'This request can no longer be cancelled because it is already being handled.'
+            ? t('customer.track.cancelConflict')
             : e.message,
         );
       }
@@ -100,11 +97,11 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
 
   const handleCancelRequest = () => {
     Alert.alert(
-      'Cancel Support Request',
-      'Are you sure you want to cancel this support request?',
+      t('customer.track.cancelConfirmTitle'),
+      t('customer.track.cancelConfirmBody'),
       [
-        { text: 'Keep Request', style: 'cancel' },
-        { text: 'Cancel Request', style: 'destructive', onPress: () => void doCancel() },
+        { text: t('customer.track.keepRequest'), style: 'cancel' },
+        { text: t('customer.track.cancelRequest'), style: 'destructive', onPress: () => void doCancel() },
       ],
     );
   };
@@ -120,7 +117,7 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
       const e = mapProblem(err);
       if (!e.silent) {
         setActionError(
-          err instanceof ApiError && err.status === 409 ? 'This request is closed, so it cannot take new messages.' : e.message,
+          err instanceof ApiError && err.status === 409 ? t('customer.track.replyConflict') : e.message,
         );
       }
     }
@@ -151,11 +148,11 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
             style={styles.circleIconButton}
             onPress={onBack}
             activeOpacity={0.7}
-            accessibilityLabel="Go back"
+            accessibilityLabel={t('customer.track.back')}
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Track request</Text>
+          <Text style={styles.headerTitle}>{t('customer.track.title')}</Text>
         </View>
       </View>
 
@@ -167,14 +164,14 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />}
       >
         {query.isLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading request" style={{ marginTop: 40 }} />
+          <ActivityIndicator accessibilityLabel={t('customer.track.loading')} style={{ marginTop: 40 }} />
         ) : notFound ? (
-          <Text style={[styles.summaryValue, { textAlign: 'center', marginTop: 40 }]}>Request not found</Text>
+          <Text style={[styles.summaryValue, { textAlign: 'center', marginTop: 40 }]}>{t('customer.track.notFound')}</Text>
         ) : ticket === undefined ? (
           <View style={{ alignItems: 'center', marginTop: 40, gap: 8 }} accessibilityRole="alert">
-            <Text style={styles.summaryValue}>{query.isError ? mapProblem(query.error).message : 'No request selected'}</Text>
-            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel="Retry request">
-              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Retry</Text>
+            <Text style={styles.summaryValue}>{query.isError ? mapProblem(query.error).message : t('customer.track.noneSelected')}</Text>
+            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel={t('customer.track.retryA11y')}>
+              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>{t('customer.track.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -184,37 +181,37 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
               <View style={styles.supportIdLeft}>
                 <TicketSvg color="#2E7D32" size={24} />
                 <View style={styles.supportIdTextCol}>
-                  <Text style={styles.supportIdLabel}>Support ID</Text>
+                  <Text style={styles.supportIdLabel}>{t('customer.track.supportId')}</Text>
                   <Text style={styles.supportIdValue}>{ticket.ticketNumber}</Text>
                 </View>
               </View>
             </View>
 
             {/* ── REQUEST SUMMARY ─────────────────────────────────────────────── */}
-            <Text style={styles.sectionTitle}>Request Summary</Text>
+            <Text style={styles.sectionTitle}>{t('customer.track.summary')}</Text>
             <View style={styles.summaryContainer}>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Order ID</Text>
-                <Text style={styles.summaryValue}>{ticket.orderNumber ?? 'N/A'}</Text>
+                <Text style={styles.summaryLabel}>{t('customer.track.orderId')}</Text>
+                <Text style={styles.summaryValue}>{ticket.orderNumber ?? t('customer.track.na')}</Text>
               </View>
               {product !== null ? (
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Product</Text>
+                  <Text style={styles.summaryLabel}>{t('customer.track.product')}</Text>
                   <Text style={styles.summaryValue}>{product}</Text>
                 </View>
               ) : null}
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Issue type</Text>
+                <Text style={styles.summaryLabel}>{t('customer.track.issueType')}</Text>
                 <Text style={styles.summaryValue}>{issueLabelFromSubject(ticket.subject, ticket.orderNumber)}</Text>
               </View>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Submitted on</Text>
+                <Text style={styles.summaryLabel}>{t('customer.track.submittedOn')}</Text>
                 <Text style={styles.summaryValue}>{formatSupportDateTime(ticket.createdAt)}</Text>
               </View>
             </View>
 
             {/* ── REQUEST STATUS ──────────────────────────────────────────────── */}
-            <Text style={styles.sectionTitle}>Request Status</Text>
+            <Text style={styles.sectionTitle}>{t('customer.track.status')}</Text>
             <View style={styles.statusTimeline}>
               {steps.map((step, i) => {
                 const last = i === steps.length - 1;
@@ -230,14 +227,14 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                       ) : null}
                     </View>
                     <View style={styles.stepContent}>
-                      <Text style={styles.stepTitle}>{copy.title}</Text>
+                      <Text style={styles.stepTitle}>{stepText(copy.title)}</Text>
                       {step.at !== null ? (
                         <Text style={styles.stepTimestamp}>{formatSupportDateTime(step.at)}</Text>
                       ) : step.state === 'pending' ? (
-                        <Text style={styles.stepPending}>Pending</Text>
+                        <Text style={styles.stepPending}>{t('customer.track.pending')}</Text>
                       ) : null}
                       <Text style={step.state === 'pending' ? styles.stepDescriptionMuted : styles.stepDescription}>
-                        {step.state === 'pending' || step.state === 'current' ? copy.pending || copy.done : copy.done}
+                        {stepText(step.state === 'pending' || step.state === 'current' ? copy.pending || copy.done : copy.done)}
                       </Text>
                     </View>
                   </View>
@@ -246,11 +243,11 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
             </View>
 
             {/* ── REQUEST UPDATES ─────────────────────────────────────────────── */}
-            <Text style={styles.sectionTitle}>Request Updates</Text>
+            <Text style={styles.sectionTitle}>{t('customer.track.updates')}</Text>
             <View style={styles.updatesTimeline}>
               <View style={styles.updatesGuideLine} />
               {messages.length === 0 ? (
-                <Text style={styles.updateMessage}>No updates yet.</Text>
+                <Text style={styles.updateMessage}>{t('customer.track.noUpdates')}</Text>
               ) : (
                 messages.map((m) => (
                   <View key={m.id} style={styles.updateRow}>
@@ -259,11 +256,11 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                       <View style={styles.updateCardHeader}>
                         <View style={styles.updateHeaderLeft}>
                           <HeadsetSvg color={m.sender === 'SUPPORT' ? '#2E7D32' : '#4B5563'} size={18} />
-                          <Text style={styles.updateTeamTitle}>{m.sender === 'SUPPORT' ? 'Support Team' : 'You'}</Text>
+                          <Text style={styles.updateTeamTitle}>{m.sender === 'SUPPORT' ? t('customer.track.supportTeam') : t('customer.track.you')}</Text>
                         </View>
                         <Text style={styles.updateTimestamp}>{formatSupportDateTime(m.createdAt)}</Text>
                       </View>
-                      <Text style={styles.updateMessage}>{m.redacted ? '[details removed]' : m.message}</Text>
+                      <Text style={styles.updateMessage}>{m.redacted ? t('customer.track.redacted') : m.message}</Text>
                     </View>
                   </View>
                 ))
@@ -282,25 +279,25 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                     minHeight: 70,
                     textAlignVertical: 'top',
                   }}
-                  placeholder="Write a reply"
+                  placeholder={t('customer.track.replyPlaceholder')}
                   placeholderTextColor="#9CA3AF"
                   value={replyText}
                   onChangeText={setReplyText}
                   maxLength={MESSAGE_MAX}
                   multiline
-                  accessibilityLabel="Reply"
+                  accessibilityLabel={t('customer.track.replyA11y')}
                 />
                 <TouchableOpacity
                   style={[styles.cancelButton, { marginTop: 10, borderColor: customerColors.brand, backgroundColor: replyText.trim() === '' ? '#F3F4F6' : '#2E7D32' }]}
                   activeOpacity={0.8}
                   disabled={replyText.trim() === '' || reply.isPending}
                   onPress={() => void doReply()}
-                  accessibilityLabel="Send reply"
+                  accessibilityLabel={t('customer.track.sendReply')}
                 >
                   {reply.isPending ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={[styles.cancelButtonText, { color: replyText.trim() === '' ? '#9CA3AF' : '#FFFFFF' }]}>Send reply</Text>
+                    <Text style={[styles.cancelButtonText, { color: replyText.trim() === '' ? '#9CA3AF' : '#FFFFFF' }]}>{t('customer.track.sendReply')}</Text>
                   )}
                 </TouchableOpacity>
               </View>
@@ -319,13 +316,13 @@ export const TrackSupportRequestScreen: React.FC<TrackSupportRequestScreenProps>
                 activeOpacity={0.8}
                 onPress={handleCancelRequest}
                 disabled={cancel.isPending}
-                accessibilityLabel="Cancel Request"
+                accessibilityLabel={t('customer.track.cancelRequest')}
               >
-                {cancel.isPending ? <ActivityIndicator /> : <Text style={styles.cancelButtonText}>Cancel Request</Text>}
+                {cancel.isPending ? <ActivityIndicator /> : <Text style={styles.cancelButtonText}>{t('customer.track.cancelRequest')}</Text>}
               </TouchableOpacity>
             ) : ticket.status === 'CANCELLED' ? (
               <View style={[styles.cancelButton, styles.cancelButtonDisabled]}>
-                <Text style={styles.cancelButtonText}>Request Cancelled</Text>
+                <Text style={styles.cancelButtonText}>{t('customer.track.requestCancelled')}</Text>
               </View>
             ) : null}
           </>

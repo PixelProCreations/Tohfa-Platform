@@ -21,6 +21,7 @@ import {
 } from '../theme';
 import { groupHelpArticles, searchHelpGroups, useHelpArticles } from '../api/help';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerHelpScreenProps {
   onNavigate?: ((screen: string, params?: Record<string, unknown>) => void) | undefined;
@@ -206,11 +207,11 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccount'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.account.help.back')}
           >
             <BackArrowSvg color="#1A2E1A" size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help & FAQs</Text>
+          <Text style={styles.headerTitle}>{t('customer.account.help.title')}</Text>
         </View>
       </View>
       <View style={styles.headerBottomDivider} />
@@ -224,27 +225,27 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
         <View style={[styles.searchBox, customerShadow.subtle]}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder={t('customer.account.help.searchPlaceholder')}
             placeholderTextColor="#8E8E93"
             value={searchQuery}
             onChangeText={setSearchQuery}
-            accessibilityLabel="Search help"
+            accessibilityLabel={t('customer.account.help.searchA11y')}
           />
           <SearchSvg color="#6B7280" size={20} />
         </View>
 
         {query.isLoading ? (
-          <ActivityIndicator accessibilityLabel="Loading help" style={{ marginTop: 32 }} />
+          <ActivityIndicator accessibilityLabel={t('customer.account.help.loadingA11y')} style={{ marginTop: 32 }} />
         ) : query.isError ? (
           <View style={{ alignItems: 'center', marginTop: 32, gap: 8 }} accessibilityRole="alert">
             <Text style={styles.answerText}>{mapProblem(query.error).message}</Text>
-            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel="Retry help">
-              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Retry</Text>
+            <TouchableOpacity onPress={() => void query.refetch()} accessibilityLabel={t('customer.account.help.retryA11y')}>
+              <Text style={{ color: customerColors.brand, fontWeight: '700' }}>{t('customer.account.help.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : filtered.length === 0 ? (
           <Text style={[styles.answerText, { textAlign: 'center', marginTop: 32 }]}>
-            {searching ? 'No matching questions found.' : 'Help articles are not available yet.'}
+            {searching ? t('customer.account.help.noMatch') : t('customer.account.help.noArticles')}
           </Text>
         ) : (
           /* ── FAQ CATEGORIES ACCORDION ──────────────────────────────────────── */
@@ -315,11 +316,11 @@ export const CustomerHelpScreen: React.FC<CustomerHelpScreenProps> = ({
 
         {/* ── STILL NEED HELP? ──────────────────────────────────────────────── */}
         <View style={{ marginTop: 20, gap: 6 }}>
-          <Text style={styles.categoryTitle}>Still need help?</Text>
-          {contact?.phone ? <Text style={styles.answerText}>Call: {contact.phone}</Text> : null}
-          {contact?.email ? <Text style={styles.answerText}>Email: {contact.email}</Text> : null}
-          <TouchableOpacity onPress={() => onNavigate?.('ContactSupport')} accessibilityLabel="Contact Support">
-            <Text style={{ color: customerColors.brand, fontWeight: '700' }}>Contact Support</Text>
+          <Text style={styles.categoryTitle}>{t('customer.account.help.stillNeedHelp')}</Text>
+          {contact?.phone ? <Text style={styles.answerText}>{t('customer.account.help.call', { phone: contact.phone })}</Text> : null}
+          {contact?.email ? <Text style={styles.answerText}>{t('customer.account.help.email', { email: contact.email })}</Text> : null}
+          <TouchableOpacity onPress={() => onNavigate?.('ContactSupport')} accessibilityLabel={t('customer.account.help.contactSupport')}>
+            <Text style={{ color: customerColors.brand, fontWeight: '700' }}>{t('customer.account.help.contactSupport')}</Text>
           </TouchableOpacity>
         </View>
 

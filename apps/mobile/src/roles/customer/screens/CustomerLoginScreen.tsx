@@ -25,6 +25,7 @@ import {
 import { isValidCustomerMobile, sendCustomerLoginOtp } from '../api/auth';
 import { mapProblem } from '../api/problem';
 
+import { t } from '../../../i18n/customer';
 /** Challenge handed to CustomerOtp (BR-153: `POST /auth/customer/otp/send`). */
 export interface CustomerOtpRouteParams {
   mobile: string;
@@ -32,6 +33,7 @@ export interface CustomerOtpRouteParams {
   expiresAt: string;
   resendAvailableAt?: string | undefined;
   attemptsRemaining: number;
+  mockCode?: string | undefined;
 }
 
 interface CustomerLoginScreenProps {
@@ -74,6 +76,7 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
         expiresAt: challenge.expiresAt,
         resendAvailableAt: challenge.resendAvailableAt,
         attemptsRemaining: challenge.attemptsRemaining,
+        ...(challenge._mockCode ? { mockCode: challenge._mockCode } : {}),
       });
     } catch (err) {
       const problem = mapProblem(err);
@@ -116,14 +119,14 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
             pointerEvents="none"
           />
 
-          <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.subtitle}>Let's get you Stated</Text>
+          <Text style={styles.title}>{t('customer.auth.login.welcomeBack')}</Text>
+          <Text style={styles.subtitle}>{t('customer.auth.login.letsStart')}</Text>
 
           {/* Underline Phone Input */}
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.phoneInput}
-              placeholder="Please enter phone number"
+              placeholder={t('customer.auth.login.phonePlaceholder')}
               placeholderTextColor="#A0A7B1"
               keyboardType="phone-pad"
               maxLength={10}
@@ -132,12 +135,12 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
               textAlign="center"
               autoFocus={false}
               editable={!submitting}
-              accessibilityLabel="Phone number"
+              accessibilityLabel={t('customer.auth.login.phoneA11y')}
             />
             <View style={styles.underline} />
             {showMobileHint ? (
               <Text style={styles.errorText} testID="customer-login-mobile-hint">
-                Enter a valid 10-digit mobile number starting with 6-9
+                {t('customer.auth.login.mobileHint')}
               </Text>
             ) : null}
           </View>
@@ -154,7 +157,7 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
               {agreed && <Text style={styles.checkmark}>✓</Text>}
             </View>
             <Text style={styles.termsText} numberOfLines={1}>
-              I agree to terms and conditions
+              {t('customer.auth.login.agree')}
             </Text>
           </TouchableOpacity>
 
@@ -167,10 +170,10 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
                 <TouchableOpacity
                   onPress={() => void handleNext()}
                   accessibilityRole="link"
-                  accessibilityLabel="Try again"
+                  accessibilityLabel={t('customer.auth.login.tryAgain')}
                   testID="customer-login-retry"
                 >
-                  <Text style={styles.retryText}>Try again</Text>
+                  <Text style={styles.retryText}>{t('customer.auth.login.tryAgain')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -183,7 +186,7 @@ export const CustomerLoginScreen: React.FC<CustomerLoginScreenProps> = ({ onNavi
             disabled={!canSubmit}
             style={[styles.circularButton, !canSubmit && styles.circularButtonDisabled]}
             accessibilityRole="button"
-            accessibilityLabel="Continue to PIN Verification"
+            accessibilityLabel={t('customer.auth.login.continueA11y')}
             accessibilityState={{ disabled: !canSubmit, busy: submitting }}
           >
             {submitting ? (

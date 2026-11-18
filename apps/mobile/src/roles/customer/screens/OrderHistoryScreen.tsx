@@ -24,6 +24,7 @@ import {
 import { isActiveStatus, useOrders, type OrderSummary } from '../api/orders';
 import { mapProblem } from '../api/problem';
 import { formatRupees } from '../utils/money';
+import { t } from '../../../i18n/customer';
 import { activeOrderBadge, formatIstDate, orderStatusLabel } from '../utils/orderFormat';
 
 export interface OrderHistoryScreenProps {
@@ -84,7 +85,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
   const matches = (o: OrderSummary) =>
     q.length === 0 ||
     o.orderNumber.toLowerCase().includes(q) ||
-    (o.thumbnails ?? []).some((t) => t.productName.toLowerCase().includes(q));
+    (o.thumbnails ?? []).some((th) => th.productName.toLowerCase().includes(q));
   const filtered = orders.filter(matches);
   const upcoming = filtered.filter((o) => isActiveStatus(o.status));
   const past = filtered.filter((o) => !isActiveStatus(o.status));
@@ -104,8 +105,11 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
   const rowTitle = (o: OrderSummary) => {
     const first = o.thumbnails?.[0]?.productName;
     const extra = (o.itemCount ?? 0) - 1;
-    if (!first) return `${o.itemCount ?? 0} ${(o.itemCount ?? 0) === 1 ? 'item' : 'items'}`;
-    return extra > 0 ? `${first} +${extra} more` : first;
+    if (!first) {
+      const n = o.itemCount ?? 0;
+      return t(n === 1 ? 'customer.orders.history.itemOne' : 'customer.orders.history.itemMany', { count: n });
+    }
+    return extra > 0 ? t('customer.orders.history.plusMore', { first, extra }) : first;
   };
 
   const renderRow = (item: OrderSummary, active: boolean) => {
@@ -133,7 +137,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
           </View>
         ) : (
           <View style={styles.viewDetailsRow}>
-            <Text style={styles.viewDetailsText}>{item.status === 'CANCELLED' || item.status === 'RETURNED' ? orderStatusLabel(item.status) : 'View details'}</Text>
+            <Text style={styles.viewDetailsText}>{item.status === 'CANCELLED' || item.status === 'RETURNED' ? orderStatusLabel(item.status) : t('customer.orders.history.viewDetails')}</Text>
             <ChevronRightSvg color={customerColors.body} size={13} />
           </View>
         )}
@@ -153,11 +157,11 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccount'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.orders.history.back')}
           >
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Orders</Text>
+          <Text style={styles.headerTitle}>{t('customer.orders.history.title')}</Text>
         </View>
       </View>
 
@@ -171,7 +175,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
         <View style={[styles.searchBox, customerShadow.subtle]}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder={t('customer.orders.history.search')}
             placeholderTextColor={customerColors.muted}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -185,26 +189,26 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
           <View style={styles.ordersList} testID="orders-error">
             <Text style={styles.productName}>{mapProblem(ordersQuery.error).message}</Text>
             <TouchableOpacity onPress={() => void ordersQuery.refetch()}>
-              <Text style={styles.viewDetailsText}>Retry</Text>
+              <Text style={styles.viewDetailsText}>{t('customer.orders.history.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : orders.length === 0 ? (
           <View style={styles.ordersList} testID="orders-empty">
-            <Text style={styles.sectionTitle}>No orders yet</Text>
+            <Text style={styles.sectionTitle}>{t('customer.orders.history.emptyTitle')}</Text>
             <TouchableOpacity onPress={() => onNavigate?.('Home')}>
-              <Text style={styles.viewDetailsText}>Start shopping</Text>
+              <Text style={styles.viewDetailsText}>{t('customer.orders.history.startShopping')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
           <>
-            {upcoming.length > 0 && <Text style={styles.sectionTitle}>Recent Orders</Text>}
+            {upcoming.length > 0 && <Text style={styles.sectionTitle}>{t('customer.orders.history.recent')}</Text>}
             {groupByDay(upcoming).map((g) => (
               <React.Fragment key={`u-${g.day}`}>
                 <Text style={styles.dateHeader}>{g.day}</Text>
                 <View style={styles.ordersList}>{g.items.map((o) => renderRow(o, true))}</View>
               </React.Fragment>
             ))}
-            {past.length > 0 && <Text style={[styles.sectionTitle, { marginTop: customerSpacing.lg }]}>Past Orders</Text>}
+            {past.length > 0 && <Text style={[styles.sectionTitle, { marginTop: customerSpacing.lg }]}>{t('customer.orders.history.past')}</Text>}
             {groupByDay(past).map((g) => (
               <React.Fragment key={`p-${g.day}`}>
                 <Text style={styles.dateHeader}>{g.day}</Text>
@@ -213,7 +217,7 @@ export const OrderHistoryScreen: React.FC<OrderHistoryScreenProps> = ({
             ))}
             {ordersQuery.hasNextPage && (
               <TouchableOpacity onPress={() => void ordersQuery.fetchNextPage()} testID="orders-more">
-                <Text style={styles.viewDetailsText}>{ordersQuery.isFetchingNextPage ? 'Loading…' : 'Load more'}</Text>
+                <Text style={styles.viewDetailsText}>{ordersQuery.isFetchingNextPage ? t('customer.orders.history.loading') : t('customer.orders.history.loadMore')}</Text>
               </TouchableOpacity>
             )}
           </>

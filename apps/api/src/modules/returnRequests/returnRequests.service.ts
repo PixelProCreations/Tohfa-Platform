@@ -30,7 +30,6 @@ import { writeAuditLog } from '../../audit/auditLog.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { confineToAssignedWarehouses } from '../warehouse-ops/scope.js';
 import { kgToGrams } from '../sales/sales.math.js';
-import { kgToGrams } from '../sales/sales.math.js';
 import { walletService, type WalletService } from '../wallet/wallet.service.js';
 import { defaultBlobStorage } from '../../storage/blobStorage.js';
 import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';

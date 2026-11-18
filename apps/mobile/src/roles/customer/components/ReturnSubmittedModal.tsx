@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ReturnTicketSvg } from './ContactSupportIcons';
+import { t } from '../../../i18n/customer';
 
 export interface ReturnSubmittedModalProps {
   visible: boolean;
@@ -75,7 +76,7 @@ export function ReturnSubmittedModal({
             activeOpacity={0.7}
             onPress={onClose}
             style={styles.closeButton}
-            accessibilityLabel="Close return submitted modal"
+            accessibilityLabel={t('customer.orders.return.modal.close')}
           >
             <CloseSvg />
           </TouchableOpacity>
@@ -90,10 +91,9 @@ export function ReturnSubmittedModal({
             </View>
 
             {/* Title & Subtitle */}
-            <Text style={styles.title}>Return Request Submitted!</Text>
+            <Text style={styles.title}>{t('customer.orders.return.modal.title')}</Text>
             <Text style={styles.subtitle}>
-              Your return request has been successfully submitted. We&apos;ll
-              notify you once it&apos;s reviewed.
+              {t('customer.orders.return.modal.subtitle')}
             </Text>
 
             {/* Return Request ID Pill Card */}
@@ -102,7 +102,7 @@ export function ReturnSubmittedModal({
                 <ReturnTicketSvg color="#2E7D32" size={20} />
               </View>
               <View style={styles.returnIdColumn}>
-                <Text style={styles.returnIdLabel}>Return Request ID</Text>
+                <Text style={styles.returnIdLabel}>{t('customer.orders.return.modal.returnId')}</Text>
                 <Text style={styles.returnIdValue}>{returnId}</Text>
               </View>
             </View>
@@ -115,7 +115,7 @@ export function ReturnSubmittedModal({
                 <View style={styles.productThumbnail} />
               )}
               <View style={styles.productInfoColumn}>
-                <Text style={styles.productLabel}>Product</Text>
+                <Text style={styles.productLabel}>{t('customer.orders.return.modal.product')}</Text>
                 <Text style={styles.productName}>{productName}</Text>
               </View>
             </View>
@@ -126,12 +126,12 @@ export function ReturnSubmittedModal({
             {/* Two Column Order Details */}
             <View style={styles.metaRow}>
               <View style={styles.metaColumn}>
-                <Text style={styles.metaLabel}>Order ID</Text>
+                <Text style={styles.metaLabel}>{t('customer.orders.return.modal.orderId')}</Text>
                 <Text style={styles.metaValue}>{orderNumber}</Text>
               </View>
               <View style={styles.metaDivider} />
               <View style={styles.metaColumn}>
-                <Text style={styles.metaLabel}>Order ID</Text>
+                <Text style={styles.metaLabel}>{t('customer.orders.return.modal.orderId')}</Text>
                 <Text style={styles.metaValue}>{orderNumber}</Text>
               </View>
             </View>
@@ -144,9 +144,9 @@ export function ReturnSubmittedModal({
                 onTrackReturn?.();
               }}
               style={styles.trackButton}
-              accessibilityLabel="Track Return Request"
+              accessibilityLabel={t('customer.orders.return.modal.track')}
             >
-              <Text style={styles.trackButtonText}>Track Return Request</Text>
+              <Text style={styles.trackButtonText}>{t('customer.orders.return.modal.track')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -156,9 +156,9 @@ export function ReturnSubmittedModal({
                 onContinueShopping?.();
               }}
               style={styles.continueButton}
-              accessibilityLabel="Continue Shopping"
+              accessibilityLabel={t('customer.orders.return.modal.continue')}
             >
-              <Text style={styles.continueButtonText}>Continue Shopping</Text>
+              <Text style={styles.continueButtonText}>{t('customer.orders.return.modal.continue')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

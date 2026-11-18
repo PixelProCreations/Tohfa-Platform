@@ -27,6 +27,7 @@ import { logout } from '../api/auth';
 import { useWalletBalance } from '../api/wallet';
 import { useWishlist } from '../api/wishlist';
 import { isActiveStatus, useOrders } from '../api/orders';
+import { t } from '../../../i18n/customer';
 
 export interface CustomerAccountScreenProps {
   /** Overrides for the profile fields; by default they come from GET /customers/me. */
@@ -281,9 +282,9 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
   const ordersQuery = useOrders();
   const walletBalance = walletBalanceProp ?? wallet.label;
   const wishlistTotal = wishlistQuery.data?.items.length;
-  const wishlistCount = wishlistCountProp ?? (wishlistTotal === undefined ? '—' : `${wishlistTotal} ${wishlistTotal === 1 ? 'item' : 'items'}`);
+  const wishlistCount = wishlistCountProp ?? (wishlistTotal === undefined ? '—' : t(wishlistTotal === 1 ? 'customer.account.home.itemOne' : 'customer.account.home.itemOther', { count: wishlistTotal }));
   const activeOrders = (ordersQuery.data?.pages.flatMap((p) => p.items) ?? []).filter((o) => isActiveStatus(o.status)).length;
-  const activeOrdersCount = activeOrdersCountProp ?? (activeOrders === 0 ? 'No active Orders' : `${activeOrders} active ${activeOrders === 1 ? 'order' : 'orders'}`);
+  const activeOrdersCount = activeOrdersCountProp ?? (activeOrders === 0 ? t('customer.account.home.noActiveOrders') : t(activeOrders === 1 ? 'customer.account.home.activeOrderOne' : 'customer.account.home.activeOrderOther', { count: activeOrders }));
   const profile = profileQuery.data;
   const userName = userNameProp ?? displayName(profile);
   const userPhone = userPhoneProp ?? formatMobileDisplay(profile?.mobile);
@@ -330,7 +331,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('Home'))}
             style={styles.backButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.account.home.back')}
           >
             <BackArrowSvg color="#1A1A1A" size={18} />
           </TouchableOpacity>
@@ -338,7 +339,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           {/* Profile Info */}
           <View style={styles.profileInfoContainer}>
             {profileLoading ? (
-              <View testID="account-profile-skeleton" accessibilityLabel="Loading profile">
+              <View testID="account-profile-skeleton" accessibilityLabel={t('customer.account.home.loadingProfile')}>
                 <View style={[styles.skeletonLine, { width: 140, height: 22 }]} />
                 <View style={[styles.skeletonLine, { width: 120 }]} />
                 <View style={[styles.skeletonLine, { width: 180 }]} />
@@ -352,9 +353,9 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                   activeOpacity={0.7}
                   onPress={() => void profileQuery.refetch()}
                   accessibilityRole="button"
-                  accessibilityLabel="Retry loading profile"
+                  accessibilityLabel={t('customer.account.home.retryA11y')}
                 >
-                  <Text style={styles.viewProfileText}>Retry</Text>
+                  <Text style={styles.viewProfileText}>{t('customer.account.home.retry')}</Text>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -375,9 +376,9 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                   }))
               }
               style={styles.viewProfileRow}
-              accessibilityLabel="View profile"
+              accessibilityLabel={t('customer.account.home.viewProfile')}
             >
-              <Text style={styles.viewProfileText}>View profile</Text>
+              <Text style={styles.viewProfileText}>{t('customer.account.home.viewProfile')}</Text>
               <ChevronRightSvg color="#4B5563" size={13} />
             </TouchableOpacity>
           </View>
@@ -390,7 +391,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.8}
             onPress={() => onNavigate?.('OrderHistory')}
             style={styles.summaryCard}
-            accessibilityLabel="Orders"
+            accessibilityLabel={t('customer.account.home.orders')}
           >
             <Image
               source={profileOrdersIcon}
@@ -400,7 +401,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             <Text style={styles.summaryCardSubtitle} numberOfLines={1}>
               {activeOrdersCount}
             </Text>
-            <Text style={styles.summaryCardTitle}>Orders</Text>
+            <Text style={styles.summaryCardTitle}>{t('customer.account.home.orders')}</Text>
           </TouchableOpacity>
 
           {/* 2. Wallet Card */}
@@ -408,7 +409,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.8}
             onPress={() => onNavigate?.('CustomerWallet')}
             style={styles.summaryCard}
-            accessibilityLabel="Wallet"
+            accessibilityLabel={t('customer.account.home.wallet')}
           >
             <Image
               source={profileWalletIcon}
@@ -418,7 +419,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             <Text style={[styles.summaryCardSubtitle, styles.walletBalanceSubtitle]} numberOfLines={1}>
               {walletBalance}
             </Text>
-            <Text style={styles.summaryCardTitle}>Wallet</Text>
+            <Text style={styles.summaryCardTitle}>{t('customer.account.home.wallet')}</Text>
           </TouchableOpacity>
 
           {/* 3. Wishlist Card */}
@@ -426,7 +427,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.8}
             onPress={() => onNavigate?.('Wishlist')}
             style={styles.summaryCard}
-            accessibilityLabel="Wishlist"
+            accessibilityLabel={t('customer.account.home.wishlist')}
           >
             <Image
               source={profileWishlistIcon}
@@ -436,7 +437,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             <Text style={styles.summaryCardSubtitle} numberOfLines={1}>
               {wishlistCount}
             </Text>
-            <Text style={styles.summaryCardTitle}>Wishlist</Text>
+            <Text style={styles.summaryCardTitle}>{t('customer.account.home.wishlist')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -447,14 +448,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('OrderHistory')}
             style={styles.menuItem}
-            accessibilityLabel="My Orders"
+            accessibilityLabel={t('customer.account.home.myOrders')}
           >
             <View style={styles.menuIconBox}>
               <PackageSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>My Orders</Text>
-              <Text style={styles.menuItemSubtitle}>Track, Manage and view your order history</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.myOrders')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.myOrdersSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -465,14 +466,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerWallet')}
             style={styles.menuItem}
-            accessibilityLabel="My Wallet"
+            accessibilityLabel={t('customer.account.home.myWallet')}
           >
             <View style={styles.menuIconBox}>
               <WalletSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>My Wallet</Text>
-              <Text style={styles.menuItemSubtitle}>Add money, view balance and transaction history</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.myWallet')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.myWalletSub')}</Text>
             </View>
             <View style={styles.walletPill}>
               <Text style={styles.walletPillText}>{walletBalance}</Text>
@@ -486,14 +487,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerAccountSettings')}
             style={styles.menuItem}
-            accessibilityLabel="Account settings"
+            accessibilityLabel={t('customer.account.home.settings')}
           >
             <View style={styles.menuIconBox}>
               <SettingsSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Account settings</Text>
-              <Text style={styles.menuItemSubtitle}>Manage language, untis and settings</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.settings')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.settingsSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -504,14 +505,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('ContactSupport')}
             style={styles.menuItem}
-            accessibilityLabel="Contact Support"
+            accessibilityLabel={t('customer.account.home.contactSupport')}
           >
             <View style={styles.menuIconBox}>
               <HeadsetSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Contact Support</Text>
-              <Text style={styles.menuItemSubtitle}>Get help for Orders, payments and other issues</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.contactSupport')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.contactSupportSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -522,14 +523,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerNotifications')}
             style={styles.menuItem}
-            accessibilityLabel="Notifications"
+            accessibilityLabel={t('customer.account.home.notifications')}
           >
             <View style={styles.menuIconBox}>
               <HeadsetSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Notifications</Text>
-              <Text style={styles.menuItemSubtitle}>Order, wallet and support updates</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.notifications')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.notificationsSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -540,14 +541,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerSupport')}
             style={styles.menuItem}
-            accessibilityLabel="My support requests"
+            accessibilityLabel={t('customer.account.home.myRequests')}
           >
             <View style={styles.menuIconBox}>
               <HeadsetSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>My support requests</Text>
-              <Text style={styles.menuItemSubtitle}>Track your tickets and replies</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.myRequests')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.myRequestsSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -560,14 +561,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 activeOpacity={0.7}
                 onPress={() => onNavigate?.('ReturnOrder')}
                 style={styles.menuItem}
-                accessibilityLabel="Returns"
+                accessibilityLabel={t('customer.account.home.returns')}
               >
                 <View style={styles.menuIconBox}>
                   <ReturnsSvg color="#1A1A1A" size={20} />
                 </View>
                 <View style={styles.menuTextColumn}>
-                  <Text style={styles.menuItemTitle}>Returns</Text>
-                  <Text style={styles.menuItemSubtitle}>Request item returns, track return status</Text>
+                  <Text style={styles.menuItemTitle}>{t('customer.account.home.returns')}</Text>
+                  <Text style={styles.menuItemSubtitle}>{t('customer.account.home.returnsSub')}</Text>
                 </View>
                 <ChevronRightSvg color="#9CA3AF" size={16} />
               </TouchableOpacity>
@@ -577,14 +578,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 activeOpacity={0.7}
                 onPress={() => onNavigate?.('ReviewFeedback')}
                 style={styles.menuItem}
-                accessibilityLabel="Review & Feedback"
+                accessibilityLabel={t('customer.account.home.review')}
               >
                 <View style={styles.menuIconBox}>
                   <StarSvg color="#1A1A1A" size={20} />
                 </View>
                 <View style={styles.menuTextColumn}>
-                  <Text style={styles.menuItemTitle}>Review & Feedback</Text>
-                  <Text style={styles.menuItemSubtitle}>Share your experience and product feedback</Text>
+                  <Text style={styles.menuItemTitle}>{t('customer.account.home.review')}</Text>
+                  <Text style={styles.menuItemSubtitle}>{t('customer.account.home.reviewSub')}</Text>
                 </View>
                 <ChevronRightSvg color="#9CA3AF" size={16} />
               </TouchableOpacity>
@@ -597,14 +598,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => onNavigate?.('CustomerHelp')}
             style={styles.menuItem}
-            accessibilityLabel="Help & FAQs"
+            accessibilityLabel={t('customer.account.home.help')}
           >
             <View style={styles.menuIconBox}>
               <HelpSvg color="#1A1A1A" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={styles.menuItemTitle}>Help & FAQs</Text>
-              <Text style={styles.menuItemSubtitle}>Find answers to common questions</Text>
+              <Text style={styles.menuItemTitle}>{t('customer.account.home.help')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.helpSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -615,14 +616,14 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             activeOpacity={0.7}
             onPress={() => setShowLogoutModal(true)}
             style={styles.menuItem}
-            accessibilityLabel="Logout"
+            accessibilityLabel={t('customer.account.home.logout')}
           >
             <View style={[styles.menuIconBox, styles.logoutIconBox]}>
               <LogoutSvg color="#DC2626" size={20} />
             </View>
             <View style={styles.menuTextColumn}>
-              <Text style={[styles.menuItemTitle, styles.logoutText]}>Logout</Text>
-              <Text style={styles.menuItemSubtitle}>Come back soon. We'll miss you.</Text>
+              <Text style={[styles.menuItemTitle, styles.logoutText]}>{t('customer.account.home.logout')}</Text>
+              <Text style={styles.menuItemSubtitle}>{t('customer.account.home.logoutSub')}</Text>
             </View>
             <ChevronRightSvg color="#9CA3AF" size={16} />
           </TouchableOpacity>
@@ -636,7 +637,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             resizeMode="contain"
           />
           <Text style={styles.footerCopyright}>
-            © 2026 TOHFA Market. All rights reserved. App Version 1.0.0
+            {t('customer.account.home.copyright')}
           </Text>
         </View>
 
@@ -650,7 +651,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
           activeOpacity={0.85}
           onPress={onViewProfile || (() => onNavigate?.('CustomerProfile'))}
           style={styles.floatingProfileButton}
-          accessibilityLabel="Profile shortcut"
+          accessibilityLabel={t('customer.account.home.profileShortcut')}
         >
           <ProfileBadgeSvg color="#FFFFFF" size={26} />
         </TouchableOpacity>
@@ -670,7 +671,7 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
               activeOpacity={0.7}
               onPress={() => setShowLogoutModal(false)}
               style={styles.modalCloseButton}
-              accessibilityLabel="Close Modal"
+              accessibilityLabel={t('customer.account.home.closeModal')}
             >
               <CloseCircleSvg size={24} />
             </TouchableOpacity>
@@ -681,11 +682,11 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
             </View>
 
             {/* Title */}
-            <Text style={styles.logoutModalTitle}>Log Out?</Text>
+            <Text style={styles.logoutModalTitle}>{t('customer.account.home.logoutTitle')}</Text>
 
             {/* Subtitle */}
             <Text style={styles.logoutModalSubtitle}>
-              Are you sure you want to log out of Your TOHFA Market Account?
+              {t('customer.account.home.logoutBody')}
             </Text>
 
             {/* Action Buttons */}
@@ -694,9 +695,9 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 activeOpacity={0.8}
                 onPress={() => setShowLogoutModal(false)}
                 style={styles.cancelModalButton}
-                accessibilityLabel="Cancel"
+                accessibilityLabel={t('customer.account.home.cancel')}
               >
-                <Text style={styles.cancelModalButtonText}>Cancel</Text>
+                <Text style={styles.cancelModalButtonText}>{t('customer.account.home.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -704,13 +705,13 @@ export const CustomerAccountScreen: React.FC<CustomerAccountScreenProps> = ({
                 onPress={() => void handleConfirmLogout()}
                 disabled={signingOut}
                 style={styles.confirmLogoutButton}
-                accessibilityLabel="Log out confirm"
+                accessibilityLabel={t('customer.account.home.logoutConfirmA11y')}
                 accessibilityState={{ disabled: signingOut, busy: signingOut }}
               >
                 {signingOut ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.confirmLogoutButtonText}>Log out</Text>
+                  <Text style={styles.confirmLogoutButtonText}>{t('customer.account.home.logoutConfirm')}</Text>
                 )}
               </TouchableOpacity>
             </View>

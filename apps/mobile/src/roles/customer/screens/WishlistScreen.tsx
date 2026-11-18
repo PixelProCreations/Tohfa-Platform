@@ -16,6 +16,12 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { customerFonts } from '../theme';
 import { useToggleWishlist, useWishlist, type WishlistItem } from '../api/wishlist';
 import { CatalogNotice, ProductCard, quickAddQty, useCatalogAddToCart } from '../components/ProductCard';
+import { t } from '../../../i18n/customer';
+
+const tr = (key: Parameters<typeof t>[0], fallback: string): string => {
+  const text = t(key);
+  return !text || text === key ? fallback : text;
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -74,7 +80,7 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
           activeOpacity={0.7}
           onPress={handleBack}
           style={styles.backButtonCircle}
-          accessibilityLabel="Back"
+          accessibilityLabel={tr('customer.common.back', 'Back')}
         >
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Path
@@ -86,7 +92,7 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
             />
           </Svg>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Wishlist</Text>
+        <Text style={styles.headerTitle}>{tr('customer.wishlist.title', 'Wishlist')}</Text>
       </View>
 
       {/* ── SEARCH BAR WITH BLUE HANDLE (EXACT FIGMA SPEC: IMAGE 5) ────────── */}
@@ -94,7 +100,7 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
         <View style={styles.searchPill}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder={tr('customer.wishlist.searchPlaceholder', 'Search wishlist...')}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -119,23 +125,23 @@ export function WishlistScreen({ onNavigate, onBack }: WishlistScreenProps) {
           <ActivityIndicator testID="wishlist-loading" style={{ marginTop: 32 }} />
         ) : wishlist.isError ? (
           <View style={styles.emptyContainer} testID="wishlist-error">
-            <Text style={styles.emptyTitle}>Couldn't load your wishlist</Text>
+            <Text style={styles.emptyTitle}>{tr('customer.wishlist.loadError', "Couldn't load wishlist. Please try again.")}</Text>
             <TouchableOpacity activeOpacity={0.85} onPress={() => void wishlist.refetch()} style={styles.browseButton}>
-              <Text style={styles.browseButtonText}>Retry</Text>
+              <Text style={styles.browseButtonText}>{tr('customer.common.retry', 'Retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : filteredItems.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyTitle}>Your wishlist is empty</Text>
+            <Text style={styles.emptyTitle}>{tr('customer.wishlist.empty', 'Your Wishlist is Empty')}</Text>
             <Text style={styles.emptySubtitle}>
-              Save your favorite fresh organic harvests to find them easily anytime.
+              {tr('customer.wishlist.emptyBody', 'Explore more and shortlist some items to find them easily anytime.')}
             </Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => onNavigate?.('Home')}
               style={styles.browseButton}
             >
-              <Text style={styles.browseButtonText}>Explore Products</Text>
+              <Text style={styles.browseButtonText}>{tr('customer.wishlist.explore', 'Explore Products')}</Text>
             </TouchableOpacity>
           </View>
         ) : (

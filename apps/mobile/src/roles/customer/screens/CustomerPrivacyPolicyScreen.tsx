@@ -15,7 +15,7 @@ import {
   customerSpacing,
 } from '../theme';
 import { useLegal, parseMarkdown } from '../api/legal';
-import { getLocale } from '../../../i18n/customer';
+import { getLocale, t } from '../../../i18n/customer';
 import { LegalMarkdown, LegalMeta, LegalLoading, LegalError } from '../components/LegalMarkdown';
 
 export interface CustomerPrivacyPolicyScreenProps {
@@ -57,11 +57,11 @@ export const CustomerPrivacyPolicyScreen: React.FC<CustomerPrivacyPolicyScreenPr
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccountSettings'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.legal.back')}
           >
             <BackArrowSvg color="#1A2E1A" size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Privacy Policy</Text>
+          <Text style={styles.headerTitle}>{t('customer.legal.privacy.title')}</Text>
         </View>
       </View>
       <View style={styles.headerBottomDivider} />
@@ -77,7 +77,7 @@ export const CustomerPrivacyPolicyScreen: React.FC<CustomerPrivacyPolicyScreenPr
           <LegalError onRetry={() => void legal.refetch()} />
         ) : (
           <>
-            <LegalMeta title={legal.data.title || 'Privacy Policy'} lastUpdated={legal.data.lastUpdated} />
+            <LegalMeta title={legal.data.title || t('customer.legal.privacy.title')} lastUpdated={legal.data.lastUpdated} />
             <LegalMarkdown blocks={blocks} />
           </>
         )}

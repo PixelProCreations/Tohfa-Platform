@@ -28,6 +28,7 @@ import {
   type UpdateCustomerProfileInput,
 } from '../api/profile';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 interface CustomerProfileAgeGenderScreenProps {
   onNavigate: (screen: 'CustomerProfilePreferences' | 'CustomerLoadingMarket' | 'CustomerMain' | 'CustomerProfileName') => void;
@@ -38,9 +39,9 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
 
   const genders = [
-    { id: 'male', label: 'Male', emoji: '👨' },
-    { id: 'female', label: 'Female', emoji: '👩' },
-    { id: 'unspecified', label: 'Prefer not to say', emoji: '' },
+    { id: 'male', label: t('customer.account.setup.gender.male'), emoji: '👨' },
+    { id: 'female', label: t('customer.account.setup.gender.female'), emoji: '👩' },
+    { id: 'unspecified', label: t('customer.account.setup.gender.unspecified'), emoji: '' },
   ];
 
   const [ageError, setAgeError] = useState<string | null>(null);
@@ -111,9 +112,9 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
           onPress={handleSkip}
           style={styles.skipButton}
           accessibilityRole="button"
-          accessibilityLabel="Skip"
+          accessibilityLabel={t('customer.account.setup.skip')}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={styles.skipText}>{t('customer.account.setup.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -128,7 +129,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
         >
           {/* ── QUESTION 1: WHAT IS YOUR AGE? ───────────────────────────────── */}
           <View style={styles.sectionWrap}>
-            <Text style={styles.questionTitle}>What is your age?</Text>
+            <Text style={styles.questionTitle}>{t('customer.account.setup.age.title')}</Text>
             <View style={styles.ageInputWrap}>
               <TextInput
                 style={styles.ageInput}
@@ -142,7 +143,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
                   if (ageError) setAgeError(null);
                 }}
                 editable={!saving}
-                accessibilityLabel="Your age"
+                accessibilityLabel={t('customer.account.setup.age.inputA11y')}
                 textAlign="center"
               />
               <View
@@ -162,7 +163,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
 
           {/* ── QUESTION 2: WHAT IS YOUR GENDER? ────────────────────────────── */}
           <View style={[styles.sectionWrap, { marginTop: 44 }]}>
-            <Text style={styles.questionTitle}>What is your gender?</Text>
+            <Text style={styles.questionTitle}>{t('customer.account.setup.gender.title')}</Text>
 
             <View style={styles.genderRow}>
               {genders.map((g) => {
@@ -215,7 +216,7 @@ export const CustomerProfileAgeGenderScreen: React.FC<CustomerProfileAgeGenderSc
                 customerShadow.raised,
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Next Step"
+              accessibilityLabel={t('customer.account.setup.age.next')}
             >
               {saving ? (
                 <ActivityIndicator color="#FFFFFF" testID="age-gender-saving" />

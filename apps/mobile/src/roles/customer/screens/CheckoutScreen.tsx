@@ -21,6 +21,7 @@ import {
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { useQueryClient } from '@tanstack/react-query';
 import { ApiError, NetworkError } from '../../../shell/api/client';
+import { t } from '../../../i18n/customer';
 import { tohfaMarketLogo } from '../assets/images';
 import { ModalCloseCrossSvg } from './ProductModals';
 import {
@@ -372,7 +373,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
     if (err instanceof NetworkError) {
       // Keep the key: a replay is safe and returns the original order if it was created.
       setNetworkRetry(true);
-      setErrorText('We could not confirm your order. Check My Orders before retrying.');
+      setErrorText(t('customer.checkout.screen.err.network'));
       return;
     }
     const p = mapProblem(err);
@@ -390,7 +391,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         const fresh = await reReserveCart(cartQuery.data, inp.warehouseId);
         qc.setQueryData(cartQueryKeys.cart, fresh);
         void quoteQuery.refetch();
-        setErrorText('Your reservation was renewed. Please confirm again.');
+        setErrorText(t('customer.checkout.screen.err.renewed'));
       } catch (e) {
         setErrorText(mapProblem(e).message);
       }
@@ -410,12 +411,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
     if (err instanceof ApiError && err.status === 501) {
       checkoutDraftStore.setHomeDeliveryDisabled(true);
       setShowWalletModal(false);
-      backToCart('Home delivery is not available right now. Please choose a pickup point.');
+      backToCart(t('customer.checkout.screen.err.noHome'));
       return;
     }
     if (err instanceof ApiError && err.status === 404 && !isPickup) {
       setShowWalletModal(false);
-      backToCart('That address is no longer available. Please pick another.');
+      backToCart(t('customer.checkout.screen.err.noAddress'));
       return;
     }
     setErrorText(p.message);
@@ -449,15 +450,15 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.backButton} accessibilityLabel="Back">
+          <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.backButton} accessibilityLabel={t('customer.common.back')}>
             <BackArrowSvg />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Pay & Checkout</Text>
+          <Text style={styles.headerTitle}>{t('customer.checkout.screen.title')}</Text>
         </View>
         <View style={styles.policyContainer} testID="checkout-no-draft">
-          <Text style={styles.policyTitle}>Choose how to receive your order</Text>
+          <Text style={styles.policyTitle}>{t('customer.checkout.screen.noDraft')}</Text>
           <TouchableOpacity onPress={() => onNavigate?.('Cart')}>
-            <Text style={styles.readPolicyLink}>Go to cart</Text>
+            <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.goToCart')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -470,10 +471,10 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
 
       {/* ── TOP HEADER (Back Button + Editorial Title) ──────────────────────── */}
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.backButton} accessibilityLabel="Back">
+        <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} style={styles.backButton} accessibilityLabel={t('customer.common.back')}>
           <BackArrowSvg />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pay & Checkout</Text>
+        <Text style={styles.headerTitle}>{t('customer.checkout.screen.title')}</Text>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -482,14 +483,14 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
           <View style={styles.addressCardHeader}>
             <View style={styles.addressCardHeaderLeft}>
               <LocationPinSvg color="#16A34A" />
-              <Text style={styles.addressCardTitle}>{isPickup ? 'Pickup point' : 'Delivery Address'}</Text>
+              <Text style={styles.addressCardTitle}>{isPickup ? t('customer.checkout.screen.pickupPoint') : t('customer.checkout.screen.deliveryAddress')}</Text>
               {!isPickup && address && (
                 <View style={styles.homeBadge}>
-                  <Text style={styles.homeBadgeText}>{address.label === 'HOME' ? 'Home' : address.label === 'OFFICE' ? 'Office' : 'Other'}</Text>
+                  <Text style={styles.homeBadgeText}>{address.label === 'HOME' ? t('customer.address.form.type.Home') : address.label === 'OFFICE' ? t('customer.address.form.type.Office') : t('customer.address.form.type.Other')}</Text>
                 </View>
               )}
             </View>
-            <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} accessibilityLabel="Change">
+            <TouchableOpacity activeOpacity={0.7} onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Cart'))} accessibilityLabel={t('customer.checkout.screen.change')}>
               <EditPencilSvg />
             </TouchableOpacity>
           </View>
@@ -498,12 +499,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <>
                 <Text style={styles.addressLine}>{point?.name ?? ''}</Text>
                 {!!point?.address && <Text style={styles.addressLine}>{point.address}</Text>}
-                {!!point?.phone && <Text style={styles.addressPhone}>Phone: {point.phone}</Text>}
+                {!!point?.phone && <Text style={styles.addressPhone}>{t('customer.checkout.screen.phone', { phone: point.phone })}</Text>}
               </>
             ) : (
               <>
                 {address && <Text style={styles.addressLine}>{formatAddressLine(address)}, {address.state}.</Text>}
-                {!!address?.contactPhone && <Text style={styles.addressPhone}>Phone: {address.contactPhone}</Text>}
+                {!!address?.contactPhone && <Text style={styles.addressPhone}>{t('customer.checkout.screen.phone', { phone: address.contactPhone })}</Text>}
                 {!!draft?.deliveryDate && (
                   <Text style={styles.addressPhone} testID="checkout-slot">
                     {draft.deliveryDate} · {draft.deliverySlot ? SLOT_LABEL[draft.deliverySlot] : ''}
@@ -519,8 +520,8 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
           <View style={styles.darkCartLeft}>
             <View style={styles.cartThumbnailCircle} />
             <View style={styles.darkCartTexts}>
-              <Text style={styles.darkCartTitle}>{quote ? `${quote.itemCount} ${quote.itemCount === 1 ? 'item' : 'items'} in your cart` : 'Your cart'}</Text>
-              <Text style={styles.darkCartViewLink}>View cart</Text>
+              <Text style={styles.darkCartTitle}>{quote ? t(quote.itemCount === 1 ? 'customer.checkout.screen.cartItem' : 'customer.checkout.screen.cartItems', { count: quote.itemCount }) : t('customer.checkout.screen.yourCart')}</Text>
+              <Text style={styles.darkCartViewLink}>{t('customer.checkout.screen.viewCart')}</Text>
             </View>
           </View>
           <Text style={styles.darkCartTotal}>{formatRupees(quote?.subtotal)}</Text>
@@ -530,7 +531,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         <View style={styles.paymentCard}>
           <View style={styles.paymentCardHeader}>
             <CardHeaderSvg />
-            <Text style={styles.paymentCardTitle}>Order summary</Text>
+            <Text style={styles.paymentCardTitle}>{t('customer.checkout.screen.summary')}</Text>
           </View>
           {quoteQuery.isLoading ? (
             <ActivityIndicator testID="quote-loading" style={{ margin: 16 }} />
@@ -541,7 +542,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                   <View>
                     <Text style={styles.orderItemName}>{l.name}</Text>
                     <Text style={styles.orderItemSub}>
-                      {formatKg(l.qtyKg)} × {formatRupees(l.unitPrice)} / kg
+                      {formatKg(l.qtyKg)} × {t('customer.product.detail.perKg', { price: formatRupees(l.unitPrice) })}
                     </Text>
                   </View>
                   <Text style={styles.orderItemPrice}>{formatRupees(l.lineTotal)}</Text>
@@ -550,19 +551,19 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <View style={styles.dottedDivider} />
               {(
                 [
-                  ['Items total', quote.subtotal],
-                  ['Delivery fee', quote.deliveryFee],
-                  ['Handling fee', quote.handlingFee],
-                  ['GST', quote.gstAmount],
+                  ['items', quote.subtotal],
+                  ['delivery', quote.deliveryFee],
+                  ['handling', quote.handlingFee],
+                  ['gst', quote.gstAmount],
                 ] as const
               ).map(([label, value]) => (
                 <View key={label} style={styles.orderItemRow}>
-                  <Text style={styles.orderItemSub}>{label}</Text>
+                  <Text style={styles.orderItemSub}>{t(`customer.checkout.screen.${label}`)}</Text>
                   <Text style={styles.orderItemPrice}>{formatRupees(value)}</Text>
                 </View>
               ))}
               <View style={styles.totalPaidRow}>
-                <Text style={styles.totalPaidLabel}>To pay</Text>
+                <Text style={styles.totalPaidLabel}>{t('customer.checkout.screen.toPay')}</Text>
                 <Text style={styles.totalPaidAmount} testID="checkout-total">
                   {formatRupees(quote.totalAmount)}
                 </Text>
@@ -570,7 +571,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
             </View>
           ) : (
             <TouchableOpacity onPress={() => void quoteQuery.refetch()} testID="quote-retry">
-              <Text style={styles.orderItemSub}>{errorText ?? "Couldn't price your order. Tap to retry."}</Text>
+              <Text style={styles.orderItemSub}>{errorText ?? t('customer.checkout.screen.quoteRetry')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -579,13 +580,13 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
         <View style={styles.paymentCard}>
           <View style={styles.paymentCardHeader}>
             <CardHeaderSvg />
-            <Text style={styles.paymentCardTitle}>Payment Method</Text>
+            <Text style={styles.paymentCardTitle}>{t('customer.checkout.screen.paymentMethod')}</Text>
           </View>
           <View style={styles.paymentList}>
             <View style={[styles.methodRow, styles.methodRowSelected]} testID="wallet-method">
               <View style={styles.methodLeft}>
                 <WalletSvg />
-                <Text style={styles.methodLabel}>Pay with TOHFA Wallet · {balanceLabel}</Text>
+                <Text style={styles.methodLabel}>{t('customer.checkout.screen.payWithWallet', { balance: balanceLabel })}</Text>
               </View>
               <View style={[styles.radioCircle, styles.radioCircleSelected]}>
                 <View style={styles.radioInnerDot} />
@@ -594,9 +595,9 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
           </View>
           {!!effectiveShortfall && (
             <View style={styles.walletBalanceAfterBanner} testID="checkout-shortfall">
-              <Text style={styles.walletBalanceAfterLabel}>Short by {formatRupees(effectiveShortfall)}</Text>
+              <Text style={styles.walletBalanceAfterLabel}>{t('customer.checkout.screen.shortBy', { amount: formatRupees(effectiveShortfall) })}</Text>
               <TouchableOpacity onPress={goTopup} testID="checkout-add-money" style={styles.walletConfirmBtn}>
-                <Text style={styles.walletConfirmBtnText}>Add money</Text>
+                <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.addMoney')}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -607,7 +608,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
             <Text style={styles.policyText}>{errorText}</Text>
             {networkRetry && (
               <TouchableOpacity onPress={() => void handleConfirmPayment()} testID="checkout-retry">
-                <Text style={styles.readPolicyLink}>Retry payment</Text>
+                <Text style={styles.readPolicyLink}>{t('customer.checkout.screen.retryPayment')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -615,15 +616,15 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
 
         {/* ── 5. RETURN / REFUND POLICY ─────────────────────────────────────── */}
         <View style={styles.policyContainer}>
-          <Text style={styles.policyTitle}>Return/Refund Policy</Text>
-          <Text style={styles.policyText}>Freshly sourced from local farmers, thoughtfully delivered to your home.</Text>
+          <Text style={styles.policyTitle}>{t('customer.cart.screen.policy.title')}</Text>
+          <Text style={styles.policyText}>{t('customer.cart.screen.policy.tagline')}</Text>
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={() =>
-              Alert.alert('Return & Refund Policy', 'If any item is damaged or not fresh, raise a return from My Orders after delivery or pickup.')
+              Alert.alert(t('customer.cart.screen.policy.alertTitle'), t('customer.cart.screen.policy.alertBody'))
             }
           >
-            <Text style={styles.readPolicyLink}>Read policy</Text>
+            <Text style={styles.readPolicyLink}>{t('customer.cart.screen.policy.read')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -636,7 +637,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
           <Text style={styles.bottomPriceText}>{formatRupees(total)}</Text>
           {effectiveShortfall ? (
             <TouchableOpacity activeOpacity={0.85} onPress={goTopup} style={[styles.proceedToPayBtn, styles.proceedToPayBtnActive]} testID="checkout-topup-cta">
-              <Text style={[styles.proceedToPayBtnText, styles.proceedToPayBtnTextActive]}>Add money</Text>
+              <Text style={[styles.proceedToPayBtnText, styles.proceedToPayBtnTextActive]}>{t('customer.checkout.screen.addMoney')}</Text>
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -646,7 +647,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               style={[styles.proceedToPayBtn, ready ? styles.proceedToPayBtnActive : styles.proceedToPayBtnDisabled]}
               testID="checkout-proceed"
             >
-              <Text style={[styles.proceedToPayBtnText, ready ? styles.proceedToPayBtnTextActive : styles.proceedToPayBtnTextDisabled]}>Pay & place order</Text>
+              <Text style={[styles.proceedToPayBtnText, ready ? styles.proceedToPayBtnTextActive : styles.proceedToPayBtnTextDisabled]}>{t('customer.checkout.screen.payPlace')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -659,20 +660,20 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
       <Modal visible={showWalletModal} transparent animationType="fade" onRequestClose={() => setShowWalletModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.walletModalCard}>
-            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowWalletModal(false)} activeOpacity={0.7} accessibilityLabel="Close">
+            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowWalletModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
             <View style={styles.walletHeaderRow}>
               <View style={styles.walletIconHeader}>
                 <WalletSvg />
               </View>
-              <Text style={styles.walletModalTitle}>Pay with Wallet</Text>
+              <Text style={styles.walletModalTitle}>{t('customer.checkout.screen.modal.title')}</Text>
             </View>
             <View style={styles.walletSummaryCard}>
               <View style={styles.walletBalanceRow}>
                 <View style={styles.walletBalanceLeft}>
                   <WalletSvg />
-                  <Text style={styles.walletBalanceLabel}>TOHFA Wallet Balance</Text>
+                  <Text style={styles.walletBalanceLabel}>{t('customer.checkout.screen.modal.balance')}</Text>
                 </View>
                 <Text style={styles.walletBalanceVal} testID="wallet-modal-balance">
                   {balanceLabel}
@@ -680,12 +681,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               </View>
               <View style={styles.walletDivider} />
               <View style={styles.walletBalanceRow}>
-                <Text style={styles.walletAmountLabel}>Payment Amount</Text>
+                <Text style={styles.walletAmountLabel}>{t('customer.checkout.screen.modal.amount')}</Text>
                 <Text style={styles.walletAmountVal}>{formatRupees(total)}</Text>
               </View>
               {quote && (
                 <View style={styles.walletBalanceAfterBanner}>
-                  <Text style={styles.walletBalanceAfterLabel}>Balance after Payment</Text>
+                  <Text style={styles.walletBalanceAfterLabel}>{t('customer.checkout.screen.modal.after')}</Text>
                   <Text style={styles.walletBalanceAfterVal}>{formatRupees(subtractMoney(quote.walletBalance, quote.totalAmount))}</Text>
                 </View>
               )}
@@ -697,7 +698,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
             )}
             <View style={styles.walletActionRow}>
               <TouchableOpacity style={styles.walletCancelBtn} onPress={() => setShowWalletModal(false)} activeOpacity={0.7}>
-                <Text style={styles.walletCancelBtnText}>Cancel</Text>
+                <Text style={styles.walletCancelBtnText}>{t('customer.common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.walletConfirmBtn}
@@ -706,7 +707,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                 activeOpacity={0.85}
                 testID="wallet-confirm"
               >
-                {placeOrderM.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.walletConfirmBtnText}>Confirm Payment</Text>}
+                {placeOrderM.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.walletConfirmBtnText}>{t('customer.checkout.screen.modal.confirm')}</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -717,7 +718,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
       <Modal visible={showSuccessModal && !!order} transparent animationType="fade" onRequestClose={() => setShowSuccessModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.successModalCard} testID="order-success">
-            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowSuccessModal(false)} activeOpacity={0.7} accessibilityLabel="Close">
+            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowSuccessModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
             <ScrollView style={{ maxHeight: SCREEN_HEIGHT * 0.82 }} showsVerticalScrollIndicator={false}>
@@ -727,21 +728,21 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <View style={styles.dottedDivider} />
               <View style={styles.orderMetaBlock}>
                 <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>Order ID</Text>
+                  <Text style={styles.orderMetaLabel}>{t('customer.checkout.screen.success.orderId')}</Text>
                   <Text style={styles.orderMetaValBold} testID="success-order-number">
                     {order?.orderNumber}
                   </Text>
                 </View>
                 <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>Order Date</Text>
+                  <Text style={styles.orderMetaLabel}>{t('customer.checkout.screen.success.orderDate')}</Text>
                   <Text style={styles.orderMetaValBold}>{formatPlacedAt(order?.placedAt)}</Text>
                 </View>
                 <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>Payment method</Text>
-                  <Text style={styles.orderMetaValBold}>{order?.paymentMethodLabel ?? 'Wallet'}</Text>
+                  <Text style={styles.orderMetaLabel}>{t('customer.checkout.screen.success.method')}</Text>
+                  <Text style={styles.orderMetaValBold}>{order?.paymentMethodLabel ?? t('customer.checkout.screen.success.wallet')}</Text>
                 </View>
                 <View style={styles.orderMetaRow}>
-                  <Text style={styles.orderMetaLabel}>{orderIsPickup ? 'Pickup location' : 'Delivery'}</Text>
+                  <Text style={styles.orderMetaLabel}>{orderIsPickup ? t('customer.checkout.screen.success.pickupLocation') : t('customer.checkout.screen.success.delivery')}</Text>
                   <Text style={styles.orderMetaValBold}>
                     {orderIsPickup ? (orderPoint?.name ?? '') : `${order?.deliveryDate ?? ''} ${order?.deliverySlot ? SLOT_LABEL[order.deliverySlot] : ''}`}
                   </Text>
@@ -754,7 +755,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                     <View>
                       <Text style={styles.orderItemName}>{it.name}</Text>
                       <Text style={styles.orderItemSub}>
-                        {formatKg(it.qtyKg)} × {formatRupees(it.unitPrice)} / kg
+                        {formatKg(it.qtyKg)} × {t('customer.product.detail.perKg', { price: formatRupees(it.unitPrice) })}
                       </Text>
                     </View>
                     <Text style={styles.orderItemPrice}>{formatRupees(it.lineTotal)}</Text>
@@ -764,18 +765,18 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
 
               <View style={styles.dottedDivider} />
 
-              <Text style={styles.orderProgressHeading}>Order progress</Text>
+              <Text style={styles.orderProgressHeading}>{t('customer.checkout.screen.success.progress')}</Text>
               <View style={styles.progressTracker}>
                 {[
-                  { title: 'Payment', sub: 'Your wallet payment was successful.', state: 'done' },
-                  { title: 'Order confirmed', sub: 'Your order has been accepted.', state: 'done' },
-                  { title: 'Preparing your order', sub: 'Your items are being collected and packed.', state: 'active' },
+                  { title: t('customer.checkout.screen.step.payment'), sub: t('customer.checkout.screen.step.paymentSub'), state: 'done' },
+                  { title: t('customer.checkout.screen.step.confirmed'), sub: t('customer.checkout.screen.step.confirmedSub'), state: 'done' },
+                  { title: t('customer.checkout.screen.step.preparing'), sub: t('customer.checkout.screen.step.preparingSub'), state: 'active' },
                   orderIsPickup
-                    ? { title: 'Ready for pickup', sub: "We'll notify you when your order is ready.", state: 'todo' }
-                    : { title: 'On the way', sub: "We'll notify you when it is dispatched.", state: 'todo' },
+                    ? { title: t('customer.checkout.screen.step.ready'), sub: t('customer.checkout.screen.step.readySub'), state: 'todo' }
+                    : { title: t('customer.checkout.screen.step.onTheWay'), sub: t('customer.checkout.screen.step.onTheWaySub'), state: 'todo' },
                   orderIsPickup
-                    ? { title: 'Order collected', sub: 'Your order has been handed over.', state: 'todo' }
-                    : { title: 'Delivered', sub: order?.otpRequired ? 'Share the delivery OTP sent to you at handover.' : 'Your order has been delivered.', state: 'todo' },
+                    ? { title: t('customer.checkout.screen.step.collected'), sub: t('customer.checkout.screen.step.collectedSub'), state: 'todo' }
+                    : { title: t('customer.checkout.screen.step.delivered'), sub: order?.otpRequired ? t('customer.checkout.screen.step.deliveredOtp') : t('customer.checkout.screen.step.deliveredSub'), state: 'todo' },
                 ].map((step, i, all) => (
                   <View key={step.title} style={styles.trackerStepRow}>
                     <View style={styles.trackerLeftCol}>
@@ -787,12 +788,12 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                         <Text style={styles.trackerTitle}>{step.title}</Text>
                         {step.state === 'done' && (
                           <View style={styles.completedBadge}>
-                            <Text style={styles.completedBadgeText}>Completed</Text>
+                            <Text style={styles.completedBadgeText}>{t('customer.checkout.screen.success.completed')}</Text>
                           </View>
                         )}
                         {step.state === 'active' && (
                           <View style={styles.inProgressBadge}>
-                            <Text style={styles.inProgressBadgeText}>In progress</Text>
+                            <Text style={styles.inProgressBadgeText}>{t('customer.checkout.screen.success.inProgress')}</Text>
                           </View>
                         )}
                       </View>
@@ -803,14 +804,14 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               </View>
 
               <View style={styles.totalPaidRow}>
-                <Text style={styles.totalPaidLabel}>Total paid</Text>
+                <Text style={styles.totalPaidLabel}>{t('customer.checkout.screen.success.totalPaid')}</Text>
                 <Text style={styles.totalPaidAmount} testID="success-total">
                   {formatRupees(order?.totalAmount)}
                 </Text>
               </View>
               <View style={styles.paidMethodBanner}>
                 <WalletSvg />
-                <Text style={styles.paidMethodText}>Paid via {order?.paymentMethodLabel ?? 'Wallet'}</Text>
+                <Text style={styles.paidMethodText}>{t('customer.checkout.screen.success.paidVia', { method: order?.paymentMethodLabel ?? t('customer.checkout.screen.success.wallet') })}</Text>
               </View>
 
               {orderIsPickup && !!order?.pickupCode ? (
@@ -823,7 +824,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                   activeOpacity={0.85}
                   testID="success-check-pickup"
                 >
-                  <Text style={styles.checkPickupBtnText}>Check Pickup code</Text>
+                  <Text style={styles.checkPickupBtnText}>{t('customer.checkout.screen.success.checkPickup')}</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -836,7 +837,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
                   activeOpacity={0.85}
                   testID="success-view-order"
                 >
-                  <Text style={styles.checkPickupBtnText}>View order</Text>
+                  <Text style={styles.checkPickupBtnText}>{t('customer.checkout.screen.success.viewOrder')}</Text>
                 </TouchableOpacity>
               )}
             </ScrollView>
@@ -849,7 +850,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
       <Modal visible={showPickupModal && !!order} transparent animationType="fade" onRequestClose={() => setShowPickupModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.pickupModalCard} testID="pickup-code-modal">
-            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowPickupModal(false)} activeOpacity={0.7} accessibilityLabel="Close">
+            <TouchableOpacity style={styles.modalCloseCircle} onPress={() => setShowPickupModal(false)} activeOpacity={0.7} accessibilityLabel={t('customer.common.close')}>
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
             <View style={styles.successLogoHeader}>
@@ -859,7 +860,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
             <View style={styles.qrCodeContainer}>
               <PickupQrCode payload={order?.pickupQr?.payload} size={190} />
             </View>
-            <Text style={styles.orReadOutText}>OR READ OUT THIS CODE</Text>
+            <Text style={styles.orReadOutText}>{t('customer.checkout.screen.pickup.readOut')}</Text>
             <Text style={styles.pickupCodeNumber} testID="pickup-code">
               {order?.pickupCode}
             </Text>
@@ -867,7 +868,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               <View>
                 <Text style={styles.pickupOrderIdText}>{order?.orderNumber}</Text>
                 <Text style={styles.pickupItemsLocationText}>
-                  {order?.itemCount ?? order?.items.length ?? 0} items{orderPoint ? ` · ${orderPoint.name}` : ''}
+                  {t('customer.cart.screen.itemMany', { count: order?.itemCount ?? order?.items.length ?? 0 })}{orderPoint ? ` · ${orderPoint.name}` : ''}
                 </Text>
               </View>
               <Text style={styles.pickupPriceText}>{formatRupees(order?.totalAmount)}</Text>
@@ -882,7 +883,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               activeOpacity={0.85}
               testID="pickup-view-order"
             >
-              <Text style={styles.continueShoppingBtnText}>View order</Text>
+              <Text style={styles.continueShoppingBtnText}>{t('customer.checkout.screen.success.viewOrder')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.continueShoppingBtn}
@@ -893,7 +894,7 @@ export const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ onNavigate, onGo
               }}
               activeOpacity={0.85}
             >
-              <Text style={styles.continueShoppingBtnText}>Continue shopping</Text>
+              <Text style={styles.continueShoppingBtnText}>{t('customer.checkout.screen.pickup.continue')}</Text>
             </TouchableOpacity>
           </View>
           <ConfettiOverlay />

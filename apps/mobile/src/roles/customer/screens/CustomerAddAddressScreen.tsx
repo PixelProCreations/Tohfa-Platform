@@ -11,28 +11,29 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
   TextInput,
   Animated,
   Easing,
   StatusBar,
   Modal,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
+import { MAPBOX_ACCESS_TOKEN } from '@env';
 import {
   customerColors,
   customerFonts,
   customerShadow,
   customerSpacing,
 } from '../theme';
-import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { FarmBoundaryMap, type FarmBoundaryMapHandle, ScreenStatusBar } from '@tohfa/mobile-ui';
 import { CustomerDeliveryAddressModal, type AddressSaveResult } from '../components/CustomerDeliveryAddressModal';
 import { ServiceAreaRequestModal, prefillFromAddress } from '../components/ServiceAreaRequestFlow';
 import { formatAddressLine, type CustomerAddress } from '../api/addresses';
 import { useServiceability } from '../api/serviceability';
 import { locateDevice, openAppSettings, type Coords } from '../utils/deviceLocation';
-import satelliteMapCoimbatore from '../assets/images/satellite_map_coimbatore.jpg';
+import { t } from '../../../i18n/customer';
 
 type LocatePhase = 'idle' | 'locating' | 'located' | 'denied' | 'blocked' | 'failed';
 
@@ -107,14 +108,19 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
   initialSource = 'current',
   onNavigate,
 }) => {
+  const mapRef = useRef<FarmBoundaryMapHandle>(null);
   const [phase, setPhase] = useState<LocatePhase>('idle');
   const [coords, setCoords] = useState<Coords | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; place_name: string; center: [number, number] }>>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [savedAddress, setSavedAddress] = useState<CustomerAddress | null>(null);
   const [savedServiceable, setSavedServiceable] = useState<boolean | null>(null);
   const isFetchingLocation = phase === 'locating';
   const mounted = useRef(true);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraDebounceRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(
     () => () => {
       mounted.current = false;
@@ -151,10 +157,87 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
     if (result.coords) {
       setCoords(result.coords);
       setPhase('located');
+      mapRef.current?.flyTo([result.coords.lng, result.coords.lat], 17, 800);
     } else {
       setPhase(result.outcome === 'blocked' ? 'blocked' : result.outcome === 'denied' ? 'denied' : 'failed');
     }
   }, []);
+
+  const handleMapPress = useCallback((point: [number, number]) => {
+    const [lng, lat] = point;
+    setCoords({ lat, lng });
+    mapRef.current?.flyTo([lng, lat], 17, 500);
+  }, []);
+
+  const handleCameraChanged = useCallback((center: [number, number]) => {
+    if (cameraDebounceRef.current) clearTimeout(cameraDebounceRef.current);
+    cameraDebounceRef.current = setTimeout(() => {
+      if (!mounted.current) return;
+      const [lng, lat] = center;
+      setCoords({ lat, lng });
+    }, 300);
+  }, []);
+
+  const fetchSuggestions = async (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed || trimmed.length < 2) {
+      setSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const token = typeof MAPBOX_ACCESS_TOKEN === 'string' ? MAPBOX_ACCESS_TOKEN : '';
+      const url =
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(trimmed)}.json` +
+        `?access_token=${encodeURIComponent(token)}&autocomplete=true&limit=5&country=in`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        setSuggestions([]);
+        return;
+      }
+      const data = await res.json();
+      const features = (data.features || []).map((f: any) => ({
+        id: f.id,
+        place_name: f.place_name,
+        center: f.center as [number, number],
+      }));
+      setSuggestions(features);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!text.trim()) {
+      setSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+    searchDebounceRef.current = setTimeout(() => {
+      void fetchSuggestions(text);
+    }, 300);
+  };
+
+  const handleSelectSuggestion = (item: { id: string; place_name: string; center: [number, number] }) => {
+    setSearchQuery(item.place_name);
+    setSuggestions([]);
+    const [lng, lat] = item.center;
+    setCoords({ lat, lng });
+    mapRef.current?.flyTo([lng, lat], 17, 800);
+  };
+
+  const handleSearchSubmit = () => {
+    if (suggestions.length > 0 && suggestions[0]) {
+      handleSelectSuggestion(suggestions[0]);
+    } else {
+      handleAddAddressDetails();
+    }
+  };
 
   useEffect(() => {
     if (initialSource === 'current') void handleUseCurrentLocation();
@@ -177,16 +260,16 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
     onNavigate('CustomerLoadingMarket');
   };
 
-  const sheetTitle = coords ? 'Your current location' : 'Enter your address';
+  const sheetTitle = coords ? t('customer.address.add.sheet.current') : t('customer.address.add.sheet.enter');
   const sheetLine = (() => {
-    if (phase === 'denied') return 'Location permission was denied. Enter your address manually.';
-    if (phase === 'blocked') return 'Location access is turned off. Enable it in Settings or enter your address manually.';
-    if (phase === 'failed') return "We couldn't find your location. Try again or enter your address manually.";
-    if (!coords) return 'Search or add your address details to check delivery.';
-    if (serviceability.isLoading) return 'Checking delivery availability…';
-    if (serviceability.isError) return "Couldn't check delivery right now. You can still add your address.";
-    if (serviceability.data?.serviceable === false) return "We don't deliver here yet. You can request your area after saving.";
-    if (serviceability.data?.serviceable) return 'Great news! We deliver fresh produce to this area.';
+    if (phase === 'denied') return t('customer.address.add.status.denied');
+    if (phase === 'blocked') return t('customer.address.add.status.blocked');
+    if (phase === 'failed') return t('customer.address.add.status.failed');
+    if (!coords) return t('customer.address.add.status.noCoords');
+    if (serviceability.isLoading) return t('customer.address.add.status.checking');
+    if (serviceability.isError) return t('customer.address.add.status.checkError');
+    if (serviceability.data?.serviceable === false) return t('customer.address.add.status.unserved');
+    if (serviceability.data?.serviceable) return t('customer.address.add.status.served');
     return '';
   })();
 
@@ -202,19 +285,23 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           onPress={() => onNavigate('CustomerPermissions')}
           style={styles.backButton}
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t('customer.address.add.back')}
         >
           <BackArrowIcon />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Address</Text>
+        <Text style={styles.headerTitle}>{t('customer.address.add.title')}</Text>
       </View>
 
-      {/* ── MAP CONTAINER WITH SATELLITE IMAGE & CENTER RED PIN ────────────── */}
+      {/* ── MAP CONTAINER WITH REAL MAPBOX SATELLITE MAP & CENTER RED PIN ────────────── */}
       <View style={styles.mapContainer}>
-        <Image
-          source={satelliteMapCoimbatore}
-          style={styles.mapImage}
-          resizeMode="cover"
+        <FarmBoundaryMap
+          ref={mapRef}
+          initialCenter={coords ? [coords.lng, coords.lat] : [76.9558, 11.0168]}
+          readOnly={true}
+          hideSearchBar={true}
+          onMapPress={handleMapPress}
+          onCameraChanged={handleCameraChanged}
+          testID="customer-add-address-map"
         />
 
         {/* Center Red Location Pin with subtle shadow */}
@@ -228,15 +315,39 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           <SearchIcon />
           <TextInput
             style={styles.searchInput}
-            placeholder="Enter location manually"
+            placeholder={t('customer.address.add.search')}
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="next"
-            onSubmitEditing={handleAddAddressDetails}
+            onChangeText={handleSearchChange}
+            returnKeyType="search"
+            onSubmitEditing={handleSearchSubmit}
             testID="add-address-search"
           />
+          {isSearching && (
+            <ActivityIndicator size="small" color="#2E7D32" style={{ marginRight: 8 }} />
+          )}
         </View>
+
+        {/* Suggestions Dropdown */}
+        {suggestions.length > 0 && (
+          <View style={[styles.suggestionsDropdown, customerShadow.raised]}>
+            {suggestions.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.suggestionRow}
+                activeOpacity={0.7}
+                onPress={() => handleSelectSuggestion(item)}
+              >
+                <View style={styles.suggestionIconWrap}>
+                  <GreenPinIcon />
+                </View>
+                <Text style={styles.suggestionText} numberOfLines={2}>
+                  {item.place_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Floating "Use current location" Pill Button */}
         <TouchableOpacity
@@ -246,16 +357,16 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           disabled={isFetchingLocation}
           style={[styles.useCurrentLocButton, customerShadow.raised]}
           accessibilityRole="button"
-          accessibilityLabel="Use current location"
+          accessibilityLabel={t('customer.address.add.useCurrent')}
         >
           <CrosshairTargetIcon />
-          <Text style={styles.useCurrentLocText}>Use current location</Text>
+          <Text style={styles.useCurrentLocText}>{t('customer.address.add.useCurrent')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* ── BOTTOM SHEET CARD (DELIVERING YOUR ORDER TO: Coimbatore) ───────── */}
       <View style={[styles.bottomSheet, customerShadow.raised]}>
-        <Text style={styles.deliveringLabel}>DELIVERING YOUR ORDER TO</Text>
+        <Text style={styles.deliveringLabel}>{t('customer.address.add.deliveringTo')}</Text>
 
         <View style={styles.locationDetailRow}>
           <View style={styles.locationPinBadge}>
@@ -277,7 +388,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
             style={styles.settingsLink}
             accessibilityRole="button"
           >
-            <Text style={styles.settingsLinkText}>Open Settings</Text>
+            <Text style={styles.settingsLinkText}>{t('customer.address.add.openSettings')}</Text>
           </TouchableOpacity>
         ) : null}
 
@@ -287,9 +398,9 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
           onPress={handleAddAddressDetails}
           style={styles.submitButton}
           accessibilityRole="button"
-          accessibilityLabel="Add address details"
+          accessibilityLabel={t('customer.address.add.details')}
         >
-          <Text style={styles.submitButtonText}>Add address details</Text>
+          <Text style={styles.submitButtonText}>{t('customer.address.add.details')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -323,10 +434,8 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
               </Animated.View>
             </View>
 
-            <Text style={styles.bufferTitle}>Fetching your location</Text>
-            <Text style={styles.bufferSubtitle}>
-              Looking for your exact address on the map to make sure your order reaches the right place
-            </Text>
+            <Text style={styles.bufferTitle}>{t('customer.address.add.fetching.title')}</Text>
+            <Text style={styles.bufferSubtitle}>{t('customer.address.add.fetching.body')}</Text>
           </View>
         </View>
       </Modal>
@@ -350,7 +459,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
                 <Path d="M20 6L9 17l-5-5" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
-            <Text style={styles.bufferTitle}>Location added</Text>
+            <Text style={styles.bufferTitle}>{t('customer.address.add.added')}</Text>
             <Text style={styles.bufferSubtitle}>{savedAddress ? formatAddressLine(savedAddress) : ''}</Text>
             <TouchableOpacity
               testID="location-added-continue"
@@ -359,7 +468,7 @@ export const CustomerAddAddressScreen: React.FC<CustomerAddAddressScreenProps> =
               style={[styles.submitButton, styles.addedContinue]}
               accessibilityRole="button"
             >
-              <Text style={styles.submitButtonText}>Continue</Text>
+              <Text style={styles.submitButtonText}>{t('customer.common.continue')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -500,6 +609,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#15803D',
     marginLeft: 8,
+  },
+  suggestionsDropdown: {
+    position: 'absolute',
+    top: 70,
+    left: 20,
+    right: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 6,
+    zIndex: 20,
+    maxHeight: 220,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#F3F4F6',
+  },
+  suggestionIconWrap: {
+    marginRight: 10,
+  },
+  suggestionText: {
+    flex: 1,
+    fontFamily: customerFonts.regular,
+    fontSize: 13,
+    color: '#1F2937',
   },
   bottomSheet: {
     backgroundColor: '#FFFFFF',

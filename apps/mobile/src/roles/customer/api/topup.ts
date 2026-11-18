@@ -32,6 +32,7 @@ import {
   type TopupMode,
   type TopupReceipt,
 } from './wallet';
+import { clearPendingTopup, resumePendingTopup, savePendingTopup } from '../state/pendingTopup';
 
 export type TopupOutcome =
   | { status: 'success'; intent: TopupIntent; receipt: TopupReceipt }
@@ -117,6 +118,10 @@ export async function startWalletTopup(input: StartTopupInput, overrides: Partia
     return { status: 'unavailable', intent };
   }
 
+  // Persist before the sheet opens: if the app is killed inside Razorpay, the
+  // next launch resumes polling this top-up (../state/pendingTopup).
+  await savePendingTopup({ topupId: intent.topupId, createdAt: deps.now(), amount: intent.amount });
+
   const sdkResult = await deps.openCheckout({
     keyId: intent.razorpayKeyId,
     orderId: intent.gatewayOrderId,
@@ -128,15 +133,21 @@ export async function startWalletTopup(input: StartTopupInput, overrides: Partia
     method: METHOD_HINT[input.mode],
   });
 
-  if (sdkResult.status === 'cancelled') return { status: 'cancelled', intent };
+  if (sdkResult.status === 'cancelled') {
+    await clearPendingTopup(intent.topupId);
+    return { status: 'cancelled', intent };
+  }
   if (sdkResult.status === 'failed') {
+    await clearPendingTopup(intent.topupId);
     return { status: 'failed', intent, reason: 'gateway', description: sdkResult.description };
   }
 
   const polled = await pollTopupReceipt(intent.topupId, deps);
   if (!polled.final || polled.receipt === undefined) {
+    // Stays persisted: resumePendingTopup() keeps polling (up to 30 min).
     return polled.receipt === undefined ? { status: 'pending', intent } : { status: 'pending', intent, receipt: polled.receipt };
   }
+  await clearPendingTopup(intent.topupId);
   return polled.receipt.status === 'SUCCESS'
     ? { status: 'success', intent, receipt: polled.receipt }
     : { status: 'failed', intent, receipt: polled.receipt, reason: 'server' };
@@ -148,6 +159,14 @@ export const useWalletTopup = () => {
   return useMutation({
     mutationFn: (input: StartTopupInput) => startWalletTopup(input),
     retry: 0,
+    onSuccess: (outcome) => {
+      // Not confirmed inside the SDK window: keep polling in the background
+      // (persisted, so it also survives an app restart).
+      if (outcome.status !== 'pending') return;
+      void resumePendingTopup().then((receipt) => {
+        if (receipt !== null) void queryClient.invalidateQueries({ queryKey: walletQueryKeys.wallet });
+      });
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: walletQueryKeys.wallet }),
   });
 };

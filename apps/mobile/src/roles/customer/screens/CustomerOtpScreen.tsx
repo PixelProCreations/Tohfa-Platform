@@ -32,7 +32,7 @@ import {
   type CustomerPostLoginRoute,
 } from '../api/auth';
 import { mapProblem } from '../api/problem';
-import { getLocale } from '../../../i18n/customer';
+import { getLocale, t } from '../../../i18n/customer';
 
 const GreenFloatingLeaf = () => (
   <View style={styles.floatingLeafBottomRight} pointerEvents="none">
@@ -55,6 +55,13 @@ const GreenFloatingLeaf = () => (
 const EMPTY_PIN: string[] = Array.from({ length: CUSTOMER_OTP_LENGTH }, () => '');
 const PIN_INDEXES = EMPTY_PIN.map((_, i) => i);
 
+function codeToPin(code: string | undefined): string[] {
+  if (code && /^\d{6}$/.test(code)) {
+    return code.split('');
+  }
+  return EMPTY_PIN;
+}
+
 interface CustomerOtpScreenProps {
   /** 10-digit mobile the challenge was sent to (from CustomerLogin). */
   mobile: string;
@@ -62,6 +69,7 @@ interface CustomerOtpScreenProps {
   expiresAt?: string | undefined;
   resendAvailableAt?: string | undefined;
   attemptsRemaining?: number | undefined;
+  mockCode?: string | undefined;
   onNavigate: (screen: CustomerPostLoginRoute | 'CustomerLogin', params?: Record<string, unknown>) => void;
 }
 
@@ -76,6 +84,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
   challengeId,
   resendAvailableAt,
   attemptsRemaining,
+  mockCode,
   onNavigate,
 }) => {
   const [challenge, setChallenge] = useState<ChallengeState>({
@@ -83,7 +92,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
     resendAvailableAt,
     attemptsRemaining,
   });
-  const [pin, setPin] = useState<string[]>(EMPTY_PIN);
+  const [pin, setPin] = useState<string[]>(() => codeToPin(mockCode));
   const [now, setNow] = useState(() => Date.now());
   const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
@@ -101,6 +110,12 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
     now,
   });
   const secondsLeft = otpState.secondsUntilResend;
+
+  useEffect(() => {
+    if (mockCode && /^\d{6}$/.test(mockCode)) {
+      setPin(mockCode.split(''));
+    }
+  }, [mockCode]);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;
@@ -190,8 +205,12 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
       setNow(Date.now());
       setLocked(false);
       setNeedsResend(false);
-      setPin(EMPTY_PIN);
-      inputRefs.current[0]?.focus();
+      if (next._mockCode && /^\d{6}$/.test(next._mockCode)) {
+        setPin(next._mockCode.split(''));
+      } else {
+        setPin(EMPTY_PIN);
+        inputRefs.current[0]?.focus();
+      }
     } catch (err) {
       const problem = mapProblem(err);
       if (problem.silent) return;
@@ -236,7 +255,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
       >
         {/* Main Card (389 x 243 Hug from Figma) */}
         <View style={styles.card}>
-          <Text style={styles.title}>Please enter 6-digit PIN Sent to</Text>
+          <Text style={styles.title}>{t('customer.auth.otp.pinTitle')}</Text>
 
           {/* Mobile number with Edit link */}
           <View style={styles.phoneEditRow}>
@@ -247,7 +266,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
               accessibilityRole="link"
               testID="customer-otp-edit"
             >
-              <Text style={styles.editText}>Edit</Text>
+              <Text style={styles.editText}>{t('customer.auth.otp.edit')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -271,7 +290,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
                     autoFocus={index === 0}
                     editable={!locked && !verifying}
                     textContentType={index === 0 ? 'oneTimeCode' : 'none'}
-                    accessibilityLabel={`PIN digit ${index + 1}`}
+                    accessibilityLabel={t('customer.auth.otp.digitA11y', { number: index + 1 })}
                   />
                   <View
                     style={[
@@ -291,7 +310,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
               </Text>
               {canRetry ? (
                 <TouchableOpacity onPress={handleNext} accessibilityRole="link" testID="customer-otp-retry">
-                  <Text style={styles.linkText}>Try again</Text>
+                  <Text style={styles.linkText}>{t('customer.auth.login.tryAgain')}</Text>
                 </TouchableOpacity>
               ) : null}
             </View>
@@ -301,7 +320,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
           <View style={styles.resendRow}>
             {secondsLeft > 0 && !locked ? (
               <Text style={styles.resendText} testID="customer-otp-timer">
-                Didn't receive the PIN? Resend in{' '}
+                {t('customer.auth.otp.resendInPrefix')}{' '}
                 <Text style={styles.timerHighlight}>{secondsLeft}s</Text>
               </Text>
             ) : (
@@ -309,12 +328,12 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
                 onPress={() => void handleResend()}
                 disabled={resending || verifying}
                 accessibilityRole="button"
-                accessibilityLabel="Resend PIN"
+                accessibilityLabel={t('customer.auth.otp.resendA11y')}
                 testID="customer-otp-resend"
               >
                 <Text style={styles.resendText}>
-                  {needsResend || locked ? 'Request a new PIN. ' : "Didn't receive the PIN? "}
-                  <Text style={styles.timerHighlight}>{resending ? 'Sending...' : 'Resend'}</Text>
+                  {needsResend || locked ? t('customer.auth.otp.requestNew') : t('customer.auth.otp.noPin')}
+                  <Text style={styles.timerHighlight}>{resending ? t('customer.auth.otp.sending') : t('customer.auth.otp.resendLink')}</Text>
                 </Text>
               </TouchableOpacity>
             )}
@@ -332,7 +351,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
               !canSubmit && styles.circularButtonDisabled,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Verify PIN"
+            accessibilityLabel={t('customer.auth.otp.verifyA11y')}
             accessibilityState={{ disabled: !canSubmit, busy: verifying }}
           >
             {verifying ? (
@@ -367,9 +386,9 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
             </View>
 
             {/* Headline & Subtitle */}
-            <Text style={styles.verifiedTitle}>Phone number Verified!</Text>
+            <Text style={styles.verifiedTitle}>{t('customer.auth.otp.verifiedTitle')}</Text>
             <Text style={styles.verifiedSubtitle}>
-              Your phone number has been successfully verified. You can now enjoy all features of TOHFA Market.
+              {t('customer.auth.otp.verifiedBody')}
             </Text>
 
             {/* Continue Full-Width Button */}
@@ -380,7 +399,7 @@ export const CustomerOtpScreen: React.FC<CustomerOtpScreenProps> = ({
               accessibilityRole="button"
               testID="customer-otp-continue"
             >
-              <Text style={styles.continueButtonText}>Continue</Text>
+              <Text style={styles.continueButtonText}>{t('customer.auth.otp.continue')}</Text>
             </TouchableOpacity>
           </View>
         </View>

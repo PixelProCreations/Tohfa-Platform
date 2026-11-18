@@ -36,6 +36,7 @@ import {
 import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { ProductCard } from '../components/ProductCard';
+import { t } from '../../../i18n/customer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -129,11 +130,11 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
       <StatusBar barStyle="dark-content" />
 
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
-        <TouchableOpacity activeOpacity={0.7} onPress={handleBack} style={styles.backButton} accessibilityLabel="Go back">
+        <TouchableOpacity activeOpacity={0.7} onPress={handleBack} style={styles.backButton} accessibilityLabel={t('customer.search.back')}>
           <BackArrowSvg color="#111827" size={18} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
-          {submitted || 'Fresh Finds for You'}
+          {submitted || t('customer.catalog.search.defaultTitle')}
         </Text>
       </View>
 
@@ -152,15 +153,15 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
               <ActivityIndicator testID="search-loading" style={{ marginTop: 32 }} />
             ) : results.isError ? (
               <View style={styles.noResultsWrap}>
-                <Text style={styles.noResultsText}>Couldn't search right now</Text>
+                <Text style={styles.noResultsText}>{t('customer.search.error')}</Text>
                 <TouchableOpacity onPress={() => void results.refetch()} testID="search-retry">
-                  <Text style={styles.noResultsSub}>Tap to retry</Text>
+                  <Text style={styles.noResultsSub}>{t('customer.search.tapRetry')}</Text>
                 </TouchableOpacity>
               </View>
             ) : items.length === 0 ? (
               <View style={styles.noResultsWrap} testID="search-no-results">
-                <Text style={styles.noResultsText}>No match for "{submitted}"</Text>
-                {trendingProducts.length > 0 && <Text style={styles.noResultsSub}>Try what others are buying:</Text>}
+                <Text style={styles.noResultsText}>{t('customer.search.noMatch', { query: submitted })}</Text>
+                {trendingProducts.length > 0 && <Text style={styles.noResultsSub}>{t('customer.search.tryTrending')}</Text>}
                 {trendingProducts.length > 0 && <View style={styles.gridWrap}>{trendingProducts.slice(0, 4).map(renderCard)}</View>}
               </View>
             ) : (
@@ -168,7 +169,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
             )}
             {results.hasNextPage && (
               <TouchableOpacity onPress={() => void results.fetchNextPage()} testID="search-more">
-                <Text style={styles.noResultsSub}>{results.isFetchingNextPage ? 'Loading…' : 'Show more'}</Text>
+                <Text style={styles.noResultsSub}>{results.isFetchingNextPage ? t('customer.common.loading') : t('customer.search.showMore')}</Text>
               </TouchableOpacity>
             )}
           </ScrollView>
@@ -190,7 +191,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
                 >
                   <View style={styles.recentTextCol}>
                     <Text style={styles.recentItemName}>{s.name}</Text>
-                    <Text style={styles.recentItemSub}>{s.type === 'CATEGORY' ? 'Category' : 'Product'}</Text>
+                    <Text style={styles.recentItemSub}>{s.type === 'CATEGORY' ? t('customer.search.typeCategory') : t('customer.search.typeProduct')}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -225,9 +226,9 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
             {recentItems.length > 0 && (
               <View style={styles.recentWrap} testID="recent-searches">
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={styles.recentTitle}>Recent searches</Text>
-                  <TouchableOpacity onPress={() => deleteRecent.mutate(undefined)} testID="recent-clear-all" accessibilityLabel="Clear all recent searches">
-                    <Text style={styles.recentItemSub}>Clear all</Text>
+                  <Text style={styles.recentTitle}>{t('customer.search.recent')}</Text>
+                  <TouchableOpacity onPress={() => deleteRecent.mutate(undefined)} testID="recent-clear-all" accessibilityLabel={t('customer.search.clearAllA11y')}>
+                    <Text style={styles.recentItemSub}>{t('customer.search.clearAll')}</Text>
                   </TouchableOpacity>
                 </View>
                 <View style={styles.recentList}>
@@ -238,7 +239,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
                       </View>
                       <TouchableOpacity
                         onPress={() => deleteRecent.mutate(item.query)}
-                        accessibilityLabel={`Remove ${item.query}`}
+                        accessibilityLabel={t('customer.search.removeA11y', { query: item.query })}
                         testID={`recent-remove-${item.query}`}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
@@ -254,7 +255,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
 
             {trendingQueries.length > 0 && (
               <View style={styles.recentWrap}>
-                <Text style={styles.recentTitle}>Trending searches</Text>
+                <Text style={styles.recentTitle}>{t('customer.search.trending')}</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryCirclesRow}>
                   {trendingQueries.map((q) => (
                     <TouchableOpacity key={q.query} onPress={() => submit(q.query)} style={styles.recentItemRow} testID={`trending-q-${q.query}`}>
@@ -267,7 +268,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
 
             {trendingProducts.length > 0 && (
               <View style={styles.trendingSection}>
-                <Text style={styles.trendingTitle}>Trending Produce</Text>
+                <Text style={styles.trendingTitle}>{t('customer.search.trendingProduce')}</Text>
                 <View style={styles.gridWrap}>{trendingProducts.map(renderCard)}</View>
               </View>
             )}
@@ -279,7 +280,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
         <View style={styles.searchInputPill}>
           <TextInput
             style={styles.searchInput}
-            placeholder="Search for fresh vegetables..."
+            placeholder={t('customer.search.placeholder')}
             placeholderTextColor="#9CA3AF"
             value={query}
             onChangeText={onChangeText}
@@ -295,7 +296,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
                 setSubmitted('');
               }}
               style={styles.clearBtn}
-              accessibilityLabel="Clear search"
+              accessibilityLabel={t('customer.search.clearA11y')}
             >
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Circle cx={12} cy={12} r={10} fill="#9CA3AF" />
@@ -305,7 +306,7 @@ export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchSc
           )}
         </View>
 
-        <TouchableOpacity activeOpacity={0.8} style={styles.greenCircleBtn} accessibilityLabel="Search" onPress={() => submit()} testID="search-submit">
+        <TouchableOpacity activeOpacity={0.8} style={styles.greenCircleBtn} accessibilityLabel={t('customer.search.submitA11y')} onPress={() => submit()} testID="search-submit">
           <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
             <Circle cx={11} cy={11} r={7} stroke="#FFFFFF" strokeWidth={2} />
             <Path d="M21 21l-4.35-4.35" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />

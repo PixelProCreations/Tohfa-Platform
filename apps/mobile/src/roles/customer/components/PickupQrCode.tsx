@@ -6,6 +6,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { t } from '../../../i18n/customer';
 
 export interface PickupQrCodeProps {
   payload: string | null | undefined;
@@ -15,7 +16,7 @@ export interface PickupQrCodeProps {
 export function PickupQrCode({ payload, size = 180 }: PickupQrCodeProps): React.ReactElement | null {
   if (!payload) return null;
   return (
-    <View testID="pickup-qr-container" accessibilityLabel="Pickup QR code">
+    <View testID="pickup-qr-container" accessibilityLabel={t('customer.orders.pickupQr.a11y')}>
       <QRCode value={payload} size={size} />
     </View>
   );

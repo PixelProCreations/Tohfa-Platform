@@ -9,10 +9,12 @@
  * read via ApiError.walletShortfall), 409 STOCK_UNAVAILABLE / INSUFFICIENT_ALLOCATION /
  * CART_LOCK_EXPIRED / SLOT_FULL, 404 foreign or deleted address, 422, 501.
  */
+import { useEffect, useState } from 'react';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Money } from '@tohfa/shared-types';
 import { api, getAccessToken } from '../../../shell/api/client';
 import { createIdempotencyKeyCache } from '../../../shell/api/idempotency';
+import { openEventStream, type EventStreamHandle } from '../../../shell/api/sse';
 import { buildQueryString, nextPageParam, type Page } from '../../../shell/api/pagination';
 import { walletQueryKeys } from './wallet';
 import { cartQueryKeys, type Cart } from './cart';
@@ -366,13 +368,85 @@ export function trackingInterval(status: string | null | undefined, unchangedPol
 }
 
 /**
- * GET /orders/{id}/tracking, polled with backoff while the order is active and
- * stopped once terminal. (SSE `/orders/{id}/events` needs a streaming client the
- * RN shell does not have; the spec names polling as the fallback.)
+ * Merge one SSE `order.status` frame into the cached tracking timeline. Frames
+ * carry no `id`; a frame whose status equals the cached status (the "Connected"
+ * frame) changes nothing and returns `prev` unchanged.
+ */
+export function applyStreamEvent(prev: OrderTracking | undefined, ev: OrderTrackingEvent): OrderTracking | undefined {
+  if (!prev || prev.status === ev.status) return prev;
+  return { ...prev, status: ev.status, events: [...prev.events, ev] };
+}
+
+function parseStatusFrame(data: string): OrderTrackingEvent | null {
+  try {
+    const v = JSON.parse(data) as Partial<OrderTrackingEvent>;
+    if (typeof v.status !== 'string' || typeof v.at !== 'string') return null;
+    return { status: v.status, at: v.at, note: v.note ?? null } as OrderTrackingEvent;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Live pushes from SSE `GET /orders/{id}/events` (BR-36). Each status change is
+ * merged into the tracking cache at once and then re-read from
+ * `GET /orders/{id}/tracking` (for the history row ids, and for anything missed
+ * while reconnecting — frames have no ids, so `Last-Event-ID` is useless; the
+ * connect frame's status differing from the cache is what triggers that re-read).
+ * `onLive(true)` while the stream is open; `onLive(false)` while reconnecting or
+ * after it gave up — the caller polls in those windows.
+ */
+export function useOrderEventStream(orderId: string | null | undefined, enabled: boolean, onLive: (live: boolean) => void): void {
+  const qc = useQueryClient();
+  useEffect(() => {
+    if (!orderId || !enabled) {
+      onLive(false);
+      return undefined;
+    }
+    const key = orderQueryKeys.tracking(orderId);
+    let handle: EventStreamHandle | null = null;
+    handle = openEventStream({
+      path: `/orders/${encodeURIComponent(orderId)}/events`,
+      onOpen: () => onLive(true),
+      onDisconnect: () => onLive(false),
+      onFallback: () => onLive(false),
+      isDone: () => isTerminalStatus(qc.getQueryData<OrderTracking>(key)?.status),
+      onMessage: (msg) => {
+        if (msg.event !== 'order.status') return;
+        const ev = parseStatusFrame(msg.data);
+        if (!ev) return;
+        const prev = qc.getQueryData<OrderTracking>(key);
+        const next = applyStreamEvent(prev, ev);
+        if (next === prev) return;
+        qc.setQueryData(key, next);
+        void qc.invalidateQueries({ queryKey: key, exact: true });
+        void qc.invalidateQueries({ queryKey: orderQueryKeys.detail(orderId), exact: true });
+        if (isTerminalStatus(ev.status)) {
+          handle?.close();
+          onLive(false);
+        }
+      },
+    });
+    return () => {
+      handle?.close();
+      onLive(false);
+    };
+    // onLive is a state setter (stable).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, enabled, qc]);
+}
+
+/**
+ * GET /orders/{id}/tracking + live SSE pushes. While the stream is open the
+ * poll is off; when the stream is reconnecting, unsupported or has failed for
+ * good, it falls back to polling with backoff. Both stop once the order is
+ * terminal or the screen unmounts.
  */
 export const useOrderTracking = (orderId: string | null | undefined, options: { enabled?: boolean } = {}) => {
   const qc = useQueryClient();
-  return useQuery({
+  const [live, setLive] = useState(false);
+  const enabled = !!orderId && (options.enabled ?? true) && !!getAccessToken();
+  const query = useQuery({
     queryKey: orderQueryKeys.tracking(orderId ?? ''),
     queryFn: async ({ signal }) => {
       const prev = qc.getQueryData<OrderTracking & { _unchanged?: number }>(orderQueryKeys.tracking(orderId as string));
@@ -383,14 +457,17 @@ export const useOrderTracking = (orderId: string | null | undefined, options: { 
       }
       return Object.assign(next, { _unchanged: unchanged });
     },
-    enabled: !!orderId && (options.enabled ?? true) && !!getAccessToken(),
-    refetchInterval: (query) => {
-      const data = query.state.data as (OrderTracking & { _unchanged?: number }) | undefined;
+    enabled,
+    refetchInterval: (q) => {
+      if (live) return false;
+      const data = q.state.data as (OrderTracking & { _unchanged?: number }) | undefined;
       if (!data) return TRACKING_BACKOFF_MS[0];
       return trackingInterval(data.status, data._unchanged ?? 0);
     },
     refetchIntervalInBackground: false,
   });
+  useOrderEventStream(orderId, enabled && !!query.data && !isTerminalStatus(query.data.status), setLive);
+  return query;
 };
 
 /** Idempotency keys for reorder taps (one per order per attempt). */

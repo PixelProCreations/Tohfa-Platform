@@ -78,4 +78,5 @@ export type CustomerProfileRecord = Omit<CustomerProfile, 'profileComplete' | 'm
 export interface EmailOtpSentResponse {
   email: string;
   expiresAt: string;
+  codeLength: number;
 }

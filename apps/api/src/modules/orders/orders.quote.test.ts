@@ -41,6 +41,7 @@ interface World {
   handlingFee: string;
   gstPercent: string;
   slotFull: boolean;
+  slotNow?: Date;
 }
 
 function randomWorld(r: () => number): World {
@@ -129,7 +130,7 @@ function harness(world: World, walletBalance = '100000.00') {
   const slotsSvc: DeliverySlotsService = {
     async listSlots() { throw new Error('unused'); },
     async describeOne(_db, _wh, date, slot) {
-      return describeSlot(date, slot, world.slotFull ? { slot, capacity: 2, booked: 2, isActive: true } : null, 120, new Date());
+      return describeSlot(date, slot, world.slotFull ? { slot, capacity: 2, booked: 2, isActive: true } : null, 120, world.slotNow ?? new Date());
     },
   };
 
@@ -223,6 +224,24 @@ describe('BR-200: quote/checkout parity', () => {
     const c = harness(world);
     await expect(c.service.checkout(actor, aScope(), input, 'k')).rejects.toMatchObject({ code: 'SLOT_FULL', status: 409 });
     expect(c.writes).not.toContain('createOrder');
+  });
+
+  it('BR-210: a slot past its ordering cutoff is 409 SLOT_CUTOFF_PASSED at quote and checkout, nothing written', async () => {
+    // "now" is 90 minutes before the 08:00 IST start; the default cutoff is 120 minutes.
+    const world = { ...randomWorld(rng(11)), slotNow: new Date('2999-01-01T06:30:00+05:30') };
+    const input: CheckoutRequest = {
+      fulfillmentType: 'HOME_DELIVERY', warehouseId: newId(), deliveryAddressId: newId(),
+      deliveryDate: '2999-01-01', deliverySlot: 'MORNING_8_12', paymentMethod: 'WALLET',
+    };
+    const q = harness(world);
+    await expect(q.service.quote(actor, aScope(), input)).rejects.toMatchObject({ code: 'SLOT_CUTOFF_PASSED', status: 409 });
+    const c = harness(world);
+    await expect(c.service.checkout(actor, aScope(), input, 'k')).rejects.toMatchObject({ code: 'SLOT_CUTOFF_PASSED', status: 409 });
+    expect(c.writes).not.toContain('createOrder');
+    expect(c.writes).not.toContain('wallet.move');
+    // Just before the cutoff (05:59 IST, cutoff 06:00) the slot is still orderable.
+    const ok = harness({ ...world, slotNow: new Date('2999-01-01T05:59:00+05:30') });
+    await expect(ok.service.quote(actor, aScope(), input)).resolves.toMatchObject({ slot: { cutoffPassed: false } });
   });
 
   it('BR-187: a quote with no customer id is refused, never priced against another cart', async () => {

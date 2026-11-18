@@ -15,6 +15,7 @@ import {
   CUSTOMER_ACTION_HEIGHT,
   CUSTOMER_CIRCULAR_BUTTON_SIZE,
 } from '../theme';
+import { t } from '../../../i18n/customer';
 
 export type CustomerButtonVariant = 'primary' | 'secondary' | 'tertiary' | 'circular';
 
@@ -126,7 +127,7 @@ export const CustomerButton: React.FC<CustomerButtonProps> = ({
             style={styles.spinner}
           />
           {!isCircular && (
-            <Text style={getTextStyle()}>Please wait</Text>
+            <Text style={getTextStyle()}>{t('customer.common.pleaseWait')}</Text>
           )}
         </>
       ) : (

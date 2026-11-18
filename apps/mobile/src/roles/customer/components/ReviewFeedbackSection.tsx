@@ -11,6 +11,7 @@ import {
   StarSvg,
   CheckboxSvg,
 } from './ContactSupportIcons';
+import { t } from '../../../i18n/customer';
 import {
   REVIEW_ASPECTS,
 } from './contactSupportData';
@@ -44,7 +45,7 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
   return (
     <View style={styles.container}>
       {/* ── REVIEW YOUR ITEMS ────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Review your items</Text>
+      <Text style={styles.sectionTitle}>{t('customer.orders.review.reviewItems')}</Text>
       <View style={styles.reviewItemsContainer}>
         {reviewItems.map((item) => {
           const isActive = activeReviewProductId === item.id;
@@ -57,7 +58,7 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
               ]}
               activeOpacity={0.8}
               onPress={() => setActiveReviewProductId(item.id)}
-              accessibilityLabel={`Review ${item.name}`}
+              accessibilityLabel={t('customer.orders.review.reviewA11y', { name: item.name })}
             >
               <Image source={item.image} style={styles.reviewThumb} resizeMode="contain" />
               <View style={styles.reviewInfoCol}>
@@ -78,13 +79,17 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
                                   ...p,
                                   rating: star,
                                   statusLabel:
-                                    star >= 4 ? 'Excellent' : star >= 3 ? 'Good' : 'Average',
+                                    star >= 4
+                                      ? t('customer.orders.review.rating.excellent')
+                                      : star >= 3
+                                        ? t('customer.orders.review.rating.good')
+                                        : t('customer.orders.review.rating.average'),
                                 }
                               : p,
                           ),
                         );
                       }}
-                      accessibilityLabel={`Rate ${item.name} ${star} stars`}
+                      accessibilityLabel={t('customer.orders.review.rateItemA11y', { name: item.name, star })}
                     >
                       <StarSvg filled={star <= item.rating} size={15} />
                     </TouchableOpacity>
@@ -94,10 +99,10 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
 
               {item.rating > 0 ? (
                 <View style={styles.excellentBadge}>
-                  <Text style={styles.excellentBadgeText}>{item.statusLabel || 'Excellent'}</Text>
+                  <Text style={styles.excellentBadgeText}>{item.statusLabel || t('customer.orders.review.rating.excellent')}</Text>
                 </View>
               ) : (
-                <Text style={styles.tapToRateText}>Tap to rate</Text>
+                <Text style={styles.tapToRateText}>{t('customer.orders.review.tapToRate')}</Text>
               )}
             </TouchableOpacity>
           );
@@ -105,7 +110,7 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
       </View>
 
       {/* ── OVERALL RATING ───────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Overall rating</Text>
+      <Text style={styles.sectionTitle}>{t('customer.orders.review.overall')}</Text>
       <View style={styles.overallRatingRow}>
         <View style={styles.overallStars}>
           {[1, 2, 3, 4, 5].map((star) => (
@@ -113,7 +118,7 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
               key={star}
               hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               onPress={() => setOverallRating(star)}
-              accessibilityLabel={`Rate overall ${star} stars`}
+              accessibilityLabel={t('customer.orders.review.rateOverallA11y', { star })}
             >
               <StarSvg filled={star <= overallRating} size={30} />
             </TouchableOpacity>
@@ -137,11 +142,11 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
       </View>
 
       {/* ── YOUR REVIEW ──────────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>Your Review</Text>
+      <Text style={styles.sectionTitle}>{t('customer.orders.review.yourReviewHeading')}</Text>
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.textInput}
-          placeholder="Describe your issue or question..."
+          placeholder={t('customer.orders.return.describePlaceholder')}
           placeholderTextColor="#9CA3AF"
           multiline
           maxLength={500}
@@ -152,7 +157,7 @@ export const ReviewFeedbackSection: React.FC<ReviewFeedbackSectionProps> = ({
       </View>
 
       {/* ── WHAT DID YOU LIKE? ────────────────────────────────────────── */}
-      <Text style={styles.sectionTitle}>What did you like?</Text>
+      <Text style={styles.sectionTitle}>{t('customer.orders.review.whatLiked')}</Text>
       <View style={styles.aspectsGrid}>
         {REVIEW_ASPECTS.map((aspect) => {
           const isChecked = selectedAspects.includes(aspect.id);

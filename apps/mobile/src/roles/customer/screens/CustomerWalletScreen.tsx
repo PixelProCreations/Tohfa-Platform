@@ -16,9 +16,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { customerFonts } from '../theme';
+import { t, type TranslationKey } from '../../../i18n/customer';
 import {
   walletPouchCard,
   walletMoneyAddedSuccess,
+  profileEmailVerified,
 } from '../assets/images';
 import { CustomerSendMoneyScreen } from './CustomerSendMoneyScreen';
 import { fetchTopupReceipt, useWallet, useWalletTransactions, type TopupMode, type WalletTransaction } from '../api/wallet';
@@ -188,39 +190,52 @@ const MODE_BY_METHOD: Record<'upi' | 'card' | 'netbanking', TopupMode> = {
   netbanking: 'NETBANKING',
 };
 
-const TAB_OPTIONS: Array<{ value: TxTab; label: string }> = [
-  { value: 'all', label: 'All' },
-  { value: 'credits', label: 'Credits' },
-  { value: 'debits', label: 'Debits' },
-  { value: 'refunds', label: 'Refunds' },
+const TAB_OPTIONS: Array<{ value: TxTab; labelKey: TranslationKey }> = [
+  { value: 'all', labelKey: 'customer.wallet.filter.tab.all' },
+  { value: 'credits', labelKey: 'customer.wallet.filter.tab.credits' },
+  { value: 'debits', labelKey: 'customer.wallet.filter.tab.debits' },
+  { value: 'refunds', labelKey: 'customer.wallet.filter.tab.refunds' },
 ];
 
-const TYPE_OPTIONS: Array<{ value: WalletTransactionType | undefined; label: string }> = [
-  { value: undefined, label: 'Any type' },
-  { value: 'TOPUP_DIGITAL', label: 'Top-ups' },
-  { value: 'ORDER_DEBIT', label: 'Order payments' },
-  { value: 'ORDER_REFUND', label: 'Refunds' },
-  { value: 'TRANSFER_OUT', label: 'Sent' },
-  { value: 'TRANSFER_IN', label: 'Received' },
+const TYPE_OPTIONS: Array<{ value: WalletTransactionType | undefined; labelKey: TranslationKey }> = [
+  { value: undefined, labelKey: 'customer.wallet.filter.type.any' },
+  { value: 'TOPUP_DIGITAL', labelKey: 'customer.wallet.filter.type.topups' },
+  { value: 'ORDER_DEBIT', labelKey: 'customer.wallet.filter.type.orderPayments' },
+  { value: 'ORDER_REFUND', labelKey: 'customer.wallet.filter.type.refunds' },
+  { value: 'TRANSFER_OUT', labelKey: 'customer.wallet.filter.type.sent' },
+  { value: 'TRANSFER_IN', labelKey: 'customer.wallet.filter.type.received' },
 ];
 
-const RANGE_OPTIONS: Array<{ value: TxDateRange; label: string }> = [
-  { value: 'all', label: 'All time' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
-  { value: 'month', label: 'This month' },
+const RANGE_OPTIONS: Array<{ value: TxDateRange; labelKey: TranslationKey }> = [
+  { value: 'all', labelKey: 'customer.wallet.filter.range.all' },
+  { value: '7d', labelKey: 'customer.wallet.filter.range.7d' },
+  { value: '30d', labelKey: 'customer.wallet.filter.range.30d' },
+  { value: 'month', labelKey: 'customer.wallet.filter.range.month' },
 ];
+
+const TX_TITLE_KEYS: Record<WalletTransactionType, TranslationKey> = {
+  TOPUP_CASH: 'customer.wallet.tx.title.addedToWallet',
+  TOPUP_DIGITAL: 'customer.wallet.tx.title.addedToWallet',
+  ORDER_DEBIT: 'customer.wallet.tx.title.orderPayment',
+  ORDER_REFUND: 'customer.wallet.tx.title.orderRefund',
+  PAYOUT_DEBIT: 'customer.wallet.tx.title.payout',
+  SALE_CREDIT: 'customer.wallet.tx.title.saleCredit',
+  SUBSCRIPTION_DEBIT: 'customer.wallet.tx.title.subscriptionPayment',
+  ADJUSTMENT: 'customer.wallet.tx.title.adjustment',
+  TRANSFER_OUT: 'customer.wallet.tx.title.moneySent',
+  TRANSFER_IN: 'customer.wallet.tx.title.moneyReceived',
+};
 
 function amountErrorText(reason: 'empty' | 'invalid' | 'below_min' | 'above_max', limits?: { min: string; max: string } | null): string | null {
   switch (reason) {
     case 'empty':
       return null;
     case 'invalid':
-      return 'Enter a valid amount (up to 2 decimals).';
+      return t('customer.wallet.topup.error.invalid');
     case 'below_min':
-      return limits ? `Minimum top-up is ${formatInrCompact(limits.min)}.` : 'Amount is too low.';
+      return limits ? t('customer.wallet.topup.error.belowMin', { amount: formatInrCompact(limits.min) }) : t('customer.wallet.topup.error.tooLow');
     case 'above_max':
-      return limits ? `Maximum top-up is ${formatInrCompact(limits.max)}.` : 'Amount is too high.';
+      return limits ? t('customer.wallet.topup.error.aboveMax', { amount: formatInrCompact(limits.max) }) : t('customer.wallet.topup.error.tooHigh');
   }
 }
 
@@ -242,13 +257,15 @@ const TX_ICON_BG: Record<ReturnType<typeof presentTransaction>['visual'], string
 
 function TransactionRow({ tx }: { tx: WalletTransaction }) {
   const p = presentTransaction(tx);
+  const txTitleKey = TX_TITLE_KEYS[tx.txnType];
+  const txTitle = txTitleKey ? t(txTitleKey) : t('customer.wallet.tx.title.other');
   return (
-    <View style={styles.txRow} accessibilityLabel={`${p.title} ${tx.txnCode ?? txnCodeFromId(tx.id)}`}>
+    <View style={styles.txRow} accessibilityLabel={`${txTitle} ${tx.txnCode ?? txnCodeFromId(tx.id)}`}>
       <View style={[styles.txIconBox, { backgroundColor: TX_ICON_BG[p.visual] }]}>
         <TxIcon visual={p.visual} />
       </View>
       <View style={styles.txDetailsCol}>
-        <Text style={styles.txTitle}>{p.title}</Text>
+        <Text style={styles.txTitle}>{txTitle}</Text>
         {tx.orderNumber ? <Text style={styles.txOrderRef}>{tx.orderNumber}</Text> : null}
         <Text style={styles.txDate}>{formatIstDateTime(tx.performedAt)}</Text>
         <Text style={styles.txOrderRef}>{tx.txnCode ?? txnCodeFromId(tx.id)}</Text>
@@ -256,7 +273,7 @@ function TransactionRow({ tx }: { tx: WalletTransaction }) {
       <View style={styles.txRightCol}>
         <Text style={[styles.txAmount, { color: p.credit ? '#1A1A1A' : '#DC2626' }]}>{formatSignedAmount(tx.amount)}</Text>
         <View style={styles.successPill}>
-          <Text style={styles.successPillText}>Success</Text>
+          <Text style={styles.successPillText}>{t('customer.wallet.tx.success')}</Text>
         </View>
       </View>
     </View>
@@ -323,11 +340,11 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
     try {
       const result = await topup.mutateAsync({ amount: parsedAmount, mode: MODE_BY_METHOD[selectedMethod] });
       if (result.status === 'cancelled') {
-        setTopupError('Payment cancelled. No money was added.');
+        setTopupError(t('customer.wallet.topup.cancelled'));
         return;
       }
       if (result.status === 'unavailable') {
-        setTopupError('Online payments are not available right now. Please try again later.');
+        setTopupError(t('customer.wallet.topup.unavailable'));
         return;
       }
       setOutcome(result);
@@ -405,11 +422,11 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               }
             }}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.wallet.back')}
           >
             <BackArrowSvg color="#1A1A1A" size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{viewMode === 'add_money' ? 'Add money' : 'My wallet'}</Text>
+          <Text style={styles.headerTitle}>{viewMode === 'add_money' ? t('customer.wallet.header.addMoney') : t('customer.wallet.header.myWallet')}</Text>
         </View>
       </View>
 
@@ -428,9 +445,9 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
           />
           <View style={styles.walletBalanceOverlay}>
             <TinyTohfaLeafSvg />
-            <Text style={styles.walletBalanceLabel}>Wallet Balance</Text>
+            <Text style={styles.walletBalanceLabel}>{t('customer.wallet.balanceLabel')}</Text>
             {walletQuery.isLoading ? (
-              <ActivityIndicator accessibilityLabel="Loading balance" />
+              <ActivityIndicator accessibilityLabel={t('customer.wallet.loadingBalance')} />
             ) : (
               <Text style={styles.walletBalanceValue}>{formatInr(wallet?.balance)}</Text>
             )}
@@ -440,15 +457,15 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         {walletQuery.isError && wallet === undefined ? (
           <View style={extra.banner} accessibilityRole="alert">
             <Text style={extra.bannerText}>{mapProblem(walletQuery.error).message}</Text>
-            <TouchableOpacity onPress={() => void walletQuery.refetch()} accessibilityLabel="Retry wallet">
-              <Text style={extra.bannerAction}>Retry</Text>
+            <TouchableOpacity onPress={() => void walletQuery.refetch()} accessibilityLabel={t('customer.wallet.retryWallet')}>
+              <Text style={extra.bannerAction}>{t('customer.wallet.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
         {frozen ? (
           <View style={extra.banner} accessibilityRole="alert">
-            <Text style={extra.bannerText}>Your wallet is on hold. Adding or sending money is unavailable. Please contact support.</Text>
+            <Text style={extra.bannerText}>{t('customer.wallet.frozen')}</Text>
           </View>
         ) : null}
 
@@ -467,10 +484,10 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                   }
                 }}
                 style={[styles.sendMoneyBtn, frozen && extra.disabled]}
-                accessibilityLabel="Send Money"
+                accessibilityLabel={t('customer.wallet.sendMoney')}
               >
                 <SendPaperPlaneSvg color="#2E7D32" size={18} />
-                <Text style={styles.sendMoneyBtnText}>Send Money</Text>
+                <Text style={styles.sendMoneyBtnText}>{t('customer.wallet.sendMoney')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -478,46 +495,46 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                 disabled={frozen}
                 onPress={() => setViewMode('add_money')}
                 style={[styles.addMoneyMainBtn, frozen && extra.disabled]}
-                accessibilityLabel="Add Money"
+                accessibilityLabel={t('customer.wallet.addMoney')}
               >
                 <PlusSvg color="#FFFFFF" size={16} />
-                <Text style={styles.addMoneyMainBtnText}>Add Money</Text>
+                <Text style={styles.addMoneyMainBtnText}>{t('customer.wallet.addMoney')}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.sectionHeaderRow}>
-              <Text style={styles.sectionTitle}>Recent Transactions</Text>
+              <Text style={styles.sectionTitle}>{t('customer.wallet.recentTransactions')}</Text>
               <TouchableOpacity
                 style={styles.filterPill}
                 activeOpacity={0.7}
-                accessibilityLabel="Filter"
+                accessibilityLabel={t('customer.wallet.filter.button')}
                 onPress={() => setFilterOpen(true)}
               >
                 <FilterSvg size={13} color="#2E7D32" />
-                <Text style={styles.filterPillText}>{filterCount > 0 ? `Filter (${filterCount})` : 'Filter'}</Text>
+                <Text style={styles.filterPillText}>{filterCount > 0 ? t('customer.wallet.filter.buttonCount', { count: filterCount }) : t('customer.wallet.filter.button')}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.transactionsList}>
               {txQuery.isLoading ? (
                 <View style={extra.centerBox}>
-                  <ActivityIndicator accessibilityLabel="Loading transactions" />
+                  <ActivityIndicator accessibilityLabel={t('customer.wallet.loadingTransactions')} />
                 </View>
               ) : txQuery.isError && transactions.length === 0 ? (
                 <View style={extra.centerBox} accessibilityRole="alert">
                   <Text style={extra.stateText}>{mapProblem(txQuery.error).message}</Text>
-                  <TouchableOpacity onPress={() => void txQuery.refetch()} accessibilityLabel="Retry transactions">
-                    <Text style={extra.bannerAction}>Retry</Text>
+                  <TouchableOpacity onPress={() => void txQuery.refetch()} accessibilityLabel={t('customer.wallet.retryTransactions')}>
+                    <Text style={extra.bannerAction}>{t('customer.wallet.retry')}</Text>
                   </TouchableOpacity>
                 </View>
               ) : transactions.length === 0 ? (
                 <View style={extra.centerBox}>
                   <Text style={extra.stateText}>
-                    {filterCount > 0 ? 'No transactions match these filters.' : 'No transactions yet'}
+                    {filterCount > 0 ? t('customer.wallet.tx.emptyFiltered') : t('customer.wallet.tx.empty')}
                   </Text>
                   {filterCount > 0 ? (
-                    <TouchableOpacity onPress={() => setFilters(DEFAULT_TX_FILTERS)} accessibilityLabel="Clear filters">
-                      <Text style={extra.bannerAction}>Clear filters</Text>
+                    <TouchableOpacity onPress={() => setFilters(DEFAULT_TX_FILTERS)} accessibilityLabel={t('customer.wallet.filter.clear')}>
+                      <Text style={extra.bannerAction}>{t('customer.wallet.filter.clear')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -534,9 +551,9 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                       style={extra.loadMore}
                       disabled={txQuery.isFetchingNextPage}
                       onPress={() => void txQuery.fetchNextPage()}
-                      accessibilityLabel="Load more transactions"
+                      accessibilityLabel={t('customer.wallet.tx.loadMoreLabel')}
                     >
-                      {txQuery.isFetchingNextPage ? <ActivityIndicator /> : <Text style={extra.bannerAction}>Load more</Text>}
+                      {txQuery.isFetchingNextPage ? <ActivityIndicator /> : <Text style={extra.bannerAction}>{t('customer.wallet.tx.loadMore')}</Text>}
                     </TouchableOpacity>
                   ) : null}
                 </>
@@ -546,7 +563,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         ) : (
           /* ── VIEW 2: ADD MONEY VIEW ─────────────────────────────────────────── */
           <View style={styles.addMoneyForm}>
-            <Text style={styles.inputLabel}>Enter Amount</Text>
+            <Text style={styles.inputLabel}>{t('customer.wallet.topup.enterAmount')}</Text>
             <View style={styles.amountInputRow}>
               <Text style={styles.currencySymbol}>₹</Text>
               <TextInput
@@ -560,17 +577,17 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                 }}
                 autoFocus={true}
                 editable={!processing}
-                accessibilityLabel="Amount"
+                accessibilityLabel={t('customer.wallet.topup.amountLabel')}
               />
             </View>
             {amountError !== null ? <Text style={extra.fieldError}>{amountError}</Text> : null}
             {limits ? (
               <Text style={extra.hint}>
-                Limits: {formatInrCompact(limits.min)} - {formatInrCompact(limits.max)} per top-up
+                {t('customer.wallet.topup.limits', { min: formatInrCompact(limits.min), max: formatInrCompact(limits.max) })}
               </Text>
             ) : null}
 
-            <Text style={[styles.inputLabel, { marginTop: 20 }]}>Quick Select Amount</Text>
+            <Text style={[styles.inputLabel, { marginTop: 20 }]}>{t('customer.wallet.topup.quickSelect')}</Text>
             <View style={styles.quickSelectRow}>
               {chips.map((val) => {
                 const isSelected = parsedAmount === `${val}.00`;
@@ -592,20 +609,20 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               })}
             </View>
 
-            <Text style={[styles.inputLabel, { marginTop: 24 }]}>Choose Payment Method</Text>
+            <Text style={[styles.inputLabel, { marginTop: 24 }]}>{t('customer.wallet.topup.chooseMethod')}</Text>
 
             <TouchableOpacity
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('upi')}
               style={styles.paymentMethodRow}
-              accessibilityLabel="UPI"
+              accessibilityLabel={t('customer.wallet.topup.method.upi')}
             >
               <View style={styles.methodIconBox}>
                 <UpiSvg size={22} />
               </View>
               <View style={styles.methodTextCol}>
-                <Text style={styles.methodTitle}>UPI</Text>
-                <Text style={styles.methodSubtitle}>Pay using Google Pay, PhonePe, Paytm, etc.</Text>
+                <Text style={styles.methodTitle}>{t('customer.wallet.topup.method.upi')}</Text>
+                <Text style={styles.methodSubtitle}>{t('customer.wallet.topup.method.upiHint')}</Text>
               </View>
               <View style={[styles.radioCircle, selectedMethod === 'upi' && styles.radioCircleActive]}>
                 {selectedMethod === 'upi' && <View style={styles.radioDot} />}
@@ -616,14 +633,14 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('card')}
               style={styles.paymentMethodRow}
-              accessibilityLabel="Debit / Credit Card"
+              accessibilityLabel={t('customer.wallet.topup.method.card')}
             >
               <View style={styles.methodIconBox}>
                 <CardSvg size={22} />
               </View>
               <View style={styles.methodTextCol}>
-                <Text style={styles.methodTitle}>Debit / Credit Card</Text>
-                <Text style={styles.methodSubtitle}>Visa, Mastercard, RuPay, etc.</Text>
+                <Text style={styles.methodTitle}>{t('customer.wallet.topup.method.card')}</Text>
+                <Text style={styles.methodSubtitle}>{t('customer.wallet.topup.method.cardHint')}</Text>
               </View>
               <View style={[styles.radioCircle, selectedMethod === 'card' && styles.radioCircleActive]}>
                 {selectedMethod === 'card' && <View style={styles.radioDot} />}
@@ -634,14 +651,14 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               activeOpacity={0.7}
               onPress={() => setSelectedMethod('netbanking')}
               style={styles.paymentMethodRow}
-              accessibilityLabel="Net Banking"
+              accessibilityLabel={t('customer.wallet.topup.method.netbanking')}
             >
               <View style={styles.methodIconBox}>
                 <BankSvg size={22} />
               </View>
               <View style={styles.methodTextCol}>
-                <Text style={styles.methodTitle}>Net Banking</Text>
-                <Text style={styles.methodSubtitle}>Pay through your bank account</Text>
+                <Text style={styles.methodTitle}>{t('customer.wallet.topup.method.netbanking')}</Text>
+                <Text style={styles.methodSubtitle}>{t('customer.wallet.topup.method.netbankingHint')}</Text>
               </View>
               <View style={[styles.radioCircle, selectedMethod === 'netbanking' && styles.radioCircleActive]}>
                 {selectedMethod === 'netbanking' && <View style={styles.radioDot} />}
@@ -659,7 +676,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               onPress={() => void handlePay()}
               disabled={!canPay}
               style={[styles.addMoneySubmitBtn, canPay ? styles.addMoneySubmitBtnActive : styles.addMoneySubmitBtnDisabled]}
-              accessibilityLabel="Add to Wallet"
+              accessibilityLabel={t('customer.wallet.topup.submitLabel')}
             >
               {processing ? (
                 <ActivityIndicator color="#FFFFFF" />
@@ -671,8 +688,8 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
                   ]}
                 >
                   {waitSeconds > 0
-                    ? `Try again in ${waitSeconds}s`
-                    : `+ Add ${parsedAmount === null ? '' : formatInrCompact(parsedAmount)} to Wallet`}
+                    ? t('customer.wallet.topup.tryAgainIn', { seconds: waitSeconds })
+                    : t('customer.wallet.topup.submit', { amount: parsedAmount === null ? '' : formatInrCompact(parsedAmount) })}
                 </Text>
               )}
             </TouchableOpacity>
@@ -687,50 +704,50 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
         <View style={extra.sheetBackdrop}>
           <View style={extra.sheet}>
             <View style={extra.sheetHeader}>
-              <Text style={styles.sectionTitle}>Filter transactions</Text>
-              <TouchableOpacity onPress={() => setFilterOpen(false)} accessibilityLabel="Close filters">
+              <Text style={styles.sectionTitle}>{t('customer.wallet.filter.title')}</Text>
+              <TouchableOpacity onPress={() => setFilterOpen(false)} accessibilityLabel={t('customer.wallet.filter.close')}>
                 <CloseSvg size={18} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.inputLabel}>Direction</Text>
+            <Text style={styles.inputLabel}>{t('customer.wallet.filter.direction')}</Text>
             <View style={extra.chipRow}>
               {TAB_OPTIONS.map((o) => (
                 <TouchableOpacity
                   key={o.value}
                   onPress={() => setFilters((f) => ({ ...f, tab: o.value }))}
                   style={[extra.chip, filters.tab === o.value && extra.chipActive]}
-                  accessibilityLabel={`Direction ${o.label}`}
+                  accessibilityLabel={t('customer.wallet.filter.a11yDirection', { label: t(o.labelKey) })}
                 >
-                  <Text style={[extra.chipText, filters.tab === o.value && extra.chipTextActive]}>{o.label}</Text>
+                  <Text style={[extra.chipText, filters.tab === o.value && extra.chipTextActive]}>{t(o.labelKey)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Type</Text>
+            <Text style={[styles.inputLabel, { marginTop: 16 }]}>{t('customer.wallet.filter.type')}</Text>
             <View style={extra.chipRow}>
               {TYPE_OPTIONS.map((o) => (
                 <TouchableOpacity
-                  key={o.label}
+                  key={o.labelKey}
                   onPress={() => setFilters((f) => ({ ...f, type: o.value }))}
                   style={[extra.chip, filters.type === o.value && extra.chipActive]}
-                  accessibilityLabel={`Type ${o.label}`}
+                  accessibilityLabel={t('customer.wallet.filter.a11yType', { label: t(o.labelKey) })}
                 >
-                  <Text style={[extra.chipText, filters.type === o.value && extra.chipTextActive]}>{o.label}</Text>
+                  <Text style={[extra.chipText, filters.type === o.value && extra.chipTextActive]}>{t(o.labelKey)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={[styles.inputLabel, { marginTop: 16 }]}>Date</Text>
+            <Text style={[styles.inputLabel, { marginTop: 16 }]}>{t('customer.wallet.filter.date')}</Text>
             <View style={extra.chipRow}>
               {RANGE_OPTIONS.map((o) => (
                 <TouchableOpacity
                   key={o.value}
                   onPress={() => setFilters((f) => ({ ...f, range: o.value }))}
                   style={[extra.chip, filters.range === o.value && extra.chipActive]}
-                  accessibilityLabel={`Date ${o.label}`}
+                  accessibilityLabel={t('customer.wallet.filter.a11yDate', { label: t(o.labelKey) })}
                 >
-                  <Text style={[extra.chipText, filters.range === o.value && extra.chipTextActive]}>{o.label}</Text>
+                  <Text style={[extra.chipText, filters.range === o.value && extra.chipTextActive]}>{t(o.labelKey)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -739,16 +756,16 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               <TouchableOpacity
                 onPress={() => setFilters(DEFAULT_TX_FILTERS)}
                 style={[styles.sendMoneyBtn, { flex: 1 }]}
-                accessibilityLabel="Reset filters"
+                accessibilityLabel={t('customer.wallet.filter.resetLabel')}
               >
-                <Text style={styles.sendMoneyBtnText}>Reset</Text>
+                <Text style={styles.sendMoneyBtnText}>{t('customer.wallet.filter.reset')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => setFilterOpen(false)}
                 style={[styles.addMoneyMainBtn, { flex: 1 }]}
-                accessibilityLabel="Apply filters"
+                accessibilityLabel={t('customer.wallet.filter.applyLabel')}
               >
-                <Text style={styles.addMoneyMainBtnText}>Apply</Text>
+                <Text style={styles.addMoneyMainBtnText}>{t('customer.wallet.filter.apply')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -763,66 +780,66 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
               activeOpacity={0.7}
               onPress={handleModalClose}
               style={styles.modalCloseBtn}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.wallet.close')}
             >
               <CloseSvg size={18} color="#6B7280" />
             </TouchableOpacity>
 
             {outcome?.status === 'success' ? (
               <>
-                <Image source={walletMoneyAddedSuccess} style={styles.modalSuccessIllustration} resizeMode="contain" />
-                <Text style={styles.modalTitle}>Money added successfully!</Text>
-                <Text style={styles.modalSubtitle}>{formatInr(outcome.receipt.amount)} has been added to your TOHFA Wallet.</Text>
+                <Image source={profileEmailVerified} style={styles.modalSuccessIllustration} resizeMode="contain" />
+                <Text style={styles.modalTitle}>{t('customer.wallet.result.successTitle')}</Text>
+                <Text style={styles.modalSubtitle}>{t('customer.wallet.result.successBody', { amount: formatInr(outcome.receipt.amount) })}</Text>
                 <View style={styles.summaryMetricsCard}>
                   <View style={styles.summaryMetricItem}>
-                    <Text style={styles.metricLabel}>Added Amount</Text>
+                    <Text style={styles.metricLabel}>{t('customer.wallet.result.addedAmount')}</Text>
                     <Text style={styles.metricValue}>{formatInr(outcome.receipt.amount)}</Text>
                   </View>
                   <View style={styles.summaryMetricItem}>
-                    <Text style={styles.metricLabel}>Wallet Balance</Text>
+                    <Text style={styles.metricLabel}>{t('customer.wallet.balanceLabel')}</Text>
                     <Text style={styles.metricValue}>{formatInr(outcome.receipt.balanceAfter)}</Text>
                   </View>
                   <View style={styles.summaryMetricItem}>
-                    <Text style={styles.metricLabel}>Transaction ID</Text>
+                    <Text style={styles.metricLabel}>{t('customer.wallet.result.transactionId')}</Text>
                     <Text style={styles.metricValue}>
                       {outcome.receipt.transactionId ? txnCodeFromId(outcome.receipt.transactionId) : '—'}
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity activeOpacity={0.8} onPress={handleModalClose} style={styles.viewWalletBtn} accessibilityLabel="View Wallet">
-                  <Text style={styles.viewWalletBtnText}>{onTopupComplete ? 'Continue' : 'View Wallet'}</Text>
+                <TouchableOpacity activeOpacity={0.8} onPress={handleModalClose} style={styles.viewWalletBtn} accessibilityLabel={t('customer.wallet.result.viewWallet')}>
+                  <Text style={styles.viewWalletBtnText}>{onTopupComplete ? t('customer.wallet.result.continue') : t('customer.wallet.result.viewWallet')}</Text>
                 </TouchableOpacity>
               </>
             ) : null}
 
             {outcome?.status === 'pending' ? (
               <>
-                <Text style={styles.modalTitle}>Confirming your payment</Text>
+                <Text style={styles.modalTitle}>{t('customer.wallet.result.pendingTitle')}</Text>
                 <Text style={styles.modalSubtitle}>
-                  We have not received the bank's confirmation for {formatInr(outcome.intent.amount)} yet. If it was paid, your wallet will update shortly. You will not be charged twice.
+                  {t('customer.wallet.result.pendingBody', { amount: formatInr(outcome.intent.amount) })}
                 </Text>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   disabled={checking}
                   onPress={() => void handleCheckAgain()}
                   style={styles.viewWalletBtn}
-                  accessibilityLabel="Check status"
+                  accessibilityLabel={t('customer.wallet.result.checkStatus')}
                 >
-                  {checking ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.viewWalletBtnText}>Check status</Text>}
+                  {checking ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.viewWalletBtnText}>{t('customer.wallet.result.checkStatus')}</Text>}
                 </TouchableOpacity>
               </>
             ) : null}
 
             {outcome?.status === 'failed' ? (
               <>
-                <Text style={styles.modalTitle}>Payment failed</Text>
+                <Text style={styles.modalTitle}>{t('customer.wallet.result.failedTitle')}</Text>
                 <Text style={styles.modalSubtitle}>
                   {outcome.description && outcome.description.length > 0
                     ? outcome.description
-                    : 'The payment did not go through. No money was added to your wallet.'}
+                    : t('customer.wallet.result.failedBody')}
                 </Text>
-                <TouchableOpacity activeOpacity={0.8} onPress={handleModalClose} style={styles.viewWalletBtn} accessibilityLabel="Try again">
-                  <Text style={styles.viewWalletBtnText}>Try again</Text>
+                <TouchableOpacity activeOpacity={0.8} onPress={handleModalClose} style={styles.viewWalletBtn} accessibilityLabel={t('customer.wallet.result.tryAgain')}>
+                  <Text style={styles.viewWalletBtnText}>{t('customer.wallet.result.tryAgain')}</Text>
                 </TouchableOpacity>
               </>
             ) : null}

@@ -32,6 +32,7 @@ import { useCreateOrderReview, useOrderReview, type OrderReview, type ReviewTag 
 import { mapProblem } from '../api/problem';
 import { formatKg } from '../utils/money';
 import { formatIstDate } from '../utils/orderFormat';
+import { t, type TranslationKey } from '../../../i18n/customer';
 import { ReviewSubmittedModal } from '../components/ReviewSubmittedModal';
 
 export interface ReviewFeedbackScreenProps {
@@ -42,17 +43,18 @@ export interface ReviewFeedbackScreenProps {
 }
 
 /** The existing chips mapped onto the API tag vocabulary (CreateOrderReviewRequest.tags). */
-export const REVIEW_TAG_OPTIONS: { tag: ReviewTag; label: string }[] = [
-  { tag: 'QUALITY', label: 'Product quality' },
-  { tag: 'FRESHNESS', label: 'Freshness' },
-  { tag: 'PACKAGING', label: 'Packaging' },
-  { tag: 'DELIVERY', label: 'Delivery / Pickup' },
-  { tag: 'VALUE_FOR_MONEY', label: 'Value for money' },
-  { tag: 'TASTE', label: 'Taste' },
-  { tag: 'SERVICE', label: 'Service' },
+export const REVIEW_TAG_OPTIONS: { tag: ReviewTag; labelKey: TranslationKey }[] = [
+  { tag: 'QUALITY', labelKey: 'customer.orders.review.tag.QUALITY' },
+  { tag: 'FRESHNESS', labelKey: 'customer.orders.review.tag.FRESHNESS' },
+  { tag: 'PACKAGING', labelKey: 'customer.orders.review.tag.PACKAGING' },
+  { tag: 'DELIVERY', labelKey: 'customer.orders.review.tag.DELIVERY' },
+  { tag: 'VALUE_FOR_MONEY', labelKey: 'customer.orders.review.tag.VALUE_FOR_MONEY' },
+  { tag: 'TASTE', labelKey: 'customer.orders.review.tag.TASTE' },
+  { tag: 'SERVICE', labelKey: 'customer.orders.review.tag.SERVICE' },
 ];
 
-const ratingLabel = (r: number) => (r >= 4 ? 'Excellent' : r >= 3 ? 'Good' : 'Average');
+const ratingLabel = (r: number) =>
+  r >= 4 ? t('customer.orders.review.rating.excellent') : r >= 3 ? t('customer.orders.review.rating.good') : t('customer.orders.review.rating.average');
 
 /**
  * Review & feedback (Figma 46:42514 / 46:42631). One review per ORDER
@@ -108,7 +110,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
   const handleSubmit = async () => {
     if (!order || readOnly) return;
     if (overallRating < 1) {
-      setError('Please give an overall rating.');
+      setError(t('customer.orders.review.overallRequired'));
       return;
     }
     setError(null);
@@ -129,12 +131,12 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
       if (p.silent) return;
       const code = err instanceof ApiError ? (err.code as string) : '';
       if (code === 'CONFLICT') {
-        setError('You have already reviewed this order.');
+        setError(t('customer.orders.review.alreadyReviewed'));
         void existingQuery.refetch();
         return;
       }
       if (code === 'INVALID_STATE_TRANSITION') {
-        setError('You can review an order after it is delivered or picked up.');
+        setError(t('customer.orders.review.notEligible'));
         return;
       }
       const fe = p.fieldErrors ?? {};
@@ -152,38 +154,38 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
 
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
         <View style={styles.headerLeftGroup}>
-          <TouchableOpacity style={styles.circleIconButton} onPress={onBack} activeOpacity={0.7} accessibilityLabel="Go back">
+          <TouchableOpacity style={styles.circleIconButton} onPress={onBack} activeOpacity={0.7} accessibilityLabel={t('customer.orders.review.back')}>
             <BackArrowSvg color={customerColors.heading} size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Review & Feedback</Text>
+          <Text style={styles.headerTitle}>{t('customer.orders.review.title')}</Text>
         </View>
       </View>
 
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
         <View style={styles.bannerCard}>
           <View style={styles.bannerTextColumn}>
-            <Text style={styles.bannerTitle}>{readOnly ? 'Your review' : 'Share your experience'}</Text>
-            <Text style={styles.bannerSubtitle}>Tell others about the product quality, freshness and your overall experience.</Text>
+            <Text style={styles.bannerTitle}>{readOnly ? t('customer.orders.review.yourReview') : t('customer.orders.review.shareExperience')}</Text>
+            <Text style={styles.bannerSubtitle}>{t('customer.orders.review.bannerSubtitle')}</Text>
           </View>
           <View style={styles.bannerIllustration}>
             <ProduceCrateSvg size={68} />
           </View>
         </View>
 
-        <TouchableOpacity style={styles.orderCard} activeOpacity={0.7} onPress={() => setShowOrderPicker(true)} accessibilityLabel="Select order" testID="review-order-card">
+        <TouchableOpacity style={styles.orderCard} activeOpacity={0.7} onPress={() => setShowOrderPicker(true)} accessibilityLabel={t('customer.orders.review.selectOrderA11y')} testID="review-order-card">
           <View style={styles.orderIconBadge}>
             <ShoppingBagSvg color="#2E7D32" size={20} />
           </View>
           <View style={styles.orderTextColumn}>
-            <Text style={styles.orderNumber}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? 'Loading…' : 'No orders to review yet')}</Text>
-            {order && <Text style={styles.orderSubtitle}>{`${formatIstDate(order.placedAt)} · ${order.items.length} items`}</Text>}
+            <Text style={styles.orderNumber}>{order?.orderNumber ?? (ordersQuery.isLoading || orderQuery.isLoading ? t('customer.orders.review.loading') : t('customer.orders.review.noOrders'))}</Text>
+            {order && <Text style={styles.orderSubtitle}>{t('customer.orders.review.itemsLine', { date: formatIstDate(order.placedAt), count: order.items.length })}</Text>}
           </View>
           <ChevronDownSvg color="#4B5563" size={20} />
         </TouchableOpacity>
 
         {(orderQuery.isLoading || existingQuery.isLoading) && <ActivityIndicator testID="review-loading" />}
 
-        <Text style={styles.sectionTitle}>Review your items</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.review.reviewItems')}</Text>
         <View style={styles.reviewItemsContainer}>
           {(order?.items ?? []).map((item) => {
             const isActive = activeItemId === item.id;
@@ -195,7 +197,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
                 style={[styles.reviewItemCard, isActive && styles.reviewItemCardActive]}
                 activeOpacity={0.8}
                 onPress={() => setActiveItemId(item.id)}
-                accessibilityLabel={`Review ${item.name}`}
+                accessibilityLabel={t('customer.orders.review.reviewA11y', { name: item.name })}
               >
                 {thumb ? <Image source={{ uri: thumb }} style={styles.reviewThumb} resizeMode="contain" /> : <View style={styles.reviewThumb} />}
                 <View style={styles.reviewInfoCol}>
@@ -212,7 +214,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
                           setActiveItemId(item.id);
                           setItemRatings((prev) => ({ ...prev, [item.id]: star }));
                         }}
-                        accessibilityLabel={`Rate ${item.name} ${star} stars`}
+                        accessibilityLabel={t('customer.orders.review.rateItemA11y', { name: item.name, star })}
                         testID={`item-star-${item.id}-${star}`}
                       >
                         <StarSvg filled={star <= rating} size={15} />
@@ -225,14 +227,14 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
                     <Text style={styles.excellentBadgeText}>{ratingLabel(rating)}</Text>
                   </View>
                 ) : (
-                  <Text style={styles.tapToRateText}>Tap to rate</Text>
+                  <Text style={styles.tapToRateText}>{t('customer.orders.review.tapToRate')}</Text>
                 )}
               </TouchableOpacity>
             );
           })}
         </View>
 
-        <Text style={styles.sectionTitle}>Overall rating</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.review.overall')}</Text>
         <View style={styles.overallRatingRow}>
           <View style={styles.overallStars}>
             {[1, 2, 3, 4, 5].map((star) => (
@@ -241,7 +243,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
                 disabled={readOnly}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                 onPress={() => setOverallRating(star)}
-                accessibilityLabel={`Rate overall ${star} stars`}
+                accessibilityLabel={t('customer.orders.review.rateOverallA11y', { star })}
                 testID={`overall-star-${star}`}
               >
                 <StarSvg filled={star <= shownOverall} size={30} />
@@ -253,11 +255,11 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Your Review</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.review.yourReviewHeading')}</Text>
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.textInput}
-            placeholder="Tell us about the freshness and quality..."
+            placeholder={t('customer.orders.review.placeholder')}
             placeholderTextColor="#9CA3AF"
             multiline
             maxLength={1000}
@@ -274,10 +276,11 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
           </Text>
         )}
 
-        <Text style={styles.sectionTitle}>What did you like?</Text>
+        <Text style={styles.sectionTitle}>{t('customer.orders.review.whatLiked')}</Text>
         <View style={styles.aspectsGrid}>
-          {REVIEW_TAG_OPTIONS.map(({ tag, label }) => {
+          {REVIEW_TAG_OPTIONS.map(({ tag, labelKey }) => {
             const isChecked = tagChecked(tag);
+            const label = t(labelKey);
             return (
               <TouchableOpacity
                 key={tag}
@@ -306,10 +309,10 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
             activeOpacity={0.85}
             disabled={!order || createReview.isPending}
             onPress={() => void handleSubmit()}
-            accessibilityLabel="Submit Review"
+            accessibilityLabel={t('customer.orders.review.submit')}
             testID="review-submit"
           >
-            {createReview.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>Submit Review</Text>}
+            {createReview.isPending ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitButtonText}>{t('customer.orders.review.submit')}</Text>}
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -317,8 +320,8 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
       <Modal visible={showOrderPicker} transparent animationType="fade">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowOrderPicker(false)}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select an Order</Text>
-            {eligibleOrders.length === 0 && <Text style={styles.orderSubtitle}>Orders can be reviewed after delivery or pickup.</Text>}
+            <Text style={styles.modalTitle}>{t('customer.orders.review.selectOrderTitle')}</Text>
+            {eligibleOrders.length === 0 && <Text style={styles.orderSubtitle}>{t('customer.orders.review.pickerEmpty')}</Text>}
             {eligibleOrders.map((ord) => (
               <TouchableOpacity
                 key={ord.id}
@@ -329,7 +332,7 @@ export const ReviewFeedbackScreen: React.FC<ReviewFeedbackScreenProps> = ({ orde
                 }}
               >
                 <Text style={styles.orderNumber}>{ord.orderNumber}</Text>
-                <Text style={styles.orderSubtitle}>{`${formatIstDate(ord.placedAt)} · ${ord.itemCount ?? 0} items`}</Text>
+                <Text style={styles.orderSubtitle}>{t('customer.orders.review.itemsLine', { date: formatIstDate(ord.placedAt), count: ord.itemCount ?? 0 })}</Text>
               </TouchableOpacity>
             ))}
           </View>

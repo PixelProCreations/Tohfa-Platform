@@ -106,6 +106,41 @@ describe('Home', () => {
     expect(text(root)).not.toContain('in your cart');
   });
 
+  it('renders dynamic user greeting from customer profile', async () => {
+    mockGet({
+      '/catalog/home': { categories: [], featured: [], sections: [], nearestWarehouseId: null },
+      '/cart': { ...CART, items: [], subtotal: '0.00' },
+      '/wishlist': { items: [] },
+      '/customers/me/addresses': { items: [] },
+      '/wallets/me': { balance: '0.00' },
+      '/customers/me': {
+        id: 'cust-1',
+        customerCode: 'CUST-001',
+        fullName: 'Rahul Sharma',
+        mobile: '+919876543210',
+        email: 'rahul@example.com',
+        emailVerified: true,
+        age: 28,
+        gender: 'MALE',
+        harvestPreferences: ['eat:veg', 'care:organic'],
+        photoKey: null,
+        customerType: 'RETAIL',
+        businessName: null,
+        gstin: null,
+        gstVerified: false,
+        defaultAddressId: null,
+        preferredLocale: 'en',
+        profileComplete: true,
+        missingFields: [],
+        createdAt: '2026-01-01T00:00:00Z',
+      },
+    });
+    const root = await render(<HomeScreen />);
+    const t = text(root);
+    expect(t).toContain('Hi, Rahul');
+    expect(t).not.toContain('Hi, Meena');
+  });
+
   it('parses banner deeplinks', () => {
     expect(resolveHomeDeeplink('/categories/c9')).toEqual({ screen: 'ProductGrid', params: { categoryId: 'c9' } });
     expect(resolveHomeDeeplink('/products/p9')).toEqual({ screen: 'ProductDetail', params: { productId: 'p9' } });
@@ -212,6 +247,16 @@ describe('Search', () => {
 });
 
 describe('Wishlist', () => {
+  it('renders translated empty state when wishlist has no items', async () => {
+    mockGet({ '/wishlist': { items: [] } });
+    const root = await render(<WishlistScreen />);
+    const t = text(root);
+    expect(t).toContain('Wishlist');
+    expect(t).toContain('Your Wishlist is Empty');
+    expect(t).toContain('Explore Products');
+    expect(t).not.toContain('customer.wishlist.');
+  });
+
   it('lists server items, greys unavailable ones and removes optimistically', async () => {
     mockGet({
       '/wishlist': {

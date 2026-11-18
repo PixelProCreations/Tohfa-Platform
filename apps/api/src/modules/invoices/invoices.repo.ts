@@ -1,6 +1,6 @@
 import type { Executor } from "../../db/pool.js";
 import type { InvoiceType, InvoiceStatus, Money } from "@tohfa/shared-types";
-import type { InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
+import type { InvoiceSeller, InvoiceDetailResponse, InvoiceDetailView, InvoiceSummaryQuery, InvoiceSummaryResponse, ListInvoicesQuery } from "./invoices.schema.js";
 
 export interface InvoiceDbRow {
   id: string;
@@ -156,6 +156,22 @@ function listFilterSql(query: InvoiceSummaryQuery, values: unknown[]): string[] 
     conditions.push("issue_date <= $" + values.length);
   }
   return conditions;
+}
+
+async function readSeller(db: Executor): Promise<InvoiceSeller> {
+  const res = await db.query<{ key: string; value: unknown }>(
+    "SELECT key, value FROM system_config WHERE key LIKE 'invoice_seller_%'",
+  );
+  const get = (k: string): string => {
+    const v = res.rows.find((r) => r.key === k)?.value;
+    return typeof v === "string" ? v : "";
+  };
+  return {
+    legalName: get("invoice_seller_legal_name"),
+    gstin: get("invoice_seller_gstin"),
+    address: get("invoice_seller_address"),
+    stateCode: get("invoice_seller_state_code"),
+  };
 }
 
 export const invoicesRepo: InvoicesRepo = {
@@ -343,6 +359,7 @@ export const invoicesRepo: InvoicesRepo = {
       lines,
       buyerName: invoice.buyer_name,
       buyerGstin: invoice.buyer_gstin,
+      seller: await readSeller(db),
     };
   },
 

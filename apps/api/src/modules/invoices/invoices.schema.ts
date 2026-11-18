@@ -49,6 +49,13 @@ export const downloadInvoiceQuery = z.object({
 });
 export type DownloadInvoiceQuery = z.infer<typeof downloadInvoiceQuery>;
 
+export interface InvoiceSeller {
+  legalName: string;
+  gstin: string;
+  address: string;
+  stateCode: string;
+}
+
 export interface InvoiceLineItem {
   id?: string;
   lineNo: number;
@@ -96,4 +103,6 @@ export interface InvoiceDetailResponse extends InvoiceSummaryResponse {
 export interface InvoiceDetailView extends InvoiceDetailResponse {
   buyerName: string | null;
   buyerGstin: string | null;
+  /** BR-211: TOHFA as seller, from system_config (empty strings until the client supplies them). */
+  seller: InvoiceSeller;
 }

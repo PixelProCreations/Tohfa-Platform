@@ -21,6 +21,7 @@ import {
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { ApiError } from '../../../shell/api/client';
+import { t, type TranslationKey } from '../../../i18n/customer';
 import { gradeLabel, useProductDetail, useProductReviews, type ProductVariant, type SellableGrade } from '../api/catalog';
 import { useAddToCart } from '../api/cart';
 import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
@@ -40,8 +41,16 @@ interface ProductDetailScreenProps {
 }
 
 const STEP = { step: '0.5', min: '0.5' };
-const FARMING_LABEL: Record<string, string> = { ORGANIC: 'Organic', NATURAL: 'Natural', CONVENTIONAL: 'Conventional' };
-const CERT_LABEL: Record<string, string> = { PGS: 'PGS Organic', NPOP: 'NPOP Organic', OTHER: 'Certified organic' };
+const FARMING_KEY: Record<string, TranslationKey> = {
+  ORGANIC: 'customer.product.detail.farming.organic',
+  NATURAL: 'customer.product.detail.farming.natural',
+  CONVENTIONAL: 'customer.product.detail.farming.conventional',
+};
+const CERT_KEY: Record<string, TranslationKey> = {
+  PGS: 'customer.product.detail.cert.pgs',
+  NPOP: 'customer.product.detail.cert.npop',
+  OTHER: 'customer.product.detail.cert.other',
+};
 
 function formatReviewDate(iso: string): string {
   const d = new Date(iso);
@@ -104,8 +113,8 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
     try {
       await Share.share({
         message: product.originRegion
-          ? `Check out ${product.name} from ${product.originRegion} on TOHFA Market`
-          : `Check out ${product.name} on TOHFA Market`,
+          ? t('customer.product.detail.shareMsgOrigin', { name: product.name, origin: product.originRegion })
+          : t('customer.product.detail.shareMsg', { name: product.name }),
       });
     } catch {
       // The user dismissed the share sheet.
@@ -128,7 +137,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
   const handleAddToCart = async () => {
     setBusy('add');
     setMessage(null);
-    if (await addCurrent()) setMessage('Added to cart');
+    if (await addCurrent()) setMessage(t('customer.product.detail.added'));
     setBusy(null);
   };
 
@@ -146,12 +155,12 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
         style={styles.circleBtn}
         onPress={() => (onGoBack ? onGoBack() : onNavigate?.('Home'))}
         activeOpacity={0.7}
-        accessibilityLabel="Back"
+        accessibilityLabel={t('customer.common.back')}
       >
         <Text style={styles.backArrowText}>←</Text>
       </TouchableOpacity>
-      <Text style={styles.barTitle}>Product Details</Text>
-      <TouchableOpacity style={styles.circleBtn} onPress={() => onNavigate?.('Cart')} activeOpacity={0.7} accessibilityLabel="Cart">
+      <Text style={styles.barTitle}>{t('customer.product.detail.title')}</Text>
+      <TouchableOpacity style={styles.circleBtn} onPress={() => onNavigate?.('Cart')} activeOpacity={0.7} accessibilityLabel={t('customer.product.detail.cart')}>
         <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
           <Path d="M3 3h2l2 12h11l2-8H6" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M9 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17 20a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" fill="#111827" />
@@ -175,10 +184,10 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
       <View style={styles.container}>
         {topBar}
         <View style={styles.contentPadding} testID={notFound ? 'product-not-found' : 'product-error'}>
-          <Text style={styles.sectionTitle}>{notFound ? 'No longer available' : "Couldn't load this product"}</Text>
+          <Text style={styles.sectionTitle}>{notFound ? t('customer.product.detail.gone') : t('customer.product.detail.loadError')}</Text>
           {!notFound && (
             <TouchableOpacity onPress={() => void detail.refetch()} style={styles.addToCartOutlineBtn}>
-              <Text style={styles.addToCartOutlineText}>Retry</Text>
+              <Text style={styles.addToCartOutlineText}>{t('customer.common.retry')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -188,12 +197,13 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
 
   const pack = packLabel(product);
   const infoRows: [string, string][] = [];
-  if (product.originRegion) infoRows.push(['Origin', product.originRegion]);
-  if (product.farmingType) infoRows.push(['Farming Type', FARMING_LABEL[product.farmingType] ?? product.farmingType]);
-  if (product.harvestSeason) infoRows.push(['Harvest Season', product.harvestSeason]);
-  if (product.shelfLifeDays) infoRows.push(['Shelf Life', `${product.shelfLifeDays} days`]);
-  if (pack) infoRows.push(['Pack', pack]);
-  infoRows.push(['Available', formatKg(variant.availableKg)]);
+  if (product.originRegion) infoRows.push([t('customer.product.detail.info.origin'), product.originRegion]);
+  const farmingKey = product.farmingType ? FARMING_KEY[product.farmingType] : undefined;
+  if (product.farmingType) infoRows.push([t('customer.product.detail.info.farming'), farmingKey ? t(farmingKey) : product.farmingType]);
+  if (product.harvestSeason) infoRows.push([t('customer.product.detail.info.season'), product.harvestSeason]);
+  if (product.shelfLifeDays) infoRows.push([t('customer.product.detail.info.shelf'), t('customer.product.detail.info.shelfDays', { days: product.shelfLifeDays })]);
+  if (pack) infoRows.push([t('customer.product.detail.info.pack'), pack]);
+  infoRows.push([t('customer.product.detail.info.available'), formatKg(variant.availableKg)]);
 
   return (
     <View style={styles.container}>
@@ -207,11 +217,11 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
           {product.farmingType === 'ORGANIC' && (
             <View style={styles.organicBadge}>
               <Text style={styles.organicIcon}>🍃</Text>
-              <Text style={styles.organicText}>Organic</Text>
+              <Text style={styles.organicText}>{t('customer.product.detail.organic')}</Text>
             </View>
           )}
 
-          <TouchableOpacity style={styles.shareBtn} onPress={() => void handleShare()} activeOpacity={0.8} accessibilityLabel="Share Product">
+          <TouchableOpacity style={styles.shareBtn} onPress={() => void handleShare()} activeOpacity={0.8} accessibilityLabel={t('customer.product.detail.share')}>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Circle cx="18" cy="5" r="3" stroke="#1F2937" strokeWidth={2} />
               <Circle cx="6" cy="12" r="3" stroke="#1F2937" strokeWidth={2} />
@@ -251,7 +261,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
               activeOpacity={0.7}
               onPress={() => selectedGrade && toggleWishlist.mutate({ productId: product.id, grade: selectedGrade, add: !isWishlist, product })}
               style={styles.heartBtn}
-              accessibilityLabel={isWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+              accessibilityLabel={isWishlist ? t('customer.product.detail.wishRemove') : t('customer.product.detail.wishAdd')}
               testID="detail-wishlist"
             >
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -274,7 +284,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
                     <Path d="M20 6L9 17l-5-5" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
-                  <Text style={styles.certifiedText}> {(product.certificationBadges ?? []).map((c) => CERT_LABEL[c] ?? c).join(' · ')}</Text>
+                  <Text style={styles.certifiedText}> {(product.certificationBadges ?? []).map((c) => CERT_KEY[c] ? t(CERT_KEY[c]) : c).join(' · ')}</Text>
                 </>
               )}
             </View>
@@ -283,7 +293,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
           {typeof product.ratingAverage === 'number' && (
             <View style={styles.metaRow}>
               <Text style={styles.starText}>★ {product.ratingAverage.toFixed(1)}</Text>
-              <Text style={styles.reviewsCountText}> ({product.ratingCount ?? 0} reviews)</Text>
+              <Text style={styles.reviewsCountText}> {t('customer.product.detail.reviewsCount', { count: product.ratingCount ?? 0 })}</Text>
             </View>
           )}
 
@@ -308,12 +318,12 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
 
           <View style={styles.priceRow}>
             <Text style={styles.priceMain} testID="detail-price">
-              {formatRupees(variant.pricePerKg)} / kg
+              {t('customer.product.detail.perKg', { price: formatRupees(variant.pricePerKg) })}
             </Text>
             {!!variant.compareAtPrice && <Text style={styles.priceStrikethrough}>{formatRupees(variant.compareAtPrice)}</Text>}
             {variant.discountPercent != null && (
               <View style={styles.discountPill}>
-                <Text style={styles.discountPillText}>{variant.discountPercent}% OFF</Text>
+                <Text style={styles.discountPillText}>{t('customer.product.detail.off', { percent: variant.discountPercent })}</Text>
               </View>
             )}
             <View style={{ flex: 1 }} />
@@ -324,7 +334,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                   onPress={() => setQty((q) => stepKg(q, -1, { ...STEP, max: variant.availableKg }))}
                   disabled={!canStepDown(qty, STEP)}
                   style={styles.plusBtn}
-                  accessibilityLabel="Decrease quantity"
+                  accessibilityLabel={t('customer.product.detail.qtyDec')}
                 >
                   <Text style={styles.plusBtnText}>−</Text>
                 </TouchableOpacity>
@@ -336,25 +346,25 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                   onPress={() => setQty((q) => stepKg(q, 1, { ...STEP, max: variant.availableKg }))}
                   disabled={!canStepUp(qty, { ...STEP, max: variant.availableKg })}
                   style={styles.plusBtn}
-                  accessibilityLabel="Increase quantity"
+                  accessibilityLabel={t('customer.product.detail.qtyInc')}
                 >
                   <Text style={styles.plusBtnText}>+</Text>
                 </TouchableOpacity>
               </View>
             ) : (
-              <Text style={styles.reviewsCountText}>Currently unavailable</Text>
+              <Text style={styles.reviewsCountText}>{t('customer.product.detail.unavailable')}</Text>
             )}
           </View>
-          {available && <Text style={styles.reviewsCountText}>Total {formatRupees(multiplyMoney(variant.pricePerKg, qty))}</Text>}
+          {available && <Text style={styles.reviewsCountText}>{t('customer.product.detail.total', { amount: formatRupees(multiplyMoney(variant.pricePerKg, qty)) })}</Text>}
 
           {!!product.tasteNotes && (
             <>
-              <Text style={styles.sectionTitle}>About this product</Text>
+              <Text style={styles.sectionTitle}>{t('customer.product.detail.about')}</Text>
               <Text style={styles.aboutText}>{product.tasteNotes}</Text>
             </>
           )}
 
-          <Text style={styles.sectionTitle}>Product Information</Text>
+          <Text style={styles.sectionTitle}>{t('customer.product.detail.information')}</Text>
           <View style={styles.infoTable}>
             {infoRows.map(([k, v]) => (
               <View key={k} style={styles.infoTableRow}>
@@ -364,12 +374,12 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>Ratings & Reviews</Text>
+          <Text style={styles.sectionTitle}>{t('customer.product.detail.ratings')}</Text>
           {reviews.isLoading ? (
             <ActivityIndicator testID="reviews-loading" />
           ) : reviews.isError ? (
             <TouchableOpacity onPress={() => void reviews.refetch()}>
-              <Text style={styles.reviewComment}>Couldn't load reviews. Tap to retry.</Text>
+              <Text style={styles.reviewComment}>{t('customer.product.detail.reviewsError')}</Text>
             </TouchableOpacity>
           ) : (
             <>
@@ -379,7 +389,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                     <Text style={styles.bigScoreNum}>{summary?.averageRating ?? '–'}</Text>
                     <Text style={styles.bigScoreStar}>★</Text>
                   </View>
-                  <Text style={styles.bigReviewsTotal}>{ratingCount > 0 ? `(${ratingCount} Reviews)` : 'No ratings yet'}</Text>
+                  <Text style={styles.bigReviewsTotal}>{ratingCount > 0 ? t('customer.product.detail.reviewsTotal', { count: ratingCount }) : t('customer.product.detail.noRatings')}</Text>
                 </View>
                 <View style={styles.ratingDivider} />
                 <View style={styles.ratingRightCol}>
@@ -406,7 +416,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                       activeOpacity={0.8}
                     >
                       <Text style={[styles.filterChipText, starFilter === f && styles.filterChipTextActive]}>
-                        {f === null ? `All Reviews (${ratingCount})` : `${f} ★ (${summary?.distribution[String(f) as '1'] ?? 0})`}
+                        {f === null ? t('customer.product.detail.allReviews', { count: ratingCount }) : `${f} ★ (${summary?.distribution[String(f) as '1'] ?? 0})`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -422,7 +432,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
                         <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
                           <Path d="M20 6L9 17l-5-5" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                         </Svg>
-                        <Text style={styles.verifiedText}> Verified purchase</Text>
+                        <Text style={styles.verifiedText}>{t('customer.product.detail.verified')}</Text>
                       </View>
                     </View>
                     <View style={styles.starBadgePill}>
@@ -434,7 +444,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
               ))}
               {reviews.hasNextPage && (
                 <TouchableOpacity onPress={() => void reviews.fetchNextPage()} testID="reviews-more">
-                  <Text style={styles.readMoreLink}>{reviews.isFetchingNextPage ? 'Loading…' : 'Show more reviews'}</Text>
+                  <Text style={styles.readMoreLink}>{reviews.isFetchingNextPage ? t('customer.common.loading') : t('customer.product.detail.showMore')}</Text>
                 </TouchableOpacity>
               )}
             </>
@@ -458,7 +468,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
           activeOpacity={0.85}
           testID="detail-add"
         >
-          {busy === 'add' ? <ActivityIndicator /> : <Text style={styles.addToCartOutlineText}>Add to Cart</Text>}
+          {busy === 'add' ? <ActivityIndicator /> : <Text style={styles.addToCartOutlineText}>{t('customer.product.detail.addToCart')}</Text>}
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.buyNowSolidBtn, !available && { opacity: 0.5 }]}
@@ -467,7 +477,7 @@ export function ProductDetailScreen({ productId, grade: initialGrade, onGoBack, 
           activeOpacity={0.85}
           testID="detail-buy"
         >
-          {busy === 'buy' ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buyNowSolidText}>Buy Now</Text>}
+          {busy === 'buy' ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buyNowSolidText}>{t('customer.product.detail.buyNow')}</Text>}
         </TouchableOpacity>
       </View>
     </View>

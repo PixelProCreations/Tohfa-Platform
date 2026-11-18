@@ -49,7 +49,10 @@ vi.mock('react-native', async () => {
   };
 });
 vi.mock('react-native-svg', () => ({ default: 'Svg', Path: 'Path', Circle: 'Circle' }));
-vi.mock('@tohfa/mobile-ui', () => ({ ScreenStatusBar: 'ScreenStatusBar' }));
+vi.mock('@tohfa/mobile-ui', () => ({
+  ScreenStatusBar: 'ScreenStatusBar',
+  FarmBoundaryMap: 'FarmBoundaryMap',
+}));
 vi.mock('../assets/images/satellite_map_coimbatore.jpg', () => ({ default: 1 }));
 vi.mock('../assets/images/flying_delivery_bag.png', () => ({ default: 2 }));
 

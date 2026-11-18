@@ -32,7 +32,7 @@ export function CategoriesScreen({ onNavigate, onBack }: CategoriesScreenProps =
     <View style={styles.container}>
       <View style={styles.header}>
         {onBack && (
-          <TouchableOpacity onPress={onBack} accessibilityLabel="Back" style={styles.back}>
+          <TouchableOpacity onPress={onBack} accessibilityLabel={t('customer.common.back')} style={styles.back}>
             <Text style={styles.backText}>‹</Text>
           </TouchableOpacity>
         )}

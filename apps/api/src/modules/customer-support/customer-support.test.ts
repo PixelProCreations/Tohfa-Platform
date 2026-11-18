@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from '../../http/errorHandler.js';
 import { signAccessToken } from '../../auth/jwt.js';
 import { aScope, newId } from '../../test/factories.js';
 import type { CustomerSupportRepo, MessageDbRow, TicketDbRow } from './customer-support.repo.js';
+import { createInMemoryIdempotencyStore } from '../../test/idempotencyStore.js';
 import { createTicketBody } from './customer-support.schema.js';
 import { createCustomerSupportRouter } from './customer-support.routes.js';
 import { createCustomerSupportService, type CustomerSupportService } from './customer-support.service.js';
@@ -50,6 +51,7 @@ function build(opts: { tickets?: TicketDbRow[]; messages?: MessageDbRow[]; uploa
   const service = createCustomerSupportService({
     repo, db, transaction: (fn) => fn(txDb), publicUrl: (k) => `https://cdn/${k}`,
     identityLookup: async () => ({ terms: opts.terms ?? [], personNames: [] }),
+    idempotency: createInMemoryIdempotencyStore(),
   });
   return { service, tickets, inserted, audits };
 }
@@ -63,6 +65,19 @@ describe('customer support tickets: service', () => {
     expect(t.photos).toEqual(['https://cdn/issue_photo/a.jpg']);
     expect(t.status).toBe('OPEN');
     expect(Object.keys(t)).not.toContain('priority');
+  });
+
+  it('BR-212: the same Idempotency-Key and body replays the same ticket; a different body is 409', async () => {
+    const { service, tickets } = build();
+    const body = { category: 'OTHER' as const, subject: 'Late', description: 'Where is it', photoUploadIds: [] };
+    const first = await service.createTicket(scope, body, 'key-1');
+    const replay = await service.createTicket(scope, body, 'key-1');
+    expect(replay.id).toBe(first.id);
+    expect(tickets).toHaveLength(1);
+    await expect(service.createTicket(scope, { ...body, subject: 'Different' }, 'key-1')).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED', status: 409 });
+    await service.createTicket(scope, body);
+    await service.createTicket(scope, body);
+    expect(tickets).toHaveLength(3);
   });
 
   it('maps INVESTIGATING to IN_PROGRESS', async () => {

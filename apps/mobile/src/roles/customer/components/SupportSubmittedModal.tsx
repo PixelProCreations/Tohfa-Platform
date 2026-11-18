@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
 import Svg, { Path, Circle, Rect } from 'react-native-svg';
+import { t } from '../../../i18n/customer';
 
 const ModalCloseSvg = () => (
   <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
@@ -79,7 +80,7 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
           <TouchableOpacity
             style={styles.modalCloseButton}
             onPress={onClose}
-            accessibilityLabel="Close dialog"
+            accessibilityLabel={t('customer.contact.submitted.close')}
           >
             <ModalCloseSvg />
           </TouchableOpacity>
@@ -96,9 +97,9 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
             </View>
 
             {/* Title & Subtitle */}
-            <Text style={styles.popupTitle}>Support Request Submitted!</Text>
+            <Text style={styles.popupTitle}>{t('customer.contact.submitted.title')}</Text>
             <Text style={styles.popupSubtitle}>
-              We've received your request and our support team will get back to you soon.
+              {t('customer.contact.submitted.subtitle')}
             </Text>
 
             {/* Support ID Card */}
@@ -106,31 +107,31 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
               <View style={styles.supportIdLeft}>
                 <TicketSvg color="#2E7D32" size={22} />
                 <View style={styles.supportIdTextCol}>
-                  <Text style={styles.supportIdLabel}>Support ID</Text>
+                  <Text style={styles.supportIdLabel}>{t('customer.contact.submitted.supportId')}</Text>
                   <Text style={styles.supportIdValue}>{supportId}</Text>
                 </View>
               </View>
               <View style={styles.openBadge}>
-                <Text style={styles.openBadgeText}>Open</Text>
+                <Text style={styles.openBadgeText}>{t('customer.contact.submitted.open')}</Text>
               </View>
             </View>
 
             {/* Request Summary */}
-            <Text style={styles.summaryTitle}>Request Summary</Text>
+            <Text style={styles.summaryTitle}>{t('customer.contact.submitted.summary')}</Text>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Order ID</Text>
+              <Text style={styles.summaryLabel}>{t('customer.contact.submitted.orderId')}</Text>
               <Text style={styles.summaryValue}>{orderNumber}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Product</Text>
+              <Text style={styles.summaryLabel}>{t('customer.contact.submitted.product')}</Text>
               <Text style={styles.summaryValue}>{productName}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Issue type</Text>
+              <Text style={styles.summaryLabel}>{t('customer.contact.submitted.issueType')}</Text>
               <Text style={styles.summaryValue}>{issueTypeLabel}</Text>
             </View>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Submitted on</Text>
+              <Text style={styles.summaryLabel}>{t('customer.contact.submitted.submittedOn')}</Text>
               <Text style={styles.summaryValue}>{submittedOn}</Text>
             </View>
 
@@ -138,7 +139,7 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
             <View style={styles.dashedDivider} />
 
             {/* What happens next? */}
-            <Text style={styles.nextStepsTitle}>What happens next?</Text>
+            <Text style={styles.nextStepsTitle}>{t('customer.contact.submitted.next')}</Text>
 
             {/* Timeline Steps */}
             <View style={styles.timelineList}>
@@ -149,9 +150,9 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
                   <View style={styles.timelineConnector} />
                 </View>
                 <View style={styles.timelineRightCol}>
-                  <Text style={styles.timelineStepTitle}>Request received</Text>
+                  <Text style={styles.timelineStepTitle}>{t('customer.contact.submitted.step1.title')}</Text>
                   <Text style={styles.timelineStepDesc}>
-                    Your request has been successfully submitted.
+                    {t('customer.contact.submitted.step1.desc')}
                   </Text>
                 </View>
               </View>
@@ -163,9 +164,9 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
                   <View style={styles.timelineConnector} />
                 </View>
                 <View style={styles.timelineRightCol}>
-                  <Text style={styles.timelineStepTitle}>Under review</Text>
+                  <Text style={styles.timelineStepTitle}>{t('customer.contact.submitted.step2.title')}</Text>
                   <Text style={styles.timelineStepDesc}>
-                    Our support team will check the details and content you within 24 hours.
+                    {t('customer.contact.submitted.step2.desc')}
                   </Text>
                 </View>
               </View>
@@ -176,9 +177,9 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
                   <DashedCircleSvg size={18} />
                 </View>
                 <View style={styles.timelineRightCol}>
-                  <Text style={styles.timelineStepTitle}>Resolution</Text>
+                  <Text style={styles.timelineStepTitle}>{t('customer.contact.submitted.step3.title')}</Text>
                   <Text style={styles.timelineStepDesc}>
-                    We'll help you with a solution (replacement, refund or other support).
+                    {t('customer.contact.submitted.step3.desc')}
                   </Text>
                 </View>
               </View>
@@ -189,18 +190,18 @@ export const SupportSubmittedModal: React.FC<SupportSubmittedModalProps> = ({
               style={styles.trackRequestButton}
               activeOpacity={0.85}
               onPress={onTrackRequest}
-              accessibilityLabel="Track Request"
+              accessibilityLabel={t('customer.contact.submitted.track')}
             >
-              <Text style={styles.trackRequestButtonText}>Track Request</Text>
+              <Text style={styles.trackRequestButtonText}>{t('customer.contact.submitted.track')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.continueShoppingButton}
               activeOpacity={0.85}
               onPress={onContinueShopping}
-              accessibilityLabel="Continue Shopping"
+              accessibilityLabel={t('customer.contact.submitted.continue')}
             >
-              <Text style={styles.continueShoppingButtonText}>Continue Shopping</Text>
+              <Text style={styles.continueShoppingButtonText}>{t('customer.contact.submitted.continue')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

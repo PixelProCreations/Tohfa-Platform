@@ -25,7 +25,7 @@ import { insertUser, requireDatabaseTables } from '../../test/dbFixtures.js';
 const DETAIL_KEYS = [
   'buyerGstin', 'buyerName', 'cgst', 'gstApplicable', 'gstInclusive', 'id', 'igst', 'invoiceNumber', 'invoiceType',
   'issueDate', 'lines', 'orderId', 'payoutId', 'pdfUrl', 'placeOfSupply', 'purchaseOrderId', 'sgst', 'status',
-  'taxableAmount', 'totalAmount',
+  'seller', 'taxableAmount', 'totalAmount',
 ].sort();
 
 /** Any key that could carry a farm identity (BR-16). */
@@ -231,6 +231,28 @@ describe('invoice detail buyer name and GSTIN (real router) — BR-128', () => {
       expect(res.body.buyerGstin).toBe(later);
     } finally {
       await pool.query(`UPDATE customers SET gstin = NULL WHERE id = $1`, [customers.noGst]);
+    }
+  });
+
+  httpIt('BR-211: the invoice names TOHFA as seller from system_config (empty until configured), never the farmer', async () => {
+    const keys = ['invoice_seller_legal_name', 'invoice_seller_gstin', 'invoice_seller_address', 'invoice_seller_state_code'];
+    const { pool } = await import('../../db/pool.js');
+    const before = await pool.query(`SELECT key, value FROM system_config WHERE key = ANY($1)`, [keys]);
+    try {
+      expect(before.rowCount).toBe(4);
+      await pool.query(`UPDATE system_config SET value = '""'::jsonb WHERE key = ANY($1)`, [keys]);
+      const empty = await detail('gst', 'superAdmin');
+      expect(empty.body.seller).toEqual({ legalName: '', gstin: '', address: '', stateCode: '' });
+      await pool.query(`UPDATE system_config SET value = to_jsonb('TEST SELLER LLP'::text) WHERE key = 'invoice_seller_legal_name'`);
+      await pool.query(`UPDATE system_config SET value = to_jsonb('33TESTS0000A1Z5'::text) WHERE key = 'invoice_seller_gstin'`);
+      const res = await detail('gst', 'customerGst');
+      expect(res.body.seller).toMatchObject({ legalName: 'TEST SELLER LLP', gstin: '33TESTS0000A1Z5' });
+      const farmerSide = await detail('farmer', 'superAdmin');
+      expect(farmerSide.body.seller.legalName).toBe('TEST SELLER LLP');
+    } finally {
+      for (const r of before.rows) {
+        await pool.query(`UPDATE system_config SET value = $2::jsonb WHERE key = $1`, [r.key, JSON.stringify(r.value)]);
+      }
     }
   });
 });

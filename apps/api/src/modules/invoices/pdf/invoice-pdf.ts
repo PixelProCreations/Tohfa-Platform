@@ -1,9 +1,9 @@
 import PDFDocument from 'pdfkit';
 import { tokens } from '@tohfa/design-tokens';
-import type { InvoiceDetailResponse } from '../invoices.schema.js';
+import type { InvoiceDetailResponse, InvoiceSeller } from '../invoices.schema.js';
 
 export interface RenderPdfOptions {
-  invoice: InvoiceDetailResponse;
+  invoice: InvoiceDetailResponse & { seller?: InvoiceSeller };
   customerName?: string | null;
   customerPhone?: string | null;
   farmerName?: string | null;
@@ -68,10 +68,10 @@ export function renderInvoicePdf(options: RenderPdfOptions): Promise<Buffer> {
       doc.fillColor(primaryColor).fontSize(9).font('Helvetica-Bold')
          .text('SELLER / ISSUER:', 50, partyY + 10);
       doc.fillColor(blackText).fontSize(9).font('Helvetica')
-         .text('Tohfa Organics Pvt. Ltd.', 50, partyY + 24)
-         .text('Ooty Main Warehouse, Hub 1', 50, partyY + 36)
-         .text('The Nilgiris, Tamil Nadu - 643001', 50, partyY + 48)
-         .text('State Code: 33 (Tamil Nadu)', 50, partyY + 60);
+         .text(invoice.seller?.legalName || 'TOHFA', 50, partyY + 24)
+         .text(invoice.seller?.address || 'Address not configured', 50, partyY + 36, { width: 230, height: 24 })
+         
+         .text(`State Code: ${invoice.seller?.stateCode || 'not configured'}`, 50, partyY + 60);
 
       // Buyer / Recipient Block
       doc.fillColor(primaryColor).fontSize(9).font('Helvetica-Bold')

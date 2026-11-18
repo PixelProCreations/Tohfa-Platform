@@ -13,6 +13,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { Money } from '@tohfa/shared-types';
 import { api } from '../../../shell/api/client';
 import { buildQueryString, nextPageParam, type Page } from '../../../shell/api/pagination';
+import { t } from '../../../i18n/customer';
 import type { Quantity } from '../utils/money';
 
 /** Sellable grades. `REJECT` exists in the DB enum but never reaches the customer surface. */
@@ -243,19 +244,20 @@ export function productKey(p: { id?: string | undefined; productId?: string | un
   return `${p.productId ?? p.id ?? ''}:${p.grade}`;
 }
 
-const GRADE_LABELS: Record<string, string> = {
-  GRADE_1: 'Grade A',
-  GRADE_2: 'Grade B',
-  GRADE_3: 'Grade C',
-  REJECT: 'Reject',
+const GRADE_LETTERS: Record<string, string> = {
+  GRADE_1: 'A',
+  GRADE_2: 'B',
+  GRADE_3: 'C',
 };
 
 /** Display label of a grade (`GRADE_1` -> `Grade A`). Unknown values pass through. */
 export function gradeLabel(grade: string): string {
-  return GRADE_LABELS[grade] ?? grade;
+  const letter = GRADE_LETTERS[grade];
+  if (letter) return t('customer.catalog.grade', { grade: letter });
+  return grade === 'REJECT' ? t('customer.catalog.gradeReject') : grade;
 }
 
 /** Short badge label (`GRADE_1` -> `A`). */
 export function gradeShortLabel(grade: string): string {
-  return gradeLabel(grade).replace(/^Grade /, '');
+  return GRADE_LETTERS[grade] ?? gradeLabel(grade);
 }

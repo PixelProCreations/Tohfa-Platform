@@ -17,6 +17,7 @@ import {
   StatusBar,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { t } from '../../../i18n/customer';
 import { gradeLabel, useProductDetail, useProductReviews, type Product, type ProductDetail, type SellableGrade } from '../api/catalog';
 import { useAddToCart, type Cart } from '../api/cart';
 import { mapProblem } from '../api/problem';
@@ -174,14 +175,14 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
     const qty = selected[row.grade];
     if (qty === undefined) {
       return (
-        <TouchableOpacity style={styles.plusButton} activeOpacity={0.8} onPress={() => toggle(row)} disabled={row.unavailable} accessibilityLabel={`Add ${gradeLabel(row.grade)}`}>
+        <TouchableOpacity style={styles.plusButton} activeOpacity={0.8} onPress={() => toggle(row)} disabled={row.unavailable} accessibilityLabel={t('customer.product.modal.addGrade', { grade: gradeLabel(row.grade) })}>
           <Text style={styles.plusText}>+</Text>
         </TouchableOpacity>
       );
     }
     return (
       <View style={styles.stepperContainer}>
-        <TouchableOpacity style={styles.stepBtn} onPress={() => step(row, -1)} activeOpacity={0.7} accessibilityLabel="Decrease">
+        <TouchableOpacity style={styles.stepBtn} onPress={() => step(row, -1)} activeOpacity={0.7} accessibilityLabel={t('customer.cart.screen.decrease')}>
           <Text style={styles.stepBtnText}>−</Text>
         </TouchableOpacity>
         <Text style={styles.stepQty}>{formatKg(qty)}</Text>
@@ -190,7 +191,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
           onPress={() => step(row, 1)}
           disabled={!canStepUp(qty, { ...STEP, max: row.availableKg })}
           activeOpacity={0.7}
-          accessibilityLabel="Increase"
+          accessibilityLabel={t('customer.cart.screen.increase')}
         >
           <Text style={styles.stepBtnText}>+</Text>
         </TouchableOpacity>
@@ -207,7 +208,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
               style={styles.floatingCloseBtn}
               activeOpacity={0.8}
               onPress={onClose}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.common.close')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <ModalCloseCrossSvg size={14} color="#1F2937" />
@@ -230,7 +231,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
               </View>
               <View style={styles.priceCol}>
                 <Text style={styles.priceText}>{formatRupees(hasVarieties ? total : product.pricePerKg)}</Text>
-                <Text style={styles.packageText}>{pack ?? 'per kg'}</Text>
+                <Text style={styles.packageText}>{pack ?? t('customer.product.modal.perKg')}</Text>
               </View>
             </View>
 
@@ -239,8 +240,8 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
                 {!!desc && <Text style={styles.descText}>{desc}</Text>}
                 <View style={styles.varietySection}>
                   <View style={styles.varietyHeaderRow}>
-                    <Text style={styles.varietyHeaderTitle}>Pick a grade</Text>
-                    <Text style={styles.varietyHeaderSub}>Price per kg</Text>
+                    <Text style={styles.varietyHeaderTitle}>{t('customer.product.modal.pickGrade')}</Text>
+                    <Text style={styles.varietyHeaderSub}>{t('customer.product.modal.pricePerKg')}</Text>
                   </View>
                   <ScrollView style={styles.varietyList} showsVerticalScrollIndicator>
                     {rows.map((v) => {
@@ -251,14 +252,14 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
                             activeOpacity={0.7}
                             onPress={() => onOpenProduct?.(product.id, v.grade)}
                             style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingVertical: 2 }}
-                            accessibilityLabel={`View details for ${product.name} ${gradeLabel(v.grade)}`}
+                            accessibilityLabel={t('customer.product.modal.viewDetailsFor', { name: product.name, grade: gradeLabel(v.grade) })}
                           >
                             {image && <Image source={image} style={styles.varietyThumb} resizeMode="contain" />}
                             <View style={styles.varietyInfo}>
                               <Text style={styles.varietyName}>
                                 {product.name} · {gradeLabel(v.grade)}
                               </Text>
-                              <Text style={styles.varietySubtitle}>{v.unavailable ? 'Currently unavailable' : `${formatKg(v.availableKg)} available`}</Text>
+                              <Text style={styles.varietySubtitle}>{v.unavailable ? t('customer.product.detail.unavailable') : t('customer.product.modal.kgAvailable', { qty: formatKg(v.availableKg) })}</Text>
                             </View>
                             <Text style={styles.varietyPrice}>{formatRupees(v.pricePerKg)}</Text>
                           </TouchableOpacity>
@@ -268,7 +269,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
                             disabled={v.unavailable}
                             style={[styles.checkbox, isSelected && styles.checkboxSelected]}
                             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                            accessibilityLabel={`Select ${gradeLabel(v.grade)}`}
+                            accessibilityLabel={t('customer.product.modal.select', { grade: gradeLabel(v.grade) })}
                           >
                             {isSelected && <Text style={styles.checkmark}>✔</Text>}
                           </TouchableOpacity>
@@ -326,7 +327,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
                     </Svg>
                   )}
                 </View>
-                <Text style={styles.addCartText}>Add to cart</Text>
+                <Text style={styles.addCartText}>{t('customer.product.modal.addToCart')}</Text>
               </View>
               <Text style={styles.totalPriceText}>{formatRupees(total)}</Text>
             </TouchableOpacity>
@@ -336,7 +337,7 @@ export function ProductDetailsModal({ visible, product, onClose, onOpenProduct, 
                 <Path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="#52796F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 <Path d="M9 12l2 2 4-4" stroke="#52796F" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
-              <Text style={styles.guaranteeText}>Freshness guaranteed, or your money back.</Text>
+              <Text style={styles.guaranteeText}>{t('customer.product.modal.guarantee')}</Text>
             </View>
           </View>
         </View>
@@ -367,9 +368,9 @@ export function CartToast({ visible, itemCount, totalPrice, thumbUri, onViewCart
         </View>
         <View style={styles.toastTextCol}>
           <Text style={styles.toastTitle}>
-            {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
+            {t(itemCount === 1 ? 'customer.checkout.screen.cartItem' : 'customer.checkout.screen.cartItems', { count: itemCount })}
           </Text>
-          <Text style={styles.toastSub}>View cart</Text>
+          <Text style={styles.toastSub}>{t('customer.checkout.screen.viewCart')}</Text>
         </View>
         <Text style={styles.toastPrice}>{formatRupees(totalPrice)}</Text>
       </TouchableOpacity>
@@ -419,18 +420,18 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
               style={styles.floatingCloseBtn}
               activeOpacity={0.8}
               onPress={onClose}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.common.close')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <ModalCloseCrossSvg size={14} color="#1F2937" />
             </TouchableOpacity>
-            <Text style={styles.reviewsHeading}>Ratings & Reviews</Text>
+            <Text style={styles.reviewsHeading}>{t('customer.product.detail.ratings')}</Text>
 
             {reviews.isLoading ? (
               <ActivityIndicator testID="reviews-loading" style={{ marginVertical: 24 }} />
             ) : reviews.isError ? (
               <TouchableOpacity onPress={() => void reviews.refetch()} testID="reviews-retry">
-                <Text style={styles.reviewBody}>Couldn't load reviews. Tap to retry.</Text>
+                <Text style={styles.reviewBody}>{t('customer.product.detail.reviewsError')}</Text>
               </TouchableOpacity>
             ) : (
               <>
@@ -440,7 +441,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                       <Text style={styles.bigRatingNum}>{summary?.averageRating ?? '–'}</Text>
                       <Text style={styles.bigStar}>★</Text>
                     </View>
-                    <Text style={styles.reviewsTotal}>{count > 0 ? `(${count} Reviews)` : 'No ratings yet'}</Text>
+                    <Text style={styles.reviewsTotal}>{count > 0 ? t('customer.product.detail.reviewsTotal', { count }) : t('customer.product.detail.noRatings')}</Text>
                   </View>
                   <View style={styles.summaryDivider} />
                   <View style={styles.barsCol}>
@@ -465,7 +466,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                       onPress={() => setStarFilter(f)}
                     >
                       <Text style={[styles.filterPillText, starFilter === f && styles.filterPillTextActive]}>
-                        {f === null ? `All Reviews (${count})` : `${f} ★ (${summary?.distribution[String(f) as '1'] ?? 0})`}
+                        {f === null ? t('customer.product.detail.allReviews', { count }) : `${f} ★ (${summary?.distribution[String(f) as '1'] ?? 0})`}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -480,7 +481,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                 >
                   {items.length === 0 ? (
                     <Text style={styles.reviewBody} testID="reviews-empty">
-                      No reviews yet
+                      {t('customer.product.modal.reviewsEmpty')}
                     </Text>
                   ) : (
                     items.map((r) => (
@@ -489,7 +490,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                           <View style={styles.reviewerMeta}>
                             <View style={styles.verifiedRow}>
                               <Text style={styles.reviewDate}>{formatReviewDate(r.createdAt)} · </Text>
-                              <Text style={styles.verifiedBadge}>✔ Verified purchase</Text>
+                              <Text style={styles.verifiedBadge}>{t('customer.product.modal.verified')}</Text>
                             </View>
                           </View>
                           <View style={styles.starBadgeSmall}>
@@ -502,7 +503,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                   )}
                   {reviews.hasNextPage && (
                     <TouchableOpacity onPress={() => void reviews.fetchNextPage()} testID="reviews-more">
-                      <Text style={styles.filterPillText}>{reviews.isFetchingNextPage ? 'Loading…' : 'Show more'}</Text>
+                      <Text style={styles.filterPillText}>{reviews.isFetchingNextPage ? t('customer.common.loading') : t('customer.product.modal.showMore')}</Text>
                     </TouchableOpacity>
                   )}
                 </ScrollView>
@@ -519,7 +520,7 @@ export function RatingsReviewsModal({ visible, productId, grade, onClose, onWrit
                 }}
               >
                 <EditPenSvg size={16} color="#FFFFFF" />
-                <Text style={styles.writeReviewText}>  Write a review</Text>
+                <Text style={styles.writeReviewText}>{t('customer.product.modal.write')}</Text>
               </TouchableOpacity>
             )}
           </View>

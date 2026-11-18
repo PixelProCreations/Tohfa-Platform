@@ -13,6 +13,7 @@ import {
   customerFonts,
 } from '../theme';
 import { ScreenStatusBar } from '@tohfa/mobile-ui';
+import { t } from '../../../i18n/customer';
 // eslint-disable-next-line @typescript-eslint/no-require-imports -- RN static asset
 const tohfaMarketLogo = require('../assets/images/tohfa_market_logo.png');
 
@@ -159,10 +160,10 @@ export const CustomerLoadingMarketScreen: React.FC<CustomerLoadingMarketScreenPr
 
           <View style={styles.titleRow}>
             <View style={styles.decorativeLine} />
-            <Text style={styles.editorialTitle}>From Our Farmers to</Text>
+            <Text style={styles.editorialTitle}>{t('customer.onboarding.loading.titleLine1')}</Text>
             <View style={styles.decorativeLine} />
           </View>
-          <Text style={styles.editorialTitleSecond}>Your Home</Text>
+          <Text style={styles.editorialTitleSecond}>{t('customer.onboarding.loading.titleLine2')}</Text>
         </View>
 
         {/* ── CENTER LOADING BOX (254 Hug x 129.89 Hug FROM FIGMA) ────────── */}
@@ -186,7 +187,7 @@ export const CustomerLoadingMarketScreen: React.FC<CustomerLoadingMarketScreenPr
           </View>
 
           {/* Loading Text */}
-          <Text style={styles.loadingText}>Loading your fresh market</Text>
+          <Text style={styles.loadingText}>{t('customer.onboarding.loading.text')}</Text>
         </View>
       </Animated.View>
     </View>

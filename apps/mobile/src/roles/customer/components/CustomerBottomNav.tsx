@@ -7,6 +7,7 @@ import {
   customerSpacing,
   CUSTOMER_BOTTOM_NAV_HEIGHT,
 } from '../theme';
+import { t } from '../../../i18n/customer';
 
 export type CustomerTabName = 'Home' | 'Explore' | 'Cart' | 'Profile';
 
@@ -19,15 +20,15 @@ export interface CustomerBottomNavProps {
 
 interface TabConfig {
   name: CustomerTabName;
-  label: string;
+  labelKey: 'customer.catalog.nav.home' | 'customer.catalog.nav.explore' | 'customer.catalog.nav.cart' | 'customer.catalog.nav.profile';
   icon: string;
 }
 
 const TABS: TabConfig[] = [
-  { name: 'Home', label: 'Home', icon: '🏠' },
-  { name: 'Explore', label: 'Explore', icon: '🔍' },
-  { name: 'Cart', label: 'Cart', icon: '🛒' },
-  { name: 'Profile', label: 'Profile', icon: '👤' },
+  { name: 'Home', labelKey: 'customer.catalog.nav.home', icon: '🏠' },
+  { name: 'Explore', labelKey: 'customer.catalog.nav.explore', icon: '🔍' },
+  { name: 'Cart', labelKey: 'customer.catalog.nav.cart', icon: '🛒' },
+  { name: 'Profile', labelKey: 'customer.catalog.nav.profile', icon: '👤' },
 ];
 
 export const CustomerBottomNav: React.FC<CustomerBottomNavProps> = ({
@@ -48,7 +49,7 @@ export const CustomerBottomNav: React.FC<CustomerBottomNavProps> = ({
             style={styles.tabButton}
             accessibilityRole="tab"
             accessibilityState={{ selected: isActive }}
-            accessibilityLabel={`${tab.label} tab`}
+            accessibilityLabel={t('customer.catalog.nav.tab', { label: t(tab.labelKey) })}
           >
             <View style={[styles.iconPill, isActive && styles.activePill]}>
               <Text style={styles.icon}>{tab.icon}</Text>
@@ -67,7 +68,7 @@ export const CustomerBottomNav: React.FC<CustomerBottomNavProps> = ({
                 },
               ]}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </Text>
           </TouchableOpacity>
         );

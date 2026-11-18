@@ -21,10 +21,11 @@ import { NotificationBell } from '../components/NotificationBell';
 import { CustomerFloatingNav, type CustomerActiveTab, CustomerDeliveryAddressModal } from '../components';
 import { ServiceAreaRequestCard, prefillFromAddress } from '../components/ServiceAreaRequestFlow';
 import { useAddresses, pickDefaultAddress, formatAddressShort } from '../api/addresses';
+import { useCustomerProfile, displayName, formatMobileDisplay, parseHarvestPreferences } from '../api/profile';
 import dashboardBannerHarvest from '../assets/images/dashboard_banner_harvest.png';
 import bannerFarmFreshVegetables from '../assets/images/banner_farm_fresh_vegetables.png';
 import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
-import { ProductImages } from '../assets/images/products';
+import { ProductImages, CategoryImages } from '../assets/images/products';
 
 interface HomeScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
@@ -376,6 +377,49 @@ const CATEGORY_CIRCLES: CategoryCircleItem[] = [
   { id: 'c18', label: 'Flowers', image: CategoryImages.flowers, emoji: '🌸' },
 ];
 
+export function resolveCategoryImage(cat: {
+  id?: string;
+  name: string;
+  slug?: string | null;
+  imageUrl?: string | null;
+}): { source: any; emoji: string } {
+  if (cat.imageUrl) {
+    return { source: { uri: cat.imageUrl }, emoji: '🥗' };
+  }
+  const slugClean = (cat.slug || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nameClean = (cat.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const circleMatch = CATEGORY_CIRCLES.find((c) => {
+    const cLabelClean = c.label.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return (
+      (cat.id && c.id === cat.id) ||
+      cLabelClean === nameClean ||
+      cLabelClean === slugClean ||
+      (nameClean.length > 2 && (nameClean.includes(cLabelClean) || cLabelClean.includes(nameClean))) ||
+      (slugClean.length > 2 && (slugClean.includes(cLabelClean) || cLabelClean.includes(slugClean)))
+    );
+  });
+  if (circleMatch?.image) {
+    return { source: circleMatch.image, emoji: circleMatch.emoji ?? '🥗' };
+  }
+
+  const categoryKey = Object.keys(CategoryImages).find((k) => {
+    const kClean = k.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return (
+      kClean === slugClean ||
+      kClean === nameClean ||
+      (nameClean.length > 2 && (nameClean.includes(kClean) || kClean.includes(nameClean))) ||
+      (slugClean.length > 2 && (slugClean.includes(kClean) || kClean.includes(slugClean)))
+    );
+  }) as keyof typeof CategoryImages | undefined;
+
+  if (categoryKey && CategoryImages[categoryKey]) {
+    return { source: CategoryImages[categoryKey], emoji: circleMatch?.emoji ?? '🥗' };
+  }
+
+  return { source: null, emoji: circleMatch?.emoji ?? '🥗' };
+}
+
 import {
   ProductDetailsModal,
   RatingsReviewsModal,
@@ -387,6 +431,7 @@ import { cartLineCount, useCart } from '../api/cart';
 import { useToggleWishlist, useWishlistKeys } from '../api/wishlist';
 import { useWalletBalance } from '../api/wallet';
 import { ProductCard } from '../components/ProductCard';
+import { t } from '../../../i18n/customer';
 
 /** Banner deeplink: `/categories/{id}`, `/products/{id}`, an http(s) URL, or null. */
 export function resolveHomeDeeplink(deeplink: string | null | undefined): { screen: string; params?: Record<string, unknown> } | { url: string } | null {
@@ -407,9 +452,34 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   // Delivery address chip + unserved card: default address from the API (BR-160/BR-171).
   const addressesQuery = useAddresses();
   const defaultAddress = pickDefaultAddress(addressesQuery.data);
-  const currentDeliveryAddress = defaultAddress ? formatAddressShort(defaultAddress) : 'Add a delivery address';
+  const currentDeliveryAddress = defaultAddress ? formatAddressShort(defaultAddress) : t('customer.home.addAddress');
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliveryModalStep, setDeliveryModalStep] = useState<'delivery' | 'addAddress'>('delivery');
+
+  // Dynamic user profile for greeting, avatar, and profile modal (BR-190/BR-160).
+  const profileQuery = useCustomerProfile();
+  const profile = profileQuery.data;
+  const resolvedName = displayName(profile);
+  const firstName = resolvedName ? resolvedName.split(/\s+/)[0]! : 'Customer';
+  const displayPhone = formatMobileDisplay(profile?.mobile);
+  const avatarLetter = (resolvedName ? resolvedName.charAt(0) : (profile?.fullName ? profile.fullName.charAt(0) : 'C')).toUpperCase();
+
+  const preferencesList = React.useMemo(() => {
+    if (!profile?.harvestPreferences || profile.harvestPreferences.length === 0) {
+      return [
+        t('customer.home.profile.vegetarian'),
+        t('customer.home.profile.highProtein'),
+        t('customer.home.profile.pesticideFree'),
+      ];
+    }
+    const { eatingStyles, matters, other } = parseHarvestPreferences(profile.harvestPreferences);
+    const all = [...eatingStyles, ...matters, ...other];
+    return all.map((slug) =>
+      slug
+        .replace(/[_-]+/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+    );
+  }, [profile?.harvestPreferences]);
 
   // Server data: catalog home (rails, categories, banners), cart bar, wishlist hearts, wallet.
   const homeQuery = useCatalogHome();
@@ -562,13 +632,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             activeOpacity={0.8}
             onPress={() => onNavigate?.('CustomerAccount')}
             style={styles.stickyProfileBtn}
-            accessibilityLabel="Open Profile"
+            accessibilityLabel={t('customer.home.a11y.openProfile')}
           >
             <View style={styles.stickyAvatarCircle}>
               <TopBarAvatarSvg color="#FFFFFF" size={18} />
             </View>
             <View style={styles.stickyProfileTexts}>
-              <Text style={styles.stickyUserName}>Hi, Meena</Text>
+              <Text style={styles.stickyUserName}>{t('customer.home.greeting', { name: firstName })}</Text>
               <Text style={styles.stickyUserLocation} numberOfLines={1}>{currentDeliveryAddress}</Text>
             </View>
           </TouchableOpacity>
@@ -586,7 +656,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               activeOpacity={0.8}
               onPress={() => setShowWalletModal(true)}
               style={styles.stickyCircleBtn}
-              accessibilityLabel="Wallet"
+              accessibilityLabel={t('customer.home.a11y.wallet')}
             >
               <TopBarWalletSvg color="#FFFFFF" size={18} />
             </TouchableOpacity>
@@ -595,7 +665,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               activeOpacity={0.8}
               onPress={() => onNavigate?.('Wishlist')}
               style={styles.stickyCircleBtn}
-              accessibilityLabel="Wishlist"
+              accessibilityLabel={t('customer.home.a11y.wishlist')}
             >
               <TopBarHeartSvg color="#FFFFFF" size={18} />
             </TouchableOpacity>
@@ -624,11 +694,19 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           <View style={styles.bannerOverlay} pointerEvents="box-none">
             <View style={styles.bannerTopRow}>
               <TouchableOpacity
-                activeOpacity={0.7}
+                activeOpacity={0.8}
                 onPress={() => onNavigate?.('CustomerAccount')}
-                style={styles.profileTouchTarget}
-                accessibilityLabel="Open Profile"
-              />
+                style={styles.bannerProfileBtn}
+                accessibilityLabel={t('customer.home.a11y.openProfile')}
+              >
+                <View style={styles.stickyAvatarCircle}>
+                  <TopBarAvatarSvg color="#FFFFFF" size={18} />
+                </View>
+                <View style={styles.stickyProfileTexts}>
+                  <Text style={styles.stickyUserName}>{t('customer.home.greeting', { name: firstName })}</Text>
+                  <Text style={styles.stickyUserLocation} numberOfLines={1}>{currentDeliveryAddress}</Text>
+                </View>
+              </TouchableOpacity>
               <View style={styles.topRightActions}>
                 <NotificationBell
                   onPress={() => onNavigate?.('CustomerNotifications')}
@@ -641,13 +719,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   activeOpacity={0.7}
                   onPress={() => onNavigate?.('CustomerWallet')}
                   style={styles.circleTouchTarget}
-                  accessibilityLabel="Wallet"
+                  accessibilityLabel={t('customer.home.a11y.wallet')}
                 />
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => onNavigate?.('Wishlist')}
                   style={styles.circleTouchTarget}
-                  accessibilityLabel="Wishlist"
+                  accessibilityLabel={t('customer.home.a11y.wishlist')}
                 />
               </View>
             </View>
@@ -655,21 +733,21 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <View style={styles.categoriesTouchRow}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => onNavigate?.('ProductGrid', { sort: 'just_arrived', title: 'Just arrived' })}
+                onPress={() => onNavigate?.('ProductGrid', { sort: 'just_arrived', title: t('catalog.grid.justArrived') })}
                 style={styles.categoryCircleHit}
-                accessibilityLabel="Just Arrived"
+                accessibilityLabel={t('customer.home.a11y.justArrived')}
               />
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => onNavigate?.('Search', { query: 'Pesticide Free' })}
                 style={styles.categoryCircleHit}
-                accessibilityLabel="Pesticide Free"
+                accessibilityLabel={t('customer.home.a11y.pesticideFree')}
               />
               <TouchableOpacity
                 activeOpacity={0.8}
                 onPress={() => onNavigate?.('Search', { query: 'Seasonal Favs' })}
                 style={styles.categoryCircleHit}
-                accessibilityLabel="Seasonal Favs"
+                accessibilityLabel={t('customer.home.a11y.seasonalFavs')}
               />
             </View>
           </View>
@@ -689,7 +767,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 <DetailedEggIcon />
               </View>
             </View>
-            <Text style={styles.loadingText}>Loading your fresh market</Text>
+            <Text style={styles.loadingText}>{t('customer.home.loadingMarket')}</Text>
           </Animated.View>
         )}
 
@@ -706,32 +784,37 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             {/* ── SECTION 3: FRESH FINDS FOR YOU (CATEGORY CIRCLES, GET /catalog/home categories) ── */}
             {homeCategories.length > 0 && (
               <View style={styles.sectionWrap}>
-                <Text style={styles.sectionEditorialTitle}>Fresh Finds for You</Text>
+                <Text style={styles.sectionEditorialTitle}>{t('customer.home.freshFinds')}</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.categoryCirclesRow}
                 >
-                  {homeCategories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      testID={`home-category-${cat.id}`}
-                      activeOpacity={0.75}
-                      onPress={() => onNavigate?.('ProductGrid', { categoryId: cat.id, title: cat.name })}
-                      style={styles.categoryCircleItem}
-                    >
-                      <View style={styles.categoryCircleOuter}>
-                        {cat.imageUrl ? (
-                          <Image
-                            source={{ uri: cat.imageUrl }}
-                            style={styles.categoryCircleImg}
-                            resizeMode="cover"
-                          />
-                        ) : null}
-                      </View>
-                      <Text style={styles.categoryCircleLabel}>{cat.name}</Text>
-                    </TouchableOpacity>
-                  ))}
+                  {homeCategories.map((cat) => {
+                    const resolved = resolveCategoryImage(cat);
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        testID={`home-category-${cat.id}`}
+                        activeOpacity={0.75}
+                        onPress={() => onNavigate?.('ProductGrid', { categoryId: cat.id, title: cat.name })}
+                        style={styles.categoryCircleItem}
+                      >
+                        <View style={styles.categoryCircleOuter}>
+                          {resolved.source ? (
+                            <Image
+                              source={resolved.source}
+                              style={styles.categoryCircleImg}
+                              resizeMode="cover"
+                            />
+                          ) : (
+                            <Text style={styles.categoryCircleEmoji}>{resolved.emoji}</Text>
+                          )}
+                        </View>
+                        <Text style={styles.categoryCircleLabel}>{cat.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </ScrollView>
               </View>
             )}
@@ -746,7 +829,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                     style={styles.promoBannerWrap}
                     onPress={() => openBanner(b.deeplink)}
                     disabled={!b.deeplink}
-                    accessibilityLabel={b.title ?? 'Banner'}
+                    accessibilityLabel={b.title ?? t('customer.home.a11y.banner')}
                     testID={`home-banner-${b.id}`}
                   >
                     <Image source={{ uri: b.imageUrl }} style={styles.promoBannerImage} resizeMode="cover" />
@@ -758,7 +841,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               activeOpacity={0.9}
               onPress={() => onNavigate?.('Search', { query: 'Vegetables' })}
               style={styles.promoBannerWrap}
-              accessibilityLabel="Shop Vegetables"
+              accessibilityLabel={t('customer.catalog.home.shopVegetables')}
             >
                 <Image
                   source={bannerFarmFreshVegetables}
@@ -770,18 +853,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
             {homeQuery.isError && (
               <View style={styles.sectionWrap} testID="home-error">
-                <Text style={styles.sectionEditorialTitle}>Couldn't load the market</Text>
+                <Text style={styles.sectionEditorialTitle}>{t('customer.home.loadError')}</Text>
                 <TouchableOpacity activeOpacity={0.85} onPress={() => void homeQuery.refetch()} style={styles.profileActionBtn}>
-                  <Text style={styles.profileActionText}>Retry</Text>
+                  <Text style={styles.profileActionText}>{t('customer.common.retry')}</Text>
                 </TouchableOpacity>
               </View>
             )}
 
             {catalogEmpty && (
               <View style={styles.sectionWrap} testID="home-empty">
-                <Text style={styles.sectionEditorialTitle}>No produce available right now</Text>
+                <Text style={styles.sectionEditorialTitle}>{t('customer.home.empty')}</Text>
                 <TouchableOpacity activeOpacity={0.85} onPress={() => void homeQuery.refetch()} style={styles.profileActionBtn}>
-                  <Text style={styles.profileActionText}>Refresh</Text>
+                  <Text style={styles.profileActionText}>{t('customer.home.refresh')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -789,7 +872,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             {/* ── SECTION 5: "FOR YOU" CAROUSEL (featured) ───────────────────── */}
             {featured.length > 0 && (
               <View style={[styles.sectionWrap, styles.forYouSectionWrap]}>
-                {renderSectionHeader('For you')}
+                {renderSectionHeader(t('customer.home.forYou'))}
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -828,7 +911,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 <View style={styles.footerGoldenLine} />
               </View>
               <Text style={styles.footerSubtitle}>
-                Freshly sourced from local farmers, thoughtfully delivered to your home.
+                {t('customer.home.footer')}
               </Text>
             </View>
           </View>
@@ -852,17 +935,17 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               style={styles.floatingModalCloseBtn}
               activeOpacity={0.8}
               onPress={() => setShowProfileModal(false)}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.common.close')}
             >
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
             <View style={styles.profileHeader}>
               <View style={styles.profileAvatarLarge}>
-                <Text style={styles.profileAvatarText}>M</Text>
+                <Text style={styles.profileAvatarText}>{avatarLetter}</Text>
               </View>
               <View style={styles.profileHeaderText}>
-                <Text style={styles.profileName}>Meena</Text>
-                <Text style={styles.profilePhone}>+91 9090202033</Text>
+                <Text style={styles.profileName}>{resolvedName || t('customer.catalog.home.customerFallback')}</Text>
+                {displayPhone ? <Text style={styles.profilePhone}>{displayPhone}</Text> : null}
                 <Text style={styles.profileAddress}>{currentDeliveryAddress}</Text>
               </View>
               <TouchableOpacity
@@ -876,11 +959,13 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             <View style={styles.profileDivider} />
 
             <View style={styles.profileSection}>
-              <Text style={styles.profileSectionTitle}>Preferences</Text>
+              <Text style={styles.profileSectionTitle}>{t('customer.home.profile.preferences')}</Text>
               <View style={styles.prefBadgesRow}>
-                <View style={styles.prefBadge}><Text style={styles.prefBadgeText}>🌱 Vegetarian</Text></View>
-                <View style={styles.prefBadge}><Text style={styles.prefBadgeText}>💪 High protein</Text></View>
-                <View style={styles.prefBadge}><Text style={styles.prefBadgeText}>🛡️ Pesticide-free</Text></View>
+                {preferencesList.map((pref, idx) => (
+                  <View key={`${pref}-${idx}`} style={styles.prefBadge}>
+                    <Text style={styles.prefBadgeText}>{pref}</Text>
+                  </View>
+                ))}
               </View>
             </View>
 
@@ -892,7 +977,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               }}
               style={styles.profileActionBtn}
             >
-              <Text style={styles.profileActionText}>View My Cart ({cartCount} items)</Text>
+              <Text style={styles.profileActionText}>{t('customer.home.profile.viewCart', { count: cartCount })}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -903,7 +988,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               }}
               style={[styles.profileActionBtn, styles.profileSignOutBtn]}
             >
-              <Text style={[styles.profileActionText, { color: '#EF4444' }]}>Sign Out</Text>
+              <Text style={[styles.profileActionText, { color: '#EF4444' }]}>{t('customer.auth.logout')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -917,19 +1002,19 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               style={styles.floatingModalCloseBtn}
               activeOpacity={0.8}
               onPress={() => setShowWalletModal(false)}
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.common.close')}
             >
               <ModalCloseCrossSvg size={13} color="#1F2937" />
             </TouchableOpacity>
-            <Text style={styles.walletTitle}>TOHFA Fresh Wallet</Text>
+            <Text style={styles.walletTitle}>{t('customer.home.wallet.title')}</Text>
             <Text style={styles.walletBalance}>{wallet.isLoading ? '…' : wallet.label}</Text>
-            <Text style={styles.walletSubtitle}>Available balance for 1-click organic checkout</Text>
+            <Text style={styles.walletSubtitle}>{t('customer.home.wallet.subtitle')}</Text>
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => setShowWalletModal(false)}
               style={styles.walletDoneBtn}
             >
-              <Text style={styles.walletDoneText}>Close</Text>
+              <Text style={styles.walletDoneText}>{t('customer.common.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1102,9 +1187,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     height: 54,
   },
-  profileTouchTarget: {
-    width: 170,
-    height: 50,
+  bannerProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    maxWidth: 220,
   },
   topRightActions: {
     flexDirection: 'row',

@@ -183,7 +183,7 @@ export function createCustomerProfileService(
         expiresAt,
       });
       await sendEmailOtp(body.email, code, ttlMinutes);
-      return { email: body.email, expiresAt: expiresAt.toISOString() };
+      return { email: body.email, expiresAt: expiresAt.toISOString(), codeLength: length };
     },
 
     async verifyEmail(scope, body) {

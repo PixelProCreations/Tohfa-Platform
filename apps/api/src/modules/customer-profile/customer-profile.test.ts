@@ -140,6 +140,7 @@ describe('BR-160: customer profile', () => {
     const { svc, sent, profile } = setup();
     const res = await svc.requestEmailOtp(scope, { email: 'asha@example.com' });
     expect(res.expiresAt).toBe('2026-11-16T10:10:00.000Z');
+    expect(res.codeLength).toBe(6);
     expect(profile.email).toBeNull();
     const code = sent[0]!.code;
     expect(code).toMatch(/^[0-9]{6}$/);

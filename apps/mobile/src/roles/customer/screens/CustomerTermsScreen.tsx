@@ -15,7 +15,7 @@ import {
   customerSpacing,
 } from '../theme';
 import { useLegal, parseMarkdown } from '../api/legal';
-import { getLocale } from '../../../i18n/customer';
+import { getLocale, t } from '../../../i18n/customer';
 import { LegalMarkdown, LegalMeta, LegalLoading, LegalError } from '../components/LegalMarkdown';
 
 export interface CustomerTermsScreenProps {
@@ -57,11 +57,11 @@ export const CustomerTermsScreen: React.FC<CustomerTermsScreenProps> = ({
             activeOpacity={0.7}
             onPress={onBack || (() => onNavigate?.('CustomerAccountSettings'))}
             style={styles.circleIconButton}
-            accessibilityLabel="Back"
+            accessibilityLabel={t('customer.legal.back')}
           >
             <BackArrowSvg color="#1A2E1A" size={18} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Terms and condition</Text>
+          <Text style={styles.headerTitle}>{t('customer.legal.terms.header')}</Text>
         </View>
       </View>
       <View style={styles.headerBottomDivider} />
@@ -77,7 +77,7 @@ export const CustomerTermsScreen: React.FC<CustomerTermsScreenProps> = ({
           <LegalError onRetry={() => void legal.refetch()} />
         ) : (
           <>
-            <LegalMeta title={legal.data.title || 'Terms & Conditions'} lastUpdated={legal.data.lastUpdated} />
+            <LegalMeta title={legal.data.title || t('customer.legal.terms.title')} lastUpdated={legal.data.lastUpdated} />
             <LegalMarkdown blocks={blocks} />
           </>
         )}

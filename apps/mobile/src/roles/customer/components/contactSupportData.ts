@@ -1,4 +1,5 @@
 import type React from 'react';
+import { t } from '../../../i18n/customer';
 import { ProductImages } from '../assets/images/products';
 import {
   BoxSvg,
@@ -19,6 +20,17 @@ import {
   ShieldCheckSvg,
   InfoCircleSvg,
 } from './ContactSupportIcons';
+
+/**
+ * Display labels resolve lazily (getter, at render time) so they follow the
+ * active locale. Ids/codes are untouched.
+ */
+function withLabel<T extends { label: string }>(item: Omit<T, 'label'>, key: Parameters<typeof t>[0]): T {
+  return Object.defineProperties({}, {
+    ...Object.getOwnPropertyDescriptors(item),
+    label: { enumerable: true, get: () => t(key) },
+  }) as T;
+}
 
 export type RelatedCategory = 'order' | 'product' | 'review' | 'other';
 
@@ -50,38 +62,38 @@ export interface IssueTypeItem {
 }
 
 export const RELATED_TABS: { id: RelatedCategory; label: string; icon: React.FC<{ color?: string; size?: number }> }[] = [
-  { id: 'order', label: 'My Order', icon: BoxSvg },
-  { id: 'product', label: 'Product', icon: CartSvg },
-  { id: 'other', label: 'Other', icon: GridSvg },
+  withLabel({ id: 'order', icon: BoxSvg }, 'customer.contact.related.order'),
+  withLabel({ id: 'product', icon: CartSvg }, 'customer.contact.related.product'),
+  withLabel({ id: 'other', icon: GridSvg }, 'customer.contact.related.other'),
 ];
 
 export const ORDER_ISSUE_TYPES: IssueTypeItem[] = [
-  { code: 'product_support', label: 'Product support', icon: BoxSvg },
-  { code: 'order_status', label: 'Order status', icon: TruckSvg },
-  { code: 'payment_refund', label: 'Payment & refund', icon: CreditCardSvg },
-  { code: 'return_replacement', label: 'Return & replacement', icon: RepeatSvg },
-  { code: 'pickup_delivery', label: 'Pickup / delivery', icon: MapPinSvg },
-  { code: 'other', label: 'Other', icon: GridSvg },
+  withLabel({ code: 'product_support', icon: BoxSvg }, 'customer.contact.issue.product_support'),
+  withLabel({ code: 'order_status', icon: TruckSvg }, 'customer.contact.issue.order_status'),
+  withLabel({ code: 'payment_refund', icon: CreditCardSvg }, 'customer.contact.issue.payment_refund'),
+  withLabel({ code: 'return_replacement', icon: RepeatSvg }, 'customer.contact.issue.return_replacement'),
+  withLabel({ code: 'pickup_delivery', icon: MapPinSvg }, 'customer.contact.issue.pickup_delivery'),
+  withLabel({ code: 'other', icon: GridSvg }, 'customer.contact.issue.other'),
 ];
 
 export const PRODUCT_ISSUE_TYPES: IssueTypeItem[] = [
-  { code: 'quality_issue', label: 'Quality issue', icon: QualitySvg },
-  { code: 'damaged_item', label: 'Damaged item', icon: DamagedSvg },
-  { code: 'wrong_item', label: 'Wrong item', icon: WrongItemSvg },
-  { code: 'missing_item', label: 'Missing item', icon: MissingItemSvg },
-  { code: 'weight_quantity', label: 'Weight / quantity issue', icon: ScaleSvg },
-  { code: 'other', label: 'Other', icon: GridSvg },
+  withLabel({ code: 'quality_issue', icon: QualitySvg }, 'customer.contact.issue.quality_issue'),
+  withLabel({ code: 'damaged_item', icon: DamagedSvg }, 'customer.contact.issue.damaged_item'),
+  withLabel({ code: 'wrong_item', icon: WrongItemSvg }, 'customer.contact.issue.wrong_item'),
+  withLabel({ code: 'missing_item', icon: MissingItemSvg }, 'customer.contact.issue.missing_item'),
+  withLabel({ code: 'weight_quantity', icon: ScaleSvg }, 'customer.contact.issue.weight_quantity'),
+  withLabel({ code: 'other', icon: GridSvg }, 'customer.contact.issue.other'),
 ];
 
 export const OTHER_ISSUE_TYPES: IssueTypeItem[] = [
-  { code: 'account_profile', label: 'Account & Profile', icon: UserSvg },
-  { code: 'notifications', label: 'Notifications', icon: BellSvg },
-  { code: 'payments_wallet', label: 'Payments & wallet', icon: CreditCardSvg },
-  { code: 'addresses', label: 'Addresses', icon: MapPinSvg },
-  { code: 'app_issue_technical', label: 'App issue / technical', icon: GearSvg },
-  { code: 'policies', label: 'Policies', sublabel: '(Return, Refund, etc.)', icon: ShieldCheckSvg },
-  { code: 'report_concern', label: 'Report a concern', icon: InfoCircleSvg },
-  { code: 'other', label: 'Other', icon: GridSvg },
+  withLabel({ code: 'account_profile', icon: UserSvg }, 'customer.contact.issue.account_profile'),
+  withLabel({ code: 'notifications', icon: BellSvg }, 'customer.contact.issue.notifications'),
+  withLabel({ code: 'payments_wallet', icon: CreditCardSvg }, 'customer.contact.issue.payments_wallet'),
+  withLabel({ code: 'addresses', icon: MapPinSvg }, 'customer.contact.issue.addresses'),
+  withLabel({ code: 'app_issue_technical', icon: GearSvg }, 'customer.contact.issue.app_issue_technical'),
+  withLabel({ code: 'policies', get sublabel() { return t('customer.contact.issue.policies.sublabel'); }, icon: ShieldCheckSvg }, 'customer.contact.issue.policies'),
+  withLabel({ code: 'report_concern', icon: InfoCircleSvg }, 'customer.contact.issue.report_concern'),
+  withLabel({ code: 'other', icon: GridSvg }, 'customer.contact.issue.other'),
 ];
 
 export const ALL_ISSUE_LABELS: Record<IssueTypeCode, string> = {
@@ -136,11 +148,11 @@ export interface ReviewAspectOption {
 }
 
 export const REVIEW_ASPECTS: ReviewAspectOption[] = [
-  { id: 'quality', label: 'Product quality' },
-  { id: 'packaging', label: 'Packaging' },
-  { id: 'delivery', label: 'Delivery / Pickup' },
-  { id: 'communication', label: 'Communication' },
-  { id: 'other', label: 'Other' },
+  withLabel({ id: 'quality' }, 'customer.contact.aspect.quality'),
+  withLabel({ id: 'packaging' }, 'customer.contact.aspect.packaging'),
+  withLabel({ id: 'delivery' }, 'customer.contact.aspect.delivery'),
+  withLabel({ id: 'communication' }, 'customer.contact.aspect.communication'),
+  withLabel({ id: 'other' }, 'customer.contact.aspect.other'),
 ];
 
 export interface ReviewItem {
@@ -185,11 +197,11 @@ export interface ReturnReasonOption {
 }
 
 export const RETURN_REASONS: ReturnReasonOption[] = [
-  { id: 'quality', label: 'Quality issue (damaged / spoiled)' },
-  { id: 'wrong_item', label: 'Wrong item delivered' },
-  { id: 'expired', label: 'Item expired / near expiry' },
-  { id: 'damaged_pkg', label: 'Item missing or damaged packaging' },
-  { id: 'mismatch', label: 'Weight / quantity mismatch' },
-  { id: 'not_described', label: 'Not as described' },
-  { id: 'other', label: 'Other reason' },
+  withLabel({ id: 'quality' }, 'customer.contact.returnReason.quality'),
+  withLabel({ id: 'wrong_item' }, 'customer.contact.returnReason.wrong_item'),
+  withLabel({ id: 'expired' }, 'customer.contact.returnReason.expired'),
+  withLabel({ id: 'damaged_pkg' }, 'customer.contact.returnReason.damaged_pkg'),
+  withLabel({ id: 'mismatch' }, 'customer.contact.returnReason.mismatch'),
+  withLabel({ id: 'not_described' }, 'customer.contact.returnReason.not_described'),
+  withLabel({ id: 'other' }, 'customer.contact.returnReason.other'),
 ];

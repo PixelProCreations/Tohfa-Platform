@@ -42,6 +42,7 @@ import {
   type ServiceabilityQuery,
 } from '../api/serviceability';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -91,11 +92,11 @@ export function mapAddressFieldErrors(fieldErrors: Record<string, string>): Addr
 
 export function validateAddressForm(f: UiAddressFields): AddressFormErrors {
   const e: AddressFormErrors = {};
-  if (!isValidPincode(f.pincode)) e.pincode = 'Enter a valid 6-digit pincode';
-  if (!f.city.trim()) e.city = 'Enter your city';
-  if (!f.flat.trim()) e.flat = 'Enter flat / door no';
+  if (!isValidPincode(f.pincode)) e.pincode = t('customer.serviceArea.error.pincode');
+  if (!f.city.trim()) e.city = t('customer.serviceArea.error.city');
+  if (!f.flat.trim()) e.flat = t('customer.address.form.error.flat');
   if ((f.contactPhone ?? '').trim() && !normalizeContactPhone(f.contactPhone)) {
-    e.contactPhone = 'Enter a valid phone number';
+    e.contactPhone = t('customer.address.form.error.phone');
   }
   return e;
 }
@@ -125,13 +126,13 @@ const NearestMarketPicker: React.FC<{
   const items = (points.data ?? []).slice(0, 5);
   return (
     <View testID="nearest-market-picker">
-      <Text style={styles.typeOfAddressHeading}>Nearest market</Text>
+      <Text style={styles.typeOfAddressHeading}>{t('customer.address.form.market.title')}</Text>
       {points.isLoading ? (
         <ActivityIndicator color="#2E7D32" />
       ) : points.isError ? (
-        <Text style={styles.helperText}>Couldn't load nearby markets. We'll pick the closest one for you.</Text>
+        <Text style={styles.helperText}>{t('customer.address.form.market.error')}</Text>
       ) : items.length === 0 ? (
-        <Text style={styles.helperText}>No markets found nearby yet.</Text>
+        <Text style={styles.helperText}>{t('customer.address.form.market.empty')}</Text>
       ) : (
         items.map((p) => {
           const selected = value === p.id;
@@ -148,7 +149,7 @@ const NearestMarketPicker: React.FC<{
               </View>
               <Text style={[styles.radioLabel, selected && styles.radioLabelActive]} numberOfLines={1}>
                 {p.name}
-                {typeof p.distanceKm === 'number' ? ` · ${p.distanceKm.toFixed(1)} km` : ''}
+                {typeof p.distanceKm === 'number' ? ` · ${t('customer.address.form.market.distance', { km: p.distanceKm.toFixed(1) })}` : ''}
               </Text>
             </TouchableOpacity>
           );
@@ -377,15 +378,13 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               onPress={onClose}
               style={styles.floatingCloseBtn}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.serviceArea.close')}
             >
               <CloseCrossIcon />
             </TouchableOpacity>
 
-            <Text style={styles.deliveryTitle}>Where should we deliver?</Text>
-            <Text style={styles.deliverySubtitle}>
-              Choose your location to discover fresh produce available near you.
-            </Text>
+            <Text style={styles.deliveryTitle}>{t('customer.address.form.delivery.title')}</Text>
+            <Text style={styles.deliverySubtitle}>{t('customer.address.form.delivery.subtitle')}</Text>
 
             {/* Option 1: Use my current location (soft green card) */}
             <TouchableOpacity
@@ -403,10 +402,8 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                 <PinIcon color="#1F2937" />
               </View>
               <View style={styles.optionTextCol}>
-                <Text style={styles.currentLocationTitle}>Use my current location</Text>
-                <Text style={styles.currentLocationDesc}>
-                  Find nearby products and check delivery availability for your area.
-                </Text>
+                <Text style={styles.currentLocationTitle}>{t('customer.address.form.delivery.useCurrent')}</Text>
+                <Text style={styles.currentLocationDesc}>{t('customer.address.form.delivery.useCurrentDesc')}</Text>
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
@@ -421,7 +418,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                 <PinIcon color="#1F2937" />
               </View>
               <View style={styles.optionTextCol}>
-                <Text style={styles.standardOptionTitle}>Add Address</Text>
+                <Text style={styles.standardOptionTitle}>{t('customer.address.add.title')}</Text>
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
@@ -442,7 +439,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                 <PinIcon color="#1F2937" />
               </View>
               <View style={styles.optionTextCol}>
-                <Text style={styles.standardOptionTitle}>Select location manually</Text>
+                <Text style={styles.standardOptionTitle}>{t('customer.address.form.delivery.manual')}</Text>
               </View>
               <ChevronRightIcon />
             </TouchableOpacity>
@@ -456,20 +453,20 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               onPress={onClose}
               style={styles.floatingCloseBtn}
               accessibilityRole="button"
-              accessibilityLabel="Close"
+              accessibilityLabel={t('customer.serviceArea.close')}
             >
               <CloseCrossIcon />
             </TouchableOpacity>
 
             {/* Header: Title on Left, Reset on Right */}
             <View style={styles.addAddressHeaderRow}>
-              <Text style={styles.addAddressTitle}>Add Address</Text>
+              <Text style={styles.addAddressTitle}>{t('customer.address.add.title')}</Text>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={handleReset}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <Text style={styles.resetText}>Reset</Text>
+                <Text style={styles.resetText}>{t('customer.address.form.reset')}</Text>
               </TouchableOpacity>
             </View>
 
@@ -481,26 +478,26 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               {/* Row 1: Pincode and City side by side */}
               <View style={styles.inputRowDouble}>
                 <View style={styles.halfInputWrap}>
-                  {field('pincode', 'Pincode', pincode, (s) => setPincode(s.replace(/\D/g, '').slice(0, 6)), {
+                  {field('pincode', t('customer.address.form.pincode'), pincode, (s) => setPincode(s.replace(/\D/g, '').slice(0, 6)), {
                     keyboardType: 'numeric',
                     maxLength: 6,
                   })}
                 </View>
-                <View style={styles.halfInputWrap}>{field('city', 'City', city, setCity)}</View>
+                <View style={styles.halfInputWrap}>{field('city', t('customer.address.form.city'), city, setCity)}</View>
               </View>
 
-              {field('state', 'State', state, setState)}
-              {field('area', 'Area', area, setArea)}
-              {field('locality', 'Locality', locality, setLocality)}
-              {field('street', 'Street', street, setStreet)}
+              {field('state', t('customer.address.form.state'), state, setState)}
+              {field('area', t('customer.address.form.area'), area, setArea)}
+              {field('locality', t('customer.address.form.locality'), locality, setLocality)}
+              {field('street', t('customer.address.form.street'), street, setStreet)}
 
               <View style={styles.inputRowDouble}>
-                <View style={styles.halfInputWrap}>{field('flat', 'Flat / Door no', flat, setFlat)}</View>
-                <View style={styles.halfInputWrap}>{field('building', 'Building name', building, setBuilding)}</View>
+                <View style={styles.halfInputWrap}>{field('flat', t('customer.address.form.flat'), flat, setFlat)}</View>
+                <View style={styles.halfInputWrap}>{field('building', t('customer.address.form.building'), building, setBuilding)}</View>
               </View>
 
-              {field('landmark', 'Landmark (optional)', landmark, setLandmark)}
-              {field('contactPhone', 'Contact number (optional)', contactPhone, setContactPhone, {
+              {field('landmark', t('customer.address.form.landmark'), landmark, setLandmark)}
+              {field('contactPhone', t('customer.address.form.contactPhone'), contactPhone, setContactPhone, {
                 keyboardType: 'phone-pad',
                 maxLength: 16,
               })}
@@ -517,7 +514,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
               />
 
               {/* Type of Address */}
-              <Text style={styles.typeOfAddressHeading}>Type of Address</Text>
+              <Text style={styles.typeOfAddressHeading}>{t('customer.address.form.type.title')}</Text>
 
               <View style={styles.radioGroupRow}>
                 {(['Home', 'Office', 'Other'] as const).map((type) => {
@@ -533,7 +530,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                         {isSelected && <View style={styles.radioDot} />}
                       </View>
                       <Text style={[styles.radioLabel, isSelected && styles.radioLabelActive]}>
-                        {type}
+                        {t(('customer.address.form.type.' + type) as 'customer.address.form.type.Home')}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -549,7 +546,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                 <View style={[styles.checkboxBox, isDefault && styles.checkboxBoxActive]}>
                   {isDefault && <CheckmarkIcon />}
                 </View>
-                <Text style={styles.checkboxLabel}>Mark as default address</Text>
+                <Text style={styles.checkboxLabel}>{t('customer.address.form.default')}</Text>
               </TouchableOpacity>
 
               {/* Save Address Button */}
@@ -571,7 +568,7 @@ export const CustomerDeliveryAddressModal: React.FC<CustomerDeliveryAddressModal
                 {saving ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.saveAddressBtnText}>Save address</Text>
+                  <Text style={styles.saveAddressBtnText}>{t('customer.address.form.save')}</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>

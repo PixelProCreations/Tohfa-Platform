@@ -12569,10 +12569,11 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [email, expiresAt]
+                required: [email, expiresAt, codeLength]
                 properties:
                   email: { type: string, format: email }
                   expiresAt: { type: string, format: date-time }
+                  codeLength: { type: integer, minimum: 4, maximum: 8, description: Number of digits in the emailed code (system_config otp_length); the client must not assume 6. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -12911,7 +12912,7 @@ paths:
             `STOCK_UNAVAILABLE`: the batch behind a cart line no longer holds the reserved quantity,
             e.g. because a DIRECT counter sale drew it (DIRECT sales do not decrement allocations,
             BR-95k). Nothing is written: no debit, no order, no ledger row. `SLOT_FULL`: the
-            chosen delivery slot is full or switched off (BR-201); nothing is written.
+            chosen delivery slot is full or switched off (BR-201); `SLOT_CUTOFF_PASSED`: the slot ordering cutoff (start minus `delivery_slot_cutoff_minutes`) has passed (BR-210); nothing is written.
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -12957,7 +12958,7 @@ paths:
         slot (BR-201). Quote and checkout share one pricing path, so `totalAmount` equals the
         placed order's total. Takes the checkout body; nothing is reserved, debited, booked or
         created, so no `Idempotency-Key`. Fails like checkout (404 no cart or foreign address, 422
-        past date or missing slot, 501 non-wallet method or delivery disabled, 409 `SLOT_FULL`),
+        past date or missing slot, 501 non-wallet method or delivery disabled, 409 `SLOT_FULL` or `SLOT_CUTOFF_PASSED`),
         except an expired lock is reported as `lockExpired: true` rather than refused.
       x-permission: order.place
       x-business-rules: [BR-200, BR-201, BR-98, BR-161, BR-187]
@@ -12976,7 +12977,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`SLOT_FULL`: the chosen delivery slot is full or switched off (BR-201).'
+          description: '`SLOT_FULL`: the chosen delivery slot is full or switched off (BR-201). `SLOT_CUTOFF_PASSED`: the slot ordering cutoff has passed (BR-210).'
           content:
             application/problem+json:
               schema: { $ref: '#/components/schemas/Problem' }
@@ -17820,8 +17821,17 @@ paths:
         `/admin/customers/{customerId}/support-tickets`. Photos are ids from `POST /uploads/sign`
         with purpose ISSUE_PHOTO (own uploads only, up to five: BR-199). Text that names a farmer or farm is refused 422
         (BR-97, BR-16). An `orderId` that is not the caller's is 404.
+        The optional `Idempotency-Key` header (BR-212) makes a retry safe: the same key with the same body
+        replays the original ticket (same id, no second ticket); the same key with a different body is 409
+        `IDEMPOTENCY_KEY_REUSED`. Keys are retained 24 hours.
       x-permission: support.ticket.create_own
-      x-business-rules: [BR-36, BR-97, BR-16]
+      x-business-rules: [BR-36, BR-97, BR-16, BR-212]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          description: Optional client-generated key, unique per ticket the customer means to raise (BR-212).
+          schema: { type: string, maxLength: 255 }
       requestBody:
         required: true
         content:
@@ -17836,6 +17846,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
 
   /support/tickets/{id}:
@@ -20085,6 +20096,7 @@ components:
         * `ALLOCATION_SUM_INVALID` — the channel percentages do not sum to 100 (BR-12).
         * `CART_LOCK_EXPIRED` — the 24-hour cart reservation lapsed (BR-22).
         * `SLOT_FULL` — the chosen delivery slot is fully booked or switched off (BR-201).
+        * `SLOT_CUTOFF_PASSED` — the delivery slot ordering cutoff (start minus `delivery_slot_cutoff_minutes`) has passed (BR-210).
         * `OTP_INVALID` — the supplied OTP did not match (BR-20, BR-32).
         * `OTP_EXPIRED` — the OTP challenge is past its validity window (BR-32).
         * `OTP_LOCKED` — three failed attempts; a new challenge is required (BR-32).
@@ -26998,8 +27010,17 @@ components:
       allOf:
         - $ref: '#/components/schemas/Invoice'
         - type: object
-          required: [buyerName, buyerGstin]
+          required: [buyerName, buyerGstin, seller]
           properties:
+            seller:
+              type: object
+              description: 'BR-211: TOHFA as the seller (BR-16b: never the farmer), from system_config invoice_seller_* keys. Empty strings until the client supplies the real values.'
+              required: [legalName, gstin, address, stateCode]
+              properties:
+                legalName: { type: string }
+                gstin: { type: string }
+                address: { type: string }
+                stateCode: { type: string }
             buyerName: { type: [string, 'null'], description: 'BR-128: the customer''s name, else the walk-in name on the order; null for a farmer-side invoice. Read live (no snapshot; UNCONFIRMED).' }
             buyerGstin: { type: [string, 'null'], description: 'BR-128: the customer''s GSTIN exactly as stored; null when none is stored, for a walk-in and for a farmer-side invoice. Read live (no snapshot; UNCONFIRMED).' }
             placeOfSupply: { type: [string, 'null'] }

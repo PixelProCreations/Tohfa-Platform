@@ -14,6 +14,7 @@
 import { pool, withTransaction, type Executor } from '../../db/pool.js';
 import { writeAuditLog } from '../../audit/auditLog.js';
 import { AppError } from '../../http/problem.js';
+import { beginIdempotent, idempotencyStore, optionalIdempotencyKey, type IdempotencyStore } from '../../http/idempotency.js';
 import type { ResolvedScope } from '../../rbac/requirePermission.js';
 import { defaultBlobStorage } from '../../storage/blobStorage.js';
 import { UploadPurpose, uploadPurposeOfStorageKey } from '../uploads/uploads.schema.js';
@@ -42,7 +43,8 @@ import type {
 } from './customer-support.schema.js';
 
 export interface CustomerSupportService {
-  createTicket(scope: ResolvedScope, body: CreateTicketBody): Promise<CustomerTicketDetail>;
+  /** BR-212: with an `idempotencyKey`, a replay of the same body returns the original ticket. */
+  createTicket(scope: ResolvedScope, body: CreateTicketBody, idempotencyKey?: string): Promise<CustomerTicketDetail>;
   listTickets(scope: ResolvedScope, query: ListTicketsQuery): Promise<CustomerTicketList>;
   getTicket(scope: ResolvedScope, ticketId: string): Promise<CustomerTicketDetail>;
   addMessage(scope: ResolvedScope, ticketId: string, body: SendMessageBody): Promise<CustomerTicketMessage>;
@@ -56,6 +58,7 @@ export interface CustomerSupportDeps {
   transaction: <T>(fn: (tx: Executor) => Promise<T>) => Promise<T>;
   publicUrl: (storageKey: string) => string;
   identityLookup?: FarmerIdentityLookup;
+  idempotency?: IdempotencyStore;
 }
 
 const ticketNotFound = (): AppError => new AppError('NOT_FOUND', { detail: 'No support ticket with that id.' });
@@ -74,6 +77,7 @@ export function createCustomerSupportService(deps: Partial<CustomerSupportDeps> 
   const repo = deps.repo ?? customerSupportRepo;
   const db = deps.db ?? pool;
   const transaction = deps.transaction ?? ((fn) => withTransaction(fn));
+  const idempotency = deps.idempotency ?? idempotencyStore;
   const publicUrl = deps.publicUrl ?? ((key: string) => defaultBlobStorage.getPublicUrl(key));
 
   function summary(row: TicketDbRow, redactor: Redactor): CustomerTicketSummary {
@@ -139,9 +143,20 @@ export function createCustomerSupportService(deps: Partial<CustomerSupportDeps> 
   }
 
   return {
-    async createTicket(scope, body) {
+    async createTicket(scope, body, idempotencyKey) {
       const customerId = requireCustomerId(scope);
+      const key = optionalIdempotencyKey(idempotencyKey);
       return transaction(async (tx) => {
+        // BR-212: claim the key first so a replay returns the stored ticket and writes nothing.
+        const idem = key === undefined
+          ? undefined
+          : await beginIdempotent<CustomerTicketDetail>(idempotency, tx, {
+              actorUserId: scope.userId,
+              key,
+              operation: 'support_ticket.create',
+              request: body,
+            });
+        if (idem?.replay === true) return idem.response;
         if (body.orderId !== undefined && !(await repo.orderBelongsToCustomer(tx, customerId, body.orderId))) {
           throw new AppError('NOT_FOUND', { detail: 'No order with that id.' });
         }
@@ -155,7 +170,9 @@ export function createCustomerSupportService(deps: Partial<CustomerSupportDeps> 
           orderId: body.orderId ?? null,
           photoKeys,
         });
-        return detail(tx, customerId, row);
+        const created = await detail(tx, customerId, row);
+        if (idem !== undefined && idem.replay === false) await idem.complete(created);
+        return created;
       });
     },
 

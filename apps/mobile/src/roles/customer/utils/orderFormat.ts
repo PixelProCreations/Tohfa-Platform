@@ -3,23 +3,25 @@
  * every value comes from the API (`OrderSummary` / `Order` / `OrderTracking`).
  */
 import { isPickupFulfillment, type DeliverySlot } from '../api/orders';
+import { t, type TranslationKey } from '../../../i18n/customer';
 
-const STATUS_LABEL: Record<string, string> = {
-  PENDING_PAYMENT: 'Awaiting payment',
-  CONFIRMED: 'Order confirmed',
-  PACKED: 'Packed',
-  DISPATCHED: 'On the way',
-  READY_FOR_PICKUP: 'Ready to collect',
-  OUT_FOR_DELIVERY: 'Out for delivery',
-  DELIVERED: 'Delivered',
-  PICKED_UP: 'Collected',
-  CANCELLED: 'Cancelled',
-  RETURNED: 'Returned',
-};
+const KNOWN_STATUSES = new Set([
+  'PENDING_PAYMENT',
+  'CONFIRMED',
+  'PACKED',
+  'DISPATCHED',
+  'READY_FOR_PICKUP',
+  'OUT_FOR_DELIVERY',
+  'DELIVERED',
+  'PICKED_UP',
+  'CANCELLED',
+  'RETURNED',
+]);
 
 /** Human label of an order status; an unknown future value reads "In progress". */
 export function orderStatusLabel(status: string | null | undefined): string {
-  return (status && STATUS_LABEL[status]) || 'In progress';
+  if (status && KNOWN_STATUSES.has(status)) return t(`customer.orders.status.${status}` as TranslationKey);
+  return t('customer.orders.status.unknown');
 }
 
 export const SLOT_LABELS: Record<DeliverySlot, string> = {
@@ -54,9 +56,9 @@ export function activeOrderBadge(
   now: number = Date.now(),
 ): string {
   if (isPickupFulfillment(o.fulfillmentType)) {
-    return o.status === 'READY_FOR_PICKUP' ? 'Ready to collect' : orderStatusLabel(o.status);
+    return o.status === 'READY_FOR_PICKUP' ? t('customer.orders.status.READY_FOR_PICKUP') : orderStatusLabel(o.status);
   }
-  if (o.deliveryDate === istDay(now, 0)) return 'Arrive Today';
-  if (o.deliveryDate === istDay(now, 1)) return 'Arrive Tomorrow';
+  if (o.deliveryDate === istDay(now, 0)) return t('customer.orders.badge.arriveToday');
+  if (o.deliveryDate === istDay(now, 1)) return t('customer.orders.badge.arriveTomorrow');
   return orderStatusLabel(o.status);
 }

@@ -10,6 +10,7 @@ const ALL = [
   '004_demo.js',
   '005_crop_rotation_seed.sql',
   '006_pest_library_seed.sql',
+  '007_customer_products.js',
 ];
 
 describe('planSeeds', () => {
@@ -21,6 +22,7 @@ describe('planSeeds', () => {
       '004_demo.js',
       '005_crop_rotation_seed.sql',
       '006_pest_library_seed.sql',
+      '007_customer_products.js',
     ]);
     expect(plan.skipped[0]?.reason).toContain('SEED_DEV_USERS=true');
   });
@@ -41,7 +43,7 @@ describe('planSeeds', () => {
   });
 
   it('fails loudly on a seed file nobody classified', () => {
-    expect(() => planSeeds([...ALL, '007_new.sql'], {})).toThrow(/007_new\.sql/);
+    expect(() => planSeeds([...ALL, '008_new.sql'], {})).toThrow(/008_new\.sql/);
   });
 
   it('every seed file in db/seed is classified', () => {

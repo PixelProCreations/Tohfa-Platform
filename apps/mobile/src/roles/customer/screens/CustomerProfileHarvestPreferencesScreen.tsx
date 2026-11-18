@@ -26,6 +26,7 @@ import {
   useUpdateCustomerProfile,
 } from '../api/profile';
 import { mapProblem } from '../api/problem';
+import { t } from '../../../i18n/customer';
 
 interface CustomerProfileHarvestPreferencesScreenProps {
   onNavigate: (screen: 'CustomerPermissions' | 'CustomerLoadingMarket' | 'CustomerMain') => void;
@@ -224,29 +225,29 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
   // Col 1: Vegetarian, Eggetarian, Gluten free, High protein
   // Col 2: Non-vegetarian, Vegan, Keto/low card
   const eatingStylesCol1 = [
-    { id: 'veg', label: 'Vegetarian', IconComp: VegetarianIcon },
-    { id: 'egg', label: 'Eggetarian', IconComp: EggetarianIcon },
-    { id: 'gluten-free', label: 'Gluten free', IconComp: GlutenFreeIcon },
-    { id: 'high-protein', label: 'High protein', IconComp: HighProteinIcon },
+    { id: 'veg', label: t('customer.account.setup.harvest.veg'), IconComp: VegetarianIcon },
+    { id: 'egg', label: t('customer.account.setup.harvest.egg'), IconComp: EggetarianIcon },
+    { id: 'gluten-free', label: t('customer.account.setup.harvest.glutenFree'), IconComp: GlutenFreeIcon },
+    { id: 'high-protein', label: t('customer.account.setup.harvest.highProtein'), IconComp: HighProteinIcon },
   ];
 
   const eatingStylesCol2 = [
-    { id: 'non-veg', label: 'Non-vegetarian', IconComp: NonVegIcon },
-    { id: 'vegan', label: 'Vegan', IconComp: VeganIcon },
-    { id: 'keto', label: 'Keto/low card', IconComp: KetoIcon },
+    { id: 'non-veg', label: t('customer.account.setup.harvest.nonVeg'), IconComp: NonVegIcon },
+    { id: 'vegan', label: t('customer.account.setup.harvest.vegan'), IconComp: VeganIcon },
+    { id: 'keto', label: t('customer.account.setup.harvest.keto'), IconComp: KetoIcon },
   ];
 
   // Section 2: What Matters to you?
   // Col 1: Organic, No artificial additives
   // Col 2: Pesticide free, Hormone free
   const mattersCol1 = [
-    { id: 'organic', label: 'Organic', IconComp: OrganicIcon },
-    { id: 'no-additives', label: 'No artificial additives', IconComp: NoAdditivesIcon },
+    { id: 'organic', label: t('customer.account.setup.harvest.organic'), IconComp: OrganicIcon },
+    { id: 'no-additives', label: t('customer.account.setup.harvest.noAdditives'), IconComp: NoAdditivesIcon },
   ];
 
   const mattersCol2 = [
-    { id: 'pesticide-free', label: 'Pesticide free', IconComp: PesticideFreeIcon },
-    { id: 'hormone-free', label: 'Hormone free', IconComp: HormoneFreeIcon },
+    { id: 'pesticide-free', label: t('customer.account.setup.harvest.pesticideFree'), IconComp: PesticideFreeIcon },
+    { id: 'hormone-free', label: t('customer.account.setup.harvest.hormoneFree'), IconComp: HormoneFreeIcon },
   ];
 
   const toggleEatingStyle = (id: string) => {
@@ -361,9 +362,9 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
           onPress={handleSkip}
           style={styles.skipButton}
           accessibilityRole="button"
-          accessibilityLabel="Skip"
+          accessibilityLabel={t('customer.account.setup.skip')}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text style={styles.skipText}>{t('customer.account.setup.skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -373,9 +374,9 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
       >
         {/* ── MAIN HEADLINE & SUBTITLE ────────────────────────────────────── */}
         <View style={styles.titleBlock}>
-          <Text style={styles.editorialTitle}>A Fresh Harvest Is Waiting for You!</Text>
+          <Text style={styles.editorialTitle}>{t('customer.account.setup.harvest.title')}</Text>
           <Text style={styles.subtitle}>
-            Help us personalise your experience with the right{'\n'}products and suggestions.
+            {t('customer.account.setup.harvest.subtitle')}
           </Text>
         </View>
 
@@ -386,8 +387,8 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
               <SaladBowlIcon />
             </View>
             <View style={styles.sectionHeaderTextWrap}>
-              <Text style={styles.sectionTitle}>Your Eating style</Text>
-              <Text style={styles.sectionSubtitle}>Choose everything that fits you.</Text>
+              <Text style={styles.sectionTitle}>{t('customer.account.setup.harvest.eatingTitle')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('customer.account.setup.harvest.eatingSub')}</Text>
             </View>
           </View>
 
@@ -417,8 +418,8 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
               <ShieldCheckIcon />
             </View>
             <View style={styles.sectionHeaderTextWrap}>
-              <Text style={styles.sectionTitle}>What Matters to you?</Text>
-              <Text style={styles.sectionSubtitle}>Choose what gives you confidence in a product.</Text>
+              <Text style={styles.sectionTitle}>{t('customer.account.setup.harvest.mattersTitle')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('customer.account.setup.harvest.mattersSub')}</Text>
             </View>
           </View>
 
@@ -459,7 +460,7 @@ export const CustomerProfileHarvestPreferencesScreen: React.FC<CustomerProfileHa
               hasSelections && customerShadow.raised,
             ]}
             accessibilityRole="button"
-            accessibilityLabel="Proceed to permissions"
+            accessibilityLabel={t('customer.account.setup.harvest.proceedA11y')}
           >
             {saving ? (
               <ActivityIndicator color={hasSelections ? '#FFFFFF' : '#9CA3AF'} testID="preferences-saving" />
