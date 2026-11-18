@@ -25,4 +25,5 @@ export { default as profileAvatarMale } from './profileimages/image 16.png';
 export { default as profileAvatarFemale } from './profileimages/pngegg (4) 2.png';
 export { default as divQrCode } from './profileimages/div (1).png';
 export { default as pickupQrCode } from './pickup_qr_code.png';
+export { default as walletMoneyAddedSuccess } from './wallet_money_added_success.png';
 

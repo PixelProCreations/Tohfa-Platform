@@ -110,7 +110,10 @@ export interface CartRepo {
       allocationId: string;
       reservedUntil: Date;
     },
-  ): Promise<void>;
+  ): Promise<{ id: string; qtyKg: string; unitPrice: string }>;
+
+  /** Store a line total the service computed in integer paise (cart.pricing). */
+  setLineTotal(db: Executor, itemId: string, lineTotal: string): Promise<void>;
 
   updateCartLockAndSubtotal(
     db: Executor,
@@ -337,7 +340,10 @@ export const cartRepo: CartRepo = {
   },
 
   async upsertCartItem(db, params) {
-    await db.query(
+    // On a merge the line total is provisional (EXCLUDED.line_total, the added quantity's figure);
+    // the service recomputes it from the merged quantity in integer paise and calls setLineTotal
+    // in the same transaction, while this statement's row lock is still held. No money maths in SQL.
+    const res = await db.query<{ id: string; qtyKg: string; unitPrice: string }>(
       `INSERT INTO cart_items (
          cart_id, crop_id, grade, qty_kg, unit_price, line_total,
          allocation_id, reserved_until, status
@@ -347,11 +353,12 @@ export const cartRepo: CartRepo = {
        DO UPDATE SET
          qty_kg = cart_items.qty_kg + EXCLUDED.qty_kg,
          unit_price = EXCLUDED.unit_price,
-         line_total = (cart_items.qty_kg + EXCLUDED.qty_kg) * EXCLUDED.unit_price,
+         line_total = EXCLUDED.line_total,
          allocation_id = EXCLUDED.allocation_id,
          reserved_until = EXCLUDED.reserved_until,
          status = 'HELD',
-         updated_at = now()`,
+         updated_at = now()
+       RETURNING id, qty_kg::text AS "qtyKg", unit_price::text AS "unitPrice"`,
       [
         params.cartId,
         params.cropId,
@@ -362,6 +369,14 @@ export const cartRepo: CartRepo = {
         params.allocationId,
         params.reservedUntil,
       ],
+    );
+    return res.rows[0]!;
+  },
+
+  async setLineTotal(db, itemId, lineTotal) {
+    await db.query(
+      `UPDATE cart_items SET line_total = $2::numeric WHERE id = $1`,
+      [itemId, lineTotal],
     );
   },
 

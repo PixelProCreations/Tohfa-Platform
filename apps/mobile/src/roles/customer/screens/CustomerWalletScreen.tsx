@@ -16,7 +16,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { customerFonts } from '../theme';
 import {
   walletPouchCard,
-  profileEmailVerified,
+  walletMoneyAddedSuccess,
 } from '../assets/images';
 import { CustomerSendMoneyScreen } from './CustomerSendMoneyScreen';
 
@@ -190,12 +190,10 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
 
   const handleConfirmAddMoney = () => {
     if (parsedAmount <= 0) return;
+    const updated = balance + parsedAmount;
     setLastAddedAmount(parsedAmount);
-    setBalance((prev) => {
-      const updated = prev + parsedAmount;
-      onBalanceChange?.(updated);
-      return updated;
-    });
+    setBalance(updated);
+    onBalanceChange?.(updated);
     setShowSuccessModal(true);
   };
 
@@ -540,7 +538,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
 
             {/* Success Illustration */}
             <Image
-              source={profileEmailVerified}
+              source={walletMoneyAddedSuccess}
               style={styles.modalSuccessIllustration}
               resizeMode="contain"
             />
@@ -948,8 +946,8 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   modalSuccessIllustration: {
-    width: 70,
-    height: 70,
+    width: 130,
+    height: 105,
     marginBottom: 12,
   },
   modalTitle: {

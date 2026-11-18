@@ -9,7 +9,8 @@ export type NotificationTemplateCode =
   | 'ORDER_CONFIRMED'
   | 'ORDER_DISPATCHED'
   | 'ORDER_DELIVERED'
-  | 'WALLET_CREDITED';
+  | 'WALLET_CREDITED'
+  | 'WALLET_DEBITED';
 
 export interface DeepLinkMapping {
   app: 'farmer-mobile' | 'customer-mobile';
@@ -104,6 +105,11 @@ export const NOTIFICATION_DEEP_LINKS: Record<NotificationTemplateCode, DeepLinkR
     };
   },
   WALLET_CREDITED: () => ({
+    app: 'customer-mobile',
+    screen: 'Topup',
+    url: 'tohfa-customer://app/topup',
+  }),
+  WALLET_DEBITED: () => ({
     app: 'customer-mobile',
     screen: 'Topup',
     url: 'tohfa-customer://app/topup',

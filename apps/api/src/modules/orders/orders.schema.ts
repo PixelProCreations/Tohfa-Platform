@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Money } from '@tohfa/shared-types';
+import type { CartResponse } from '../cart/cart.schema.js';
 
 const moneySchema = z.string().regex(/^-?[0-9]{1,10}(\.[0-9]{1,2})?$/);
 const quantitySchema = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,3})?$/);
@@ -133,6 +134,9 @@ export const orderResponseSchema = orderSummaryResponseSchema.extend({
   gstAmount: moneySchema.optional(),
   deliveryAddressId: z.string().uuid().nullable().optional(),
   deliverySlot: z.enum(deliverySlots).nullable().optional(),
+  paymentMethod: z.enum(paymentMethods).optional(),
+  paymentMethodLabel: z.string().optional(),
+  pickupCode: z.string().nullable().optional(),
 });
 export type OrderResponse = OrderSummaryResponse & {
   items: OrderItemResponse[];
@@ -142,6 +146,10 @@ export type OrderResponse = OrderSummaryResponse & {
   gstAmount?: Money | undefined;
   deliveryAddressId?: string | null | undefined;
   deliverySlot?: DeliverySlot | null | undefined;
+  /** BR-182. */
+  paymentMethod?: PaymentMethod | undefined;
+  paymentMethodLabel?: string | undefined;
+  pickupCode?: string | null | undefined;
 };
 
 export const listOrdersQuerySchema = z.object({
@@ -155,3 +163,29 @@ export const orderIdParamSchema = z.object({
   id: z.string().uuid(),
 });
 export type OrderIdParam = z.infer<typeof orderIdParamSchema>;
+
+// ---------------------------------------------------------------------------
+// POST /v1/orders/:id/reorder (BR-162)
+// ---------------------------------------------------------------------------
+/** Why a past line could not be put back in the cart. Mirrors the cart refusal codes. */
+export const reorderUnavailableReasons = [
+  'OUT_OF_STOCK',
+  'DELISTED',
+  'INSUFFICIENT_ALLOCATION',
+] as const;
+export type ReorderUnavailableReason = (typeof reorderUnavailableReasons)[number];
+
+export interface ReorderUnavailableItem {
+  productId: string;
+  name: string;
+  grade: ProduceGrade;
+  qtyKg: string;
+  reason: ReorderUnavailableReason;
+}
+
+export interface ReorderResponse {
+  /** The customer's active cart after the rebuild (cart.schema.ts CartResponse). */
+  cart: CartResponse;
+  addedCount: number;
+  unavailable: ReorderUnavailableItem[];
+}

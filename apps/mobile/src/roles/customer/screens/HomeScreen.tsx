@@ -230,14 +230,6 @@ const GRAIN_ITEMS: ProductCardData[] = [
   { id: 'gr12', name: 'Oats', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥣', image: ProductImages.grainOats },
 ];
 
-const FRESH_COMBOS_ITEMS: ProductCardData[] = [
-  { id: 'fc1', name: 'ABC Combo', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥗', image: ProductImages.comboAbc },
-  { id: 'fc2', name: 'Baingan Bharta', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🍆', image: ProductImages.comboBainganBharta },
-  { id: 'fc3', name: 'Beat the Heat', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥒', image: ProductImages.comboBeatHeat },
-  { id: 'fc4', name: 'Oil Combo', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🍾', image: ProductImages.comboOil },
-  { id: 'fc5', name: 'Flour Combo', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🥡', image: ProductImages.comboFlour },
-];
-
 const SPREADS_ITEMS: ProductCardData[] = [
   { id: 'sp1', name: 'Basil Pesto', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadBasilPesto },
   { id: 'sp2', name: 'Beetroot Hummus', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadBeetrootHummus },
@@ -380,7 +372,6 @@ const CATEGORY_CIRCLES: CategoryCircleItem[] = [
   { id: 'c3', label: 'Dairy', image: CategoryImages.dairy, emoji: '🥛' },
   { id: 'c4', label: 'Grains', image: CategoryImages.grains, emoji: '🌾' },
   { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits, emoji: '🥜' },
-  { id: 'c6', label: 'Fresh Combos', image: CategoryImages.freshCombos, emoji: '🥗' },
   { id: 'c7', label: 'Breads', image: CategoryImages.breads, emoji: '🍞' },
   { id: 'c8', label: 'Fresh Juices', image: CategoryImages.freshJuices, emoji: '🧃' },
   { id: 'c9', label: 'Everyday Kitchen', image: CategoryImages.everydayKitchen, emoji: '🥣' },
@@ -838,13 +829,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             </View>
 
             {/* ── SECTION 4: PROMO BANNER (FARM FRESH VEGETABLES) ──────────── */}
-            <View style={styles.promoBannerWrap}>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => onNavigate?.('Search', { query: 'Vegetables' })}
+              style={styles.promoBannerWrap}
+              accessibilityLabel="Shop Vegetables"
+            >
               <Image
                 source={bannerFarmFreshVegetables}
                 style={styles.promoBannerImage}
                 resizeMode="cover"
               />
-            </View>
+            </TouchableOpacity>
 
             {/* ── SECTION 5: "FOR YOU" CAROUSEL (390 x 210 HUG) ─────────────── */}
             <View style={[styles.sectionWrap, styles.forYouSectionWrap]}>
@@ -924,20 +920,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               </ScrollView>
             </View>
 
-            {/* ── SECTION 11: "FRESH COMBOS" CAROUSEL ────────────────────────── */}
-            <View style={styles.sectionWrap}>
-              {renderSectionHeader('Fresh Combos', SectionBadges.freshCombos, 'right')}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.cardsHorizontalScroll}
-              >
-                {FRESH_COMBOS_ITEMS.map(renderProductCard)}
-                {renderComingSoonCard('combo')}
-              </ScrollView>
-            </View>
-
-            {/* ── SECTION 12: "TEA & COFFEE" CAROUSEL ────────────────────────── */}
+            {/* ── SECTION 11: "TEA & COFFEE" CAROUSEL ────────────────────────── */}
             <View style={styles.sectionWrap}>
               {renderSectionHeader('Tea & Coffee', SectionBadges.teaCoffee, 'left')}
               <ScrollView
@@ -1122,9 +1105,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             </View>
           </View>
         )}
-
-        {/* Extra bottom padding to ensure floating nav doesn't overlap content */}
-        <View style={{ height: 120 }} />
       </Animated.ScrollView>
 
       {/* ── FLOATING DYNAMIC NAVIGATION (EXACT FIGMA SPEC: 60 Hug x 246) ───── */}
@@ -1389,7 +1369,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 110,
+    paddingBottom: 24,
   },
 
   // ── STICKY COMPACT TOP NAVBAR (EXACT FIGMA SPEC: SCREEN 25) ─────────────
@@ -1730,7 +1710,7 @@ const styles = StyleSheet.create({
   },
   promoBannerImage: {
     width: '100%',
-    aspectRatio: 390 / 210,
+    aspectRatio: 609 / 294,
     borderRadius: 20,
   },
 
@@ -1899,16 +1879,15 @@ const styles = StyleSheet.create({
   footerBrandingCard: {
     width: '92%',
     maxWidth: 350,
-    height: 246,
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    padding: 24,
-    marginTop: 20,
-    marginBottom: 20,
-    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    marginTop: 12,
+    marginBottom: 8,
     elevation: 2,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -1918,7 +1897,7 @@ const styles = StyleSheet.create({
   footerLogoRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   footerLogoImage: {
     width: 125,
@@ -1935,7 +1914,7 @@ const styles = StyleSheet.create({
   footerSubtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 22,
     color: '#4B5563',
     textAlign: 'left',
   },

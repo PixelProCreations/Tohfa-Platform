@@ -202,6 +202,12 @@ tags:
     description: |
       Educational knowledge base (articles, videos, training workshops) and community groups
       with farmer enrollment and group memberships (BR-59).
+  - name: Help
+    description: Customer-facing Help & FAQ read (published admin content, BR-82).
+  - name: Wishlist
+    description: Customer wishlist of catalog products.
+  - name: Reviews
+    description: Customer order and product reviews, anonymised (BR-16).
   - name: Support Tickets
     description: |
       Farmer support inquiries, append-only message threads, and administrator ticket lifecycle management (BR-60).
@@ -217,6 +223,8 @@ tags:
     description: Farm-anonymous customer browse surface. See BR-16.
   - name: Cart & Orders
     description: Cart lock, wallet-first checkout, order tracking.
+  - name: Customer Profile
+    description: The customer's own profile, delivery addresses and account deletion (BR-160).
   - name: Fulfilment
     description: Warehouse-side packing, dispatch and OTP verification.
   - name: Returns
@@ -380,6 +388,83 @@ paths:
                   - $ref: '#/components/schemas/OtpVerifiedNoAccount'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /auth/customer/otp/send:
+    post:
+      tags: [Auth]
+      operationId: sendCustomerOtp
+      summary: Passwordless customer sign-in, step 1 — send a 6-digit OTP
+      description: |
+        Starts the passwordless customer sign-in (BR-153). Same OTP rules as BR-32: 6 digits,
+        60-second resend timer (429 `OTP_RESEND_TOO_SOON`), 3-attempt lockout. The purpose is
+        fixed server-side (`LOGIN`). The response is identical whether or not the number has an
+        account, so it cannot be used to enumerate registered numbers.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-32, BR-153]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerOtpSendRequest' }
+            example: { mobile: '+919876543210' }
+      responses:
+        '202':
+          description: OTP dispatched (same body for registered and unregistered numbers).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpChallenge' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: The SMS provider failed to deliver the OTP (`OTP_SMS_DELIVERY_FAILED`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /auth/customer/otp/verify:
+    post:
+      tags: [Auth]
+      operationId: verifyCustomerOtp
+      summary: Passwordless customer sign-in, step 2 — verify the OTP and sign in or register
+      description: |
+        Verifies the challenge (BR-32 checks; the challenge must belong to `mobile` and be a
+        `LOGIN` challenge) and claims it once. Then (BR-153):
+        - an existing CUSTOMER account is signed in (`isNewUser: false`);
+        - an unknown number gets a new CUSTOMER account with no password, status ACTIVE, a
+          `customers` row and a wallet, and is signed in (`isNewUser: true`);
+        - a number that belongs to any other account type (farmer, admin, staff) is refused
+          with a generic 403 and is never signed in or converted.
+        A session and a refresh token are created exactly as for `POST /auth/otp/verify`. A
+        replayed or concurrent verify of the same challenge is 400 `OTP_INVALID` and never
+        creates a second account (UNIQUE mobile + transaction).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-32, BR-142, BR-153]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerOtpVerifyRequest' }
+            example:
+              mobile: '+919876543210'
+              challengeId: 0b2d0f2e-8b1c-4c1a-9f0a-9d3e6c1b2a30
+              otp: '482915'
+              preferredLocale: en
+      responses:
+        '200':
+          description: Signed in (and registered when `isNewUser` is true).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerOtpVerifyResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -11712,7 +11797,7 @@ paths:
         - { name: categoryId, in: query, schema: { type: string, format: uuid } }
         - { name: grade, in: query, schema: { $ref: '#/components/schemas/Grade' } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
-        - { name: sort, in: query, schema: { type: string, enum: [PRICE_ASC, PRICE_DESC, NAME_ASC, NEWEST], default: NAME_ASC } }
+        - { name: sort, in: query, schema: { type: string, enum: [PRICE_ASC, PRICE_DESC, NAME_ASC, NEWEST, just_arrived], default: NAME_ASC, description: 'just_arrived = most recently allocated to ONLINE first (BR-181).' } }
       responses:
         '200':
           description: Paged products.
@@ -11787,6 +11872,761 @@ paths:
                   items: { type: array, items: { $ref: '#/components/schemas/Product' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '400': { $ref: '#/components/responses/BadRequest' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /catalog/search/suggestions:
+    get:
+      tags: [Catalog]
+      operationId: getSearchSuggestions
+      summary: Type-ahead search suggestions
+      description: |
+        Product names (currently sellable only, one entry per product) and category names matching
+        `q`. Names and ids only, never a farm field (BR-16, BR-151e).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-16, BR-151]
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 80 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
+      responses:
+        '200':
+          description: Suggestions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/SearchSuggestion' } }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /catalog/search/recent:
+    get:
+      tags: [Catalog]
+      operationId: listRecentSearches
+      summary: Own recent searches
+      description: |
+        The caller's own recent searches, newest first, at most `system_config.catalog.recent_searches_max`
+        (BR-151a). An actor with no customer profile gets an empty list.
+      x-permission: catalog.search_history.manage
+      x-business-rules: [BR-151]
+      responses:
+        '200':
+          description: Recent searches.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                additionalProperties: false
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/RecentSearch' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Catalog]
+      operationId: recordRecentSearch
+      summary: Record a search
+      description: |
+        Upserts by the normalized query (trimmed, lower-cased, whitespace collapsed), so re-searching
+        moves the entry to the top; then prunes beyond the configured cap (BR-151a).
+      x-permission: catalog.search_history.manage
+      x-business-rules: [BR-151]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              additionalProperties: false
+              properties:
+                query: { type: string, minLength: 1, maxLength: 80 }
+      responses:
+        '201':
+          description: Stored entry.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecentSearch' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Catalog]
+      operationId: deleteRecentSearches
+      summary: Clear recent searches
+      description: With `q`, removes that one entry (matched by normalized query); without it, clears all of the caller's entries.
+      x-permission: catalog.search_history.manage
+      x-business-rules: [BR-151]
+      parameters:
+        - { name: q, in: query, schema: { type: string, minLength: 1, maxLength: 80 } }
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /catalog/search/trending:
+    get:
+      tags: [Catalog]
+      operationId: getTrendingSearches
+      summary: Trending searches and produce
+      description: |
+        Anonymous-safe aggregate. `queries` lists normalized queries searched by at least
+        `system_config.catalog.trending_min_searchers` DISTINCT customers within
+        `catalog.trending_window_days` (k-anonymity, BR-151b); `products` are the most ordered
+        currently sellable products in the same window, farm-anonymous (BR-16).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-16, BR-151]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 10 } }
+      responses:
+        '200':
+          description: Trending.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrendingSearches' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /pickup-points:
+    get:
+      tags: [Catalog]
+      operationId: listPickupPoints
+      summary: Public pickup points
+      description: |
+        The active, customer-visible warehouses/markets (Ooty, Coonoor, Kotagiri, Gudalur Market; BR-23)
+        as an allow-listed shape. `phone` is the public phone only. With `lat`+`lng` each item gains
+        `distanceKm`, exactly one is `isNearest`, and the list is sorted nearest first. `isOpenNow` is
+        computed in Asia/Kolkata from the weekly hours; missing hours means closed.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-23, BR-170]
+      parameters:
+        - { name: lat, in: query, description: Must be sent with lng., schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: lng, in: query, description: Must be sent with lat., schema: { type: number, minimum: -180, maximum: 180 } }
+      responses:
+        '200':
+          description: Pickup points.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, address, phone, openingHours, isOpenNow, lat, lng]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
+                        address: { type: string, nullable: true }
+                        phone: { type: string, nullable: true }
+                        openingHours:
+                          type: object
+                          nullable: true
+                          description: 'Keys mon..sun; each closed:true or closed:false with open and close as HH:MM (IST).'
+                        isOpenNow: { type: boolean }
+                        lat: { type: number, nullable: true }
+                        lng: { type: number, nullable: true }
+                        distanceKm: { type: number, nullable: true, description: Only when lat and lng were sent. }
+                        isNearest: { type: boolean, description: Only when lat and lng were sent. }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/pickup-points:
+    get:
+      tags: [Catalog]
+      operationId: listAdminPickupPoints
+      summary: List pickup points for management
+      description: |
+        Every non-deleted warehouse in the caller's scope, public or not, with the editable pickup-point
+        fields only (`contact_phone`, capacity and code are never returned). Super Admin and TOHFA Admin
+        see all; Main and Sub Warehouse Admins see only their own warehouse (BR-185).
+      x-permission: pickup_point.manage
+      x-business-rules: [BR-170, BR-185]
+      responses:
+        '200':
+          description: Pickup points in scope.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/AdminPickupPoint' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/pickup-points/{warehouseId}:
+    patch:
+      tags: [Catalog]
+      operationId: updateAdminPickupPoint
+      summary: Edit a pickup point's public details
+      description: |
+        Sets any of `publicPhone`, `isPublic`, `openingHours` (at least one). `publicPhone` is an Indian
+        mobile or landline, or an E.164 number, stored as E.164; `null` clears it. `openingHours` needs
+        zero-padded 24h `HH:MM` with open before close; `null` clears it (the point reads closed). A point
+        cannot be public without a `publicPhone` (422). A warehouse outside the caller's scope is 404.
+        One `pickup_point.manage` audit row is written in the same transaction (BR-185). The public
+        `GET /pickup-points` reflects the change immediately.
+      x-permission: pickup_point.manage
+      x-business-rules: [BR-170, BR-185]
+      parameters:
+        - { name: warehouseId, in: path, required: true, description: The warehouse id., schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                publicPhone: { type: string, nullable: true, description: 'Indian mobile/landline or E.164; stored as E.164.', example: '+914232441234' }
+                isPublic: { type: boolean }
+                openingHours:
+                  type: object
+                  nullable: true
+                  description: 'Keys mon..sun; each {closed:true} or {closed:false, open, close} as zero-padded HH:MM (IST), open before close.'
+      responses:
+        '200':
+          description: The updated pickup point.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminPickupPoint' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /serviceability:
+    get:
+      tags: [Catalog]
+      operationId: getServiceability
+      summary: Is this location served
+      description: |
+        Send a `pincode`, a `lat`+`lng` pair, or both. A pincode is serviceable when it is an active
+        served pincode; a lat/lng when the nearest pickup point is within
+        `system_config.serviceability.pickup_radius_km`. `deliveryAvailable` is true only for a served
+        pincode that offers delivery (BR-161).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-171]
+      parameters:
+        - { name: pincode, in: query, schema: { type: string, pattern: '^[1-9][0-9]{5}$' } }
+        - { name: lat, in: query, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: lng, in: query, schema: { type: number, minimum: -180, maximum: 180 } }
+      responses:
+        '200':
+          description: Serviceability.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [serviceable, deliveryAvailable]
+                properties:
+                  serviceable: { type: boolean }
+                  nearestPickupPointId: { type: string, format: uuid }
+                  deliveryAvailable: { type: boolean }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /service-area-requests:
+    post:
+      tags: [Catalog]
+      operationId: createServiceAreaRequest
+      summary: Ask TOHFA to serve an area
+      description: |
+        Public (a signed-in customer id is recorded). Idempotent per requester and area: a repeat
+        returns the original request with 200. Requester is the customer id, else the `contact`, else the
+        client IP. Rate limited per IP (`serviceability.area_request_rate_per_hour`).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-171]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [area, locality, city]
+              properties:
+                area: { type: string, minLength: 2, maxLength: 120 }
+                locality: { type: string, minLength: 2, maxLength: 120 }
+                city: { type: string, minLength: 2, maxLength: 80 }
+                pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+                contact: { type: string, minLength: 5, maxLength: 120 }
+      responses:
+        '200':
+          description: Already requested; the original request.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceAreaRequest' }
+        '201':
+          description: Recorded.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServiceAreaRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/service-area-requests:
+    get:
+      tags: [Catalog]
+      operationId: listServiceAreaRequests
+      summary: List customer area requests
+      description: Newest first. Includes the requester contact and customer id (admin only).
+      x-permission: service_area.request.view
+      x-business-rules: [BR-171]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [NEW, REVIEWED, SERVED, DECLINED] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses:
+        '200':
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/ServiceAreaRequest'
+                        - type: object
+                          required: [contact, customerId]
+                          properties:
+                            contact: { type: string, nullable: true }
+                            customerId: { type: string, format: uuid, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/wallet-transfers:
+    get:
+      tags: [Wallet]
+      operationId: adminListWalletTransfers
+      summary: List customer-to-customer wallet transfers (admin)
+      description: |
+        Every P2P transfer, newest first, keyset-paged on `(created_at, id)`, with both parties
+        unmasked and both ledger legs (BR-150l). `customerId` matches either side; `from`/`to` are
+        inclusive Asia/Kolkata calendar dates; `minAmount`/`maxAmount` are inclusive. `from` after
+        `to`, `minAmount` above `maxAmount` or a foreign cursor is 422. Read only: flagging or
+        reversing a transfer is not implemented.
+      x-permission: wallet.transfer.view
+      x-business-rules: [BR-150]
+      parameters:
+        - { name: customerId, in: query, schema: { type: string, format: uuid }, description: Sender or recipient customer id. }
+        - { name: from, in: query, schema: { type: string, format: date }, description: First Asia/Kolkata day included. }
+        - { name: to, in: query, schema: { type: string, format: date }, description: Last Asia/Kolkata day included. }
+        - { name: minAmount, in: query, schema: { $ref: '#/components/schemas/Money' }, description: Smallest amount included. }
+        - { name: maxAmount, in: query, schema: { $ref: '#/components/schemas/Money' }, description: Largest amount included. }
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged transfers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminWalletTransfer' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /legal/privacy-policy:
+    get:
+      tags: [Catalog]
+      operationId: getPrivacyPolicy
+      summary: Privacy policy (current version)
+      description: Returns the current published privacy policy text and version for the requested language (BR-172).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-172]
+      parameters:
+        - { name: language, in: query, schema: { type: string, default: en } }
+      responses:
+        '200':
+          description: Current version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /legal/terms:
+    get:
+      tags: [Catalog]
+      operationId: getTerms
+      summary: Terms of service (current version)
+      description: The seeded text is a placeholder until the client supplies the real terms (BR-172).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-172]
+      parameters:
+        - { name: language, in: query, schema: { type: string, default: en } }
+      responses:
+        '200':
+          description: Current version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalContent' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/legal/{slug}:
+    put:
+      tags: [Catalog]
+      operationId: publishLegalContent
+      summary: Publish a new version of legal content
+      description: Appends version n+1 (earlier versions are immutable). Identical text is a no-op. One audit row `legal.content.manage`.
+      x-permission: legal.content.manage
+      x-business-rules: [BR-172]
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string, enum: [privacy-policy, terms] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, body]
+              properties:
+                title: { type: string, minLength: 1, maxLength: 200 }
+                body: { type: string, minLength: 20, maxLength: 200000 }
+                language: { type: string, default: en }
+      responses:
+        '200':
+          description: The now-current version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalContent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /customers/me:
+    get:
+      tags: [Customer Profile]
+      operationId: getMyCustomerProfile
+      summary: Own customer profile
+      description: The caller's own profile (BR-160). Reading uses `customer.profile.edit` (no separate view code exists). A caller without a customer profile is 404.
+      x-permission: customer.profile.edit
+      x-business-rules: [BR-160, BR-36]
+      responses:
+        '200':
+          description: Profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Customer Profile]
+      operationId: updateMyCustomerProfile
+      summary: Edit own profile
+      description: Name, age, gender, harvest preferences and photo. Email changes go through `/customers/me/email/otp` + `/verify`; GST details through `/customers/me/gst-details`.
+      x-permission: customer.profile.edit
+      x-business-rules: [BR-160]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCustomerProfileRequest' }
+      responses:
+        '200':
+          description: Updated profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Customer Profile]
+      operationId: deleteMyCustomerAccount
+      summary: Delete own account
+      description: |
+        Soft-deletes and anonymises the account (BR-160): name, email, mobile (replaced by an
+        unassignable placeholder), photo, preferences, GST details and addresses are blanked,
+        sessions are revoked. Orders, wallet transactions, status history and the audit log are
+        append-only ledgers and are kept. Refused with 409 `CONFLICT` (`meta.reason`
+        `WALLET_NOT_EMPTY` or `OPEN_ORDERS`) while the wallet holds money or an order is not yet
+        handed over.
+      x-permission: customer.account.delete_own
+      x-business-rules: [BR-160]
+      responses:
+        '204': { description: Account deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /customers/me/gst-details:
+    put:
+      tags: [Customer Profile]
+      operationId: setMyGstDetails
+      summary: Set own GST / business details
+      description: B2B and HORECA need a business name; a changed GSTIN is no longer verified. Audited (BR-160).
+      x-permission: customer.gst_details.manage
+      x-business-rules: [BR-160]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerGstDetailsRequest' }
+      responses:
+        '200':
+          description: Updated profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /customers/me/email/otp:
+    post:
+      tags: [Customer Profile]
+      operationId: requestMyEmailOtp
+      summary: Send an OTP to a new email address
+      description: |
+        Sends a code (length `system_config.otp_length`) to the new address; it expires after
+        `email_otp_ttl_minutes` and locks after `otp_max_attempts` wrong tries (BR-160). The code
+        is stored hashed and never returned. 409 when another live user holds the address; 429
+        `OTP_RESEND_TOO_SOON` inside the resend cooldown and 429 `RATE_LIMITED` after the hourly
+        cap; 503 `EMAIL_NOT_CONFIGURED` when no email transport is configured; 502
+        `EMAIL_DELIVERY_FAILED` when the transport fails (BR-184).
+      x-permission: customer.profile.edit
+      x-business-rules: [BR-160, BR-184]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        '202':
+          description: Code sent.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, expiresAt]
+                properties:
+                  email: { type: string, format: email }
+                  expiresAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: The email transport failed to deliver the message (`EMAIL_DELIVERY_FAILED`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '503':
+          description: No email transport is configured (`EMAIL_NOT_CONFIGURED`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /customers/me/email/verify:
+    post:
+      tags: [Customer Profile]
+      operationId: verifyMyEmail
+      summary: Verify the email OTP and set the email
+      description: 422 `OTP_INVALID` (wrong code, counted), `OTP_EXPIRED`, 429 `OTP_LOCKED` (BR-160).
+      x-permission: customer.profile.edit
+      x-business-rules: [BR-160]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, code]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                code: { type: string, pattern: '^[0-9]{4,8}$' }
+      responses:
+        '200':
+          description: Email verified; updated profile.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerProfile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /customers/me/addresses:
+    get:
+      tags: [Customer Profile]
+      operationId: listMyAddresses
+      summary: List own delivery addresses
+      description: Own live (not deleted) addresses, default first (BR-160). A non-customer gets an empty list.
+      x-permission: customer.address.manage_own
+      x-business-rules: [BR-160, BR-36]
+      responses:
+        '200':
+          description: Addresses.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CustomerAddress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Customer Profile]
+      operationId: createMyAddress
+      summary: Add a delivery address
+      description: The customer's first address always becomes the default; `isDefault` true moves the default here (BR-160).
+      x-permission: customer.address.manage_own
+      x-business-rules: [BR-160]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCustomerAddressRequest' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAddress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /customers/me/addresses/{addressId}:
+    parameters:
+      - { name: addressId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Customer Profile]
+      operationId: getMyAddress
+      summary: One own address
+      description: Another customer's, a deleted or an unknown address is the same 404 (BR-36).
+      x-permission: customer.address.manage_own
+      x-business-rules: [BR-160, BR-36]
+      responses:
+        '200':
+          description: Address.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAddress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Customer Profile]
+      operationId: updateMyAddress
+      summary: Edit an own address
+      description: Partial update; `lat` and `lng` change together. Orders already placed keep their address row.
+      x-permission: customer.address.manage_own
+      x-business-rules: [BR-160, BR-36]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateCustomerAddressRequest' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAddress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Customer Profile]
+      operationId: deleteMyAddress
+      summary: Delete an own address (soft)
+      description: Sets `deleted_at`. Deleting the default leaves the customer with no default address.
+      x-permission: customer.address.manage_own
+      x-business-rules: [BR-160, BR-36]
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /customers/me/addresses/{addressId}/default:
+    parameters:
+      - { name: addressId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Customer Profile]
+      operationId: setMyDefaultAddress
+      summary: Make an own address the default
+      description: Clears the previous default in the same transaction; exactly one default per customer (BR-160).
+      x-permission: customer.address.manage_own
+      x-business-rules: [BR-160, BR-36]
+      responses:
+        '200':
+          description: The new default.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerAddress' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /cart:
@@ -11896,10 +12736,19 @@ paths:
         Converts the locked cart into an order. Wallet is the primary payment method
         (BR-17); an insufficient balance returns 422 `WALLET_INSUFFICIENT` with
         the shortfall so the client can prompt a top-up. An expired cart lock returns 409
-        `CART_LOCK_EXPIRED` (BR-22). Every order supports warehouse pickup (BR-21); the delivery half of the model is
-        unresolved — see `docs/rules.md` open contradiction 3. Money-moving — `Idempotency-Key` required; a replay never writes a second wallet debit (BR-17).
+        `CART_LOCK_EXPIRED` (BR-22). Every order supports warehouse pickup (BR-21) and,
+        since the owner decision of 2026-11-16, home delivery (BR-161): `HOME_DELIVERY`/`DELIVERY`
+        and `PICKUP`/`WAREHOUSE_PICKUP` are aliases of the stored `DELIVERY`/`PICKUP`, which is what
+        responses carry. A delivery order needs the caller's own live address (another
+        customer's or a deleted one is 404), a date that is today or later (Asia/Kolkata) and a
+        slot that is open and not full (409); it is 501 while
+        `system_config.home_delivery_enabled` is false. Totals are integer paise: GST is
+        `round_half_up(subtotal × system_config.retail_gst_rate_percent / 100)` once per order
+        (BR-98), the delivery fee applies below `free_delivery_threshold`, discount is 0, and
+        `order.confirmed` is published after commit (BR-163). Payment stays WALLET only (BR-17).
+        Money-moving — `Idempotency-Key` required; a replay never writes a second wallet debit (BR-17).
       x-permission: order.place
-      x-business-rules: [BR-17, BR-21, BR-22]
+      x-business-rules: [BR-17, BR-21, BR-22, BR-98, BR-161, BR-163]
       parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
       requestBody:
         required: true
@@ -12056,9 +12905,14 @@ paths:
       tags: [Cart & Orders]
       operationId: reorder
       summary: One-tap reorder
-      description: Rebuilds the cart from a past order, skipping anything unavailable today; skipped lines are reported in `unavailable`.
+      description: |
+        Rebuilds the cart from one of the caller's own past orders at that order's warehouse, at
+        today's retail price, skipping anything unavailable today; skipped lines are reported in
+        `unavailable` (BR-162). Idempotent by state: a line already in the cart at the ordered
+        quantity is not reserved again, so a replay never doubles a reservation. Another
+        customer's order is 404 (BR-36).
       x-permission: order.reorder_own
-      x-business-rules: [BR-12, BR-22]
+      x-business-rules: [BR-12, BR-22, BR-36, BR-162]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
         - { $ref: '#/components/parameters/IdempotencyKeyHeader' }
@@ -12069,19 +12923,25 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [cart, unavailable]
+                required: [cart, addedCount, unavailable]
                 properties:
                   cart: { $ref: '#/components/schemas/Cart' }
+                  addedCount: { type: integer, minimum: 0, description: Past lines now in the cart at their ordered quantity. }
                   unavailable:
                     type: array
                     items:
                       type: object
+                      required: [productId, name, grade, qtyKg, reason]
                       properties:
                         productId: { type: string, format: uuid }
                         name: { type: string }
+                        grade: { $ref: '#/components/schemas/Grade' }
+                        qtyKg: { $ref: '#/components/schemas/Quantity' }
                         reason: { type: string, enum: [OUT_OF_STOCK, DELISTED, INSUFFICIENT_ALLOCATION] }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /orders/{orderId}/returns:
@@ -12094,8 +12954,15 @@ paths:
         already-placed order, plus its initial append-only status-history row. The order
         must be visible to the caller — a customer may only return their own order; a
         cross-scope order is 404, never 403 (BR-36).
-      x-permission: rma.request.process
-      x-business-rules: [BR-61]
+
+        Two callers (BR-155): staff file under `rma.request.process` and get the full
+        `ReturnRequest`; a customer files under `rma.request.create_own`, only against
+        their own order in `DELIVERED` or `PICKED_UP` (else 409 `INVALID_STATE_TRANSITION`),
+        and gets the farm-anonymous `CustomerReturnRequest` allow-list. For both, an order
+        item may appear once per request and its quantity may not exceed the ordered
+        quantity minus what is already on non-rejected returns (422 `VALIDATION_FAILED`).
+      x-permission-any-of: [rma.request.process, rma.request.create_own]
+      x-business-rules: [BR-61, BR-155, BR-36, BR-16]
       parameters:
         - name: orderId
           in: path
@@ -12112,14 +12979,73 @@ paths:
               note: Two of the four crates were moldy on opening.
       responses:
         '201':
-          description: Return request created.
+          description: Return request created (full shape for staff, allow-list for a customer).
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ReturnRequest' }
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/ReturnRequest' }
+                  - { $ref: '#/components/schemas/CustomerReturnRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /returns/me:
+    get:
+      tags: [Returns]
+      operationId: listMyReturns
+      summary: Own return requests
+      description: The caller's own returns, newest first, as the farm-anonymous allow-list (BR-155, BR-16). A caller without a customer profile gets an empty list.
+      x-permission: rma.request.view_own
+      x-business-rules: [BR-155, BR-36, BR-16]
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string, format: date-time }, description: '`page.nextCursor` from the previous page.' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Own returns.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CustomerReturnSummary' }
+                  page:
+                    type: object
+                    required: [nextCursor, hasMore]
+                    properties:
+                      nextCursor: { type: [string, 'null'] }
+                      hasMore: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /returns/me/{id}:
+    get:
+      tags: [Returns]
+      operationId: getMyReturn
+      summary: One own return request
+      description: Another customer's return is the same 404 as an unknown id (BR-155, BR-36).
+      x-permission: rma.request.view_own
+      x-business-rules: [BR-155, BR-36, BR-16]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Own return.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/returns:
@@ -12667,8 +13593,9 @@ paths:
         - $ref: '#/components/parameters/CursorParam'
         - $ref: '#/components/parameters/LimitParam'
         - { name: type, in: query, schema: { $ref: '#/components/schemas/WalletTransactionType' } }
-        - { name: from, in: query, schema: { type: string, format: date-time } }
-        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: from, in: query, schema: { type: string, description: 'Date-time, or a bare date YYYY-MM-DD meaning 00:00:00.000Z of that UTC day (BR-183).' } }
+        - { name: to, in: query, schema: { type: string, description: 'Date-time, or a bare date YYYY-MM-DD meaning 23:59:59.999Z of that UTC day, inclusive (BR-183).' } }
+        - { name: status, in: query, schema: { type: string, enum: [COMPLETED] }, description: 'BR-129/BR-183: every ledger row is COMPLETED, so the filter only validates the value.' }
         - { name: tab, in: query, schema: { type: string, enum: [all, credits, debits, refunds], default: all }, description: '`credits`/`debits` filter by direction; `refunds` = ORDER_REFUND rows.' }
       responses:
         '200':
@@ -12680,6 +13607,132 @@ paths:
                 required: [items, page]
                 properties:
                   items: { type: array, items: { $ref: '#/components/schemas/WalletTransaction' } }
+                  page: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /wallets/me/transfers/lookup:
+    post:
+      tags: [Wallet]
+      operationId: lookupTransferRecipient
+      summary: Find a transfer recipient by mobile
+      description: |
+        Exact E.164 match against active customer accounts. Returns only a masked name and masked
+        mobile (BR-150g). Rate limited per customer (`wallet_transfer.lookup_per_hour`, default 10)
+        and per client IP (`wallet_transfer.lookup_ip_per_hour`, default 30) over a sliding hour:
+        429 `RATE_LIMITED` with `Retry-After`. Unknown, disabled, deleted and frozen-wallet numbers
+        all get the identical 404, and every lookup is padded to the same minimum latency, so the
+        response does not reveal why a number is not eligible. 403 `WALLET_TRANSFER_DISABLED` while
+        the ops kill switch `system_config.wallet_transfer.enabled` is not `true` (ON since 0150);
+        403 `FORBIDDEN` when the caller's own account or wallet is not active; 422
+        `WALLET_TRANSFER_SELF` for the caller's own number.
+      x-permission: wallet.transfer.send
+      x-business-rules: [BR-150]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mobile]
+              additionalProperties: false
+              properties:
+                mobile: { type: string, pattern: '^\+[1-9][0-9]{7,14}$' }
+      responses:
+        '200':
+          description: Masked recipient.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferRecipient' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /wallets/me/transfers:
+    post:
+      tags: [Wallet]
+      operationId: createWalletTransfer
+      summary: Send money to another customer's wallet
+      description: |
+        BR-150, ON since migration 0150; 403 `WALLET_TRANSFER_DISABLED` whenever the ops kill switch
+        `system_config.wallet_transfer.enabled` is not `true`. Money-moving, so `Idempotency-Key` is
+        required; a replay returns the original 201 body and moves nothing. In one transaction the
+        server writes one `TRANSFER_OUT` debit (sender) and one `TRANSFER_IN` credit (recipient) to the
+        append-only ledger, the transfer record and an `audit_log` row; balances change only through
+        those rows. Both wallets are row-locked first, so parallel sends cannot overdraw or beat a cap.
+        Limits from `system_config` (`wallet_transfer.min_amount` 10.00, `max_per_txn` 2000.00,
+        `max_daily` 5000.00 and `max_daily_count` 10 per Asia/Kolkata day, `max_per_month` 20000.00
+        per Asia/Kolkata month) give 422 `WALLET_TRANSFER_LIMIT_EXCEEDED`; insufficient balance is 402
+        `WALLET_INSUFFICIENT`; own number 422 `WALLET_TRANSFER_SELF`; an unknown, disabled, deleted or
+        frozen-wallet recipient 404; a sender whose account is not ACTIVE (OTP-verified), is deleted or
+        whose wallet is not ACTIVE 403 `FORBIDDEN`. `note` is plain text: control, zero-width and bidi
+        characters and angle brackets are stripped and whitespace collapsed. After commit the recipient
+        gets `wallet.credited` and the sender an in-app `wallet.debited` notification.
+      x-permission: wallet.transfer.send
+      x-business-rules: [BR-150, BR-36]
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKeyHeader' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipientMobile, amount]
+              additionalProperties: false
+              properties:
+                recipientMobile: { type: string, pattern: '^\+[1-9][0-9]{7,14}$' }
+                amount: { $ref: '#/components/schemas/Money' }
+                note: { type: string, maxLength: 100, description: Plain text shown to the recipient; sanitised, blank treated as absent. }
+            example: { recipientMobile: '+919800000002', amount: '250.00', note: Veg share }
+      responses:
+        '201':
+          description: Transfer completed (or the replayed original).
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - { $ref: '#/components/schemas/WalletTransfer' }
+                  - type: object
+                    required: [balanceAfter]
+                    properties:
+                      balanceAfter: { $ref: '#/components/schemas/Money' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402':
+          description: Insufficient wallet balance (`WALLET_INSUFFICIENT`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    get:
+      tags: [Wallet]
+      operationId: listWalletTransfers
+      summary: Own transfer history
+      description: |
+        Transfers the caller sent or received, newest first, keyset-paged on `(created_at, id)`.
+        The counterparty is masked (BR-150i). A non-customer caller gets an empty page.
+      x-permission: wallet.own.view
+      x-business-rules: [BR-150]
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: Paged transfers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WalletTransfer' } }
                   page: { $ref: '#/components/schemas/PageMeta' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
@@ -12726,6 +13779,29 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /wallets/me/topups/{topupId}:
+    get:
+      tags: [Wallet]
+      operationId: getMyTopupReceipt
+      summary: Own top-up receipt
+      description: |
+        Receipt for one of the caller's own top-ups (BR-183): status, amount, and once the top-up
+        is SUCCESS the wallet ledger `transactionId` and the `balanceAfter` of that credit. While
+        PENDING or FAILED both are null. An unknown or another customer's id is 404 (BR-36).
+      x-permission: wallet.own.view
+      x-business-rules: [BR-36, BR-183]
+      parameters:
+        - { name: topupId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The top-up receipt.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopupReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /webhooks/razorpay:
@@ -14718,6 +15794,221 @@ paths:
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
+  /admin/banners:
+    get:
+      tags: [Catalog]
+      operationId: listHomeBanners
+      summary: List customer home banners
+      description: All non-deleted banners (any status), ordered by `sortOrder` then creation. `status` filters by the computed status (BR-152c).
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/HomeContentStatus' } }
+      responses:
+        '200':
+          description: Banners.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/HomeBanner' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Catalog]
+      operationId: createHomeBanner
+      summary: Create a customer home banner
+      description: |
+        Target fields must match `targetType` and reference an existing category / product (422
+        `VALIDATION_FAILED` otherwise); `endsAt` must be after `startsAt`. One `catalog.banner.create`
+        audit row is written in the same transaction (BR-152a, BR-152b).
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeBannerCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeBanner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/banners/{id}:
+    get:
+      tags: [Catalog]
+      operationId: getHomeBanner
+      summary: Read a home banner
+      x-permission: catalog.home_content.manage
+      description: Returns one banner by id, including inactive or out-of-window banners.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: Banner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeBanner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Catalog]
+      operationId: updateHomeBanner
+      summary: Edit a home banner (including its sortOrder and window)
+      description: Partial update; the merged banner is re-validated. Writes one `catalog.banner.update` audit row with before/after.
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeBannerUpdate' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeBanner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Catalog]
+      operationId: deleteHomeBanner
+      summary: Delete a home banner
+      description: Soft delete; writes one `catalog.banner.delete` audit row. A deleted banner is 404 afterwards.
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/home-sections:
+    get:
+      tags: [Catalog]
+      operationId: listHomeSections
+      summary: List curated home sections
+      x-permission: catalog.home_content.manage
+      description: Lists every section, including inactive and out-of-window ones, ordered by sortOrder.
+      x-business-rules: [BR-152]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/HomeContentStatus' } }
+      responses:
+        '200':
+          description: Sections.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/HomeSection' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Catalog]
+      operationId: createHomeSection
+      summary: Create a curated home section
+      description: |
+        `CATEGORY` needs an existing `targetCategoryId`; `PRODUCTS` needs 1-50 existing product ids
+        (deduplicated, order kept). Writes one `catalog.home_section.create` audit row (BR-152a, BR-152b).
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeSectionCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeSection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/home-sections/{id}:
+    get:
+      tags: [Catalog]
+      operationId: getHomeSection
+      summary: Read a curated home section
+      x-permission: catalog.home_content.manage
+      description: Returns one section by id, including inactive or out-of-window sections.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: Section.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeSection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Catalog]
+      operationId: updateHomeSection
+      summary: Edit a curated home section (including its sortOrder and window)
+      x-permission: catalog.home_content.manage
+      description: Partially updates the section; only the fields sent change.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeSectionUpdate' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeSection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Catalog]
+      operationId: deleteHomeSection
+      summary: Delete a curated home section
+      x-permission: catalog.home_content.manage
+      description: Permanently removes the section; the storefront home no longer shows it.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
   /admin/rating-tiers:
     patch:
       tags: [Farm Rating]
@@ -15949,6 +17240,356 @@ paths:
                   fileUrl: { type: string, format: uri }
         '400': { $ref: '#/components/responses/BadRequest' }
 
+  /support/tickets:
+    get:
+      tags: [Support Tickets]
+      operationId: listMyCustomerSupportTickets
+      summary: List own support tickets (customer)
+      description: Own tickets only (BR-36). Priority, assignee and internal notes are never returned.
+      x-permission: support.ticket.create_own
+      x-business-rules: [BR-36, BR-97]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] } }
+      responses:
+        '200':
+          description: Page of own tickets.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerTicketList' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Support Tickets]
+      operationId: createCustomerSupportTicket
+      summary: Raise a support ticket (customer)
+      description: |
+        Creates a TKT-YYYY-XXXXX ticket in the shared support_tickets table, so it appears in
+        `/admin/customers/{customerId}/support-tickets`. Photos are ids from `POST /uploads/sign`
+        with purpose ISSUE_PHOTO (own uploads only). Text that names a farmer or farm is refused 422
+        (BR-97, BR-16). An `orderId` that is not the caller's is 404.
+      x-permission: support.ticket.create_own
+      x-business-rules: [BR-36, BR-97, BR-16]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCustomerTicketRequest' }
+      responses:
+        '201':
+          description: Ticket created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerTicketDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /support/tickets/{id}:
+    get:
+      tags: [Support Tickets]
+      operationId: getMyCustomerSupportTicket
+      summary: Own ticket with its thread (customer)
+      description: Internal notes are excluded; staff are shown only as SUPPORT; farmer identity in staff text is redacted (BR-97). Another customer's id is 404.
+      x-permission: support.ticket.create_own
+      x-business-rules: [BR-36, BR-97]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: Ticket and thread.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerTicketDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /support/tickets/{id}/messages:
+    post:
+      tags: [Support Tickets]
+      operationId: addMyCustomerSupportTicketMessage
+      summary: Add a message to an own ticket (customer)
+      description: A CLOSED ticket takes no further messages (409). Text naming a farmer is refused 422 (BR-97).
+      x-permission: support.ticket.create_own
+      x-business-rules: [BR-36, BR-97]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [message]
+              properties:
+                message: { type: string, minLength: 1, maxLength: 2000 }
+                attachmentUploadId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Message added.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerTicketMessage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /help/articles:
+    get:
+      tags: [Help]
+      operationId: listCustomerHelpArticles
+      summary: Published Help & FAQ articles (customer, public)
+      description: Read-only view of the PUBLISHED articles admins manage under `/admin/help`, with the contact channels. No draft flag or author.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-82]
+      parameters:
+        - { name: locale, in: query, schema: { type: string, enum: [en, ta], default: en } }
+        - { name: category, in: query, schema: { type: string, maxLength: 60 } }
+      responses:
+        '200':
+          description: Articles, categories and contact.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, categories, contact]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, category, locale, title, body, sortOrder]
+                      properties:
+                        id: { type: string, format: uuid }
+                        category: { type: string }
+                        locale: { type: string, enum: [en, ta] }
+                        title: { type: string }
+                        body: { type: string }
+                        sortOrder: { type: integer }
+                  categories: { type: array, items: { type: string } }
+                  contact:
+                    type: object
+                    properties:
+                      phone: { type: string, nullable: true }
+                      email: { type: string, nullable: true }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /help/categories:
+    get:
+      tags: [Help]
+      operationId: listCustomerHelpCategories
+      summary: Help & FAQ categories that have a published article (customer, public)
+      description: Distinct categories of the published articles, for the requested locale.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-82]
+      parameters:
+        - { name: locale, in: query, schema: { type: string, enum: [en, ta], default: en } }
+      responses:
+        '200':
+          description: Category names.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { type: string } }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /wishlist:
+    get:
+      tags: [Wishlist]
+      operationId: getWishlist
+      summary: Own wishlist with current catalog price and availability
+      description: Each item is enriched through the catalog allow-list serializer (BR-16). `product` is null and `available` false when not currently sellable.
+      x-permission: wishlist.view_own
+      x-business-rules: [BR-16, BR-36]
+      responses:
+        '200':
+          description: Wishlist, newest first (bounded to 100).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/WishlistItem' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Wishlist]
+      operationId: addToWishlist
+      summary: Add a product (crop + grade) to the wishlist
+      description: Idempotent. 201 when newly added, 200 when it was already there.
+      x-permission: wishlist.manage_own
+      x-business-rules: [BR-16, BR-36]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [productId, grade]
+              properties:
+                productId: { type: string, format: uuid }
+                grade: { type: string, enum: [GRADE_1, GRADE_2, GRADE_3] }
+      responses:
+        '200':
+          description: Already on the wishlist.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WishlistItem' }
+        '201':
+          description: Added.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WishlistItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /wishlist/{productId}:
+    delete:
+      tags: [Wishlist]
+      operationId: removeFromWishlist
+      summary: Remove a product from the wishlist
+      description: Idempotent; removing a product that is not there is also 204.
+      x-permission: wishlist.manage_own
+      x-business-rules: [BR-36]
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: grade, in: query, required: true, schema: { type: string, enum: [GRADE_1, GRADE_2, GRADE_3] } }
+      responses:
+        '204': { description: Removed (or was not there). }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /orders/{id}/review:
+    post:
+      tags: [Reviews]
+      operationId: createOrderReview
+      summary: Review a delivered or picked-up order
+      description: |
+        One review per order. The order must be the caller's own (else 404) and DELIVERED or PICKED_UP
+        (else 409 INVALID_STATE_TRANSITION); a second review is 409 CONFLICT. Rated items must be
+        distinct lines of the order (422). Comments naming a farmer or farm are refused 422 (BR-16).
+      x-permission: order.review.create_own
+      x-business-rules: [BR-16, BR-36]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrderReviewRequest' }
+      responses:
+        '201':
+          description: Review stored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderReview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+    get:
+      tags: [Reviews]
+      operationId: getOrderReview
+      summary: Own review of an order
+      description: The review the caller left on their own order; 404 when none exists or the order is not theirs.
+      x-permission: order.review.view_own
+      x-business-rules: [BR-36]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: The review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderReview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /catalog/products/{id}/reviews:
+    get:
+      tags: [Reviews]
+      operationId: listProductReviews
+      summary: Anonymised ratings and reviews of a product
+      description: Aggregate (average, count, distribution) plus a page of item-level reviews. No customer, order, order line or farm reference (BR-16).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-16]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+        - { name: grade, in: query, schema: { type: string, enum: [GRADE_1, GRADE_2, GRADE_3] } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 20 } }
+      responses:
+        '200':
+          description: Summary and reviews.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductReviews' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /admin/reviews:
+    get:
+      tags: [Reviews]
+      operationId: adminListReviews
+      summary: Customer order reviews (admin)
+      description: Read-only. Carries no farm or farmer identity (BR-16).
+      x-permission: order.review.view_all
+      x-business-rules: [BR-16]
+      parameters:
+        - { name: rating, in: query, schema: { type: integer, minimum: 1, maximum: 5 } }
+        - { name: orderId, in: query, schema: { type: string, format: uuid } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, maximum: 10000, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Page of reviews.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, total, page, limit]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/AdminOrderReview' } }
+                  total: { type: integer }
+                  page: { type: integer }
+                  limit: { type: integer }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /admin/reviews/{id}:
+    get:
+      tags: [Reviews]
+      operationId: adminGetReview
+      summary: One customer order review (admin)
+      description: Read-only; carries no farm or farmer identity (BR-16).
+      x-permission: order.review.view_all
+      x-business-rules: [BR-16]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: The review.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdminOrderReview' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /admin/customers:
     get:
       tags: [Customers]
@@ -17174,6 +18815,154 @@ components:
       schema: { type: string }
 
   schemas:
+    CreateCustomerTicketRequest:
+      type: object
+      additionalProperties: false
+      required: [subject, description]
+      properties:
+        category: { type: string, enum: [QUALITY, QUANTITY, MISSING, WRONG_ITEM, DAMAGED, LATE, PAYMENT, OTHER], default: OTHER }
+        subject: { type: string, minLength: 1, maxLength: 250 }
+        description: { type: string, minLength: 1, maxLength: 2000 }
+        orderId: { type: string, format: uuid }
+        photoUploadIds: { type: array, maxItems: 3, items: { type: string, format: uuid } }
+    CustomerTicketMessage:
+      type: object
+      required: [id, ticketId, sender, message, attachmentUrl, redacted, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketId: { type: string, format: uuid }
+        sender: { type: string, enum: [CUSTOMER, SUPPORT] }
+        message: { type: string }
+        attachmentUrl: { type: string, nullable: true }
+        redacted: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CustomerTicketSummary:
+      type: object
+      required: [id, ticketNumber, orderId, category, subject, description, photos, status, messageCount, resolvedAt, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        ticketNumber: { type: string }
+        orderId: { type: string, format: uuid, nullable: true }
+        category: { type: string, enum: [QUALITY, QUANTITY, MISSING, WRONG_ITEM, DAMAGED, LATE, PAYMENT, OTHER] }
+        subject: { type: string }
+        description: { type: string }
+        photos: { type: array, items: { type: string } }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, RESOLVED, CLOSED] }
+        messageCount: { type: integer }
+        resolvedAt: { type: string, nullable: true }
+        createdAt: { type: string }
+        updatedAt: { type: string }
+    CustomerTicketDetail:
+      allOf:
+        - { $ref: '#/components/schemas/CustomerTicketSummary' }
+        - type: object
+          required: [messages]
+          properties:
+            messages: { type: array, items: { $ref: '#/components/schemas/CustomerTicketMessage' } }
+    CustomerTicketList:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/CustomerTicketSummary' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+    WishlistItem:
+      type: object
+      required: [id, productId, grade, name, available, product, addedAt]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        grade: { type: string, enum: [GRADE_1, GRADE_2, GRADE_3] }
+        name: { type: string }
+        available: { type: boolean }
+        product:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Product' }]
+        addedAt: { type: string }
+    CreateOrderReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        tags:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [FRESHNESS, QUALITY, PACKAGING, DELIVERY, VALUE_FOR_MONEY, TASTE, SERVICE] }
+        comment: { type: string, minLength: 1, maxLength: 1000 }
+        items:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [orderItemId, rating]
+            properties:
+              orderItemId: { type: string, format: uuid }
+              rating: { type: integer, minimum: 1, maximum: 5 }
+              comment: { type: string, minLength: 1, maxLength: 500 }
+    OrderReview:
+      type: object
+      required: [id, orderId, rating, tags, comment, items, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        tags: { type: array, items: { type: string } }
+        comment: { type: string, nullable: true }
+        items:
+          type: array
+          items:
+            type: object
+            required: [orderItemId, productId, name, grade, rating, comment]
+            properties:
+              orderItemId: { type: string, format: uuid }
+              productId: { type: string, format: uuid }
+              name: { type: string }
+              grade: { type: string }
+              rating: { type: integer }
+              comment: { type: string, nullable: true }
+        createdAt: { type: string }
+    AdminOrderReview:
+      allOf:
+        - { $ref: '#/components/schemas/OrderReview' }
+        - type: object
+          required: [orderNumber, customerId]
+          properties:
+            orderNumber: { type: string }
+            customerId: { type: string, format: uuid }
+    ProductReviews:
+      type: object
+      required: [summary, items, total, page, limit]
+      properties:
+        summary:
+          type: object
+          required: [averageRating, ratingCount, distribution]
+          properties:
+            averageRating: { type: string, nullable: true, description: One decimal place, e.g. "4.3". }
+            ratingCount: { type: integer }
+            distribution:
+              type: object
+              properties:
+                '1': { type: integer }
+                '2': { type: integer }
+                '3': { type: integer }
+                '4': { type: integer }
+                '5': { type: integer }
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, rating, comment, createdAt]
+            properties:
+              id: { type: string, format: uuid }
+              rating: { type: integer }
+              comment: { type: string, nullable: true }
+              createdAt: { type: string }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
     Warehouse:
       type: object
       description: A warehouse holding consolidated farmer inventory (BR-24). Admin-only (every warehouse route is).
@@ -17212,6 +19001,18 @@ components:
             bound twice counts once. Non-login warehouse staff (`warehouse_staff`, Module 14) are NOT counted.
           example: 3
 
+    AdminPickupPoint:
+      type: object
+      description: Pickup-point fields an admin may manage (BR-185). Internal warehouse columns are not included.
+      required: [id, name, address, publicPhone, isPublic, isActive, openingHours]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string, nullable: true }
+        publicPhone: { type: string, nullable: true, description: Customer-facing phone, E.164. }
+        isPublic: { type: boolean, description: Listed on the public GET /pickup-points when also active. }
+        isActive: { type: boolean }
+        openingHours: { type: object, nullable: true, description: 'Keys mon..sun, as on the public endpoint.' }
     WarehouseCapacity:
       type: object
       description: |
@@ -17700,6 +19501,8 @@ components:
         * `OTP_LOCKED` — three failed attempts; a new challenge is required (BR-32).
         * `OTP_RESEND_TOO_SOON` — a resend was requested inside the 60-second window (BR-32).
         * `OTP_SMS_DELIVERY_FAILED` — the configured SMS provider rejected or failed to send the OTP (BR-32).
+        * `EMAIL_NOT_CONFIGURED` — no email transport is configured (BR-184).
+        * `EMAIL_DELIVERY_FAILED` — the email transport failed to deliver the message (BR-184).
         * `AUDIT_QUARTER_TAKEN` — that farmer already has a non-cancelled audit in this fiscal year and quarter (BR-03).
         * `SCORE_OUT_OF_RANGE` — a rating or audit category score is out of range (BR-06).
         * `AUDIT_INCOMPLETE` — an audit cannot be completed because one or more of its 10 category scores is missing; a missing category is incomplete, not zero (BR-06).
@@ -17723,6 +19526,9 @@ components:
         * `WALKIN_WALLET_NOT_ALLOWED` — a walk-in sale (no customer record) cannot be paid by WALLET (BR-86). HTTP 422.
         * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
         * `PASSWORD_ALREADY_SET` — `POST /auth/me/set-password` only sets a first password and this account already has one (BR-142). HTTP 409.
+        * `WALLET_TRANSFER_DISABLED` — customer-to-customer wallet transfers are switched off (`system_config.wallet_transfer.enabled`, BR-150). HTTP 403.
+        * `WALLET_TRANSFER_LIMIT_EXCEEDED` — a wallet transfer is below the minimum, above the per-transfer maximum, or over the sender's daily maximum (BR-150). HTTP 422.
+        * `WALLET_TRANSFER_SELF` — a customer tried to send wallet money to themselves (BR-150). HTTP 422.
         * `PAYMENT_AMOUNT_INSUFFICIENT` — CASH amount received is below the sale total (BR-94). HTTP 422.
         * `SALE_CHANNEL_NOT_SUPPORTED` — HORECA/B2B sale creation is not available in Track 1 (BR-13, BR-85). HTTP 501.
         * `COUNTER_SALE_NOT_REASSIGNABLE` — a DIRECT or MARKET counter sale (for example a UPI sale still awaiting payment) is bound to the warehouse that made it and cannot be reassigned (BR-85i). HTTP 409.
@@ -17908,9 +19714,57 @@ components:
       type: string
       enum: [RECEIPT, SALE, TRANSFER_OUT, TRANSFER_IN, ADJUSTMENT, WASTAGE, RETURN_IN, RESERVATION, RELEASE]
 
+    TransferRecipient:
+      type: object
+      description: A transfer counterparty, masked (BR-150g). Never a customer id.
+      required: [displayName, mobileMasked]
+      additionalProperties: false
+      properties:
+        displayName: { type: string, description: 'Initial of each name part followed by ***, e.g. "B*** K***".' }
+        mobileMasked: { type: string, description: All but the last four digits replaced by *. }
+
+    WalletTransfer:
+      type: object
+      required: [id, direction, amount, counterparty, note, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        direction: { type: string, enum: [SENT, RECEIVED] }
+        amount: { $ref: '#/components/schemas/Money' }
+        counterparty: { $ref: '#/components/schemas/TransferRecipient' }
+        note: { type: [string, 'null'] }
+        status: { type: string, enum: [COMPLETED] }
+        createdAt: { type: string, format: date-time }
+
+    AdminTransferParty:
+      type: object
+      description: One side of a transfer as admins see it (unmasked, BR-150l).
+      required: [customerId, fullName, mobile]
+      additionalProperties: false
+      properties:
+        customerId: { type: string, format: uuid }
+        fullName: { type: string }
+        mobile: { type: string }
+
+    AdminWalletTransfer:
+      type: object
+      description: A customer-to-customer transfer with both parties and both ledger legs (BR-150l).
+      required: [id, amount, note, status, createdAt, sender, recipient, debitTxnId, creditTxnId]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        note: { type: [string, 'null'] }
+        status: { type: string, enum: [COMPLETED] }
+        createdAt: { type: string, format: date-time }
+        sender: { $ref: '#/components/schemas/AdminTransferParty' }
+        recipient: { $ref: '#/components/schemas/AdminTransferParty' }
+        debitTxnId: { type: string, format: uuid, description: The TRANSFER_OUT wallet transaction. }
+        creditTxnId: { type: string, format: uuid, description: The TRANSFER_IN wallet transaction. }
+
     WalletTransactionType:
       type: string
-      enum: [TOPUP_CASH, TOPUP_DIGITAL, ORDER_DEBIT, ORDER_REFUND, PAYOUT_DEBIT, SALE_CREDIT, SUBSCRIPTION_DEBIT, ADJUSTMENT]
+      enum: [TOPUP_CASH, TOPUP_DIGITAL, ORDER_DEBIT, ORDER_REFUND, PAYOUT_DEBIT, SALE_CREDIT, SUBSCRIPTION_DEBIT, ADJUSTMENT, TRANSFER_OUT, TRANSFER_IN]
+      description: '`TRANSFER_OUT` / `TRANSFER_IN` are the two legs of a customer-to-customer wallet transfer (BR-150).'
 
     AllocationChannel:
       type: string
@@ -18020,6 +19874,61 @@ components:
         verified: { type: boolean, enum: [true] }
         mobile: { $ref: '#/components/schemas/Mobile' }
         purpose: { type: string, enum: [REGISTRATION, LOGIN, PASSWORD_RESET, MOBILE_CHANGE, DELIVERY, PICKUP] }
+
+    CustomerOtpSendRequest:
+      type: object
+      additionalProperties: false
+      required: [mobile]
+      properties:
+        mobile: { $ref: '#/components/schemas/Mobile' }
+
+    CustomerOtpVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [mobile, challengeId, otp]
+      properties:
+        mobile: { $ref: '#/components/schemas/Mobile' }
+        challengeId: { type: string, format: uuid }
+        otp: { type: string, pattern: '^[0-9]{6}$' }
+        preferredLocale:
+          type: string
+          enum: [en, ta]
+          description: Used only when a new account is created. Defaults to `en`.
+        deviceInfo:
+          type: object
+          additionalProperties: false
+          properties:
+            deviceId: { type: string, minLength: 1, maxLength: 120 }
+            platform: { type: string, enum: [ios, android, web] }
+
+    CustomerOtpVerifyResponse:
+      type: object
+      required: [accessToken, refreshToken, tokenType, expiresIn, isNewUser, user]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, enum: [Bearer] }
+        expiresIn: { type: integer, description: Access-token lifetime in seconds. }
+        isNewUser: { type: boolean, description: True when this call created the customer account. }
+        user:
+          type: object
+          required: [id, fullName, mobile, userType, preferredLocale, status, hasPassword, customerId, roles]
+          properties:
+            id: { type: string, format: uuid }
+            fullName: { type: string, description: A placeholder (`TOHFA Customer`) on a new account until the customer edits it. }
+            mobile: { $ref: '#/components/schemas/Mobile' }
+            userType: { type: string, enum: [CUSTOMER] }
+            preferredLocale: { type: string, enum: [en, ta] }
+            status: { type: string, enum: [ACTIVE] }
+            hasPassword: { type: boolean, description: False for an account created here (BR-142). }
+            customerId: { type: string, format: uuid }
+            roles:
+              type: array
+              items:
+                type: object
+                required: [code]
+                properties:
+                  code: { type: string, enum: [CUSTOMER] }
 
     LoginRequest:
       type: object
@@ -21425,6 +23334,17 @@ components:
         shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
         iconKey: { type: [string, 'null'], maxLength: 80 }
         isActive: { type: boolean }
+        # BR-181 catalog display metadata (shown on GET /catalog/products; not echoed in this response).
+        tasteNotes: { type: [string, 'null'], maxLength: 300 }
+        harvestSeason: { type: [string, 'null'], maxLength: 80 }
+        originRegion: { type: [string, 'null'], maxLength: 80, description: Generic region only (BR-16). }
+        farmingType: { type: [string, 'null'], enum: [ORGANIC, NATURAL, CONVENTIONAL, null] }
+        packSize: { type: [number, 'null'], exclusiveMinimum: 0, description: Set together with packUnit. }
+        packUnit: { type: [string, 'null'], enum: [KG, G, PIECE, BUNCH, DOZEN, PACK, null] }
+        compareAtPrice: { type: [number, 'null'], exclusiveMinimum: 0, description: MRP per kg in rupees. }
+        isComingSoon: { type: boolean }
+        comingTomorrow: { type: boolean }
+        isUnsalable: { type: boolean }
       additionalProperties: false
 
     FarmCrop:
@@ -23486,6 +25406,77 @@ components:
           type: array
           description: Warehouses where this product can be collected or dispatched from. Warehouse identity is TOHFA's, not the farm's, so it is safe to expose.
           items: { type: string, format: uuid }
+        # BR-181 display metadata (admin-managed on crop_master; display only, never changes pricing or ordering).
+        tasteNotes: { type: [string, 'null'], maxLength: 300 }
+        shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
+        harvestSeason: { type: [string, 'null'], maxLength: 80, example: Oct-Mar }
+        originRegion: { type: [string, 'null'], maxLength: 80, example: Nilgiris, description: Generic region only; never a farm, farmer or village (BR-16). }
+        farmingType: { type: [string, 'null'], enum: [ORGANIC, NATURAL, CONVENTIONAL, null] }
+        packSize: { type: [string, 'null'], description: 'Sales-unit size for display, e.g. "500" with packUnit G. `unit` stays kg: quantities are still ordered and priced in kg.' }
+        packUnit: { type: [string, 'null'], enum: [KG, G, PIECE, BUNCH, DOZEN, PACK, null] }
+        compareAtPrice: { type: [string, 'null'], description: 'MRP per kg in the same decimal format as pricePerKg. Display only; the order discount stays 0.' }
+        discountPercent: { type: [integer, 'null'], minimum: 1, maximum: 99, description: 'floor((MRP - price) * 100 / MRP) computed in integer paise; null unless MRP > price.' }
+        isComingSoon: { type: boolean }
+        comingTomorrow: { type: boolean }
+        isUnsalable: { type: boolean }
+        ratingAverage: { type: [number, 'null'], minimum: 1, maximum: 5, description: 'Mean of per-line product ratings (order_review_items), 1 decimal. Farm ratings are separate and untouched (BR-06).' }
+        ratingCount: { type: integer, minimum: 0 }
+
+    SearchSuggestion:
+      type: object
+      description: A type-ahead suggestion. Allow-list of three fields (BR-16, BR-151e).
+      required: [type, id, name]
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [PRODUCT, CATEGORY] }
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    RecentSearch:
+      type: object
+      required: [query, searchedAt]
+      additionalProperties: false
+      properties:
+        query: { type: string }
+        searchedAt: { type: string, format: date-time }
+
+    ServiceAreaRequest:
+      type: object
+      required: [id, area, locality, city, pincode, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        area: { type: string }
+        locality: { type: string }
+        city: { type: string }
+        pincode: { type: string, nullable: true }
+        status: { type: string, enum: [NEW, REVIEWED, SERVED, DECLINED] }
+        createdAt: { type: string, format: date-time }
+
+    LegalContent:
+      type: object
+      required: [title, version, lastUpdated, body, language]
+      properties:
+        title: { type: string }
+        version: { type: integer, minimum: 1 }
+        lastUpdated: { type: string, format: date-time }
+        body: { type: string, description: Markdown text. }
+        language: { type: string }
+
+    TrendingSearches:
+      type: object
+      required: [queries, products]
+      additionalProperties: false
+      properties:
+        queries:
+          type: array
+          items:
+            type: object
+            required: [query, searchers]
+            additionalProperties: false
+            properties:
+              query: { type: string, description: Normalized query text. }
+              searchers: { type: integer, description: 'Distinct customers who searched it in the window; always >= the k-anonymity threshold.' }
+        products: { type: array, items: { $ref: '#/components/schemas/Product' } }
 
     CatalogHome:
       type: object
@@ -23499,9 +25490,245 @@ components:
               id: { type: string, format: uuid }
               imageUrl: { type: string, format: uri }
               deeplink: { type: [string, 'null'] }
+        heroBanners:
+          type: array
+          description: |
+            BR-152: live admin banners (active, inside their window) in sortOrder; when none is live,
+            the static placeholder banners. `banners` carries the same list in its original shape.
+          items:
+            type: object
+            required: [id, imageUrl, title, deeplink]
+            additionalProperties: false
+            properties:
+              id: { type: string, format: uuid }
+              imageUrl: { type: string, format: uri }
+              title: { type: [string, 'null'] }
+              deeplink: { type: [string, 'null'], description: '`/categories/{id}`, `/products/{id}`, a URL, or null.' }
+        sections:
+          type: array
+          description: BR-152 live curated rails in sortOrder; items are farm-anonymous Products (BR-16). Empty rails are omitted.
+          items:
+            type: object
+            required: [id, title, subtitle, items]
+            additionalProperties: false
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              subtitle: { type: [string, 'null'] }
+              items: { type: array, items: { $ref: '#/components/schemas/Product' } }
         categories: { type: array, items: { $ref: '#/components/schemas/Category' } }
         featured: { type: array, items: { $ref: '#/components/schemas/Product' } }
         nearestWarehouseId: { type: [string, 'null'], format: uuid }
+
+    HomeContentStatus:
+      type: string
+      enum: [ACTIVE, SCHEDULED, EXPIRED, INACTIVE]
+      description: Computed, not stored. INACTIVE = isActive false; EXPIRED = endsAt passed; SCHEDULED = startsAt in the future (BR-152c).
+
+    HomeBanner:
+      type: object
+      required: [id, title, imageUrl, targetType, targetCategoryId, targetProductId, targetUrl, sortOrder, startsAt, endsAt, isActive, status, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        imageUrl: { type: string, format: uri }
+        targetType: { type: string, enum: [NONE, CATEGORY, PRODUCT, URL] }
+        targetCategoryId: { type: [string, 'null'], format: uuid }
+        targetProductId: { type: [string, 'null'], format: uuid, description: Catalog product id (crop id). }
+        targetUrl: { type: [string, 'null'] }
+        sortOrder: { type: integer }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        isActive: { type: boolean }
+        status: { $ref: '#/components/schemas/HomeContentStatus' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    HomeBannerCreate:
+      type: object
+      required: [title, imageUrl]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        imageUrl: { type: string, format: uri, maxLength: 2048 }
+        targetType: { type: string, enum: [NONE, CATEGORY, PRODUCT, URL], default: NONE }
+        targetCategoryId: { type: [string, 'null'], format: uuid }
+        targetProductId: { type: [string, 'null'], format: uuid }
+        targetUrl: { type: [string, 'null'], maxLength: 2048 }
+        sortOrder: { type: integer, minimum: 0, maximum: 100000, default: 0 }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        isActive: { type: boolean, default: true }
+
+    HomeBannerUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        imageUrl: { type: string, format: uri, maxLength: 2048 }
+        targetType: { type: string, enum: [NONE, CATEGORY, PRODUCT, URL] }
+        targetCategoryId: { type: [string, 'null'], format: uuid }
+        targetProductId: { type: [string, 'null'], format: uuid }
+        targetUrl: { type: [string, 'null'], maxLength: 2048 }
+        sortOrder: { type: integer, minimum: 0, maximum: 100000 }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        isActive: { type: boolean }
+
+    HomeSection:
+      type: object
+      required: [id, title, subtitle, targetType, targetCategoryId, productIds, maxItems, sortOrder, startsAt, endsAt, isActive, status, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        subtitle: { type: [string, 'null'] }
+        targetType: { type: string, enum: [CATEGORY, PRODUCTS] }
+        targetCategoryId: { type: [string, 'null'], format: uuid }
+        productIds: { type: array, items: { type: string, format: uuid } }
+        maxItems: { type: integer }
+        sortOrder: { type: integer }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        isActive: { type: boolean }
+        status: { $ref: '#/components/schemas/HomeContentStatus' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    HomeSectionCreate:
+      type: object
+      required: [title, targetType]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        subtitle: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        targetType: { type: string, enum: [CATEGORY, PRODUCTS] }
+        targetCategoryId: { type: [string, 'null'], format: uuid }
+        productIds: { type: array, maxItems: 50, items: { type: string, format: uuid } }
+        maxItems: { type: integer, minimum: 1, maximum: 50, default: 10 }
+        sortOrder: { type: integer, minimum: 0, maximum: 100000, default: 0 }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        isActive: { type: boolean, default: true }
+
+    HomeSectionUpdate:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 120 }
+        subtitle: { type: [string, 'null'], minLength: 1, maxLength: 200 }
+        targetType: { type: string, enum: [CATEGORY, PRODUCTS] }
+        targetCategoryId: { type: [string, 'null'], format: uuid }
+        productIds: { type: array, maxItems: 50, items: { type: string, format: uuid } }
+        maxItems: { type: integer, minimum: 1, maximum: 50 }
+        sortOrder: { type: integer, minimum: 0, maximum: 100000 }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+        isActive: { type: boolean }
+
+    CustomerProfile:
+      type: object
+      description: The caller's own customer profile (BR-160).
+      required: [id, customerCode, fullName, mobile, email, emailVerified, age, gender, harvestPreferences, photoKey, customerType, businessName, gstin, gstVerified, defaultAddressId, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        customerCode: { type: string }
+        fullName: { type: string }
+        mobile: { type: string, description: Own mobile, unmasked (it is the caller's own). }
+        email: { type: [string, 'null'] }
+        emailVerified: { type: boolean }
+        age: { type: [integer, 'null'] }
+        gender: { type: [string, 'null'], enum: [FEMALE, MALE, OTHER, PREFER_NOT_TO_SAY, null] }
+        harvestPreferences: { type: array, items: { type: string } }
+        photoKey: { type: [string, 'null'], description: Upload object key. }
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'] }
+        gstin: { type: [string, 'null'] }
+        gstVerified: { type: boolean }
+        defaultAddressId: { type: [string, 'null'], format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    UpdateCustomerProfileRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        fullName: { type: string, minLength: 1, maxLength: 120 }
+        age: { type: [integer, 'null'], minimum: 13, maximum: 120 }
+        gender: { type: [string, 'null'], enum: [FEMALE, MALE, OTHER, PREFER_NOT_TO_SAY, null] }
+        harvestPreferences: { type: array, maxItems: 20, items: { type: string, minLength: 1, maxLength: 50 } }
+        photoKey: { type: [string, 'null'], minLength: 1, maxLength: 500 }
+
+    CustomerGstDetailsRequest:
+      type: object
+      additionalProperties: false
+      required: [customerType]
+      properties:
+        customerType: { type: string, enum: [RETAIL, B2B, HORECA] }
+        businessName: { type: [string, 'null'], minLength: 1, maxLength: 200, description: Required for B2B and HORECA. }
+        gstin: { type: [string, 'null'], pattern: '^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]{3}$' }
+
+    CustomerAddress:
+      type: object
+      description: A customer's own delivery address (BR-160). Never carries farm data.
+      required: [id, label, line1, line2, city, district, state, pincode, lat, lng, landmark, contactPhone, nearestPickupPointId, isDefault, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string, enum: [HOME, OFFICE, OTHER], example: HOME }
+        line1: { type: string }
+        line2: { type: [string, 'null'] }
+        city: { type: string }
+        district: { type: [string, 'null'] }
+        state: { type: string }
+        pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+        lat: { type: [number, 'null'], minimum: -90, maximum: 90 }
+        lng: { type: [number, 'null'], minimum: -180, maximum: 180 }
+        landmark: { type: [string, 'null'], maxLength: 200 }
+        contactPhone: { type: [string, 'null'], pattern: '^\+?[0-9]{10,15}$' }
+        nearestPickupPointId: { type: [string, 'null'], format: uuid, description: Active warehouse (pickup point) nearest the address. Unknown or inactive id is 422. }
+        isDefault: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    CreateCustomerAddressRequest:
+      type: object
+      additionalProperties: false
+      required: [line1, city, pincode]
+      properties:
+        label: { type: string, enum: [HOME, OFFICE, OTHER, WORK], default: HOME, description: 'WORK is a legacy alias stored and returned as OFFICE.' }
+        line1: { type: string, minLength: 1, maxLength: 200 }
+        line2: { type: [string, 'null'], maxLength: 200 }
+        city: { type: string, minLength: 1, maxLength: 100 }
+        district: { type: [string, 'null'], maxLength: 100 }
+        state: { type: string, minLength: 1, maxLength: 100, default: Tamil Nadu }
+        pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+        lat: { type: [number, 'null'], minimum: -90, maximum: 90, description: Supplied together with lng. }
+        lng: { type: [number, 'null'], minimum: -180, maximum: 180 }
+        landmark: { type: [string, 'null'], maxLength: 200 }
+        contactPhone: { type: [string, 'null'], pattern: '^\+?[0-9]{10,15}$' }
+        nearestPickupPointId: { type: [string, 'null'], format: uuid }
+        isDefault: { type: boolean, default: false }
+
+    UpdateCustomerAddressRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        label: { type: string, enum: [HOME, OFFICE, OTHER, WORK], description: 'WORK is a legacy alias stored and returned as OFFICE.' }
+        line1: { type: string, minLength: 1, maxLength: 200 }
+        line2: { type: [string, 'null'], maxLength: 200 }
+        city: { type: string, minLength: 1, maxLength: 100 }
+        district: { type: [string, 'null'], maxLength: 100 }
+        state: { type: string, minLength: 1, maxLength: 100 }
+        pincode: { type: string, pattern: '^[1-9][0-9]{5}$' }
+        lat: { type: [number, 'null'], minimum: -90, maximum: 90, description: Changed together with lng. }
+        lng: { type: [number, 'null'], minimum: -180, maximum: 180 }
+        landmark: { type: [string, 'null'], maxLength: 200 }
+        contactPhone: { type: [string, 'null'], pattern: '^\+?[0-9]{10,15}$' }
+        nearestPickupPointId: { type: [string, 'null'], format: uuid }
 
     Cart:
       type: object
@@ -23623,6 +25850,8 @@ components:
             discount: { $ref: '#/components/schemas/Money' }
             gstAmount: { $ref: '#/components/schemas/Money' }
             paymentMethod: { $ref: '#/components/schemas/PaymentMethod' }
+            paymentMethodLabel: { type: string, example: Wallet, description: Human label of paymentMethod (BR-182). }
+            pickupCode: { type: [string, 'null'], pattern: '^PICKUP-[0-9]{4}$', example: PICKUP-0039, description: 'Human reference derived from the order number sequence, PICKUP orders only (BR-182). NOT the handover OTP (BR-20) and grants nothing.' }
             deliverySlot: { $ref: '#/components/schemas/DeliverySlot' }
             deliveryAddressId: { type: [string, 'null'], format: uuid }
             otpRequired: { type: boolean, description: 4-digit handover OTP (BR-20). The code itself is never returned by the API. }
@@ -23698,6 +25927,20 @@ components:
         currency: { type: string, enum: [INR] }
         status: { type: string, enum: [PENDING, SUCCESS, FAILED] }
         razorpayKeyId: { type: string, description: Publishable key for the client SDK. }
+
+    TopupReceipt:
+      type: object
+      required: [topupId, status, amount, currency, mode, transactionId, balanceAfter, createdAt, completedAt]
+      properties:
+        topupId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, SUCCESS, FAILED] }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { type: string, enum: [INR] }
+        mode: { type: string, example: UPI }
+        transactionId: { type: [string, 'null'], format: uuid, description: Wallet ledger row of the credit; null until SUCCESS. }
+        balanceAfter: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }], description: Wallet balance right after the credit; null until SUCCESS. }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
 
     CashTopupCreate:
       type: object
@@ -25118,6 +27361,41 @@ components:
             items:
               type: array
               items: { $ref: '#/components/schemas/ReturnRequestItem' }
+
+    CustomerReturnSummary:
+      type: object
+      description: |
+        The customer's view of a return (BR-155). An allow-list: no warehouse, no customer id,
+        no inspection internals (damaged quantity, condition) and nothing farm-identifying (BR-16).
+      required: [id, orderId, status, reason, note, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/ReturnStatus' }
+        reason: { type: string }
+        note: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: [string, 'null'], format: date-time }
+
+    CustomerReturnRequest:
+      allOf:
+        - { $ref: '#/components/schemas/CustomerReturnSummary' }
+        - type: object
+          required: [items]
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required: [id, orderItemId, requestedQty, acceptedQty]
+                properties:
+                  id: { type: string, format: uuid }
+                  orderItemId: { type: string, format: uuid }
+                  requestedQty: { $ref: '#/components/schemas/Quantity' }
+                  acceptedQty:
+                    oneOf:
+                      - { $ref: '#/components/schemas/Quantity' }
+                      - { type: 'null' }
 
     ReturnInspectionItem:
       type: object

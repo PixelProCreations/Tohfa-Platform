@@ -5,6 +5,7 @@ import type {
   RawCatalogProductRow,
 } from './catalog.repo.js';
 import { CatalogService, serializeProduct } from './catalog.service.js';
+import { listProductsQuery } from './catalog.schema.js';
 import type {
   CategoryView,
   ListProductsQuery,
@@ -268,22 +269,104 @@ describe('CatalogService (Unit & Business Rules S-29)', () => {
 
       const serialized = serializeProduct(rawRowWithSensitiveFields as unknown as RawCatalogProductRow);
 
-      // Exactly the 10 permitted keys
+      // Exactly the permitted allow-list keys (original 10 + BR-181 display metadata)
       const keys = Object.keys(serialized).sort();
-      expect(keys).toEqual([
-        'availableQty',
-        'categoryId',
-        'certificationBadges',
-        'grade',
-        'id',
-        'name',
-        'photos',
-        'pricePerKg',
-        'unit',
-        'warehouseIds',
-      ]);
+      expect(keys).toEqual(
+        [
+          'availableQty',
+          'categoryId',
+          'certificationBadges',
+          'comingTomorrow',
+          'compareAtPrice',
+          'discountPercent',
+          'farmingType',
+          'grade',
+          'harvestSeason',
+          'id',
+          'isComingSoon',
+          'isUnsalable',
+          'name',
+          'originRegion',
+          'packSize',
+          'packUnit',
+          'photos',
+          'pricePerKg',
+          'ratingAverage',
+          'ratingCount',
+          'shelfLifeDays',
+          'tasteNotes',
+          'unit',
+          'warehouseIds',
+        ].sort(),
+      );
 
       assertNoDenylistKeys(serialized);
+    });
+
+    it('BR-181: display metadata is serialized; discountPercent is integer paise math; BR-16 holds', () => {
+      const row = {
+        crop_id: IDS.cropCarrot,
+        name: 'Nilgiris Carrot',
+        category_id: IDS.categoryVeg,
+        grade: 'GRADE_1' as ProductGrade,
+        price_per_kg: '69.00',
+        available_qty: '10.000',
+        unit: 'kg' as const,
+        icon_key: null,
+        photo_url: null,
+        certification_badges: [],
+        warehouse_ids: [],
+        created_at: new Date(),
+        taste_notes: 'Sweet and crunchy',
+        shelf_life_days: 7,
+        harvest_season: 'Oct-Mar',
+        origin_region: 'Nilgiris',
+        farming_type: 'ORGANIC',
+        pack_size: '500.000',
+        pack_unit: 'G',
+        compare_at_price: '80.00',
+        is_coming_soon: false,
+        coming_tomorrow: true,
+        is_unsalable: false,
+        rating_average: '4.3',
+        rating_count: 12,
+      };
+      const v = serializeProduct(row as unknown as RawCatalogProductRow);
+      expect(v).toMatchObject({
+        tasteNotes: 'Sweet and crunchy',
+        shelfLifeDays: 7,
+        harvestSeason: 'Oct-Mar',
+        originRegion: 'Nilgiris',
+        farmingType: 'ORGANIC',
+        packSize: '500',
+        packUnit: 'G',
+        compareAtPrice: '80.00',
+        discountPercent: 13, // floor((8000-6900)*100/8000) = 13
+        comingTomorrow: true,
+        ratingAverage: 4.3,
+        ratingCount: 12,
+        unit: 'kg',
+      });
+      assertNoDenylistKeys(v);
+      // No MRP, or MRP not above the price: no discount shown.
+      expect(serializeProduct({ ...row, compare_at_price: null } as unknown as RawCatalogProductRow))
+        .toMatchObject({ compareAtPrice: null, discountPercent: null });
+      expect(serializeProduct({ ...row, compare_at_price: '69.00' } as unknown as RawCatalogProductRow).discountPercent)
+        .toBeNull();
+    });
+
+    it('BR-181: a row without metadata serializes to nulls / false / zero', () => {
+      const v = serializeProduct({
+        crop_id: IDS.cropCarrot, name: 'x', category_id: IDS.categoryVeg, grade: 'GRADE_1',
+        price_per_kg: '10', available_qty: '1', unit: 'kg', icon_key: null, photo_url: null,
+        certification_badges: [], warehouse_ids: [], created_at: new Date(),
+      } as unknown as RawCatalogProductRow);
+      expect(v).toMatchObject({ tasteNotes: null, originRegion: null, compareAtPrice: null, discountPercent: null,
+        isComingSoon: false, isUnsalable: false, ratingAverage: null, ratingCount: 0 });
+    });
+
+    it('BR-181: sort=just_arrived is an accepted query value', () => {
+      expect(listProductsQuery.parse({ sort: 'just_arrived' }).sort).toBe('just_arrived');
     });
 
     it('BR-16c: Querying non-existent product or internal listing ID throws 404', async () => {
