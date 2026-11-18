@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
+  Text,
   StyleSheet,
   Image,
   TouchableOpacity,
@@ -8,6 +9,7 @@ import {
   StatusBar,
   BackHandler,
 } from 'react-native';
+import { customerFonts } from '../theme/index';
 
 import customerSplashClean from '../assets/images/customer_splash_clean.png';
 import customerWelcomeSlide1Full from '../assets/images/customer_welcome_slide1_full.png';
@@ -191,15 +193,16 @@ export const CustomerWelcomeScreen: React.FC<CustomerWelcomeScreenProps> = ({ on
                   accessibilityLabel="Slide 3"
                 />
               </View>
-              {/* Full bottom touch target over 'Get Started →' button */}
+              {/* Native, crisp 'Get Started →' button */}
               <TouchableOpacity
-                activeOpacity={0.7}
+                activeOpacity={0.85}
                 onPress={handleNext}
-                style={styles.slide2GetStartedTouch}
-                hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                style={styles.slide2GetStartedButton}
                 accessibilityRole="button"
                 accessibilityLabel="Get Started"
-              />
+              >
+                <Text style={styles.slide2GetStartedText}>Get Started →</Text>
+              </TouchableOpacity>
             </View>
           )}
         </Animated.View>
@@ -274,13 +277,25 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
   },
-  slide2GetStartedTouch: {
+  slide2GetStartedButton: {
     position: 'absolute',
-    bottom: 24,
-    left: 0,
-    right: 0,
-    height: 140,
+    bottom: 42,
+    left: 24,
+    right: 24,
+    height: 52,
+    backgroundColor: '#2E7D32',
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
     zIndex: 999,
+  },
+  slide2GetStartedText: {
+    color: '#FFFFFF',
+    fontFamily: customerFonts.semibold,
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   slide2DotsRow: {
     position: 'absolute',

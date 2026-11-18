@@ -44,12 +44,12 @@ describe('CustomerLoginScreen', () => {
     });
 
     const root = tree.root;
-    const allText = root.findAllByType('Text').map((node) => node.props.children);
+    const allText = root.findAllByType('Text' as any).map((node) => node.props.children);
     expect(allText).toContain('Welcome Back!');
     expect(allText).toContain("Let's get you Stated");
     expect(allText).toContain('I agree to terms and conditions');
 
-    const input = root.findByType('TextInput');
+    const input = root.findByType('TextInput' as any);
     expect(input.props.placeholder).toBe('Please enter phone number');
     expect(input.props.keyboardType).toBe('phone-pad');
   });
@@ -60,7 +60,7 @@ describe('CustomerLoginScreen', () => {
       tree = renderer.create(<CustomerLoginScreen onNavigate={mockNavigate} />);
     });
 
-    const checkboxes = tree.root.findAllByType('TouchableOpacity');
+    const checkboxes = tree.root.findAllByType('TouchableOpacity' as any);
     const termsRow = checkboxes.find(
       (b) => b.props.accessibilityRole === 'checkbox'
     );
@@ -81,13 +81,13 @@ describe('CustomerLoginScreen', () => {
       tree = renderer.create(<CustomerLoginScreen onNavigate={mockNavigate} />);
     });
 
-    const input = tree.root.findByType('TextInput');
+    const input = tree.root.findByType('TextInput' as any);
     await act(async () => {
       input.props.onChangeText('9876543210');
     });
 
     const button = tree.root
-      .findAllByType('TouchableOpacity')
+      .findAllByType('TouchableOpacity' as any)
       .find((b) => b.props.accessibilityRole === 'button');
     expect(button).toBeDefined();
 
@@ -106,7 +106,7 @@ describe('CustomerLoginScreen', () => {
       tree = renderer.create(<CustomerLoginScreen onNavigate={mockNavigate} />);
     });
 
-    const allViews = tree.root.findAllByType('View');
+    const allViews = tree.root.findAllByType('View' as any);
     for (const v of allViews) {
       const style = v.props.style;
       if (Array.isArray(style)) {

@@ -2302,7 +2302,7 @@ export default function App(): React.JSX.Element {
             }}
           />
         ) : screen === 'CustomerMain' ? (
-          <CustomerMainApp onSignOut={() => signOutTo('Welcome')} />
+          <CustomerMainApp key="CustomerMainApp" onSignOut={() => signOutTo('Welcome')} />
         ) : screen === 'Unsupported' || screen === 'AdminMain' ? (
           // 'AdminMain' reaches here only when adminShell is null (an unknown or
           // missing role): fail closed with the unsupported-account message and

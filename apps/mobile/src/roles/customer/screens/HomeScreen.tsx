@@ -11,19 +11,23 @@ import {
   Modal,
   TextInput,
   Platform,
+  Dimensions,
 } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import {
   customerColors,
   customerFonts,
   customerShadow,
-} from '../theme';
+} from '../theme/index';
+import { adminColors } from '../../admin/theme';
 import { CustomerFloatingNav, type CustomerActiveTab, CustomerDeliveryAddressModal, type AddressData } from '../components';
 import dashboardBannerHarvest from '../assets/images/dashboard_banner_harvest.png';
 import bannerFarmFreshVegetables from '../assets/images/banner_farm_fresh_vegetables.png';
 import tohfaMarketLogo from '../assets/images/tohfa_market_logo.png';
 import flyingDeliveryBag from '../assets/images/flying_delivery_bag.png';
 import { CategoryImages, ProductImages, SectionBadges } from '../assets/images/products';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface HomeScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
@@ -367,6 +371,9 @@ interface CategoryCircleItem {
 }
 
 const CATEGORY_CIRCLES: CategoryCircleItem[] = [
+  { id: 'c-lh', label: 'Latest Harvest', image: CategoryImages.vegetables, emoji: '🌱' },
+  { id: 'c-fd', label: 'Fresh Drops', image: CategoryImages.fruit, emoji: '📦' },
+  { id: 'c-rp', label: 'Recently Picked', image: CategoryImages.herbsGreens, emoji: '🧺' },
   { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables, emoji: '🥦' },
   { id: 'c2', label: 'Fruit', image: CategoryImages.fruit, emoji: '🍎' },
   { id: 'c3', label: 'Dairy', image: CategoryImages.dairy, emoji: '🥛' },
@@ -384,6 +391,42 @@ const CATEGORY_CIRCLES: CategoryCircleItem[] = [
   { id: 'c16', label: 'Tea & Coffee', image: CategoryImages.teaCoffee, emoji: '☕' },
   { id: 'c17', label: 'Spreads', image: CategoryImages.spreads, emoji: '🥣' },
   { id: 'c18', label: 'Flowers', image: CategoryImages.flowers, emoji: '🌸' },
+];
+
+const LATEST_HARVEST_GRID_ITEMS: ProductCardData[] = [
+  { id: 'lh-g1', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍎', image: ProductImages.fruitApple },
+  { id: 'lh-g2', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.foryouLettuce },
+  { id: 'lh-g3', name: 'Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍅', image: ProductImages.foryouTomatoes },
+  { id: 'lh-g4', name: 'Sweet Mango', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥭', image: ProductImages.fruitMango },
+  { id: 'lh-g5', name: 'Purple Brinjal', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍆', image: ProductImages.foryouBrinjal },
+  { id: 'lh-g6', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.foryouLettuce },
+  { id: 'lh-g7', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥔', image: ProductImages.vegPotato },
+  { id: 'lh-g8', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🥦', image: ProductImages.vegBroccoli },
+  { id: 'lh-g9', name: 'Fresh Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍓', image: ProductImages.foryouStrawberries },
+];
+
+const FRESH_DROPS_GRID_ITEMS: ProductCardData[] = [
+  { id: 'fd-g1', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍅', image: ProductImages.foryouTomatoes },
+  { id: 'fd-g2', name: 'Fresh Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍊', image: ProductImages.fruitOrange },
+  { id: 'fd-g3', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🍓', image: ProductImages.foryouStrawberries },
+  { id: 'fd-g4', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.foryouLettuce },
+  { id: 'fd-g5', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🥕', image: ProductImages.vegCarrot },
+  { id: 'fd-g6', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍉', image: ProductImages.foryouWatermelon },
+  { id: 'fd-g7', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍎', image: ProductImages.fruitApple },
+  { id: 'fd-g8', name: 'Purple Brinjal', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍆', image: ProductImages.foryouBrinjal },
+  { id: 'fd-g9', name: 'Sweet Corn', price: 60, originalPrice: 86, unit: 'piece', rating: 4.7, emoji: '🌽', image: ProductImages.foryouSweetCorn },
+];
+
+const RECENTLY_PICKED_GRID_ITEMS: ProductCardData[] = [
+  { id: 'rp-g1', name: 'Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍅', image: ProductImages.foryouTomatoes },
+  { id: 'rp-g2', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🥦', image: ProductImages.vegBroccoli },
+  { id: 'rp-g3', name: 'Purple Brinjal', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍆', image: ProductImages.foryouBrinjal },
+  { id: 'rp-g4', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥔', image: ProductImages.vegPotato },
+  { id: 'rp-g5', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥕', image: ProductImages.vegCarrot },
+  { id: 'rp-g6', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.foryouLettuce },
+  { id: 'rp-g7', name: 'Fresh Kiwi', price: 60, originalPrice: 86, unit: 'kg', rating: 4.8, emoji: '🥝', image: ProductImages.fruitApple },
+  { id: 'rp-g8', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍓', image: ProductImages.foryouStrawberries },
+  { id: 'rp-g9', name: 'Sweet Mango', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🥭', image: ProductImages.fruitMango },
 ];
 
 import {
@@ -414,6 +457,32 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
   const [currentDeliveryAddress, setCurrentDeliveryAddress] = useState('110, Rajeshwari Nagar, Coimbatore');
   const [showDeliveryModal, setShowDeliveryModal] = useState(false);
   const [deliveryModalStep, setDeliveryModalStep] = useState<'delivery' | 'addAddress'>('delivery');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<'Latest Harvest' | 'Fresh Drops' | 'Recently Picked' | null>(null);
+  const [inlineCategorySearch, setInlineCategorySearch] = useState('');
+  const mainScrollRef = useRef<any>(null);
+
+  const handleCategoryCirclePress = (catName: 'Latest Harvest' | 'Fresh Drops' | 'Recently Picked') => {
+    setSelectedCategoryFilter(prev => {
+      const next = prev === catName ? null : catName;
+      if (next) {
+        setTimeout(() => {
+          mainScrollRef.current?.scrollTo({ y: 0, animated: true });
+        }, 50);
+      }
+      return next;
+    });
+    setInlineCategorySearch('');
+  };
+
+  const getSelectedCategoryItems = (): ProductCardData[] => {
+    let base: ProductCardData[] = [];
+    if (selectedCategoryFilter === 'Latest Harvest') base = LATEST_HARVEST_GRID_ITEMS;
+    else if (selectedCategoryFilter === 'Fresh Drops') base = FRESH_DROPS_GRID_ITEMS;
+    else if (selectedCategoryFilter === 'Recently Picked') base = RECENTLY_PICKED_GRID_ITEMS;
+    if (!inlineCategorySearch.trim()) return base;
+    const q = inlineCategorySearch.toLowerCase();
+    return base.filter(i => i.name.toLowerCase().includes(q));
+  };
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -492,8 +561,8 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
     const isFav = favorites.includes(item.id);
     const isComingTomorrow = item.status === 'comingTomorrow';
     const isUnsalable = item.status === 'unsalable';
-
     const isOrdered = orderStore.isOrdered(item.name);
+
     return (
       <View key={item.id} style={styles.productCardContainer}>
         <TouchableOpacity
@@ -501,10 +570,8 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           onPress={() => setSelectedProductForModal(item)}
           style={[
             styles.productCard,
-            customerShadow.subtle,
             isOrdered && styles.productCardOrdered,
-            isComingTomorrow && styles.cardComingTomorrow,
-            isUnsalable && styles.cardUnsalable,
+            isUnsalable && styles.productCardUnsalable,
           ]}
         >
           {/* Top Card Row: Star Rating on Left, Heart on Right */}
@@ -514,7 +581,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               onPress={() => setSelectedProductForReviews(item)}
               style={styles.ratingBadge}
             >
-              <Text style={styles.starIcon}>★ </Text>
+              <Text style={styles.starIcon}>★</Text>
               <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -534,7 +601,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 source={item.image}
                 style={[
                   styles.productCardImage,
-                  isUnsalable && { opacity: 0.6 }
+                  isUnsalable && { opacity: 0.55 },
                 ]}
                 resizeMode="contain"
               />
@@ -542,19 +609,24 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               <Text style={styles.productEmoji}>{item.emoji}</Text>
             )}
 
-            {/* Exact "Coming tomorrow" Badge over product image (Matching User Image 4) */}
-            {isOrdered && (
+            {/* Aesthetic Status Badge using Admin Theme colours */}
+            {(isComingTomorrow || isOrdered) && (
               <View style={styles.comingTomorrowBadge}>
                 <Text style={styles.comingTomorrowText}>Coming tomorrow</Text>
+              </View>
+            )}
+            {isUnsalable && (
+              <View style={styles.unsalableBadge}>
+                <Text style={styles.unsalableText}>Out of stock</Text>
               </View>
             )}
           </View>
 
           {/* Bottom Pricing & Unit */}
           <View style={styles.cardPriceRow}>
-            <Text style={[styles.priceBold, isUnsalable && { color: '#4B5563' }]}>₹ {item.price}</Text>
-            <Text style={[styles.priceStrikethrough, isUnsalable && { color: '#6B7280' }]}>₹ {item.originalPrice}</Text>
-            <Text style={[styles.unitText, isUnsalable && { color: '#4B5563' }]}>{item.unit}</Text>
+            <Text style={[styles.priceBold, isUnsalable && styles.priceMuted]}>₹ {item.price}</Text>
+            <Text style={[styles.priceStrikethrough, isUnsalable && styles.priceMutedLight]}>₹ {item.originalPrice}</Text>
+            <Text style={[styles.unitText, isUnsalable && styles.priceMutedLight]}>{item.unit}</Text>
           </View>
         </TouchableOpacity>
 
@@ -673,6 +745,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
       </Animated.View>
 
       <Animated.ScrollView
+        ref={mainScrollRef as any}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -716,25 +789,67 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
 
             <View style={styles.categoriesTouchRow}>
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => { }}
+                activeOpacity={0.7}
+                onPress={() => handleCategoryCirclePress('Latest Harvest')}
                 style={styles.categoryCircleHit}
-                accessibilityLabel="Just Arrived"
-              />
+                accessibilityLabel="Latest Harvest"
+              >
+                {selectedCategoryFilter === 'Latest Harvest' && (
+                  <View style={styles.circleCloseBadge}>
+                    <Svg width={10} height={10} viewBox="0 0 12 12" fill="none">
+                      <Path d="M2 2L10 10M10 2L2 10" stroke="#1E293B" strokeWidth={2} strokeLinecap="round" />
+                    </Svg>
+                  </View>
+                )}
+                <Text style={styles.categoryLabelText} numberOfLines={1}>Latest Harvest</Text>
+              </TouchableOpacity>
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => { }}
+                activeOpacity={0.7}
+                onPress={() => handleCategoryCirclePress('Fresh Drops')}
                 style={styles.categoryCircleHit}
-                accessibilityLabel="Pesticide Free"
-              />
+                accessibilityLabel="Fresh Drops"
+              >
+                {selectedCategoryFilter === 'Fresh Drops' && (
+                  <View style={styles.circleCloseBadge}>
+                    <Svg width={10} height={10} viewBox="0 0 12 12" fill="none">
+                      <Path d="M2 2L10 10M10 2L2 10" stroke="#1E293B" strokeWidth={2} strokeLinecap="round" />
+                    </Svg>
+                  </View>
+                )}
+                <Text style={styles.categoryLabelText} numberOfLines={1}>Fresh Drops</Text>
+              </TouchableOpacity>
               <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => { }}
+                activeOpacity={0.7}
+                onPress={() => handleCategoryCirclePress('Recently Picked')}
                 style={styles.categoryCircleHit}
-                accessibilityLabel="Seasonal Favs"
-              />
+                accessibilityLabel="Recently Picked"
+              >
+                {selectedCategoryFilter === 'Recently Picked' && (
+                  <View style={styles.circleCloseBadge}>
+                    <Svg width={10} height={10} viewBox="0 0 12 12" fill="none">
+                      <Path d="M2 2L10 10M10 2L2 10" stroke="#1E293B" strokeWidth={2} strokeLinecap="round" />
+                    </Svg>
+                  </View>
+                )}
+                <Text style={styles.categoryLabelText} numberOfLines={1}>Recently Picked</Text>
+              </TouchableOpacity>
             </View>
           </View>
+          {selectedCategoryFilter && (
+            <View
+              style={[
+                styles.bannerPointerNotch,
+                {
+                  left:
+                    selectedCategoryFilter === 'Latest Harvest'
+                      ? SCREEN_WIDTH - 266
+                      : selectedCategoryFilter === 'Fresh Drops'
+                        ? SCREEN_WIDTH - 164
+                        : SCREEN_WIDTH - 61,
+                },
+              ]}
+            />
+          )}
         </View>
 
         {/* ── 2. LOADING BUFFER WHEN OPENING (FIGMA IMAGE 2: 254 x 130 HUG) ─── */}
@@ -755,8 +870,80 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
           </Animated.View>
         )}
 
-        {/* ── 3. FULL SCROLLABLE DASHBOARD SECTIONS (FIGMA EXACT FLOW) ──────── */}
-        {!isLoadingBuffer && (
+        {/* ── 3. IN-PLACE EXPANDED CATEGORY GRID (WHEN A CATEGORY IS CLICKED) ─ */}
+        {!isLoadingBuffer && selectedCategoryFilter && (
+          <View style={styles.expandedCategoryContainer}>
+            {/* Inline Search Bar */}
+            <View style={styles.expandedSearchWrap}>
+              <TextInput
+                style={styles.expandedSearchInput}
+                placeholder="Search..."
+                placeholderTextColor="#94A3B8"
+                value={inlineCategorySearch}
+                onChangeText={setInlineCategorySearch}
+              />
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                <Circle cx={11} cy={11} r={7} stroke="#64748B" strokeWidth={2} />
+                <Path d="M20 20l-4-4" stroke="#64748B" strokeWidth={2} strokeLinecap="round" />
+              </Svg>
+            </View>
+
+            {/* 3-Column Product Grid */}
+            <View style={styles.threeColumnGrid}>
+              {getSelectedCategoryItems().map(item => {
+                const isFav = favorites.includes(item.id);
+                return (
+                  <View key={item.id} style={styles.gridCardWrapper}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => setSelectedProductForModal({
+                        id: item.id,
+                        name: item.name,
+                        price: item.price,
+                        originalPrice: item.originalPrice,
+                        unit: item.unit,
+                        rating: item.rating,
+                        ratingCount: 128,
+                        image: item.image,
+                        description: 'Orchard-fresh crunch, picked for your everyday.',
+                      })}
+                      style={styles.gridCard}
+                    >
+                      <View style={styles.gridCardHeaderRow}>
+                        <View style={styles.gridRatingBadge}>
+                          <Text style={styles.gridRatingStar}>★</Text>
+                          <Text style={styles.gridRatingNumber}>{item.rating.toFixed(1)}</Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => toggleFavorite(item.id)}
+                          style={styles.gridHeartButton}
+                          accessibilityLabel="Add to favorites"
+                        >
+                          <HeartSvg filled={isFav} />
+                        </TouchableOpacity>
+                      </View>
+
+                      <Image source={item.image} style={styles.gridProductImage} resizeMode="contain" />
+
+                      <View style={styles.gridPriceContainer}>
+                        <View style={styles.gridPriceLeft}>
+                          <Text style={styles.gridCurrentPrice}>₹ {item.price}</Text>
+                          <Text style={styles.gridStrikethroughPrice}>₹ {item.originalPrice}</Text>
+                        </View>
+                        <Text style={styles.gridUnitText}>{item.unit}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    <Text style={styles.gridProductTitle} numberOfLines={1}>{item.name}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* ── 4. FULL SCROLLABLE DASHBOARD SECTIONS (FIGMA EXACT FLOW) ──────── */}
+        {!isLoadingBuffer && !selectedCategoryFilter && (
           <View style={styles.catalogSectionsWrap}>
             {/* ── SECTION 2: WE'RE NOT IN YOUR AREA YET CARD (FIGMA EXACT) ───── */}
             <View style={[styles.areaRequestCard, customerShadow.subtle]}>
@@ -810,7 +997,7 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                   <TouchableOpacity
                     key={cat.id}
                     activeOpacity={0.75}
-                    onPress={() => { }}
+                    onPress={() => onNavigate?.('Search', { query: cat.label })}
                     style={styles.categoryCircleItem}
                   >
                     <View style={styles.categoryCircleOuter}>
@@ -852,6 +1039,45 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
               >
                 {FOR_YOU_ITEMS.map(renderProductCard)}
                 {renderComingSoonCard('foryou')}
+              </ScrollView>
+            </View>
+
+            {/* ── LATEST HARVEST CAROUSEL ────────────────────────────────────── */}
+            <View style={styles.sectionWrap}>
+              {renderSectionHeader('Latest Harvest', SectionBadges.vegetables, 'right')}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsHorizontalScroll}
+              >
+                {FOR_YOU_ITEMS.slice(0, 6).map(renderProductCard)}
+                {renderComingSoonCard('latest-harvest')}
+              </ScrollView>
+            </View>
+
+            {/* ── FRESH DROPS CAROUSEL ───────────────────────────────────────── */}
+            <View style={styles.sectionWrap}>
+              {renderSectionHeader('Fresh Drops', SectionBadges.fruits, 'left')}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsHorizontalScroll}
+              >
+                {FRUIT_ITEMS.slice(0, 6).map(renderProductCard)}
+                {renderComingSoonCard('fresh-drops')}
+              </ScrollView>
+            </View>
+
+            {/* ── RECENTLY PICKED CAROUSEL ───────────────────────────────────── */}
+            <View style={styles.sectionWrap}>
+              {renderSectionHeader('Recently Picked', SectionBadges.herbsGreens, 'right')}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cardsHorizontalScroll}
+              >
+                {VEGETABLE_ITEMS.slice(0, 6).map(renderProductCard)}
+                {renderComingSoonCard('recently-picked')}
               </ScrollView>
             </View>
 
@@ -1453,11 +1679,166 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   bannerImage: {
     width: '100%',
     height: '100%',
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  bannerPointerNotch: {
+    position: 'absolute',
+    bottom: -11,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderTopWidth: 12,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: '#0E2316',
+    zIndex: 99,
+  },
+  circleCloseBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    zIndex: 10,
+  },
+  expandedCategoryContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 40,
+  },
+  expandedSearchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    height: 48,
+    paddingHorizontal: 18,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  expandedSearchInput: {
+    flex: 1,
+    fontSize: 15,
+    fontFamily: customerFonts.regular,
+    color: '#1E293B',
+    paddingVertical: 0,
+  },
+  threeColumnGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'flex-start',
+  },
+  gridCardWrapper: {
+    width: Math.floor((SCREEN_WIDTH - 32 - 20) / 3),
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  gridCard: {
+    width: '100%',
+    height: 142,
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#E8ECE8',
+    elevation: 2,
+    shadowColor: adminColors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    justifyContent: 'space-between',
+  },
+  gridCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  gridRatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: adminColors.warning.bg,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#FDE68A',
+    gap: 2,
+  },
+  gridRatingStar: {
+    fontSize: 10,
+    color: '#D97706',
+  },
+  gridRatingNumber: {
+    fontSize: 9.5,
+    fontFamily: customerFonts.bold,
+    color: adminColors.warning.text,
+  },
+  gridHeartButton: {
+    padding: 2,
+  },
+  gridProductImage: {
+    width: '100%',
+    height: 64,
+    alignSelf: 'center',
+  },
+  gridPriceContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  gridPriceLeft: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
+  },
+  gridCurrentPrice: {
+    fontSize: 12.5,
+    fontFamily: customerFonts.bold,
+    color: adminColors.ink,
+  },
+  gridStrikethroughPrice: {
+    fontSize: 9.5,
+    fontFamily: customerFonts.regular,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  gridUnitText: {
+    fontSize: 10,
+    fontFamily: customerFonts.regular,
+    color: adminColors.muted,
+  },
+  gridProductTitle: {
+    fontSize: 11.5,
+    fontFamily: customerFonts.semibold,
+    color: adminColors.ink,
+    marginTop: 5,
+    textAlign: 'center',
   },
   bannerOverlay: {
     position: 'absolute',
@@ -1491,14 +1872,28 @@ const styles = StyleSheet.create({
   },
   categoriesTouchRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    height: 94,
-    paddingHorizontal: 8,
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    height: 124,
+    paddingRight: 6,
+    gap: 8,
   },
   categoryCircleHit: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 94,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingBottom: 2,
+  },
+  categoryLabelText: {
+    fontFamily: customerFonts.regular,
+    fontSize: 12,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   // ── 2. LOADING BUFFER (254 x 130 HUG - FIGMA IMAGE 2) ────────────────────
@@ -1710,7 +2105,7 @@ const styles = StyleSheet.create({
   },
   promoBannerImage: {
     width: '100%',
-    aspectRatio: 609 / 294,
+    height: Math.round((SCREEN_WIDTH - 32) * (572 / 1024)),
     borderRadius: 20,
   },
 
@@ -1726,82 +2121,79 @@ const styles = StyleSheet.create({
   productCard: {
     width: 142,
     height: 168,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: adminColors.card,
+    borderRadius: 16,
     padding: 10,
     borderWidth: 1,
-    borderColor: '#F3F4F6',
+    borderColor: '#E8ECE8',
     justifyContent: 'space-between',
-    elevation: 2,
-    shadowColor: '#000000',
+    elevation: 2.5,
+    shadowColor: adminColors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
   },
-  // Green shaded background for ordered products (Exact Image 4)
   productCardOrdered: {
-    backgroundColor: '#A8D5BA',
-    borderColor: '#7CB992',
+    backgroundColor: '#F8FCF8',
+    borderColor: adminColors.success.border,
+  },
+  productCardUnsalable: {
+    backgroundColor: '#FAFAFA',
+    borderColor: '#E5E7EB',
   },
   comingTomorrowBadge: {
     position: 'absolute',
+    bottom: 2,
     zIndex: 10,
-    backgroundColor: '#1E7E34',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
+    backgroundColor: adminColors.success.bg,
+    borderColor: adminColors.success.border,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
+    shadowColor: adminColors.success.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
     shadowRadius: 3,
-    elevation: 4,
+    elevation: 3,
   },
   comingTomorrowText: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    fontWeight: '700',
+    color: adminColors.success.text,
+    fontSize: 9.5,
     fontFamily: customerFonts.bold,
+    letterSpacing: 0.1,
   },
-  cardComingTomorrow: {
-    backgroundColor: '#A8C4A7',
-    borderColor: '#97B896',
-  },
-  cardUnsalable: {
-    backgroundColor: '#D1D5DB',
-    borderColor: '#CBD5E1',
-  },
-  badgeComingTomorrow: {
+  unsalableBadge: {
     position: 'absolute',
-    backgroundColor: '#2D6A4F',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    alignSelf: 'center',
-    zIndex: 5,
+    bottom: 2,
+    zIndex: 10,
+    backgroundColor: adminColors.warning.bg,
+    borderColor: adminColors.warning.border,
+    borderWidth: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: adminColors.warning.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  badgeComingTomorrowText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontFamily: customerFonts.regular,
-  },
-  badgeUnsalable: {
-    position: 'absolute',
-    backgroundColor: 'rgba(75, 85, 99, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    alignSelf: 'center',
-    zIndex: 5,
-  },
-  badgeUnsalableText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontFamily: customerFonts.regular,
+  unsalableText: {
+    color: adminColors.warning.text,
+    fontSize: 9.5,
+    fontFamily: customerFonts.bold,
+    letterSpacing: 0.1,
   },
   comingSoonCard: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FAFAF9',
+    borderColor: '#E8ECE8',
+    borderWidth: 1,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1817,24 +2209,35 @@ const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    backgroundColor: adminColors.warning.bg,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 0.5,
+    borderColor: '#FDE68A',
+    gap: 2.5,
   },
   starIcon: {
-    fontSize: 11,
-    color: '#F59E0B',
+    fontSize: 10.5,
+    color: '#D97706',
   },
   ratingText: {
     fontFamily: customerFonts.bold,
-    fontSize: 11,
-    color: '#1F2937',
+    fontSize: 10.5,
+    color: adminColors.warning.text,
   },
   heartButton: {
-    padding: 2,
-  },
-  cardImageCenter: {
-    height: 82,
+    padding: 3,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardImageCenter: {
+    height: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
   },
   productCardImage: {
     width: 104,
@@ -1850,8 +2253,8 @@ const styles = StyleSheet.create({
   },
   priceBold: {
     fontFamily: customerFonts.bold,
-    fontSize: 13,
-    color: '#111827',
+    fontSize: 13.5,
+    color: adminColors.ink,
     marginRight: 6,
   },
   priceStrikethrough: {
@@ -1864,12 +2267,18 @@ const styles = StyleSheet.create({
   unitText: {
     fontFamily: customerFonts.regular,
     fontSize: 11,
-    color: '#6B7280',
+    color: adminColors.muted,
+  },
+  priceMuted: {
+    color: adminColors.muted,
+  },
+  priceMutedLight: {
+    color: '#9CA3AF',
   },
   cardProductName: {
-    fontFamily: customerFonts.regular,
-    fontSize: 12,
-    color: '#374151',
+    fontFamily: customerFonts.semibold,
+    fontSize: 12.5,
+    color: adminColors.ink,
     marginTop: 6,
     textAlign: 'center',
     width: 140,

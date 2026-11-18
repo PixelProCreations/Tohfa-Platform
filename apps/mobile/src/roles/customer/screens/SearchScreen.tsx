@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface SearchScreenProps {
   onNavigate?: (screen: string, params?: Record<string, unknown>) => void;
   onBack?: () => void;
+  initialQuery?: string;
 }
 
 interface SearchProduct {
@@ -32,6 +33,7 @@ interface SearchProduct {
   rating: number;
   image: any;
   category: string;
+  tags?: string[];
 }
 
 // ── BACK ARROW SVG ──────────────────────────────────────────────────────────
@@ -50,28 +52,28 @@ const BackArrowSvg = ({ color = '#111827', size = 18 }: { color?: string; size?:
 // ── COMPREHENSIVE SEARCH CATALOG MATCHING FIGMA SPEC ────────────────────────
 const ALL_SEARCH_PRODUCTS: SearchProduct[] = [
   // Tomatoes & Chillies (Exact Image 3 Spec)
-  { id: 't1', name: 'Red Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouTomatoes, category: 'Vegetables' },
-  { id: 't2', name: 'Bangalore tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouTomatoes, category: 'Vegetables' },
-  { id: 't3', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.exoticCherryTomato, category: 'Vegetables' },
-  { id: 't4', name: 'Yellow Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.exoticCherryTomato, category: 'Vegetables' },
-  { id: 't5', name: 'Chilli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.spiceDryRedChilli || ProductImages.exoticChilliThai, category: 'Vegetables' },
+  { id: 't1', name: 'Red Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouTomatoes, category: 'Vegetables', tags: ['Latest Harvest', 'Fresh Drops', 'Recently Picked'] },
+  { id: 't2', name: 'Bangalore tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouTomatoes, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+  { id: 't3', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.exoticCherryTomato, category: 'Vegetables', tags: ['Fresh Drops', 'Recently Picked'] },
+  { id: 't4', name: 'Yellow Cherry Tomato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.exoticCherryTomato, category: 'Vegetables', tags: ['Latest Harvest', 'Fresh Drops'] },
+  { id: 't5', name: 'Chilli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.spiceDryRedChilli || ProductImages.exoticChilliThai, category: 'Vegetables', tags: ['Recently Picked'] },
 
   // Fruits
-  { id: 'f1', name: 'Royal Gala', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit' },
-  { id: 'f2', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit' },
-  { id: 'f3', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitOrange, category: 'Fruit' },
-  { id: 'f4', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouWatermelon, category: 'Fruit' },
-  { id: 'f5', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouStrawberries, category: 'Fruit' },
+  { id: 'f1', name: 'Royal Gala', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit', tags: ['Latest Harvest', 'Fresh Drops'] },
+  { id: 'f2', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitApple, category: 'Fruit', tags: ['Latest Harvest'] },
+  { id: 'f3', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.fruitOrange, category: 'Fruit', tags: ['Fresh Drops'] },
+  { id: 'f4', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, image: ProductImages.foryouWatermelon, category: 'Fruit', tags: ['Latest Harvest', 'Fresh Drops'] },
+  { id: 'f5', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouStrawberries, category: 'Fruit', tags: ['Fresh Drops', 'Recently Picked'] },
 
   // Vegetables
-  { id: 'v1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegPotato, category: 'Vegetables' },
-  { id: 'v2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegCarrot, category: 'Vegetables' },
-  { id: 'v3', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouLettuce, category: 'Vegetables' },
-  { id: 'v4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouBroccoli, category: 'Vegetables' },
+  { id: 'v1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegPotato, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+  { id: 'v2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.vegCarrot, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
+  { id: 'v3', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouLettuce, category: 'Vegetables', tags: ['Fresh Drops', 'Recently Picked'] },
+  { id: 'v4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.foryouBroccoli, category: 'Vegetables', tags: ['Latest Harvest', 'Recently Picked'] },
 
   // Dairy & Grains
-  { id: 'd1', name: 'Milk', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, image: ProductImages.dairyMilk, category: 'Dairy' },
-  { id: 'g1', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.grainBrownRice, category: 'Grains' },
+  { id: 'd1', name: 'Milk', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, image: ProductImages.dairyMilk, category: 'Dairy', tags: ['Fresh Drops'] },
+  { id: 'g1', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, image: ProductImages.grainBrownRice, category: 'Grains', tags: ['Latest Harvest'] },
 ];
 
 // ── RECENT SEARCHES (EXACT FIGMA SPEC) ───────────────────────────────────────
@@ -94,6 +96,9 @@ const TRENDING_PRODUCTS: SearchProduct[] = [
 
 // ── CATEGORIES FOR SEARCH TOP ROW ───────────────────────────────────────────
 const SEARCH_CATEGORIES = [
+  { id: 'c0a', label: 'Latest Harvest', image: CategoryImages.vegetables },
+  { id: 'c0b', label: 'Fresh Drops', image: CategoryImages.fruit },
+  { id: 'c0c', label: 'Recently Picked', image: CategoryImages.herbsGreens || CategoryImages.vegetables },
   { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables },
   { id: 'c2', label: 'Fruit', image: CategoryImages.fruit },
   { id: 'c3', label: 'Dairy', image: CategoryImages.dairy },
@@ -103,10 +108,16 @@ const SEARCH_CATEGORIES = [
   { id: 'c7', label: 'Bakery', image: CategoryImages.bakery },
 ];
 
-export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
+export function SearchScreen({ onNavigate, onBack, initialQuery = '' }: SearchScreenProps) {
   const insets = useSafeAreaInsets();
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [favorites, setFavorites] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (initialQuery !== undefined) {
+      setQuery(initialQuery);
+    }
+  }, [initialQuery]);
 
   const headerTopPadding = insets.top > 0
     ? insets.top + 8
@@ -134,13 +145,14 @@ export function SearchScreen({ onNavigate, onBack }: SearchScreenProps) {
   const searchResults = query.trim().length > 0
     ? ALL_SEARCH_PRODUCTS.filter(p =>
         p.name.toLowerCase().includes(query.toLowerCase()) ||
-        p.category.toLowerCase().includes(query.toLowerCase())
+        p.category.toLowerCase().includes(query.toLowerCase()) ||
+        (p.tags && p.tags.some(t => t.toLowerCase().includes(query.toLowerCase())))
       )
     : [];
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* ── TOP HEADER ROW WITH BACK BUTTON (SAFELY BELOW CAMERA NOTCH) ────── */}
       <View style={[styles.headerRow, { paddingTop: headerTopPadding }]}>
