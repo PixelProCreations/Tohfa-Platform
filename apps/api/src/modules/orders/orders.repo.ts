@@ -132,6 +132,8 @@ export interface OrdersRepo {
     orderId: string,
     /** BR-36: always the caller's own customer id; there is no unscoped variant (fail closed). */
     customerId: string,
+    /** BR-36: always the caller's own customer id; there is no unscoped variant (fail closed). */
+    customerId: string,
   ): Promise<{ order: OrderRecord; items: OrderItemRecord[] } | null>;
 
   listOrders(
@@ -238,6 +240,22 @@ export const ordersRepo: OrdersRepo = {
       [customerId],
     );
     return res.rows[0]?.balance ?? null;
+  },
+
+  async getRetailGstRateRaw(db) {
+    const res = await db.query<{ value: unknown }>(
+      `SELECT value FROM system_config WHERE key = 'retail_gst_rate_percent'`,
+    );
+    return res.rows[0]?.value;
+  },
+
+  async isOwnLiveAddress(db, customerId, addressId) {
+    const res = await db.query(
+      `SELECT 1 FROM customer_addresses
+        WHERE id = $1 AND customer_id = $2 AND deleted_at IS NULL`,
+      [addressId, customerId],
+    );
+    return (res.rowCount ?? 0) > 0;
   },
 
   async findCartForCheckout(db, customerId) {
@@ -360,6 +378,11 @@ export const ordersRepo: OrdersRepo = {
     if (!customerId) return null;
     const params: unknown[] = [orderId, customerId];
     const whereClause = `WHERE o.id = $1 AND o.customer_id = $2`;
+  async findOrderById(db, orderId, customerId) {
+    // BR-36 / BR-187: an empty or missing customer id narrows to NOTHING, never to every order.
+    if (!customerId) return null;
+    const params: unknown[] = [orderId, customerId];
+    const whereClause = `WHERE o.id = $1 AND o.customer_id = $2`;
 
     const res = await db.query<OrderRecord>(
       `SELECT o.id, o.order_number AS "orderNumber", o.customer_id AS "customerId",
@@ -452,6 +475,8 @@ export const ordersRepo: OrdersRepo = {
   async checkAndBookDeliverySlot(db, warehouseId, slotDate, slot) {
     const res = await db.query<{ id: string; capacity_orders: number; booked_orders: number; is_active: boolean }>(
       `SELECT id, capacity_orders, booked_orders, is_active
+    const res = await db.query<{ id: string; capacity_orders: number; booked_orders: number; is_active: boolean }>(
+      `SELECT id, capacity_orders, booked_orders, is_active
          FROM delivery_slots
         WHERE warehouse_id = $1 AND slot_date = $2 AND slot = $3
         FOR UPDATE`,
@@ -460,6 +485,8 @@ export const ordersRepo: OrdersRepo = {
 
     if (res.rows.length > 0) {
       const slotRow = res.rows[0]!;
+      // BR-161: a slot an admin switched off is as unbookable as a full one.
+      if (!slotRow.is_active || slotRow.booked_orders >= slotRow.capacity_orders) {
       // BR-161: a slot an admin switched off is as unbookable as a full one.
       if (!slotRow.is_active || slotRow.booked_orders >= slotRow.capacity_orders) {
         throw new Error('SLOT_CAPACITY_EXCEEDED');

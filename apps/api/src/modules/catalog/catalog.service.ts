@@ -8,8 +8,11 @@ import {
 } from './catalog.repo.js';
 import type {
   BannerView,
+  BannerView,
   CatalogHomeView,
   CategoryView,
+  HeroBannerView,
+  HomeSectionView,
   HeroBannerView,
   HomeSectionView,
   ListProductsQuery,
@@ -31,6 +34,12 @@ export function serializeProduct(row: RawCatalogProductRow): ProductView {
   const photos = row.photo_url
     ? [row.photo_url]
     : [productImageUrl(row.icon_key, row.crop_id)];
+
+  const priceP = toPaise(Number(row.price_per_kg).toFixed(2));
+  const mrp = toPaise(row.compare_at_price == null ? null : Number(row.compare_at_price).toFixed(2));
+
+  const priceP = toPaise(Number(row.price_per_kg).toFixed(2));
+  const mrp = toPaise(row.compare_at_price == null ? null : Number(row.compare_at_price).toFixed(2));
 
   const priceP = toPaise(Number(row.price_per_kg).toFixed(2));
   const mrp = toPaise(row.compare_at_price == null ? null : Number(row.compare_at_price).toFixed(2));
@@ -112,6 +121,50 @@ const STATIC_BANNERS: BannerView[] = [
 ];
 
 export class CatalogService {
+  /**
+   * `homeContent` (BR-152) is optional so a service built with only a catalog repo (unit tests)
+   * keeps the original home payload: static banners and no sections.
+   */
+  constructor(
+    private readonly repo: CatalogRepo = catalogRepo,
+    private readonly homeContent?: HomeContentSource,
+  ) {}
+
+  /** BR-152: live admin banners, or the static placeholders when none is live. */
+  private async heroBanners(db: Executor): Promise<HeroBannerView[]> {
+    const rows = this.homeContent ? await this.homeContent.listActiveBanners(db) : [];
+    if (rows.length === 0) {
+      return STATIC_BANNERS.map((b) => ({ id: b.id, imageUrl: b.imageUrl, title: null, deeplink: b.deeplink ?? null }));
+    }
+    return rows.map((r) => ({ id: r.id, imageUrl: r.image_url, title: r.title, deeplink: bannerDeeplink(r) }));
+  }
+
+  /** BR-152: live curated rails, items through the BR-16 serializer; empty rails omitted. */
+  private async homeSections(db: Executor, warehouseId?: string): Promise<HomeSectionView[]> {
+    if (!this.homeContent) return [];
+    const rows = await this.homeContent.listActiveSections(db);
+    const out: HomeSectionView[] = [];
+    for (const s of rows) {
+      let items: ProductView[] = [];
+      if (s.target_type === 'CATEGORY' && s.target_category_id !== null) {
+        const res = await this.repo.listProducts(db, {
+          categoryId: s.target_category_id,
+          limit: s.max_items,
+          sort: 'NAME_ASC',
+          ...(warehouseId !== undefined ? { warehouseId } : {}),
+        });
+        items = res.items.slice(0, s.max_items).map(serializeProduct);
+      } else {
+        for (const id of s.product_ids) {
+          if (items.length >= s.max_items) break;
+          const row = await this.repo.getProductById(db, id);
+          if (row !== null) items.push(serializeProduct(row));
+        }
+      }
+      if (items.length > 0) out.push({ id: s.id, title: s.title, subtitle: s.subtitle, items });
+    }
+    return out;
+  }
   /**
    * `homeContent` (BR-152) is optional so a service built with only a catalog repo (unit tests)
    * keeps the original home payload: static banners and no sections.

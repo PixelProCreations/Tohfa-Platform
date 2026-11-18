@@ -28,4 +28,5 @@ export { default as pickupQrCode } from './pickup_qr_code.png';
 export { default as customerLoginBranchTopLeft } from './customer_login_branch_top_left.png';
 export { default as customerLoginRightLeaves } from './customer_login_right_leaves.png';
 
+export { default as walletMoneyAddedSuccess } from './wallet_money_added_success.png';
 

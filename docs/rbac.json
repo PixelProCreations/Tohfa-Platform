@@ -1759,6 +1759,21 @@
       "source": "derived rule BR-185 (2026-11-17); owner approval pending"
     },
     {
+      "code": "pickup_point.manage",
+      "module": "Inventory & Warehouse",
+      "description": "List and edit public pickup-point details (public phone, visibility, opening hours). Main and Sub Warehouse Admins only their own warehouse (BR-185).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "own",
+        "SUB_WH_ADMIN": "own",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "derived rule BR-185 (2026-11-17); owner approval pending"
+    },
+    {
       "code": "warehouse.capacity.set",
       "module": "Inventory & Warehouse",
       "description": "Set warehouse capacity limits.",
@@ -2072,6 +2087,36 @@
         "CUSTOMER": "own"
       },
       "source": "matrix \u00a76"
+    },
+    {
+      "code": "customer.address.manage_own",
+      "module": "Customers Management",
+      "description": "List, add, edit, delete and set the default of own delivery addresses (BR-160).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap 2026-11-16: home delivery (owner decision: pickup AND delivery) needs customer-managed addresses; no code existed. Owner approval pending."
+    },
+    {
+      "code": "customer.account.delete_own",
+      "module": "Customers Management",
+      "description": "Delete (soft-delete and anonymise) own customer account; ledgers are kept (BR-160).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap 2026-11-16: customer app offers account deletion; no code existed. Owner approval pending."
     },
     {
       "code": "customer.address.manage_own",
@@ -2704,6 +2749,36 @@
       "source": "spec gap 2026-11-16: GET /returns/me and /returns/me/{id} for the customer app; staff read returns via rma.request.process on /admin/returns (BR-155)"
     },
     {
+      "code": "rma.request.create_own",
+      "module": "Sales Management",
+      "description": "File a return request against one of own delivered/picked-up orders.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap 2026-11-16: customer app files returns (POST /orders/{orderId}/returns) but rma.request.process grants CUSTOMER none; staff keep filing/processing on rma.request.process (BR-155)"
+    },
+    {
+      "code": "rma.request.view_own",
+      "module": "Sales Management",
+      "description": "View own return requests and their status.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap 2026-11-16: GET /returns/me and /returns/me/{id} for the customer app; staff read returns via rma.request.process on /admin/returns (BR-155)"
+    },
+    {
       "code": "rma.refund.approve",
       "module": "Sales Management",
       "description": "Approve a refund.",
@@ -2777,6 +2852,36 @@
         "CUSTOMER": "own"
       },
       "source": "matrix \u00a78"
+    },
+    {
+      "code": "wallet.transfer.send",
+      "module": "Accounts & Finance",
+      "description": "Look up a recipient by mobile and send money from own wallet to another customer's wallet (BR-150). Additionally gated by system_config wallet_transfer.enabled (ON since migration 0150; ops kill switch).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "Spec gap added 2026-11-16 for the customer app Send Money screen; BR-150. Enabled 2026-11-17 by product-owner decision; KYC tier / AML policy still open with the client."
+    },
+    {
+      "code": "wallet.transfer.view",
+      "module": "Accounts & Finance",
+      "description": "List every customer-to-customer wallet transfer with both parties unmasked, filtered by customer, date and amount (BR-150l). Read only; flag/reverse is not implemented.",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "Added 2026-11-17 with enabling BR-150 (admin oversight of P2P transfers)."
     },
     {
       "code": "wallet.transfer.send",
@@ -3772,6 +3877,81 @@
       "source": "spec gap added 2026-11-16: admin read of customer reviews has no permission code; owner approval pending"
     },
     {
+      "code": "wishlist.view_own",
+      "module": "Sales Management",
+      "description": "View own wishlist, enriched with the current catalog price and availability (farm-anonymous, BR-16).",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap added 2026-11-16: customer app wishlist has no permission code; owner approval pending"
+    },
+    {
+      "code": "wishlist.manage_own",
+      "module": "Sales Management",
+      "description": "Add a catalog product (crop + grade) to, or remove it from, own wishlist. Idempotent.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap added 2026-11-16: customer app wishlist has no permission code; owner approval pending"
+    },
+    {
+      "code": "order.review.create_own",
+      "module": "Sales Management",
+      "description": "Rate own DELIVERED or PICKED_UP order (and its items) 1-5 with aspect tags and a comment; one review per order.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap added 2026-11-16: customer order review has no permission code; owner approval pending"
+    },
+    {
+      "code": "order.review.view_own",
+      "module": "Sales Management",
+      "description": "Read the review the caller left on own order.",
+      "grants": {
+        "SUPER_ADMIN": "none",
+        "TOHFA_ADMIN": "none",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "own"
+      },
+      "source": "spec gap added 2026-11-16: customer order review has no permission code; owner approval pending"
+    },
+    {
+      "code": "order.review.view_all",
+      "module": "Sales Management",
+      "description": "Read customer order reviews across all orders (admin moderation view). Never returns farm or farmer identity (BR-16).",
+      "grants": {
+        "SUPER_ADMIN": "all",
+        "TOHFA_ADMIN": "all",
+        "FARMER_ADMIN": "none",
+        "MAIN_WH_ADMIN": "none",
+        "SUB_WH_ADMIN": "none",
+        "FARMER": "none",
+        "CUSTOMER": "none"
+      },
+      "source": "spec gap added 2026-11-16: admin read of customer reviews has no permission code; owner approval pending"
+    },
+    {
       "code": "upload.signed_url.create",
       "module": "Settings & Profile",
       "description": "Request a pre-signed URL for a direct document, certificate or photo upload.",
@@ -3892,6 +4072,7 @@
       "roleMatrix": "split: approve refund MW=full/SW=own, wallet refund MW=full/SW=own, bank refund SA/TA only",
       "precedence": "Role Matrix (adds detail Ch.6 omits)",
       "decision": "Blanket `rma.request.process` retained per Ch.6, but the finer-grained matrix rows are the operative ones \u2014 `rma.refund.bank_process` is SA/TA only. Ch.6 does not state a bank-refund value, so the matrix does not override it. Note (2026-11-16, spec gap): neither document grants CUSTOMER anything on `rma.request.process`, yet customers must be able to raise a return. Customers file returns via `rma.request.create_own` (own orders only, DELIVERED/PICKED_UP) and read them via `rma.request.view_own` (GET /returns/me); staff keep filing and processing via `rma.request.process`. POST /orders/{orderId}/returns is gated by `x-permission-any-of` [rma.request.process, rma.request.create_own] (BR-155)."
+      "decision": "Blanket `rma.request.process` retained per Ch.6, but the finer-grained matrix rows are the operative ones \u2014 `rma.refund.bank_process` is SA/TA only. Ch.6 does not state a bank-refund value, so the matrix does not override it. Note (2026-11-16, spec gap): neither document grants CUSTOMER anything on `rma.request.process`, yet customers must be able to raise a return. Customers file returns via `rma.request.create_own` (own orders only, DELIVERED/PICKED_UP) and read them via `rma.request.view_own` (GET /returns/me); staff keep filing and processing via `rma.request.process`. POST /orders/{orderId}/returns is gated by `x-permission-any-of` [rma.request.process, rma.request.create_own] (BR-155)."
     },
     {
       "topic": "Manage sales channels for MW/SW",
@@ -3940,6 +4121,7 @@
       "reqsCh6": "Ch.2.3 + FR-C04/C05: doorstep OTP, delivery slots, out-for-delivery status, driver performance",
       "roleMatrix": "Principle 9: all orders fulfilled via warehouse pickup; no driver or delivery-fleet feature anywhere",
       "precedence": "unresolved \u2014 scope-level conflict",
+      "decision": "`order.delivery_slot.select` is modelled for CUSTOMER but is not implemented in Track 1. The pickup + 4-digit OTP path is the default. Requires client confirmation. Update 2026-11-16 (owner decision): pickup AND home delivery are both offered; the slot is chosen in the checkout body under `order.place` (BR-161), with the customer's own address from `customer.address.manage_own`. Drivers and out-for-delivery remain unbuilt (BR-21b)."
       "decision": "`order.delivery_slot.select` is modelled for CUSTOMER but is not implemented in Track 1. The pickup + 4-digit OTP path is the default. Requires client confirmation. Update 2026-11-16 (owner decision): pickup AND home delivery are both offered; the slot is chosen in the checkout body under `order.place` (BR-161), with the customer's own address from `customer.address.manage_own`. Drivers and out-for-delivery remain unbuilt (BR-21b)."
     },
     {

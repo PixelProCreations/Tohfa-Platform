@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Money } from '@tohfa/shared-types';
 import type { CartResponse } from '../cart/cart.schema.js';
+import type { CartResponse } from '../cart/cart.schema.js';
 
 const moneySchema = z.string().regex(/^-?[0-9]{1,10}(\.[0-9]{1,2})?$/);
 const quantitySchema = z.string().regex(/^[0-9]{1,9}(\.[0-9]{1,3})?$/);

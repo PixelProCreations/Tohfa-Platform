@@ -208,6 +208,12 @@ tags:
     description: Customer wishlist of catalog products.
   - name: Reviews
     description: Customer order and product reviews, anonymised (BR-16).
+  - name: Help
+    description: Customer-facing Help & FAQ read (published admin content, BR-82).
+  - name: Wishlist
+    description: Customer wishlist of catalog products.
+  - name: Reviews
+    description: Customer order and product reviews, anonymised (BR-16).
   - name: Support Tickets
     description: |
       Farmer support inquiries, append-only message threads, and administrator ticket lifecycle management (BR-60).
@@ -223,6 +229,8 @@ tags:
     description: Farm-anonymous customer browse surface. See BR-16.
   - name: Cart & Orders
     description: Cart lock, wallet-first checkout, order tracking.
+  - name: Customer Profile
+    description: The customer's own profile, delivery addresses and account deletion (BR-160).
   - name: Customer Profile
     description: The customer's own profile, delivery addresses and account deletion (BR-160).
   - name: Fulfilment
@@ -388,6 +396,83 @@ paths:
                   - $ref: '#/components/schemas/OtpVerifiedNoAccount'
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /auth/customer/otp/send:
+    post:
+      tags: [Auth]
+      operationId: sendCustomerOtp
+      summary: Passwordless customer sign-in, step 1 — send a 6-digit OTP
+      description: |
+        Starts the passwordless customer sign-in (BR-153). Same OTP rules as BR-32: 6 digits,
+        60-second resend timer (429 `OTP_RESEND_TOO_SOON`), 3-attempt lockout. The purpose is
+        fixed server-side (`LOGIN`). The response is identical whether or not the number has an
+        account, so it cannot be used to enumerate registered numbers.
+      security: []
+      x-permission: public
+      x-business-rules: [BR-32, BR-153]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerOtpSendRequest' }
+            example: { mobile: '+919876543210' }
+      responses:
+        '202':
+          description: OTP dispatched (same body for registered and unregistered numbers).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OtpChallenge' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+        '502':
+          description: The SMS provider failed to deliver the OTP (`OTP_SMS_DELIVERY_FAILED`).
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /auth/customer/otp/verify:
+    post:
+      tags: [Auth]
+      operationId: verifyCustomerOtp
+      summary: Passwordless customer sign-in, step 2 — verify the OTP and sign in or register
+      description: |
+        Verifies the challenge (BR-32 checks; the challenge must belong to `mobile` and be a
+        `LOGIN` challenge) and claims it once. Then (BR-153):
+        - an existing CUSTOMER account is signed in (`isNewUser: false`);
+        - an unknown number gets a new CUSTOMER account with no password, status ACTIVE, a
+          `customers` row and a wallet, and is signed in (`isNewUser: true`);
+        - a number that belongs to any other account type (farmer, admin, staff) is refused
+          with a generic 403 and is never signed in or converted.
+        A session and a refresh token are created exactly as for `POST /auth/otp/verify`. A
+        replayed or concurrent verify of the same challenge is 400 `OTP_INVALID` and never
+        creates a second account (UNIQUE mobile + transaction).
+      security: []
+      x-permission: public
+      x-business-rules: [BR-32, BR-142, BR-153]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CustomerOtpVerifyRequest' }
+            example:
+              mobile: '+919876543210'
+              challengeId: 0b2d0f2e-8b1c-4c1a-9f0a-9d3e6c1b2a30
+              otp: '482915'
+              preferredLocale: en
+      responses:
+        '200':
+          description: Signed in (and registered when `isNewUser` is true).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerOtpVerifyResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
         '500': { $ref: '#/components/responses/ServerError' }
@@ -11798,6 +11883,7 @@ paths:
         - { name: grade, in: query, schema: { $ref: '#/components/schemas/Grade' } }
         - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
         - { name: sort, in: query, schema: { type: string, enum: [PRICE_ASC, PRICE_DESC, NAME_ASC, NEWEST, just_arrived], default: NAME_ASC, description: 'just_arrived = most recently allocated to ONLINE first (BR-181).' } }
+        - { name: sort, in: query, schema: { type: string, enum: [PRICE_ASC, PRICE_DESC, NAME_ASC, NEWEST, just_arrived], default: NAME_ASC, description: 'just_arrived = most recently allocated to ONLINE first (BR-181).' } }
       responses:
         '200':
           description: Paged products.
@@ -13040,7 +13126,14 @@ paths:
         `unavailable` (BR-162). Idempotent by state: a line already in the cart at the ordered
         quantity is not reserved again, so a replay never doubles a reservation. Another
         customer's order is 404 (BR-36).
+      description: |
+        Rebuilds the cart from one of the caller's own past orders at that order's warehouse, at
+        today's retail price, skipping anything unavailable today; skipped lines are reported in
+        `unavailable` (BR-162). Idempotent by state: a line already in the cart at the ordered
+        quantity is not reserved again, so a replay never doubles a reservation. Another
+        customer's order is 404 (BR-36).
       x-permission: order.reorder_own
+      x-business-rules: [BR-12, BR-22, BR-36, BR-162]
       x-business-rules: [BR-12, BR-22, BR-36, BR-162]
       parameters:
         - { $ref: '#/components/parameters/IdParam' }
@@ -13053,23 +13146,30 @@ paths:
               schema:
                 type: object
                 required: [cart, addedCount, unavailable]
+                required: [cart, addedCount, unavailable]
                 properties:
                   cart: { $ref: '#/components/schemas/Cart' }
+                  addedCount: { type: integer, minimum: 0, description: Past lines now in the cart at their ordered quantity. }
                   addedCount: { type: integer, minimum: 0, description: Past lines now in the cart at their ordered quantity. }
                   unavailable:
                     type: array
                     items:
                       type: object
                       required: [productId, name, grade, qtyKg, reason]
+                      required: [productId, name, grade, qtyKg, reason]
                       properties:
                         productId: { type: string, format: uuid }
                         name: { type: string }
                         grade: { $ref: '#/components/schemas/Grade' }
                         qtyKg: { $ref: '#/components/schemas/Quantity' }
+                        grade: { $ref: '#/components/schemas/Grade' }
+                        qtyKg: { $ref: '#/components/schemas/Quantity' }
                         reason: { type: string, enum: [OUT_OF_STOCK, DELISTED, INSUFFICIENT_ALLOCATION] }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '500': { $ref: '#/components/responses/ServerError' }
 
@@ -13083,6 +13183,15 @@ paths:
         already-placed order, plus its initial append-only status-history row. The order
         must be visible to the caller — a customer may only return their own order; a
         cross-scope order is 404, never 403 (BR-36).
+
+        Two callers (BR-155): staff file under `rma.request.process` and get the full
+        `ReturnRequest`; a customer files under `rma.request.create_own`, only against
+        their own order in `DELIVERED` or `PICKED_UP` (else 409 `INVALID_STATE_TRANSITION`),
+        and gets the farm-anonymous `CustomerReturnRequest` allow-list. For both, an order
+        item may appear once per request and its quantity may not exceed the ordered
+        quantity minus what is already on non-rejected returns (422 `VALIDATION_FAILED`).
+      x-permission-any-of: [rma.request.process, rma.request.create_own]
+      x-business-rules: [BR-61, BR-155, BR-36, BR-16]
 
         Two callers (BR-155): staff file under `rma.request.process` and get the full
         `ReturnRequest`; a customer files under `rma.request.create_own`, only against
@@ -13109,8 +13218,13 @@ paths:
       responses:
         '201':
           description: Return request created (full shape for staff, allow-list for a customer).
+          description: Return request created (full shape for staff, allow-list for a customer).
           content:
             application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/ReturnRequest' }
+                  - { $ref: '#/components/schemas/CustomerReturnRequest' }
               schema:
                 oneOf:
                   - { $ref: '#/components/schemas/ReturnRequest' }
@@ -13119,7 +13233,63 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /returns/me:
+    get:
+      tags: [Returns]
+      operationId: listMyReturns
+      summary: Own return requests
+      description: The caller's own returns, newest first, as the farm-anonymous allow-list (BR-155, BR-16). A caller without a customer profile gets an empty list.
+      x-permission: rma.request.view_own
+      x-business-rules: [BR-155, BR-36, BR-16]
+      parameters:
+        - { name: cursor, in: query, required: false, schema: { type: string, format: date-time }, description: '`page.nextCursor` from the previous page.' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses:
+        '200':
+          description: Own returns.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, page]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CustomerReturnSummary' }
+                  page:
+                    type: object
+                    required: [nextCursor, hasMore]
+                    properties:
+                      nextCursor: { type: [string, 'null'] }
+                      hasMore: { type: boolean }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /returns/me/{id}:
+    get:
+      tags: [Returns]
+      operationId: getMyReturn
+      summary: One own return request
+      description: Another customer's return is the same 404 as an unknown id (BR-155, BR-36).
+      x-permission: rma.request.view_own
+      x-business-rules: [BR-155, BR-36, BR-16]
+      parameters:
+        - { $ref: '#/components/parameters/IdParam' }
+      responses:
+        '200':
+          description: Own return.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CustomerReturnRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /returns/me:
@@ -13726,6 +13896,9 @@ paths:
         - { name: from, in: query, schema: { type: string, description: 'Date-time, or a bare date YYYY-MM-DD meaning 00:00:00.000Z of that UTC day (BR-183).' } }
         - { name: to, in: query, schema: { type: string, description: 'Date-time, or a bare date YYYY-MM-DD meaning 23:59:59.999Z of that UTC day, inclusive (BR-183).' } }
         - { name: status, in: query, schema: { type: string, enum: [COMPLETED] }, description: 'BR-129/BR-183: every ledger row is COMPLETED, so the filter only validates the value.' }
+        - { name: from, in: query, schema: { type: string, description: 'Date-time, or a bare date YYYY-MM-DD meaning 00:00:00.000Z of that UTC day (BR-183).' } }
+        - { name: to, in: query, schema: { type: string, description: 'Date-time, or a bare date YYYY-MM-DD meaning 23:59:59.999Z of that UTC day, inclusive (BR-183).' } }
+        - { name: status, in: query, schema: { type: string, enum: [COMPLETED] }, description: 'BR-129/BR-183: every ledger row is COMPLETED, so the filter only validates the value.' }
         - { name: tab, in: query, schema: { type: string, enum: [all, credits, debits, refunds], default: all }, description: '`credits`/`debits` filter by direction; `refunds` = ORDER_REFUND rows.' }
       responses:
         '200':
@@ -13919,6 +14092,29 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
         '429': { $ref: '#/components/responses/TooManyRequests' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /wallets/me/topups/{topupId}:
+    get:
+      tags: [Wallet]
+      operationId: getMyTopupReceipt
+      summary: Own top-up receipt
+      description: |
+        Receipt for one of the caller's own top-ups (BR-183): status, amount, and once the top-up
+        is SUCCESS the wallet ledger `transactionId` and the `balanceAfter` of that credit. While
+        PENDING or FAILED both are null. An unknown or another customer's id is 404 (BR-36).
+      x-permission: wallet.own.view
+      x-business-rules: [BR-36, BR-183]
+      parameters:
+        - { name: topupId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: The top-up receipt.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopupReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /wallets/me/topups/{topupId}:
@@ -15932,6 +16128,221 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
         '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/banners:
+    get:
+      tags: [Catalog]
+      operationId: listHomeBanners
+      summary: List customer home banners
+      description: All non-deleted banners (any status), ordered by `sortOrder` then creation. `status` filters by the computed status (BR-152c).
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/HomeContentStatus' } }
+      responses:
+        '200':
+          description: Banners.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/HomeBanner' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Catalog]
+      operationId: createHomeBanner
+      summary: Create a customer home banner
+      description: |
+        Target fields must match `targetType` and reference an existing category / product (422
+        `VALIDATION_FAILED` otherwise); `endsAt` must be after `startsAt`. One `catalog.banner.create`
+        audit row is written in the same transaction (BR-152a, BR-152b).
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeBannerCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeBanner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/banners/{id}:
+    get:
+      tags: [Catalog]
+      operationId: getHomeBanner
+      summary: Read a home banner
+      x-permission: catalog.home_content.manage
+      description: Returns one banner by id, including inactive or out-of-window banners.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: Banner.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeBanner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Catalog]
+      operationId: updateHomeBanner
+      summary: Edit a home banner (including its sortOrder and window)
+      description: Partial update; the merged banner is re-validated. Writes one `catalog.banner.update` audit row with before/after.
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeBannerUpdate' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeBanner' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Catalog]
+      operationId: deleteHomeBanner
+      summary: Delete a home banner
+      description: Soft delete; writes one `catalog.banner.delete` audit row. A deleted banner is 404 afterwards.
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/home-sections:
+    get:
+      tags: [Catalog]
+      operationId: listHomeSections
+      summary: List curated home sections
+      x-permission: catalog.home_content.manage
+      description: Lists every section, including inactive and out-of-window ones, ordered by sortOrder.
+      x-business-rules: [BR-152]
+      parameters:
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/HomeContentStatus' } }
+      responses:
+        '200':
+          description: Sections.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/HomeSection' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    post:
+      tags: [Catalog]
+      operationId: createHomeSection
+      summary: Create a curated home section
+      description: |
+        `CATEGORY` needs an existing `targetCategoryId`; `PRODUCTS` needs 1-50 existing product ids
+        (deduplicated, order kept). Writes one `catalog.home_section.create` audit row (BR-152a, BR-152b).
+      x-permission: catalog.home_content.manage
+      x-business-rules: [BR-152]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeSectionCreate' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeSection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+
+  /admin/home-sections/{id}:
+    get:
+      tags: [Catalog]
+      operationId: getHomeSection
+      summary: Read a curated home section
+      x-permission: catalog.home_content.manage
+      description: Returns one section by id, including inactive or out-of-window sections.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '200':
+          description: Section.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeSection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    patch:
+      tags: [Catalog]
+      operationId: updateHomeSection
+      summary: Edit a curated home section (including its sortOrder and window)
+      x-permission: catalog.home_content.manage
+      description: Partially updates the section; only the fields sent change.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeSectionUpdate' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HomeSection' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '500': { $ref: '#/components/responses/ServerError' }
+    delete:
+      tags: [Catalog]
+      operationId: deleteHomeSection
+      summary: Delete a curated home section
+      x-permission: catalog.home_content.manage
+      description: Permanently removes the section; the storefront home no longer shows it.
+      x-business-rules: [BR-152]
+      parameters: [{ $ref: '#/components/parameters/IdParam' }]
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/ServerError' }
 
   /admin/banners:
@@ -19178,6 +19589,18 @@ components:
         isPublic: { type: boolean, description: Listed on the public GET /pickup-points when also active. }
         isActive: { type: boolean }
         openingHours: { type: object, nullable: true, description: 'Keys mon..sun, as on the public endpoint.' }
+    AdminPickupPoint:
+      type: object
+      description: Pickup-point fields an admin may manage (BR-185). Internal warehouse columns are not included.
+      required: [id, name, address, publicPhone, isPublic, isActive, openingHours]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string, nullable: true }
+        publicPhone: { type: string, nullable: true, description: Customer-facing phone, E.164. }
+        isPublic: { type: boolean, description: Listed on the public GET /pickup-points when also active. }
+        isActive: { type: boolean }
+        openingHours: { type: object, nullable: true, description: 'Keys mon..sun, as on the public endpoint.' }
     WarehouseCapacity:
       type: object
       description: |
@@ -19669,6 +20092,8 @@ components:
         * `OTP_SMS_DELIVERY_FAILED` — the configured SMS provider rejected or failed to send the OTP (BR-32).
         * `EMAIL_NOT_CONFIGURED` — no email transport is configured (BR-184).
         * `EMAIL_DELIVERY_FAILED` — the email transport failed to deliver the message (BR-184).
+        * `EMAIL_NOT_CONFIGURED` — no email transport is configured (BR-184).
+        * `EMAIL_DELIVERY_FAILED` — the email transport failed to deliver the message (BR-184).
         * `AUDIT_QUARTER_TAKEN` — that farmer already has a non-cancelled audit in this fiscal year and quarter (BR-03).
         * `SCORE_OUT_OF_RANGE` — a rating or audit category score is out of range (BR-06).
         * `AUDIT_INCOMPLETE` — an audit cannot be completed because one or more of its 10 category scores is missing; a missing category is incomplete, not zero (BR-06).
@@ -19692,6 +20117,9 @@ components:
         * `WALKIN_WALLET_NOT_ALLOWED` — a walk-in sale (no customer record) cannot be paid by WALLET (BR-86). HTTP 422.
         * `PAYMENT_PENDING` — the sale UPI payment is not yet confirmed (BR-94). HTTP 409.
         * `PASSWORD_ALREADY_SET` — `POST /auth/me/set-password` only sets a first password and this account already has one (BR-142). HTTP 409.
+        * `WALLET_TRANSFER_DISABLED` — customer-to-customer wallet transfers are switched off (`system_config.wallet_transfer.enabled`, BR-150). HTTP 403.
+        * `WALLET_TRANSFER_LIMIT_EXCEEDED` — a wallet transfer is below the minimum, above the per-transfer maximum, or over the sender's daily maximum (BR-150). HTTP 422.
+        * `WALLET_TRANSFER_SELF` — a customer tried to send wallet money to themselves (BR-150). HTTP 422.
         * `WALLET_TRANSFER_DISABLED` — customer-to-customer wallet transfers are switched off (`system_config.wallet_transfer.enabled`, BR-150). HTTP 403.
         * `WALLET_TRANSFER_LIMIT_EXCEEDED` — a wallet transfer is below the minimum, above the per-transfer maximum, or over the sender's daily maximum (BR-150). HTTP 422.
         * `WALLET_TRANSFER_SELF` — a customer tried to send wallet money to themselves (BR-150). HTTP 422.
@@ -19946,8 +20374,57 @@ components:
         debitTxnId: { type: string, format: uuid, description: The TRANSFER_OUT wallet transaction. }
         creditTxnId: { type: string, format: uuid, description: The TRANSFER_IN wallet transaction. }
 
+    TransferRecipient:
+      type: object
+      description: A transfer counterparty, masked (BR-150g). Never a customer id.
+      required: [displayName, mobileMasked]
+      additionalProperties: false
+      properties:
+        displayName: { type: string, description: 'Initial of each name part followed by ***, e.g. "B*** K***".' }
+        mobileMasked: { type: string, description: All but the last four digits replaced by *. }
+
+    WalletTransfer:
+      type: object
+      required: [id, direction, amount, counterparty, note, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        direction: { type: string, enum: [SENT, RECEIVED] }
+        amount: { $ref: '#/components/schemas/Money' }
+        counterparty: { $ref: '#/components/schemas/TransferRecipient' }
+        note: { type: [string, 'null'] }
+        status: { type: string, enum: [COMPLETED] }
+        createdAt: { type: string, format: date-time }
+
+    AdminTransferParty:
+      type: object
+      description: One side of a transfer as admins see it (unmasked, BR-150l).
+      required: [customerId, fullName, mobile]
+      additionalProperties: false
+      properties:
+        customerId: { type: string, format: uuid }
+        fullName: { type: string }
+        mobile: { type: string }
+
+    AdminWalletTransfer:
+      type: object
+      description: A customer-to-customer transfer with both parties and both ledger legs (BR-150l).
+      required: [id, amount, note, status, createdAt, sender, recipient, debitTxnId, creditTxnId]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        amount: { $ref: '#/components/schemas/Money' }
+        note: { type: [string, 'null'] }
+        status: { type: string, enum: [COMPLETED] }
+        createdAt: { type: string, format: date-time }
+        sender: { $ref: '#/components/schemas/AdminTransferParty' }
+        recipient: { $ref: '#/components/schemas/AdminTransferParty' }
+        debitTxnId: { type: string, format: uuid, description: The TRANSFER_OUT wallet transaction. }
+        creditTxnId: { type: string, format: uuid, description: The TRANSFER_IN wallet transaction. }
+
     WalletTransactionType:
       type: string
+      enum: [TOPUP_CASH, TOPUP_DIGITAL, ORDER_DEBIT, ORDER_REFUND, PAYOUT_DEBIT, SALE_CREDIT, SUBSCRIPTION_DEBIT, ADJUSTMENT, TRANSFER_OUT, TRANSFER_IN]
+      description: '`TRANSFER_OUT` / `TRANSFER_IN` are the two legs of a customer-to-customer wallet transfer (BR-150).'
       enum: [TOPUP_CASH, TOPUP_DIGITAL, ORDER_DEBIT, ORDER_REFUND, PAYOUT_DEBIT, SALE_CREDIT, SUBSCRIPTION_DEBIT, ADJUSTMENT, TRANSFER_OUT, TRANSFER_IN]
       description: '`TRANSFER_OUT` / `TRANSFER_IN` are the two legs of a customer-to-customer wallet transfer (BR-150).'
 
@@ -23545,6 +24022,17 @@ components:
         isComingSoon: { type: boolean }
         comingTomorrow: { type: boolean }
         isUnsalable: { type: boolean }
+        # BR-181 catalog display metadata (shown on GET /catalog/products; not echoed in this response).
+        tasteNotes: { type: [string, 'null'], maxLength: 300 }
+        harvestSeason: { type: [string, 'null'], maxLength: 80 }
+        originRegion: { type: [string, 'null'], maxLength: 80, description: Generic region only (BR-16). }
+        farmingType: { type: [string, 'null'], enum: [ORGANIC, NATURAL, CONVENTIONAL, null] }
+        packSize: { type: [number, 'null'], exclusiveMinimum: 0, description: Set together with packUnit. }
+        packUnit: { type: [string, 'null'], enum: [KG, G, PIECE, BUNCH, DOZEN, PACK, null] }
+        compareAtPrice: { type: [number, 'null'], exclusiveMinimum: 0, description: MRP per kg in rupees. }
+        isComingSoon: { type: boolean }
+        comingTomorrow: { type: boolean }
+        isUnsalable: { type: boolean }
       additionalProperties: false
 
     FarmCrop:
@@ -25778,6 +26266,77 @@ components:
               query: { type: string, description: Normalized query text. }
               searchers: { type: integer, description: 'Distinct customers who searched it in the window; always >= the k-anonymity threshold.' }
         products: { type: array, items: { $ref: '#/components/schemas/Product' } }
+        # BR-181 display metadata (admin-managed on crop_master; display only, never changes pricing or ordering).
+        tasteNotes: { type: [string, 'null'], maxLength: 300 }
+        shelfLifeDays: { type: [integer, 'null'], exclusiveMinimum: 0 }
+        harvestSeason: { type: [string, 'null'], maxLength: 80, example: Oct-Mar }
+        originRegion: { type: [string, 'null'], maxLength: 80, example: Nilgiris, description: Generic region only; never a farm, farmer or village (BR-16). }
+        farmingType: { type: [string, 'null'], enum: [ORGANIC, NATURAL, CONVENTIONAL, null] }
+        packSize: { type: [string, 'null'], description: 'Sales-unit size for display, e.g. "500" with packUnit G. `unit` stays kg: quantities are still ordered and priced in kg.' }
+        packUnit: { type: [string, 'null'], enum: [KG, G, PIECE, BUNCH, DOZEN, PACK, null] }
+        compareAtPrice: { type: [string, 'null'], description: 'MRP per kg in the same decimal format as pricePerKg. Display only; the order discount stays 0.' }
+        discountPercent: { type: [integer, 'null'], minimum: 1, maximum: 99, description: 'floor((MRP - price) * 100 / MRP) computed in integer paise; null unless MRP > price.' }
+        isComingSoon: { type: boolean }
+        comingTomorrow: { type: boolean }
+        isUnsalable: { type: boolean }
+        ratingAverage: { type: [number, 'null'], minimum: 1, maximum: 5, description: 'Mean of per-line product ratings (order_review_items), 1 decimal. Farm ratings are separate and untouched (BR-06).' }
+        ratingCount: { type: integer, minimum: 0 }
+
+    SearchSuggestion:
+      type: object
+      description: A type-ahead suggestion. Allow-list of three fields (BR-16, BR-151e).
+      required: [type, id, name]
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [PRODUCT, CATEGORY] }
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    RecentSearch:
+      type: object
+      required: [query, searchedAt]
+      additionalProperties: false
+      properties:
+        query: { type: string }
+        searchedAt: { type: string, format: date-time }
+
+    ServiceAreaRequest:
+      type: object
+      required: [id, area, locality, city, pincode, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        area: { type: string }
+        locality: { type: string }
+        city: { type: string }
+        pincode: { type: string, nullable: true }
+        status: { type: string, enum: [NEW, REVIEWED, SERVED, DECLINED] }
+        createdAt: { type: string, format: date-time }
+
+    LegalContent:
+      type: object
+      required: [title, version, lastUpdated, body, language]
+      properties:
+        title: { type: string }
+        version: { type: integer, minimum: 1 }
+        lastUpdated: { type: string, format: date-time }
+        body: { type: string, description: Markdown text. }
+        language: { type: string }
+
+    TrendingSearches:
+      type: object
+      required: [queries, products]
+      additionalProperties: false
+      properties:
+        queries:
+          type: array
+          items:
+            type: object
+            required: [query, searchers]
+            additionalProperties: false
+            properties:
+              query: { type: string, description: Normalized query text. }
+              searchers: { type: integer, description: 'Distinct customers who searched it in the window; always >= the k-anonymity threshold.' }
+        products: { type: array, items: { $ref: '#/components/schemas/Product' } }
 
     CatalogHome:
       type: object
@@ -25791,6 +26350,32 @@ components:
               id: { type: string, format: uuid }
               imageUrl: { type: string, format: uri }
               deeplink: { type: [string, 'null'] }
+        heroBanners:
+          type: array
+          description: |
+            BR-152: live admin banners (active, inside their window) in sortOrder; when none is live,
+            the static placeholder banners. `banners` carries the same list in its original shape.
+          items:
+            type: object
+            required: [id, imageUrl, title, deeplink]
+            additionalProperties: false
+            properties:
+              id: { type: string, format: uuid }
+              imageUrl: { type: string, format: uri }
+              title: { type: [string, 'null'] }
+              deeplink: { type: [string, 'null'], description: '`/categories/{id}`, `/products/{id}`, a URL, or null.' }
+        sections:
+          type: array
+          description: BR-152 live curated rails in sortOrder; items are farm-anonymous Products (BR-16). Empty rails are omitted.
+          items:
+            type: object
+            required: [id, title, subtitle, items]
+            additionalProperties: false
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              subtitle: { type: [string, 'null'] }
+              items: { type: array, items: { $ref: '#/components/schemas/Product' } }
         heroBanners:
           type: array
           description: |
@@ -26277,6 +26862,20 @@ components:
         currency: { type: string, enum: [INR] }
         status: { type: string, enum: [PENDING, SUCCESS, FAILED] }
         razorpayKeyId: { type: string, description: Publishable key for the client SDK. }
+
+    TopupReceipt:
+      type: object
+      required: [topupId, status, amount, currency, mode, transactionId, balanceAfter, createdAt, completedAt]
+      properties:
+        topupId: { type: string, format: uuid }
+        status: { type: string, enum: [PENDING, SUCCESS, FAILED] }
+        amount: { $ref: '#/components/schemas/Money' }
+        currency: { type: string, enum: [INR] }
+        mode: { type: string, example: UPI }
+        transactionId: { type: [string, 'null'], format: uuid, description: Wallet ledger row of the credit; null until SUCCESS. }
+        balanceAfter: { oneOf: [{ $ref: '#/components/schemas/Money' }, { type: 'null' }], description: Wallet balance right after the credit; null until SUCCESS. }
+        createdAt: { type: string, format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
 
     TopupReceipt:
       type: object

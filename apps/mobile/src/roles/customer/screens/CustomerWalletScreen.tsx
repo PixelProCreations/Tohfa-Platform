@@ -18,7 +18,7 @@ import Svg, { Path, Circle, Rect } from 'react-native-svg';
 import { customerFonts } from '../theme';
 import {
   walletPouchCard,
-  profileEmailVerified,
+  walletMoneyAddedSuccess,
 } from '../assets/images';
 import { CustomerSendMoneyScreen } from './CustomerSendMoneyScreen';
 import { fetchTopupReceipt, useWallet, useWalletTransactions, type TopupMode, type WalletTransaction } from '../api/wallet';
@@ -770,7 +770,7 @@ export const CustomerWalletScreen: React.FC<CustomerWalletScreenProps> = ({
 
             {outcome?.status === 'success' ? (
               <>
-                <Image source={profileEmailVerified} style={styles.modalSuccessIllustration} resizeMode="contain" />
+                <Image source={walletMoneyAddedSuccess} style={styles.modalSuccessIllustration} resizeMode="contain" />
                 <Text style={styles.modalTitle}>Money added successfully!</Text>
                 <Text style={styles.modalSubtitle}>{formatInr(outcome.receipt.amount)} has been added to your TOHFA Wallet.</Text>
                 <View style={styles.summaryMetricsCard}>
@@ -1198,8 +1198,8 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   modalSuccessIllustration: {
-    width: 70,
-    height: 70,
+    width: 130,
+    height: 105,
     marginBottom: 12,
   },
   modalTitle: {

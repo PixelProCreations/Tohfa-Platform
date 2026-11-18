@@ -90,6 +90,10 @@ export interface NotificationsRepo {
   getUserVerifiedEmail(db: Executor, userId: string): Promise<string | null>;
   /** Current delivery status of a notification row, or null if it does not exist. */
   getDeliveryStatus(db: Executor, id: string): Promise<string | null>;
+  /** BR-185: the user's email only when it is verified (customers); null otherwise. */
+  getUserVerifiedEmail(db: Executor, userId: string): Promise<string | null>;
+  /** Current delivery status of a notification row, or null if it does not exist. */
+  getDeliveryStatus(db: Executor, id: string): Promise<string | null>;
   registerDeviceToken(db: Executor, params: RegisterDeviceTokenParams): Promise<DeviceTokenRow>;
   revokeDeviceToken(db: Executor, token: string, userId: string): Promise<boolean>;
   findActiveDeviceTokens(db: Executor, userId: string, app?: string | undefined): Promise<DeviceTokenRow[]>;
@@ -192,8 +196,10 @@ export const notificationsRepo: NotificationsRepo = {
          status, provider_message_id, sent_at
        )
        VALUES ($1, $2, $3::notification_channel, $4, $5, $6, $7,
-               CASE WHEN $3::notification_channel = 'EMAIL' THEN 'QUEUED' ELSE 'DELIVERED' END, $8,
-               CASE WHEN $3::notification_channel = 'EMAIL' THEN NULL ELSE now() END)
+               CASE WHEN $3::notification_channel = 'EMAIL' THEN 'QUEUED' ELSE
+               CASE WHEN $3 = 'EMAIL' THEN 'QUEUED' ELSE 'DELIVERED' END END, $8,
+               CASE WHEN $3::notification_channel = 'EMAIL' THEN NULL ELSE
+               CASE WHEN $3 = 'EMAIL' THEN NULL ELSE now() END END)
        RETURNING id, user_id, template_id, channel, title, body, locale, data,
                  status, provider_message_id, sent_at, read_at, created_at, updated_at`,
       [

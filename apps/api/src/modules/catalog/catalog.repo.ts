@@ -35,6 +35,20 @@ export interface RawCatalogProductRow {
   is_unsalable?: boolean | undefined;
   rating_average?: string | null | undefined;
   rating_count?: number | undefined;
+  /** BR-181 metadata: optional so hand-built rows (tests, other modules' fakes) stay valid. */
+  taste_notes?: string | null | undefined;
+  shelf_life_days?: number | null | undefined;
+  harvest_season?: string | null | undefined;
+  origin_region?: string | null | undefined;
+  farming_type?: string | null | undefined;
+  pack_size?: string | null | undefined;
+  pack_unit?: string | null | undefined;
+  compare_at_price?: string | null | undefined;
+  is_coming_soon?: boolean | undefined;
+  coming_tomorrow?: boolean | undefined;
+  is_unsalable?: boolean | undefined;
+  rating_average?: string | null | undefined;
+  rating_count?: number | undefined;
 }
 
 export interface CatalogRepo {

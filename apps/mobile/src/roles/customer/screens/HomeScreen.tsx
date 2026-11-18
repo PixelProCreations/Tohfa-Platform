@@ -138,6 +138,244 @@ const TopBarHeartSvg = ({ color = '#FFFFFF', size = 18 }: { color?: string; size
 );
 
 
+// Product Card interface
+interface ProductCardData {
+  id: string;
+  name: string;
+  price: number;
+  originalPrice: number;
+  unit: string;
+  rating: number;
+  emoji: string;
+  image?: any;
+  status?: 'normal' | 'comingTomorrow' | 'unsalable';
+}
+
+// ── FULL PRODUCT CATALOG BY SECTION (EXACT FIGMA EXTRACTED IMAGES) ──────────
+
+const FOR_YOU_ITEMS: ProductCardData[] = [
+  { id: 'fy1', name: 'Watermelon', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍉', image: ProductImages.foryouWatermelon },
+  { id: 'fy2', name: 'Green Curly Lettuce', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.foryouLettuce },
+  { id: 'fy3', name: 'Strawberries', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍓', image: ProductImages.foryouStrawberries },
+  { id: 'fy4', name: 'Fresh Tomatoes', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍅', image: ProductImages.foryouTomatoes },
+  { id: 'fy5', name: 'Sweet Mango', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🥭', image: ProductImages.foryouMango },
+  { id: 'fy6', name: 'Brinjal', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍆', image: ProductImages.foryouBrinjal },
+  { id: 'fy7', name: 'Sweet Corn', price: 60, originalPrice: 86, unit: 'piece', rating: 4.7, emoji: '🌽', image: ProductImages.foryouSweetCorn },
+  { id: 'fy8', name: 'Fresh Kiwi', price: 60, originalPrice: 86, unit: 'kg', rating: 4.8, emoji: '🥝', image: ProductImages.foryouKiwi },
+  { id: 'fy9', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥦', image: ProductImages.foryouBroccoli },
+  { id: 'fy10', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥕', image: ProductImages.foryouCarrot },
+];
+
+const VEGETABLE_ITEMS: ProductCardData[] = [
+  { id: 'veg1', name: 'Potato', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥔', image: ProductImages.vegPotato, status: 'comingTomorrow' },
+  { id: 'veg2', name: 'Fresh Carrot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥕', image: ProductImages.vegCarrot },
+  { id: 'veg3', name: 'Beetroot', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🥬', image: ProductImages.vegBeetroot },
+  { id: 'veg4', name: 'Broccoli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🥦', image: ProductImages.vegBroccoli },
+  { id: 'veg5', name: 'Cauliflower', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🥬', image: ProductImages.vegCauliflower },
+  { id: 'veg6', name: 'Pumpkin', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🎃', image: ProductImages.vegPumpkin },
+];
+
+const FRUIT_ITEMS: ProductCardData[] = [
+  { id: 'fr1', name: 'Apple', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍎', image: ProductImages.fruitApple, status: 'unsalable' },
+  { id: 'fr2', name: 'Orange', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍊', image: ProductImages.fruitOrange },
+  { id: 'fr3', name: 'Banana Robusta', price: 60, originalPrice: 86, unit: 'dozen', rating: 4.8, emoji: '🍌', image: ProductImages.fruitBanana },
+  { id: 'fr4', name: 'Pomegranate', price: 60, originalPrice: 86, unit: 'kg', rating: 4.7, emoji: '🍎', image: ProductImages.fruitPomegranate },
+  { id: 'fr5', name: 'Grapes', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍇', image: ProductImages.fruitGrapes },
+];
+
+const DRY_FRUITS_ITEMS: ProductCardData[] = [
+  { id: 'df1', name: 'Jumbo Figs', price: 60, originalPrice: 86, unit: 'g', rating: 4.5, emoji: '🌰', image: ProductImages.dryfruitFig },
+  { id: 'df2', name: 'Raisin Indian Bold', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥣', image: ProductImages.dryfruitRaisinBold },
+  { id: 'df3', name: 'Raisin Munakka', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥣', image: ProductImages.dryfruitRaisinMunakka },
+  { id: 'df4', name: 'Whole Cashews', price: 60, originalPrice: 86, unit: 'g', rating: 4.7, emoji: '🥜', image: ProductImages.dryfruitCashew },
+  { id: 'df5', name: 'Iranian Pistachio', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥜', image: ProductImages.dryfruitPistachio },
+  { id: 'df6', name: 'California Almonds', price: 60, originalPrice: 86, unit: 'g', rating: 4.8, emoji: '🥜', image: ProductImages.dryfruitAlmond },
+  { id: 'df7', name: 'Walnut Kernels', price: 60, originalPrice: 86, unit: 'g', rating: 4.7, emoji: '🥣', image: ProductImages.dryfruitWalnut },
+];
+
+const DAIRY_ITEMS: ProductCardData[] = [
+  { id: 'da1', name: 'Milk', price: 60, originalPrice: 86, unit: 'L', rating: 4.5, emoji: '🥛', image: ProductImages.dairyMilk },
+  { id: 'da2', name: 'Eggs', price: 60, originalPrice: 86, unit: 'piece', rating: 4.5, emoji: '🥚', image: ProductImages.dairyEggs },
+  { id: 'da3', name: 'Curd (Dahi)', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥣', image: ProductImages.dairyCurd },
+  { id: 'da4', name: 'Spiced Buttermilk', price: 60, originalPrice: 86, unit: 'L', rating: 4.7, emoji: '🥛', image: ProductImages.dairyButtermilk },
+  { id: 'da5', name: 'White Butter', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🧈', image: ProductImages.dairyButter },
+  { id: 'da6', name: 'Desi Cow Ghee', price: 60, originalPrice: 86, unit: 'g', rating: 4.9, emoji: '🍯', image: ProductImages.dairyGhee },
+  { id: 'da7', name: 'Fresh Paneer', price: 60, originalPrice: 86, unit: 'g', rating: 4.7, emoji: '🧀', image: ProductImages.dairyPaneer },
+  { id: 'da8', name: 'Artisan Cheese', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🧀', image: ProductImages.dairyCheese },
+  { id: 'da9', name: 'Fresh Cream', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🥛', image: ProductImages.dairyFreshCream },
+];
+
+const GRAIN_ITEMS: ProductCardData[] = [
+  { id: 'gr1', name: 'Rice (raw)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍚', image: ProductImages.grainRawRice },
+  { id: 'gr2', name: 'Brown rice', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainBrownRice },
+  { id: 'gr3', name: 'Wheat', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainWheat },
+  { id: 'gr4', name: 'Ragi (Finger millet)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌾', image: ProductImages.grainRagi },
+  { id: 'gr5', name: 'Little millet (samai)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainLittleMillet },
+  { id: 'gr6', name: 'Foxtail millet (thinai)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainFoxtailMillet },
+  { id: 'gr7', name: 'Barnyard millet', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌾', image: ProductImages.grainBarnyardMillet },
+  { id: 'gr8', name: 'Kodo millet (varagu)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainKodoMillet },
+  { id: 'gr9', name: 'Pearl millet (bajra)', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌾', image: ProductImages.grainPearlMillet },
+  { id: 'gr10', name: 'Sorghum', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌾', image: ProductImages.grainSorghum },
+  { id: 'gr11', name: 'Maize', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🌽', image: ProductImages.grainMaize },
+  { id: 'gr12', name: 'Oats', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥣', image: ProductImages.grainOats },
+];
+
+const SPREADS_ITEMS: ProductCardData[] = [
+  { id: 'sp1', name: 'Basil Pesto', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadBasilPesto },
+  { id: 'sp2', name: 'Beetroot Hummus', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadBeetrootHummus },
+  { id: 'sp3', name: 'Chilli Mango Dressing', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadChilliMango },
+  { id: 'sp4', name: 'Garlic Hummus', price: 60, originalPrice: 86, unit: 'portion', rating: 4.5, emoji: '🥣', image: ProductImages.spreadGarlicHummus },
+  { id: 'sp5', name: 'Guacamole', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadGuacamole },
+  { id: 'sp6', name: 'Honey Mustard', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadHoneyMustard },
+  { id: 'sp7', name: 'Thai Dressing', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadThaiDressing },
+  { id: 'sp8', name: 'Vinaigrette Salad Dressing', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥣', image: ProductImages.spreadVinaigrette },
+];
+
+const SPICES_ITEMS: ProductCardData[] = [
+  { id: 'sc1', name: 'Black pepper', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🧂', image: ProductImages.spiceBlackPepper },
+  { id: 'sc2', name: 'Cardamom', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🧂', image: ProductImages.spiceCardamom },
+  { id: 'sc3', name: 'Cloves', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧂', image: ProductImages.spiceCloves },
+  { id: 'sc4', name: 'Cinnamon', price: 60, originalPrice: 86, unit: 'pack', rating: 4.7, emoji: '🧂', image: ProductImages.spiceCinnamon },
+  { id: 'sc5', name: 'Turmeric', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🧂', image: ProductImages.spiceTurmeric },
+  { id: 'sc6', name: 'Ginger fresh', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🧂', image: ProductImages.spiceGingerFresh },
+  { id: 'sc7', name: 'Dry ginger', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧂', image: ProductImages.spiceDryGinger },
+  { id: 'sc8', name: 'Dry red chilli', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🌶️', image: ProductImages.spiceDryRedChilli },
+  { id: 'sc9', name: 'Coriander seeds', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🧂', image: ProductImages.spiceCorianderSeeds },
+  { id: 'sc10', name: 'Cumin', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🧂', image: ProductImages.spiceCumin },
+  { id: 'sc11', name: 'Mustard seeds', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🧂', image: ProductImages.spiceMustardSeeds },
+];
+
+const SOAKED_ITEMS: ProductCardData[] = [
+  { id: 'so1', name: 'Soaked afghan Figs', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedFig },
+  { id: 'so2', name: 'Soaked Afghan Munakka', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedMunakka },
+  { id: 'so3', name: 'Soaked Black Chana', price: 60, originalPrice: 86, unit: 'portion', rating: 4.6, emoji: '🥄', image: ProductImages.soakedBlackChana },
+  { id: 'so4', name: 'Soaked Walnuts', price: 60, originalPrice: 86, unit: 'portion', rating: 4.7, emoji: '🥄', image: ProductImages.soakedWalnuts },
+  { id: 'so5', name: 'Soaked Jeera', price: 60, originalPrice: 86, unit: 'portion', rating: 4.5, emoji: '🥄', image: ProductImages.soakedJeera },
+];
+
+const BREADS_ITEMS: ProductCardData[] = [
+  { id: 'br1', name: 'Milk Bread', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🍞', image: ProductImages.breadMilk },
+  { id: 'br2', name: 'Multigrain Loaf', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥖', image: ProductImages.breadMultigrain },
+  { id: 'br3', name: 'Sandwich Bread', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.5, emoji: '🍞', image: ProductImages.breadSandwich },
+  { id: 'br4', name: 'Sourdough Loaf', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.7, emoji: '🍞', image: ProductImages.breadSourdough },
+];
+
+const FLOUR_ITEMS: ProductCardData[] = [
+  { id: 'fl1', name: 'Whole Wheat Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥡', image: ProductImages.flourWheat },
+  { id: 'fl2', name: 'Ragi Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥡', image: ProductImages.flourRagi },
+  { id: 'fl3', name: 'Rice Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.6, emoji: '🥡', image: ProductImages.flourRice },
+  { id: 'fl4', name: 'Maize Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.5, emoji: '🥡', image: ProductImages.flourMaize },
+  { id: 'fl5', name: 'Foxtail Millet Flour', price: 60, originalPrice: 86, unit: 'loaf', rating: 4.5, emoji: '🥡', image: ProductImages.flourFoxtail },
+];
+
+const EXOTIC_ITEMS: ProductCardData[] = [
+  { id: 'ex1', name: 'Baby corn', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🌽', image: ProductImages.exoticBabycorn },
+  { id: 'ex2', name: 'Cabbage Purple', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥬', image: ProductImages.exoticCabbagePurple },
+  { id: 'ex3', name: 'Fresh Celery', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.7, emoji: '🌿', image: ProductImages.exoticCelery },
+  { id: 'ex4', name: 'Cherry Tomato', price: 60, originalPrice: 86, unit: 'pack', rating: 4.7, emoji: '🍅', image: ProductImages.exoticCherryTomato },
+  { id: 'ex5', name: 'Thai Chilli', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🌶️', image: ProductImages.exoticChilliThai },
+  { id: 'ex6', name: 'Thai Ginger', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🧄', image: ProductImages.exoticGingerThai },
+  { id: 'ex7', name: 'Fresh Rosemary', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.exoticRosemary },
+];
+
+const SWEET_NATURE_ITEMS: ProductCardData[] = [
+  { id: 'sn1', name: 'Natural Honey', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🍯', image: ProductImages.sweetHoney },
+  { id: 'sn2', name: 'Forest Honey', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🍯', image: ProductImages.sweetForestHoney },
+  { id: 'sn3', name: 'Palm Jaggery', price: 60, originalPrice: 86, unit: 'g', rating: 4.8, emoji: '🪵', image: ProductImages.sweetPalmJaggery },
+  { id: 'sn4', name: 'Country Jaggery', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🪵', image: ProductImages.sweetCountryJaggery },
+  { id: 'sn5', name: 'Cane Jaggery', price: 60, originalPrice: 86, unit: 'g', rating: 4.6, emoji: '🪵', image: ProductImages.sweetCaneJaggery },
+];
+
+const HERBS_GREENS_ITEMS: ProductCardData[] = [
+  { id: 'hg1', name: 'Thyme', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbThyme },
+  { id: 'hg2', name: 'Coriander leaves', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌱', image: ProductImages.herbCoriander },
+  { id: 'hg3', name: 'Mint leaves', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🍃', image: ProductImages.herbMint },
+  { id: 'hg4', name: 'Spring Onion', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌱', image: ProductImages.herbSpringOnion },
+  { id: 'hg5', name: 'Spinach (Palak)', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.7, emoji: '🥬', image: ProductImages.herbSpinach },
+  { id: 'hg6', name: 'Lettuce', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🥬', image: ProductImages.herbLettuce },
+  { id: 'hg7', name: 'Celery', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbCelery },
+  { id: 'hg8', name: 'Parsley', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbParsley },
+  { id: 'hg9', name: 'Amaranth', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌱', image: ProductImages.herbAmaranth },
+  { id: 'hg10', name: 'Kale', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.7, emoji: '🥬', image: ProductImages.herbKale },
+  { id: 'hg11', name: 'Rosemary', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌿', image: ProductImages.herbRosemary },
+];
+
+const EVERYDAY_KITCHEN_ITEMS: ProductCardData[] = [
+  { id: 'ek1', name: 'Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGarlicPaste },
+  { id: 'ek2', name: 'Ginger & Garlic Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerGarlicPaste },
+  { id: 'ek3', name: 'Ginger Paste', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🧄', image: ProductImages.kitchenGingerPaste },
+  { id: 'ek4', name: 'Onion Tomato Gravy', price: 60, originalPrice: 86, unit: 'pack', rating: 4.5, emoji: '🥫', image: ProductImages.kitchenOnionTomatoGravy },
+  { id: 'ek5', name: 'Tomato Gravy', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenTomatoGravy },
+  { id: 'ek6', name: 'Tomato Puree', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenTomatoPuree },
+  { id: 'ek7', name: 'Onion Tomato Masala', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🥫', image: ProductImages.kitchenOnionTomatoMasala },
+];
+
+const TEA_COFFEE_ITEMS: ProductCardData[] = [
+  { id: 'tc1', name: 'Nilgiri Green Tea', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '🍵', image: ProductImages.teaNilgiriGreen },
+  { id: 'tc2', name: 'Nilgiri Black Tea', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '☕', image: ProductImages.teaNilgiriBlack },
+  { id: 'tc3', name: 'Orthodox Tea', price: 60, originalPrice: 86, unit: 'dozen', rating: 4.6, emoji: '🍵', image: ProductImages.teaOrthodox },
+  { id: 'tc4', name: 'Arabica Coffee Beans', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '☕', image: ProductImages.coffeeArabicaBeans },
+  { id: 'tc5', name: 'Robusta Coffee Beans', price: 60, originalPrice: 86, unit: 'kg', rating: 4.6, emoji: '☕', image: ProductImages.coffeeRobustaBeans },
+  { id: 'tc6', name: 'Organic Arabica Beans', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '☕', image: ProductImages.coffeeOrganicBeans },
+  { id: 'tc7', name: 'Instant Coffee', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '☕', image: ProductImages.coffeeInstant },
+  { id: 'tc8', name: 'Masala Tea Blend', price: 60, originalPrice: 86, unit: 'kg', rating: 4.5, emoji: '🍵', image: ProductImages.teaMasalaBlend },
+  { id: 'tc9', name: 'Green Tea Powder', price: 60, originalPrice: 86, unit: 'piece', rating: 4.6, emoji: '🍵', image: ProductImages.teaGreenPowder },
+];
+
+const FRESH_JUICES_ITEMS: ProductCardData[] = [
+  { id: 'fj1', name: 'ABC Juice', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.6, emoji: '🥤', image: ProductImages.juiceAbc },
+  { id: 'fj2', name: 'Coconut Water', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.6, emoji: '🥥', image: ProductImages.juiceCoconutWater },
+  { id: 'fj3', name: 'PAM Juice', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.7, emoji: '🥤', image: ProductImages.juicePam },
+  { id: 'fj4', name: 'Pineapple Cold-Pressed', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.8, emoji: '🍍', image: ProductImages.juicePineapple },
+  { id: 'fj5', name: 'Watermelon Fresh', price: 60, originalPrice: 86, unit: 'bottle', rating: 4.6, emoji: '🍉', image: ProductImages.juiceWatermelon },
+];
+
+const NATURES_OILS_ITEMS: ProductCardData[] = [
+  { id: 'no1', name: 'Cold-Pressed Groundnut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🫒', image: ProductImages.oilGroundnut },
+  { id: 'no2', name: 'Coconut Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🥥', image: ProductImages.oilCoconut },
+  { id: 'no3', name: 'Sesame Gingelly Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.7, emoji: '🫒', image: ProductImages.oilSesame },
+  { id: 'no4', name: 'Pure Sunflower Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.6, emoji: '🌻', image: ProductImages.oilSunflower },
+  { id: 'no5', name: 'Mustard Oil', price: 60, originalPrice: 86, unit: 'L', rating: 4.5, emoji: '🫒', image: ProductImages.oilMustard },
+];
+
+const FLOWERS_ITEMS: ProductCardData[] = [
+  { id: 'flw1', name: 'Rose', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌹', image: ProductImages.flowerRose },
+  { id: 'flw2', name: 'Jasmine', price: 60, originalPrice: 86, unit: 'pack', rating: 4.6, emoji: '🌸', image: ProductImages.flowerJasmine },
+  { id: 'flw3', name: 'Marigold Garland', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌼', image: ProductImages.flowerMarigold },
+  { id: 'flw4', name: 'Chrysanthemum', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌺', image: ProductImages.flowerChrysanthemum },
+  { id: 'flw5', name: 'Carnation', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌸', image: ProductImages.flowerCarnation },
+  { id: 'flw6', name: 'Gerbera', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '🌼', image: ProductImages.flowerGerbera },
+  { id: 'flw7', name: 'Aster', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.5, emoji: '🌸', image: ProductImages.flowerAster },
+  { id: 'flw8', name: 'Seasonal Blossom', price: 60, originalPrice: 86, unit: 'bunch', rating: 4.6, emoji: '💐', image: ProductImages.flowerSeasonal },
+];
+
+interface CategoryCircleItem {
+  id: string;
+  label: string;
+  image?: any;
+  emoji?: string;
+}
+
+const CATEGORY_CIRCLES: CategoryCircleItem[] = [
+  { id: 'c1', label: 'Vegetables', image: CategoryImages.vegetables, emoji: '🥦' },
+  { id: 'c2', label: 'Fruit', image: CategoryImages.fruit, emoji: '🍎' },
+  { id: 'c3', label: 'Dairy', image: CategoryImages.dairy, emoji: '🥛' },
+  { id: 'c4', label: 'Grains', image: CategoryImages.grains, emoji: '🌾' },
+  { id: 'c5', label: 'Dry Fruits', image: CategoryImages.dryFruits, emoji: '🥜' },
+  { id: 'c7', label: 'Breads', image: CategoryImages.breads, emoji: '🍞' },
+  { id: 'c8', label: 'Fresh Juices', image: CategoryImages.freshJuices, emoji: '🧃' },
+  { id: 'c9', label: 'Everyday Kitchen', image: CategoryImages.everydayKitchen, emoji: '🥣' },
+  { id: 'c10', label: 'Rare & Exotic', image: CategoryImages.rareExotic, emoji: '🌽' },
+  { id: 'c11', label: 'Flour', image: CategoryImages.flour, emoji: '🥡' },
+  { id: 'c12', label: 'Sweet Nature', image: CategoryImages.sweetNature, emoji: '🍯' },
+  { id: 'c13', label: 'Herbs & Greens', image: CategoryImages.herbsGreens, emoji: '🌿' },
+  { id: 'c14', label: 'Spices', image: CategoryImages.spices, emoji: '🧂' },
+  { id: 'c15', label: 'Soaked', image: CategoryImages.soaked, emoji: '🥄' },
+  { id: 'c16', label: 'Tea & Coffee', image: CategoryImages.teaCoffee, emoji: '☕' },
+  { id: 'c17', label: 'Spreads', image: CategoryImages.spreads, emoji: '🥣' },
+  { id: 'c18', label: 'Flowers', image: CategoryImages.flowers, emoji: '🌸' },
+];
+
 import {
   ProductDetailsModal,
   RatingsReviewsModal,
@@ -516,13 +754,18 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
                 ))}
               </ScrollView>
             ) : (
-              <View style={styles.promoBannerWrap}>
+              <TouchableOpacity
+              activeOpacity={0.9}
+              onPress={() => onNavigate?.('Search', { query: 'Vegetables' })}
+              style={styles.promoBannerWrap}
+              accessibilityLabel="Shop Vegetables"
+            >
                 <Image
                   source={bannerFarmFreshVegetables}
                   style={styles.promoBannerImage}
                   resizeMode="cover"
                 />
-              </View>
+              </TouchableOpacity>
             )}
 
             {homeQuery.isError && (
@@ -590,9 +833,6 @@ export function HomeScreen({ onNavigate }: HomeScreenProps) {
             </View>
           </View>
         )}
-
-        {/* Extra bottom padding to ensure floating nav doesn't overlap content */}
-        <View style={{ height: 120 }} />
       </Animated.ScrollView>
 
       {/* ── FLOATING DYNAMIC NAVIGATION (EXACT FIGMA SPEC: 60 Hug x 246) ───── */}
@@ -755,7 +995,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 110,
+    paddingBottom: 24,
   },
 
   // ── STICKY COMPACT TOP NAVBAR (EXACT FIGMA SPEC: SCREEN 25) ─────────────
@@ -1195,16 +1435,15 @@ const styles = StyleSheet.create({
   footerBrandingCard: {
     width: '92%',
     maxWidth: 350,
-    height: 246,
     alignSelf: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: '#E2E8F0',
-    padding: 24,
-    marginTop: 20,
-    marginBottom: 20,
-    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    marginTop: 12,
+    marginBottom: 8,
     elevation: 2,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
@@ -1214,7 +1453,7 @@ const styles = StyleSheet.create({
   footerLogoRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   footerLogoImage: {
     width: 125,
@@ -1231,7 +1470,7 @@ const styles = StyleSheet.create({
   footerSubtitle: {
     fontFamily: customerFonts.regular,
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 22,
     color: '#4B5563',
     textAlign: 'left',
   },
